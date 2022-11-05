@@ -1,7 +1,7 @@
 #@title ## **▶️ Run Stable Diffusion Deluxe** - Flet/Flutter WebUI App
 import flet, webbrowser
-#from flet import Page, View, Column, Row, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, IconButton, Markdown, Tab, Tabs, Divider, VerticalDivider, SnackBar, AnimatedSwitcher
-from flet import *
+from flet import Page, View, Column, Row, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
+#from flet import *
 from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation
 from flet import Image as Img
 import io, shutil
@@ -18,6 +18,7 @@ status = {
     'installed_ESRGAN': False,
     'installed_OpenAI': False,
     'installed_TextSynth': False,
+    'installed_conceptualizer': False,
     'changed_settings': False,
     'changed_installers': False,
     'changed_parameters': False,
@@ -40,7 +41,7 @@ def save_settings_file(page):
 current_tab = 0
 def tab_on_change (e):
     t = e.control
-    global current_tab
+    global current_tab, status
     #print (f"tab changed from {current_tab} to: {t.selected_index}")
     #print(str(t.tabs[t.selected_index].text))
     if current_tab == 0:
@@ -57,17 +58,20 @@ def tab_on_change (e):
         save_settings_file(e.page)
         status['changed_installers'] = False
         #print("Saving Installers")
+      e.page.show_install_fab(False)
     if current_tab == 2:
       if status['changed_parameters']:
         update_args()
         e.page.update_prompts()
         save_settings_file(e.page)
         status['changed_parameters'] = False
+      e.page.show_apply_fab(False)
     if current_tab == 3:
       if status['changed_prompts']:
         e.page.save_prompts()
         save_settings_file(e.page)
         status['changed_prompts'] = False
+      e.page.show_run_diffusion_fab(False)
     if current_tab == 5:
       if status['changed_prompt_generator']:
         save_settings_file(e.page)
@@ -76,6 +80,7 @@ def tab_on_change (e):
     current_tab = t.selected_index
     if current_tab == 1:
       refresh_installers(e.page.Installers.content.controls)
+      e.page.show_install_fab(True)
       #page.Installers.init_boxes()
     if current_tab == 2:
       update_parameters(e.page)
@@ -83,7 +88,9 @@ def tab_on_change (e):
       #  p.update()
       e.page.Parameters.content.update()
       e.page.Parameters.update()
-
+      e.page.show_apply_fab(len(prompts) > 0 and status['changed_parameters'])
+    if current_tab == 3:
+      e.page.show_run_diffusion_fab(len(prompts) > 0)
     e.page.update()
 
 def buildTabs(page):
@@ -137,7 +144,15 @@ def get_color(color):
     elif color == "brown": return colors.BROWN
     elif color == "teal": return colors.TEAL
 
+if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
+if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
+if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
+if 'memory_optimization' not in prefs: prefs['memory_optimization'] = 'Attention Slicing'
+if 'sequential_cpu_offload' not in prefs: prefs['sequential_cpu_offload'] = False
+if 'use_inpaint_model' not in prefs: prefs['use_inpaint_model'] = False
+
 def initState(page):
+    global status
     if os.path.isdir(os.path.join(root_dir, 'Real-ESRGAN')):
       status['installed_ESRGAN'] = True
     page.load_prompts()
@@ -153,6 +168,7 @@ def initState(page):
     page.overlay.append(page.snd_notification)
 
 def buildSettings(page):
+  global prefs, status
   def open_url(e):
     page.launch_url(e.data)
   def save_settings(e):
@@ -213,7 +229,7 @@ def buildSettings(page):
   save_button = ElevatedButton(content=Text(value="💾  Save Settings", size=20), on_click=save_settings, style=b_style())
   
   c = Container(
-      padding=padding.only(18, 12, 0, 8),
+      padding=padding.only(18, 12, 0, 0),
       content=Column([
         Text ("⚙️   Deluxe Stable Diffusion Settings & Preferences", style="titleLarge"),
         Divider(thickness=1, height=4),
@@ -274,9 +290,10 @@ def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False)
 def close_alert_dlg(e):
       e.page.alert_dlg.open = False
       e.page.update()
-def alert_msg(page, msg):
-      okay = ElevatedButton(" OKAY ", on_click=close_alert_dlg)
-      page.alert_dlg = AlertDialog(title=Text(msg), actions=[okay], actions_alignment="end")
+def alert_msg(page, msg, content=None):
+      if prefs['enable_sounds']: page.snd_error.play()
+      okay = ElevatedButton("👌  OKAY ", on_click=close_alert_dlg)
+      page.alert_dlg = AlertDialog(title=Text(msg), content=content, actions=[okay], actions_alignment="end")
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
       page.update()
@@ -302,6 +319,7 @@ def refresh_installers(controls):
       c.update()
 
 def buildInstallers(page):
+  global prefs, status
   def changed(e, pref=None):
       if pref is not None:
         prefs[pref] = e.control.value
@@ -327,15 +345,19 @@ def buildInstallers(page):
                 dropdown.Option("DDIM"),
                 dropdown.Option("K-LMS"),
                 dropdown.Option("PNDM"),
+                dropdown.Option("K-Euler Discrete"),
+                dropdown.Option("K-Euler Ancestrial"),
             ], value=prefs['scheduler_mode'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_mode'),
         )
   model_ckpt = Dropdown(label="Model Checkpoint", hint_text="Make sure you accepted the HuggingFace Model Cards first", width=350, options=[dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4")], value=prefs['model_ckpt'], autofocus=False, on_change=lambda e:changed(e, 'model_ckpt'))
+  memory_optimization = Dropdown(label="Enable Memory Optimization", width=350, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], on_change=lambda e:changed(e, 'higher_vram_mode'))
+  sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], on_change=lambda e:changed(e, 'enable_attention_slicing'))
   #install_megapipe = Switch(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
-  install_text2img = Switch(label="Install Stable Diffusion text2image Pipeline", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_txt2img'))
-  install_img2img = Switch(label="Install Stable Diffusion image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'))
-  install_interpolation = Switch(label="Install Stable Diffusion Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'))
+  install_text2img = Switch(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'))
+  install_img2img = Switch(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'))
+  install_interpolation = Switch(label="Install Stable Diffusion Animate Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'))
   
   def toggle_clip(e):
       prefs['install_CLIP_guided'] = install_CLIP_guided.value
@@ -356,10 +378,39 @@ def buildInstallers(page):
         )
   clip_settings = Container(animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge", padding=padding.only(left=32, top=4), content=Column([clip_model_id]))
 
+  def toggle_conceptualizer(e):
+      changed(e, 'install_conceptualizer')
+      conceptualizer_settings.height = None if e.control.value else 0
+      conceptualizer_settings.update()
+  def change_concepts_model(e):
+      nonlocal concept
+      changed(e, 'concepts_model')
+
+      concept = get_concept(e.control.value)
+      concepts_info.value = f"To use the concept, include keyword token **<{concept['token']}>** in your Prompts. Info at [https://huggingface.co/sd-concepts-library/{concept['name']}](https://huggingface.co/sd-concepts-library/{concept['name']})"
+      concepts_info.update()
+  def open_url(e):
+      page.launch_url(e.data)
+  def copy_token(e):
+      nonlocal concept
+      page.set_clipboard(f"<{concept['token']}>")
+      page.snack_bar = SnackBar(content=Text(f"📋  Token <{concept['token']}> copied to clipboard... Paste as word in your Prompt Text."))
+      page.snack_bar.open = True
+      page.update()
+  install_conceptualizer = Switch(label="Install Stable Diffusion Textual Inversion Conceptualizer Pipeline", value=prefs['install_conceptualizer'], on_change=toggle_conceptualizer)
+  concept = get_concept(prefs['concepts_model'])
+  concepts_model = Dropdown(label="SD-Concepts Library Model", hint_text="Specially trained community models made with Textual-Inversion", width=451, options=[], value=prefs['concepts_model'], on_change=change_concepts_model)
+  copy_token_btn = IconButton(icon=icons.CONTENT_COPY, tooltip="Copy Token to Clipboard", on_click=copy_token)
+  concepts_row = Row([concepts_model, copy_token_btn])
+  concepts_info = Markdown(f"To use the concept, include keyword token **<{concept['token']}>** in your Prompts. Info at [https://huggingface.co/sd-concepts-library/{concept['name']}](https://huggingface.co/sd-concepts-library/{concept['name']})", selectable=True, on_tap_link=open_url)
+  
+  conceptualizer_settings = Container(animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge", padding=padding.only(left=32, top=5), content=Column([concepts_row, concepts_info]))
+  conceptualizer_settings.height = None if prefs['install_conceptualizer'] else 0
+  for c in concepts: concepts_model.options.append(dropdown.Option(c['name']))
   diffusers_settings = Container(animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge", content=
                                  Column([Container(Column([scheduler_mode, model_ckpt, higher_vram_mode, enable_attention_slicing]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_megapipe, 
-                                         install_interpolation, install_CLIP_guided, clip_settings]))
+                                         install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings]))
   def toggle_stability(e):
     prefs['install_Stability_api'] = install_Stability_api.value
     has_changed=True
@@ -371,24 +422,8 @@ def buildInstallers(page):
     #stability_box.update()
   install_Stability_api = Switch(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], on_change=toggle_stability)
   use_Stability_api = Checkbox(label="Use Stability-api by default", value=prefs['use_Stability_api'], on_change=lambda e:changed(e, 'use_Stability_api'))
-  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350,
-            options=[
-                dropdown.Option("stable-diffusion-v1-5"),
-                dropdown.Option("stable-diffusion-v1.4"),
-            ], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'),
-        )
-  generation_sampler = Dropdown(label="generation_sampler", hint_text="", width=350,
-            options=[
-                dropdown.Option("ddim"),
-                dropdown.Option("plms"),
-                dropdown.Option("k_euler"),
-                dropdown.Option("k_euler_ancestral"),
-                dropdown.Option("k_heun"),
-                dropdown.Option("k_dpm_2"),
-                dropdown.Option("k_dpm_2_ancestral"),
-                dropdown.Option("k_lms"),
-            ], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'),
-        )
+  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1.4")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
+  generation_sampler = Dropdown(label="generation_sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
 
   stability_settings = Container(animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge", padding=padding.only(left=32), content=Column([use_Stability_api, model_checkpoint, generation_sampler]))
   
@@ -408,11 +443,13 @@ def buildInstallers(page):
         if clear:
           page.banner.content.controls = []
         if show_progress:
-          page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight="bold", color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left), Container(content=ProgressRing(), alignment=alignment.center)]))
+          page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight="bold", color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center)]))
           #page.banner.content.controls.append(Row([Text(msg.strip() + "  ", weight="bold", color=colors.GREEN_600), ProgressRing()]))
         else:
           page.banner.content.controls.append(Text(msg.strip(), weight="bold", color=colors.GREEN_600))
         page.update()
+      # Temporary until I get Xformers to work
+      prefs['memory_optimization'] = 'Attention Slicing' if prefs['enable_attention_slicing'] else 'None'
       if prefs['install_diffusers'] and not bool(prefs['HuggingFace_api_key']):
         alert_msg(e.page, "You must provide your HuggingFace API Key to use Diffusers.")
         return
@@ -430,24 +467,30 @@ def buildInstallers(page):
       page.update()
       if prefs['install_diffusers']:
         console_msg("Installing Hugging Face Diffusers Pipeline...")
-        run_diffusers(page)
+        get_diffusers(page)
         status['installed_diffusers'] = True
 
       if prefs['install_text2img'] and prefs['install_diffusers']:
-        console_msg("Downloading Stable Diffusion Text2Image Pipeline...")
-        with io.StringIO() as buf, redirect_stdout(buf):
-          #print('redirected')
-          get_text2image(page)
-          output = buf.getvalue()
-          page.banner.content.controls.append(Text(output.strip()))
-          page.update()
+        console_msg("Downloading Stable Diffusion Text2Image, Image2Image & Inpaint Pipeline...")
+        #with io.StringIO() as buf, redirect_stdout(buf):
+        #print('redirected')
+        get_text2image(page)
+        #output = buf.getvalue()
+        #page.banner.content.controls.append(Text(output.strip()))
         status['installed_txt2img'] = True
+        page.img_block.height = None
+        page.img_block.update()
+        page.update()
       if prefs['install_img2img'] and prefs['install_diffusers']:
-        console_msg("Downloading Stable Diffusion Image2Image Pipeline...")
+        console_msg("Downloading Stable Diffusion Inpaint Model & Image2Image Pipeline...")
         get_image2image(page)
         status['installed_img2img'] = True
         page.img_block.height = None
         page.img_block.update()
+        page.use_inpaint_model.visible = True
+        page.use_inpaint_model.update()
+        if not status['installed_txt2img']:
+          prefs['use_inpaint_model'] = True
       '''if prefs['install_megapipe'] and prefs['install_diffusers']:
         console_msg("Downloading Stable Diffusion Unified Mega Pipeline...")
         get_text2image(page)
@@ -460,12 +503,26 @@ def buildInstallers(page):
         status['installed_interpolation'] = True
         page.interpolation_block.visible = True
         page.interpolation_block.update()
-      if prefs['install_CLIP_guided'] and prefs['install_diffusers'] and not status['installed_clip']:
+      if prefs['install_CLIP_guided'] and prefs['install_diffusers']:
         console_msg("Downloading Stable Diffusion CLIP-Guided Pipeline...")
         get_clip(page)
         status['installed_clip'] = True
-        page.clip_block.height = None
+        page.use_clip_guided_model.visible = True
+        page.use_clip_guided_model.update()
+        page.clip_block.height = None if prefs['use_clip_guided_model'] else 0
         page.clip_block.update()
+        if prefs['use_clip_guided_model']:
+          page.img_block.height = 0
+          page.img_block.update()
+      if prefs['install_conceptualizer']:
+        console_msg("Installing SD Concepts Library Textual Inversion Pipeline...")
+        get_conceptualizer(page)
+        page.use_conceptualizer_model.visible = True
+        page.use_conceptualizer_model.update()
+        if prefs['use_conceptualizer']:
+          page.img_block.height = 0
+          page.img_block.update()
+        status['installed_conceptualizer'] = True
       if prefs['install_Stability_api']:
         console_msg("Installing Stability-API DreamStudio.ai Pipeline...")
         get_stability(page)
@@ -491,7 +548,7 @@ def buildInstallers(page):
           from textsynthpy import TextSynth, Complete
         except ImportError as e:
           run_process("pip install textsynthpy -qq", page=page)
-          
+          pass
         status['installed_TextSynth'] = True
       #print('Done Installing...')
       if prefs['enable_sounds']: page.snd_done.play()
@@ -512,15 +569,23 @@ def buildInstallers(page):
       #page.Parameters.updater()
       page.Installers.content.update()
       page.Installers.update()
+      page.show_install_fab(False)
       page.tabs.selected_index = 2
       page.tabs.update()
       page.update()
-
-  install_button = ElevatedButton(content=Text(value="⏬   Run Installations", size=20), on_click=run_installers)
+  def show_install_fab(show = True):
+    if show:
+      page.floating_action_button = FloatingActionButton(icon=icons.FILE_DOWNLOAD, text="Run Installations", on_click=run_installers)
+      page.update()
+    else:
+      if page.floating_action_button is not None:
+        page.floating_action_button = None
+        page.update()
+  page.show_install_fab = show_install_fab
+  install_button = ElevatedButton(content=Text(value="⏬   Run Installations ", size=20), on_click=run_installers)
+  
   #image_output = TextField(label="Image Output Path", value=prefs['image_output'], on_change=changed)
-  c = Container(
-      padding=padding.only(18, 12, 0, 8),
-      content=Column([
+  c = Container(padding=padding.only(18, 12, 0, 0),content=Column([
         Text ("📥  Stable Diffusion Required & Optional Installers", style="titleLarge"),
         Divider(thickness=1, height=4),
         install_diffusers,
@@ -534,7 +599,7 @@ def buildInstallers(page):
         install_ESRGAN,
         install_OpenAI,
         install_TextSynth,
-        install_button,
+        #install_button,
       ], scroll="auto",
   ))
   def init_boxes():
@@ -549,8 +614,9 @@ def buildInstallers(page):
   return c
 
 def update_parameters(page):
-  page.img_block.height = None if status['installed_img2img'] or status['installed_megapipe'] or status['installed_stability'] else 0
-  page.clip_block.height = None if status['installed_clip'] else 0
+  #page.img_block.height = None if status['installed_img2img'] or status['installed_megapipe'] or status['installed_stability'] else 0
+  page.img_block.height = None if (status['installed_txt2img'] or status['installed_stability']) and not (status['installed_clip'] and prefs['use_clip_guided_model']) else 0
+  page.clip_block.height = None if status['installed_clip']  and prefs['use_clip_guided_model'] else 0
   page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
   page.img_block.update()
   page.clip_block.update()
@@ -561,17 +627,21 @@ def update_parameters(page):
 if is_Colab:
     from google.colab import files
 def buildParameters(page):
+  global prefs, status, args
   def changed(e, pref=None, asInt=False):
       if pref is not None:
         prefs[pref] = e.control.value if not asInt else int(e.control.value)
-      if not status['changed_parameters']:
-        apply_changes_button.visible = len(prompts) > 0
-        apply_changes_button.update()
+      if page.floating_action_button is None:
+        show_apply_fab(len(prompts) > 0)
+      #if apply_changes_button.visible != (len(prompts) > 0): #status['changed_parameters']:
+      #  apply_changes_button.visible = len(prompts) > 0
+      #  apply_changes_button.update()
       status['changed_parameters'] = True
       #page.update()
   def run_parameters(e):
       save_parameters()
       #page.tabs.current_tab = 3
+      page.show_apply_fab(False)
       page.tabs.selected_index = 3
       page.tabs.update()
       page.update()
@@ -583,17 +653,20 @@ def buildParameters(page):
   def apply_to_prompts(e):
       update_args()
       page.apply_changes(e)
-      apply_changes_button.visible = False
-      apply_changes_button.update()
+      show_apply_fab(False)
+      #apply_changes_button.visible = False
+      #apply_changes_button.update()
   def pick_files_result(e: FilePickerResultEvent):
       # TODO: This is not working on Colab, maybe it can get_upload_url on other platform?
       if e.files:
         img = e.files
         uf = []
         fname = img[0]
+        print(", ".join(map(lambda f: f.name, e.files)))
         #print(os.path.join(fname.path, fname.name))
         #src_path = os.path.join(fname.path, fname.name)
-        src_path = page.get_upload_url(fname.name, 600),
+        #for f in pick_files_dialog.result.files:
+        src_path = page.get_upload_url(fname.name, 600)
         uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
         pick_files_dialog.upload(uf)
         print(str(src_path))
@@ -611,33 +684,59 @@ def buildParameters(page):
   page.overlay.append(pick_files_dialog)
   #selected_files = Text()
 
+  def file_picker_result(e: FilePickerResultEvent):
+      if e.files != None:
+        upload_files(e)
+  def on_upload_progress(e: FilePickerUploadEvent):
+    nonlocal pick_type
+    if e.progress == 1:
+      fname = f"{root_dir}{e.file_name}"
+      if pick_type == "init":
+        init_image.value = fname
+        init_image.update()
+        prefs['init_image'] = fname
+      elif pick_type == "mask":
+        mask_image.value = fname
+        mask_image.update()
+        prefs['mask_image'] = fname
+      page.update()
+  file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+  def upload_files(e):
+      uf = []
+      if file_picker.result != None and file_picker.result.files != None:
+          for f in file_picker.result.files:
+              uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+          file_picker.upload(uf)
+  page.overlay.append(file_picker)
+  pick_type = ""
   #page.overlay.append(pick_files_dialog)
   def pick_init(e):
-      if False:
-      #if is_Colab:
-          # Not the best solution because you need to press Browse from Colab side
-          uploaded = files.upload()
-          for filename in uploaded.keys():
-            if not os.path.isfile(filename):
-              #print("Skipping " + filename)
-              continue
-            fname = filename.rpartition('/')[2] if '/' in filename else filename
-            dst_path = os.path.join(root_dir, fname)
-            #print(f'Copy {filename} to {dst_path}')
-            shutil.copy(filename, dst_path)
-            if e.control.label == "Init Image":
-              init_image.value = dst_path
-              init_image.update()
-            elif e.control.label == "Mask Image":
-              mask_image.value = dst_path
-              mask_image.update()
-      else:
-          pick_files_dialog.pick_files(allow_multiple=False)
+      nonlocal pick_type
+      pick_type = "init"
+      file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
+  def pick_mask(e):
+      nonlocal pick_type
+      pick_type = "mask"
+      file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
   def toggle_ESRGAN(e):
       ESRGAN_settings.height = None if e.control.value else 0
       prefs['apply_ESRGAN_upscale'] = e.control.value
       ESRGAN_settings.update()
       has_changed = True
+  def toggle_clip(e):
+      if e.control.value:
+        page.img_block.height = 0
+        page.clip_block.height = None if status['installed_clip'] else 0
+      else:
+        page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
+        page.clip_block.height = 0
+      page.img_block.update()
+      page.clip_block.update()
+      changed(e, 'use_clip_guided_model')
+  def change_use_cutouts(e):
+      num_cutouts.visible = e.control.value
+      num_cutouts.update()
+      changed(e, 'use_cutouts')
   def change_guidance(e):
       guidance_value.value = f" {e.control.value}"
       guidance_value.update()
@@ -669,6 +768,13 @@ def buildParameters(page):
       strength_value.update()
       guidance.update()
       changed(e, 'init_image_strength')
+  def toggle_conceptualizer(e):
+      if e.control.value:
+        page.img_block.height = 0
+      else:
+        page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
+      page.img_block.update()
+      changed(e, 'use_conceptualizer')
   has_changed = False
   batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
   batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type="number", on_change=lambda e:changed(e,'batch_size'))
@@ -688,12 +794,14 @@ def buildParameters(page):
   height_slider = Row([Text(f"Height: "), height_value, height])
 
   init_image = TextField(label="Init Image", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
-  mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_init))
+  mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
   init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=prefs['init_image_strength'], on_change=change_strength, expand=True)
   strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight="bold")
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
-  centipede_prompts_as_init_images = Checkbox(label="Centipede Prompts as Init Images", value=prefs['centipede_prompts_as_init_images'], on_change=lambda e:changed(e,'centipede_prompts_as_init_images'))
-  use_interpolation = Switch(label="Use Interpolation to Walk Latent Space between Prompts", value=prefs['use_interpolation'], on_change=toggle_interpolation)
+  page.use_inpaint_model = Switch(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], on_change=lambda e:changed(e,'use_inpaint_model'))
+  page.use_inpaint_model.visible = status['installed_img2img']
+  centipede_prompts_as_init_images = Switch(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=lambda e:changed(e,'centipede_prompts_as_init_images'))
+  use_interpolation = Switch(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
   interpolation_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['num_interpolation_steps'], on_change=change_interpolation_steps, expand=True)
   interpolation_steps_value = Text(f" {int(prefs['num_interpolation_steps'])} steps", weight="bold")
   interpolation_steps_slider = Container(Row([Text(f"Number of Interpolation Steps between Prompts: "), interpolation_steps_value, interpolation_steps]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
@@ -703,45 +811,58 @@ def buildParameters(page):
   page.interpolation_block = Column([use_interpolation, interpolation_steps_slider])
   if not status['installed_interpolation']:
     page.interpolation_block.visible = False
-  page.img_block = Container(Column([Row([init_image, mask_image]), strength_slider, centipede_prompts_as_init_images, Divider(height=9, thickness=2)]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
-  use_clip_guided_model = Checkbox(label="Use CLIP-Guided Model", value=prefs['use_clip_guided_model'], on_change=lambda e:changed(e,'use_clip_guided_model'))
-  clip_guidance_scale = Slider(min=1, max=5000, divisions=5000, label="{value}", value=prefs['clip_guidance_scale'], on_change=lambda e:changed(e,'clip_guidance_scale'), expand=True)
+  page.img_block = Container(Column([Row([init_image, mask_image]), strength_slider, page.use_inpaint_model, centipede_prompts_as_init_images, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  page.use_clip_guided_model = Switch(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=prefs['use_clip_guided_model'], on_change=toggle_clip)
+  clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=prefs['clip_guidance_scale'], on_change=lambda e:changed(e,'clip_guidance_scale'), expand=True)
   clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
-  use_cutouts = Checkbox(label="Use Cutouts", value=prefs['use_cutouts'], on_change=lambda e:changed(e,'use_cutouts'))
-  num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type="number", on_change=lambda e:changed(e,'num_cutouts', asInt=True))
+  use_cutouts = Checkbox(label="Use Cutouts", value=bool(prefs['use_cutouts']), on_change=change_use_cutouts)
+  num_cutouts = NumberPicker(label="    Number of Cutouts: ", min=1, max=10, value=prefs['num_cutouts'], on_change=lambda e: changed(e, 'num_cutouts', asInt=True))
+  num_cutouts.visible = bool(prefs['use_cutouts'])
+  #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type="number", on_change=lambda e:changed(e,'num_cutouts', asInt=True))
   unfreeze_unet = Checkbox(label="Unfreeze UNET", value=prefs['unfreeze_unet'], on_change=lambda e:changed(e,'unfreeze_unet'))
   unfreeze_vae = Checkbox(label="Unfreeze VAE", value=prefs['unfreeze_vae'], on_change=lambda e:changed(e,'unfreeze_vae'))
-  page.clip_block = Container(Column([use_clip_guided_model, clip_guidance_scale_slider, use_cutouts, unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  page.clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  page.use_conceptualizer_model = Switch(label="Use Custom Conceptualizer Model", tooltip="Use Textual-Inversion Community Model", value=prefs['use_conceptualizer'], on_change=toggle_conceptualizer)
+  page.use_conceptualizer_model.visible = bool(status['installed_conceptualizer'])
   apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=prefs['apply_ESRGAN_upscale'], on_change=toggle_ESRGAN)
   enlarge_scale_value = Text(f" {float(prefs['enlarge_scale'])}x", weight="bold")
   enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
   enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
   face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=prefs['face_enhance'], on_change=lambda e:changed(e,'face_enhance'))
   display_upscaled_image = Checkbox(label="Display Upscaled Image", value=prefs['display_upscaled_image'], on_change=lambda e:changed(e,'display_upscaled_image'))
-  ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
   page.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
-  page.img_block.height = None if status['installed_img2img'] or status['installed_stability'] else 0
-  page.clip_block.height = None if status['installed_clip'] else 0
+  page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
+  page.use_clip_guided_model.visible = status['installed_clip']
+  page.clip_block.height = None if status['installed_clip'] and prefs['use_clip_guided_model'] else 0
   page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
   if not prefs['apply_ESRGAN_upscale']:
     ESRGAN_settings.height = 0
   parameters_button = ElevatedButton(content=Text(value="📜   Continue to Image Prompts", size=20), on_click=run_parameters)
-  apply_changes_button = ElevatedButton(content=Text(value="🔀   Apply Changes to Current Prompts", size=20), on_click=apply_to_prompts)
-  apply_changes_button.visible = len(prompts) > 0 and status['changed_parameters']
-  parameters_row = Row([parameters_button, apply_changes_button], alignment="spaceBetween")
+  #apply_changes_button = ElevatedButton(content=Text(value="🔀   Apply Changes to Current Prompts", size=20), on_click=apply_to_prompts)
+  #apply_changes_button.visible = len(prompts) > 0 and status['changed_parameters']
+  def show_apply_fab(show = True):
+    if show:
+      page.floating_action_button = FloatingActionButton(icon=icons.TRANSFORM, text="Apply Changes to Current Prompts", on_click=apply_to_prompts)
+      page.update()
+    else:
+      if page.floating_action_button is not None:
+        page.floating_action_button = None
+        page.update()
+  show_apply_fab(len(prompts) > 0 and status['changed_parameters'])
+  page.show_apply_fab = show_apply_fab
+  parameters_row = Row([parameters_button], alignment="spaceBetween")
   def updater():
       #parameters.update()
       c.update()
       page.update()
       #print("Updated Parameters Page")
 
-  c = Container(
-      padding=padding.only(18, 12, 0, 8),
-      content=Column([
+  c = Container(padding=padding.only(18, 12, 0, 0), content=Column([
         Text ("📝  Stable Diffusion Image Parameters", style="titleLarge"),
         Divider(thickness=1, height=4),
         param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
-        page.interpolation_block, page.img_block, page.clip_block, page.ESRGAN_block,
+        page.interpolation_block, page.img_block, page.use_clip_guided_model, page.clip_block, page.use_conceptualizer_model, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
         parameters_row,
       ], scroll="auto",
@@ -753,31 +874,8 @@ args = {}
 
 def update_args():
     global args
-    args = {
-        "batch_size": int(prefs['batch_size']),
-        "n_iterations":int(prefs['n_iterations']),
-        "steps":int(prefs['steps']),
-        "eta":float(prefs['eta']),
-        "width":int(prefs['width']),
-        "height":int(prefs['height']),
-        "guidance_scale":float(prefs['guidance_scale']),
-        "seed":int(prefs['seed']),
-        "precision":prefs['precision'],
-        "init_image": prefs['init_image'],
-        "init_image_strength": prefs['init_image_strength'],
-        "mask_image": prefs['mask_image'],
-        "prompt2": None,
-        "tweens": 10,
-        "negative_prompt": None,
-        "use_clip_guided_model": prefs['use_clip_guided_model'],
-        "clip_prompt": "",
-        "clip_guidance_scale": float(prefs['clip_guidance_scale']),
-        "use_cutouts": prefs['use_cutouts'],
-        "num_cutouts": int(prefs['num_cutouts']),
-        "unfreeze_unet": prefs['unfreeze_unet'],
-        "unfreeze_vae": prefs['unfreeze_vae'],
-        "use_Stability": False,
-    }
+    args = { "batch_size":int(prefs['batch_size']), "n_iterations":int(prefs['n_iterations']), "steps":int(prefs['steps']), "eta":float(prefs['eta']), "width":int(prefs['width']), "height":int(prefs['height']), "guidance_scale":float(prefs['guidance_scale']), "seed":int(prefs['seed']), "precision":prefs['precision'], "init_image": prefs['init_image'], "init_image_strength": prefs['init_image_strength'], "mask_image": prefs['mask_image'], "prompt2": None, "tweens": 10, "negative_prompt": None, "use_clip_guided_model": prefs['use_clip_guided_model'], "clip_prompt": "", "clip_guidance_scale": float(prefs['clip_guidance_scale']), "use_cutouts": bool(prefs['use_cutouts']), "num_cutouts": int(prefs['num_cutouts']), "unfreeze_unet": prefs['unfreeze_unet'], "unfreeze_vae": prefs['unfreeze_vae'], "use_Stability": False, "use_conceptualizer": False} 
+
 update_args()
 
 class Dream: 
@@ -809,6 +907,7 @@ class Dream:
           elif key=="unfreeze_unet": self.arg[key] = value
           elif key=="unfreeze_vae": self.arg[key] = value
           elif key=="use_Stability": self.arg[key] = value
+          elif key=="use_conceptualizer": self.arg[key] = value
           elif key=="prompt": self.prompt = value
           else: print(f"{Color.RED2}Unknown argument: {key} = {value}{Color.END}")
         #self.arg = arg
@@ -830,6 +929,7 @@ import copy
 
 def buildPromptsList(page):
   parameter = Ref[ListTile]()
+  global prompts, args, prefs
   def changed(e):
       status['changed_prompts'] = True
       page.update()
@@ -845,6 +945,8 @@ def buildPromptsList(page):
           #tweens.visible = e.control.value
           prompt_tweening = e.control.value
           page.update()
+      def changed_tweens(e):
+          prefs['tweens'] = int(e.control.value)
       def close_dlg(e):
           dlg_modal.open = False
           page.update()
@@ -865,6 +967,12 @@ def buildPromptsList(page):
           arg['prompt2'] = prompt2.value if bool(use_prompt_tweening.value) else None
           arg['tweens'] = int(tweens.value)
           arg['negative_prompt'] = negative_prompt.value if bool(negative_prompt.value) else None
+          arg['use_clip_guided_model'] = use_clip_guided_model.value
+          arg['clip_guidance_scale'] = float(clip_guidance_scale.value)
+          arg['use_cutouts'] = use_cutouts.value
+          arg['num_cutouts'] = int(num_cutouts.value)
+          arg['unfreeze_unet'] = unfreeze_unet.value
+          arg['unfreeze_vae'] = unfreeze_vae.value
           dream.arg = arg
           diffs = arg_diffs(arg, args)
           if bool(diffs):
@@ -875,6 +983,50 @@ def buildPromptsList(page):
           status['changed_prompts'] = True
           dlg_modal.open = False
           page.update()
+      def file_picker_result(e: FilePickerResultEvent):
+          if e.files != None:
+            upload_files(e)
+      def on_upload_progress(e: FilePickerUploadEvent):
+        nonlocal pick_type
+        if e.progress == 1:
+          fname = f"{root_dir}{e.file_name}"
+          if pick_type == "init":
+            init_image.value = fname
+            init_image.update()
+            prefs['init_image'] = fname
+          elif pick_type == "mask":
+            mask_image.value = fname
+            mask_image.update()
+            prefs['mask_image'] = fname
+          page.update()
+      file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+      def upload_files(e):
+          uf = []
+          if file_picker.result != None and file_picker.result.files != None:
+              for f in file_picker.result.files:
+                  uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              file_picker.upload(uf)
+      page.overlay.append(file_picker)
+      pick_type = ""
+      #page.overlay.append(pick_files_dialog)
+      def pick_init(e):
+          nonlocal pick_type
+          pick_type = "init"
+          file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
+      def pick_mask(e):
+          nonlocal pick_type
+          pick_type = "mask"
+          file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
+      def toggle_clip(e):
+          if e.control.value:
+            img_block.height = 0
+            clip_block.height = None if status['installed_clip'] else 0
+          else:
+            img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
+            clip_block.height = 0
+          img_block.update()
+          clip_block.update()
+          changed(e)
       arg = open_dream.arg #e.control.data.arg
       edit_text = TextField(label="Prompt Text", expand=3, value=open_dream.prompt, multiline=True)
       negative_prompt = TextField(label="Negative Prompt Text", expand=1, value=str((arg['negative_prompt'] or '') if 'negative_prompt' in arg else ''), on_change=changed)
@@ -884,9 +1036,10 @@ def buildPromptsList(page):
       use_prompt_tweening = Switch(label="Prompt Tweening", value=prompt_tweening, on_change=changed_tweening)
       prompt2 = TextField(label="Prompt 2 Transition Text", expand=True, value=arg['prompt2'] if 'prompt2' in arg else '', on_change=changed)
       tweens = TextField(label="# of Tweens", value=str(arg['tweens'] if 'tweens' in arg else 8), keyboard_type="number", on_change=changed, width = 90)
+      #tweens =  NumberPicker(label="# of Tweens: ", min=2, max=300, value=int(arg['tweens'] if 'tweens' in arg else 8), on_change=changed_tweens),
       #prompt2.visible = prompt_tweening
       #tweens.visible = prompt_tweening
-      tweening_params = Container(Row([Container(content=None, width=8), prompt2, tweens]), animate_size=animation.Animation(1000, "easeOut"), clip_behavior="hardEdge")
+      tweening_params = Container(Row([Container(content=None, width=8), prompt2, tweens]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, "easeOut"), clip_behavior="hardEdge")
       tweening_params.height = None if prompt_tweening else 0
       tweening_row = Row([use_prompt_tweening, ])#tweening_params
 
@@ -903,16 +1056,28 @@ def buildPromptsList(page):
       width_slider = Row([Text("Width: "), width])
       height = Slider(min=256, max=1280, divisions=16, label="{value}px", value=float(arg['height']), expand=True)
       height_slider = Row([Text("Height: "), height])
-      init_image = TextField(label="Init Image", value=arg['init_image'], on_change=changed, height=50)
-      mask_image = TextField(label="Mask Image", value=arg['mask_image'], on_change=changed, height=40)
+      init_image = TextField(label="Init Image", value=arg['init_image'], on_change=changed, height=40, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+      mask_image = TextField(label="Mask Image", value=arg['mask_image'], on_change=changed, height=40, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
       init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(arg['init_image_strength']), expand=True)
       strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
-      img_block = Column([init_image, mask_image, strength_slider])
-      dlg_modal = AlertDialog(
-          modal=False,
-          title=Text("📝  Edit Prompt Dream Parameters"),
-          #content=Container(
-          content=Container(Column([
+      img_block = Container(content=Column([init_image, mask_image, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, "easeOut"), clip_behavior="hardEdge")
+      img_block.height = None if (status['installed_txt2img'] or status['installed_stability']) else 0
+      use_clip_guided_model = Switch(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=arg['use_clip_guided_model'], on_change=toggle_clip)
+      clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=arg['clip_guidance_scale'], on_change=changed, expand=True)
+      clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
+      use_cutouts = Checkbox(label="Use Cutouts", value=bool(arg['use_cutouts']), on_change=changed)
+      num_cutouts = NumberPicker(label="    Number of Cutouts: ", min=1, max=10, value=arg['num_cutouts'], on_change=changed)
+      #num_cutouts.visible = bool(prefs['use_cutouts'])
+      #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type="number", on_change=lambda e:changed(e,'num_cutouts', asInt=True))
+      unfreeze_unet = Checkbox(label="Unfreeze UNET", value=arg['unfreeze_unet'], on_change=changed)
+      unfreeze_vae = Checkbox(label="Unfreeze VAE", value=arg['unfreeze_vae'], on_change=changed)
+      clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+      if not status['installed_clip']:
+        use_clip_guided_model.visible = False
+        clip_block.height = 0
+      elif not arg['use_clip_guided_model']:
+        clip_block.height = 0
+      dlg_modal = AlertDialog(modal=False, title=Text("📝  Edit Prompt Dream Parameters"), content=Container(Column([
             Container(content=None, height=7),
             Row([
               edit_text,
@@ -923,20 +1088,43 @@ def buildPromptsList(page):
             tweening_params,
             #batch_size, n_iterations, steps, eta, seed, guidance, 
             param_columns, 
-            width_slider, height_slider, (img_block if (status['installed_img2img'] or status['installed_stability']) else Container(content=None))
+            width_slider, height_slider, img_block,
+            use_clip_guided_model, clip_block,
             #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
-            ], alignment="start", tight=True, width=page.width - 240, height=page.height - 100, scroll="auto"), width=page.width - 240, height=page.height - 100),
-          actions=[
-              TextButton("Cancel", on_click=close_dlg),
-              ElevatedButton(content=Text(value="💾  Save Prompt ", size=19, weight="bold"), on_click=save_dlg),
-          ],
-          actions_alignment="end",
-          #on_dismiss=lambda e: print("Modal dialog dismissed!"),
-      )
-      page.dialog = dlg_modal
+          ], alignment="start", tight=True, width=page.width - 200, height=page.height - 100, scroll="auto"), width=page.width - 200, height=page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value="💾  Save Prompt ", size=19, weight="bold"), on_click=save_dlg)], actions_alignment="end")
+      e.page.dialog = dlg_modal
       dlg_modal.open = True
+      e.page.update()
+  def prompt_help(e):
+      def close_help_dlg(e):
+        nonlocal prompt_help_dlg
+        prompt_help_dlg.open = False
+        page.update()
+      prompt_help_dlg = AlertDialog(title=Text("💁   Help with Prompt Creations"), content=Column([
+          Text("You can keep your text prompts simple, or get really complex with it. Just describe the image you want it to dream up with as many details as you can think of. Add artists, styles, colors, adjectives and get creative..."),
+          Text('Now you can add prompt weighting, so you can emphasize the strength of certain words between parentheses, and de-emphasize words between brackets. For example: "A (hyper realistic) painting of (magical:1.8) owl with the face of a cat, without [tail], in a [twisted:0.6] tree, by Thomas Kinkade"'),
+          Text('After adding your prompts, click on a prompt line to edit all the parameters of it. There you can add negative prompts like "lowres, bad_anatomy, error_body, bad_fingers, missing_fingers, error_lighting, jpeg_artifacts, signature, watermark, username, blurry" or anything else you don\'t want'),
+          Text('Then you can override all the parameters for each individual prompt, playing with variations of sizes, steps, guidance scale, init & mask image, seeds, etc.  In the prompts list, you can press the ... options button to duplicate, delete and move prompts in the batch queue.  When ready, Run Diffusion on Prompts...')
+        ], scroll="auto"), actions=[TextButton("😀  Very nice... ", on_click=close_help_dlg)], actions_alignment="end")
+      page.dialog = prompt_help_dlg
+      prompt_help_dlg.open = True
       page.update()
-      
+  def paste_prompts(e):
+      def save_prompts_list(e):
+        plist = enter_text.value.strip()
+        prompts_list = plist.split('\n')
+        for pr in prompts_list:
+          if bool(pr.strip()):
+            add_to_prompts(pr.strip())
+        close_dlg(e)
+      def close_dlg(e):
+          dlg_paste.open = False
+          page.update()
+      enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, multiline=True)
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment="start", tight=True, width=page.width - 180, height=page.height - 100, scroll="none"), width=page.width - 180, height=page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value="💾  Save to Prompts List ", size=19, weight="bold"), on_click=save_prompts_list)], actions_alignment="end")
+      page.dialog = dlg_paste
+      dlg_paste.open = True
+      page.update()
   def delete_prompt(e):
       if prefs['enable_sounds']: page.snd_delete.play()
       idx = prompts.index(e.control.data)
@@ -982,6 +1170,7 @@ def buildPromptsList(page):
   def add_prompt(e):
       add_to_prompts(prompt_text.value)
   def add_to_prompts(p, arg=None):
+      global prompts
       dream = Dream(p)
       if arg is not None:
         if 'prompt' in arg: del arg['prompt']
@@ -1002,6 +1191,8 @@ def buildPromptsList(page):
       if prompts_buttons.visible==False:
           prompts_buttons.visible=True
           prompts_buttons.update()
+          if current_tab == 3:
+            show_run_diffusion_fab(True)
       if arg is not None:
         update_prompts()
       else:
@@ -1015,7 +1206,7 @@ def buildPromptsList(page):
           #print("Saving your Prompts List")
           prompts_prefs = []
           for d in prompts:
-            a = d.arg
+            a = d.arg.copy()
             a['prompt'] = d.prompt
             if 'batch_size' in a: del a['batch_size']
             if 'n_iterations' in a: del a['n_iterations']
@@ -1030,28 +1221,33 @@ def buildPromptsList(page):
               if not bool(a['prompt2']):
                 del a['prompt2']
                 del a['tweens']
-            if not bool(a['init_image']):
-              del a['init_image']
-              del a['init_image_strength']
-            if not bool(a['mask_image']):
-              del a['mask_image']
-            if not bool(a['use_clip_guided_model']):
-              del a["use_clip_guided_model"]
-              del a["clip_prompt"]
-              del a["clip_guidance_scale"]
-              del a["num_cutouts"]
-              del a["use_cutouts"]
-              del a["unfreeze_unet"]
-              del a["unfreeze_vae"]
-            else:
-              a["clip_model_id"] = prefs['clip_model_id']
-
+            if 'init_image' in a:
+              if not bool(a['init_image']):
+                del a['init_image']
+                del a['init_image_strength']
+            if 'mask_image' in a:
+              if not bool(a['mask_image']):
+                del a['mask_image']
+            if 'use_clip_guided_model' in a:
+              if not bool(a['use_clip_guided_model']):
+                del a["use_clip_guided_model"]
+                del a["clip_prompt"]
+                del a["clip_guidance_scale"]
+                del a["num_cutouts"]
+                del a["use_cutouts"]
+                del a["unfreeze_unet"]
+                del a["unfreeze_vae"]
+              else:
+                a["clip_model_id"] = prefs['clip_model_id']
+            if 'use_conceptualizer' in a:
+              if not bool(a['use_conceptualizer']):
+                del a['use_conceptualizer']
             prompts_prefs.append(a)
             #j = json.dumps(a)
-          prefs['prompts'] = prompts_prefs
+          prefs['prompt_list'] = prompts_prefs
   page.save_prompts = save_prompts
   def load_prompts():
-      saved_prompts = prefs['prompts']
+      saved_prompts = prefs['prompt_list']
       if len(saved_prompts) > 1:
           for d in saved_prompts:
             #print(f'Loading {d}')
@@ -1090,6 +1286,7 @@ def buildPromptsList(page):
         prompts_list.update()
   page.update_prompts = update_prompts
   def apply_changes(e):
+      global prompts
       if len(prompts_list.controls) > 0:
         i = 0
         for p in prompts_list.controls:
@@ -1102,17 +1299,22 @@ def buildPromptsList(page):
       prompt_text.value = ""
       prompt_text.update()
   def clear_list(e):
+      global prompts
       if prefs['enable_sounds']: page.snd_delete.play()
       prompts_list.controls = []
-      prompts = []
-      prefs['prompts'] = []
       prompts_list.update()
+      prompts = []
+      prefs['prompt_list'] = []
       prompts_buttons.visible=False
       prompts_buttons.update()
-      status['changed_prompts'] = True
+      show_run_diffusion_fab(False)
+      e.page.save_prompts()
+      save_settings_file(e.page)
+      #status['changed_prompts'] = True
   def on_keyboard (e: KeyboardEvent):
       if e.key == "Escape":
-        clear_prompt(None)
+        if current_tab == 3:
+          clear_prompt(None)
   page.on_keyboard_event = on_keyboard
   def run_diffusion(e):
       if not status['installed_diffusers'] and not status['installed_stability']:
@@ -1123,6 +1325,7 @@ def buildPromptsList(page):
         return
       page.tabs.selected_index = 4
       page.tabs.update()
+      page.show_run_diffusion_fab(False)
       if status['changed_prompts']:
         page.save_prompts()
         save_settings_file(page)
@@ -1133,17 +1336,27 @@ def buildPromptsList(page):
   prompts_list = Column([],spacing=1)
   prompt_text = TextField(label="Prompt Text", expand=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt)
   add_prompt_button = ElevatedButton(content=Text(value="➕  Add Prompt", size=17, weight="bold"), on_click=add_prompt)
+  prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
+  paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
   prompt_row = Row([prompt_text, add_prompt_button])
-  diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
+  #diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
   clear_prompts_button = ElevatedButton("❌   Clear Prompts List", on_click=clear_list)
-  prompts_buttons = Row([diffuse_prompts_button, clear_prompts_button], alignment="spaceBetween")
+  prompts_buttons = Row([clear_prompts_button], alignment="spaceBetween")
+  def show_run_diffusion_fab(show = True):
+    if show:
+      page.floating_action_button = FloatingActionButton(icon=icons.PLAY_ARROW, text="Run Diffusion on Prompts", on_click=run_diffusion)
+      page.update()
+    else:
+      if page.floating_action_button is not None:
+        page.floating_action_button = None
+        page.update()
+  page.show_run_diffusion_fab = show_run_diffusion_fab
+  show_run_diffusion_fab(len(prompts_list.controls) > 0)
   #page.load_prompts()
   if len(prompts_list.controls) < 1:
     prompts_buttons.visible=False
-  c = Container(
-      padding=padding.only(18, 12, 0, 8),
-      content=Column([
-        Text("🗒️   List of Prompts to Diffuse", style="titleLarge"),
+  c = Container(padding=padding.only(18, 12, 0, 0), content=Column([
+        Row([Text("🗒️   List of Prompts to Diffuse", style="titleLarge"), Row([prompt_help_button, paste_prompts_button])], alignment="spaceBetween"),
         Divider(thickness=1, height=4),
         #add_prompt_button,
         prompt_row,
@@ -1160,14 +1373,8 @@ def buildImages(page):
       page.imageColumn.update()
       c.update()
     page.auto_scrolling = auto_scrolling
-    page.imageColumn = Column([
-        Text("▶️   Get ready to make your images, run from Prompts List", style="titleLarge"),
-        Divider(thickness=1, height=4),
-      ], scroll="auto", auto_scroll=True
-    )
-    c = Container(
-      padding=padding.only(18, 12, 0, 8),
-      content=page.imageColumn)
+    page.imageColumn = Column([Text("▶️   Get ready to make your images, run from Prompts List", style="titleLarge"), Divider(thickness=1, height=4)], scroll="auto", auto_scroll=True)
+    c = Container(padding=padding.only(18, 12, 0, 0), content=page.imageColumn)
     return c
 
 def buildPromptHelpers(page):
@@ -1183,10 +1390,10 @@ def buildPromptHelpers(page):
         selected_index=0,
         animation_duration=300,
         tabs=[
+            Tab(text="Prompt Writer", content=page.writer, icon=icons.CLOUD_CIRCLE),
             Tab(text="Prompt Generator", content=page.generator, icon=icons.CLOUD),
             Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
             Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
-            Tab(text="Prompt Writer", content=page.writer, icon=icons.CLOUD_CIRCLE),
         ],
         expand=1,
         #on_change=tab_on_change
@@ -1232,7 +1439,7 @@ def buildPromptGenerator(page):
       generator_list_buttons.visible = False
       #generator_list_buttons.update()
     c = Container(
-      padding=padding.only(18, 12, 0, 8),
+      padding=padding.only(18, 12, 0, 0),
       content=Column([
         Text("🧠  OpenAI Prompt Genenerator", style="titleLarge"),
         Text("Enter a phrase each prompt should start with and the amount of prompts to generate. 'Subject Details' is optional to influence the output. 'Phase as subject' makes it about phrase and subject detail. 'Request mode' is the way it asks for the visual description. Just experiment, AI will continue to surprise.", style="titleSmall"),
@@ -1288,7 +1495,7 @@ def buildPromptRemixer(page):
       remixer_list_buttons.visible = False
     
     c = Container(
-      padding=padding.only(18, 12, 0, 8),
+      padding=padding.only(18, 12, 0, 0),
       content=Column([
         Row([Text("🔄  Prompt Remixer - GPT-3 AI Helper", style="titleLarge"), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment="spaceBetween"),
         Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friend. Experiment.", style="titleSmall"),
@@ -1353,7 +1560,7 @@ def buildPromptBrainstormer(page):
     if len(page.prompt_brainstormer_list.controls) < 1:
       brainstormer_list_buttons.visible = False
     c = Container(
-      padding=padding.only(18, 12, 0, 8),
+      padding=padding.only(18, 12, 0, 0),
       content=Column([
         Row([Text("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", style="titleLarge"), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment="spaceBetween"),
         Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friends. Experiment, each has different personalities.", style="titleSmall"),
@@ -1398,9 +1605,9 @@ def buildPromptWriter(page):
       writer_list_buttons.visible = False
 
     c = Container(
-      padding=padding.only(18, 12, 0, 8),
+      padding=padding.only(18, 12, 0, 0),
       content=Column([
-        Row([Text("📜 Advanced Prompt Writer with NSP random variables ", style="titleLarge"), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)),]),
+        Row([Text("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", style="titleLarge"), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)),]),
         Text("Construct your Stable Diffusion Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom.", style="titleSmall"),
         Divider(thickness=1, height=5),
         TextField(label="Arts Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects')),
@@ -1419,7 +1626,13 @@ def buildPromptWriter(page):
 
 def NSP_instructions(page):
     def open_url(e):
-        page.launch_url(e.data)
+        if e.data.startswith('http'):
+          page.launch_url(e.data)
+        else:
+          page.set_clipboard(e.data)
+          page.snack_bar = SnackBar(content=Text(f"📋   NSP variable {e.data} copied to clipboard..."))
+          page.snack_bar.open = True
+          page.update()
     NSP_markdown = '''To use a term database, simply use any of the keys below. 
 
 For example if you wanted beauty adjective, you would write `_adj-beauty_` in your prompt. 
@@ -1427,61 +1640,61 @@ For example if you wanted beauty adjective, you would write `_adj-beauty_` in yo
 ## Terminology Keys (by [@WAS](https://rebrand.ly/easy-diffusion))
 
 ### Adjective Types
-   - `_adj-architecture_` - A list of architectural adjectives and styles
-   - `_adj-beauty_` - A list of beauty adjectives for people (maybe things?)
-   - `_adj-general_` - A list of general adjectives for people/things.
-   - `_adj-horror_` - A list of horror adjectives
+   - [\_adj-architecture\_](_adj-architecture_) - A list of architectural adjectives and styles
+   - [\_adj-beauty\_](_adj-beauty_) - A list of beauty adjectives for people (maybe things?)
+   - [\_adj-general\_](_adj-general_) - A list of general adjectives for people/things.
+   - [\_adj-horror\_](_adj-horror_) - A list of horror adjectives
 ### Art Types
-   - `_artist_` - A comprehensive list of artists by [**MisterRuffian**](https://docs.google.com/spreadsheets/d/1_jgQ9SyvUaBNP1mHHEzZ6HhL_Es1KwBKQtnpnmWW82I/edit) (Discord _Misterruffian#2891_)
-   - `_color_` - A comprehensive list of colors
-   - `_portrait-type_` - A list of common portrait types/poses
-   - `_style_` - A list of art styles and mediums
+   - [\_artist\_](_artist_) - A comprehensive list of artists by [**MisterRuffian**](https://docs.google.com/spreadsheets/d/1_jgQ9SyvUaBNP1mHHEzZ6HhL_Es1KwBKQtnpnmWW82I/edit) (Discord _Misterruffian#2891_)
+   - [\_color\_](_color_) - A comprehensive list of colors
+   - [\_portrait-type\_](_portrait-type_) - A list of common portrait types/poses
+   - [\_style\_](_style_) - A list of art styles and mediums
 ### Computer Graphics Types
-   - `_3d-terms_` - A list of 3D graphics terminology
-   - `_color-palette_` - A list of computer and video game console color palettes
-   - `_hd_` - A list of high definition resolution terms
+   - [\_3d-terms\_](_3d-terms_) - A list of 3D graphics terminology
+   - [\_color-palette\_](_color-palette_) - A list of computer and video game console color palettes
+   - [\_hd\_](_hd_) - A list of high definition resolution terms
 ### Miscellaneous Types
-   - `_details_` - A list of detail descriptors
-   - `_site_` - A list of websites to query
-   - `_gen-modififer_` - A list of general modifiers adopted from [Weird Wonderful AI Art](https://weirdwonderfulai.art/)
-   - `_neg-weight_` - A lsit of negative weight ideas
-   - `_punk_` - A list of punk modifier (eg. cyberpunk)
-   - ` _pop-culture_` - A list of popular culture movies, shows, etc
-   - `_pop-location_` - A list of popular tourist locations
-   - `_fantasy-setting_` - A list of fantasy location settings
-   - `_fantasy-creature_` - A list of fantasy creatures
-   - `_animals_` - A list of modern animals
+   - [\_details\_](_details_) - A list of detail descriptors
+   - [\_site\_](_site_) - A list of websites to query
+   - [\_gen-modififer\_](_gen-modififer_) - A list of general modifiers adopted from [Weird Wonderful AI Art](https://weirdwonderfulai.art/)
+   - [\_neg-weight\_](_neg-weight_) - A lsit of negative weight ideas
+   - [\_punk\_](_punk_) - A list of punk modifier (eg. cyberpunk)
+   - [ _pop-culture\_](_pop-culture_) - A list of popular culture movies, shows, etc
+   - [\_pop-location\_](_pop-location_) - A list of popular tourist locations
+   - [\_fantasy-setting\_](_fantasy-setting_) - A list of fantasy location settings
+   - [\_fantasy-creature\_](_fantasy-creature_) - A list of fantasy creatures
+   - [\_animals\_](_animals_) - A list of modern animals
 ### Noun Types
-   - `_noun-beauty_` - A list of beauty related nouns
-   - `_noun-emote_` - A list of emotions and expressions
-   - `_noun-fantasy_` - A list of fantasy nouns
-   - `_noun-general_` - A list of general nouns
-   - `_noun-horror_` - A list of horror nouns
+   - [\_noun-beauty\_](_noun-beauty_) - A list of beauty related nouns
+   - [\_noun-emote\_](_noun-emote_) - A list of emotions and expressions
+   - [\_noun-fantasy\_](_noun-fantasy_) - A list of fantasy nouns
+   - [\_noun-general\_](_noun-general_) - A list of general nouns
+   - [\_noun-horror\_](_noun-horror_) - A list of horror nouns
 ### People Types
-   - `_bodyshape_` - A list of body shapes
-   - `_celeb_` - A list of celebrities
-   - `_eyecolor_` - A list of eye colors
-   - `_hair_` - A list of hair types
-   - `_nationality_` - A list of nationalities
-   - `_occputation_` A list of occupation types
-   - `_skin-color_` - A list of skin tones
-   - `_identity-young_` A list of young identifiers
-   - `_identity-adult_` A list of adult identifiers
-   - `_identity_` A list of general identifiers
+   - [\_bodyshape\_](_bodyshape_) - A list of body shapes
+   - [\_celeb\_](_celeb_) - A list of celebrities
+   - [\_eyecolor\_](_eyecolor_) - A list of eye colors
+   - [\_hair\_](_hair_) - A list of hair types
+   - [\_nationality\_](_nationality_) - A list of nationalities
+   - [\_occputation\_](_occputation_) A list of occupation types
+   - [\_skin-color\_](_skin-color_) - A list of skin tones
+   - [\_identity-young\_](_identity-young_) A list of young identifiers
+   - [\_identity-adult\_](_identity-adult_) A list of adult identifiers
+   - [\_identity\_](_identity_) A list of general identifiers
 ### Photography / Image / Film Types
-   - `_aspect-ratio_` - A list of common aspect ratios
-   - `_cameras_` - A list of camera models *(including manufactuerer)*
-   - `_camera-manu_` - A list of camera manufacturers
-   - `_f-stop_` - A list of camera aperture f-stop
-   - `_focal-length_` - A list of focal length ranges
-   - `_photo-term_` - A list of photography terms relating to photos
+   - [\_aspect-ratio\_](_aspect-ratio_) - A list of common aspect ratios
+   - [\_cameras\_](_cameras_) - A list of camera models *(including manufactuerer)*
+   - [\_camera-manu\_](_camera-manu_) - A list of camera manufacturers
+   - [\_f-stop\_](_f-stop_) - A list of camera aperture f-stop
+   - [\_focal-length\_](_focal-length_) - A list of focal length ranges
+   - [\_photo-term\_](_photo-term_) - A list of photography terms relating to photos
 
 So in Subject try something like: `A _color_ _noun-general_ that is _adj-beauty_ and _adj-general_ with a _noun-emote_ _noun-fantasy_`
 '''
     def close_NSP_dlg(e):
       instruction_alert.open = False
       page.update()
-    instruction_alert = AlertDialog(title=Text("🍜  Noodle Soup Prompt Variables Instructions"), content=Column([Markdown(NSP_markdown, extension_set="gitHubWeb", on_tap_link=open_url)], scroll="auto"), actions=[TextButton("Good Soup!", on_click=close_NSP_dlg)], actions_alignment="end",)
+    instruction_alert = AlertDialog(title=Text("🍜  Noodle Soup Prompt Variables Instructions"), content=Column([Markdown(NSP_markdown, extension_set="gitHubWeb", on_tap_link=open_url)], scroll="auto"), actions=[TextButton("🍲  Good Soup! ", on_click=close_NSP_dlg)], actions_alignment="end",)
     page.dialog = instruction_alert
     instruction_alert.open = True
     page.update()
@@ -1490,6 +1703,8 @@ def buildExtras(page):
     page.ESRGAN_upscaler = buildESRGANupscaler(page)
     page.RetrievePrompts = buildRetrievePrompts(page)
     page.InitFolder = buildInitFolder(page)
+    page.DanceDiffusion = buildDanceDiffusion(page)
+    page.MaskMaker = buildDreamMask(page)
     promptTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -1497,6 +1712,8 @@ def buildExtras(page):
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
             Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
             Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
+            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
+            #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
         ],
         expand=1,
         #on_change=tab_on_change
@@ -1521,9 +1738,6 @@ def buildESRGANupscaler(page):
     def changed(e, pref=None):
       if pref is not None:
         ESRGAN_prefs[pref] = e.control.value
-    def pick_path(e):
-      print(e.control.value)
-      #TODO: File picker that uploads to root
     def add_to_ESRGAN_output(o):
       ESRGAN_output.controls.append(o)
       ESRGAN_output.update()
@@ -1548,11 +1762,33 @@ def buildESRGANupscaler(page):
       ESRGAN_output.update()
       clear_button.visible = False
       clear_button.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        fname = f"{root_dir}{e.file_name}"
+        image_path.value = fname
+        image_path.update()
+        ESRGAN_prefs['image_path'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def pick_path(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    def pick_destination(e):
+        alert_msg(page, "Switch to Colab tab and press Files button on the Left & Find the Path you want to Save Images into, Right Click and Copy Path, then Paste here")
+    page.overlay.append(file_picker)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=ESRGAN_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ESRGAN_prefs['face_enhance'], on_change=lambda e:changed(e,'face_enhance'))
     image_path = TextField(label="Image File or Folder Path", value=ESRGAN_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
-    dst_image_path = TextField(label="Destination Image Path", value=ESRGAN_prefs['dst_image_path'], on_change=lambda e:changed(e,'dst_image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED), expand=1)
+    dst_image_path = TextField(label="Destination Image Path", value=ESRGAN_prefs['dst_image_path'], on_change=lambda e:changed(e,'dst_image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_destination), expand=1)
     filename_suffix = TextField(label="Optional Filename Suffix", value=ESRGAN_prefs['filename_suffix'], on_change=lambda e:changed(e,'filename_suffix'), width=260)
     download_locally = Checkbox(label="Download Images Locally", value=ESRGAN_prefs['download_locally'], on_change=lambda e:changed(e,'download_locally'))
     display_image = Checkbox(label="Display Upscaled Image", value=ESRGAN_prefs['display_image'], on_change=lambda e:changed(e,'display_image'))
@@ -1564,7 +1800,7 @@ def buildESRGANupscaler(page):
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
     clear_button.visible = len(ESRGAN_output.controls) > 0
     c = Container(
-      padding=padding.only(18, 12, 0, 8),
+      padding=padding.only(18, 12, 0, 0),
       content=Column([
         Text("↕️  Real-ESRGAN AI Upscale Enlarging", style="titleLarge"),
         Text("Select one or more files, or give path to image or folder. Save to your Google Drive and/or Download."),
@@ -1616,7 +1852,7 @@ def buildRetrievePrompts(page):
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
     clear_button.visible = len(retrieve_output.controls) > 0
     c = Container(
-      padding=padding.only(18, 12, 0, 8),
+      padding=padding.only(18, 12, 0, 0),
       content=Column([
         Text("📰  Retrieve Dream Prompts from Image Metadata", style="titleLarge"),
         Text("Give it images made here and gives you all parameters used to recreate it. Either upload png file(s) or paste path to image or folder or config.json to revive your dreams.."),
@@ -1661,7 +1897,7 @@ def buildInitFolder(page):
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
     clear_button.visible = len(initfolder_output.controls) > 0
     c = Container(
-      padding=padding.only(18, 12, 0, 8),
+      padding=padding.only(18, 12, 0, 0),
       content=Column([
         Text("📂 Generate Prompts from Folder as Init Images", style="titleLarge"),
         Text("Provide a Folder with a collection of images that you want to automatically add to prompts list with init_image overides..."),
@@ -1677,6 +1913,100 @@ def buildInitFolder(page):
     ))
     return c
 
+dance_prefs = {
+    'dance_model': 'maestro-150k',
+    'installed_model': None,
+    'inference_steps': 50,
+    'batch_size': 1,
+    'seed': 0,
+    'audio_length_in_s': 4.5,
+    'community_model': 'LCD Soundsystem',
+}
+community_models = [
+    {'name': 'LCD Soundsystem', 'download': 'https://drive.google.com/uc?id=1WX8nL4_x49h0OJE5iGrjXJnIJ0yvsTxI', 'ckpt':'lcd-soundsystem-200k.ckpt'},
+    {'name': 'Vague phrases', 'download': 'https://drive.google.com/uc?id=1nUn2qydqU7hlDUT-Skq_Ionte_8-Vdjr', 'ckpt': 'SingingInFepoch=1028-step=195500-pruned.ckpt'}, 
+    {'name': 'Gesaffelstein', 'download': 'https://drive.google.com/uc?id=1-BuDzz4ajX-ufVByEX_fCkOtB00DVygB', 'ckpt':'Gesaffelstein_epoch=2537-step=445000.ckpt'},
+    {'name': 'Smash Mouth Vocals', 'download': 'https://drive.google.com/uc?id=1h3fkJnByw3mKpXUiNPWKoYtzmpeg1QEt', 'ckpt':'epoch=773-step=191500.ckpt'},
+    {'name': 'Daft Punk', 'download': 'https://drive.google.com/uc?id=1CZjWIcL528zbZa6GrS_triob0hUy6KEs', 'ckpt':'daft-punk-241.5k.ckpt'},
+]
+dance_pipe = None
+def buildDanceDiffusion(page):
+    global dance_pipe, dance_prefs
+    def changed(e, pref=None, isInt=False):
+        if pref is not None:
+          if isInt:
+            dance_prefs[pref] = int(e.control.value)
+          else:
+            dance_prefs[pref] = e.control.value
+    def changed_model(e):
+      dance_prefs['dance_model'] = e.control.value
+      if e.control.value == 'Community':
+        community_model.visible = True
+        community_model.update()
+      else:
+        if community_model.visible:
+          community_model.visible = False
+          community_model.update()
+    dance_model = Dropdown(label="Dance Model", width=250, options=[dropdown.Option("maestro-150k"), dropdown.Option("glitch-440k"), dropdown.Option("jmann-small-190k"), dropdown.Option("jmann-large-580k"), dropdown.Option("unlocked-250k"), dropdown.Option("honk-140k"), dropdown.Option("gwf-440k"), dropdown.Option("Community")], value=dance_prefs['dance_model'], on_change=changed_model)
+    community_model = Dropdown(label="Community Model", width=250, options=[], value=dance_prefs['community_model'], on_change=lambda e: changed(e, 'community_model'))
+    for c in community_models:
+      community_model.options.append(dropdown.Option(c['name']))
+    if not dance_prefs['dance_model'] == 'Community':
+      community_model.visible = False
+    inference_steps = Slider(min=10, max=200, divisions=190, label="{value}", value=float(dance_prefs['inference_steps']), expand=True)
+    inference_row = Row([Text("Number of Inference Steps: "), inference_steps])
+    batch_size = TextField(label="Batch Size", value=dance_prefs['batch_size'], keyboard_type="number", on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
+    seed = TextField(label="Random Seed", value=dance_prefs['seed'], keyboard_type="number", on_change=lambda e: changed(e, 'seed', isInt=True), width = 110)
+    audio_length_in_s = TextField(label="Audio Length in Seconds", value=dance_prefs['audio_length_in_s'], keyboard_type="number", on_change=lambda e: changed(e, 'audio_length_in_s'), width = 190)
+    number_row = Row([batch_size, seed, audio_length_in_s], alignment="spaceBetween")
+    page.dance_output = Column([])
+    c = Container(
+      padding=padding.only(18, 12, 0, 0),
+      content=Column([
+        Text("📂 Create experimental music or sounds with HarmonAI trained audio models", style="titleLarge"),
+        Text("Tools to train a generative model on arbitrary audio samples..."),
+        Divider(thickness=1, height=4),
+        Row([dance_model, community_model]),
+        inference_row,
+        number_row,
+        ElevatedButton(content=Text("🎵  Run Dance Diffusion", size=18), on_click=lambda _: run_dance_diffusion(page)),
+        page.dance_output,
+      ], scroll="auto"
+    ))
+    return c
+
+def buildDreamMask(page):
+    #prog_bars: Dict[str, ProgressRing] = {}
+    files = Ref[Column]()
+    #upload_button = Ref[ElevatedButton]()
+
+    def file_picker_result(e: FilePickerResultEvent):
+        files.current.controls.clear()
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        files.current.controls.append(Row([Text(f"Done uploading {root_dir}{e.file_name}")]))
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+
+    c = Column([
+        ElevatedButton(
+            "Select Init Image to Mask...",
+            icon=icons.FOLDER_OPEN,
+            on_click=lambda _: file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File" ),
+        ),
+        Column(ref=files),
+    ])
+    return c
+
 use_custom_scheduler = False
 retry_attempts_if_NSFW = 3
 
@@ -1685,6 +2015,7 @@ pipe = None
 pipe_img2img = None
 pipe_interpolation = None
 pipe_clip_guided = None
+pipe_conceptualizer = None
 stability_api = None
 model_path = "CompVis/stable-diffusion-v1-4"
 inpaint_model = "runwayml/stable-diffusion-inpainting"
@@ -1694,16 +2025,19 @@ if is_Colab:
   from google.colab import output
   output.enable_custom_widget_manager()
 
-def run_diffusers(page):
+def get_diffusers(page):
     global scheduler, use_custom_scheduler, model_path, prefs
     try:
       from huggingface_hub import notebook_login, HfApi, HfFolder
       from diffusers import StableDiffusionPipeline
     except ImportError as e:
-      run_process("pip install --upgrade -q git+https://github.com/Skquark/diffusers.git@main#egg=diffusers", page=page)
-      run_process("pip install -q transformers scipy ftfy", page=page)
+      run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
+      run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers", page=page)
+      run_process("pip install -q --upgrade transformers scipy ftfy", page=page)
       run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
       run_process("git config --global credential.helper store", page=page)
+      if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+        run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
       from huggingface_hub import notebook_login, HfApi, HfFolder
       pass
     if not os.path.exists(HfFolder.path_token):
@@ -1714,15 +2048,24 @@ def run_diffusers(page):
     scheduler_mode = prefs['scheduler_mode']
     if scheduler_mode == "K-LMS":
       from diffusers import LMSDiscreteScheduler
-      scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+      scheduler = LMSDiscreteScheduler.from_config(model_path, subfolder="scheduler")
+      #scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
       #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, tensor_format="pt")
     if scheduler_mode == "PNDM":
       from diffusers import PNDMScheduler
-      scheduler = PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
+      scheduler = PNDMScheduler.from_config(model_path, subfolder="scheduler")
+      #scheduler = PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
       #scheduler = PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", skip_prk_steps=True), #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", tensor_format="pt", skip_prk_steps=False)
     if scheduler_mode == "DDIM":
       from diffusers import DDIMScheduler
-      scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False) #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, clip_sample=True, set_alpha_to_one=True, tensor_format="pt")
+      scheduler = DDIMScheduler.from_config(model_path, subfolder="scheduler")
+      #scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False) #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, clip_sample=True, set_alpha_to_one=True, tensor_format="pt")
+    if scheduler_mode == "K-Euler Discrete":
+      from diffusers import EulerDiscreteScheduler
+      scheduler = EulerDiscreteScheduler.from_config(model_path, subfolder="scheduler")
+    if scheduler_mode == "K-Euler Ancestrial":
+      from diffusers import EulerAncestralDiscreteScheduler
+      scheduler = EulerAncestralDiscreteScheduler.from_config(model_path, subfolder="scheduler")
     if scheduler_mode == "Score-SDE-Vp":
       from diffusers import ScoreSdeVpScheduler
       scheduler = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -1792,23 +2135,24 @@ def get_text2image(page):
         tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
         text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
         if prefs['higher_vram_mode']:
-          unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", use_auth_token=True)
+          unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", use_auth_token=True, device_map="auto")
         else:
-          unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", torch_dtype=torch.float16, subfolder="unet", use_auth_token=True)
+          unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", torch_dtype=torch.float16, subfolder="unet", use_auth_token=True, device_map="auto")
         vae = vae.to(torch_device)
         text_encoder = text_encoder.to(torch_device)
         #if enable_attention_slicing:
         #  unet.enable_attention_slicing() #slice_size
         unet = unet.to(torch_device)
       else:
-        pipe = get_txt2img_pipe()
+        #pipe = get_txt2img_pipe()
+        pipe = get_lpw_pipe()
     except EnvironmentError:
-      alert_msg(page, f'{Color.RED}ERROR: Looks like you need to accept the HuggingFace Stable-Diffusion-v1-4 Model Card to use Checkpoint{Color.END}\nhttps://huggingface.co/CompVis/stable-diffusion-v1-4')
+      alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace Stable-Diffusion-v1-4, v1-5 and Inpaint Model Cards to use Checkpoint\nhttps://huggingface.co/runwayml/stable-diffusion-v1-5\nhttps://huggingface.co/CompVis/stable-diffusion-v1-4\nhttps://huggingface.co/runwayml/stable-diffusion-inpainting')
 
 # I thought it's what I wanted, but current implementation does same as mine but doesn't clear memory between
 def get_mega_pipe():
   global pipe, scheduler, model_path, prefs
-  from diffusers import StableDiffusionPipeline
+  from diffusers import DiffusionPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   if prefs['higher_vram_mode']:
     pipe = DiffusionPipeline.from_pretrained(model_path, community="stable_diffusion_mega", scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
@@ -1816,10 +2160,38 @@ def get_mega_pipe():
   else:
     pipe = DiffusionPipeline.from_pretrained(model_path, community="stable_diffusion_mega", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-  if prefs['enable_attention_slicing']:
-    pipe.enable_attention_slicing()
-  pipe.set_progress_bar_config(disable=True)
   pipe = pipe.to(torch_device)
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    pipe.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe.enable_xformers_memory_efficient_attention()
+  if prefs['sequential_cpu_offload']:
+    pipe.enable_sequential_cpu_offload()
+  pipe.set_progress_bar_config(disable=True)
+  return pipe
+
+def get_lpw_pipe():
+  global pipe, scheduler, model_path, prefs
+  from diffusers import DiffusionPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  os.chdir(root_dir)
+  #if not os.path.isfile(os.path.join(root_dir, 'lpw_stable_diffusion.py')):
+  #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/lpw_stable_diffusion.py")
+  #from lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
+  if prefs['higher_vram_mode']:
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="lpw_stable_diffusion", scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+  else:
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
+    #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+  #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
+  pipe = pipe.to(torch_device)
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    pipe.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe.enable_xformers_memory_efficient_attention()
+  if prefs['sequential_cpu_offload']:
+    pipe.enable_sequential_cpu_offload()
+  pipe.set_progress_bar_config(disable=True)
   return pipe
 
 def get_txt2img_pipe():
@@ -1830,7 +2202,7 @@ def get_txt2img_pipe():
     pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   else:
     pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-  if prefs['enable_attention_slicing']:
+  if prefs['memmory_optimization'] != 'None':
     pipe.enable_attention_slicing()
   pipe.set_progress_bar_config(disable=True)
   pipe = pipe.to(torch_device)
@@ -1847,9 +2219,9 @@ def get_unet_pipe():
   tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
   text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
   if prefs['higher_vram_mode']:
-    unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+    unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
   else:
-    unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", torch_dtype=torch.float16, subfolder="unet", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+    unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", torch_dtype=torch.float16, subfolder="unet", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
   vae = vae.to(torch_device)
   text_encoder = text_encoder.to(torch_device)
   #if enable_attention_slicing:
@@ -1887,10 +2259,10 @@ def get_interpolation_pipe():
     else:
       pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-    if prefs['enable_attention_slicing']:
+    pipe_interpolation = pipe_interpolation.to(torch_device)
+    if prefs['memmory_optimization'] != 'None':
       pipe_interpolation.enable_attention_slicing()
     pipe_interpolation.set_progress_bar_config(disable=True)
-    pipe_interpolation = pipe_interpolation.to(torch_device)
     return pipe_interpolation
 
 def get_image2image(page):
@@ -1930,19 +2302,24 @@ def get_img2img_pipe():
       revision="fp16", 
       torch_dtype=torch.float16,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-  if prefs['enable_attention_slicing']:
-    pipe_img2img.enable_attention_slicing() #slice_size
-  pipe_img2img.set_progress_bar_config(disable=True)
   pipe_img2img.to(torch_device)
+  #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    pipe_img2img.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe_img2img.enable_xformers_memory_efficient_attention()
+  if prefs['sequential_cpu_offload']:
+    pipe_img2img.enable_sequential_cpu_offload()
+  pipe_img2img.set_progress_bar_config(disable=True)
   def dummy(images, **kwargs): return images, False
   pipe_img2img.safety_checker = dummy
   return pipe_img2img
 
 def get_clip(page):
     global pipe_clip_guided, model_path
-    os.chdir(root_dir)
-    if not os.path.isfile(os.path.join(root_dir, 'clip_guided_stable_diffusion.py')):
-      run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/c16761e9d94a3374710110ba5e3087cb9f8ba906/examples/community/clip_guided_stable_diffusion.py")
+    #os.chdir(root_dir)
+    #if not os.path.isfile(os.path.join(root_dir, 'clip_guided_stable_diffusion.py')):
+    #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/c16761e9d94a3374710110ba5e3087cb9f8ba906/examples/community/clip_guided_stable_diffusion.py")
     #from clip_guided_stable_diffusion import *
 
     if pipe_clip_guided is not None:
@@ -1954,21 +2331,33 @@ def get_clip(page):
 
 def get_clip_guided_pipe():
     global pipe_clip_guided, scheduler_clip, prefs
+    from diffusers import DiffusionPipeline
     from diffusers import LMSDiscreteScheduler, PNDMScheduler, StableDiffusionPipeline
-    from clip_guided_stable_diffusion import CLIPModel, CLIPFeatureExtractor, CLIPGuidedStableDiffusion
-    pipeline = StableDiffusionPipeline.from_pretrained(
+    from transformers import CLIPModel, CLIPFeatureExtractor #, CLIPGuidedStableDiffusion
+    '''pipeline = StableDiffusionPipeline.from_pretrained(
         model_path,
         torch_dtype=torch.float16,
         revision="fp16",
-    )
+    )'''
     if isinstance(scheduler, LMSDiscreteScheduler) or isinstance(scheduler, PNDMScheduler):
       scheduler_clip = scheduler
     else:
       scheduler_clip = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
 
     clip_model = CLIPModel.from_pretrained(prefs['clip_model_id'], torch_dtype=torch.float16)
-    feature_extractor = CLIPFeatureExtractor.from_pretrained(prefs['clip_model_id'], torch_dtype=torch.float16)
-
+    feature_extractor = CLIPFeatureExtractor.from_pretrained(prefs['clip_model_id'])
+    pipe_clip_guided = DiffusionPipeline.from_pretrained(
+            model_path,
+            custom_pipeline="clip_guided_stable_diffusion",
+            clip_model=clip_model,
+            feature_extractor=feature_extractor,
+            scheduler=scheduler_clip,
+            torch_dtype=torch.float16,
+            revision="fp16",
+            #device_map="auto",
+        )
+    pipe_clip_guided = pipe_clip_guided.to(torch_device)
+    '''
     pipe_clip_guided = CLIPGuidedStableDiffusion(
         unet=pipeline.unet,
         vae=pipeline.vae,
@@ -1977,10 +2366,10 @@ def get_clip_guided_pipe():
         scheduler=scheduler_clip,
         clip_model=clip_model,
         feature_extractor=feature_extractor,
-    )
-    if prefs['enable_attention_slicing']:
+    )'''
+    if prefs['memmory_optimization'] != 'None':
       pipe_clip_guided.enable_attention_slicing()
-    return pipe_clip_guided.to("cuda")
+    return pipe_clip_guided
 
 SD_sampler = None
 def get_stability(page):
@@ -2012,6 +2401,79 @@ def get_ESRGAN(page):
     run_process("python setup.py develop --quiet", page=page, realtime=False)
     run_process("wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P experiments/pretrained_models --quiet", page=page)
     os.chdir(root_dir)
+
+
+concepts = [{'name': 'cat-toy', 'token': 'cat-toy'}, {'name': 'madhubani-art', 'token': 'madhubani-art'}, {'name': 'birb-style', 'token': 'birb-style'}, {'name': 'indian-watercolor-portraits', 'token': 'watercolor-portrait'}, {'name': 'xyz', 'token': 'xyz'}, {'name': 'poolrooms', 'token': 'poolrooms'}, {'name': 'cheburashka', 'token': 'cheburashka'}, {'name': 'hours-style', 'token': 'hours'}, {'name': 'turtlepics', 'token': 'henry-leonardi'}, {'name': 'karl-s-lzx-1', 'token': 'lzx'}, {'name': 'canary-cap', 'token': 'canary-cap'}, {'name': 'ti-junglepunk-v0', 'token': 'jungle-punk'}, {'name': 'mafalda-character', 'token': 'mafalda-quino'}, {'name': 'magic-pengel', 'token': 'magic-pengel'}, {'name': 'schloss-mosigkau', 'token': 'ralph'}, {'name': 'cubex', 'token': 'cube'}, {'name': 'covid-19-rapid-test', 'token': 'covid-test'}, {'name': 'character-pingu', 'token': 'character-pingu'}, {'name': '2814-roth', 'token': '2814Roth'}, {'name': 'vkuoo1', 'token': 'style-vkuoo1'}, {'name': 'ina-art', 'token': ''}, {'name': 'monte-novo', 'token': 'monte novo cutting board'}, {'name': 'interchanges', 'token': 'xchg'}, {'name': 'walter-wick-photography', 'token': 'walter-wick'}, {'name': 'arcane-style-jv', 'token': 'arcane-style-jv'}, {'name': 'w3u', 'token': 'w3u'}, {'name': 'smiling-friend-style', 'token': 'smilingfriends-cartoon'}, {'name': 'dr-livesey', 'token': 'dr-livesey'}, {'name': 'monster-girl', 'token': 'monster-girl'}, {'name': 'abstract-concepts', 'token': 'art-style'}, {'name': 'reeducation-camp', 'token': 'reeducation-camp'}, {'name': 'miko-3-robot', 'token': 'miko-3'}, {'name': 'party-girl', 'token': 'party-girl'}, {'name': 'dicoo', 'token': 'Dicoo'}, {'name': 'kuvshinov', 'token': 'kuvshinov'}, {'name': 'mass', 'token': 'mass'}, {'name': 'ldr', 'token': 'ldr'}, {'name': 'hub-city', 'token': 'HubCity'}, {'name': 'masyunya', 'token': 'masyunya'}, {'name': 'david-moreno-architecture', 'token': 'dm-arch'}, {'name': 'lolo', 'token': 'lolo'}, {'name': 'apulian-rooster-v0-1', 'token': 'apulian-rooster-v0.1'}, {'name': 'fractal', 'token': 'fractal'}, {'name': 'nebula', 'token': 'nebula'}, {'name': 'ldrs', 'token': 'ldrs'}, {'name': 'art-brut', 'token': 'art-brut'}, {'name': 'malika-favre-art-style', 'token': 'malika-favre'}, {'name': 'line-art', 'token': 'line-art'}, {'name': 'shrunken-head', 'token': 'shrunken-head'}, {'name': 'bonzi-monkey', 'token': 'bonzi'}, {'name': 'herge-style', 'token': 'herge'}, {'name': 'johnny-silverhand', 'token': 'johnny-silverhand'}, {'name': 'linnopoke', 'token': 'linnopoke'}, {'name': 'koko-dog', 'token': 'koko-dog'}, {'name': 'stuffed-penguin-toy', 'token': 'pengu-toy'}, {'name': 'monster-toy', 'token': 'monster-toy'}, {'name': 'dong-ho', 'token': 'dong-ho'}, {'name': 'orangejacket', 'token': 'orangejacket'}, {'name': 'fergal-cat', 'token': 'fergal-cat'}, {'name': 'summie-style', 'token': 'summie-style'}, {'name': 'chonkfrog', 'token': 'chonkfrog'}, {'name': 'alberto-mielgo', 'token': 'street'}, {'name': 'lucky-luke', 'token': 'lucky-luke'}, {'name': 'zdenek-art', 'token': 'zdenek-artwork'}, {'name': 'star-tours-posters', 'token': 'star-tours'}, {'name': 'huang-guang-jian', 'token': 'huang-guang-jian'}, {'name': 'painting', 'token': 'will'}, {'name': 'line-style', 'token': 'line-style'}, {'name': 'venice', 'token': 'venice'}, {'name': 'russian', 'token': 'Russian'}, {'name': 'tony-diterlizzi-s-planescape-art', 'token': 'tony-diterlizzi-planescape'}, {'name': 'moeb-style', 'token': 'moe-bius'}, {'name': 'amine', 'token': 'ayna'}, {'name': 'kojima-ayami', 'token': 'KOJIMA'}, {'name': 'dong-ho2', 'token': 'dong-ho-2'}, {'name': 'ruan-jia', 'token': 'ruan-jia'}, {'name': 'purplefishli', 'token': 'purplefishli'}, {'name': 'cry-baby-style', 'token': 'cry-baby'}, {'name': 'between2-mt-fade', 'token': 'b2MTfade'}, {'name': 'mtl-longsky', 'token': 'mtl-longsky'}, {'name': 'scrap-style', 'token': 'style-chewie'}, {'name': 'tela-lenca', 'token': 'tela-lenca'}, {'name': 'zillertal-can', 'token': 'zillertal-ipa'}, {'name': 'shu-doll', 'token': 'shu-doll'}, {'name': 'eastward', 'token': 'eastward'}, {'name': 'chuck-walton', 'token': 'Chuck_Walton'}, {'name': 'chucky', 'token': 'merc'}, {'name': 'smw-map', 'token': 'smw-map'}, {'name': 'erwin-olaf-style', 'token': 'erwin-olaf'}, {'name': 'maurice-quentin-de-la-tour-style', 'token': 'maurice'}, {'name': 'dan-seagrave-art-style', 'token': 'dan-seagrave'}, {'name': 'drive-scorpion-jacket', 'token': 'drive-scorpion-jacket'}, {'name': 'dark-penguin-pinguinanimations', 'token': 'darkpenguin-robot'}, {'name': 'rd-paintings', 'token': 'rd-painting'}, {'name': 'borderlands', 'token': 'borderlands'}, {'name': 'depthmap', 'token': 'depthmap'}, {'name': 'lego-astronaut', 'token': 'lego-astronaut'}, {'name': 'transmutation-circles', 'token': 'tcircle'}, {'name': 'mycat', 'token': 'mycat'}, {'name': 'ilya-shkipin', 'token': 'ilya-shkipin-style'}, {'name': 'moxxi', 'token': 'moxxi'}, {'name': 'riker-doll', 'token': 'rikerdoll'}, {'name': 'apex-wingman', 'token': 'wingman-apex'}, {'name': 'naf', 'token': 'nal'}, {'name': 'handstand', 'token': 'handstand'}, {'name': 'vb-mox', 'token': 'vb-mox'}, {'name': 'pixel-toy', 'token': 'pixel-toy'}, {'name': 'olli-olli', 'token': 'olli-olli'}, {'name': 'floral', 'token': 'ntry not foun'}, {'name': 'minecraft-concept-art', 'token': 'concept'}, {'name': 'yb-anime', 'token': 'anime-character'}, {'name': 'ditko', 'token': 'cat-toy'}, {'name': 'disquieting-muses', 'token': 'muses'}, {'name': 'ned-flanders', 'token': 'flanders'}, {'name': 'fluid-acrylic-jellyfish-creatures-style-of-carl-ingram-art', 'token': 'jelly-core'}, {'name': 'ic0n', 'token': 'ic0n'}, {'name': 'pyramidheadcosplay', 'token': 'Cos-Pyramid'}, {'name': 'phc', 'token': 'Cos-Pyramid'}, {'name': 'og-mox-style', 'token': 'og-mox-style'}, {'name': 'klance', 'token': 'klance'}, {'name': 'john-blanche', 'token': 'john-blanche'}, {'name': 'cowboy', 'token': 'cowboyStyle'}, {'name': 'darkpenguinanimatronic', 'token': 'penguin-robot'}, {'name': 'doener-red-line-art', 'token': 'dnr'}, {'name': 'style-of-marc-allante', 'token': 'Marc_Allante'}, {'name': 'crybaby-style-2-0', 'token': 'crybaby2'}, {'name': 'werebloops', 'token': 'werebloops'}, {'name': 'xbh', 'token': 'xbh'}, {'name': 'unfinished-building', 'token': 'unfinished-building'}, {'name': 'teelip-ir-landscape', 'token': 'teelip-ir-landscape'}, {'name': 'road-to-ruin', 'token': 'RtoR'}, {'name': 'piotr-jablonski', 'token': 'piotr-jablonski'}, {'name': 'jamiels', 'token': 'jamiels'}, {'name': 'tomcat', 'token': 'tom-cat'}, {'name': 'meyoco', 'token': 'meyoco'}, {'name': 'nixeu', 'token': 'nixeu'}, {'name': 'tnj', 'token': 'tnj'}, {'name': 'cute-bear', 'token': 'cute-bear'}, {'name': 'leica', 'token': 'leica'}, {'name': 'anime-boy', 'token': 'myAItestShota'}, {'name': 'garfield-pizza-plush', 'token': 'garfield-plushy'}, {'name': 'design', 'token': 'design'}, {'name': 'mikako-method', 'token': 'm-m'}, {'name': 'cornell-box', 'token': 'cornell-box'}, {'name': 'sculptural-style', 'token': 'diaosu'}, {'name': 'aavegotchi', 'token': 'aave-gotchi'}, {'name': 'swamp-choe-2', 'token': 'cat-toy'}, {'name': 'super-nintendo-cartridge', 'token': 'snesfita-object'}, {'name': 'garfield-pizza-plush-v2', 'token': 'garfield-plushy'}, {'name': 'rickyart', 'token': 'RickyArt'}, {'name': 'eye-of-agamotto', 'token': 'eye-aga'}, {'name': 'freddy-fazbear', 'token': 'freddy-fazbear'}, {'name': 'glass-pipe', 'token': 'glass-sherlock'}, {'name': 'black-waifu', 'token': 'black-waifu'}, {'name': 'roy-lichtenstein', 'token': 'roy-lichtenstein'}, {'name': 'ugly-sonic', 'token': 'ugly-sonic'}, {'name': 'glow-forest', 'token': 'dark-forest'}, {'name': 'painted-student', 'token': 'painted_student'}, {'name': 'salmonid', 'token': 'salmonid'}, {'name': 'huayecai820-greyscale', 'token': 'huayecaigreyscale-style'}, {'name': 'arthur1', 'token': 'arthur1'}, {'name': 'huckleberry', 'token': 'huckleberry'}, {'name': 'collage3', 'token': 'Collage3'}, {'name': 'spritual-monsters', 'token': 'spritual-monsters'}, {'name': 'baldi', 'token': 'baldi'}, {'name': 'tcirle', 'token': 'tcircle'}, {'name': 'pantone-milk', 'token': 'pantone-milk'}, {'name': 'retropixelart-pinguin', 'token': 'retropixelart-style'}, {'name': 'doose-s-realistic-art-style', 'token': 'doose-realistic'}, {'name': 'grit-toy', 'token': 'grit-toy'}, {'name': 'pink-beast-pastelae-style', 'token': 'pinkbeast'}, {'name': 'mikako-methodi2i', 'token': 'm-mi2i'}, {'name': 'aj-fosik', 'token': 'AJ-Fosik'}, {'name': 'collage-cutouts', 'token': 'collage-cutouts'}, {'name': 'cute-cat', 'token': 'cute-bear'}, {'name': 'kaleido', 'token': 'kaleido'}, {'name': 'xatu', 'token': 'xatu-pokemon'}, {'name': 'a-female-hero-from-the-legend-of-mir', 'token': ' <female-hero> from The Legend of Mi'}, {'name': 'cologne', 'token': 'cologne-dom'}, {'name': 'wlop-style', 'token': 'wlop-style'}, {'name': 'larrette', 'token': 'larrette'}, {'name': 'bert-muppet', 'token': 'bert-muppet'}, {'name': 'my-hero-academia-style', 'token': 'MHA style'}, {'name': 'vcr-classique', 'token': 'vcr_c'}, {'name': 'xatu2', 'token': 'xatu-test'}, {'name': 'tela-lenca2', 'token': 'tela-lenca'}, {'name': 'dragonborn', 'token': 'dragonborn'}, {'name': 'mate', 'token': 'mate'}, {'name': 'alien-avatar', 'token': 'alien-avatar'}, {'name': 'pastelartstyle', 'token': 'Arzy'}, {'name': 'kings-quest-agd', 'token': 'ings-quest-ag'}, {'name': 'doge-pound', 'token': 'doge-pound'}, {'name': 'type', 'token': 'typeface'}, {'name': 'fileteado-porteno', 'token': 'fileteado-porteno'}, {'name': 'bullvbear', 'token': 'bullVBear'}, {'name': 'freefonix-style', 'token': 'Freefonix'}, {'name': 'garcon-the-cat', 'token': 'garcon-the-cat'}, {'name': 'better-collage3', 'token': 'C3'}, {'name': 'metagabe', 'token': 'metagabe'}, {'name': 'ggplot2', 'token': 'ggplot2'}, {'name': 'yoshi', 'token': 'yoshi'}, {'name': 'illustration-style', 'token': 'illustration-style'}, {'name': 'centaur', 'token': 'centaur'}, {'name': 'zoroark', 'token': 'zoroark'}, {'name': 'bad_Hub_Hugh', 'token': 'HubHugh'}, {'name': 'irasutoya', 'token': 'irasutoya'}, {'name': 'liquid-light', 'token': 'lls'}, {'name': 'zaneypixelz', 'token': 'zaneypixelz'}, {'name': 'tubby', 'token': 'tubby'}, {'name': 'atm-ant', 'token': 'atm-ant'}, {'name': 'fang-yuan-001', 'token': 'fang-yuan'}, {'name': 'dullboy-caricature', 'token': 'dullboy-cari'}, {'name': 'bada-club', 'token': 'bada-club'}, {'name': 'zaney', 'token': 'zaney'}, {'name': 'a-tale-of-two-empires', 'token': 'two-empires'}, {'name': 'dabotap', 'token': 'dabotap'}, {'name': 'harley-quinn', 'token': 'harley-quinn'}, {'name': 'vespertine', 'token': 'Vesp'}, {'name': 'ricar', 'token': 'ricard'}, {'name': 'conner-fawcett-style', 'token': 'badbucket'}, {'name': 'ingmar-bergman', 'token': 'ingmar-bergman'}, {'name': 'poutine-dish', 'token': 'poutine-qc'}, {'name': 'shev-linocut', 'token': 'shev-linocut'}, {'name': 'grifter', 'token': 'grifter'}, {'name': 'dog', 'token': 'Winston'}, {'name': 'tangles', 'token': 'cora-tangle'}, {'name': 'lost-rapper', 'token': 'lost-rapper'}, {'name': 'eddie', 'token': 'ddi'}, {'name': 'thunderdome-covers', 'token': 'thunderdome'}, {'name': 'she-mask', 'token': 'she-mask'}, {'name': 'chillpill', 'token': 'Chillpill'}, {'name': 'robertnava', 'token': 'robert-nava'}, {'name': 'looney-anime', 'token': 'looney-anime'}, {'name': 'axe-tattoo', 'token': 'axe-tattoo'}, {'name': 'fireworks-over-water', 'token': 'firework'}, {'name': 'collage14', 'token': 'C14'}, {'name': 'green-tent', 'token': 'green-tent'}, {'name': 'dtv-pkmn', 'token': 'dtv-pkm2'}, {'name': 'crinos-form-garou', 'token': 'crinos'}, {'name': '8bit', 'token': '8bit'}, {'name': 'tubby-cats', 'token': 'tubby'}, {'name': 'travis-bedel', 'token': 'bedelgeuse2'}, {'name': 'uma', 'token': 'uma'}, {'name': 'ie-gravestone', 'token': 'internet-explorer-gravestone'}, {'name': 'colossus', 'token': 'colossus'}, {'name': 'uma-style-classic', 'token': 'uma'}, {'name': 'collage3-hubcity', 'token': 'C3Hub'}, {'name': 'goku', 'token': 'goku'}, {'name': 'galaxy-explorer', 'token': 'galaxy-explorer'}, {'name': 'rl-pkmn-test', 'token': 'rl-pkmn'}, {'name': 'naval-portrait', 'token': 'naval-portrait'}, {'name': 'daycare-attendant-sun-fnaf', 'token': 'biblic-sun-fnaf'}, {'name': 'reksio-dog', 'token': 'reksio-dog'}, {'name': 'breakcore', 'token': 'reakcor'}, {'name': 'junji-ito-artstyle', 'token': 'junji-ito-style'}, {'name': 'gram-tops', 'token': 'gram-tops'}, {'name': 'henjo-techno-show', 'token': 'HENJOTECHNOSHOW'}, {'name': 'trash-polka-artstyle', 'token': 'trash-polka-style'}, {'name': 'faraon-love-shady', 'token': ''}, {'name': 'trigger-studio', 'token': 'Trigger Studio'}, {'name': 'tb303', 'token': '"tb303'}, {'name': 'neon-pastel', 'token': 'neon-pastel'}, {'name': 'fursona', 'token': 'fursona-2'}, {'name': 'sterling-archer', 'token': 'archer-style'}, {'name': 'captain-haddock', 'token': 'captain-haddock'}, {'name': 'my-mug', 'token': 'my-mug'}, {'name': 'joe-whiteford-art-style', 'token': 'joe-whiteford-artstyle'}, {'name': 'on-kawara', 'token': 'on-kawara'}, {'name': 'hours-sentry-fade', 'token': 'Hours_Sentry'}, {'name': 'rektguy', 'token': 'rektguy'}, {'name': 'dyoudim-style', 'token': 'DyoudiM-style'}, {'name': 'kaneoya-sachiko', 'token': 'Kaneoya'}, {'name': 'retro-girl', 'token': 'retro-girl'}, {'name': 'buddha-statue', 'token': 'buddha-statue'}, {'name': 'hitokomoru-style-nao', 'token': 'hitokomoru-style'}, {'name': 'plant-style', 'token': 'plant'}, {'name': 'cham', 'token': 'cham'}, {'name': 'mayor-richard-irvin', 'token': 'Richard_Irvin'}, {'name': 'sd-concepts-library-uma-meme', 'token': 'uma-object-full'}, {'name': 'uma-meme', 'token': 'uma-object-full'}, {'name': 'thunderdome-cover', 'token': 'thunderdome-cover'}, {'name': 'sem-mac2n', 'token': 'SEM_Mac2N'}, {'name': 'hoi4', 'token': 'hoi4'}, {'name': 'hd-emoji', 'token': 'HDemoji-object'}, {'name': 'lumio', 'token': 'lumio'}, {'name': 't-skrang', 'token': 'tskrang'}, {'name': 'agm-style-nao', 'token': 'agm-style'}, {'name': 'uma-meme-style', 'token': 'uma-meme-style'}, {'name': 'retro-mecha-rangers', 'token': 'aesthetic'}, {'name': 'babushork', 'token': 'babushork'}, {'name': 'qpt-atrium', 'token': 'QPT_ATRIUM'}, {'name': 'sushi-pixel', 'token': 'sushi-pixel'}, {'name': 'osrsmini2', 'token': ''}, {'name': 'ttte', 'token': 'ttte-2'}, {'name': 'atm-ant-2', 'token': 'atm-ant'}, {'name': 'dan-mumford', 'token': 'dan-mumford'}, {'name': 'renalla', 'token': 'enall'}, {'name': 'cow-uwu', 'token': 'cow-uwu'}, {'name': 'one-line-drawing', 'token': 'lineart'}, {'name': 'inuyama-muneto-style-nao', 'token': 'inuyama-muneto-style'}, {'name': 'altvent', 'token': 'AltVent'}, {'name': 'accurate-angel', 'token': 'accurate-angel'}, {'name': 'mtg-card', 'token': 'mtg-card'}, {'name': 'ddattender', 'token': 'ddattender'}, {'name': 'thalasin', 'token': 'thalasin-plus'}, {'name': 'moebius', 'token': 'moebius'}, {'name': 'liqwid-aquafarmer', 'token': 'aquafarmer'}, {'name': 'onepunchman', 'token': 'OnePunch'}, {'name': 'kawaii-colors', 'token': 'kawaii-colors-style'}, {'name': 'naruto', 'token': 'Naruto'}, {'name': 'backrooms', 'token': 'Backrooms'}, {'name': 'a-hat-kid', 'token': 'hatintime-kid'}, {'name': 'furrpopasthetic', 'token': 'furpop'}, {'name': 'RINGAO', 'token': ''}, {'name': 'csgo-awp-texture-map', 'token': 'csgo_awp_texture'}, {'name': 'luinv2', 'token': 'luin-waifu'}, {'name': 'hydrasuit', 'token': 'hydrasuit'}, {'name': 'milady', 'token': 'milady'}, {'name': 'ganyu-genshin-impact', 'token': 'ganyu'}, {'name': 'wayne-reynolds-character', 'token': 'warcharport'}, {'name': 'david-firth-artstyle', 'token': 'david-firth-artstyle'}, {'name': 'seraphimmoonshadow-art', 'token': 'seraphimmoonshadow-art'}, {'name': 'osrstiny', 'token': 'osrstiny'}, {'name': 'lugal-ki-en', 'token': 'lugal-ki-en'}, {'name': 'seamless-ground', 'token': 'seamless-ground'}, {'name': 'sewerslvt', 'token': 'ewerslv'}, {'name': 'diaosu-toy', 'token': 'diaosu-toy'}, {'name': 'sakimi-style', 'token': 'sakimi'}, {'name': 'rj-palmer', 'token': 'rj-palmer'}, {'name': 'harmless-ai-house-style-1', 'token': 'bee-style'}, {'name': 'harmless-ai-1', 'token': 'bee-style'}, {'name': 'yerba-mate', 'token': 'yerba-mate'}, {'name': 'bella-goth', 'token': 'bella-goth'}, {'name': 'bobs-burgers', 'token': 'bobs-burgers'}, {'name': 'jamie-hewlett-style', 'token': 'hewlett'}, {'name': 'belen', 'token': 'belen'}, {'name': 'shvoren-style', 'token': 'shvoren-style'}, {'name': 'gymnastics-leotard-v2', 'token': 'gymnastics-leotard2'}, {'name': 'rd-chaos', 'token': 'rd-chaos'}, {'name': 'armor-concept', 'token': 'armor-concept'}, {'name': 'ouroboros', 'token': 'ouroboros'}, {'name': 'm-geo', 'token': 'm-geo'}, {'name': 'Akitsuki', 'token': ''}, {'name': 'uzumaki', 'token': 'NARUTO'}, {'name': 'sorami-style', 'token': 'sorami-style'}, {'name': 'lxj-o4', 'token': 'csp'}, {'name': 'she-hulk-law-art', 'token': 'shehulk-style'}, {'name': 'led-toy', 'token': 'led-toy'}, {'name': 'durer-style', 'token': 'drr-style'}, {'name': 'hiten-style-nao', 'token': 'hiten-style-nao'}, {'name': 'mechasoulall', 'token': 'mechasoulall'}, {'name': 'wish-artist-stile', 'token': 'wish-style'}, {'name': 'max-foley', 'token': 'max-foley'}, {'name': 'loab-style', 'token': 'loab-style'}, {'name': '3d-female-cyborgs', 'token': 'A female cyborg'}, {'name': 'r-crumb-style', 'token': 'rcrumb'}, {'name': 'paul-noir', 'token': 'paul-noir'}, {'name': 'cgdonny1', 'token': 'donny1'}, {'name': 'valorantstyle', 'token': 'valorant'}, {'name': 'loab-character', 'token': 'loab-character'}, {'name': 'Atako', 'token': ''}, {'name': 'threestooges', 'token': 'threestooges'}, {'name': 'dsmuses', 'token': 'DSmuses'}, {'name': 'fish', 'token': 'fish'}, {'name': 'glass-prism-cube', 'token': 'glass-prism-cube'}, {'name': 'elegant-flower', 'token': 'elegant-flower'}, {'name': 'hanfu-anime-style', 'token': 'hanfu-anime-style'}, {'name': 'green-blue-shanshui', 'token': 'green-blue shanshui'}, {'name': 'lizardman', 'token': 'laceholderTokenLizardma'}, {'name': 'rail-scene', 'token': 'rail-pov'}, {'name': 'lula-13', 'token': 'lula-13'}, {'name': 'laala-character', 'token': 'laala'}, {'name': 'margo', 'token': 'dog-margo'}, {'name': 'carrascharacter', 'token': 'Carras'}, {'name': 'vietstoneking', 'token': 'vietstoneking'}, {'name': 'rhizomuse-machine-bionic-sculpture', 'token': ''}, {'name': 'rcrumb-portraits-style', 'token': 'rcrumb-portraits'}, {'name': 'mu-sadr', 'token': '783463b'}, {'name': 'bozo-22', 'token': 'bozo-22'}, {'name': 'skyfalls', 'token': 'SkyFalls'}, {'name': 'zk', 'token': ''}, {'name': 'tudisco', 'token': 'cat-toy'}, {'name': 'kogecha', 'token': 'kogecha'}, {'name': 'ori-toor', 'token': 'ori-toor'}, {'name': 'isabell-schulte-pviii-style', 'token': 'isabell-schulte-p8-style'}, {'name': 'rilakkuma', 'token': 'rilakkuma'}, {'name': 'indiana', 'token': 'indiana'}, {'name': 'black-and-white-design', 'token': 'PM_style'}, {'name': 'isabell-schulte-pviii-1024px-1500-steps-style', 'token': 'isabell-schulte-p8-style-1024p-1500s'}, {'name': 'fold-structure', 'token': 'fold-geo'}, {'name': 'brunnya', 'token': 'Brunnya'}, {'name': 'jos-de-kat', 'token': 'kat-jos'}, {'name': 'singsing-doll', 'token': 'singsing'}, {'name': 'singsing', 'token': 'singsing'}, {'name': 'isabell-schulte-pviii-12tiles-3000steps-style', 'token': 'isabell-schulte-p8-style-12tiles-3000s'}, {'name': 'f-22', 'token': 'f-22'}, {'name': 'jin-kisaragi', 'token': 'jin-kisaragi'}, {'name': 'depthmap-style', 'token': 'depthmap'}, {'name': 'crested-gecko', 'token': 'crested-gecko'}, {'name': 'grisstyle', 'token': 'gris'}, {'name': 'ikea-fabler', 'token': 'ikea-fabler'}, {'name': 'joe-mad', 'token': 'joe-mad'}, {'name': 'boissonnard', 'token': 'boissonnard'}, {'name': 'overprettified', 'token': 'overprettified'}, {'name': 'all-rings-albuns', 'token': 'rings-all-albuns'}, {'name': 'shiny-polyman', 'token': 'shiny-polyman'}, {'name': 'scarlet-witch', 'token': 'sw-mom'}, {'name': 'wojaks-now', 'token': 'red-wojak'}, {'name': 'carasibana', 'token': 'carasibana'}, {'name': 'towerplace', 'token': 'TowerPlace'}, {'name': 'cumbia-peruana', 'token': 'cumbia-peru'}, {'name': 'bloo', 'token': 'owl-guy'}, {'name': 'dog-django', 'token': 'dog-django'}, {'name': 'facadeplace', 'token': 'FacadePlace'}, {'name': 'blue-zombie', 'token': 'blue-zombie'}, {'name': 'blue-zombiee', 'token': 'blue-zombie'}, {'name': 'jinjoon-lee-they', 'token': 'jinjoon_lee_they'}, {'name': 'ralph-mcquarrie', 'token': 'ralph-mcquarrie'}, {'name': 'hiyuki-chan', 'token': 'hiyuki-chan'}, {'name': 'isabell-schulte-pviii-4tiles-6000steps', 'token': 'isabell-schulte-p8-style-4tiles-6000s'}, {'name': 'liliana', 'token': 'liliana'}, {'name': 'morino-hon-style', 'token': 'morino-hon'}, {'name': 'artist-yukiko-kanagai', 'token': 'Yukiko Kanagai '}, {'name': 'wheatland', 'token': ''}, {'name': 'm-geoo', 'token': 'm-geo'}, {'name': 'wheatland-arknight', 'token': 'golden-wheats-fields'}, {'name': 'mokoko', 'token': 'mokoko'}, {'name': '001glitch-core', 'token': '01glitch_cor'}, {'name': 'stardew-valley-pixel-art', 'token': 'pixelart-stardew'}, {'name': 'isabell-schulte-pviii-4tiles-500steps', 'token': 'isabell-schulte-p8-style-4tiles-500s'}, {'name': 'anime-girl', 'token': 'anime-girl'}, {'name': 'heather', 'token': 'eather'}, {'name': 'rail-scene-style', 'token': 'rail-pov'}, {'name': 'quiesel', 'token': 'quiesel'}, {'name': 'matthew-stone', 'token': 'atthew-ston'}, {'name': 'dreamcore', 'token': 'dreamcore'}, {'name': 'pokemon-conquest-sprites', 'token': 'poke-conquest'}, {'name': 'tili-concept', 'token': 'tili'}, {'name': 'nouns-glasses', 'token': 'nouns glasses'}, {'name': 'shigure-ui-style', 'token': 'shigure-ui'}, {'name': 'pen-ink-portraits-bennorthen', 'token': 'ink-portrait-by-BenNorthern'}, {'name': 'nikodim', 'token': 'nikodim'}, {'name': 'ori', 'token': 'Ori'}, {'name': 'anya-forger', 'token': 'anya-forger'}, {'name': 'lavko', 'token': 'lavko'}, {'name': 'fasina', 'token': 'Fasina'}, {'name': 'uma-clean-object', 'token': 'uma-clean-object'}, {'name': 'wojaks-now-now-now', 'token': 'red-wojak'}, {'name': 'memnarch-mtg', 'token': 'mtg-memnarch'}, {'name': 'tonal1', 'token': 'Tonal'}, {'name': 'tesla-bot', 'token': 'tesla-bot'}, {'name': 'red-glasses', 'token': 'red-glasses'}, {'name': 'csgo-awp-object', 'token': 'csgo_awp'}, {'name': 'stretch-re1-robot', 'token': 'stretch'}, {'name': 'isabell-schulte-pv-pvii-3000steps', 'token': 'isabell-schulte-p5-p7-style-3000s'}, {'name': 'insidewhale', 'token': 'InsideWhale'}, {'name': 'noggles', 'token': 'noggles'}, {'name': 'isometric-tile-test', 'token': 'iso-tile'}, {'name': 'bamse-og-kylling', 'token': 'bamse-kylling'}, {'name': 'marbling-art', 'token': 'marbling-art'}, {'name': 'joemad', 'token': 'joemad'}, {'name': 'bamse', 'token': 'bamse'}, {'name': 'dq10-anrushia', 'token': 'anrushia'}, {'name': 'test', 'token': 'AIO'}, {'name': 'naoki-saito', 'token': 'naoki_saito'}, {'name': 'raichu', 'token': 'raichu'}, {'name': 'child-zombie', 'token': 'child-zombie'}, {'name': 'yf21', 'token': 'YF21'}, {'name': 'titan-robot', 'token': 'titan'}, {'name': 'cyberpunk-lucy', 'token': 'cyberpunk-lucy'}, {'name': 'giygas', 'token': 'giygas'}, {'name': 'david-martinez-cyberpunk', 'token': 'david-martinez-cyberpunk'}, {'name': 'phan-s-collage', 'token': 'pcollage'}, {'name': 'jojo-bizzare-adventure-manga-lineart', 'token': 'JoJo_lineart'}, {'name': 'homestuck-sprite', 'token': 'homestuck-sprite'}, {'name': 'kogatan-shiny', 'token': 'ogata'}, {'name': 'moo-moo', 'token': 'moomoo'}, {'name': 'detectivedinosaur1', 'token': 'dd1'}, {'name': 'arcane-face', 'token': 'arcane-face'}, {'name': 'sherhook-painting', 'token': 'sherhook'}, {'name': 'isabell-schulte-pviii-1-image-style', 'token': 'isabell-schulte-p8-1-style'}, {'name': 'dicoo2', 'token': 'dicoo'}, {'name': 'hrgiger-drmacabre', 'token': 'barba'}, {'name': 'babau', 'token': 'babau'}, {'name': 'darkplane', 'token': 'DarkPlane'}, {'name': 'wildkat', 'token': 'wildkat'}, {'name': 'half-life-2-dog', 'token': 'hl-dog'}, {'name': 'outfit-items', 'token': 'outfit-items'}, {'name': 'midjourney-style', 'token': 'midjourney-style'}, {'name': 'puerquis-toy', 'token': 'puerquis'}, {'name': 'maus', 'token': 'Maus'}, {'name': 'jetsetdreamcastcovers', 'token': 'jet'}, {'name': 'karan-gloomy', 'token': 'karan'}, {'name': 'yoji-shinkawa-style', 'token': 'yoji-shinkawa'}, {'name': 'million-live-akane-15k', 'token': 'akane'}, {'name': 'million-live-akane-3k', 'token': 'akane'}, {'name': 'sherhook-painting-v2', 'token': 'sherhook'}, {'name': 'gba-pokemon-sprites', 'token': 'GBA-Poke-Sprites'}, {'name': 'gim', 'token': 'grimes-album-style'}, {'name': 'char-con', 'token': 'char-con'}, {'name': 'bluebey', 'token': 'bluebey'}, {'name': 'homestuck-troll', 'token': 'homestuck-troll'}, {'name': 'million-live-akane-shifuku-3k', 'token': 'akane'}, {'name': 'thegeneral', 'token': 'bobknight'}, {'name': 'million-live-spade-q-object-3k', 'token': 'spade_q'}, {'name': 'million-live-spade-q-style-3k', 'token': 'spade_q'}, {'name': 'ibere-thenorio', 'token': 'ibere-thenorio'}, {'name': 'yinit', 'token': 'init-dropca'}, {'name': 'bee', 'token': 'b-e-e'}, {'name': 'pixel-mania', 'token': 'pixel-mania'}, {'name': 'sunfish', 'token': 'SunFish'}, {'name': 'test2', 'token': 'AIOCARD'}, {'name': 'pool-test', 'token': 'pool_test'}, {'name': 'mokoko-seed', 'token': 'mokoko-seed'}, {'name': 'isabell-schulte-pviii-4-tiles-1-lr-3000-steps-style', 'token': 'isabell-schulte-p8-4tiles-1lr-300s-style'}, {'name': 'ghostproject-men', 'token': 'ghostsproject-style'}, {'name': 'phan', 'token': 'phan'}, {'name': 'chen-1', 'token': 'chen-1'}, {'name': 'bluebey-2', 'token': 'bluebey'}, {'name': 'waterfallshadow', 'token': 'WaterfallShadow'}, {'name': 'chop', 'token': 'Le Petit Prince'}, {'name': 'sintez-ico', 'token': 'sintez-ico'}, {'name': 'carlitos-el-mago', 'token': 'carloscarbonell'}, {'name': 'david-martinez-edgerunners', 'token': 'david-martinez-edgerunners'}, {'name': 'isabell-schulte-pviii-4-tiles-3-lr-5000-steps-style', 'token': 'isabell-schulte-p8-4tiles-3lr-5000s-style'}, {'name': 'guttestreker', 'token': 'guttestreker'}, {'name': 'ransom', 'token': 'ransom'}, {'name': 'museum-by-coop-himmelblau', 'token': 'coop himmelblau museum'}, {'name': 'coop-himmelblau', 'token': 'coop himmelblau'}, {'name': 'yesdelete', 'token': 'yesdelete'}, {'name': 'conway-pirate', 'token': 'conway'}, {'name': 'ilo-kunst', 'token': 'ilo-kunst'}, {'name': 'yilanov2', 'token': 'yilanov'}, {'name': 'dr-strange', 'token': 'dr-strange'}, {'name': 'hubris-oshri', 'token': 'Hubris'}, {'name': 'osaka-jyo', 'token': 'osaka-jyo'}, {'name': 'paolo-bonolis', 'token': 'paolo-bonolis'}, {'name': 'repeat', 'token': 'repeat'}, {'name': 'geggin', 'token': 'geggin'}, {'name': 'lex', 'token': 'lex'}, {'name': 'osaka-jyo2', 'token': 'osaka-jyo2'}, {'name': 'owl-house', 'token': 'owl-house'}, {'name': 'nazuna', 'token': 'nazuna'}, {'name': 'thorneworks', 'token': 'Thorneworks'}, {'name': 'kysa-v-style', 'token': 'kysa-v-style'}, {'name': 'senneca', 'token': 'Senneca'}, {'name': 'zero-suit-samus', 'token': 'zero-suit-samus'}, {'name': 'kanv1', 'token': 'KAN'}, {'name': 'dlooak', 'token': 'dlooak'}, {'name': 'wire-angels', 'token': 'wire-angels'}, {'name': 'mizkif', 'token': 'mizkif'}, {'name': 'brittney-williams-art', 'token': 'Brittney_Williams'}, {'name': 'wheelchair', 'token': 'wheelchair'}, {'name': 'yuji-himukai-style', 'token': 'Yuji Himukai-Style'}, {'name': 'cindlop', 'token': 'cindlop'}, {'name': 'sas-style', 'token': 'smooth-aesthetic-style'}, {'name': 'remert', 'token': 'Remert'}, {'name': 'alex-portugal', 'token': 'alejandro-portugal'}, {'name': 'explosions-cat', 'token': 'explosions-cat'}, {'name': 'onzpo', 'token': 'onzpo'}, {'name': 'eru-chitanda-casual', 'token': 'c-eru-chitanda'}, {'name': 'poring-ragnarok-online', 'token': 'poring-ro'}, {'name': 'cg-bearded-man', 'token': 'LH-Keeper'}, {'name': 'ba-shiroko', 'token': 'shiroko'}, {'name': 'at-wolf-boy-object', 'token': 'AT-Wolf-Boy-Object'}, {'name': 'fairytale', 'token': 'fAIrytale'}, {'name': 'kira-sensei', 'token': 'kira-sensei'}, {'name': 'kawaii-girl-plus-style', 'token': 'kawaii_girl'}, {'name': 'kawaii-girl-plus-object', 'token': 'kawaii_girl'}, {'name': 'boris-anderson', 'token': 'boris-anderson'}, {'name': 'medazzaland', 'token': 'edazzalan'}, {'name': 'duranduran', 'token': 'uranDura'}, {'name': 'crbart', 'token': 'crbart'}, {'name': 'happy-person12345', 'token': 'Happy-Person12345'}, {'name': 'fzk', 'token': 'fzk'}, {'name': 'rishusei-style', 'token': 'crishusei-style'}, {'name': 'felps', 'token': 'Felps'}, {'name': 'plen-ki-mun', 'token': 'plen-ki-mun'}, {'name': 'babs-bunny', 'token': 'babs_bunny'}, {'name': 'james-web-space-telescope', 'token': 'James-Web-Telescope'}, {'name': 'blue-haired-boy', 'token': 'Blue-Haired-Boy'}, {'name': '80s-anime-ai', 'token': '80s-anime-AI'}, {'name': 'spider-gwen', 'token': 'spider-gwen'}, {'name': 'takuji-kawano', 'token': 'takuji-kawano'}, {'name': 'fractal-temple-style', 'token': 'fractal-temple'}, {'name': 'sanguo-guanyu', 'token': 'sanguo-guanyu'}, {'name': 's1m-naoto-ohshima', 'token': 's1m-naoto-ohshima'}, {'name': 'kawaii-girl-plus-style-v1-1', 'token': 'kawaii'}, {'name': 'nathan-wyatt', 'token': 'Nathan-Wyatt'}, {'name': 'kasumin', 'token': 'kasumin'}, {'name': 'happy-person12345-assets', 'token': 'Happy-Person12345-assets'}, {'name': 'oleg-kuvaev', 'token': 'oleg-kuvaev'}, {'name': 'kanovt', 'token': 'anov'}, {'name': 'lphr-style', 'token': 'lphr-style'}, {'name': 'concept-art', 'token': 'concept-art'}, {'name': 'trust-support', 'token': 'trust'}, {'name': 'altyn-helmet', 'token': 'Altyn'}, {'name': '80s-anime-ai-being', 'token': 'anime-AI-being'}, {'name': 'baluchitherian', 'token': 'baluchiter'}, {'name': 'pineda-david', 'token': 'pineda-david'}, {'name': 'ohisashiburi-style', 'token': 'ohishashiburi-style'}, {'name': 'crb-portraits', 'token': 'crbportrait'}, {'name': 'i-love-chaos', 'token': 'chaos'}, {'name': 'alex-thumbnail-object-2000-steps', 'token': 'alex'}, {'name': '852style-girl', 'token': '852style-girl'}, {'name': 'nomad', 'token': 'nomad'}, {'name': 'new-priests', 'token': 'new-priest'}, {'name': 'liminalspaces', 'token': 'liminal image'}, {'name': 'aadhav-face', 'token': 'aadhav-face'}, {'name': 'jang-sung-rak-style', 'token': 'Jang-Sung-Rak-style'}, {'name': 'mattvidpro', 'token': 'mattvidpro'}, {'name': 'chungus-poodl-pet', 'token': 'poodl-chungus-big'}, {'name': 'liminal-spaces-2-0', 'token': 'iminal imag'}, {'name': 'crb-surrealz', 'token': 'crbsurreal'}, {'name': 'final-fantasy-logo', 'token': 'final-fantasy-logo'}, {'name': 'canadian-goose', 'token': 'canadian-goose'}, {'name': 'scratch-project', 'token': 'scratch-project'}, {'name': 'lazytown-stephanie', 'token': 'azytown-stephani'}, {'name': 'female-kpop-singer', 'token': 'female-kpop-star'}, {'name': 'aleyna-tilki', 'token': 'aleyna-tilki'}, {'name': 'other-mother', 'token': 'ther-mothe'}, {'name': 'beldam', 'token': 'elda'}, {'name': 'button-eyes', 'token': 'utton-eye'}, {'name': 'alisa', 'token': 'alisa-selezneva'}, {'name': 'im-poppy', 'token': 'm-popp'}, {'name': 'fractal-flame', 'token': 'fractal-flame'}, {'name': 'Exodus-Styling', 'token': 'Exouds-Style'}, {'name': '8sconception', 'token': '80s-car'}, {'name': 'christo-person', 'token': 'christo'}, {'name': 'slm', 'token': 'c-w388'}, {'name': 'meze-audio-elite-headphones', 'token': 'meze-elite'}, {'name': 'fox-purple', 'token': 'foxi-purple'}, {'name': 'roblox-avatar', 'token': 'roblox-avatar'}, {'name': 'toy-bonnie-plush', 'token': 'toy-bonnie-plush'}, {'name': 'alf', 'token': 'alf'}, {'name': 'wojak', 'token': 'oja'}, {'name': 'animalve3-1500seq', 'token': 'diodio'}, {'name': 'muxoyara', 'token': 'muxoyara'}, {'name': 'selezneva-alisa', 'token': 'selezneva-alisa'}, {'name': 'ayush-spider-spr', 'token': 'spr-mn'}, {'name': 'natasha-johnston', 'token': 'natasha-johnston'}, {'name': 'nard-style', 'token': 'nard'}, {'name': 'kirby', 'token': 'kirby'}, {'name': 'el-salvador-style-style', 'token': 'el-salvador-style'}, {'name': 'rahkshi-bionicle', 'token': 'rahkshi-bionicle'}, {'name': 'masyanya', 'token': 'masyanya'}, {'name': 'command-and-conquer-remastered-cameos', 'token': 'command_and_conquer_remastered_cameos'}, {'name': 'lucario', 'token': 'lucario'}, {'name': 'bruma', 'token': 'Bruma-the-cat'}, {'name': 'nissa-revane', 'token': 'nissa-revane'}, {'name': 'tamiyo', 'token': 'tamiyo'}, {'name': 'pascalsibertin', 'token': 'pascalsibertin'}, {'name': 'chandra-nalaar', 'token': 'chandra-nalaar'}, {'name': 'sam-yang', 'token': 'sam-yang'}, {'name': 'kiora', 'token': 'kiora'}, {'name': 'wedding', 'token': 'wedding1'}, {'name': 'arwijn', 'token': 'rwij'}, {'name': 'gba-fe-class-cards', 'token': 'lasscar'}, {'name': 'painted-by-silver-of-999', 'token': 'cat-toy'}, {'name': 'painted-by-silver-of-999-2', 'token': 'girl-painted-by-silver-of-999'}, {'name': 'toyota-sera', 'token': 'toyota-sera'}, {'name': 'vraska', 'token': 'vraska'}, {'name': 'mystical-nature', 'token': ''}, {'name': 'cartoona-animals', 'token': 'cartoona-animals'}, {'name': 'amogus', 'token': 'amogus'}, {'name': 'kinda-sus', 'token': 'amogus'}, {'name': 'xuna', 'token': 'Xuna'}, {'name': 'pion-by-august-semionov', 'token': 'pion'}, {'name': 'rikiart', 'token': 'rick-art'}, {'name': 'jacqueline-the-unicorn', 'token': 'jacqueline'}, {'name': 'flaticon-lineal-color', 'token': 'flaticon-lineal-color'}, {'name': 'test-epson', 'token': 'epson-branch'}, {'name': 'orientalist-art', 'token': 'orientalist-art'}, {'name': 'ki', 'token': 'ki-mars'}, {'name': 'fnf-boyfriend', 'token': 'fnf-boyfriend'}, {'name': 'phoenix-01', 'token': 'phoenix-style'}, {'name': 'society-finch', 'token': 'society-finch'}, {'name': 'rikiboy-art', 'token': 'Rikiboy-Art'}, {'name': 'flatic', 'token': 'flat-ct'}, {'name': 'logo-with-face-on-shield', 'token': 'logo-huizhang'}, {'name': 'elspeth-tirel', 'token': 'elspeth-tirel'}, {'name': 'zero', 'token': 'zero'}, {'name': 'willy-hd', 'token': 'willy_character'}, {'name': 'kaya-ghost-assasin', 'token': 'kaya-ghost-assasin'}, {'name': 'starhavenmachinegods', 'token': 'StarhavenMachineGods'}, {'name': 'namine-ritsu', 'token': 'namine-ritsu'}, {'name': 'mildemelwe-style', 'token': 'mildemelwe'}, {'name': 'nahiri', 'token': 'nahiri'}, {'name': 'ghost-style', 'token': 'ghost'}, {'name': 'arq-render', 'token': 'arq-style'}, {'name': 'saheeli-rai', 'token': 'saheeli-rai'}, {'name': 'youpi2', 'token': 'youpi'}, {'name': 'youtooz-candy', 'token': 'youtooz-candy'}, {'name': 'beholder', 'token': 'beholder'}, {'name': 'progress-chip', 'token': 'progress-chip'}, {'name': 'lofa', 'token': 'lofa'}, {'name': 'huatli', 'token': 'huatli'}, {'name': 'vivien-reid', 'token': 'vivien-reid'}, {'name': 'wedding-HandPainted', 'token': ''}, {'name': 'sims-2-portrait', 'token': 'sims2-portrait'}, {'name': 'flag-ussr', 'token': 'flag-ussr'}, {'name': 'cortana', 'token': 'cortana'}, {'name': 'azura-from-vibrant-venture', 'token': 'azura'}, {'name': 'liliana-vess', 'token': 'liliana-vess'}, {'name': 'dreamy-painting', 'token': 'dreamy-painting'}, {'name': 'munch-leaks-style', 'token': 'munch-leaks-style'}, {'name': 'gta5-artwork', 'token': 'gta5-artwork'}, {'name': 'xioboma', 'token': 'xi-obama'}, {'name': 'ashiok', 'token': 'ashiok'}, {'name': 'Aflac-duck', 'token': 'aflac duck'}, {'name': 'toho-pixel', 'token': 'toho-pixel'}, {'name': 'alicebeta', 'token': 'Alice-style'}, {'name': 'cute-game-style', 'token': 'cute-game-style'}, {'name': 'a-yakimova', 'token': 'a-yakimova'}, {'name': 'anime-background-style', 'token': 'anime-background-style'}, {'name': 'uliana-kudinova', 'token': 'liana-kudinov'}, {'name': 'msg', 'token': 'MSG69'}, {'name': 'gio', 'token': 'gio-single'}, {'name': 'smooth-pencils', 'token': ''}, {'name': 'pintu', 'token': 'pintu-dog'}, {'name': 'marty6', 'token': 'marty6'}, {'name': 'marty', 'token': 'marty'}, {'name': 'xi', 'token': 'JinpingXi'}, {'name': 'captainkirb', 'token': 'captainkirb'}, {'name': 'urivoldemort', 'token': 'uriboldemort'}, {'name': 'anime-background-style-v2', 'token': 'anime-background-style-v2'}, {'name': 'hk-peach', 'token': 'hk-peach'}, {'name': 'hk-goldbuddha', 'token': 'hk-goldbuddha'}, {'name': 'edgerunners-style', 'token': 'edgerunners-style-av'}, {'name': 'warhammer-40k-drawing-style', 'token': 'warhammer40k-drawing-style'}, {'name': 'hk-opencamera', 'token': 'hk-opencamera'}, {'name': 'hk-breakfast', 'token': 'hk-breakfast'}, {'name': 'iridescent-illustration-style', 'token': 'iridescent-illustration-style'}, {'name': 'edgerunners-style-v2', 'token': 'edgerunners-style-av-v2'}, {'name': 'leif-jones', 'token': 'leif-jones'}, {'name': 'hk-buses', 'token': 'hk-buses'}, {'name': 'hk-goldenlantern', 'token': 'hk-goldenlantern'}, {'name': 'hk-hkisland', 'token': 'hk-hkisland'}, {'name': 'hk-leaves', 'token': ''}, {'name': 'hk-oldcamera', 'token': 'hk-oldcamera'}, {'name': 'frank-frazetta', 'token': 'rank franzett'}, {'name': 'obama-based-on-xi', 'token': 'obama> <JinpingXi'}, {'name': 'hk-vintage', 'token': ''}, {'name': 'degods', 'token': 'degods'}, {'name': 'dishonored-portrait-styles', 'token': 'portrait-style-dishonored'}, {'name': 'manga-style', 'token': 'manga'}, {'name': 'degodsheavy', 'token': 'degods-heavy'}, {'name': 'teferi', 'token': 'teferi'}, {'name': 'car-toy-rk', 'token': 'car-toy'}, {'name': 'anders-zorn', 'token': 'anders-zorn'}, {'name': 'rayne-weynolds', 'token': 'rayne-weynolds'}, {'name': 'hk-bamboo', 'token': 'hk-bamboo'}, {'name': 'hk-betweenislands', 'token': 'hk-betweenislands'}, {'name': 'hk-bicycle', 'token': 'hk-bicycle'}, {'name': 'hk-blackandwhite', 'token': 'hk-blackandwhite'}, {'name': 'pjablonski-style', 'token': 'pjablonski-style'}, {'name': 'hk-market', 'token': 'hk-market'}, {'name': 'hk-phonevax', 'token': 'hk-phonevax'}, {'name': 'hk-clouds', 'token': 'hk-cloud'}, {'name': 'hk-streetpeople', 'token': 'hk-streetpeople'}, {'name': 'iridescent-photo-style', 'token': 'iridescent-photo-style'}, {'name': 'color-page', 'token': 'coloring-page'}, {'name': 'hoi4-leaders', 'token': 'HOI4-Leader'}, {'name': 'franz-unterberger', 'token': 'franz-unterberger'}, {'name': 'angus-mcbride-style', 'token': 'angus-mcbride-style'}, {'name': 'happy-chaos', 'token': 'happychaos'}]
+
+def get_concept(name):
+  for con in concepts:
+      if con['name'] == name:
+        return con
+  return {'name':'', 'token':''}
+
+def get_conceptualizer(page):
+    from huggingface_hub import hf_hub_download
+    from diffusers import StableDiffusionPipeline
+    from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+    from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
+    global pipe_conceptualizer
+    repo_id_embeds = f"sd-concepts-library/{prefs['concepts_model']}"
+    embeds_url = "" #Add the URL or path to a learned_embeds.bin file in case you have one
+    placeholder_token_string = "" #Add what is the token string in case you are uploading your own embed
+
+    downloaded_embedding_folder = os.path.join(root_dir, "downloaded_embedding")
+    if not os.path.exists(downloaded_embedding_folder):
+      os.mkdir(downloaded_embedding_folder)
+    try:
+      if(not embeds_url):
+        embeds_path = hf_hub_download(repo_id=repo_id_embeds, filename="learned_embeds.bin")
+        token_path = hf_hub_download(repo_id=repo_id_embeds, filename="token_identifier.txt")
+        shutil.copy(embeds_path, downloaded_embedding_folder)
+        shutil.copy(token_path, downloaded_embedding_folder)
+        with open(f'{downloaded_embedding_folder}/token_identifier.txt', 'r') as file:
+          placeholder_token_string = file.read()
+      else:
+        run_sp(f"wget -q -O {downloaded_embedding_folder}/learned_embeds.bin {embeds_url}")
+        #!wget -q -O $downloaded_embedding_folder/learned_embeds.bin $embeds_url
+    except:
+      alert_msg(page, f"Error getting concept. May need to accept model at https://huggingface.co/sd-concepts-library/{prefs['concepts_model']}")
+      return
+    learned_embeds_path = f"{downloaded_embedding_folder}/learned_embeds.bin"
+    tokenizer = CLIPTokenizer.from_pretrained(model_path, subfolder="tokenizer")
+    text_encoder = CLIPTextModel.from_pretrained(model_path, subfolder="text_encoder", torch_dtype=torch.float16)
+    def load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer, token=None):
+      loaded_learned_embeds = torch.load(learned_embeds_path, map_location="cpu")
+      trained_token = list(loaded_learned_embeds.keys())[0]
+      embeds = loaded_learned_embeds[trained_token]
+      dtype = text_encoder.get_input_embeddings().weight.dtype
+      embeds.to(dtype)
+      token = token if token is not None else trained_token
+      num_added_tokens = tokenizer.add_tokens(token)
+      if num_added_tokens == 0:
+        alert_msg(page, f"The tokenizer already contains the token {token}. Please pass a different `token` that is not already in the tokenizer.")
+        return
+      text_encoder.resize_token_embeddings(len(tokenizer))
+      token_id = tokenizer.convert_tokens_to_ids(token)
+      text_encoder.get_input_embeddings().weight.data[token_id] = embeds
+    load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer)
+    pipe_conceptualizer = StableDiffusionPipeline.from_pretrained(
+        model_path,
+        revision="fp16",
+        torch_dtype=torch.float16,
+        text_encoder=text_encoder,
+        tokenizer=tokenizer,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+    )
+    #if prefs['enable_attention_slicing']: pipe_conceptualizer.enable_attention_slicing()
+    if prefs['memory_optimization'] == 'Attention Slicing':
+      pipe_conceptualizer.enable_attention_slicing()
+    elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+      pipe_conceptualizer.enable_xformers_memory_efficient_attention()
+    if prefs['sequential_cpu_offload']:
+      pipe_conceptualizer.enable_sequential_cpu_offload()
+    pipe_conceptualizer.set_progress_bar_config(disable=True)
+    pipe_conceptualizer = pipe_conceptualizer.to(torch_device)
+    return pipe_conceptualizer
 
 def clear_img2img_pipe():
   global pipe_img2img
@@ -2045,18 +2507,26 @@ def clear_clip_guided_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_clip_guided = None
+def clear_conceptualizer_pipe():
+  global pipe_conceptualizer
+  if pipe_conceptualizer is not None:
+    #print("Clearing out CLIP Guided pipeline for more VRAM")
+    del pipe_conceptualizer
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_conceptualizer = None
 
-def available_file(folder, name, idx):
+def available_file(folder, name, idx, ext='png'):
   available = False
   while not available:
     # Todo, check if using PyDrive2
-    if os.path.isfile(os.path.join(folder, f'{name}-{idx}.png')):
+    if os.path.isfile(os.path.join(folder, f'{name}-{idx}.{ext}')):
       idx += 1
     else: available = True
-  return os.path.join(folder, f'{name}-{idx}.png')
+  return os.path.join(folder, f'{name}-{idx}.{ext}')
 
 def start_diffusion(page):
-  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
+  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
   def prt(line):
     if type(line) == str:
       line = Text(line)
@@ -2067,9 +2537,18 @@ def start_diffusion(page):
     del page.Images.content.controls[-1]
     page.Images.content.update()
     page.Images.update()
+  abort_run = False
+  def abort_diffusion(e):
+    nonlocal abort_run
+    abort_run = True
+    page.snd_error.play()
+  def callback_cancel(cancel) -> None:
+    callback_cancel.has_been_called = True
+
   page.Images.content.controls = []
+  page.Images.content.update()
   pb.width=page.width - 50
-  prt(Text("▶️  Running Stable Diffusion on Batch Prompts List", style="titleLarge"),)
+  prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style="titleLarge"), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment="spaceBetween"))
   import string, shutil, random, gc, io, json
   from collections import ChainMap
   import PIL
@@ -2196,7 +2675,7 @@ def start_diffusion(page):
       
       if prefs['use_Stability_api'] or bool(arg['use_Stability']):    
         if not status['loaded_stability_']:
-          print(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: To use Stability-API, you must run the init block above")
+          prt(f"ERROR: To use Stability-API, you must run the install it first and have proper API key")
         else:
           prt('Stablity API Diffusion ' + ('─' * 100))
           #print(f'"{SD_prompt}", height={SD_height}, width={SD_width}, steps={SD_steps}, cfg_scale={SD_guidance_scale}, seed={SD_seed}, sampler={generation_sampler}')
@@ -2235,7 +2714,7 @@ def start_diffusion(page):
             else:
               if os.path.isfile(arg['init_image']):
                 init_img = PILImage.open(arg['init_image']).convert("RGB")
-              else: prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: Couldn't find your init_image {arg['init_image']}")
+              else: prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
             init_img = init_img.resize((arg['width'], arg['height']))
             answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=not prefs["disable_nsfw_filter"], sampler=SD_sampler)
           else:
@@ -2247,7 +2726,7 @@ def start_diffusion(page):
                 usable_image = False
               if artifact.finish_reason == generation.ARTIFACT_TEXT:         
                 usable_image = False
-                print(f"{Color.RED}{Color.BOLD}Couldn't process NSFW text in prompt.{Color.END} Can't retry so change your request.")
+                prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
               if artifact.type == generation.ARTIFACT_IMAGE:
                 images.append(PILImage.open(io.BytesIO(artifact.binary)))
 
@@ -2316,9 +2795,11 @@ def start_diffusion(page):
             #for img in uint8_images: images.append(Image.fromarray(img))
             images = [PILImage.fromarray(img) for img in uint8_images]
           else:
-            if bool(arg['use_clip_guided_model']):
+            if bool(arg['use_clip_guided_model']) and status['installed_clip']:
               if bool(arg['init_image']) or bool(arg['mask_image']):
-                raise ValueError("Cannot use CLIP Guided Model with init or mask image yet.")
+                #raise ValueError("Cannot use CLIP Guided Model with init or mask image yet.")
+                alert_msg(page, "Cannot use CLIP Guided Model with init or mask image yet.")
+                return
               clear_txt2img_pipe()
               clear_img2img_pipe()
               clear_unet_pipe()
@@ -2333,7 +2814,13 @@ def start_diffusion(page):
                 pipe_clip_guided.unfreeze_vae()
               else:
                 pipe_clip_guided.freeze_vae()
-              images = pipe_clip_guided(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], clip_prompt=clip_prompt, clip_guidance_scale=arg["clip_guidance_scale"], num_cutouts=arg["num_cutouts"], use_cutouts=arg["use_cutouts"], generator=generator).images
+              # TODO: Figure out why it's broken with use_cutouts=False and doesn't generate, hacking it True for now
+              arg["use_cutouts"] = True 
+              page.auto_scrolling(False)
+              prt(pb)
+              images = pipe_clip_guided(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], clip_prompt=clip_prompt, clip_guidance_scale=arg["clip_guidance_scale"], num_cutouts=int(arg["num_cutouts"]) if arg["use_cutouts"] else None, use_cutouts=arg["use_cutouts"], generator=generator).images
+              clear_last()
+              page.auto_scrolling(True)
               '''if prefs['precision'] == "autocast":
                 with autocast("cuda"):
                   images = pipe_clip_guided(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], clip_prompt=clip_prompt, clip_guidance_scale=arg["clip_guidance_scale"], num_cutouts=arg["num_cutouts"], use_cutouts=arg["use_cutouts"], generator=generator).images
@@ -2341,23 +2828,38 @@ def start_diffusion(page):
                 with autocast("cuda"):
                   with torch.no_grad():
                     images = pipe_clip_guided(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], clip_prompt=clip_prompt, clip_guidance_scale=arg["clip_guidance_scale"], num_cutouts=arg["num_cutouts"], use_cutouts=arg["use_cutouts"], generator=generator).images'''
-            elif bool(arg['mask_image']):
-              if not bool(arg['init_image']):
-                prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: You have not selected an init_image to go with your image mask..")
-                continue
+            elif bool(prefs['use_conceptualizer']) and status['installed_conceptualizer']:
               clear_txt2img_pipe()
+              clear_img2img_pipe()
               clear_unet_pipe()
               clear_clip_guided_pipe()
-              #clear_img2img_pipe()
+              if pipe_conceptualizer is None:
+                pipe_conceptualizer = get_conceptualizer(page)
+              total_steps = arg['steps']
+              page.auto_scrolling(False)
+              prt(pb)
+              images = pipe_conceptualizer(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              clear_last()
+              page.auto_scrolling(True)
+            elif bool(arg['mask_image']):
+              if not bool(arg['init_image']):
+                alert_msg(page, f"ERROR: You have not selected an init_image to go with your image mask..")
+                return
+              #clear_txt2img_pipe()
+              clear_img2img_pipe()
+              clear_unet_pipe()
+              clear_clip_guided_pipe()
               #if pipe_inpainting is None:
               #  pipe_inpainting = get_inpainting_pipe()
-              if pipe_img2img is None:
+              if pipe is None:
+                pipe = get_txt2img_pipe()
+              '''if pipe_img2img is None:
                 try:
                   pipe_img2img = get_img2img_pipe()
                 except NameError:
                   prt(f"{Color.RED}You must install the image2image Pipeline above.{Color.END}")
                 finally:
-                  raise NameError("You must install the image2image Pipeline above")
+                  raise NameError("You must install the image2image Pipeline above")'''
               import requests
               from io import BytesIO
               if arg['init_image'].startswith('http'):
@@ -2366,7 +2868,7 @@ def start_diffusion(page):
               else:
                 if os.path.isfile(arg['init_image']):
                   init_img = PILImage.open(arg['init_image'])
-                else: prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: Couldn't find your init_image {arg['init_image']}")
+                else: prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
               init_img = init_img.resize((arg['width'], arg['height']))
               #init_image = preprocess(init_img)
               mask_img = None
@@ -2376,7 +2878,7 @@ def start_diffusion(page):
               else:
                 if os.path.isfile(arg['mask_image']):
                   mask_img = PILImage.open(arg['mask_image'])
-                else: prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: Couldn't find your mask_image {arg['mask_image']}")
+                else: prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
               mask_img = mask_img.convert("L")
               mask_img = mask_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS).convert("RGB")
               #mask = mask_img.resize((arg['width'], arg['height']))
@@ -2388,22 +2890,28 @@ def start_diffusion(page):
               page.auto_scrolling(False)
               prt(pb)
               #with autocast("cuda"):
-              images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, init_image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1)["sample"]
+              if prefs['use_inpaint_model'] and status['installed_img2img']:
+                images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, init_image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1)["sample"]
+              else:
+                images = pipe.inpaint(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, init_image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1)["sample"]
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['init_image']):
-              if not status['installed_img2img']:
-                prt(f"{Color.RED}{Color.BOLD}CRITICAL ERROR{Color.END}: You have not installed the image2image pipeline yet.  Run cell above..")
+              if not status['installed_txt2img']:
+                alert_msg(page, f"CRITICAL ERROR: You have not installed the image2image pipeline yet.  Run in the Installer..")
                 continue
-              clear_txt2img_pipe()
+              #clear_txt2img_pipe()
+              clear_img2img_pipe()
               clear_unet_pipe()
               clear_clip_guided_pipe()
-              if pipe_img2img is None:
+              if pipe is None:
+                pipe = get_txt2img_pipe()
+              '''if pipe_img2img is None:
                 try:
                   pipe_img2img = get_img2img_pipe()
                 except NameError:
                   prt(f"{Color.RED}You must install the image2image Pipeline above.{Color.END}")
-                  raise NameError("You must install the image2image Pipeline above")
+                  raise NameError("You must install the image2image Pipeline above")'''
                 #finally:
               import requests
               from io import BytesIO
@@ -2413,14 +2921,19 @@ def start_diffusion(page):
               else:
                 if os.path.isfile(arg['init_image']):
                   init_img = PILImage.open(arg['init_image']).convert("RGB")
-                else: prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: Couldn't find your init_image {arg['init_image']}")
+                else: alert_msg(page, f"ERROR: Couldn't find your init_image {arg['init_image']}")
               init_img = init_img.resize((arg['width'], arg['height']))
               #init_image = preprocess(init_img)
-              white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
+              #white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
               page.auto_scrolling(False)
               prt(pb)
               #with autocast("cuda"):
-              images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              #images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              if prefs['use_inpaint_model'] and status['installed_img2img']:
+                white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
+                images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              else:
+                images = pipe.img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['prompt2']):
@@ -2451,7 +2964,7 @@ def start_diffusion(page):
               total_steps = arg['steps']
               page.auto_scrolling(False)
               prt(pb)
-              images = pipe(pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               '''if prefs['precision'] == "autocast":
                 with autocast("cuda"):
                   images = pipe(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], seed = arg['seed'], generator=generator, callback=callback_fn, callback_steps=1)["sample"]
@@ -2463,7 +2976,7 @@ def start_diffusion(page):
               page.auto_scrolling(True)
         except RuntimeError as e:
           if 'out of memory' in str(e):
-            prt(f"{Color.RED}{Color.BOLD}CRITICAL ERROR{Color.END}: GPU ran out of memory! Flushing memory to save session...")
+            alert_msg(page, f"CRITICAL ERROR: GPU ran out of memory! Flushing memory to save session... Try reducing image size.")
             pass
         finally:
           gc.collect()
@@ -2487,7 +3000,7 @@ def start_diffusion(page):
       filename = format_filename(pr[0] if type(pr) == list else pr)
       idx = 0
       if images is None:
-        prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
+        prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
         images = []
 
       for image in images:
@@ -2653,7 +3166,15 @@ def start_diffusion(page):
           #prt(Row([Img(src=new_file, width=arg['width'], height=arg['height'], fit="fill", gapless_playback=True)], alignment="center"))
         prt(Row([Text(fpath.rpartition('/')[2])], alignment="center"))
         idx += 1
+        if abort_run:
+          prt(Text("🛑   Aborting Current Diffusion Run..."))
+          abort_run = False
+          return
       p_idx += 1
+      if abort_run:
+        prt(Text("🛑   Aborting Current Diffusion Run..."))
+        abort_run = False
+        return
     if prefs['enable_sounds']: page.snd_alert.play()
   else:
     clear_txt2img_pipe()
@@ -2696,7 +3217,7 @@ def start_diffusion(page):
         elif event.event_type == 'created':
           clear_last()
           page.auto_scrolling(True)
-          #p_count = f'[{img_idx + 1} of {len(walk_prompts)}]  '
+          #p_count = f'[{img_idx + 1} of {(len(walk_prompts) -1) * int(prefs['num_interpolation_steps'])}]  '
           #prt(Divider(height=6, thickness=2))
           #prt(Row([Text(p_count), Text(walk_prompts[img_idx], expand=True, weight="bold"), Text(f'seed: {walk_seeds[img_idx]}')]))
           prt(Row([Img(src=event.src_path, width=arg['width'], height=arg['height'], fit="fill", gapless_playback=True)], alignment="center"))
@@ -2738,11 +3259,11 @@ def start_diffusion(page):
       filenames = os.listdir(f'{root_dir}/Real-ESRGAN/results')
       for oname in filenames:
         fparts = oname.rpartition('_out')
-        fname_clean = fparts[0] + filename_suffix + fparts[2]
+        fname_clean = fparts[0] + fparts[2]
         opath = os.path.join(fpath, fname_clean)
         shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{oname}', opath)
       os.chdir(stable_dir)
-    os.makedir(os.path.join(batch_output, bfolder), exist_ok=True)
+    os.makedirs(os.path.join(batch_output, bfolder), exist_ok=True)
     imgs = os.listdir(fpath)
     for i in imgs:
       #prt(f'Created {i}')
@@ -2755,7 +3276,7 @@ def start_diffusion(page):
         out_file.SetContentFile(fpath)
         out_file.Upload()
       elif bool(prefs['image_output']):
-        shutil.copy(os.path.join(fpath, i), os.path.join(batch_output, i))
+        shutil.copy(os.path.join(fpath, i), os.path.join(batch_output, bfolder, i))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -3415,6 +3936,88 @@ def run_initfolder(page):
         alert_msg(page, 'The init_folder directory does not exist.')
     else: alert_msg(page, 'Your prompt_string is empty. What do you want to apply to images?')
 
+def run_dance_diffusion(page):
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    global dance_pipe, dance_prefs
+    if dance_prefs['dance_model'] == 'Community':
+      alert_msg(page, "Custom Community Checkpoints are not functional yet, working on it so check back later... ")
+      return
+    from diffusers import DanceDiffusionPipeline
+    import scipy.io.wavfile, random
+    try:
+      import gdown
+    except ImportError:
+      run_sp("pip install gdown")
+    finally:
+      import gdown
+    #import sys
+    #sys.path.append('drive/gdrive/MyDrive/NotebookDatasets/CMVRLG')
+    #print(dir(os))
+    #print(dir(os.path))
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.dance_output.controls.append(line)
+      page.dance_output.update()
+    def clear_last():
+      del page.dance_output.controls[-1]
+      page.dance_output.update()
+    def play_audio(e):
+      e.control.data.play()
+    prt(Row([ProgressRing(), Text(" Downloading Dance Diffusion Models", weight="bold")]))
+    dance_model_file = f"harmonai/{dance_prefs['dance_model']}"
+    if dance_prefs['dance_model'] == 'Community':
+      models_path = os.path.join(root_dir, 'models')
+      os.makedirs(models_path, exist_ok=True)
+      for c in community_models:
+        if c['name'] == dance_prefs['community_model']:
+          community = c
+      if bool(community['download']):
+        dance_model_file = os.path.join(models_path, community['ckpt'])
+        gdown.download(community['download'], dance_model_file, quiet=True)
+        #run_sp(f'gdown {community['download']} {dance_model_file}')
+        #run_sp(f"wget {community['download']} -O {models_path}")
+    dance_pipe = DanceDiffusionPipeline.from_pretrained(dance_model_file, torch_dtype=torch.float16, device_map="auto")
+    dance_pipe = dance_pipe.to(torch_device)
+    dance_pipe.set_progress_bar_config(disable=True)
+    random_seed = int(dance_prefs['seed']) if int(dance_prefs['seed']) > 0 else random.randint(0,4294967295)
+    dance_generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+    clear_last()
+    pb.width=page.width - 50
+    prt(pb)
+    output = dance_pipe(generator=dance_generator, batch_size=int(dance_prefs['batch_size']), num_inference_steps=int(dance_prefs['inference_steps']), audio_length_in_s=float(dance_prefs['audio_length_in_s']))
+    #, callback=callback_fn, callback_steps=1)
+    audio = output.audios
+    audio_slice = audio[0, -3:, -3:]
+    clear_last()
+    #prt(f'audio: {type(audio[0])}, audio_slice: {type(audio_slice)}, len:{len(audio)}')
+    #audio_slice.tofile("/content/dance-test.wav")
+    audio_name = f"dance-{dance_prefs['dance_model']}" + (f"-{random_seed}" if prefs['file_suffix_seed'] else '')
+    audio_local = os.path.join(root_dir, "audio_out")
+    os.makedirs(audio_local, exist_ok=True)
+    if storage_type == "Colab Google Drive":
+      audio_out = prefs['image_output'].rpartition('/')[0] + '/audio_out'
+      os.makedirs(audio_out, exist_ok=True)
+    i = 0
+    for a in audio:
+      fname = available_file(audio_local, audio_name, i, ext="wav")
+      scipy.io.wavfile.write(fname, dance_pipe.unet.sample_rate, a.transpose())
+      os.path.abspath(fname)
+      a_out = Audio(src=fname, autoplay=False)
+      page.overlay.append(a_out)
+      page.update()
+      display_name = fname
+      #a.tofile(f"/content/dance-{i}.wav")
+      if storage_type == "Colab Google Drive":
+        audio_save = available_file(audio_out, audio_name, i, ext='wav')
+        shutil.copy(fname, audio_save)
+        display_name = audio_save
+      prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+      i += 1
+
+
 def main(page: Page):
     page.title = "Stable Diffusion Deluxe - FletUI"
     #page.scroll="auto"
@@ -3441,13 +4044,13 @@ def main(page: Page):
           runtime.unassign()
           #import time
     help_dlg = AlertDialog(
-        title=Text("💁   Help/Information"), content=Column([Text("If you don't now what Stable Diffusion is, you're in for a surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI friends with our pretty interface."),
+        title=Text("💁   Help/Information"), content=Column([Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI friends with our pretty interface."),
               Text("Simply go through the self-explanitory tabs step-by-step and set your preferences to get started. The default values are good for most, but you can have some fun experimenting. All values are automatically saved as you make changes and change tabs."),
               Text("Each time you open the app, you should start in the Installers section, turn on all the components you plan on using in you session, then Run the Installers and let them download. You can multitask and work in other tabs while it's installing."),
               Text("In the Prompts List, add as many text prompts as you can think of, and edit any prompt to override any default Image Parameter.  Once you're ready, run diffusion on your prompts list and watch it fill your Google Drive.."),
-              Text("Try out any and all of our Prompt Helpers to use practical text AIs to make unique descriptive prompts fast, with our Generator, Remixer, Brainstormer and Advanced Writer.  You'll never run out of inspiration again..."),
+              Text("Try out any and all of our Prompt Helpers to use practical text AIs to make unique descriptive prompts fast, with our Prompt Generator, Remixer, Brainstormer and Advanced Writer.  You'll never run out of inspiration again..."),
         ], scroll="auto"),
-        actions=[TextButton("Thanks!", on_click=close_help_dlg)], actions_alignment="end",
+        actions=[TextButton("👍  Thanks! ", on_click=close_help_dlg)], actions_alignment="end",
     )
     def open_credits_dlg(e):
         page.dialog = credits_dlg
@@ -3468,7 +4071,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     credits_dlg = AlertDialog(
         title=Text("🙌   Credits/Acknowledgments"), content=Column([Markdown(credits_markdown, extension_set="gitHubWeb", on_tap_link=open_url)
         ], scroll="auto"),
-        actions=[TextButton("Good Stuff...", on_click=close_credits_dlg)], actions_alignment="end",
+        actions=[TextButton("👊   Good Stuff... ", on_click=close_credits_dlg)], actions_alignment="end",
     )
     page.theme_mode = prefs['theme_mode'].lower()
     if prefs['theme_mode'] == 'Dark':
@@ -3487,6 +4090,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
                   items=[
                       PopupMenuItem(text="🤔  Help/Info", on_click=open_help_dlg),
                       PopupMenuItem(text="👏  Credits", on_click=open_credits_dlg),
+                      PopupMenuItem(text="🤧  Issues/Suggestions", on_click=lambda _:page.launch_url("https://github.com/Skquark/AI-Friends/issues")),
                       PopupMenuItem(text="📨  Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")),
                       PopupMenuItem(text="🤑  Offer Donation", on_click=lambda _:page.launch_url("https://paypal.me/StarmaTech")),
                       PopupMenuItem(),
@@ -3609,10 +4213,14 @@ elif tunnel_type == "localtunnel":
   localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
   url = str(localtunnel.stdout.readline())
   public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
-
+else: public_url=""
+from IPython.display import Javascript
+if auto_launch_website:
+  display(Javascript('window.open("{url}");'.format(url=public_url)))
+  time.sleep(0.6)
+  clear_output()
 print("Open URL in browser: " + str(public_url))
 
-from IPython.display import Javascript
 #await google.colab.kernel.proxyPort(%s)
 # Still not working to display app in Colab console, but tried.
 def show_port(adr, height=500):
@@ -3638,9 +4246,7 @@ def show_port(adr, height=500):
 #run_sp(f'python -m webbrowser -t "{public_url.public_url}"')
 #webbrowser.open(public_url.public_url, new=0, autoraise=True)
 #webbrowser.open_new_tab(public_url.public_url)
-if auto_launch_website:
-  display(Javascript('window.open("{url}");'.format(url=public_url)))
-flet.app(target=main, view=flet.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir="uploads", web_renderer="html")
+flet.app(target=main, view=flet.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
 #flet.app(target=main, view=flet.WEB_BROWSER, port=port, host=socket_host)
 #flet.app(target=main, view=flet.WEB_BROWSER, port=port, host=host_address)
 #flet.app(target=main, view=flet.WEB_BROWSER, port=80, host=public_url.public_url)
