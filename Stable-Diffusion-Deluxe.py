@@ -1,6 +1,9 @@
 #@title ## ⚙️ Install Python Desktop Flet Framework & Initiallize Settings
 #markdown If you're running on Google Colab, authorize Google Drive with the popup to connect storage. If you're on a local or cloud Jupyter Notebook, you must get a OAuth json using instructions below to save images to GDrive, however the feature is not currently working and in progress. When set, continue to run the Web UI and experiment away..
 #@markdown We'll connect to your Google Drive and save all of your preferences in realtime there, as well as your created images. This is the folder location and file name we recommend in your mounted gdrive, will be created if you're new, but you can save elsewhere.  Launches webpage with localtunnel, but in case it's down you can use ngrok instead.
+#pyinstaller Stable-Diffusion-Deluxe.py --hidden-import=requests --hidden-import=torch --hidden-import=huggingface-hub --hidden-import=transformers[dev] --hidden-import=tqdm --hidden-import=regex  --hidden-import=git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch] --collect-all=tqdm --collect-all=git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]  --collect-all=transformers --collect-all=regex
+#pyinstaller Stable-Diffusion-Deluxe.spec -y
+
 storage_type = "Local Drive" #@param ["Colab Google Drive", "PyDrive Google Drive", "Local Drive"]
 Google_OAuth_client_secret_json = "/content/client_secrets.json" #param {'type': 'string'}
 save_to_GDrive = False #param {'type': 'boolean'}
@@ -9,7 +12,7 @@ tunnel_type = "desktop" #@param ["localtunnel", "ngrok"]
 #, "cloudflared"
 auto_launch_website = False #@param {'type': 'boolean'}
 version = "v1.4"
-import os, subprocess, sys
+import os, subprocess, sys, shutil
 root_dir = '/content/'
 is_Colab = True
 try:
@@ -131,7 +134,8 @@ except ImportError as e:
   run_sp("pip install emoji --quiet")
   from emoji import emojize
   pass
-
+if 'url' not in locals():
+  url=""
 if tunnel_type == "ngrok":
   try:
     import pyngrok
@@ -141,12 +145,13 @@ if tunnel_type == "ngrok":
     import pyngrok
     pass
 elif tunnel_type == "localtunnel":
-  import re
-  run_sp("npm install -g -q localtunnel")
-  localtunnel = subprocess.Popen(['lt', '--port', '8510', 'http'], stdout=subprocess.PIPE)
-  url = str(localtunnel.stdout.readline())
-  url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
-  print(url)
+  if not bool(url):
+    import re
+    run_sp("npm install -g -q localtunnel")
+    localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
+    url = str(localtunnel.stdout.readline())
+    url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
+    print(url)
 
 gdrive = None
 if storage_type == "PyDrive Google Drive":
@@ -232,6 +237,7 @@ def load_settings_file():
       'enable_attention_slicing': True,
       'memory_optimization': 'Attention Slicing',
       'sequential_cpu_offload': False,
+      'vae_slicing': False,
       'cache_dir': '',
       'install_diffusers': True,
       'install_interpolation': False,
@@ -245,8 +251,16 @@ def load_settings_file():
       'install_repaint': False,
       'install_imagic': False,
       'install_composable': False,
+      'install_safe': False,
+      'install_versatile': False,
+      'install_upscale': False,
+      'safety_config': 'Strong',
       'use_imagic': False,
       'use_composable': False,
+      'use_safe': False,
+      'use_versatile': False,
+      'use_upscale': False,
+      'upscale_noise_level': 20,
       'install_conceptualizer': False,
       'use_conceptualizer': False,
       'concepts_model': 'cat-toy',
@@ -259,12 +273,12 @@ def load_settings_file():
       'install_Stability_api': False,
       'use_Stability_api': False,
       'model_checkpoint': "stable-diffusion-v1-5",
-      'generation_sampler': "k_euler_ancestral",
+      'generation_sampler': "K_EULER_ANCESTRAL",
       'install_ESRGAN': True,
       'batch_folder_name': "",
       'batch_size': 1,
       'n_iterations': 1,
-      'steps': 90,
+      'steps': 50,
       'eta': 0.4,
       'seed': 0,
       'guidance_scale': 8,
@@ -334,10 +348,11 @@ version_checker()
 
 
 #@title ## **▶️ Run Stable Diffusion Deluxe** - Flet/Flutter WebUI App
-import flet, webbrowser
+import flet
 #from flet import *
 from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
-from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation
+from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, AnimationCurve, KeyboardType, TextThemeStyle
+from flet.types import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
 from flet import Image as Img
 try:
     import PIL
@@ -346,11 +361,13 @@ except Exception:
     run_sp("pip install image", realtime=False)
     import PIL
     pass
-from PIL import Image as PILImage
+from PIL import Image as PILImage # Avoids flet conflict
 import random as rnd
 import io, shutil
 from contextlib import redirect_stdout
 
+if 'prefs' not in locals():
+    raise ValueError("Setup not initialized. Run the previous code block first and authenticate your Drive storage.")
 status = {
     'installed_diffusers': False,
     'installed_txt2img': False,
@@ -367,6 +384,9 @@ status = {
     'installed_repaint': False,
     'installed_imagic': False,
     'installed_composable': False,
+    'installed_safe': False,
+    'installed_versatile': False,
+    'installed_upscale': False,
     'finetuned_model': False,
     'changed_settings': False,
     'changed_installers': False,
@@ -442,7 +462,6 @@ def tab_on_change (e):
     e.page.update()
 
 def buildTabs(page):
-    global status
     page.Settings = buildSettings(page)
     page.Installers = buildInstallers(page)
     page.Parameters = buildParameters(page)
@@ -496,6 +515,7 @@ if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
 if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
 if 'memory_optimization' not in prefs: prefs['memory_optimization'] = 'Attention Slicing'
 if 'sequential_cpu_offload' not in prefs: prefs['sequential_cpu_offload'] = False
+if 'vae_slicing' not in prefs: prefs['vae_slicing'] = False
 if 'use_inpaint_model' not in prefs: prefs['use_inpaint_model'] = False
 if 'cache_dir' not in prefs: prefs['cache_dir'] = ''
 if 'Replicate_api_key' not in prefs: prefs['Replicate_api_key'] = ''
@@ -507,9 +527,17 @@ if 'custom_model' not in prefs: prefs['custom_model'] = ''
 if 'custom_models' not in prefs: prefs['custom_models'] = []
 if 'start_in_installation' not in prefs: prefs['start_in_installation'] = False
 if 'install_imagic' not in prefs: prefs['install_imagic'] = False
-if 'install_composable' not in prefs: prefs['install_composable'] = False
 if 'use_imagic' not in prefs: prefs['use_imagic'] = False
+if 'install_composable' not in prefs: prefs['install_composable'] = False
 if 'use_composable' not in prefs: prefs['use_composable'] = False
+if 'install_safe' not in prefs: prefs['install_safe'] = False
+if 'use_safe' not in prefs: prefs['use_safe'] = False
+if 'safety_config' not in prefs: prefs['safety_config'] = "Strong"
+if 'install_versatile' not in prefs: prefs['install_versatile'] = False
+if 'use_versatile' not in prefs: prefs['use_versatile'] = False
+if 'install_upscale' not in prefs: prefs['install_upscale'] = False
+if 'use_upscale' not in prefs: prefs['use_upscale'] = False
+if 'upscale_noise_level' not in prefs: prefs['upscale_noise_level'] = 20
 
 def initState(page):
     global status, current_tab
@@ -520,13 +548,13 @@ def initState(page):
     page.snd_delete = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-delete.mp3?raw=true", autoplay=False)
     page.snd_error = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-error.mp3?raw=true", autoplay=False)
     page.snd_done = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-done.mp3?raw=true", autoplay=False)
-    page.snd_notification = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-notification.mp3?raw=true", autoplay=False)
+    #page.snd_notification = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-notification.mp3?raw=true", autoplay=False)
     page.snd_drop = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-drop.mp3?raw=true", autoplay=False)
     page.overlay.append(page.snd_alert)
     page.overlay.append(page.snd_delete)
     page.overlay.append(page.snd_error)
     page.overlay.append(page.snd_done)
-    page.overlay.append(page.snd_notification)
+    #page.overlay.append(page.snd_notification)
     page.overlay.append(page.snd_drop)
     #print("Running Init State")
     if prefs['start_in_installation']:
@@ -588,10 +616,10 @@ def buildSettings(page):
   file_prefix = TextField(label="Filename Prefix",  value=prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
   file_suffix_seed = Checkbox(label="Filename Suffix Seed   ", tooltip="Appends -seed# to the end of the image name", value=prefs['file_suffix_seed'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_suffix_seed'))
   file_allowSpace = Checkbox(label="Filename Allow Space", tooltip="Otherwise will replace spaces with _ underscores", value=prefs['file_allowSpace'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_allowSpace'))
-  file_max_length = TextField(label="Filename Max Length", tooltip="How long can the name taken from prompt text be? Max 250", value=prefs['file_max_length'], keyboard_type="number", width=150, height=60, on_change=lambda e:changed(e, 'file_max_length'))
+  file_max_length = TextField(label="Filename Max Length", tooltip="How long can the name taken from prompt text be? Max 250", value=prefs['file_max_length'], keyboard_type=KeyboardType.NUMBER, width=150, height=60, on_change=lambda e:changed(e, 'file_max_length'))
   save_image_metadata = Checkbox(label="Save Image Metadata in png", tooltip="Embeds your Artist Name & Copyright in the file's EXIF", value=prefs['save_image_metadata'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_image_metadata'))
-  meta_ArtistName = TextField(label="Artist Name Metadata", value=prefs['meta_ArtistName'], keyboard_type="name", on_change=lambda e:changed(e, 'meta_ArtistName'))
-  meta_Copyright = TextField(label="Copyright Metadata", value=prefs['meta_Copyright'], keyboard_type="name", on_change=lambda e:changed(e, 'meta_Copyright'))
+  meta_ArtistName = TextField(label="Artist Name Metadata", value=prefs['meta_ArtistName'], keyboard_type=KeyboardType.NAME, on_change=lambda e:changed(e, 'meta_ArtistName'))
+  meta_Copyright = TextField(label="Copyright Metadata", value=prefs['meta_Copyright'], keyboard_type=KeyboardType.NAME, on_change=lambda e:changed(e, 'meta_Copyright'))
   save_config_in_metadata = Checkbox(label="Save Config in Metadata    ", tooltip="Embeds all prompt parameters in the file's EXIF to recreate", value=prefs['save_config_in_metadata'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_config_in_metadata'))
   save_config_json = Checkbox(label="Save Config JSON files", tooltip="Creates a json text file with all prompt parameters with each image", value=prefs['save_config_json'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_config_json'))
   theme_mode = Dropdown(label="Theme Mode", width=200, options=[dropdown.Option("Dark"), dropdown.Option("Light")], value=prefs['theme_mode'], on_change=change_theme_mode)
@@ -599,9 +627,9 @@ def buildSettings(page):
   enable_sounds = Checkbox(label="Enable UI Sound Effects    ", tooltip="Turn on for audible errors, deletes and generation done notifications", value=prefs['enable_sounds'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_sounds'))
   start_in_installation = Checkbox(label="Start in Installation Page", tooltip="When launching app, switch to Installer tab. Saves time..", value=prefs['start_in_installation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'start_in_installation'))
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters", value=prefs['disable_nsfw_filter'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
-  retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
-  api_instructions = Container(height=145, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens and accept the cards for [1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5), [1.4 model](https://huggingface.co/CompVis/stable-diffusion-v1-4),  & [Inpainting model](https://huggingface.co/runwayml/stable-diffusion-inpainting).\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=147, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens and accept the cards for [1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5), [1.4 model](https://huggingface.co/CompVis/stable-diffusion-v1-4),  & [Inpainting model](https://huggingface.co/runwayml/stable-diffusion-inpainting).\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
@@ -612,10 +640,10 @@ def buildSettings(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text ("⚙️   Deluxe Stable Diffusion Settings & Preferences", style="titleLarge"),
+        Text ("⚙️   Deluxe Stable Diffusion Settings & Preferences", style=TextThemeStyle.TITLE_LARGE),
         Divider(thickness=1, height=4),
         #save_to_GDrive,
-        ResponsiveRow([image_output, optional_cache_dir,], run_spacing=2),
+        ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
         #VerticalDivider(thickness=2),
         Row([file_prefix, file_suffix_seed]) if page.width > 500 else Column([file_prefix, file_suffix_seed]),
         Row([file_max_length, file_allowSpace]),
@@ -638,7 +666,7 @@ def buildSettings(page):
         #save_button,
         Container(content=None, height=32),
       ],  
-  ))], scroll="auto",)
+  ))], scroll=ScrollMode.AUTO,)
   return c
 
 def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False):
@@ -673,7 +701,7 @@ def close_alert_dlg(e):
 def alert_msg(page, msg, content=None):
       if prefs['enable_sounds']: page.snd_error.play()
       okay = ElevatedButton("👌  OKAY ", on_click=close_alert_dlg)
-      page.alert_dlg = AlertDialog(title=Text(msg), content=content, actions=[okay], actions_alignment="end")
+      page.alert_dlg = AlertDialog(title=Text(msg), content=content, actions=[okay], actions_alignment=MainAxisAlignment.END)
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
       page.update()
@@ -714,11 +742,11 @@ def buildInstallers(page):
   #save_to_GDrive = Checkbox(label="Save to Google Drive", value=prefs['save_to_GDrive'])
 
   def toggle_diffusers(e):
-    prefs['install_diffusers'] = install_diffusers.value
+    prefs['install_diffusers'] = install_diffusers.content.value
     diffusers_settings.height=None if prefs['install_diffusers'] else 0
     diffusers_settings.update()
     status['changed_installers'] = True
-  install_diffusers = Switch(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_diffusers)
+  install_diffusers = Tooltip(message="Required Libraries for most Image Generation functionality", content=Switch(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_diffusers))
 
   scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the noise", width=200,
             options=[
@@ -735,7 +763,7 @@ def buildInstallers(page):
   def changed_model_ckpt(e):
     changed(e, 'model_ckpt')
     model = get_model(e.control.value)
-    model_card.value = f"  [**View Model Card**](https://huggingface.co/{model['path']})"
+    model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
     model_card.update()
     if e.control.value.startswith("Stable"):
       custom_area.content = model_card
@@ -749,59 +777,68 @@ def buildInstallers(page):
   def changed_finetuned_model(e):
     changed(e, 'finetuned_model')
     model = get_finetuned_model(e.control.value)
-    model_card.value = f"  [**View Model Card**](https://huggingface.co/{model['path']})"
+    model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
     model_card.update()
   def changed_dreambooth_library(e):
     changed(e, 'dreambooth_model')
     model = get_dreambooth_model(e.control.value)
-    model_card.value = f"  [**View Model Card**](https://huggingface.co/{model['path']})"
+    model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
     model_card.update()
   def changed_custom_model(e):
     changed(e, 'custom_model')
     model = {'name': 'Custom Model', 'path': e.control.value, 'prefix': ''}
-    model_card.value = f"  [**View Model Card**](https://huggingface.co/{model['path']})"
+    model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
     model_card.update()
+  def toggle_safe(e):
+    changed(e, 'install_safe')
+    safety_config.visible = e.control.value
+    safety_config.update()
   model = get_model(prefs['model_ckpt'])
   model_path = model['path']
-  model_ckpt = Dropdown(label="Model Checkpoint", width=262, options=[dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"), dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt)
-  finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model)
-  model_card = Markdown(f"  [**View Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+  model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"), dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
+  finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':10, 'lg':4})
+  model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
     finetuned_model.options.append(dropdown.Option(mod["name"]))
-  dreambooth_library = Dropdown(label="DreamBooth Library", hint_text="", width=370, options=[], value=prefs['dreambooth_model'], autofocus=False, on_change=changed_dreambooth_library)
+  dreambooth_library = Dropdown(label="DreamBooth Library", hint_text="", width=370, options=[], value=prefs['dreambooth_model'], autofocus=False, on_change=changed_dreambooth_library, col={'xs':10, 'md':4})
   for db in dreambooth_models:
     dreambooth_library.options.append(dropdown.Option(db["name"]))
   custom_model = TextField(label="Custom Model Path", value=prefs['custom_model'], width=370, on_change=changed_custom_model)
-  #custom_area = AnimatedSwitcher(model_card, transition="scale", duration=500, reverse_duration=200, switch_in_curve="easeOut", switch_out_curve="easeIn")
-  custom_area = Container(model_card)
+  #custom_area = AnimatedSwitcher(model_card, transition="scale", duration=500, reverse_duration=200, switch_in_curve=AnimationCurve.EASE_OUT, switch_out_curve="easeIn")
+  custom_area = Container(model_card, col={'xs':4, 'lg':2})
   if prefs['model_ckpt'].startswith("Stable"):
     custom_area.content = model_card
   elif prefs['model_ckpt'] == "Community Finetuned Model":
-    custom_area.content = Row([finetuned_model, model_card])
+    custom_area.content = Row([finetuned_model, model_card], col={'xs':9, 'lg':4})
   elif prefs['model_ckpt'] == "DreamBooth Library Model":
-    custom_area.content = Row([dreambooth_library, model_card])
+    custom_area.content = Row([dreambooth_library, model_card], col={'xs':9, 'lg':4})
   elif prefs['model_ckpt'] == "Custom Model Path":
-    custom_area.content = Row([custom_model, model_card])
-  model_row = Row([model_ckpt, custom_area])
+    custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
+  model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
   memory_optimization = Dropdown(label="Enable Memory Optimization", width=350, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
   sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
+  enable_vae_slicing = Checkbox(label="Enable VAE Slicing", tooltip="Sliced VAE decode latents for larger batches of images with limited VRAM. Splits the input tensor in slices to compute decoding in several steps", value=prefs['vae_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_slicing'))
   #install_megapipe = Switch(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
-  install_text2img = Switch(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_text2img'))
-  install_img2img = Switch(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_img2img'))
-  install_repaint = Switch(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint'))
-  install_interpolation = Switch(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'))
-  install_dreamfusion = Switch(label="Install Stable Diffusion DreamFusion 3D Pipeline", value=prefs['install_dreamfusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_dreamfusion'], on_change=lambda e:changed(e, 'install_dreamfusion'))
-  install_imagic = Switch(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic'))
-  install_composable = Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable'))
+  install_text2img = Tooltip(message="The best general purpose component. Create images with long prompts, weights & models", content=Switch(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_text2img')))
+  install_img2img = Tooltip(message="Gets more coherant results modifying Inpaint init & mask images", content=Switch(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_img2img')))
+  install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switch(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
+  install_interpolation = Tooltip(message="Create multiple tween images between prompts latent space. Almost animation.", content=Switch(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation')))
+  install_dreamfusion = Tooltip(message="Generate interesting mesh .obj, texture and preview video from a prompt.", content=Switch(label="Install Stable Diffusion DreamFusion 3D Pipeline", value=prefs['install_dreamfusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_dreamfusion'], on_change=lambda e:changed(e, 'install_dreamfusion')))
+  install_imagic = Tooltip(message="Edit your image according to the prompted instructions like magic.", content=Switch(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic')))
+  install_composable = Tooltip(message="Craft your prompts with precise weights and composed together components.", content=Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable')))
+  install_safe = Tooltip(message="Use a content quality tuned safety model, providing levels of NSFW protection.", content=Switch(label="Install Stable Diffusion Safe text2image Pipeline", value=prefs['install_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_safe'], on_change=toggle_safe))
+  safety_config = Container(Dropdown(label="Model Safety Level", width=350, options=[dropdown.Option("Weak"), dropdown.Option("Medium"), dropdown.Option("Strong"), dropdown.Option("Max")], value=prefs['safety_config'], on_change=lambda e:changed(e, 'safety_config')), padding=padding.only(left=32))
+  safety_config.visible = prefs['install_safe']
+  install_versatile = Tooltip(message="Multi-flow model that provides both image and text data streams and conditioned on both text and image.", content=Switch(label="Install Versatile Diffusion text2image, Dual Guided & Image Variation Pipeline", value=prefs['install_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_versatile'], on_change=lambda e:changed(e, 'install_versatile')))
   
   def toggle_clip(e):
-      prefs['install_CLIP_guided'] = install_CLIP_guided.value
+      prefs['install_CLIP_guided'] = install_CLIP_guided.content.value
       status['changed_installers'] = True
       clip_settings.height=None if prefs['install_CLIP_guided'] else 0
       clip_settings.update()
-  install_CLIP_guided = Switch(label="Install Stable Diffusion CLIP-Guided Pipeline", value=prefs['install_CLIP_guided'], disabled=status['installed_clip'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip)
+  install_CLIP_guided = Tooltip(message="Uses alternative LAION & OpenAI ViT diffusion. Takes more VRAM, so may need to make images smaller", content=Switch(label="Install Stable Diffusion CLIP-Guided Pipeline", value=prefs['install_CLIP_guided'], disabled=status['installed_clip'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
   clip_model_id = Dropdown(label="CLIP Model ID", hint_text="Hard to explain, but they take up more VRAM, so may need to make images smaller", width=350,
             options=[
                 dropdown.Option("laion/CLIP-ViT-B-32-laion2B-s34B-b79K"),
@@ -813,8 +850,8 @@ def buildInstallers(page):
                 dropdown.Option("openai/clip-vit-large-patch14"),
             ], value=prefs['clip_model_id'], autofocus=False, on_change=lambda e:changed(e, 'clip_model_id'),
         )
-  clip_settings = Container(animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge", padding=padding.only(left=32, top=4), content=Column([clip_model_id]))
-
+  clip_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=4), content=Column([clip_model_id]))
+  
   def toggle_conceptualizer(e):
       changed(e, 'install_conceptualizer')
       conceptualizer_settings.height = None if e.control.value else 0
@@ -833,22 +870,23 @@ def buildInstallers(page):
       page.snack_bar = SnackBar(content=Text(f"📋  Token <{concept['token']}> copied to clipboard... Paste as word in your Prompt Text."))
       page.snack_bar.open = True
       page.update()
-  install_conceptualizer = Switch(label="Install Stable Diffusion Textual Inversion Conceptualizer Pipeline", value=prefs['install_conceptualizer'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_conceptualizer)
+  install_conceptualizer = Tooltip(message="Loads specially trained concept models to include in prompt with token", content=Switch(label="Install Stable Diffusion Textual-Inversion Conceptualizer Pipeline", value=prefs['install_conceptualizer'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_conceptualizer))
   concept = get_concept(prefs['concepts_model'])
   concepts_model = Dropdown(label="SD-Concepts Library Model", hint_text="Specially trained community models made with Textual-Inversion", width=451, options=[], value=prefs['concepts_model'], on_change=change_concepts_model)
   copy_token_btn = IconButton(icon=icons.CONTENT_COPY, tooltip="Copy Token to Clipboard", on_click=copy_token)
   concepts_row = Row([concepts_model, copy_token_btn])
   concepts_info = Markdown(f"To use the concept, include keyword token **<{concept['token']}>** in your Prompts. Info at [https://huggingface.co/sd-concepts-library/{concept['name']}](https://huggingface.co/sd-concepts-library/{concept['name']})", selectable=True, on_tap_link=open_url)
-  
-  conceptualizer_settings = Container(animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge", padding=padding.only(left=32, top=5), content=Column([concepts_row, concepts_info]))
+  conceptualizer_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=5), content=Column([concepts_row, concepts_info]))
   conceptualizer_settings.height = None if prefs['install_conceptualizer'] else 0
   for c in concepts: concepts_model.options.append(dropdown.Option(c['name']))
-  diffusers_settings = Container(animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge", content=
-                                 Column([Container(Column([model_row, Container(content=None, height=4), scheduler_mode, higher_vram_mode, enable_attention_slicing]), padding=padding.only(left=32, top=4)),
+  install_upscale = Tooltip(message="Allows you to enlarge images with prompts. Note: Will run out of mem for images larger than 512px, start small.", content=Switch(label="Install Stable Diffusion v2 Upscale 4X Pipeline", value=prefs['install_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_upscale'], on_change=lambda e:changed(e, 'install_upscale')))
+
+  diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
+                                 Column([Container(Column([model_row, Container(content=None, height=4), scheduler_mode, higher_vram_mode, enable_attention_slicing, enable_vae_slicing]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, 
-                                         install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_imagic, install_composable, install_dreamfusion]))
+                                         install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, install_versatile, install_imagic, install_composable, install_upscale]))
   def toggle_stability(e):
-    prefs['install_Stability_api'] = install_Stability_api.value
+    prefs['install_Stability_api'] = install_Stability_api.content.value
     has_changed=True
     #print(f"Toggle Stability {prefs['install_Stability_api']}")
     stability_settings.height=None if prefs['install_Stability_api'] else 0
@@ -856,16 +894,17 @@ def buildInstallers(page):
     page.update()
     #stability_box.content = stability_settings if prefs['install_stability'] else Container(content=None)
     #stability_box.update()
-  install_Stability_api = Switch(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_stability)
+  install_Stability_api = Tooltip(message="Use DreamStudio.com servers without your GPU to create images on CPU.", content=Switch(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_stability))
   use_Stability_api = Checkbox(label="Use Stability-api by default", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
   model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1.4")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
-  generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
-
-  stability_settings = Container(animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge", padding=padding.only(left=32), content=Column([use_Stability_api, model_checkpoint, Container(content=None, height=4), generation_sampler]))
+  #generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
+  generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM"), dropdown.Option("K_EULER"), dropdown.Option("K_EULER_ANCESTRAL"), dropdown.Option("K_HEUN"), dropdown.Option("K_DPMPP_2M"), dropdown.Option("K_DPM_2_ANCESTRAL"), dropdown.Option("K_LMS"), dropdown.Option("K_DPMPP_2S_ANCESTRAL"), dropdown.Option("K_DPM_2")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
+  #"K_EULER" "K_DPM_2" "K_LMS" "K_DPMPP_2S_ANCESTRAL" "K_DPMPP_2M" "DDIM" "DDPM" "K_EULER_ANCESTRAL" "K_HEUN" "K_DPM_2_ANCESTRAL"
+  stability_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_Stability_api, model_checkpoint, Container(content=None, height=4), generation_sampler]))
   
-  install_ESRGAN = Switch(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_ESRGAN'))
-  install_OpenAI = Switch(label="Install OpenAI GPT-3 Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_OpenAI'))
-  install_TextSynth = Switch(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_TextSynth'))
+  install_ESRGAN = Tooltip(message="Recommended to enlarge & sharpen all images as they're made.", content=Switch(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_ESRGAN')))
+  install_OpenAI = Tooltip(message="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.", content=Switch(label="Install OpenAI GPT-3 Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_OpenAI')))
+  install_TextSynth = Tooltip(message="Alternative Text AI for brainstorming & rewriting your prompts. Pretty smart..", content=Switch(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_TextSynth')))
   diffusers_settings.height = None if prefs['install_diffusers'] else 0
   stability_settings.height = None if prefs['install_Stability_api'] else 0
   clip_settings.height = None if prefs['install_CLIP_guided'] else 0
@@ -876,15 +915,19 @@ def buildInstallers(page):
         page.banner.content.controls = []
         page.update()
       def console_msg(msg, clear=True, show_progress=True):
+        if not page.banner.open:
+          page.banner.open = True
         if clear:
           page.banner.content.controls = []
         if show_progress:
-          page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight="bold", color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center if page.width > 768 else alignment.center_right)]))
-          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight="bold", color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center)]))
-          #page.banner.content.controls.append(Row([Text(msg.strip() + "  ", weight="bold", color=colors.GREEN_600), ProgressRing()]))
+          page.banner.content.controls.append(Row([Stack([Icon(icons.DOWNLOADING, color=colors.AMBER, size=48), Container(content=ProgressRing(), padding=padding.only(top=6, left=6), alignment=alignment.center)]), Container(content=Text("  " + msg.strip() , weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)) ]))
+          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center if page.width > 768 else alignment.center_right)]))
+          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center)]))
+          #page.banner.content.controls.append(Row([Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.GREEN_600), ProgressRing()]))
         else:
-          page.banner.content.controls.append(Text(msg.strip(), weight="bold", color=colors.GREEN_600))
+          page.banner.content.controls.append(Text(msg.strip(), weight=FontWeight.BOLD, color=colors.GREEN_600))
         page.update()
+      page.console_msg = console_msg
       # Temporary until I get Xformers to work
       prefs['memory_optimization'] = 'Attention Slicing' if prefs['enable_attention_slicing'] else 'None'
       if prefs['install_diffusers'] and not bool(prefs['HuggingFace_api_key']):
@@ -899,7 +942,7 @@ def buildInstallers(page):
       if prefs['install_TextSynth'] and not bool(prefs['TextSynth_api_key']):
         alert_msg(e.page, "You must have your TextSynth API Key to use GPT-J Text AI.")
         return
-      page.banner.content = Column([], scroll="auto", auto_scroll=True, tight=True, spacing=0, alignment="end")
+      page.banner.content = Column([], scroll=ScrollMode.AUTO, auto_scroll=True, tight=True, spacing=0, alignment=MainAxisAlignment.END)
       page.banner.open = True
       page.update()
       if prefs['install_diffusers']:
@@ -967,6 +1010,9 @@ def buildInstallers(page):
         console_msg("Installing Stable Diffusion iMagic image2imge Pipeline...")
         get_imagic(page)
         status['installed_imagic'] = True
+        if not status['installed_txt2img']:
+          page.img_block.height = None
+          page.img_block.update()
         page.use_imagic.visible = True
         page.use_imagic.update()
       if prefs['install_composable'] and prefs['install_diffusers']:
@@ -975,6 +1021,27 @@ def buildInstallers(page):
         status['installed_composable'] = True
         page.use_composable.visible = True
         page.use_composable.update()
+      if prefs['install_versatile'] and prefs['install_diffusers']:
+        console_msg("Installing Stable Diffusion Versatile text2image, Variation & Inpaint Pipeline...")
+        get_versatile(page)
+        status['installed_versatile'] = True
+        if not status['installed_txt2img']:
+          page.img_block.height = None
+          page.img_block.update()
+        page.use_versatile.visible = True
+        page.use_versatile.update()
+      if prefs['install_safe'] and prefs['install_diffusers']:
+        console_msg("Installing Stable Diffusion Safe text2image Pipeline...")
+        get_safe(page)
+        status['installed_safe'] = True
+        page.use_safe.visible = True
+        page.use_safe.update()
+      if prefs['install_upscale'] and prefs['install_diffusers']:
+        console_msg("Installing Stable Diffusion 4X Upscale Pipeline...")
+        get_upscale(page)
+        status['installed_upscale'] = True
+        page.use_upscale.visible = True
+        page.use_upscale.update()
       if prefs['install_dreamfusion'] and not status['installed_dreamfusion'] and prefs['install_diffusers']:
         console_msg("Installing Stable Diffusion DreamFusion 3D Pipeline...")
         get_dreamfusion(page)
@@ -991,9 +1058,11 @@ def buildInstallers(page):
         page.ESRGAN_block.height = None
         page.ESRGAN_block_material.height = None
         page.ESRGAN_block_dalle.height = None
+        page.ESRGAN_block_kandinsky.height = None
         page.ESRGAN_block.update()
         page.ESRGAN_block_material.update()
         page.ESRGAN_block_dalle.update()
+        page.ESRGAN_block_kandinsky.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         console_msg("Installing OpenAI GPT-3 Libraries...")
         try:
@@ -1048,7 +1117,7 @@ def buildInstallers(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
                 content=Column([
-        Text ("📥  Stable Diffusion Required & Optional Installers", style="titleLarge"),
+        Text ("📥  Stable Diffusion Required & Optional Installers", style=TextThemeStyle.TITLE_LARGE),
         Divider(thickness=1, height=4),
         install_diffusers,
         diffusers_settings,
@@ -1064,7 +1133,7 @@ def buildInstallers(page):
         #install_button,
         Container(content=None, height=32),
       ],
-  ))], scroll="auto")
+  ))], scroll=ScrollMode.AUTO)
   def init_boxes():
     diffusers_settings.height = None if prefs['install_diffusers'] else 0
     stability_settings.height = None if prefs['install_Stability_api'] else 0
@@ -1248,41 +1317,43 @@ def buildParameters(page):
       image_pickers.update()
   has_changed = False
   batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-  batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type="number", on_change=lambda e:changed(e,'batch_size'))
-  n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type="number", on_change=lambda e:changed(e,'n_iterations'))
-  steps = TextField(label="Steps", value=prefs['steps'], keyboard_type="number", on_change=lambda e:changed(e,'steps', asInt=True))
-  eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type="number", on_change=lambda e:changed(e,'eta'))
-  seed = TextField(label="Seed", value=prefs['seed'], keyboard_type="number", on_change=lambda e:changed(e,'seed'))
+  batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'batch_size'))
+  n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
+  steps = TextField(label="Steps", value=prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', asInt=True))
+  eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta'))
+  seed = TextField(label="Seed", value=prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed'))
   param_rows = Row([Column([batch_folder_name, batch_size, n_iterations]), Column([steps, eta, seed])])
   guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=prefs['guidance_scale'], on_change=change_guidance, expand=True)
-  guidance_value = Text(f" {prefs['guidance_scale']}", weight="bold")
+  guidance_value = Text(f" {prefs['guidance_scale']}", weight=FontWeight.BOLD)
   guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
   width = Slider(min=256, max=1280, divisions=64, label="{value}px", value=prefs['width'], on_change=change_width, expand=True)
-  width_value = Text(f" {int(prefs['width'])}px", weight="bold")
+  width_value = Text(f" {int(prefs['width'])}px", weight=FontWeight.BOLD)
   width_slider = Row([Text(f"Width: "), width_value, width])
   height = Slider(min=256, max=1280, divisions=64, label="{value}px", value=prefs['height'], on_change=change_height, expand=True)
-  height_value = Text(f" {int(prefs['height'])}px", weight="bold")
+  height_value = Text(f" {int(prefs['height'])}px", weight=FontWeight.BOLD)
   height_slider = Row([Text(f"Height: "), height_value, height])
 
-  init_image = TextField(label="Init Image", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"xs":12, "md":6}))
-  mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"xs":12, "md":6}))
-  image_pickers = Container(content=ResponsiveRow([init_image, mask_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  init_image = TextField(label="Init Image", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={"xs":12, "md":6})
+  mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={"xs":12, "md":6})
+  image_pickers = Container(content=ResponsiveRow([init_image, mask_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   image_pickers.height = None if not prefs['centipede_prompts_as_init_images'] else 0
   init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=prefs['init_image_strength'], on_change=change_strength, expand=True)
-  strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight="bold")
+  strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight=FontWeight.BOLD)
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
   page.use_inpaint_model = Tooltip(message="When using init_image and/or mask, use the newer pipeline for potentially better results", content=Switch(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_inpaint_model')))
   page.use_inpaint_model.visible = status['installed_img2img']
-  centipede_prompts_as_init_images = Tooltip(message="Feeds each image to the next prompt sequentially down the line", text_align="start", content=Switch(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede))
+  page.use_versatile = Tooltip(message="Dual Guided between prompt & image, or create Image Variation", content=Switch(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile')))
+  page.use_versatile.visible = status['installed_versatile']
+  centipede_prompts_as_init_images = Tooltip(message="Feeds each image to the next prompt sequentially down the line", content=Switch(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede))
   use_interpolation = Tooltip(message="Creates animation frames transitioning, but it's not always perfect.", content=Switch(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_interpolation))
   interpolation_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['num_interpolation_steps'], on_change=change_interpolation_steps, expand=True)
-  interpolation_steps_value = Text(f" {int(prefs['num_interpolation_steps'])} steps", weight="bold")
-  interpolation_steps_slider = Container(Row([Text(f"Number of Interpolation Steps between Prompts: "), interpolation_steps_value, interpolation_steps]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  interpolation_steps_value = Text(f" {int(prefs['num_interpolation_steps'])} steps", weight=FontWeight.BOLD)
+  interpolation_steps_slider = Container(Row([Text(f"Number of Interpolation Steps between Prompts: "), interpolation_steps_value, interpolation_steps]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   Row([Text(f"Number of Interpolation Steps between Prompts: "), interpolation_steps_value, interpolation_steps])
   if not bool(prefs['use_interpolation']):
     interpolation_steps_slider.height = 0
   page.interpolation_block = Column([use_interpolation, interpolation_steps_slider])
-  page.img_block = Container(Column([image_pickers, strength_slider, page.use_inpaint_model, centipede_prompts_as_init_images, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  page.img_block = Container(Column([image_pickers, strength_slider, page.use_inpaint_model, centipede_prompts_as_init_images, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   if not status['installed_interpolation']:
     page.interpolation_block.visible = False
   elif bool(prefs['use_interpolation']):
@@ -1293,10 +1364,10 @@ def buildParameters(page):
   use_cutouts = Checkbox(label="Use Cutouts", value=bool(prefs['use_cutouts']), fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=change_use_cutouts)
   num_cutouts = NumberPicker(label="    Number of Cutouts: ", min=1, max=10, value=prefs['num_cutouts'], on_change=lambda e: changed(e, 'num_cutouts', asInt=True))
   num_cutouts.visible = bool(prefs['use_cutouts'])
-  #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type="number", on_change=lambda e:changed(e,'num_cutouts', asInt=True))
+  #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_cutouts', asInt=True))
   unfreeze_unet = Checkbox(label="Unfreeze UNET", value=prefs['unfreeze_unet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'unfreeze_unet'))
   unfreeze_vae = Checkbox(label="Unfreeze VAE", value=prefs['unfreeze_vae'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'unfreeze_vae'))
-  page.clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  page.clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.use_conceptualizer_model = Tooltip(message="Use Textual-Inversion Community Model Concepts", content=Switch(label="Use Custom Conceptualizer Model", tooltip="Use Textual-Inversion Community Model", value=prefs['use_conceptualizer'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_conceptualizer))
   page.use_conceptualizer_model.visible = bool(status['installed_conceptualizer'])
 
@@ -1304,14 +1375,18 @@ def buildParameters(page):
   page.use_imagic.visible = bool(status['installed_imagic'])
   page.use_composable = Tooltip(message="Allows conjunction and negation operators for compositional generation with conditional diffusion models", content=Switch(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_composable')))
   page.use_composable.visible = bool(status['installed_composable'])
+  page.use_safe = Tooltip(message="Models trained only on Safe images", content=Switch(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_safe')))
+  page.use_safe.visible = bool(status['installed_safe'])
+  page.use_upscale = Tooltip(message="Enlarges your Image Generations guided by the same Prompt.", content=Switch(label="Upscale 4X with Stable Diffusion 2", value=prefs['use_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_upscale')))
+  page.use_upscale.visible = bool(status['installed_upscale'])
   apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-  enlarge_scale_value = Text(f" {float(prefs['enlarge_scale'])}x", weight="bold")
+  enlarge_scale_value = Text(f" {float(prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
   enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
   enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
   face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
   display_upscaled_image = Checkbox(label="Display Upscaled Image", value=prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-  ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
-  page.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+  ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  page.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
   page.use_clip_guided_model.visible = status['installed_clip']
   page.clip_block.height = None if status['installed_clip'] and prefs['use_clip_guided_model'] else 0
@@ -1331,7 +1406,7 @@ def buildParameters(page):
         page.update()
   show_apply_fab(len(prompts) > 0 and status['changed_parameters'])
   page.show_apply_fab = show_apply_fab
-  parameters_row = Row([parameters_button], alignment="spaceBetween")
+  parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
   def updater():
       #parameters.update()
       c.update()
@@ -1340,14 +1415,14 @@ def buildParameters(page):
 
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
-        Text ("📝  Stable Diffusion Image Parameters", style="titleLarge"),
+        Text ("📝  Stable Diffusion Image Parameters", style=TextThemeStyle.TITLE_LARGE),
         Divider(thickness=1, height=4),
         param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
-        page.interpolation_block, page.img_block, page.use_clip_guided_model, page.clip_block, page.use_conceptualizer_model, page.use_imagic, page.use_composable, page.ESRGAN_block,
+        page.interpolation_block, page.use_safe, page.img_block, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_conceptualizer_model, page.use_imagic, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
         #parameters_row,
       ],
-  ))], scroll="auto")#batch_folder_name, batch_size, n_iterations, steps, eta, seed, 
+  ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, eta, seed, 
   return c
 
 prompts = []
@@ -1368,6 +1443,7 @@ def update_args():
         "init_image": prefs['init_image'],
         "init_image_strength": prefs['init_image_strength'],
         "mask_image": prefs['mask_image'],
+        "alpha_mask": False,
         "prompt2": None, "tweens": 10,
         "negative_prompt": None,
         "use_clip_guided_model": prefs['use_clip_guided_model'],
@@ -1400,6 +1476,7 @@ class Dream:
           elif key=="init_image": self.arg[key] = value
           elif key=="init_image_strength": self.arg[key] = value
           elif key=="mask_image": self.arg[key] = value
+          elif key=="alpha_mask": self.arg[key] = value
           elif key=="prompt2": self.arg[key] = value
           elif key=="tweens": self.arg[key] = int(value)
           elif key=="negative_prompt": self.arg[key] = value
@@ -1468,6 +1545,7 @@ def buildPromptsList(page):
           arg['init_image'] = init_image.value
           arg['mask_image'] = mask_image.value
           arg['init_image_strength'] = float(init_image_strength.value)
+          arg['alpha_mask'] = alpha_mask.value
           arg['prompt2'] = prompt2.value if bool(use_prompt_tweening.value) else None
           arg['tweens'] = int(tweens.value)
           arg['negative_prompt'] = negative_prompt.value if bool(negative_prompt.value) else None
@@ -1539,20 +1617,20 @@ def buildPromptsList(page):
       prompt_tweening = bool(arg['prompt2']) if 'prompt2' in arg else False
       use_prompt_tweening = Switch(label="Prompt Tweening", value=prompt_tweening, active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=changed_tweening)
       prompt2 = TextField(label="Prompt 2 Transition Text", expand=True, value=arg['prompt2'] if 'prompt2' in arg else '', on_change=changed)
-      tweens = TextField(label="# of Tweens", value=str(arg['tweens'] if 'tweens' in arg else 8), keyboard_type="number", on_change=changed, width = 90)
+      tweens = TextField(label="# of Tweens", value=str(arg['tweens'] if 'tweens' in arg else 8), keyboard_type=KeyboardType.NUMBER, on_change=changed, width = 90)
       #tweens =  NumberPicker(label="# of Tweens: ", min=2, max=300, value=int(arg['tweens'] if 'tweens' in arg else 8), on_change=changed_tweens),
       #prompt2.visible = prompt_tweening
       #tweens.visible = prompt_tweening
-      tweening_params = Container(Row([Container(content=None, width=8), prompt2, tweens]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, "easeOut"), clip_behavior="hardEdge")
+      tweening_params = Container(Row([Container(content=None, width=8), prompt2, tweens]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
       tweening_params.height = None if prompt_tweening else 0
       tweening_row = Row([use_prompt_tweening, ])#tweening_params
 
-      batch_size = TextField(label="Batch Size", value=str(arg['batch_size']), keyboard_type="number", on_change=changed)
-      n_iterations = TextField(label="Number of Iterations", value=str(arg['n_iterations']), keyboard_type="number", on_change=changed)
-      steps = TextField(label="Steps", value=str(arg['steps']), keyboard_type="number", on_change=changed)
-      eta = TextField(label="DDIM ETA", value=str(arg['eta']), keyboard_type="number", hint_text="Amount of Noise (only with DDIM sampler)", on_change=changed)
-      seed = TextField(label="Seed", value=str(arg['seed']), keyboard_type="number", hint_text="0 or -1 picks a Random seed", on_change=changed)
-      guidance_scale = TextField(label="Guidance Scale", value=str(arg['guidance_scale']), keyboard_type="number", on_change=changed)
+      batch_size = TextField(label="Batch Size", value=str(arg['batch_size']), keyboard_type=KeyboardType.NUMBER, on_change=changed)
+      n_iterations = TextField(label="Number of Iterations", value=str(arg['n_iterations']), keyboard_type=KeyboardType.NUMBER, on_change=changed)
+      steps = TextField(label="Steps", value=str(arg['steps']), keyboard_type=KeyboardType.NUMBER, on_change=changed)
+      eta = TextField(label="DDIM ETA", value=str(arg['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise (only with DDIM sampler)", on_change=changed)
+      seed = TextField(label="Seed", value=str(arg['seed']), keyboard_type=KeyboardType.NUMBER, hint_text="0 or -1 picks a Random seed", on_change=changed)
+      guidance_scale = TextField(label="Guidance Scale", value=str(arg['guidance_scale']), keyboard_type=KeyboardType.NUMBER, on_change=changed)
       param_columns = Row([Column([batch_size, n_iterations, steps]), Column([guidance_scale, seed, eta])])
       #guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=arg['guidance_scale'], expand=True)
       #guidance = Row([Text("Guidance Scale: "), guidance_scale])
@@ -1562,10 +1640,11 @@ def buildPromptsList(page):
       height_slider = Row([Text("Height: "), height])
       init_image = TextField(label="Init Image", value=arg['init_image'], expand=1, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
       mask_image = TextField(label="Mask Image", value=arg['mask_image'], expand=1, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
-      image_row = Row([init_image, mask_image])
+      alpha_mask = Checkbox(label="Alpha Mask", value=arg['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
+      image_row = Row([init_image, alpha_mask, mask_image])
       init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(arg['init_image_strength']), expand=True)
       strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
-      img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, "easeOut"), clip_behavior="hardEdge")
+      img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
       img_block.height = None if (status['installed_txt2img'] or status['installed_stability']) else 0
       use_clip_guided_model = Tooltip(message="Uses more VRAM, so you'll probably need to make image size smaller", content=Switch(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=arg['use_clip_guided_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
       clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=arg['clip_guidance_scale'], on_change=changed, expand=True)
@@ -1573,10 +1652,10 @@ def buildPromptsList(page):
       use_cutouts = Checkbox(label="Use Cutouts", value=bool(arg['use_cutouts']), fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
       num_cutouts = NumberPicker(label="    Number of Cutouts: ", min=1, max=10, value=arg['num_cutouts'], on_change=changed)
       #num_cutouts.visible = bool(prefs['use_cutouts'])
-      #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type="number", on_change=lambda e:changed(e,'num_cutouts', asInt=True))
+      #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_cutouts', asInt=True))
       unfreeze_unet = Checkbox(label="Unfreeze UNET", value=arg['unfreeze_unet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
       unfreeze_vae = Checkbox(label="Unfreeze VAE", value=arg['unfreeze_vae'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
-      clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+      clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
       if not status['installed_clip']:
         use_clip_guided_model.visible = False
         clip_block.height = 0
@@ -1596,7 +1675,7 @@ def buildPromptsList(page):
             width_slider, height_slider, img_block,
             use_clip_guided_model, clip_block,
             #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
-          ], alignment="start", tight=True, width=page.width - 200, height=page.height - 100, scroll="auto"), width=page.width - 200, height=page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight="bold"), on_click=save_dlg)], actions_alignment="end")
+          ], alignment=MainAxisAlignment.START, tight=True, width=page.width - 200, height=page.height - 100, scroll=ScrollMode.AUTO), width=page.width - 200, height=page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
       e.page.dialog = dlg_modal
       dlg_modal.open = True
       e.page.update()
@@ -1610,7 +1689,7 @@ def buildPromptsList(page):
           Text('Now you can add prompt weighting, so you can emphasize the strength of certain words between parentheses, and de-emphasize words between brackets. For example: "A (hyper realistic) painting of (magical:1.8) owl with the face of a cat, without [tail], in a [twisted:0.6] tree, by Thomas Kinkade"'),
           Text('After adding your prompts, click on a prompt line to edit all the parameters of it. There you can add negative prompts like "lowres, bad_anatomy, error_body, bad_fingers, missing_fingers, error_lighting, jpeg_artifacts, signature, watermark, username, blurry" or anything else you don\'t want'),
           Text('Then you can override all the parameters for each individual prompt, playing with variations of sizes, steps, guidance scale, init & mask image, seeds, etc.  In the prompts list, you can press the ... options button to duplicate, delete and move prompts in the batch queue.  When ready, Run Diffusion on Prompts...')
-        ], scroll="auto"), actions=[TextButton("😀  Very nice... ", on_click=close_help_dlg)], actions_alignment="end")
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😀  Very nice... ", on_click=close_help_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = prompt_help_dlg
       prompt_help_dlg.open = True
       page.update()
@@ -1626,7 +1705,7 @@ def buildPromptsList(page):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, multiline=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment="start", tight=True, width=page.width - 180, height=page.height - 100, scroll="none"), width=page.width - 180, height=page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save to Prompts List ", size=19, weight="bold"), on_click=save_prompts_list)], actions_alignment="end")
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=page.width - 180, height=page.height - 100, scroll="none"), width=page.width - 180, height=page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_paste
       dlg_paste.open = True
       page.update()
@@ -1645,7 +1724,7 @@ def buildPromptsList(page):
       diffs = arg_diffs(e.control.data.arg, args)
       subtitle = None
       if bool(diffs): subtitle = Text("    " + diffs)
-      prompts_list.controls.insert(idx, ListTile(title=Text(new_dream.prompt, max_lines=3, style="bodyLarge"), dense=True, data=new_dream, subtitle=subtitle, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+      prompts_list.controls.insert(idx, ListTile(title=Text(new_dream.prompt, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, data=new_dream, subtitle=subtitle, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[
               PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=edit_prompt, data=new_dream),
               PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=new_dream),
@@ -1682,7 +1761,7 @@ def buildPromptsList(page):
         arg = merge_dict(args, arg)
         dream.arg = arg
       prompts.append(dream)
-      prompts_list.controls.append(ListTile(title=Text(p, max_lines=3, style="bodyLarge"), dense=True, data=dream, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+      prompts_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[
               PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=edit_prompt, data=dream),
               PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=dream),
@@ -1730,6 +1809,8 @@ def buildPromptsList(page):
               if not bool(a['init_image']):
                 del a['init_image']
                 del a['init_image_strength']
+              elif bool(a['mask_image']):
+                del a['alpha_mask']
             if 'mask_image' in a:
               if not bool(a['mask_image']):
                 del a['mask_image']
@@ -1763,7 +1844,7 @@ def buildPromptsList(page):
             page.add_to_prompts(p, d)
             #dream.arg = d
             #prompts.append(dream)
-            #prompts_list.controls.append(ListTile(title=Text(dream.prompt, max_lines=3, style="bodyLarge"), dense=True, data=dream, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+            #prompts_list.controls.append(ListTile(title=Text(dream.prompt, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
             #  items=[
             #      PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=edit_prompt, data=dream),
             #      PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=dream),
@@ -1841,13 +1922,13 @@ def buildPromptsList(page):
   has_changed = False
   prompts_list = Column([],spacing=1)
   prompt_text = TextField(label="Prompt Text", expand=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt)
-  add_prompt_button = ElevatedButton(content=Text(value="➕  Add Prompt", size=17, weight="bold"), on_click=add_prompt)
+  add_prompt_button = ElevatedButton(content=Text(value="➕  Add Prompt", size=17, weight=FontWeight.BOLD), on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
   prompt_row = Row([prompt_text, add_prompt_button])
   #diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
   clear_prompts_button = ElevatedButton("❌   Clear Prompts List", on_click=clear_list)
-  prompts_buttons = Row([clear_prompts_button], alignment="spaceBetween")
+  prompts_buttons = Row([clear_prompts_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
   def show_run_diffusion_fab(show = True):
     if show:
       page.floating_action_button = FloatingActionButton(icon=icons.PLAY_ARROW, text="Run Diffusion on Prompts", on_click=run_diffusion)
@@ -1863,14 +1944,14 @@ def buildPromptsList(page):
     prompts_buttons.visible=False
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
-        Row([Text("🗒️   List of Prompts to Diffuse", style="titleLarge"), Row([prompt_help_button, paste_prompts_button])], alignment="spaceBetween"),
+        Row([Text("🗒️   List of Prompts to Diffuse", style=TextThemeStyle.TITLE_LARGE), Row([prompt_help_button, paste_prompts_button])], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Divider(thickness=1, height=4),
         #add_prompt_button,
         prompt_row,
         prompts_list,
         prompts_buttons,
       ],
-  ))], scroll="auto")
+  ))], scroll=ScrollMode.AUTO)
   return c
 
 def buildImages(page):
@@ -1880,7 +1961,7 @@ def buildImages(page):
       page.imageColumn.update()
       c.update()
     page.auto_scrolling = auto_scrolling
-    page.imageColumn = Column([Text("▶️   Get ready to make your images, run from Prompts List", style="titleLarge"), Divider(thickness=1, height=4)], scroll="auto", auto_scroll=True)
+    page.imageColumn = Column([Text("▶️   Get ready to make your images, run from Prompts List", style=TextThemeStyle.TITLE_LARGE), Divider(thickness=1, height=4)], scroll=ScrollMode.AUTO, auto_scroll=True)
     c = Container(padding=padding.only(18, 12, 0, 0), content=page.imageColumn)
     return c
 
@@ -1917,7 +1998,7 @@ def buildPromptGenerator(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_prompt_generator(p):
-      page.prompt_generator_list.controls.append(ListTile(title=Text(p, max_lines=3, style="bodyLarge"), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.prompt_generator_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_generator_list.update()
       generator_list_buttons.visible = True
       generator_list_buttons.update()
@@ -1945,27 +2026,27 @@ def buildPromptGenerator(page):
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
     generator_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=18), on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
-    ], alignment="spaceBetween")
+    ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_generator_list.controls) < 1:
       generator_list_buttons.visible = False
       #generator_list_buttons.update()
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("🧠  OpenAI Prompt Genenerator", style="titleLarge"),
+        Text("🧠  OpenAI Prompt Genenerator", style=TextThemeStyle.TITLE_LARGE),
         Text("Enter a phrase each prompt should start with and the amount of prompts to generate. 'Subject Details' is optional to influence the output. 'Phase as subject' makes it about phrase and subject detail. 'Request mode' is the way it asks for the visual description. Just experiment, AI will continue to surprise.", style="titleSmall"),
         Divider(thickness=1, height=5),
-        Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], on_change=lambda e: changed(e, 'phrase')), TextField(label="Subject Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_generator']['subject_detail'], on_change=lambda e: changed(e, 'subject_detail')), Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], on_change=lambda e: changed(e, 'phrase_as_subject'))]),
+        Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], on_change=lambda e: changed(e, 'phrase')), TextField(label="Subject Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_generator']['subject_detail'], on_change=lambda e: changed(e, 'subject_detail')), Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'phrase_as_subject'))]),
         Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_generator']['amount'], on_change=lambda e: changed(e, 'amount')),
              NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_generator']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),
              NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_generator']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-             Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment="spaceBetween"),        
+             Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment=MainAxisAlignment.SPACE_BETWEEN),        
         Row([Text("Request Mode:"), request_slider, Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))]),
         ElevatedButton(content=Text("💭   Generate Prompts", size=18), on_click=click_prompt_generator),
         page.prompt_generator_list,
         generator_list_buttons,
       ],
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 def buildPromptRemixer(page):
@@ -1983,7 +2064,7 @@ def buildPromptRemixer(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_prompt_remixer(p):
-      page.prompt_remixer_list.controls.append(ListTile(title=Text(p, max_lines=3, style="bodyLarge"), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.prompt_remixer_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_remixer_list.update()
       remixer_list_buttons.visible = True
       remixer_list_buttons.update()
@@ -2005,28 +2086,28 @@ def buildPromptRemixer(page):
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     remixer_list_buttons = Row([ElevatedButton(content=Text("Add All Prompts to List", size=18), on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
-    ], alignment="spaceBetween")
+    ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_remixer_list.controls) < 1:
       remixer_list_buttons.visible = False
     
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🔄  Prompt Remixer - GPT-3 AI Helper", style="titleLarge"), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment="spaceBetween"),
+        Row([Text("🔄  Prompt Remixer - GPT-3 AI Helper", style=TextThemeStyle.TITLE_LARGE), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friend. Experiment.", style="titleSmall"),
         Divider(thickness=1, height=5),
         Row([TextField(label="Seed Prompt", expand=True, value=prefs['prompt_remixer']['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt')), TextField(label="Optional About Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_remixer']['optional_about_influencer'], on_change=lambda e: changed(e, 'optional_about_influencer'))]),
         Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_remixer']['amount'], on_change=lambda e: changed(e, 'amount')),
              NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_remixer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),
              NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-             Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment="spaceBetween"),
+             Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Row([Text("Request Mode:"), request_slider, 
              Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))]),
         ElevatedButton(content=Text("🍹   Remix Prompts", size=18), on_click=click_prompt_remixer),
         page.prompt_remixer_list,
         remixer_list_buttons,
       ],
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 def buildPromptBrainstormer(page):
@@ -2047,9 +2128,13 @@ def buildPromptBrainstormer(page):
         if bool(prefs['HuggingFace_api_key']):
           run_prompt_brainstormer(page)
         else: alert_msg(page, "You must provide your HuggingFace API Key in settings first before using this Request Mode...")
+      elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5 XXL":
+        if bool(prefs['HuggingFace_api_key']):
+          run_prompt_brainstormer(page)
+        else: alert_msg(page, "You must provide your HuggingFace API Key in settings first before using this Request Mode...")
     page.prompt_brainstormer_list = Column([], spacing=0)
     def add_to_prompt_brainstormer(p):
-      page.prompt_brainstormer_list.controls.append(Text(p, max_lines=3, style="bodyLarge", selectable=True))
+      page.prompt_brainstormer_list.controls.append(Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE, selectable=True))
       page.prompt_brainstormer_list.update()
       brainstormer_list_buttons.visible = True
       brainstormer_list_buttons.update()
@@ -2066,29 +2151,29 @@ def buildPromptBrainstormer(page):
       new_prompt_text.update()
 
     new_prompt_text = TextField(label="New Prompt Text", expand=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt_text), autofocus=True, on_submit=add_to_prompts)
-    add_to_prompts_button = ElevatedButton("➕  Add to Prompts", icon=icons.ADD_ROUNDED, on_click=add_to_prompts)
+    add_to_prompts_button = ElevatedButton("➕  Add to Prompts", on_click=add_to_prompts)#, icon=icons.ADD_ROUNDED
     brainstormer_list_buttons = Row([
         new_prompt_text, add_to_prompts_button,
         ElevatedButton(content=Text("❌   Clear Brainstorms"), on_click=clear_prompts),
-    ], alignment="end")
+    ], alignment=MainAxisAlignment.END)
     
     if len(page.prompt_brainstormer_list.controls) < 1:
       brainstormer_list_buttons.visible = False
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", style="titleLarge"), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment="spaceBetween"),
+        Row([Text("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", style=TextThemeStyle.TITLE_LARGE), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friends. Experiment, each has different personalities.", style="titleSmall"),
         Divider(thickness=1, height=5),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("HuggingFace Bloom 176B")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
-        ], alignment="start"),
+        ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], on_change=lambda e: changed(e, 'about_prompt')),]),
         ElevatedButton(content=Text("⛈️    Brainstorm Prompt", size=18), on_click=lambda _: run_prompt_brainstormer(page)),
         page.prompt_brainstormer_list,
         brainstormer_list_buttons,
       ],
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 def buildPromptWriter(page):
@@ -2101,7 +2186,7 @@ def buildPromptWriter(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_prompt_writer(p):
-      page.prompt_writer_list.controls.append(ListTile(title=Text(p, max_lines=3, style="bodyLarge"), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.prompt_writer_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_writer_list.update()
       writer_list_buttons.visible = True
       writer_list_buttons.update()
@@ -2119,14 +2204,14 @@ def buildPromptWriter(page):
       writer_list_buttons.update()
     writer_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=18), on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
-    ], alignment="spaceBetween")
+    ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_writer_list.controls) < 1:
       writer_list_buttons.visible = False
 
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", style="titleLarge"), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)),], alignment="spaceBetween"),
+        Row([Text("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", style=TextThemeStyle.TITLE_LARGE), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)),], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Construct your Stable Diffusion Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom.", style="titleSmall"),
         Divider(thickness=1, height=5),
         TextField(label="Arts Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects')),
@@ -2135,12 +2220,12 @@ def buildPromptWriter(page):
         Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_writer']['amount'], on_change=lambda e: changed(e, 'amount')),
             NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_writer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),
             NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_writer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-            Checkbox(label="Permutate Artists", value=prefs['prompt_writer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment="spaceBetween"),
+            Checkbox(label="Permutate Artists", value=prefs['prompt_writer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment=MainAxisAlignment.SPACE_BETWEEN),
         ElevatedButton(content=Text("✍️   Write Prompts", size=18), on_click=lambda _: run_prompt_writer(page)),
         page.prompt_writer_list,
         writer_list_buttons,
       ],
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 def NSP_instructions(page):
@@ -2213,7 +2298,7 @@ So in Subject try something like: `A _color_ _noun-general_ that is _adj-beauty_
     def close_NSP_dlg(e):
       instruction_alert.open = False
       page.update()
-    instruction_alert = AlertDialog(title=Text("🍜  Noodle Soup Prompt Variables Instructions"), content=Column([Markdown(NSP_markdown, extension_set="gitHubWeb", on_tap_link=open_url)], scroll="auto"), actions=[TextButton("🍲  Good Soup! ", on_click=close_NSP_dlg)], actions_alignment="end",)
+    instruction_alert = AlertDialog(title=Text("🍜  Noodle Soup Prompt Variables Instructions"), content=Column([Markdown(NSP_markdown, extension_set="gitHubWeb", on_tap_link=open_url)], scroll=ScrollMode.AUTO), actions=[TextButton("🍲  Good Soup! ", on_click=close_NSP_dlg)], actions_alignment=MainAxisAlignment.END,)
     page.dialog = instruction_alert
     instruction_alert.open = True
     page.update()
@@ -2249,8 +2334,10 @@ def buildExtras(page):
     page.ESRGAN_upscaler = buildESRGANupscaler(page)
     page.RetrievePrompts = buildRetrievePrompts(page)
     page.InitFolder = buildInitFolder(page)
+    page.CachedModelManager = buildCachedModelManager(page)
     page.Image2Text = buildImage2Text(page)
     page.DallE2 = buildDallE2(page)
+    page.Kandinsky = buildKandinsky(page)
     extrasTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -2258,8 +2345,10 @@ def buildExtras(page):
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
             Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
             Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
+            Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
             Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
+            Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
         ],
         expand=1,
         #on_change=tab_on_change
@@ -2293,7 +2382,7 @@ def buildESRGANupscaler(page):
       #generator_list_buttons.visible = True
       #generator_list_buttons.update()
     page.add_to_ESRGAN_output = add_to_ESRGAN_output
-    enlarge_scale_value = Text(f" {float(ESRGAN_prefs['enlarge_scale'])}x", weight="bold")
+    enlarge_scale_value = Text(f" {float(ESRGAN_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     def change_enlarge_scale(e):
         enlarge_scale_value.value = f" {int(e.control.value) if e.control.value.is_integer() else float(e.control.value)}x"
         enlarge_scale_slider.update()
@@ -2341,14 +2430,14 @@ def buildESRGANupscaler(page):
     split_image_grid = Switch(label="Split Image Grid", value=ESRGAN_prefs['split_image_grid'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_split)
     rows = NumberPicker(label="Rows: ", min=1, max=8, value=ESRGAN_prefs['rows'], on_change=lambda e: changed(e, 'rows'))
     cols = NumberPicker(label="Columns: ", min=1, max=8, value=ESRGAN_prefs['cols'], on_change=lambda e: changed(e, 'cols'))
-    split_container = Container(Row([rows, Container(content=None, width=25), cols]), animate_size=animation.Animation(800, "bounceOut"), clip_behavior="hardEdge", padding=padding.only(left=28), height=0)
+    split_container = Container(Row([rows, Container(content=None, width=25), cols]), animate_size=animation.Animation(800, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=28), height=0)
     ESRGAN_output = Column([])
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(ESRGAN_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("↕️  Real-ESRGAN AI Upscale Enlarging", style="titleLarge"),
+        Text("↕️  Real-ESRGAN AI Upscale Enlarging", style=TextThemeStyle.TITLE_LARGE),
         Text("Select one or more files, or give path to image or folder. Save to your Google Drive and/or Download."),
         Divider(thickness=1, height=5),
         enlarge_scale_slider,
@@ -2366,7 +2455,7 @@ def buildESRGANupscaler(page):
         ESRGAN_output,
         clear_button,
       ],
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 retrieve_prefs = {
@@ -2397,12 +2486,12 @@ def buildRetrievePrompts(page):
     display_full_metadata = Checkbox(label="Display Full Metadata", value=retrieve_prefs['display_full_metadata'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_full_metadata'))
     display_image = Checkbox(label="Display Image", value=retrieve_prefs['display_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_image'))
     retrieve_output = Column([])
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(retrieve_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("📰  Retrieve Dream Prompts from Image Metadata", style="titleLarge"),
+        Text("📰  Retrieve Dream Prompts from Image Metadata", style=TextThemeStyle.TITLE_LARGE),
         Text("Give it images made here and gives you all parameters used to recreate it. Either upload png file(s) or paste path to image or folder or config.json to revive your dreams.."),
         Divider(thickness=1, height=5),
         image_path,
@@ -2413,7 +2502,7 @@ def buildRetrievePrompts(page):
         retrieve_output,
         clear_button,
       ],
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 initfolder_prefs = {
@@ -2450,12 +2539,12 @@ def buildInitFolder(page):
     strength_row.visible = initfolder_prefs['include_strength']
     strength_container = Container(Row([Text("Init Image Strength: "), image_strength]))
     initfolder_output = Column([])
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(initfolder_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("📂 Generate Prompts from Folder as Init Images", style="titleLarge"),
+        Text("📂 Generate Prompts from Folder as Init Images", style=TextThemeStyle.TITLE_LARGE),
         Text("Provide a Folder with a collection of images that you want to automatically add to prompts list with init_image overides..."),
         Divider(thickness=1, height=4),
         init_folder,
@@ -2466,7 +2555,7 @@ def buildInitFolder(page):
         initfolder_output,
         clear_button,
       ]
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 image2text_prefs = {
@@ -2511,7 +2600,7 @@ def buildImage2Text(page):
         page.update()
       i2t_help_dlg = AlertDialog(title=Text("💁   Help with Image2Text CLIP Interrogator"), content=Column([
           Text(""),
-        ], scroll="auto"), actions=[TextButton("😪  Okay then... ", on_click=close_i2t_dlg)], actions_alignment="end")
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😪  Okay then... ", on_click=close_i2t_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = i2t_help_dlg
       i2t_help_dlg.open = True
       page.update()
@@ -2598,7 +2687,7 @@ def buildImage2Text(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_image2text(p):
-      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=3, style="bodyLarge"), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.image2text_list.update()
       image2text_list_buttons.visible = True
       image2text_list_buttons.update()
@@ -2616,7 +2705,7 @@ def buildImage2Text(page):
       image2text_list_buttons.update()
     image2text_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=18), on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
-    ], alignment="spaceBetween")
+    ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
@@ -2628,12 +2717,12 @@ def buildImage2Text(page):
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
     page.image2text_file_list = Column([], tight=True, spacing=0)
     page.image2text_output = Column([])
-    #clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
+    #clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     #clear_button.visible = len(page.image2text_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Image2Text CLIP-Interrogator", style="titleLarge"), IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)], alignment="spaceBetween"),
+        Row([Text("😶‍🌫️  Image2Text CLIP-Interrogator", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Create prompts by describing input images..."),
         Divider(thickness=1, height=4),
         mode,
@@ -2645,7 +2734,7 @@ def buildImage2Text(page):
         ElevatedButton(content=Text("👨‍🎨️  Get Prompts from Images", size=18), on_click=lambda _: run_image2text(page)),
         page.image2text_output,
       ],
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 dance_prefs = {
@@ -2690,15 +2779,15 @@ def buildDanceDiffusion(page):
       community_model.visible = False
     inference_steps = Slider(min=10, max=200, divisions=190, label="{value}", value=float(dance_prefs['inference_steps']), expand=True)
     inference_row = Row([Text("Number of Inference Steps: "), inference_steps])
-    batch_size = TextField(label="Batch Size", value=dance_prefs['batch_size'], keyboard_type="number", on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
-    seed = TextField(label="Random Seed", value=dance_prefs['seed'], keyboard_type="number", on_change=lambda e: changed(e, 'seed', isInt=True), width = 110)
-    audio_length_in_s = TextField(label="Audio Length in Seconds", value=dance_prefs['audio_length_in_s'], keyboard_type="number", on_change=lambda e: changed(e, 'audio_length_in_s'), width = 190)
+    batch_size = TextField(label="Batch Size", value=dance_prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
+    seed = TextField(label="Random Seed", value=dance_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', isInt=True), width = 110)
+    audio_length_in_s = TextField(label="Audio Length in Seconds", value=dance_prefs['audio_length_in_s'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'audio_length_in_s'), width = 190)
     number_row = Row([batch_size, seed, audio_length_in_s])
     page.dance_output = Column([])
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("📂 Create experimental music or sounds with HarmonAI trained audio models", style="titleLarge"),
+        Text("📂 Create experimental music or sounds with HarmonAI trained audio models", style=TextThemeStyle.TITLE_LARGE),
         Text("Tools to train a generative model on arbitrary audio samples..."),
         Divider(thickness=1, height=4),
         Row([dance_model, community_model]),
@@ -2707,7 +2796,7 @@ def buildDanceDiffusion(page):
         ElevatedButton(content=Text("🎵  Run Dance Diffusion", size=18), on_click=lambda _: run_dance_diffusion(page)),
         page.dance_output,
       ]
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 dreamfusion_prefs = {
@@ -2751,36 +2840,36 @@ def buildDreamFusion(page):
           Text('It takes about 0.7s per training step, so the default 5000 training steps take around 1 hour to finish. A larger Training_iters usually leads to better results.'),
           Text('If CUDA OOM, try to decrease Max_steps and Training_nerf_resolution.'),
           Text('If the NeRF fails to learn anything (empty scene, only background), try to decrease Lambda_entropy which regularizes the learned opacity.')
-        ], scroll="auto"), actions=[TextButton("😪  Okay then... ", on_click=close_df_dlg)], actions_alignment="end")
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😊  So Exciting... ", on_click=close_df_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = df_help_dlg
       df_help_dlg.open = True
       page.update()
     prompt_text = TextField(label="Prompt Text", value=dreamfusion_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
-    training_iters = TextField(label="Training Iterations", value=dreamfusion_prefs['training_iters'], keyboard_type="number", on_change=lambda e: changed(e, 'training_iters', ptype='int'), width = 160)
-    learning_rate = TextField(label="Learning Rate", value=dreamfusion_prefs['learning_rate'], keyboard_type="number", on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160)
-    training_nerf_resolution = TextField(label="Training NERF Res", value=dreamfusion_prefs['training_nerf_resolution'], keyboard_type="number", on_change=lambda e: changed(e, 'training_nerf_resolution', ptype='int'), width = 160)
-    seed = TextField(label="Seed", value=dreamfusion_prefs['seed'], keyboard_type="number", on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
-    lambda_entropy = TextField(label="Lambda Entropy", value=dreamfusion_prefs['lambda_entropy'], keyboard_type="number", on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
-    max_steps = TextField(label="Max Steps", value=dreamfusion_prefs['max_steps'], keyboard_type="number", on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
+    training_iters = TextField(label="Training Iterations", value=dreamfusion_prefs['training_iters'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'training_iters', ptype='int'), width = 160)
+    learning_rate = TextField(label="Learning Rate", value=dreamfusion_prefs['learning_rate'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160)
+    training_nerf_resolution = TextField(label="Training NERF Res", value=dreamfusion_prefs['training_nerf_resolution'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'training_nerf_resolution', ptype='int'), width = 160)
+    seed = TextField(label="Seed", value=dreamfusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    lambda_entropy = TextField(label="Lambda Entropy", value=dreamfusion_prefs['lambda_entropy'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
+    max_steps = TextField(label="Max Steps", value=dreamfusion_prefs['max_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
     workspace = TextField(label="Workspace Folder", value=dreamfusion_prefs['workspace'], on_change=lambda e:changed(e,'workspace'))
     page.dreamfusion_output = Column([])
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.dreamfusion_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Create experimental DreamFusion 3D Model and Video", style="titleLarge"), IconButton(icon=icons.HELP, tooltip="Help with DreamFusion Settings", on_click=df_help)], alignment="spaceBetween"),
+        Row([Text("🗿  Create experimental DreamFusion 3D Model and Video", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with DreamFusion Settings", on_click=df_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Provide a prompt to render a model. Warning: May take over an hour to run the training..."),
         Divider(thickness=1, height=4),
         prompt_text,
         Row([training_iters,learning_rate, lambda_entropy]),
         Row([seed, training_nerf_resolution, max_steps]),
         Row([workspace]),
-        ElevatedButton(content=Text("👨‍🎨️  Run DreamFusion", size=18), on_click=lambda _: run_dreamfusion(page)),
+        ElevatedButton(content=Text("🔨  Run DreamFusion", size=18), on_click=lambda _: run_dreamfusion(page)),
         page.dreamfusion_output,
         clear_button,
       ]
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 repaint_prefs = {
@@ -2824,7 +2913,7 @@ def buildRepainter(page):
         page.update()
       repaint_help_dlg = AlertDialog(title=Text("💁   Help with Repainter"), content=Column([
           Text("It's difficult to explain exactly what all these parameters do, but keep it close to defaults, keep prompt simple, or experiment to see what's what, we don't know."),
-        ], scroll="auto"), actions=[TextButton("😪  Okay then... ", on_click=close_repaint_dlg)], actions_alignment="end")
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😪  Okay then... ", on_click=close_repaint_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = repaint_help_dlg
       repaint_help_dlg.open = True
       page.update()
@@ -2866,24 +2955,24 @@ def buildRepainter(page):
     original_image = TextField(label="Original Image", value=repaint_prefs['original_image'], expand=1, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     mask_image = TextField(label="Mask Image", value=repaint_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=repaint_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
-    jump_length = TextField(label="Jump Length", tooltip="The number of steps taken forward in time before going backward in time for a single jump", value=repaint_prefs['jump_length'], keyboard_type="number", on_change=lambda e:changed(e,'jump_length', ptype='int'))
-    jump_n_sample = TextField(label="Jump Number of Sample", tooltip="The number of times we will make forward time jump for a given chosen time sample.", value=repaint_prefs['jump_n_sample'], keyboard_type="number", on_change=lambda e:changed(e,'jump_n_sample', ptype='int'))
-    seed = TextField(label="Seed", value=str(repaint_prefs['seed']), keyboard_type="number", tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    #num_inference_steps = TextField(label="Inference Steps", value=str(repaint_prefs['num_inference_steps']), keyboard_type="number", on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
+    jump_length = TextField(label="Jump Length", tooltip="The number of steps taken forward in time before going backward in time for a single jump", value=repaint_prefs['jump_length'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_length', ptype='int'))
+    jump_n_sample = TextField(label="Jump Number of Sample", tooltip="The number of times we will make forward time jump for a given chosen time sample.", value=repaint_prefs['jump_n_sample'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_n_sample', ptype='int'))
+    seed = TextField(label="Seed", value=str(repaint_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    #num_inference_steps = TextField(label="Inference Steps", value=str(repaint_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
     num_inference_steps = Slider(min=10, max=3000, divisions=2990, label="{value}", value=float(repaint_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
     num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps])
-    #eta = TextField(label="ETA", value=str(repaint_prefs['eta']), keyboard_type="number", hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta = TextField(label="ETA", value=str(repaint_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(repaint_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     eta_row = Row([Text("ETA:    DDIM"), eta, Text("DDPM")])
     max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(repaint_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     max_row = Row([Text("Max Resolution Size: "), max_size])
     page.repaint_output = Column([])
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.repaint_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("💅  Repaint masked areas of an image", style="titleLarge"), IconButton(icon=icons.HELP, tooltip="Help with Repainter Settings", on_click=repaint_help)], alignment="spaceBetween"),
+        Row([Text("💅  Repaint masked areas of an image", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Repainter Settings", on_click=repaint_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Fills in areas of picture with what it thinks it should be, without a prompt..."),
         Divider(thickness=1, height=4),
         Row([original_image, mask_image, invert_mask]),
@@ -2895,7 +2984,7 @@ def buildRepainter(page):
         page.repaint_output,
         clear_button,
       ]
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 materialdiffusion_prefs = {
@@ -3019,49 +3108,49 @@ def buildMaterialDiffusion(page):
     batch_folder_name = TextField(label="Batch Folder Name", value=materialdiffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=materialdiffusion_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
-    #num_outputs = TextField(label="num_outputs", value=materialdiffusion_prefs['num_outputs'], keyboard_type="number", on_change=lambda e:changed(e,'num_outputs', ptype="int"))
-    #n_iterations = TextField(label="Number of Iterations", value=materialdiffusion_prefs['n_iterations'], keyboard_type="number", on_change=lambda e:changed(e,'n_iterations', ptype="int"))
-    steps = TextField(label="Inference Steps", value=materialdiffusion_prefs['steps'], keyboard_type="number", on_change=lambda e:changed(e,'steps', ptype="int"))
-    eta = TextField(label="DDIM ETA", value=materialdiffusion_prefs['eta'], keyboard_type="number", on_change=lambda e:changed(e,'eta', ptype="float"))
-    seed = TextField(label="Seed", value=materialdiffusion_prefs['seed'], keyboard_type="number", on_change=lambda e:changed(e,'seed', ptype="int"))
-    param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=4, step=4, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}), 
+    #num_outputs = TextField(label="num_outputs", value=materialdiffusion_prefs['num_outputs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_outputs', ptype="int"))
+    #n_iterations = TextField(label="Number of Iterations", value=materialdiffusion_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
+    steps = TextField(label="Inference Steps", value=materialdiffusion_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    eta = TextField(label="DDIM ETA", value=materialdiffusion_prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta', ptype="float"))
+    seed = TextField(label="Seed", value=materialdiffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
+    param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=4, step=3, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}), 
                       Column([steps, eta, seed], col={'xs':12, 'md':6})])
     guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=materialdiffusion_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {materialdiffusion_prefs['guidance_scale']}", weight="bold")
+    guidance_value = Text(f" {materialdiffusion_prefs['guidance_scale']}", weight=FontWeight.BOLD)
     guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
     width = Slider(min=128, max=1024, divisions=14, label="{value}px", value=materialdiffusion_prefs['width'], on_change=change_width, expand=True)
-    width_value = Text(f" {int(materialdiffusion_prefs['width'])}px", weight="bold")
+    width_value = Text(f" {int(materialdiffusion_prefs['width'])}px", weight=FontWeight.BOLD)
     width_slider = Row([Text(f"Width: "), width_value, width])
     height = Slider(min=128, max=1024, divisions=14, label="{value}px", value=materialdiffusion_prefs['height'], on_change=change_height, expand=True)
-    height_value = Text(f" {int(materialdiffusion_prefs['height'])}px", weight="bold")
+    height_value = Text(f" {int(materialdiffusion_prefs['height'])}px", weight=FontWeight.BOLD)
     height_slider = Row([Text(f"Height: "), height_value, height])
 
-    init_image = TextField(label="Init Image", value=materialdiffusion_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={'xs':12, 'md':6}))
-    mask_image = TextField(label="Mask Image", value=materialdiffusion_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={'xs':10, 'md':5}))
+    init_image = TextField(label="Init Image", value=materialdiffusion_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
+    mask_image = TextField(label="Mask Image", value=materialdiffusion_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=materialdiffusion_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
-    image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=materialdiffusion_prefs['prompt_strength'], on_change=change_strength, expand=True)
-    strength_value = Text(f" {int(materialdiffusion_prefs['prompt_strength'] * 100)}%", weight="bold")
+    strength_value = Text(f" {int(materialdiffusion_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
-    img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=materialdiffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(materialdiffusion_prefs['enlarge_scale'])}x", weight="bold")
+    enlarge_scale_value = Text(f" {float(materialdiffusion_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=materialdiffusion_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=materialdiffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=materialdiffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
-    page.ESRGAN_block_material = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_material = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_material.height = None if status['installed_ESRGAN'] else 0
     if not materialdiffusion_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     parameters_button = ElevatedButton(content=Text(value="💨   Run Material Diffusion", size=20), on_click=lambda _: run_materialdiffusion(page))
 
-    parameters_row = Row([parameters_button], alignment="spaceBetween")
+    parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.materialdiffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("🧱  Replicate Material Diffusion", style="titleLarge"),
+            Text ("🧱  Replicate Material Diffusion", style=TextThemeStyle.TITLE_LARGE),
             Text ("Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key."),
             Divider(thickness=1, height=4),
             material_prompt,
@@ -3071,7 +3160,7 @@ def buildMaterialDiffusion(page):
             parameters_row,
             page.materialdiffusion_output
         ],
-    ))], scroll="auto")#batch_folder_name, batch_size, n_iterations, steps, eta, seed, 
+    ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, eta, seed, 
     return c
 
 dall_e_prefs = {
@@ -3170,47 +3259,47 @@ def buildDallE2(page):
     batch_folder_name = TextField(label="Batch Folder Name", value=dall_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=dall_e_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
     #num_images = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=dall_e_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
-    #num_images = TextField(label="num_images", value=dall_e_prefs['num_images'], keyboard_type="number", on_change=lambda e:changed(e,'num_images', ptype="int"))
-    #n_iterations = TextField(label="Number of Iterations", value=dall_e_prefs['n_iterations'], keyboard_type="number", on_change=lambda e:changed(e,'n_iterations', ptype="int"))
-    #steps = TextField(label="Inference Steps", value=dall_e_prefs['steps'], keyboard_type="number", on_change=lambda e:changed(e,'steps', ptype="int"))
-    #eta = TextField(label="DDIM ETA", value=dall_e_prefs['eta'], keyboard_type="number", on_change=lambda e:changed(e,'eta', ptype="float"))
-    #seed = TextField(label="Seed", value=dall_e_prefs['seed'], keyboard_type="number", on_change=lambda e:changed(e,'seed', ptype="int"))
+    #num_images = TextField(label="num_images", value=dall_e_prefs['num_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_images', ptype="int"))
+    #n_iterations = TextField(label="Number of Iterations", value=dall_e_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
+    #steps = TextField(label="Inference Steps", value=dall_e_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    #eta = TextField(label="DDIM ETA", value=dall_e_prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta', ptype="float"))
+    #seed = TextField(label="Seed", value=dall_e_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
     size = Dropdown(label="Image Size", width=180, options=[dropdown.Option("256x256"), dropdown.Option("512x512"), dropdown.Option("1024x1024")], value=dall_e_prefs['size'], on_change=lambda e:changed(e,'size'))
     param_rows = Row([Row([batch_folder_name, file_prefix, size, NumberPicker(label="Number of Images", min=1, max=10, step=1, value=dall_e_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))])])
     
     #width = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_prefs['width'], on_change=change_width, expand=True)
-    #width_value = Text(f" {int(dall_e_prefs['width'])}px", weight="bold")
+    #width_value = Text(f" {int(dall_e_prefs['width'])}px", weight=FontWeight.BOLD)
     #width_slider = Row([Text(f"Width: "), width_value, width])
     #height = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_prefs['height'], on_change=change_height, expand=True)
-    #height_value = Text(f" {int(dall_e_prefs['height'])}px", weight="bold")
+    #height_value = Text(f" {int(dall_e_prefs['height'])}px", weight=FontWeight.BOLD)
     #height_slider = Row([Text(f"Height: "), height_value, height])
     init_image = TextField(label="Init Image", value=dall_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, col={"xs":10, "md":4}, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
     mask_image = TextField(label="Mask Image", value=dall_e_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, col={"xs":10, "md":4}, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
     variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_prefs['variation'], col={"xs":2}, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_prefs['invert_mask'], col={"xs":2}, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
-    image_pickers = Container(content=ResponsiveRow([init_image, variation, mask_image, invert_mask], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    image_pickers = Container(content=ResponsiveRow([init_image, variation, mask_image, invert_mask], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=dall_e_prefs['prompt_strength'], on_change=change_strength, expand=True)
-    #strength_value = Text(f" {int(dall_e_prefs['prompt_strength'] * 100)}%", weight="bold") 
+    #strength_value = Text(f" {int(dall_e_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD) 
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
-    img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=dall_e_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(dall_e_prefs['enlarge_scale'])}x", weight="bold")
+    enlarge_scale_value = Text(f" {float(dall_e_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=dall_e_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=dall_e_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=dall_e_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
-    page.ESRGAN_block_dalle = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_dalle = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_dalle.height = None if status['installed_ESRGAN'] else 0
     if not dall_e_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     parameters_button = ElevatedButton(content=Text(value="🖼️   Run Dall-E 2", size=20), on_click=lambda _: run_dall_e(page))
 
-    parameters_row = Row([parameters_button], alignment="spaceBetween")
+    parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.dall_e_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("👺  OpenAI Dall-E 2", style="titleLarge"),
+            Text ("👺  OpenAI Dall-E 2", style=TextThemeStyle.TITLE_LARGE),
             Text ("Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
             Divider(thickness=1, height=4),
             prompt,
@@ -3220,8 +3309,189 @@ def buildDallE2(page):
             parameters_row,
             page.dall_e_output
         ],
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
+
+kandinsky_prefs = {
+    "prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "kandinsky-",
+    "num_images": 1,
+    "steps":100,
+    "ddim_eta":0.05,
+    "width": 512,
+    "height":512,
+    "guidance_scale":8,
+    "dynamic_threshold_v":99.5,
+    "sampler": "ddim_sampler",
+    "denoised_type": "dynamic_threshold",
+    "init_image": '',
+    "strength": 0.5,
+    "mask_image": '',
+    "invert_mask": False,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildKandinsky(page):
+    global prefs, kandinsky_prefs, status
+
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        if ptype == "int":
+          kandinsky_prefs[pref] = int(e.control.value)
+        elif ptype == "float":
+          kandinsky_prefs[pref] = float(e.control.value)
+        else:
+          kandinsky_prefs[pref] = e.control.value
+    def pick_files_result(e: FilePickerResultEvent):
+        if e.files:
+            img = e.files
+            uf = []
+            fname = img[0]
+            print(", ".join(map(lambda f: f.name, e.files)))
+            src_path = page.get_upload_url(fname.name, 600)
+            uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
+            pick_files_dialog.upload(uf)
+            print(str(src_path))
+            #src_path = ''.join(src_path)
+            print(str(uf[0]))
+            dst_path = os.path.join(root_dir, fname.name)
+            print(f'Copy {src_path} to {dst_path}')
+            #shutil.copy(src_path, dst_path)
+            # TODO: is init or mask?
+            init_image.value = dst_path
+
+    pick_files_dialog = FilePicker(on_result=pick_files_result)
+    page.overlay.append(pick_files_dialog)
+    #selected_files = Text()
+
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+            upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+        nonlocal pick_type
+        if e.progress == 1:
+            fname = f"{root_dir}{e.file_name}"
+            if pick_type == "init":
+                init_image.value = fname
+                init_image.update()
+                kandinsky_prefs['init_image'] = fname
+            elif pick_type == "mask":
+                mask_image.value = fname
+                mask_image.update()
+                kandinsky_prefs['mask_image'] = fname
+            page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    #page.overlay.append(pick_files_dialog)
+    def pick_init(e):
+        nonlocal pick_type
+        pick_type = "init"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
+    def pick_mask(e):
+        nonlocal pick_type
+        pick_type = "mask"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        kandinsky_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_guidance(e):
+        guidance_value.value = f" {int(e.control.value)}"
+        guidance_value.update()
+        #guidance.controls[1].value = f" {e.control.value}"
+        guidance.update()
+        changed(e, 'guidance_scale', ptype="int")
+    def change_width(e):
+        width_slider.controls[1].value = f" {int(e.control.value)}px"
+        width_slider.update()
+        changed(e, 'width', ptype="int")
+    def change_height(e):
+        height_slider.controls[1].value = f" {int(e.control.value)}px"
+        height_slider.update()
+        changed(e, 'height', ptype="int")
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    def change_strength(e):
+        strength_value.value = f" {e.control.value}"
+        strength_value.update()
+        guidance.update()
+        changed(e, 'strength', ptype="float")
+
+    prompt = TextField(label="Text Prompt", value=kandinsky_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=kandinsky_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
+    #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=kandinsky_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
+    #num_outputs = TextField(label="num_outputs", value=kandinsky_prefs['num_outputs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_outputs', ptype="int"))
+    #n_iterations = TextField(label="Number of Iterations", value=kandinsky_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
+    steps = TextField(label="Number of Steps", value=kandinsky_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    ddim_eta = TextField(label="DDIM ETA", value=kandinsky_prefs['ddim_eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'ddim_eta', ptype="float"))
+    dynamic_threshold_v = TextField(label="Dynamic Threshold", value=kandinsky_prefs['dynamic_threshold_v'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'dynamic_threshold_v', ptype="float"))
+    param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))], col={'xs':12, 'md':6}), 
+                      Column([steps, ddim_eta, dynamic_threshold_v], col={'xs':12, 'md':6})])
+    sampler = Dropdown(label="Sampler", width=180, options=[dropdown.Option("ddim_sampler"), dropdown.Option("p_sampler")], value=kandinsky_prefs['sampler'], on_change=lambda e:changed(e,'sampler'), col={'xs':12, 'md':6})
+    denoised_type = Dropdown(label="Denoised Type", width=180, options=[dropdown.Option("dynamic_threshold"), dropdown.Option("clip_denoised")], value=kandinsky_prefs['denoised_type'], on_change=lambda e:changed(e,'denoised_type'), col={'xs':12, 'md':6})
+    dropdown_row = ResponsiveRow([sampler, denoised_type])
+    guidance_scale = Slider(min=0, max=50, divisions=50, label="{value}", value=kandinsky_prefs['guidance_scale'], on_change=change_guidance, expand=True)
+    guidance_value = Text(f" {kandinsky_prefs['guidance_scale']}", weight=FontWeight.BOLD)
+    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    width = Slider(min=128, max=1024, divisions=14, label="{value}px", value=kandinsky_prefs['width'], on_change=change_width, expand=True)
+    width_value = Text(f" {int(kandinsky_prefs['width'])}px", weight=FontWeight.BOLD)
+    width_slider = Row([Text(f"Width: "), width_value, width])
+    height = Slider(min=128, max=1024, divisions=14, label="{value}px", value=kandinsky_prefs['height'], on_change=change_height, expand=True)
+    height_value = Text(f" {int(kandinsky_prefs['height'])}px", weight=FontWeight.BOLD)
+    height_slider = Row([Text(f"Height: "), height_value, height])
+
+    init_image = TextField(label="Init Image", value=kandinsky_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
+    mask_image = TextField(label="Mask Image", value=kandinsky_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
+    image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", value=kandinsky_prefs['strength'], on_change=change_strength, expand=True)
+    strength_value = Text(f" {kandinsky_prefs['strength']}", weight=FontWeight.BOLD)
+    strength_slider = Row([Text("Init Image Strength: "), strength_value, strength])
+    img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=kandinsky_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(kandinsky_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=kandinsky_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kandinsky = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kandinsky.height = None if status['installed_ESRGAN'] else 0
+    if not kandinsky_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2", size=20), on_click=lambda _: run_kandinsky(page))
+
+    parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    page.kandinsky_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Text ("🎎  Kandinsky 2.0", style=TextThemeStyle.TITLE_LARGE),
+            Text ("A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia."),
+            Divider(thickness=1, height=4),
+            prompt,
+            param_rows, dropdown_row, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
+            img_block, page.ESRGAN_block_kandinsky,
+            #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
+            parameters_row,
+            page.kandinsky_output
+        ],
+    ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, ddim_eta, seed, 
+    return c
+
 
 CLIPstyler_prefs = {
     'source':'a photo',
@@ -3320,46 +3590,46 @@ def buildCLIPstyler(page):
     prompt_text = TextField(label="Stylized Prompt Text", value=CLIPstyler_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
     batch_folder_name = TextField(label="Batch Folder Name", value=CLIPstyler_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     source = TextField(label="Source Type", value=CLIPstyler_prefs['source'], on_change=lambda e:changed(e,'source'))
-    #training_iterations = TextField(label="Training Iterations", value=CLIPstyler_prefs['training_iterations'], keyboard_type="number", on_change=lambda e:changed(e,'training_iterations', ptype="int"))
-    crop_size = TextField(label="Crop Size", value=CLIPstyler_prefs['crop_size'], keyboard_type="number", on_change=lambda e:changed(e,'crop_size', ptype="int"))
-    num_crops = TextField(label="Number of Crops", value=CLIPstyler_prefs['num_crops'], keyboard_type="number", on_change=lambda e:changed(e,'num_crops', ptype="int"))
+    #training_iterations = TextField(label="Training Iterations", value=CLIPstyler_prefs['training_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'training_iterations', ptype="int"))
+    crop_size = TextField(label="Crop Size", value=CLIPstyler_prefs['crop_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'crop_size', ptype="int"))
+    num_crops = TextField(label="Number of Crops", value=CLIPstyler_prefs['num_crops'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_crops', ptype="int"))
     param_rows = Column([Row([batch_folder_name, source]), Row([crop_size, num_crops])])
     training_iterations = Slider(min=50, max=500, divisions=90, label="{value}", value=CLIPstyler_prefs['training_iterations'], on_change=change_iterations, expand=True)
-    iterations_value = Text(f" {CLIPstyler_prefs['training_iterations']}", weight="bold")
+    iterations_value = Text(f" {CLIPstyler_prefs['training_iterations']}", weight=FontWeight.BOLD)
     iterations = Row([Text("Training Iterations: "), iterations_value, training_iterations])
     width = Slider(min=128, max=1024, divisions=14, label="{value}px", value=CLIPstyler_prefs['width'], on_change=change_width, expand=True)
-    width_value = Text(f" {int(CLIPstyler_prefs['width'])}px", weight="bold")
+    width_value = Text(f" {int(CLIPstyler_prefs['width'])}px", weight=FontWeight.BOLD)
     width_slider = Row([Text(f"Width: "), width_value, width])
     height = Slider(min=128, max=1024, divisions=14, label="{value}px", value=CLIPstyler_prefs['height'], on_change=change_height, expand=True)
-    height_value = Text(f" {int(CLIPstyler_prefs['height'])}px", weight="bold")
+    height_value = Text(f" {int(CLIPstyler_prefs['height'])}px", weight=FontWeight.BOLD)
     height_slider = Row([Text(f"Height: "), height_value, height])
 
     original_image = TextField(label="Original Image", value=CLIPstyler_prefs['original_image'], on_change=lambda e:changed(e,'original_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original, col={"*":1, "md":3}))
     #mask_image = TextField(label="Mask Image", value=CLIPstyler_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
     #invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=CLIPstyler_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
-    image_picker = Container(content=Row([original_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    image_picker = Container(content=Row([original_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=CLIPstyler_prefs['prompt_strength'], on_change=change_strength, expand=True)
-    #strength_value = Text(f" {int(CLIPstyler_prefs['prompt_strength'] * 100)}%", weight="bold")
+    #strength_value = Text(f" {int(CLIPstyler_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
-    #img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    #img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=CLIPstyler_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(CLIPstyler_prefs['enlarge_scale'])}x", weight="bold")
+    enlarge_scale_value = Text(f" {float(CLIPstyler_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=CLIPstyler_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=CLIPstyler_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=CLIPstyler_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
-    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
-    page.ESRGAN_block_styler = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, "bounceOut"), clip_behavior="hardEdge")
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_styler = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_styler.height = None if status['installed_ESRGAN'] else 0
     if not CLIPstyler_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     parameters_button = ElevatedButton(content=Text(value="📎   Run CLIP-Styler", size=20), on_click=lambda _: run_CLIPstyler(page))
 
-    parameters_row = Row([parameters_button], alignment="spaceBetween")
+    parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.CLIPstyler_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("😎   CLIP-Styler", style="titleLarge"),
+            Text ("😎   CLIP-Styler", style=TextThemeStyle.TITLE_LARGE),
             Text ("Transfers a Text Guided Style onto your Image From Prompt Description..."),
             Divider(thickness=1, height=4),
             image_picker, prompt_text,
@@ -3369,7 +3639,7 @@ def buildCLIPstyler(page):
             parameters_row,
             page.CLIPstyler_output
         ],
-    ))], scroll="auto")#batch_folder_name, batch_size, n_iterations, steps, crop_size, num_crops, 
+    ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, crop_size, num_crops, 
     return c
 
 def buildDreamMask(page):
@@ -3411,7 +3681,7 @@ dreambooth_prefs = {
     'num_class_images': 12,
     'sample_batch_size': 2,
     'prior_loss_weight': 0.5,
-    'prior_preservation_class_folder': root_dir + "/class_images",
+    'prior_preservation_class_folder': os.path.join(root_dir, "class_images"),
     'learning_rate': 5e-06,
     'max_train_steps': 450,
     'seed': 222476,
@@ -3450,29 +3720,51 @@ def buildDreamBooth(page):
           db_help_dlg.open = False
           page.update()
         db_help_dlg = AlertDialog(title=Text("💁   Help with DreamBooth"), content=Column([
-            Text(""),
-          ], scroll="auto"), actions=[TextButton("😪  Okay then... ", on_click=close_db_dlg)], actions_alignment="end")
+            Text("First thing is to collect all your own images that you want to teach it to dream.  Feed it at least 5 square pictures of the object or style to learn, and it'll save your Custom Model Checkpoint."),
+            Text("Fine-tune your perameters, but be aware that the training process takes a long time to run, so careful with the settings if you don't have the patience or processor. Dream at your own risk."),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton(emojize(':sleepy_face:') + "  Got it... ", on_click=close_db_dlg)], actions_alignment=MainAxisAlignment.END)
         page.dialog = db_help_dlg
         db_help_dlg.open = True
         page.update()
-    def add_file(fpath):
-        page.file_list.controls.append(ListTile(title=Text(fpath), dense=True))
-        page.file_list.update()
+    def delete_image(e):
+        f = e.control.data
+        if os.path.isfile(f):
+          os.remove(f)
+          for i, fl in enumerate(page.db_file_list.controls):
+            if fl.title.value == f:
+              del page.db_file_list.controls[i]
+              page.db_file_list.update()
+              continue
+    def delete_all_images(e):
+        for fl in page.db_file_list.controls:
+          f = fl.title.value
+          if os.path.isfile(f):
+            os.remove(f)
+        page.db_file_list.controls.clear()
+        page.db_file_list.update()
+    def add_file(fpath, update=True):
+        page.db_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[#TODO: View Image
+              PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
+          ])))
+        if update: page.db_file_list.update()
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
           upload_files(e)
+    save_dir = os.path.join(root_dir, 'my_concept')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-          save_dir = os.path.join(root_dir, 'my_concept')
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = f"{root_dir}{e.file_name}"
+          fname = os.path.join(root_dir, e.file_name)
           fpath = os.path.join(save_dir, e.file_name)
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, dreambooth_prefs['max_size'])
           original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
           original_img.save(fpath)
+          os.remove(fname)
           #shutil.move(fname, fpath)
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -3530,15 +3822,22 @@ def buildDreamBooth(page):
           return
         image_path.value = ""
         image_path.update()
+    def load_images():
+        if os.path.exists(save_dir):
+          for f in os.listdir(save_dir):
+            existing = os.path.join(save_dir, f)
+            if os.path.isdir(existing): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+              add_file(existing, update=False)
     instance_prompt = TextField(label="Instance Prompt Token Text", value=dreambooth_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'))
     prior_preservation_class_prompt = TextField(label="Prior Preservation Class Prompt", value=dreambooth_prefs['prior_preservation_class_prompt'], on_change=lambda e:changed(e,'prior_preservation_class_prompt'))
     prior_preservation = Checkbox(label="Prior Preservation", tooltip="If you'd like class of the concept (e.g.: toy, dog, painting) is guaranteed to be preserved. This increases the quality and helps with generalization at the cost of training time", value=dreambooth_prefs['prior_preservation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'prior_preservation'))
-    num_class_images = TextField(label="Number of Class Images", value=dreambooth_prefs['num_class_images'], keyboard_type="number", on_change=lambda e: changed(e, 'num_class_images', ptype='int'), width = 160)
-    sample_batch_size = TextField(label="Sample Batch Size", value=dreambooth_prefs['sample_batch_size'], keyboard_type="number", on_change=lambda e: changed(e, 'sample_batch_size', ptype='int'), width = 160)
-    prior_loss_weight = TextField(label="Prior Loss Weight", value=dreambooth_prefs['prior_loss_weight'], keyboard_type="number", on_change=lambda e: changed(e, 'prior_loss_weight', ptype='float'), width = 160)
-    max_train_steps = TextField(label="Max Training Steps", value=dreambooth_prefs['max_train_steps'], keyboard_type="number", on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160)
-    learning_rate = TextField(label="Learning Rate", value=dreambooth_prefs['learning_rate'], keyboard_type="number", on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160)
-    seed = TextField(label="Seed", value=dreambooth_prefs['seed'], keyboard_type="number", on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    num_class_images = TextField(label="Number of Class Images", value=dreambooth_prefs['num_class_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_class_images', ptype='int'), width = 160)
+    sample_batch_size = TextField(label="Sample Batch Size", value=dreambooth_prefs['sample_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'sample_batch_size', ptype='int'), width = 160)
+    prior_loss_weight = TextField(label="Prior Loss Weight", value=dreambooth_prefs['prior_loss_weight'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'prior_loss_weight', ptype='float'), width = 160)
+    max_train_steps = TextField(label="Max Training Steps", value=dreambooth_prefs['max_train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160)
+    learning_rate = TextField(label="Learning Rate", value=dreambooth_prefs['learning_rate'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160)
+    seed = TextField(label="Seed", value=dreambooth_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
     save_concept = Checkbox(label="Save Concept    ", tooltip="", value=dreambooth_prefs['save_concept'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_concept'))
     where_to_save_concept = Dropdown(label="Where to Save Concept", width=250, options=[dropdown.Option("Public Library"), dropdown.Option("Privately to my Profile")], value=dreambooth_prefs['where_to_save_concept'], on_change=lambda e: changed(e, 'where_to_save_concept'))
     prior_preservation_class_folder = TextField(label="Prior Preservation Class Folder", value=dreambooth_prefs['prior_preservation_class_folder'], on_change=lambda e:changed(e,'prior_preservation_class_folder'))
@@ -3548,17 +3847,18 @@ def buildDreamBooth(page):
     max_row = Row([Text("Max Resolution Size: "), max_size])
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=dreambooth_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
-    page.file_list = Column([], tight=True, spacing=0)
-    #seed = TextField(label="Seed", value=dreambooth_prefs['seed'], keyboard_type="number", on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
-    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfusdreambooth_prefsion_prefs['lambda_entropy'], keyboard_type="number", on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
-    #max_steps = TextField(label="Max Steps", value=dreambooth_prefs['max_steps'], keyboard_type="number", on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
+    page.db_file_list = Column([], tight=True, spacing=0)
+    load_images()
+    #seed = TextField(label="Seed", value=dreambooth_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfusdreambooth_prefsion_prefs['lambda_entropy'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
+    #max_steps = TextField(label="Max Steps", value=dreambooth_prefs['max_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
     page.dreambooth_output = Column([])
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.dreambooth_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Create Cusom DreamBooth Concept Model", style="titleLarge"), IconButton(icon=icons.HELP, tooltip="Help with DreamBooth Settings", on_click=db_help)], alignment="spaceBetween"),
+        Row([Text("😶‍🌫️  Create Custom DreamBooth Concept Model", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with DreamBooth Settings", on_click=db_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Provide a collection of images to conceptualize. Warning: May take over an hour to run the training..."),
         Divider(thickness=1, height=4),
         Row([instance_prompt, name_of_your_concept]),
@@ -3569,12 +3869,12 @@ def buildDreamBooth(page):
         #Row([prior_preservation_class_folder]),
         max_row,
         Row([image_path, add_image_button]),
-        page.file_list,
+        page.db_file_list,
         ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth", size=18), on_click=lambda _: run_dreambooth(page)),
         page.dreambooth_output,
         clear_button,
       ]
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 textualinversion_prefs = {
@@ -3587,7 +3887,7 @@ textualinversion_prefs = {
     'gradient_accumulation_steps': 4,
     'seed': 22276,
     'repeats': 100,
-    'output_dir': root_dir + "/sd-concept-output",
+    'output_dir': os.path.join(root_dir, "sd-concept-output"),
     'learning_rate': 5e-04,
     'name_of_your_concept': "",
     'save_concept': True,
@@ -3624,28 +3924,49 @@ def buildTextualInversion(page):
           page.update()
         ti_help_dlg = AlertDialog(title=Text("💁   Help with Textual-Inversion"), content=Column([
             Text(""),
-          ], scroll="auto"), actions=[TextButton("😪  I'll figure it out... ", on_click=close_ti_dlg)], actions_alignment="end")
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("😪  I'll figure it out... ", on_click=close_ti_dlg)], actions_alignment=MainAxisAlignment.END)
         page.dialog = ti_help_dlg
         ti_help_dlg.open = True
         page.update()
-    def add_file(fpath):
-        page.file_list.controls.append(ListTile(title=Text(fpath), dense=True))
-        page.file_list.update()
+    def delete_image(e):
+        f = e.control.data
+        if os.path.isfile(f):
+          os.remove(f)
+          for i, fl in enumerate(page.ti_file_list.controls):
+            if fl.title.value == f:
+              del page.ti_file_list.controls[i]
+              page.ti_file_list.update()
+              continue
+    def delete_all_images(e):
+        for fl in page.ti_file_list.controls:
+          f = fl.title.value
+          if os.path.isfile(f):
+            os.remove(f)
+        page.ti_file_list.controls.clear()
+        page.ti_file_list.update()
+    def add_file(fpath, update=True):
+        page.ti_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[#TODO: View Image
+              PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
+          ])))
+        if update: page.ti_file_list.update()
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
           upload_files(e)
+    save_dir = os.path.join(root_dir, 'my_concept')
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-          save_dir = os.path.join(root_dir, 'my_concept')
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = f"{root_dir}{e.file_name}"
+          fname = os.path.join(root_dir, e.file_name)
           fpath = os.path.join(save_dir, e.file_name)
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, textualinversion_prefs['max_size'])
           original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
           original_img.save(fpath)
+          os.remove(fname)
           #shutil.move(fname, fpath)
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -3703,16 +4024,23 @@ def buildTextualInversion(page):
           return
         image_path.value = ""
         image_path.update()
+    def load_images():
+        if os.path.exists(save_dir):
+          for f in os.listdir(save_dir):
+            existing = os.path.join(save_dir, f)
+            if os.path.isdir(existing): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+              add_file(existing, update=False)
     what_to_teach = Dropdown(label="What to Teach", width=250, options=[dropdown.Option("object"), dropdown.Option("style")], value=textualinversion_prefs['what_to_teach'], on_change=lambda e: changed(e, 'what_to_teach'))
     placeholder_token = TextField(label="Placeholder <Token> Keyword", value=textualinversion_prefs['placeholder_token'], on_change=lambda e:changed(e,'placeholder_token'))
     initializer_token = TextField(label="Initializer Token Category Summary", value=textualinversion_prefs['initializer_token'], on_change=lambda e:changed(e,'initializer_token'))
     scale_lr = Checkbox(label="Scale Learning Rate", tooltip="", value=textualinversion_prefs['scale_lr'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'scale_lr'))
-    gradient_accumulation_steps = TextField(label="Gradient Accumulation Steps", value=textualinversion_prefs['gradient_accumulation_steps'], keyboard_type="number", on_change=lambda e: changed(e, 'gradient_accumulation_steps', ptype='int'), width = 160)
-    repeats = TextField(label="Repeats", value=textualinversion_prefs['repeats'], keyboard_type="number", on_change=lambda e: changed(e, 'repeats', ptype='int'), width = 160)
-    train_batch_size = TextField(label="Train Batch Size", value=textualinversion_prefs['train_batch_size'], keyboard_type="number", on_change=lambda e: changed(e, 'train_batch_size', ptype='float'), width = 160)
-    max_train_steps = TextField(label="Max Training Steps", value=textualinversion_prefs['max_train_steps'], keyboard_type="number", on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160)
-    learning_rate = TextField(label="Learning Rate", value=textualinversion_prefs['learning_rate'], keyboard_type="number", on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160)
-    seed = TextField(label="Seed", value=textualinversion_prefs['seed'], keyboard_type="number", on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    gradient_accumulation_steps = TextField(label="Gradient Accumulation Steps", value=textualinversion_prefs['gradient_accumulation_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'gradient_accumulation_steps', ptype='int'), width = 160)
+    repeats = TextField(label="Repeats", value=textualinversion_prefs['repeats'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'repeats', ptype='int'), width = 160)
+    train_batch_size = TextField(label="Train Batch Size", value=textualinversion_prefs['train_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'train_batch_size', ptype='float'), width = 160)
+    max_train_steps = TextField(label="Max Training Steps", value=textualinversion_prefs['max_train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160)
+    learning_rate = TextField(label="Learning Rate", value=textualinversion_prefs['learning_rate'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160)
+    seed = TextField(label="Seed", value=textualinversion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
     save_concept = Checkbox(label="Save Concept    ", tooltip="", value=textualinversion_prefs['save_concept'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_concept'))
     where_to_save_concept = Dropdown(label="Where to Save Concept", width=250, options=[dropdown.Option("Public Library"), dropdown.Option("Privately to my Profile")], value=textualinversion_prefs['where_to_save_concept'], on_change=lambda e: changed(e, 'where_to_save_concept'))
     output_dir = TextField(label="Prior Preservation Class Folder", value=textualinversion_prefs['output_dir'], on_change=lambda e:changed(e,'output_dir'))
@@ -3722,17 +4050,18 @@ def buildTextualInversion(page):
     max_row = Row([Text("Max Resolution Size: "), max_size])
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=textualinversion_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
-    page.file_list = Column([], tight=True, spacing=0)
-    #seed = TextField(label="Seed", value=textualinversion_prefs['seed'], keyboard_type="number", on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
-    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfustextualinversion_prefsion_prefs['lambda_entropy'], keyboard_type="number", on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
-    #max_steps = TextField(label="Max Steps", value=textualinversion_prefs['max_steps'], keyboard_type="number", on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
+    page.ti_file_list = Column([], tight=True, spacing=0)
+    load_images()
+    #seed = TextField(label="Seed", value=textualinversion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfustextualinversion_prefsion_prefs['lambda_entropy'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
+    #max_steps = TextField(label="Max Steps", value=textualinversion_prefs['max_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
     page.textualinversion_output = Column([])
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment="end")
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.textualinversion_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", style="titleLarge"), IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)], alignment="spaceBetween"),
+        Row([Text("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Provide a collection of images to conceptualize. Warning: May take over an hour to run the training..."),
         Divider(thickness=1, height=4),
         Row([what_to_teach, initializer_token]),
@@ -3745,14 +4074,79 @@ def buildTextualInversion(page):
         #Row([output_dir]),
         max_row,
         Row([image_path, add_image_button]),
-        page.file_list,
+        page.ti_file_list,
         ElevatedButton(content=Text("👨‍🎨️  Run Textual-Inversion", size=18), on_click=lambda _: run_textualinversion(page)),
         page.textualinversion_output,
         clear_button,
       ]
-    ))], scroll="auto")
+    ))], scroll=ScrollMode.AUTO)
     return c
 
+def get_directory_size(directory):
+    total = 0
+    for entry in os.scandir(directory):
+        if entry.is_file():
+            total += entry.stat().st_size
+        elif entry.is_dir():
+            try:
+                total += get_directory_size(entry.path)
+            except FileNotFoundError:
+                pass
+    return total
+def convert_bytes(num):
+    step_unit = 1000.0 #1024 bad the size
+    for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
+        if num < step_unit:
+            return "%3.1f %s" % (num, x)
+        num /= step_unit
+
+def buildCachedModelManager(page):
+    global prefs
+    def scan_cache(e):
+      if not bool(prefs['cache_dir']):
+        alert_msg(page, "You haven't set a Cache Directory in your Settings...")
+        return
+      elif not os.path.isdir(prefs['cache_dir']):
+        alert_msg(page, "The Cache Directory in your Settings can't be found...")
+        return
+      if len(page.cached_folders.controls) > 1:
+        page.cached_folders.controls.clear()
+        page.cached_folders.update()
+      page.cached_folders.controls.append(Row([ProgressRing(), Text(f"Scanning {prefs['cache_dir']}")]))
+      dirs = [f.path for f in os.scandir(prefs['cache_dir']) if f.is_dir()]
+      del page.cached_folders.controls[-1]
+      page.cached_folders.update()
+      for dir in dirs:
+        page.cached_folders.controls.append(ListTile(title=Row([Text(f".{slash}{dir.rpartition(slash)[2]}", weight=FontWeight.BOLD), Text("")], alignment=MainAxisAlignment.SPACE_BETWEEN), data=dir, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[PopupMenuItem(icon=icons.DELETE, text="Delete Model Directory", on_click=del_dir, data=dir)])))
+        page.cached_folders.update()
+      for l in page.cached_folders.controls:
+        size = convert_bytes(get_directory_size(l.data))
+        l.title.controls[1].value = size
+        l.title.controls[1].update()
+        page.cached_folders.update()
+    def del_dir(e):
+      dir = e.control.data
+      shutil.rmtree(dir, ignore_errors=True)
+      for i, l in enumerate(page.cached_folders.controls):
+        if l.data == dir:
+          del page.cached_folders.controls[i]
+          page.cached_folders.update()
+          break
+      if prefs['enable_sounds']: e.page.snd_delete.play()
+    page.cached_folders = Column([])
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Text("🗂️   Manage your Cache Directory Saved Models", style=TextThemeStyle.TITLE_LARGE),
+        Text("If you're cacheing your model files, it can fill up your drive space quickly, so you can trim the fat as needed... Redownloads when used."),
+        Divider(thickness=1, height=4),
+        
+        page.cached_folders,
+        ElevatedButton(content=Text("🔍  Scan Cache Dirctory", size=18), on_click=scan_cache),
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
 
 use_custom_scheduler = False
 retry_attempts_if_NSFW = 3
@@ -3765,9 +4159,17 @@ pipe_conceptualizer = None
 pipe_repaint = None
 pipe_imagic = None
 pipe_composable = None
+pipe_safe = None
+pipe_versatile = None
+pipe_versatile_text2img = None
+pipe_versatile_variation = None
+pipe_versatile_dualguided = None
+pipe_upscale = None
+pipe_kandinsky = None
 stability_api = None
 model_path = "CompVis/stable-diffusion-v1-4"
-inpaint_model = "runwayml/stable-diffusion-inpainting"
+inpaint_model = "stabilityai/stable-diffusion-2-inpainting"
+#"runwayml/stable-diffusion-inpainting"
 scheduler = None
 scheduler_clip = None
 if is_Colab:
@@ -3778,8 +4180,13 @@ finetuned_models = [
     #{"name": "Stable Diffusion v1.5", "path": "runwayml/stable-diffusion-v1-5", "prefix": "", "revision": "fp16"},
     #{"name": "Stable Diffusion v1.4", "path": "CompVis/stable-diffusion-v1-4", "prefix": "", "revision": "fp16"},
     {"name": "Midjourney v4 style", "path": "prompthero/midjourney-v4-diffusion", "prefix": "mdjrny-v4 style "},
+    {"name": "Openjourney", "path": "prompthero/openjourney", "prefix": "mdjrny-v4 style "},
+    {"name": "Future Diffusion", "path": "nitrosocke/Future-Diffusion", "prefix": "future style "},
+    {"name": "Anything v3.0", "path": "Linaqruf/anything-v3.0", "prefix": ""},
     {"name": "Architecture Diffusers", "path": "rrustom/stable-architecture-diffusers", "prefix": ""},
     {"name": "Arcane", "path":"nitrosocke/Arcane-Diffusion", "prefix":"arcane style "},
+    {"name": "Archer Diffusion", "path":"nitrosocke/archer-diffusion", "prefix":"archer style "},
+    {"name": "Nitro Diffusion", "path":"nitrosocke/nitro-diffusion", "prefix":"archer style, arcane style, modern disney style "},
     {"name": "Beeple Diffusion", "path": "riccardogiorato/beeple-diffusion", "prefix": "beeple style "},
     {"name": "Elden Ring", "path": "nitrosocke/elden-ring-diffusion", "prefix":"elden ring style "},
     {"name": "Modern Disney", "path": "nitrosocke/mo-di-diffusion", "prefix": "modern disney style "},
@@ -3789,10 +4196,13 @@ finetuned_models = [
     {"name": "Waifu", "path": "hakurei/waifu-diffusion", "prefix": "", "revision": "fp16"},
     {"name": "TrinArt Waifu 50-50", "path": "doohickey/trinart-waifu-diffusion-50-50", "prefix": ""},
     {"name": "WikiArt v2", "path": "valhalla/sd-wikiart-v2", "prefix": ""},
+    {"name": "Jak's Woolitize", "path": "plasmo/woolitize", "prefix": "woolitize "},
+    {"name": "Inkpunk Diffusion", "path": "Envvi/Inkpunk-Diffusion", "prefix": "nvinkpunk "},
     {"name": "Spider-Verse", "path": "nitrosocke/spider-verse-diffusion", "prefix":"spiderverse style "},
     {"name": "Pokémon", "path": "lambdalabs/sd-pokemon-diffusers", "prefix": ""},
     {"name": "Pony Diffusion", "path": "AstraliteHeart/pony-diffusion", "prefix": ""},
     {"name": "Robo Diffusion", "path": "nousr/robo-diffusion", "prefix": ""},
+    {"name": "Dungeons & Diffusion", "path": "0xJustin/Dungeons-and-Diffusion", "prefix": ""},
     {"name": "Cyberpunk Anime", "path": "DGSpitzer/Cyberpunk-Anime-Diffusion", "prefix": "dgs illustration style "},
     {"name": "Tron Legacy", "path": "dallinmackay/Tron-Legacy-diffusion", "prefix": "trnlgcy "},
     {"name": "Guohua Diffusion", "path": "Langboat/Guohua-Diffusion", "prefix": "guohua style "},
@@ -3806,6 +4216,7 @@ finetuned_models = [
     {"name": "Anon v1", "path": "TheMindExpansionNetwork/anonv1", "prefix": "AnonV1 "},
     {"name": "Avatar", "path": "Jersonm89/Avatar", "prefix": "avatar style "},
     {"name": "Glitch", "path": "BakkerHenk/glitch", "prefix": "a photo in sks glitched style "},
+    {"name": "Knollingcase", "path": "Aybeeceedee/knollingcase", "prefix": "knollingcase "},
     {"name": "TARDISfusion Classic Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Classic Tardis style "},
     {"name": "TARDISfusion Modern Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Modern Tardis style "},
     {"name": "TARDISfusion Tardis Box", "path": "Guizmus/Tardisfusion", "prefix": "Tardis Box style "},
@@ -3827,7 +4238,13 @@ dreambooth_models = [{'name': 'disco-diffusion-style', 'token': 'a photo of ddfu
 
 def get_model(name):
   #dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4", dropdown.Option("Community Finetuned Model", dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")
-  if name == "Stable Diffusion v1.5":
+  if name == "Stable Diffusion v2.0":
+    return {'name':'Stable Diffusion v2.0', 'path':'stabilityai/stable-diffusion-2', 'prefix':'', 'revision': 'fp16'}
+  elif name == "Stable Diffusion v2.0 x768":
+    return {'name':'Stable Diffusion v2.0 x768', 'path':'stabilityai/stable-diffusion-2', 'prefix':'', 'revision': 'fp16'}
+  elif name == "Stable Diffusion v2.0 x512":
+    return {'name':'Stable Diffusion v2.0 x512', 'path':'stabilityai/stable-diffusion-2-base', 'prefix':'', 'revision': 'fp16'}
+  elif name == "Stable Diffusion v1.5":
     return {'name':'Stable Diffusion v1.5', 'path':'runwayml/stable-diffusion-v1-5', 'prefix':'', 'revision': 'fp16'}
   elif name == "Stable Diffusion v1.4":
     return {'name':'Stable Diffusion v1.4', 'path':'CompVis/stable-diffusion-v1-4', 'prefix':'', 'revision': 'fp16'}
@@ -3854,26 +4271,39 @@ def get_diffusers(page):
     global scheduler, use_custom_scheduler, model_path, prefs, status
     try:
       import transformers
-      print(f"transformers=={transformers.__version__}")
-      if transformers.__version__ == "4.21.3":
-        run_process("pip uninstall -e git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
-        run_process("pip uninstall clip-interrogator", realtime=False)
-        run_process("pip uninstall transformers==4.21.3", realtime=False)
-        run_process("pip uninstall -q transformers==4.21.3", page=page, realtime=False)
-    except Exception: pass
+      #print(f"transformers=={transformers.__version__}")
+      if transformers.__version__ == "4.21.3": #Workaround because CLIP-Interrogator required other version
+        run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
+        run_process("pip uninstall -y clip-interrogator", realtime=False)
+        run_process("pip uninstall -y transformers", realtime=False)
+        #run_process("pip uninstall -q transformers==4.21.3", page=page, realtime=False)
+      if transformers.__version__ == "4.23.1": # Kandinsky conflict
+        run_process("pip uninstall -y transformers", realtime=False)
+    except Exception:
+      pass
     try:
       from huggingface_hub import notebook_login, HfApi, HfFolder, login
-      from diffusers import StableDiffusionPipeline
-    except ImportError as e:
+      from diffusers import StableDiffusionPipeline, logging
+    except ModuleNotFoundError as e:
       run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
       run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
-      run_process("pip install -q --upgrade transformers scipy ftfy", page=page)
+      run_process("pip install -q --upgrade git+https://github.com/huggingface/transformers", page=page)
+      run_process("pip install -q --upgrade huggingface-hub", page=page)
+      #run_process("pip install -q transformers==4.23.1", page=page)
+      run_process("pip install -q --upgrade scipy ftfy", page=page)
       run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
       run_process("git config --global credential.helper store", page=page)
       if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-        run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
+        # Still not the best way.  TODO: Fix importing, try ninja?
+        page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
+        run_process("pip install -q https://github.com/TheLastBen/fast-stable-diffusion/raw/main/precompiled/T4/xformers-0.0.13.dev0-py3-none-any.whl", page=page)
+        #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
+        page.banner.open = False
+        page.banner.update()
       from huggingface_hub import notebook_login, HfApi, HfFolder, login
+      from diffusers import StableDiffusionPipeline, logging
       pass
+    logging.set_verbosity_error()
     if not os.path.exists(HfFolder.path_token):
         #from huggingface_hub.commands.user import _login
         #_login(HfApi(), token=prefs['HuggingFace_api_key'])
@@ -3882,67 +4312,79 @@ def get_diffusers(page):
     #elif prefs['model_ckpt'] == "Stable Diffusion v1.4": model_path =  "CompVis/stable-diffusion-v1-4"
     model = get_model(prefs['model_ckpt'])
     model_path = model['path']
+    scheduler = model_scheduler(model_path)
     status['finetuned_model'] = False if model['name'].startswith("Stable") else True
+
+def model_scheduler(model, big3=False):
     scheduler_mode = prefs['scheduler_mode']
     if scheduler_mode == "K-LMS":
       from diffusers import LMSDiscreteScheduler
-      scheduler = LMSDiscreteScheduler.from_config(model_path, subfolder="scheduler")
-      #scheduler = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-      #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, tensor_format="pt")
-    if scheduler_mode == "PNDM":
+      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "PNDM":
       from diffusers import PNDMScheduler
-      scheduler = PNDMScheduler.from_config(model_path, subfolder="scheduler")
-      #scheduler = PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-      #scheduler = PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", skip_prk_steps=True), #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", tensor_format="pt", skip_prk_steps=False)
-    if scheduler_mode == "DDIM":
+      s = PNDMScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "DDIM":
       from diffusers import DDIMScheduler
-      scheduler = DDIMScheduler.from_config(model_path, subfolder="scheduler")
-      #scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False) #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, clip_sample=True, set_alpha_to_one=True, tensor_format="pt")
-    if scheduler_mode == "DPM Solver":
+      s = DDIMScheduler.from_pretrained(model, subfolder="scheduler")
+    elif big3:
+      from diffusers import DDIMScheduler
+      s = DDIMScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "DPM Solver":
       from diffusers import DPMSolverMultistepScheduler #"hf-internal-testing/tiny-stable-diffusion-torch"
-      scheduler = DPMSolverMultistepScheduler.from_config(model_path, subfolder="scheduler")
-    if scheduler_mode == "K-Euler Discrete":
+      s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "K-Euler Discrete":
       from diffusers import EulerDiscreteScheduler
-      scheduler = EulerDiscreteScheduler.from_config(model_path, subfolder="scheduler")
-    if scheduler_mode == "K-Euler Ancestrial":
+      s = EulerDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "K-Euler Ancestrial":
       from diffusers import EulerAncestralDiscreteScheduler
-      scheduler = EulerAncestralDiscreteScheduler.from_config(model_path, subfolder="scheduler")
-    if scheduler_mode == "DPM Solver++":
+      s = EulerAncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
-      scheduler = DPMSolverMultistepScheduler(
-          beta_start=0.00085,
-          beta_end=0.012,
-          beta_schedule="scaled_linear",
-          num_train_timesteps=1000,
-          trained_betas=None,
-          predict_epsilon=True,
-          thresholding=False,
-          algorithm_type="dpmsolver++",
-          solver_type="midpoint",
-          lower_order_final=True,
+      s = DPMSolverMultistepScheduler(
+        beta_start=0.00085,
+        beta_end=0.012,
+        beta_schedule="scaled_linear",
+        num_train_timesteps=1000,
+        trained_betas=None,
+        #predict_epsilon=True,
+        prediction_type="v_prediction" if model.startswith('stabilityai') else "epsilon",
+        thresholding=False,
+        algorithm_type="dpmsolver++",
+        solver_type="midpoint",
+        #denoise_final=True,
+        lower_order_final=True,
       )
-    if scheduler_mode == "Score-SDE-Vp":
+    elif scheduler_mode == "Heun Discrete":
+      from diffusers import HeunDiscreteScheduler
+      s = HeunDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "Score-SDE-Vp":
       from diffusers import ScoreSdeVpScheduler
-      scheduler = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
+      s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
       use_custom_scheduler = True
-    if scheduler_mode == "Score-SDE-Ve":
+    elif scheduler_mode == "Score-SDE-Ve":
       from diffusers import ScoreSdeVeScheduler
-      scheduler = ScoreSdeVeScheduler() #(num_train_timesteps=2000, snr=0.15, sigma_min=0.01, sigma_max=1348, sampling_eps=1e-5, correct_steps=1, tensor_format="pt"
+      s = ScoreSdeVeScheduler() #(num_train_timesteps=2000, snr=0.15, sigma_min=0.01, sigma_max=1348, sampling_eps=1e-5, correct_steps=1, tensor_format="pt"
       use_custom_scheduler = True
-    if scheduler_mode == "DDPM":
+    elif scheduler_mode == "DDPM":
       from diffusers import DDPMScheduler
-      scheduler = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt")
+      s = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt")
       use_custom_scheduler = True
-    if scheduler_mode == "Karras-Ve":
+    elif scheduler_mode == "Karras-Ve":
       from diffusers import KarrasVeScheduler
-      scheduler = KarrasVeScheduler() #(sigma_min=0.02, sigma_max=100, s_noise=1.007, s_churn=80, s_min=0.05, s_max=50, tensor_format="pt")
+      s = KarrasVeScheduler() #(sigma_min=0.02, sigma_max=100, s_noise=1.007, s_churn=80, s_min=0.05, s_max=50, tensor_format="pt")
       use_custom_scheduler = True
-    if scheduler_mode == "LMS":
+    elif scheduler_mode == "LMS":
       from diffusers import LMSScheduler
-      scheduler = LMSScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
+      s = LMSScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
       #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, tensor_format="pt")
       use_custom_scheduler = True
     #print(f"Loaded Schedueler {scheduler_mode} {type(scheduler)}")
+    else:
+      print(f"Unknown scheduler request {scheduler_mode} - Using K-LMS")
+      from diffusers import LMSDiscreteScheduler
+      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    return s
+
 
 torch_device = "cuda"
 try:
@@ -3951,8 +4393,10 @@ except Exception:
     run_sp("pip install torch", realtime=False)
     import torch
     pass
+finally:
+    torch_device = "cuda" if torch.cuda.is_available() else "cpu"
 import gc
-from torch.amp.autocast_mode import autocast
+#from torch.amp.autocast_mode import autocast
 from random import random
 import time
 
@@ -4010,11 +4454,11 @@ def get_text2image(page):
         #if status['finetuned_model']: pipe = get_txt2img_pipe()
         #else:
         pipe = get_lpw_pipe()
-    except EnvironmentError:
+    except EnvironmentError as e:
       model = get_model(prefs['model_ckpt'])
       model_url = f"https://huggingface.co/{model['path']}"
       alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace {model["name"]} Model Cards to use Checkpoint',
-                content=Markdown(f'[{model_url}]({model_url})', on_tap_link=open_url))
+                content=Markdown(f'[{model_url}]({model_url})<br>{e}', on_tap_link=open_url))
 
 # I thought it's what I wanted, but current implementation does same as mine but doesn't clear memory between
 def get_mega_pipe():
@@ -4049,27 +4493,33 @@ def get_lpw_pipe():
   #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/lpw_stable_diffusion.py")
   #from lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
   if prefs['higher_vram_mode']:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="lpw_stable_diffusion", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None)
   else:
     if 'revision' in model:
-      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="lpw_stable_diffusion", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None)
     else:
       if 'vae' in model:
         from diffusers import AutoencoderKL, UNet2DConditionModel
         vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
         unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16)
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="lpw_stable_diffusion", vae=vae, unet=unet, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None)
       else:
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="lpw_stable_diffusion", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None)
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   pipe = pipe.to(torch_device)
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    pipe.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe.enable_xformers_memory_efficient_attention()
   if prefs['sequential_cpu_offload']:
     pipe.enable_sequential_cpu_offload()
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
+    if prefs['sequential_cpu_offload']:
+      pipe.enable_attention_slicing(1)
+    else:
+      pipe.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe.enable_xformers_memory_efficient_attention()
+  if prefs['vae_slicing']:
+    pipe.enable_vae_slicing()
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
@@ -4087,6 +4537,8 @@ def get_txt2img_pipe():
     pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   if prefs['memory_optimization'] != 'None':
     pipe.enable_attention_slicing()
+  if prefs['vae_slicing']:
+    pipe.enable_vae_slicing()
   pipe.set_progress_bar_config(disable=True)
   pipe = pipe.to(torch_device)
   return pipe
@@ -4138,13 +4590,13 @@ def get_interpolation_pipe():
     from interpolate_stable_diffusion import StableDiffusionWalkPipeline
     model = get_model(prefs['model_ckpt'])
     if prefs['higher_vram_mode']:
-      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     else:
       if 'revision' in model:
-        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       else:
-        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     pipe_interpolation = pipe_interpolation.to(torch_device)
     if prefs['memory_optimization'] != 'None':
@@ -4175,37 +4627,39 @@ def get_image2image(page):
 
 def get_img2img_pipe():
   global pipe_img2img, scheduler, model_path, inpaint_model, prefs, callback_fn
-  from diffusers import StableDiffusionInpaintPipeline, DDIMScheduler, PNDMScheduler, LMSDiscreteScheduler, EulerDiscreteScheduler, EulerAncestralDiscreteScheduler
+  from diffusers import DiffusionPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-  if isinstance(scheduler, DDIMScheduler) or isinstance(scheduler, PNDMScheduler) or isinstance(scheduler, LMSDiscreteScheduler) or isinstance(scheduler, EulerDiscreteScheduler) or isinstance(scheduler, EulerAncestralDiscreteScheduler):
-    scheduler_img2img = scheduler
-  else:
-    scheduler_img2img = DDIMScheduler.from_config(model_path, subfolder="scheduler")
-    #scheduler_img2img = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
-  #StableDiffusionImg2ImgPipeline
+  
   if prefs['higher_vram_mode']:
-    pipe_img2img = StableDiffusionInpaintPipeline.from_pretrained(
+    pipe_img2img = DiffusionPipeline.from_pretrained(
         inpaint_model,
-        scheduler=scheduler,
+        custom_pipeline="img2img_inpainting",
+        scheduler=model_scheduler(inpaint_model),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   else:
-      pipe_img2img = StableDiffusionInpaintPipeline.from_pretrained(
+      pipe_img2img = DiffusionPipeline.from_pretrained(
       inpaint_model,
-      scheduler=scheduler,
+      custom_pipeline="img2img_inpainting",
+      scheduler=model_scheduler(inpaint_model),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       revision="fp16", 
       torch_dtype=torch.float16,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   pipe_img2img.to(torch_device)
   #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    pipe_img2img.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe_img2img.enable_xformers_memory_efficient_attention()
   if prefs['sequential_cpu_offload']:
     pipe_img2img.enable_sequential_cpu_offload()
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    if prefs['sequential_cpu_offload']:
+      pipe_img2img.enable_attention_slicing(1)
+    else:
+      pipe_img2img.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe_img2img.enable_xformers_memory_efficient_attention()
+  if prefs['vae_slicing']:
+    pipe_img2img.enable_vae_slicing()
   pipe_img2img.set_progress_bar_config(disable=True)
   #def dummy(images, **kwargs): return images, False
   #pipe_img2img.safety_checker = dummy
@@ -4221,14 +4675,14 @@ def get_imagic(page):
 
 def get_imagic_pipe():
   global pipe_imagic, scheduler, model_path, prefs
-  from diffusers import DiffusionPipeline, DDIMScheduler
+  from diffusers import DiffusionPipeline#, DDIMScheduler
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-  ddim = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
+  #ddim = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
   #if prefs['higher_vram_mode']:
   if True:
-    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="imagic_stable_diffusion", scheduler=ddim, use_auth_token=True, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   else:
-    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="imagic_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   pipe_imagic = pipe_imagic.to(torch_device)
   def dummy(images, **kwargs):
     return images, False
@@ -4236,6 +4690,8 @@ def get_imagic_pipe():
     pipe_imagic.safety_checker = dummy
   if prefs['memory_optimization'] == 'Attention Slicing':
     pipe_imagic.enable_attention_slicing()
+  if prefs['vae_slicing']:
+    pipe_imagic.enable_vae_slicing()
   #pipe_imagic.set_progress_bar_config(disable=True)
   return pipe_imagic
 
@@ -4254,9 +4710,9 @@ def get_composable_pipe():
   
   #if prefs['higher_vram_mode']:
   if True:
-    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="composable_stable_diffusion", use_auth_token=True)
+    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, feature_extractor=None)
   else:
-    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="composable_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16)
+    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), revision="fp16", torch_dtype=torch.float16, feature_extractor=None)
   pipe_composable = pipe_composable.to(torch_device)
   def dummy(images, **kwargs):
     return images, False
@@ -4264,8 +4720,259 @@ def get_composable_pipe():
     pipe_composable.safety_checker = dummy
   if prefs['memory_optimization'] == 'Attention Slicing':
     pipe_composable.enable_attention_slicing()
+  if prefs['vae_slicing']:
+    pipe_composable.enable_vae_slicing()
   #pipe_composable.set_progress_bar_config(disable=True)
   return pipe_composable
+
+def get_versatile(page):
+    import torch, gc
+    global pipe_versatile_text2img
+    def open_url(e):
+      page.launch_url(e.data)
+    try:
+      pipe_versatile_text2img = get_versatile_text2img_pipe()
+    except Exception as er:
+      model_url = f"https://huggingface.co/shi-labs/versatile-diffusion"
+      alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace Versatile Diffusion Model Card to use Checkpoint',
+                content=Markdown(f'[{model_url}]({model_url})<br>{er}', on_tap_link=open_url))
+
+def get_versatile_pipe(): # Mega was taking up too much vram and crashing the system
+  global pipe_versatile, scheduler, model_path, prefs
+  from diffusers import VersatileDiffusionPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  model_id = "shi-labs/versatile-diffusion"
+  if prefs['higher_vram_mode']:
+    pipe_versatile = VersatileDiffusionPipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  else:
+    pipe_versatile = VersatileDiffusionPipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        #revision="fp16", 
+        torch_dtype=torch.float16,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  pipe_versatile.to(torch_device)
+  #if prefs['enable_attention_slicing']: pipe_versatile.enable_attention_slicing() #slice_size
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    pipe_versatile.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe_versatile.enable_xformers_memory_efficient_attention()
+  if prefs['sequential_cpu_offload']:
+    pipe_versatile.enable_sequential_cpu_offload()
+  pipe_versatile.set_progress_bar_config(disable=True)
+  return pipe_versatile
+
+def get_versatile_text2img_pipe():
+  global pipe_versatile_text2img, scheduler, model_path, prefs
+  from diffusers import VersatileDiffusionTextToImagePipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  model_id = "shi-labs/versatile-diffusion"
+  if prefs['higher_vram_mode']:
+    pipe_versatile_text2img = VersatileDiffusionTextToImagePipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  else:
+    pipe_versatile_text2img = VersatileDiffusionTextToImagePipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        #revision="fp16", 
+        torch_dtype=torch.float16,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  pipe_versatile_text2img.to(torch_device)
+  #if prefs['enable_attention_slicing']: pipe_versatile.enable_attention_slicing() #slice_size
+  if prefs['sequential_cpu_offload']:
+    pipe_versatile_text2img.enable_sequential_cpu_offload()
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    if prefs['sequential_cpu_offload']:
+      pipe_versatile_text2img.enable_attention_slicing(1)
+    else:
+      pipe_versatile_text2img.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe_versatile_text2img.enable_xformers_memory_efficient_attention()
+  pipe_versatile_text2img.set_progress_bar_config(disable=True)
+  return pipe_versatile_text2img
+
+def get_versatile_variation_pipe():
+  global pipe_versatile_variation, scheduler, model_path, prefs
+  from diffusers import VersatileDiffusionImageVariationPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  model_id = "shi-labs/versatile-diffusion"
+  if prefs['higher_vram_mode']:
+    pipe_versatile_variation = VersatileDiffusionImageVariationPipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  else:
+    pipe_versatile_variation = VersatileDiffusionImageVariationPipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        #revision="fp16", 
+        torch_dtype=torch.float16,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  pipe_versatile_variation.to(torch_device)
+  #if prefs['enable_attention_slicing']: pipe_versatile.enable_attention_slicing() #slice_size
+  if prefs['sequential_cpu_offload']:
+    pipe_versatile_variation.enable_sequential_cpu_offload()
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    if prefs['sequential_cpu_offload']:
+      pipe_versatile_variation.enable_attention_slicing(1)
+    else:
+      pipe_versatile_variation.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe_versatile_variation.enable_xformers_memory_efficient_attention()
+  pipe_versatile_variation.set_progress_bar_config(disable=True)
+  return pipe_versatile_variation
+
+def get_versatile_dualguided_pipe():
+  global pipe_versatile_dualguided, scheduler, model_path, prefs
+  from diffusers import VersatileDiffusionDualGuidedPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  model_id = "shi-labs/versatile-diffusion"
+  if prefs['higher_vram_mode']:
+    pipe_versatile_dualguided = VersatileDiffusionDualGuidedPipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  else:
+    pipe_versatile_dualguided = VersatileDiffusionDualGuidedPipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        #revision="fp16", 
+        torch_dtype=torch.float16,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  pipe_versatile_dualguided.to(torch_device)
+  #if prefs['enable_attention_slicing']: pipe_versatile.enable_attention_slicing() #slice_size
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    if prefs['sequential_cpu_offload']:
+      pipe_versatile_dualguided.enable_attention_slicing(1)
+    else:
+      pipe_versatile_dualguided.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe_versatile_dualguided.enable_xformers_memory_efficient_attention()
+  if prefs['sequential_cpu_offload']:
+    pipe_versatile_dualguided.enable_sequential_cpu_offload()
+  pipe_versatile_dualguided.set_progress_bar_config(disable=True)
+  return pipe_versatile_dualguided
+
+def get_safe(page):
+    import torch, gc
+    global pipe_safe
+    def open_url(e):
+      page.launch_url(e.data)
+    if pipe_safe is not None:
+      #print("Clearing the ol' pipe first...")
+      del pipe_safe
+      gc.collect()
+      torch.cuda.empty_cache()
+      pipe_safe = None
+    try:
+      pipe_safe = get_safe_pipe()
+    except Exception as er:
+      model_url = f"https://huggingface.co/AIML-TUDA/stable-diffusion-safe"
+      alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace Safe Model Card to use Checkpoint. Reinstall after accepting TOS.',
+                content=Markdown(f'[{model_url}]({model_url})<br>{er}', on_tap_link=open_url))
+
+def get_safe_pipe():
+  global pipe_safe, scheduler, model_path, prefs, callback_fn
+  from diffusers import StableDiffusionPipelineSafe
+  from diffusers.pipelines.stable_diffusion_safe import StableDiffusionPipelineSafe
+  #from diffusers.pipelines.safety_checker import SafeStableDiffusionPipelineSafe
+  #from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  model_id = "AIML-TUDA/stable-diffusion-safe"
+  #if prefs['higher_vram_mode']:
+  if True:
+    pipe_safe = StableDiffusionPipelineSafe.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        safety_checker=None# if prefs['disable_nsfw_filter'] else SafeStableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+    )
+  else:
+      pipe_safe = StableDiffusionPipelineSafe.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        revision="fp16", 
+        torch_dtype=torch.float16,
+        safety_checker=None# if prefs['disable_nsfw_filter'] else SafeStableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+      )
+  pipe_safe.to(torch_device)
+  #if prefs['enable_attention_slicing']: pipe_safe.enable_attention_slicing() #slice_size
+  if prefs['sequential_cpu_offload']:
+    pipe_safe.enable_sequential_cpu_offload()
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    if prefs['sequential_cpu_offload']:
+      pipe_safe.enable_attention_slicing(1)
+    else:
+      pipe_safe.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe_safe.enable_xformers_memory_efficient_attention()
+  pipe_safe.set_progress_bar_config(disable=True)
+  return pipe_safe
+
+def get_upscale(page):
+    import torch, gc
+    global pipe_upscale
+    def open_url(e):
+      page.launch_url(e.data)
+    if pipe_upscale is None:
+      try:
+        pipe_upscale = get_upscale_pipe()
+      except Exception as er:
+        model_url = f"https://huggingface.co/{model_path}"
+        alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace Upscale Model Card to use Checkpoint',
+                  content=Markdown(f'[{model_url}]({model_url})<br>{er}', on_tap_link=open_url))
+
+def get_upscale_pipe():
+  global pipe_upscale, scheduler, prefs
+  from diffusers import StableDiffusionUpscalePipeline
+  model_id = "stabilityai/stable-diffusion-x4-upscaler"
+  if prefs['higher_vram_mode']:
+    pipe_upscale = StableDiffusionUpscalePipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id, big3=True),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        #safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+    )
+  else:
+    pipe_upscale = StableDiffusionUpscalePipeline.from_pretrained(
+      model_id,
+      scheduler=model_scheduler(model_id, big3=True),
+      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+      revision="fp16", 
+      torch_dtype=torch.float16,
+      #safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+    )
+  pipe_upscale.to(torch_device)
+  #if prefs['enable_attention_slicing']: pipe_upscale.enable_attention_slicing() #slice_size
+  if prefs['memory_optimization'] == 'Attention Slicing':
+    pipe_upscale.enable_attention_slicing()
+  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    pipe_upscale.enable_xformers_memory_efficient_attention()
+  if prefs['sequential_cpu_offload']:
+    pipe_upscale.enable_sequential_cpu_offload()
+  pipe_upscale.set_progress_bar_config(disable=True)
+  return pipe_upscale
 
 def get_clip(page):
     global pipe_clip_guided, model_path
@@ -4302,17 +5009,17 @@ def get_clip_guided_pipe():
     if 'revision' in model:
       pipe_clip_guided = DiffusionPipeline.from_pretrained(
               model_path,
-              custom_pipeline="clip_guided_stable_diffusion",
+              custom_pipeline="AlanB/clip_guided_stable_diffusion_mod",
               clip_model=clip_model,
               feature_extractor=feature_extractor,
-              scheduler=scheduler_clip,
+              scheduler=model_scheduler(model_path, big3=True),
               cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
               torch_dtype=torch.float16,
               revision=model['revision'],
               #device_map="auto",
           )
     else:
-      pipe_clip_guided = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="clip_guided_stable_diffusion", clip_model=clip_model, feature_extractor=feature_extractor, scheduler=scheduler_clip, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16)
+      pipe_clip_guided = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/clip_guided_stable_diffusion_mod", clip_model=clip_model, feature_extractor=feature_extractor, scheduler=model_scheduler(model_path, big3=True), cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16)
     pipe_clip_guided = pipe_clip_guided.to(torch_device)
     '''
     pipe_clip_guided = CLIPGuidedStableDiffusion(
@@ -4326,6 +5033,8 @@ def get_clip_guided_pipe():
     )'''
     if prefs['memory_optimization'] != 'None':
       pipe_clip_guided.enable_attention_slicing()
+    if prefs['vae_slicing']:
+      pipe_clip_guided.enable_vae_slicing()
     return pipe_clip_guided
 
 def get_repaint(page):
@@ -4344,7 +5053,7 @@ def get_repaint_pipe():
     #model_path = model['path']
     model_id = "google/ddpm-ema-celebahq-256"
     unet = UNet2DModel.from_pretrained(model_id)
-    repaint_scheduler = RePaintScheduler.from_config(model_id)
+    repaint_scheduler = RePaintScheduler.from_pretrained(model_id)
     pipe_repaint = RePaintPipeline(unet=unet, scheduler=repaint_scheduler).to(torch_device)
     return pipe_repaint
 
@@ -4366,6 +5075,15 @@ def get_stability(page):
         engine=prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1",
     )
     SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'])
+    import requests
+    api_host = os.getenv('API_HOST', 'https://api.stability.ai')
+    stability_url = f"{api_host}/v1alpha/engines/list" #user/account"
+    response = requests.get(stability_url, headers={"Authorization": prefs['Stability_api_key']})
+    if response.status_code != 200:
+      alert_msg(page, "ERROR with Stability-ai: " + str(response.text))
+      return
+    payload = response.json()
+    print(str(payload))
     status['installed_stability'] = True
 
 def get_ESRGAN(page):
@@ -4463,7 +5181,7 @@ def get_dreamfusion(page):
     os.chdir(root_dir)
     
 def run_dreamfusion(page):
-    global dreamfusion_prefs
+    global dreamfusion_prefs, status
     def add_to_dreamfusion_output(o):
       page.dreamfusion_output.controls.append(o)
       page.dreamfusion_output.update()
@@ -4471,14 +5189,19 @@ def run_dreamfusion(page):
       #page.dreamfusion_output.controls = []
       del page.dreamfusion_output.controls[-1]
       page.dreamfusion_output.update()
-    if not status['installed_dreamfusion']:
-      alert_msg(page, "You must Install DreamFusion 3D Pipeline before running...")
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install HuggingFace Diffusers Pipeline before running...")
       return
     if not bool(dreamfusion_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
     page.dreamfusion_output.controls = []
     page.dreamfusion_output.update()
+    if not status['installed_dreamfusion']:
+      add_to_dreamfusion_output(Row([ProgressRing(), Text("Installing Stable DreamFusion 3D Pipeline...", weight=FontWeight.BOLD)]))
+      get_dreamfusion(page)
+      status['installed_dreamfusion'] = True
+      clear_last()
     def convert(seconds):
       seconds = seconds % (24 * 3600)
       hour = seconds // 3600
@@ -4578,15 +5301,66 @@ def clear_composable_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_composable = None
-def clear_pipes(but=None):
-  if but != 'txt2img': clear_txt2img_pipe()
-  if but != 'img2img': clear_img2img_pipe()
-  if but != 'unet': clear_unet_pipe()
-  if but != 'clip_guided': clear_clip_guided_pipe()
-  if but != 'conceptualizer': clear_conceptualizer_pipe()
-  if but != 'repaint': clear_repaint_pipe()
-  if but != 'imagic': clear_imagic_pipe()
-  if but != 'composable': clear_composable_pipe()
+def clear_versatile_pipe():
+  global pipe_versatile
+  if pipe_versatile is not None:
+    del pipe_versatile
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_versatile = None
+def clear_versatile_text2img_pipe():
+  global pipe_versatile_text2img
+  if pipe_versatile_text2img is not None:
+    del pipe_versatile_text2img
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_versatile_text2img = None
+def clear_versatile_variation_pipe():
+  global pipe_versatile_variation
+  if pipe_versatile_variation is not None:
+    del pipe_versatile_variation
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_versatile_variation = None
+def clear_versatile_dualguided_pipe():
+  global pipe_versatile_dualguided
+  if pipe_versatile_dualguided is not None:
+    del pipe_versatile_dualguided
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_versatile_dualguided = None
+
+def clear_safe_pipe():
+  global pipe_safe
+  if pipe_safe is not None:
+    del pipe_safe
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_safe = None
+def clear_upscale_pipe():
+  global pipe_upscale
+  if pipe_upscale is not None:
+    del pipe_upscale
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_upscale = None
+
+def clear_pipes(allbut=None):
+    but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
+    if not 'txt2img' in but: clear_txt2img_pipe()
+    if not 'img2img' in but: clear_img2img_pipe()
+    if not 'unet' in but: clear_unet_pipe()
+    if not 'clip_guided' in but: clear_clip_guided_pipe()
+    if not 'conceptualizer' in but: clear_conceptualizer_pipe()
+    if not 'repaint' in but: clear_repaint_pipe()
+    if not 'imagic' in but: clear_imagic_pipe()
+    if not 'composable': clear_composable_pipe()
+    if not 'versatile_text2img' in but: clear_versatile_text2img_pipe()
+    if not 'versatile_variation' in but: clear_versatile_variation_pipe()
+    if not 'versatile_dualguided' in but: clear_versatile_dualguided_pipe()
+    if not 'safe' in but: clear_safe_pipe()
+    if not 'upscale' in but: clear_upscale_pipe()
+
 
 def available_file(folder, name, idx, ext='png'):
   available = False
@@ -4608,7 +5382,8 @@ def available_folder(folder, name, idx):
 #import asyncio
 #async 
 def start_diffusion(page):
-  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_composable, SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
+  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_safe, pipe_upscale
+  global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
   def prt(line):
     if type(line) == str:
       line = Text(line)
@@ -4624,8 +5399,11 @@ def start_diffusion(page):
     nonlocal abort_run
     abort_run = True
     page.snd_error.play()
+    page.snd_delete.play()
   def callback_cancel(cancel) -> None:
     callback_cancel.has_been_called = True
+    if abort_run:
+      return True
   def download_image(e):
     if is_Colab:
       print(f"{type(e.control.data)} {e.control.data}")
@@ -4643,14 +5421,18 @@ def start_diffusion(page):
       page.imageColumn.update()
     except Exception as e:
       alert_msg(page, f"ERROR: Problem Clearing Image Output List. May need to stop script and restart app to recover, sorry...", content=Text(str(e)))
-      page.imageColumn = Column([], auto_scroll=True, scroll="auto")
+      try:
+        page.imageColumn = Column([], auto_scroll=True, scroll=ScrollMode.AUTO)
+      except Exception:
+        page.Images = buildImages(page)
+        pass
       page.update()
       pass
 # Why getting Exception: control with ID '_3607' not found when re-running after error
   #page.Images.content.controls = []
   clear_image_output()
   pb.width=page.width - 50
-  prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style="titleLarge"), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment="spaceBetween"))
+  prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
   import string, shutil, random, gc, io, json
   from collections import ChainMap
   import PIL
@@ -4774,7 +5556,7 @@ def start_diffusion(page):
       #  print(f"{Color.BEIGE2}Cleared console display due to memory limit in console logging.  Images still saving.{Color.END}")
       page.auto_scrolling(False)
       prt(Divider(height=6, thickness=2))
-      prt(Row([Text(p_count), Text(pr[0] if type(pr) == list else pr, expand=True, weight="bold"), Text(f'seed: {arg["seed"]}   ')]))
+      prt(Row([Text(p_count), Text(pr[0] if type(pr) == list else pr, expand=True, weight=FontWeight.BOLD), Text(f'seed: {arg["seed"]}   ')]))
       #prt(p_count + ('─' * 90))
       #prt(f'{pr[0] if type(pr) == list else pr} - seed:{arg["seed"]}')
       total_steps = arg['steps']
@@ -4792,13 +5574,40 @@ def start_diffusion(page):
           arg['height'] = multiple_of_64(arg['height'])
           prt(pb)
           import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
+          answers = None
+          import requests
+          api_host = os.getenv('API_HOST', 'https://api.stability.ai')
+          engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
+          url = f"{api_host}/v1alpha/generation/{engine_id}/"#image-to-image"
+          headers = {
+              'accept': 'image/png',
+              'Authorization': prefs['Stability_api_key'],
+          }
+          payload = {
+              "cfg_scale": arg['guidance_scale'],
+              "clip_guidance_preset": "FAST_BLUE",
+              "height": arg['height'],
+              "width": arg['width'],
+              "sampler": prefs['generation_sampler'],
+              "samples": arg['batch_size'],
+              "seed": arg['seed'],
+              "steps": arg['steps'],
+              "text_prompts": [
+                  {
+                      "text": pr,
+                      "weight": 1
+                  }
+              ],
+          }
+          if bool(arg['negative_prompt']):
+            payload['text_prompts'].append({"text": arg['negative_prompt'], "weight": -1})
           if bool(arg['mask_image']):
             if not bool(arg['init_image']):
               clear_last()
               prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: You have not selected an init_image to go with your image mask..")
               continue
-            import requests
             from io import BytesIO
+            import base64
             if arg['init_image'].startswith('http'):
               response = requests.get(arg['init_image'])
               init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
@@ -4820,10 +5629,16 @@ def start_diffusion(page):
                 clear_last()
                 prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: Couldn't find your mask_image {arg['mask_image']}")
             mask = mask_img.resize((arg['width'], arg['height']))
+            files = {
+                'init_image': base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
+                'mask_image': base64.b64encode(mask.tobytes()).decode(),#open(mask_img, 'rb'),
+                'options': (None, json.dumps(payload)),
+            }
+            #response = requests.post(url+"inpaint", headers=headers, files=files)
             answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=not prefs["disable_nsfw_filter"], sampler=SD_sampler)
           elif bool(arg['init_image']):
-            import requests
             from io import BytesIO
+            import base64
             if arg['init_image'].startswith('http'):
               response = requests.get(arg['init_image'])
               init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
@@ -4834,28 +5649,45 @@ def start_diffusion(page):
                 clear_last()
                 prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
             init_img = init_img.resize((arg['width'], arg['height']))
-            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=not prefs["disable_nsfw_filter"], sampler=SD_sampler)
+            buff = BytesIO()
+            init_img.save(buff, format="PNG")
+            img_str = base64.b64encode(buff.getvalue())
+            files = {
+                'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
+                'options': (None, json.dumps(payload)),
+            }
+            response = requests.post(url+"image-to-image", headers=headers, files=files)
+            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=not prefs["disable_nsfw_filter"], sampler=SD_sampler)
           else:
-            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=False, sampler=SD_sampler)
+            response = requests.post(url+"text-to-image", headers=headers, json=payload)
+            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=False, sampler=SD_sampler)
           clear_last()
-          for resp in answers:
-            for artifact in resp.artifacts:
-              #print("Artifact reason: " + str(artifact.finish_reason))
-              if artifact.finish_reason == generation.FILTER:         
-                usable_image = False
-              if artifact.finish_reason == generation.ARTIFACT_TEXT:         
-                usable_image = False
-                prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
-              if artifact.type == generation.ARTIFACT_IMAGE:
-                images.append(PILImage.open(io.BytesIO(artifact.binary)))
+          if response.status_code != 200:
+            prt("Stability-API ERROR: " + str(response.text))
+            continue
+          #with open(output_file, "wb") as f:
+          #  f.write(response.content)
+          print(type(response.content))
+          images.append(PILImage.open(io.BytesIO(response.content)))
+          if answers != None:
+            for resp in answers:
+              for artifact in resp.artifacts:
+                #print("Artifact reason: " + str(artifact.finish_reason))
+                if artifact.finish_reason == generation.FILTER:         
+                  usable_image = False
+                if artifact.finish_reason == generation.ARTIFACT_TEXT:         
+                  usable_image = False
+                  prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
+                if artifact.type == generation.ARTIFACT_IMAGE:
+                  images.append(PILImage.open(io.BytesIO(artifact.binary)))
 
       else:
         #from torch.amp.autocast_mode import autocast
         #precision_scope = autocast if prefs['precision']=="autocast" else nullcontext
         try:
           if use_custom_scheduler and not bool(arg['init_image']) and not bool(arg['mask_image']) and not bool(arg['prompt2']):
+            # Not implemented correctly anymore, old code but might reuse custom
             text_input = tokenizer(pr[0] if type(pr) == list else pr, padding="max_length", max_length=tokenizer.model_max_length, truncation=True, return_tensors="pt")
-
             with torch.no_grad():
               text_embeddings = text_encoder(text_input.input_ids.to(torch_device))[0]# We'll also get the unconditional text embeddings for classifier-free guidance, which are just the embeddings for the padding token (empty text). They need to have the same shape as the conditional text_embeddings (batch_size and seq_length)
             max_length = text_input.input_ids.shape[-1]
@@ -4877,11 +5709,7 @@ def start_diffusion(page):
             if prefs['scheduler_mode'] == "K-LMS" or prefs['scheduler_mode'] == "Score-SDE-Vp":
               latents = latents * scheduler.sigmas[0]#We are ready to write the denoising loop.
             from tqdm.auto import tqdm
-            clear_img2img_pipe()
-            clear_txt2img_pipe()
-            clear_clip_guided_pipe()
-            clear_imagic_pipe()
-            clear_composable_pipe()
+            clear_pipes("unet")
             if unet is None:
               unet = get_unet_pipe()
             #with precision_scope("cuda"):
@@ -4921,13 +5749,9 @@ def start_diffusion(page):
                 #raise ValueError("Cannot use CLIP Guided Model with init or mask image yet.")
                 alert_msg(page, "Cannot use CLIP Guided Model with init or mask image yet.")
                 return
-              clear_txt2img_pipe()
-              clear_img2img_pipe()
-              clear_unet_pipe()
-              clear_imagic_pipe()
-              clear_composable_pipe()
+              clear_pipes("clip_guided")
               if pipe_clip_guided is None:
-                prt(Row([ProgressRing(), Text("Initializing CLIP-Guided Pipeline...", weight="bold")]))
+                prt(Row([ProgressRing(), Text("Initializing CLIP-Guided Pipeline...", weight=FontWeight.BOLD)]))
                 pipe_clip_guided = get_clip_guided_pipe()
                 clear_last()
               clip_prompt = arg["clip_prompt"] if arg["clip_prompt"].strip() != "" else None
@@ -4946,22 +5770,10 @@ def start_diffusion(page):
               images = pipe_clip_guided(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], clip_prompt=clip_prompt, clip_guidance_scale=arg["clip_guidance_scale"], num_cutouts=int(arg["num_cutouts"]) if arg["use_cutouts"] else None, use_cutouts=arg["use_cutouts"], generator=generator).images
               clear_last()
               page.auto_scrolling(True)
-              '''if prefs['precision'] == "autocast":
-                with autocast("cuda"):
-                  images = pipe_clip_guided(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], clip_prompt=clip_prompt, clip_guidance_scale=arg["clip_guidance_scale"], num_cutouts=arg["num_cutouts"], use_cutouts=arg["use_cutouts"], generator=generator).images
-              else:
-                with autocast("cuda"):
-                  with torch.no_grad():
-                    images = pipe_clip_guided(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], clip_prompt=clip_prompt, clip_guidance_scale=arg["clip_guidance_scale"], num_cutouts=arg["num_cutouts"], use_cutouts=arg["use_cutouts"], generator=generator).images'''
             elif bool(prefs['use_conceptualizer']) and status['installed_conceptualizer']:
-              clear_txt2img_pipe()
-              clear_img2img_pipe()
-              clear_unet_pipe()
-              clear_clip_guided_pipe()
-              clear_imagic_pipe()
-              clear_composable_pipe()
+              clear_pipes("conceptualizer")
               if pipe_conceptualizer is None:
-                prt(Row([ProgressRing(), Text("Initializing Conceptualizer Pipeline...", weight="bold")]))
+                prt(Row([ProgressRing(), Text("Initializing Conceptualizer Pipeline...", weight=FontWeight.BOLD)]))
                 pipe_conceptualizer = get_conceptualizer(page)
                 clear_last()
               total_steps = arg['steps']
@@ -4970,27 +5782,22 @@ def start_diffusion(page):
               images = pipe_conceptualizer(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               clear_last()
               page.auto_scrolling(True)
-            elif bool(arg['mask_image']):
+            elif bool(arg['mask_image']) or (not bool(arg['mask_image']) and bool(arg['init_image']) and bool(arg['alpha_mask'])):
               if not bool(arg['init_image']):
                 alert_msg(page, f"ERROR: You have not selected an init_image to go with your image mask..")
                 return
-              #clear_txt2img_pipe()
-              clear_unet_pipe()
-              clear_clip_guided_pipe()
-              clear_imagic_pipe()
-              clear_composable_pipe()
               #if pipe_inpainting is None:
               #  pipe_inpainting = get_inpainting_pipe()
               if prefs['use_inpaint_model'] and status['installed_img2img']:
-                clear_txt2img_pipe()
+                clear_pipes("img2img")
                 if pipe_img2img is None:
-                  prt(Row([ProgressRing(), Text("Initializing Inpaint Pipeline...", weight="bold")]))
+                  prt(Row([ProgressRing(), Text("Initializing Inpaint Pipeline...", weight=FontWeight.BOLD)]))
                   pipe_img2img = get_img2img_pipe()
                   clear_last()
               else:
-                clear_img2img_pipe()
+                clear_pipes("txt2img")
                 if pipe is None:
-                  prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Inpaint Pipeline...", weight="bold")]))
+                  prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Inpaint Pipeline...", weight=FontWeight.BOLD)]))
                   pipe = get_txt2img_pipe()
                   clear_last()
               '''if pipe_img2img is None:
@@ -5004,21 +5811,30 @@ def start_diffusion(page):
               from io import BytesIO
               if arg['init_image'].startswith('http'):
                 response = requests.get(arg['init_image'])
-                init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+                init_img = PILImage.open(BytesIO(response.content))
               else:
                 if os.path.isfile(arg['init_image']):
                   init_img = PILImage.open(arg['init_image'])
                 else: prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
+              if bool(arg['alpha_mask']):
+                init_img = init_img.convert("RGBA")
+              else:
+                init_img = init_img.convert("RGB")
               init_img = init_img.resize((arg['width'], arg['height']))
               #init_image = preprocess(init_img)
               mask_img = None
-              if arg['mask_image'].startswith('http'):
-                response = requests.get(arg['mask_image'])
-                mask_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+              if not bool(arg['mask_image']) and bool(arg['alpha_mask']):
+                mask_img = init_img.convert('RGBA')
+                red, green, blue, alpha = PILImage.Image.split(init_img)
+                mask_img = alpha.convert('L')
               else:
-                if os.path.isfile(arg['mask_image']):
-                  mask_img = PILImage.open(arg['mask_image'])
-                else: prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
+                if arg['mask_image'].startswith('http'):
+                  response = requests.get(arg['mask_image'])
+                  mask_img = PILImage.open(BytesIO(response.content))
+                else:
+                  if os.path.isfile(arg['mask_image']):
+                    mask_img = PILImage.open(arg['mask_image'])
+                  else: prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
               mask_img = mask_img.convert("L")
               mask_img = mask_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS).convert("RGB")
               #mask = mask_img.resize((arg['width'], arg['height']))
@@ -5033,36 +5849,42 @@ def start_diffusion(page):
               if prefs['use_inpaint_model'] and status['installed_img2img']:
                 images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               else:
-                images = pipe.inpaint(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, init_image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe.inpaint(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['init_image']):
               if not status['installed_txt2img'] and not (prefs['use_imagic'] and status['installed_imagic']):
                 alert_msg(page, f"CRITICAL ERROR: You have not installed the image2image pipeline yet.  Run in the Installer..")
                 continue
-              #clear_txt2img_pipe()
-              #clear_img2img_pipe()
-              clear_unet_pipe()
-              clear_clip_guided_pipe()
-              clear_composable_pipe()
-              if prefs['use_inpaint_model'] and status['installed_img2img']:
-                clear_txt2img_pipe()
+              if prefs['use_versatile'] and status['installed_versatile']:
+                if len(pr.strip()) > 2: # Find another way to know the difference
+                  clear_pipes("versatile_dualguided")
+                  if pipe_versatile_dualguided is None:
+                    prt(Row([ProgressRing(), Text("Initializing Versatile Dual-Guided Pipeline...", weight=FontWeight.BOLD)]))
+                    pipe_versatile_dualguided = get_versatile_dualguided_pipe()
+                    clear_last()
+                else:
+                  clear_pipes("versatile_variation")
+                  if pipe_versatile_variation is None:
+                    prt(Row([ProgressRing(), Text("Initializing Versatile Image Variation Pipeline...", weight=FontWeight.BOLD)]))
+                    pipe_versatile_variation = get_versatile_variation_pipe()
+                    clear_last()
+              elif prefs['use_inpaint_model'] and status['installed_img2img']:
+                clear_pipes("img2img")
                 if pipe_img2img is None:
-                  prt(Row([ProgressRing(), Text("Initializing Inpaint Pipeline...", weight="bold")]))
+                  prt(Row([ProgressRing(), Text("Initializing Inpaint Pipeline...", weight=FontWeight.BOLD)]))
                   pipe_img2img = get_img2img_pipe()
                   clear_last()
               elif prefs['use_imagic'] and status['installed_imagic']:
-                clear_txt2img_pipe()
-                clear_img2img_pipe()
+                clear_pipes("imagic")
                 if pipe_imagic is None:
-                  prt(Row([ProgressRing(), Text("Initializing iMagic Image2Image Pipeline...", weight="bold")]))
+                  prt(Row([ProgressRing(), Text("Initializing iMagic Image2Image Pipeline...", weight=FontWeight.BOLD)]))
                   pipe_imagic = get_imagic_pipe()
                   clear_last()
               else:
-                clear_imagic_pipe()
-                clear_img2img_pipe()
+                clear_pipes("txt2img")
                 if pipe is None:
-                  prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Image2Image Pipeline...", weight="bold")]))
+                  prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Image2Image Pipeline...", weight=FontWeight.BOLD)]))
                   pipe = get_txt2img_pipe()
                   clear_last()
               '''if pipe_img2img is None:
@@ -5088,7 +5910,12 @@ def start_diffusion(page):
               prt(pb)
               #with autocast("cuda"):
               #images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-              if prefs['use_inpaint_model'] and status['installed_img2img']:
+              if prefs['use_versatile'] and status['installed_versatile']:
+                if len(pr.strip()) > 2:
+                  images = pipe_versatile_dualguided(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, text_to_image_strength= arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                else:
+                  images = pipe_versatile_variation(negative_prompt=arg['negative_prompt'], image=init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_inpaint_model'] and status['installed_img2img']:
                 white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
                 images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_imagic'] and status['installed_imagic']:
@@ -5105,13 +5932,10 @@ def start_diffusion(page):
                 res = pipe_imagic(alpha=2, callback=callback_fn, callback_steps=1)
                 images.append(res.images[0])
               else:
-                images = pipe.img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe.img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['prompt2']):
-              clear_img2img_pipe()
-              clear_unet_pipe()
-              clear_clip_guided_pipe()
               if pipe is None:
                 pipe = get_txt2img_pipe()
               #with precision_scope("cuda"):
@@ -5121,18 +5945,27 @@ def start_diffusion(page):
               images = images_tween['images']
               #images = pipe(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator)["sample"]
             else:
-              clear_img2img_pipe()
-              clear_unet_pipe()
-              clear_clip_guided_pipe()
-              clear_imagic_pipe()
               if prefs['use_composable'] and status['installed_composable']:
-                clear_txt2img_pipe()
+                clear_pipes("composable")
                 if pipe_composable is None:
-                  prt(Row([ProgressRing(), Text("Initializing Composable Text2Image Pipeline...", weight="bold")]))
+                  prt(Row([ProgressRing(), Text("Initializing Composable Text2Image Pipeline...", weight=FontWeight.BOLD)]))
                   pipe_composable = get_composable_pipe()
                   clear_last()
+              elif prefs['use_versatile'] and status['installed_versatile']:
+                clear_pipes("versatile_text2img")
+                if pipe_versatile_text2img is None:
+                  prt(Row([ProgressRing(), Text("Initializing Versatile Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  pipe_versatile_text2img = get_versatile_text2img_pipe()
+                  clear_last()
+              elif prefs['use_safe'] and status['installed_safe']:
+                clear_pipes("safe")
+                if pipe_safe is None:
+                  prt(Row([ProgressRing(), Text("Initializing Safe Stable Diffusion Pipeline...", weight=FontWeight.BOLD)]))
+                  pipe_safe = get_safe_pipe()
+                  clear_last()
               elif pipe is None:
-                prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Text2Image Pipeline...", weight="bold")]))
+                clear_pipes("txt2img")
+                prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Text2Image Pipeline...", weight=FontWeight.BOLD)]))
                 pipe = get_txt2img_pipe()
                 clear_last()
               '''with io.StringIO() as buf, redirect_stdout(buf):
@@ -5151,6 +5984,13 @@ def start_diffusion(page):
                   segments = len(pr.split('|'))
                   weights = '|'.join(['1' * segments])
                 images = pipe_composable(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], weights=weights, generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_versatile'] and status['installed_versatile']:
+                images = pipe_versatile_text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_safe'] and status['installed_safe']:
+                from diffusers.pipelines.stable_diffusion_safe import SafetyConfig
+                s = prefs['safety_config']
+                safety = SafetyConfig.WEAK if s == 'Weak' else SafetyConfig.MEDIUM if s == 'Medium' else SafetyConfig.STRONG if s == 'Strong' else SafetyConfig.MAX if s == 'Max' else SafetyConfig.STRONG 
+                images = pipe_safe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **safety).images
               else:
                 images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               '''if prefs['precision'] == "autocast":
@@ -5181,29 +6021,29 @@ def start_diffusion(page):
       batch_output = prefs['image_output']
       if bool(prefs['batch_folder_name']):
         txt2img_output = os.path.join(stable_dir, prefs['batch_folder_name'])
-        if not os.path.exists(txt2img_output):
-          os.makedirs(txt2img_output)
-        if save_to_GDrive:
-          batch_output = os.path.join(prefs['image_output'], prefs['batch_folder_name'])
-          if not os.path.exists(batch_output):
-            os.makedirs(batch_output)
-        if storage_type == "PyDrive Google Drive":
-          newFolder = gdrive.CreateFile({'title': prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
-          newFolder.Upload()
-          batch_output = newFolder
+        batch_output = os.path.join(prefs['image_output'], prefs['batch_folder_name'])
+      if not os.path.exists(txt2img_output):
+        os.makedirs(txt2img_output)
+      if save_to_GDrive or storage_type == "Colab Google Drive":
+        if not os.path.exists(batch_output):
+          os.makedirs(batch_output)
+      elif storage_type == "PyDrive Google Drive": # TODO: I'm not getting the parent folder id right, their docs got confusing
+        newFolder = gdrive.CreateFile({'title': prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+        newFolder.Upload()
+        batch_output = newFolder
 
       filename = format_filename(pr[0] if type(pr) == list else pr)
-      idx = 0
       if images is None:
         prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
         images = []
 
+      idx = num = 0
       for image in images:
         cur_seed = arg['seed']
         if idx > 0:
           cur_seed += idx
           i_count = f'  ({idx + 1} of {len(images)})  '
-          prt(Row([Text(i_count), Text(pr[0] if type(pr) == list else pr, expand=True, weight="bold"), Text(f'seed: {cur_seed}   ')]))
+          prt(Row([Text(i_count), Text(pr[0] if type(pr) == list else pr, expand=True, weight=FontWeight.BOLD), Text(f'seed: {cur_seed}   ')]))
           #prt(f'{pr[0] if type(pr) == list else pr} - seed:{cur_seed}')
         seed_suffix = "" if not prefs['file_suffix_seed'] else f"-{cur_seed}"
         if prefs['use_imagic'] and status['installed_imagic'] and bool(arg['init_image'] and not bool(arg['mask_image'])):
@@ -5212,12 +6052,12 @@ def start_diffusion(page):
           if idx == 2: seed_suffix += '-alpha_2'
         fname = f'{prefs["file_prefix"]}{filename}{seed_suffix}'
         image_path = available_file(txt2img_output, fname, idx)
-        idx = int(image_path.rpartition('-')[2].partition('.')[0])
+        num = int(image_path.rpartition('-')[2].partition('.')[0])
         #image_path = os.path.join(txt2img_output, f'{fname}-{idx}.png')
         image.save(image_path)
         #print(f'size:{os.path.getsize(f"{fname}-{idx}.png")}')
         if os.path.getsize(image_path) < 2000 or not usable_image: #False: #not sum(image.convert("L").getextrema()) in (0, 2): #image.getbbox():#
-          os.remove(os.path.join(txt2img_output, f'{fname}-{idx}.png'))
+          os.remove(os.path.join(txt2img_output, f'{fname}-{num}.png'))
           if strikes >= retry_attempts_if_NSFW:
             if retry_attempts_if_NSFW != 0: prt("Giving up on finding safe image...")
             strikes = 0
@@ -5237,26 +6077,42 @@ def start_diffusion(page):
         #if not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']:
           #print(f"Image path:{image_path}")
           #time.sleep(0.4)
-          #prt(Row([Img(src=image_path, width=arg['width'], height=arg['height'], fit="fill", gapless_playback=True)], alignment="center"))
+          #prt(Row([Img(src=image_path, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
           #display(image)
         #if bool(batch_folder_name):
         #  fpath = os.path.join(txt2img_output, batch_folder_name, f'{fname}-{idx}.png')
         #fpath = os.path.join(txt2img_output, f'{fname}-{idx}.png')
         #fpath = available_file(txt2img_output, fname, idx)
         fpath = image_path
-        new_file = available_file(batch_output if save_to_GDrive else txt2img_output, fname, idx)
+        new_file = available_file(batch_output if save_to_GDrive else txt2img_output, fname, num)
         #print(f'fpath: {fpath} - idx: {idx}')
         if prefs['centipede_prompts_as_init_images']:
           shutil.copy(fpath, os.path.join(root_dir, 'init_images'))
-          last_image = os.path.join(root_dir, 'init_images', f'{fname}-{idx}.png')
+          last_image = os.path.join(root_dir, 'init_images', f'{fname}-{num}.png')
         if not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']:
           #print(f"Image path:{image_path}")
           upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           time.sleep(0.1)
-          prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit="fill", gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment="center"))
+          prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #display(image)
+        if prefs['use_upscale'] and status['installed_upscale']:
+          clear_pipes(['upscale'])
+          if pipe_upscale == None:
+            prt(Row([ProgressRing(), Text("Initializing Stable Diffusion 2 Upscale Pipeline...", weight=FontWeight.BOLD)]))
+            pipe_upscale = get_upscale_pipe()
+            clear_last()
+          prt(Row([Text("Upscaling 4X"), pb]))
+          try:
+            output = pipe_upscale(prompt=pr, image=image, guidance_scale=arg['guidance_scale'], generator=generator, noise_level=prefs['upscale_noise_level'], callback=callback_fn, callback_steps=1)
+            output.images[0].save(fpath)
+            clear_upscale()
+          except Exception as e:
+            alert_msg(page, "Error Upscaling Image.  Most likely out of Memory... Reduce image size to less than 512px.", content=Text(e))
+            pass
+          clear_last()
+          #clear_upscale_pipe()
         if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-          os.chdir(f'{root_dir}Real-ESRGAN')
+          os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
           upload_folder = 'upload'
           result_folder = 'results'     
           if os.path.isdir(upload_folder):
@@ -5265,8 +6121,8 @@ def start_diffusion(page):
               shutil.rmtree(result_folder)
           os.mkdir(upload_folder)
           os.mkdir(result_folder)
-          short_name = f'{fname[:80]}-{idx}.png'
-          dst_path = os.path.join(f'{root_dir}Real-ESRGAN/{upload_folder}', short_name)
+          short_name = f'{fname[:80]}-{num}.png'
+          dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, short_name)
           #print(f'Moving {fpath} to {dst_path}')
           #shutil.move(fpath, dst_path)
           shutil.copy(fpath, dst_path)
@@ -5276,7 +6132,7 @@ def start_diffusion(page):
           out_file = short_name.rpartition('.')[0] + '_out.png'
           #print(f'move {root_dir}Real-ESRGAN/{result_folder}/{out_file} to {fpath}')
           #shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
-          shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
+          shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, out_file), fpath)
           # !python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
           os.chdir(stable_dir)
         
@@ -5297,6 +6153,7 @@ def start_diffusion(page):
         if not bool(config_json['init_image']):
           del config_json['init_image']
           del config_json['init_image_strength']
+          del config_json['alpha_mask']
         if not bool(config_json['mask_image']):
           del config_json['mask_image']
         if not bool(config_json['use_clip_guided_model']):
@@ -5311,16 +6168,18 @@ def start_diffusion(page):
           config_json["clip_model_id"] = prefs['clip_model_id']
         if prefs['apply_ESRGAN_upscale']:
           config_json['upscale'] = f"Upscaled {prefs['enlarge_scale']}x with ESRGAN" + (" with GFPGAN Face-Enhance" if prefs['face_enhance'] else "")
+        sampler_str = prefs['generation_sampler'] if prefs['use_Stability_api'] else prefs['scheduler_mode']
+        config_json['scheduler_mode'] = sampler_str
+        config_json['model_path'] = model_path
         if prefs['save_image_metadata']:
           img = PILImage.open(fpath)
           metadata = PngInfo()
           metadata.add_text("artist", prefs['meta_ArtistName'])
           metadata.add_text("copyright", prefs['meta_Copyright'])
-          metadata.add_text("software", "Stable Diffusion 1.4" + f", upscaled {prefs['enlarge_scale']}x with ESRGAN" if prefs['apply_ESRGAN_upscale'] else "")
+          metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {prefs['enlarge_scale']}x with ESRGAN" if prefs['apply_ESRGAN_upscale'] else "")
           metadata.add_text("title", pr[0] if type(pr) == list else pr)
           if prefs['save_config_in_metadata']:
             config = f"prompt: {pr[0] if type(pr) == list else pr}, seed: {cur_seed}, steps: {arg['steps']}, CGS: {arg['guidance_scale']}, iterations: {arg['n_iterations']}" + f", eta: {arg['eta']}" if not prefs['use_Stability_api'] else ""
-            sampler_str = prefs['generation_sampler'] if prefs['use_Stability_api'] else prefs['scheduler_mode']
             config += f", sampler: {sampler_str}"
             if bool(arg['init_image']): config += f", init_image: {arg['init_image']}, init_image_strength: {arg['init_image_strength']}"
             metadata.add_text("config", config)
@@ -5345,28 +6204,28 @@ def start_diffusion(page):
           shutil.copy(fpath, os.path.join(batch_output, new_file))
         if prefs['save_config_json']:
           json_file = new_file.rpartition('.')[0] + '.json'
-          with open(f"{stable_dir}/{json_file}", "w") as f:
+          with open(os.path.join(stable_dir, json_file), "w") as f:
             json.dump(config_json, f, ensure_ascii=False, indent=4)
           if save_to_GDrive:
-            shutil.copy(f'{stable_dir}/{json_file}', os.path.join(batch_output, json_file))
+            shutil.copy(os.path.join(stable_dir, json_file), os.path.join(batch_output, json_file))
           elif storage_type == "PyDrive Google Drive":
             #batch_output
             out_file = gdrive.CreateFile({'title': json_file})
-            out_file.SetContentFile(f'{stable_dir}/{json_file}')
+            out_file.SetContentFile(os.path.join(stable_dir, json_file))
             out_file.Upload()
         output_files.append(os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file))
         if prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']:
           upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           time.sleep(0.4)
-          prt(Row([GestureDetector(content=Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit="contain", gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment="center"))
-          #prt(Row([Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit="contain", gapless_playback=True)], alignment="center"))
+          prt(Row([GestureDetector(content=Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
           #prt(Img(src=upscaled_path))
           #upscaled = PILImage.open(os.path.join(batch_output, new_file))
           #display(upscaled)
         #else:
           #time.sleep(0.4)
-          #prt(Row([Img(src=new_file, width=arg['width'], height=arg['height'], fit="fill", gapless_playback=True)], alignment="center"))
-        prt(Row([Text(fpath.rpartition(slash)[2])], alignment="center"))
+          #prt(Row([Img(src=new_file, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Text(fpath.rpartition(slash)[2])], alignment=MainAxisAlignment.CENTER))
         idx += 1
         if abort_run:
           prt(Text("🛑   Aborting Current Diffusion Run..."))
@@ -5379,10 +6238,7 @@ def start_diffusion(page):
         return
     if prefs['enable_sounds']: page.snd_alert.play()
   else:
-    clear_txt2img_pipe()
-    clear_img2img_pipe()
-    clear_unet_pipe()
-    clear_clip_guided_pipe()
+    clear_pipes("interpolation")
     if pipe_interpolation is None:
       pipe_interpolation = get_interpolation_pipe()
     txt2img_output = os.path.join(stable_dir, prefs['batch_folder_name'] if bool(prefs['batch_folder_name']) else 'dreams')
@@ -5421,9 +6277,9 @@ def start_diffusion(page):
           page.auto_scrolling(True)
           #p_count = f'[{img_idx + 1} of {(len(walk_prompts) -1) * int(prefs['num_interpolation_steps'])}]  '
           #prt(Divider(height=6, thickness=2))
-          #prt(Row([Text(p_count), Text(walk_prompts[img_idx], expand=True, weight="bold"), Text(f'seed: {walk_seeds[img_idx]}')]))
-          prt(Row([Img(src=event.src_path, width=arg['width'], height=arg['height'], fit="fill", gapless_playback=True)], alignment="center"))
-          prt(Row([Text(f'{event.src_path}')], alignment="center"))
+          #prt(Row([Text(p_count), Text(walk_prompts[img_idx], expand=True, weight=FontWeight.BOLD), Text(f'seed: {walk_seeds[img_idx]}')]))
+          prt(Row([Img(src=event.src_path, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
           prt(pb)
           page.update()
           page.auto_scrolling(False)
@@ -5436,7 +6292,7 @@ def start_diffusion(page):
     prt(Divider(height=6, thickness=2))
     prt(pb)
     page.auto_scrolling(False)
-    #prt(Row([Text(p_count), Text(pr[0] if type(pr) == list else pr, expand=True, weight="bold"), Text(f'seed: {arg["seed"]}')]))
+    #prt(Row([Text(p_count), Text(pr[0] if type(pr) == list else pr, expand=True, weight=FontWeight.BOLD), Text(f'seed: {arg["seed"]}')]))
     images = pipe_interpolation.walk(prompts=walk_prompts, seeds=walk_seeds, num_interpolation_steps=int(prefs['num_interpolation_steps']), batch_size=int(prefs['batch_size']), output_dir=txt2img_output, width=arg['width'], height=arg['height'], guidance_scale=arg['guidance_scale'], num_inference_steps=int(arg['steps']), eta=arg['eta'], callback=callback_fn, callback_steps=1)
     observer.stop()
     clear_last()
@@ -5444,7 +6300,7 @@ def start_diffusion(page):
     bfolder = fpath.rpartition(slash)[2]
     if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
       prt('Applying Real-ESRGAN Upscaling to images...')
-      os.chdir(f'{root_dir}Real-ESRGAN')
+      os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
       upload_folder = 'upload'
       result_folder = 'results'     
       if os.path.isdir(upload_folder):
@@ -5455,16 +6311,16 @@ def start_diffusion(page):
       os.mkdir(result_folder)
       for i in images:
         fname = i.rpartition(slash)[2]
-        dst_path = os.path.join(f'{root_dir}Real-ESRGAN/{upload_folder}', fname)
+        dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, fname)
         shutil.move(i, dst_path)
       faceenhance = ' --face_enhance' if prefs["face_enhance"] else ''
       run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
-      filenames = os.listdir(f'{root_dir}/Real-ESRGAN/results')
+      filenames = os.listdir(os.path.join(root_dir, 'Real-ESRGAN', 'results'))
       for oname in filenames:
         fparts = oname.rpartition('_out')
         fname_clean = fparts[0] + fparts[2]
         opath = os.path.join(fpath, fname_clean)
-        shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{oname}', opath)
+        shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, oname), opath)
       os.chdir(stable_dir)
     os.makedirs(os.path.join(batch_output, bfolder), exist_ok=True)
     imgs = os.listdir(fpath)
@@ -5535,7 +6391,7 @@ def run_prompt_generator(page):
 * The Fabric of spacetime continuum over a large cosmological vista, pieces of dark matter, space dust and nebula doted with small dots that seem to form fractal patterns and glowing bright lanterns in distances, also with an stardust effect towards the plane of the galaxy
 * Midnight landscape painting of a city under a starry sky, owl in the shaman forest knowing the ways of magic, warm glow over the buildings
 * {prefs['prompt_generator']['phrase']}"""
-    response = openai.Completion.create(engine="text-davinci-002", prompt=prompt, max_tokens=2400, temperature=prefs['prompt_generator']['AI_temperature'], presence_penalty=1)
+    response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs['prompt_generator']['AI_temperature'], presence_penalty=1)
     #print(response)
     result = response["choices"][0]["text"].strip()
     #if result[-1] == '.': result = result[:-1]
@@ -5550,8 +6406,11 @@ def run_prompt_generator(page):
       if '"' in pr: pr = pr.replace('"', '')
       prompt_results.append(pr)
   #print(f"Request mode influence: {request_modes[prefs['prompt_generator']['request_mode']]}\n")
-  
+  page.prompt_generator_list.controls.append(Row([ProgressRing(), Text("Requesting Prompts from the AI...", weight=FontWeight.BOLD)]))
+  page.prompt_generator_list.update()
   prompt_gen()
+  del page.prompt_generator_list.controls[-1]
+  page.prompt_generator_list.update()
   if len(prompt_results) < prefs['prompt_generator']['amount']:
     additional = prefs['prompt_generator']['amount'] - len(prompt_results)
     print(f"Didn't make enough prompts.. Needed {additional} more.")
@@ -5631,7 +6490,7 @@ def run_prompt_remixer(page):
   prompt_results = []
   
   def prompt_remix():
-    response = openai.Completion.create(engine="text-davinci-002", prompt=prompt, max_tokens=2400, temperature=prefs["prompt_remixer"]['AI_temperature'], presence_penalty=1)
+    response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs["prompt_remixer"]['AI_temperature'], presence_penalty=1)
     #print(response)
     result = response["choices"][0]["text"].strip()
     #if result[-1] == '.': result = result[:-1]
@@ -5649,7 +6508,12 @@ def run_prompt_remixer(page):
   #page.add_to_prompt_remixer(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else "") + f"\nRequest mode influence: {remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]}\n")
   #print(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else ""))
   #print(f"Request mode influence: {remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]}\n")
+  page.prompt_remixer_list.controls.append(Row([ProgressRing(), Text("Requesting Prompt Remixes...", weight=FontWeight.BOLD)]))
+  page.prompt_remixer_list.update()
   prompt_remix()
+  del page.prompt_remixer_list.controls[-1]
+  page.prompt_remixer_list.update()
+
   for p in prompt_results:
     random_artist=[]
     for a in range(prefs['prompt_remixer']['random_artists']):
@@ -5726,7 +6590,7 @@ def run_prompt_brainstormer(page):
         finally:
           import openai
         openai.api_key = prefs['OpenAI_api_key']
-    if prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
+    if prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B" or prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5 XXL":
       try:
         if not bool(prefs['HuggingFace_api_key']): good_key = False
       except NameError: good_key = False
@@ -5756,7 +6620,7 @@ def run_prompt_brainstormer(page):
         "that includes more subjects with descriptions, textured color details, expressive",]
         #"complete sentence using many words to describe a landscape in an epic fantasy genre that includes a lot adjectives",
     
-    request = f'{brainstorm_request_modes[int(prefs["prompt_brainstormer"]["request_mode"])]}"{prefs["prompt_brainstormer"]["about_prompt"]}":' if prefs['prompt_brainstormer']['request_mode'] != "Raw Request" else prefs['prompt_brainstormer']['about_prompt']
+    request = f'{brainstorm_request_modes[prefs["prompt_brainstormer"]["request_mode"]]}"{prefs["prompt_brainstormer"]["about_prompt"]}":' if prefs['prompt_brainstormer']['request_mode'] != "Raw Request" else prefs['prompt_brainstormer']['about_prompt']
 
     def query(payload):
         #print(payload)
@@ -5781,17 +6645,47 @@ def run_prompt_brainstormer(page):
         #return data[0]["generated_text"]
         return generation
     
+    def flan_query(payload):
+        #print(payload)
+        response = requests.request("POST", "https://api-inference.huggingface.co/models/google/flan-t5-xxl", json=payload, headers={"Authorization": f"Bearer {prefs['HuggingFace_api_key']}"})
+        #print(response.text)
+        return json.loads(response.content.decode("utf-8"))
+
+    def flan_request(input_sentence):
+        parameters = {
+            "max_new_tokens": max_tokens_length,
+            "do_sample": False,
+            "seed": seed,
+            "early_stopping": False,
+            "length_penalty": 0.0,
+            "eos_token_id": None,}
+        payload = {"inputs": input_sentence, "parameters": parameters,"options" : {"use_cache": False} }
+        data = flan_query(payload)
+        if "error" in data:
+            return f"\33[31mERROR: {data['error']}\33[0m"
+
+        generation = data[0]["generated_text"].split(input_sentence, 1)[1]
+        #return data[0]["generated_text"]
+        return generation
+
     def prompt_brainstormer():
       #(prompt=prompt, temperature=AI_temperature, presence_penalty=1, stop= "\n")
+      page.prompt_brainstormer_list.controls.append(Row([ProgressRing(), Text("Storming the AI's Brain...", weight=FontWeight.BOLD)]))
+      page.prompt_brainstormer_list.update()
+
       if prefs['prompt_brainstormer']['AI_engine'] == "TextSynth GPT-J":
         response = textsynth.text_complete(prompt=request, max_tokens=200, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
         #print(str(response))
         result = response.text.strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-3":
-        response = openai.Completion.create(engine="text-davinci-002", prompt=request, max_tokens=2400, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
+        response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
         result = response["choices"][0]["text"].strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
-        result = bloom_request(request) 
+        result = bloom_request(request)
+      elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5":
+        result = flan_request(request) 
+      del page.prompt_brainstormer_list.controls[-1]
+      page.prompt_brainstormer_list.update()
       page.add_to_prompt_brainstormer(str(result) + '\n')
     #print(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else ""))
     if good_key:
@@ -5936,7 +6830,7 @@ def run_upscaling(page):
       if split_image_grid:
         img = PILImage.open(dst_path)
         split(img, rows, cols, dst_path, True)
-    os.chdir(f'{root_dir}/Real-ESRGAN')
+    os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
     faceenhance = ' --face_enhance' if face_enhance else ''
     run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i {upload_folder} --outscale {enlarge_scale}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
     os.chdir(root_dir)
@@ -5947,7 +6841,7 @@ def run_upscaling(page):
           dst_image_path = image_path
       else:
           dst_image_path = image_path.rpartition(slash)[0]
-    filenames = os.listdir(f'{root_dir}/Real-ESRGAN/results')
+    filenames = os.listdir(os.path.join(root_dir, 'Real-ESRGAN', 'results'))
     for fname in filenames:
       fparts = fname.rpartition('_out')
       fname_clean = fparts[0] + filename_suffix + fparts[2]
@@ -5955,12 +6849,12 @@ def run_upscaling(page):
       if save_to_GDrive:
         if not os.path.isdir(dst_image_path):
           os.makedirs(dst_image_path)
-        shutil.copy(os.path.join(f'{root_dir}/Real-ESRGAN/results', fname), os.path.join(dst_image_path, fname_clean))
+        shutil.copy(os.path.join(root_dir, 'Real-ESRGAN', 'results', fname), os.path.join(dst_image_path, fname_clean))
       if download_locally:
-        files.download(f'{root_dir}/Real-ESRGAN/results/'+fname)
+        files.download(os.path.join(root_dir, 'Real-ESRGAN', 'results', fname))
       if display_image:
-        page.add_to_ESRGAN_output(Image(src=os.path.join(f'{root_dir}/Real-ESRGAN/results', fname)))
-      page.add_to_ESRGAN_output(Row([Text(fname_clean)], alignment="center"))
+        page.add_to_ESRGAN_output(Image(src=os.path.join(root_dir, 'Real-ESRGAN', 'results', fname)))
+      page.add_to_ESRGAN_output(Row([Text(fname_clean)], alignment=MainAxisAlignment.CENTER))
 
 def run_retrieve(page):
     upload_file = retrieve_prefs['upload_file']
@@ -6202,7 +7096,7 @@ def run_repainter(page):
       progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
-    prt(Row([ProgressRing(), Text("Installing RePaint Pipeline...", weight="bold")]))
+    prt(Row([ProgressRing(), Text("Installing RePaint Pipeline...", weight=FontWeight.BOLD)]))
     import requests, random
     from io import BytesIO
     from PIL import Image as PILImage
@@ -6271,7 +7165,7 @@ def run_repainter(page):
     out_path = image_path
     clear_last()
     clear_last()
-    prt(Row([Img(src=image_path, width=width, height=height, fit="fill", gapless_playback=True)], alignment="center"))
+    prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     #TODO: ESRGAN, Metadata & PyDrive
     if storage_type == "Colab Google Drive":
       new_file = available_file(prefs['image_output'], fname, 1)
@@ -6281,7 +7175,7 @@ def run_repainter(page):
       new_file = available_file(prefs['image_output'], fname, 1)
       out_path = new_file
       shutil.copy(image_path, new_file)
-    prt(Row([Text(out_path)], alignment="center"))
+    prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -6320,7 +7214,7 @@ def run_CLIPstyler(page):
         alert_msg(page, "Couldn't find a valid File, Path or URL...")
         return
     progress = ProgressBar(bar_height=8)
-    prt(Row([ProgressRing(), Text(" Downloading CLIP-Styler Packages...", weight="bold")]))
+    prt(Row([ProgressRing(), Text(" Downloading CLIP-Styler Packages...", weight=FontWeight.BOLD)]))
     run_process("pip install ftfy regex tqdm", realtime=False, page=page)
     run_sp("pip install git+https://github.com/openai/CLIP.git", realtime=False)
     #os.chdir(clipstyler_dir)
@@ -6433,7 +7327,7 @@ def run_CLIPstyler(page):
     content_weight = style_args.lambda_c
     show_every = 20
     optimizer = optim.Adam(style_net.parameters(), lr=style_args.lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
+    s_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
     steps = style_args.max_step
     content_loss_epoch = []
     style_loss_epoch = []
@@ -6467,7 +7361,7 @@ def run_CLIPstyler(page):
         
     num_crops = style_args.num_crops
     for epoch in range(0, steps+1):
-        scheduler.step()
+        s_scheduler.step()
         target = style_net(content_image,use_sigmoid=True).to(device)
         target.requires_grad_(True)
         target_features = utils.get_features(img_normalize(target), VGG)
@@ -6518,8 +7412,8 @@ def run_CLIPstyler(page):
             img = utils.im_convert2(output_image)
             save_file = available_file(save_dir, new_file, 1)
             img.save(save_file)
-            prt(Row([Img(src=save_file, width=CLIPstyler_prefs['width'], height=CLIPstyler_prefs['height'], fit="fill", gapless_playback=True)], alignment="center"))
-            prt(Row([Text(save_file)], alignment="center"))
+            prt(Row([Img(src=save_file, width=CLIPstyler_prefs['width'], height=CLIPstyler_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([Text(save_file)], alignment=MainAxisAlignment.CENTER))
             images.append(save_file)
             #plt.imshow(utils.im_convert2(output_image))
             #plt.show()
@@ -6543,19 +7437,19 @@ def run_image2text(page):
     #if not status['installed_diffusers']:
     #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
     #  return
-    prt(Row([ProgressRing(), Text(" Downloading Image2Text CLIP-Interrogator Blips...", weight="bold")]))
+    prt(Row([ProgressRing(), Text(" Downloading Image2Text CLIP-Interrogator Blips...", weight=FontWeight.BOLD)]))
     #try:
     #    import clip
     #except ModuleNotFoundError:
     run_process("pip install ftfy regex tqdm timm fairscale requests", realtime=False)
     #run_sp("pip install --upgrade transformers==4.21.2", realtime=False)
+    run_process("pip install transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
     run_process("pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip", realtime=False)
     run_process("pip install -e git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
     run_process("pip clone https://github.com/pharmapsychotic/clip-interrogator.git", realtime=False)
         #['pip', 'install', 'ftfy', 'gradio', 'regex', 'tqdm', 'transformers==4.21.2', 'timm', 'fairscale', 'requests'],
     #    pass
     # Have to force downgrade of transformers because error with cache_dir, but should upgrade after run
-    run_process("pip install --upgrade transformers==4.21.3", realtime=False)
     run_process("pip install clip-interrogator", realtime=False)
     
     '''def setup():
@@ -6622,9 +7516,9 @@ def run_image2text(page):
             prt(f"\n\n\nGenerated {len(prompts)} and saved to {csv_path}, enjoy!")
         else:
             prt(f"Sorry, we couldn't find any images in {folder_path}")
-    run_process("pip uninstall -e git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
-    run_process("pip uninstall clip-interrogator", realtime=False)
-    run_process("pip uninstall transformers==4.21.3", realtime=False)
+    run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
+    run_process("pip uninstall -y clip-interrogator", realtime=False)
+    run_process("pip uninstall -y transformers", realtime=False)
     run_process("pip install --upgrade transformers", realtime=False)
     clear_last()
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -6659,7 +7553,7 @@ def run_dance_diffusion(page):
       page.dance_output.update()
     def play_audio(e):
       e.control.data.play()
-    prt(Row([ProgressRing(), Text(" Downloading Dance Diffusion Models", weight="bold")]))
+    prt(Row([ProgressRing(), Text(" Downloading Dance Diffusion Models", weight=FontWeight.BOLD)]))
     dance_model_file = f"harmonai/{dance_prefs['dance_model']}"
     if dance_prefs['dance_model'] == 'Community':
       models_path = os.path.join(root_dir, 'models')
@@ -6695,7 +7589,7 @@ def run_dance_diffusion(page):
     audio_out = audio_local
     os.makedirs(audio_local, exist_ok=True)
     if storage_type == "Colab Google Drive":
-      audio_out = prefs['image_output'].rpartition(slash)[0] + '/audio_out'
+      audio_out = prefs['image_output'].rpartition(slash)[0] + slash + 'audio_out'
       os.makedirs(audio_out, exist_ok=True)
     i = 0
     for a in audio:
@@ -6718,7 +7612,7 @@ def run_dance_diffusion(page):
 
 # https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb
 def run_dreambooth(page):
-    global dreambooth_prefs
+    global dreambooth_prefs, prefs
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -6741,7 +7635,7 @@ def run_dreambooth(page):
     if error:
       alert_msg(page, "Couldn't find a list of images to train concept. Add image files to the list...")
       return
-    prt(Row([ProgressRing(), Text(" Downloading DreamBooth Conceptualizers", weight="bold")]))
+    prt(Row([ProgressRing(), Text(" Downloading DreamBooth Conceptualizers", weight=FontWeight.BOLD)]))
     run_process("pip install -qq bitsandbytes")
     import argparse
     import itertools
@@ -7091,7 +7985,8 @@ def run_dreambooth(page):
       api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the concept {name_of_your_concept} embeds and token",token=hf_token)
       api.upload_folder(folder_path="fp16_model", path_in_repo="", repo_id=repo_id,token=hf_token)
       api.upload_folder(folder_path=save_path, path_in_repo="concept_images", repo_id=repo_id, token=hf_token)
-      prt(Markdown(f"## Your concept was saved successfully.<br>[Click here to access it](https://huggingface.co/{repo_id}"))
+      prefs['custom_model'] = repo_id
+      prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id} and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token in prompts."))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 try:
@@ -7192,7 +8087,7 @@ class PromptDataset(Dataset):
 
 
 def run_textualinversion(page):
-    global textualinversion_prefs
+    global textualinversion_prefs, prefs
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -7215,7 +8110,7 @@ def run_textualinversion(page):
     if error:
       alert_msg(page, "Couldn't find a list of images to train concept. Add image files to the list...")
       return
-    prt(Row([ProgressRing(), Text(" Downloading Textual-Inversion Training Models", weight="bold")]))
+    prt(Row([ProgressRing(), Text(" Downloading Textual-Inversion Training Models", weight=FontWeight.BOLD)]))
     #run_process("pip install -qq bitsandbytes")
     import argparse
     import itertools
@@ -7364,18 +8259,10 @@ def run_textualinversion(page):
         learning_rate = textualinversion_prefs["learning_rate"]
         max_train_steps = textualinversion_prefs["max_train_steps"]
         output_dir = textualinversion_prefs["output_dir"]
-
-        accelerator = Accelerator(
-            gradient_accumulation_steps=gradient_accumulation_steps,
-        )
-
+        accelerator = Accelerator(gradient_accumulation_steps=gradient_accumulation_steps)
         train_dataloader = create_dataloader(train_batch_size)
-
         if textualinversion_prefs["scale_lr"]:
-            learning_rate = (
-                learning_rate * gradient_accumulation_steps * train_batch_size * accelerator.num_processes
-            )
-
+            learning_rate = (learning_rate * gradient_accumulation_steps * train_batch_size * accelerator.num_processes)
         # Initialize the optimizer
         optimizer = torch.optim.AdamW(
             text_encoder.get_input_embeddings().parameters(),  # only optimize the embeddings
@@ -7567,7 +8454,8 @@ def run_textualinversion(page):
             repo_id=repo_id,
             token=hf_token
         )
-        prt(Markdown(f"## Your concept was saved successfully.<br>[Click here to access it](https://huggingface.co/{repo_id}"))
+        prefs['custom_model'] = repo_id
+        prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id} and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token to your Prompt text."))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 class TextualInversionDataset(Dataset):
@@ -7585,7 +8473,6 @@ class TextualInversionDataset(Dataset):
         placeholder_token="*",
         center_crop=False,
     ):
-
         self.data_root = data_root
         self.tokenizer = tokenizer
         self.learnable_property = learnable_property
@@ -7593,22 +8480,17 @@ class TextualInversionDataset(Dataset):
         self.placeholder_token = placeholder_token
         self.center_crop = center_crop
         self.flip_p = flip_p
-
         self.image_paths = [os.path.join(self.data_root, file_path) for file_path in os.listdir(self.data_root)]
-
         self.num_images = len(self.image_paths)
         self._length = self.num_images
-
         if set == "train":
             self._length = self.num_images * repeats
-
         self.interpolation = {
             "linear": PIL.Image.LINEAR,
             "bilinear": PIL.Image.BILINEAR,
             "bicubic": PIL.Image.BICUBIC,
             "lanczos": PIL.Image.LANCZOS,
         }[interpolation]
-
         self.templates = imagenet_style_templates_small if learnable_property == "style" else imagenet_templates_small
         self.flip_transform = transforms.RandomHorizontalFlip(p=self.flip_p)
 
@@ -7679,7 +8561,7 @@ def run_materialdiffusion(page):
         print(f"Error: {e}")
         #alert_msg(page, f"Error installing Material Diffusion from TomMoore515...", content=Text(str(e)))
         pass
-    prt(Row([ProgressRing(), Text("Installing Replicate Material Diffusion Pipeline...", weight="bold")]))
+    prt(Row([ProgressRing(), Text("Installing Replicate Material Diffusion Pipeline...", weight=FontWeight.BOLD)]))
     try:
         import replicate
     except ImportError as e:
@@ -7764,7 +8646,7 @@ def run_materialdiffusion(page):
           f.write(response.content)
         new_file = image_path.rpartition(slash)[2]
         if not materialdiffusion_prefs['display_upscaled_image'] or not materialdiffusion_prefs['apply_ESRGAN_upscale']:
-            prt(Row([Img(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit="fill", gapless_playback=True)], alignment="center"))
+            prt(Row([Img(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
 
         if save_to_GDrive:
             batch_output = os.path.join(prefs['image_output'], materialdiffusion_prefs['batch_folder_name'])
@@ -7777,7 +8659,7 @@ def run_materialdiffusion(page):
         out_path = batch_output if save_to_GDrive else txt2img_output
         
         if materialdiffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(f'{root_dir}Real-ESRGAN')
+            os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
             upload_folder = 'upload'
             result_folder = 'results'     
             if os.path.isdir(upload_folder):
@@ -7787,7 +8669,7 @@ def run_materialdiffusion(page):
             os.mkdir(upload_folder)
             os.mkdir(result_folder)
             short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(f'{root_dir}Real-ESRGAN/{upload_folder}', short_name)
+            dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, short_name)
             #print(f'Moving {fpath} to {dst_path}')
             #shutil.move(fpath, dst_path)
             shutil.copy(image_path, dst_path)
@@ -7799,16 +8681,16 @@ def run_materialdiffusion(page):
             #print(f'move {root_dir}Real-ESRGAN/{result_folder}/{out_file} to {fpath}')
             #shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', upscaled_path)
+            shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             # !python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
             os.chdir(stable_dir)
             if materialdiffusion_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit="contain", gapless_playback=True)], alignment="center"))
+                prt(Row([Img(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, os.path.join(out_path, new_file))
         # TODO: Add Metadata
-        prt(Row([Text(new_file)], alignment="center"))
+        prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -7829,7 +8711,7 @@ def run_dall_e(page):
       del page.dall_e_output.controls[-1]
       page.dall_e_output.update()
     progress = ProgressBar(bar_height=8)
-    prt(Row([ProgressRing(), Text("Installing OpenAi Dall-E 2 API...", weight="bold")]))
+    prt(Row([ProgressRing(), Text("Installing OpenAi Dall-E 2 API...", weight=FontWeight.BOLD)]))
     run_process("pip install -q openai", realtime=False)
     import openai
     try:
@@ -7914,7 +8796,7 @@ def run_dall_e(page):
             txt2img_output = os.path.join(stable_dir, dall_e_prefs['batch_folder_name'])
         if not os.path.exists(txt2img_output):
             os.makedirs(txt2img_output)
-        image_path = available_file(txt2img, fname, 1)
+        image_path = available_file(txt2img_output, fname, 1)
         #image.save(image_path)
         response = requests.get(image, stream=True)
         with open(image_path, "wb") as f:
@@ -7923,7 +8805,7 @@ def run_dall_e(page):
         new_file = image_path.rpartition(slash)[2]
         size = int(dall_e_prefs['size'].rpartition('x')[0])
         if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
-            prt(Row([Img(src=image_path, width=size, height=size, fit="fill", gapless_playback=True)], alignment="center"))
+            prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
 
         if save_to_GDrive:
             batch_output = os.path.join(prefs['image_output'], dall_e_prefs['batch_folder_name'])
@@ -7936,7 +8818,7 @@ def run_dall_e(page):
         out_path = batch_output if save_to_GDrive else txt2img_output
         
         if dall_e_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(f'{root_dir}Real-ESRGAN')
+            os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
             upload_folder = 'upload'
             result_folder = 'results'     
             if os.path.isdir(upload_folder):
@@ -7946,7 +8828,7 @@ def run_dall_e(page):
             os.mkdir(upload_folder)
             os.mkdir(result_folder)
             short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(f'{root_dir}Real-ESRGAN/{upload_folder}', short_name)
+            dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, short_name)
             #print(f'Moving {fpath} to {dst_path}')
             #shutil.move(fpath, dst_path)
             shutil.copy(image_path, dst_path)
@@ -7954,22 +8836,171 @@ def run_dall_e(page):
             run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', upscaled_path)
+            shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
             os.chdir(stable_dir)
             if dall_e_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), fit="contain", gapless_playback=True)], alignment="center"))
+                prt(Row([Img(src=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, os.path.join(out_path, new_file))
         # TODO: Add Metadata
-        prt(Row([Text(new_file)], alignment="center"))
+        prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_kandinsky(page):
+    global kandinsky_prefs, pipe_kandinsky, prefs
+    if not bool(kandinsky_prefs['prompt']):
+      alert_msg(page, "You must provide a text prompt to process your image generation...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.kandinsky_output.controls.append(line)
+      page.kandinsky_output.update()
+    def clear_last():
+      del page.kandinsky_output.controls[-1]
+      page.kandinsky_output.update()
+    progress = ProgressBar(bar_height=8)
+    prt(Row([ProgressRing(), Text("Installing Kandinsky 2.0 Engine & Models... See console log for progress.", weight=FontWeight.BOLD)]))
+    try:
+        from kandinsky2 import get_kandinsky2
+    except Exception:
+        run_process("pip install transformers==4.23.1 --upgrade --force-reinstall", realtime=False)
+        #run_process("pip install -q git+https://github.com/ai-forever/Kandinsky-2.0.git", realtime=False)
+        run_sp('pip install "git+https://github.com/ai-forever/Kandinsky-2.0.git"', realtime=True)
+        from kandinsky2 import get_kandinsky2
+        pass
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    #save_dir = os.path.join(root_dir, 'kandinsky_inputs')
+    init_img = None
+    if bool(kandinsky_prefs['init_image']):
+        fname = kandinsky_prefs['init_image'].rpartition(slash)[2]
+        #init_file = os.path.join(save_dir, fname)
+        if kandinsky_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(kandinsky_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(kandinsky_prefs['init_image']):
+                init_img = PILImage.open(kandinsky_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {kandinsky_prefs['init_image']}")
+                return
+        init_img = init_img.resize((kandinsky_prefs['width'], kandinsky_prefs['height']), resample=PILImage.LANCZOS)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        #init_img.save(init_file)
+    mask_img = None
+    if bool(kandinsky_prefs['mask_image']):
+        fname = kandinsky_prefs['init_image'].rpartition(slash)[2]
+        #mask_file = os.path.join(save_dir, fname)
+        if kandinsky_prefs['mask_image'].startswith('http'):
+            mask_img = PILImage.open(requests.get(kandinsky_prefs['mask_image'], stream=True).raw)
+        else:
+            if os.path.isfile(kandinsky_prefs['mask_image']):
+                mask_img = PILImage.open(kandinsky_prefs['mask_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your mask_image {kandinsky_prefs['mask_image']}")
+                return
+            if kandinsky_prefs['invert_mask']:
+                mask_img = ImageOps.invert(mask_img.convert('RGB'))
+        mask_img = mask_img.resize((kandinsky_prefs['width'], kandinsky_prefs['height']), resample=PILImage.NEAREST)
+        mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        mask_img = numpy.asarray(mask_img)
+        #mask_img.save(mask_file)
+    #print(f'Resize to {width}x{height}')
+    clear_pipes()
+    if bool(kandinsky_prefs['init_image']) and not bool(kandinsky_prefs['mask_image']):
+        pipe_kandinsky = get_kandinsky2('cuda', task_type='img2img')
+    elif bool(kandinsky_prefs['init_image']) and bool(kandinsky_prefs['mask_image']):
+        pipe_kandinsky = get_kandinsky2('cuda', task_type='inpainting')
+    else:
+        pipe_kandinsky = get_kandinsky2('cuda', task_type='text2img')
+    clear_last()
+    prt("Generating your Kandinsky 2.0 Image...")
+    prt(progress)
+
+    try:
+        if bool(kandinsky_prefs['init_image']) and not bool(kandinsky_prefs['mask_image']):
+            images = pipe_kandinsky.generate_img2img(kandinsky_prefs['prompt'], init_img, strength=kandinsky_prefs['strength'], batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], denoised_type=kandinsky_prefs['denoised_type'], dynamic_threshold_v=kandinsky_prefs['dynamic_threshold_v'], sampler=kandinsky_prefs['sampler'], ddim_eta=kandinsky_prefs['ddim_eta'], guidance_scale=kandinsky_prefs['guidance_scale'])
+        elif bool(kandinsky_prefs['init_image']) and bool(kandinsky_prefs['mask_image']):
+            images = pipe_kandinsky.generate_inpainting(kandinsky_prefs['prompt'], init_img, mask_img, batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], denoised_type=kandinsky_prefs['denoised_type'], dynamic_threshold_v=kandinsky_prefs['dynamic_threshold_v'], sampler=kandinsky_prefs['sampler'], ddim_eta=kandinsky_prefs['ddim_eta'], guidance_scale=kandinsky_prefs['guidance_scale'])
+        else:
+            images = pipe_kandinsky.generate_text2img(kandinsky_prefs['prompt'], batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], denoised_type=kandinsky_prefs['denoised_type'], dynamic_threshold_v=kandinsky_prefs['dynamic_threshold_v'], sampler=kandinsky_prefs['sampler'], ddim_eta=kandinsky_prefs['ddim_eta'], guidance_scale=kandinsky_prefs['guidance_scale'])
+    except Exception as e:
+        clear_last()
+        clear_last()
+        alert_msg(page, f"ERROR: Something went wrong generating images...", content=Text(str(e)))
+        return
+    clear_last()
+    clear_last()
+    txt2img_output = stable_dir
+    batch_output = prefs['image_output']
+    #print(str(images))
+    if images is None:
+        prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+        return
+    idx = 0
+    for image in images:
+        fname = format_filename(kandinsky_prefs['prompt'])
+        #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+        fname = f'{kandinsky_prefs["file_prefix"]}{fname}'
+        txt2img_output = stable_dir
+        if bool(kandinsky_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, kandinsky_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        image_path = available_file(txt2img_output, fname, 1)
+        image.save(image_path)
+        new_file = image_path.rpartition(slash)[2]
+        if not kandinsky_prefs['display_upscaled_image'] or not kandinsky_prefs['apply_ESRGAN_upscale']:
+            prt(Row([Img(src=image_path, width=kandinsky_prefs['width'], height=kandinsky_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+
+        if save_to_GDrive:
+            batch_output = os.path.join(prefs['image_output'], kandinsky_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+        elif storage_type == "PyDrive Google Drive":
+            newFolder = gdrive.CreateFile({'title': kandinsky_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+            newFolder.Upload()
+            batch_output = newFolder
+        out_path = batch_output if save_to_GDrive else txt2img_output
+        
+        if kandinsky_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'     
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{idx}.png'
+            dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, short_name)
+            #print(f'Moving {fpath} to {dst_path}')
+            #shutil.move(fpath, dst_path)
+            shutil.copy(image_path, dst_path)
+            faceenhance = ' --face_enhance' if kandinsky_prefs["face_enhance"] else ''
+            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {kandinsky_prefs["enlarge_scale"]}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            upscaled_path = os.path.join(out_path, new_file)
+            shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+            os.chdir(stable_dir)
+            if kandinsky_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([Img(src=upscaled_path, width=kandinsky_prefs['width'] * float(kandinsky_prefs["enlarge_scale"]), height=kandinsky_prefs['height'] * float(kandinsky_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        else:
+            shutil.copy(image_path, os.path.join(out_path, new_file))
+        # TODO: Add Metadata
+        prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
 def main(page: Page):
     page.title = "Stable Diffusion Deluxe - FletUI"
-    #page.scroll="auto"
+    #page.scroll=ScrollMode.AUTO
     #page.auto_scroll=True
     def open_help_dlg(e):
         page.dialog = help_dlg
@@ -7998,8 +9029,8 @@ def main(page: Page):
               Text("Each time you open the app, you should start in the Installers section, turn on all the components you plan on using in you session, then Run the Installers and let them download. You can multitask and work in other tabs while it's installing."),
               Text("In the Prompts List, add as many text prompts as you can think of, and edit any prompt to override any default Image Parameter.  Once you're ready, run diffusion on your prompts list and watch it fill your Google Drive.."),
               Text("Try out any and all of our Prompt Helpers to use practical text AIs to make unique descriptive prompts fast, with our Prompt Generator, Remixer, Brainstormer and Advanced Writer.  You'll never run out of inspiration again..."),
-        ], scroll="auto"),
-        actions=[TextButton("👍  Thanks! ", on_click=close_help_dlg)], actions_alignment="end",
+        ], scroll=ScrollMode.AUTO),
+        actions=[TextButton("👍  Thanks! ", on_click=close_help_dlg)], actions_alignment=MainAxisAlignment.END,
     )
     def open_credits_dlg(e):
         page.dialog = credits_dlg
@@ -8019,8 +9050,8 @@ For the brains behind our Prompt Helpers, we thank our friend [OpenAI GPT-3](htt
 Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVbAfm), [Stable Diffusion](https://discord.gg/stablediffusion), and [Flet](https://discord.gg/nFqy742h) for their support and user contributions.'''
     credits_dlg = AlertDialog(
         title=Text("🙌   Credits/Acknowledgments"), content=Column([Markdown(credits_markdown, extension_set="gitHubWeb", on_tap_link=open_url)
-        ], scroll="auto"),
-        actions=[TextButton("👊   Good Stuff... ", on_click=close_credits_dlg)], actions_alignment="end",
+        ], scroll=ScrollMode.AUTO),
+        actions=[TextButton("👊   Good Stuff... ", on_click=close_credits_dlg)], actions_alignment=MainAxisAlignment.END,
     )
     page.theme_mode = prefs['theme_mode'].lower()
     if prefs['theme_mode'] == 'Dark':
@@ -8042,31 +9073,33 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
                       PopupMenuItem(text="🤧  Issues/Suggestions", on_click=lambda _:page.launch_url("https://github.com/Skquark/AI-Friends/issues")),
                       PopupMenuItem(text="📨  Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")),
                       PopupMenuItem(text="🤑  Offer Donation", on_click=lambda _:page.launch_url("https://paypal.me/StarmaTech")),
-                      PopupMenuItem(),
-                      PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect) if is_Colab else Container(content=None),
+                      #PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect) if is_Colab else PopupMenuItem(),
                   ]
               ),
           ])
+    if is_Colab:
+      appbar.actions[0].items.append(PopupMenuItem())
+      appbar.actions[0].items.append(PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect))
     page.appbar = appbar
     def app_icon_save():
       app_icon_color = colors.GREEN_800
       appbar.leading = IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Saving Settings File")
       appbar.update()
-      time.sleep(0.7)
+      time.sleep(0.6)
       app_icon_color = colors.AMBER_800
       appbar.leading = IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save())
       appbar.update()
     page.app_icon_save = app_icon_save
-    page.vertical_alignment = "start"
-    page.horizontal_alignment = "start"
+    page.vertical_alignment = MainAxisAlignment.START
+    page.horizontal_alignment = CrossAxisAlignment.START
     t = buildTabs(page)
     t.on_change = tab_on_change
     #(t,page)
     def close_banner(e):
         page.banner.open = False
         page.update()
-
-    page.banner = Banner(bgcolor=colors.SECONDARY_CONTAINER, leading=Icon(icons.DOWNLOADING, color=colors.AMBER, size=40), content=Column([]), actions=[TextButton("Close", on_click=close_banner)])
+    #leading=Icon(icons.DOWNLOADING, color=colors.AMBER, size=40), 
+    page.banner = Banner(bgcolor=colors.SECONDARY_CONTAINER, content=Column([]), actions=[TextButton("Close", on_click=close_banner)])
     def show_banner_click(e):
         page.banner.open = True
         page.update()
@@ -8120,7 +9153,7 @@ class NumberPicker(UserControl):
               e.control = self
               if self.on_change is not None:
                 self.on_change(e)
-        self.txt_number = TextField(value=str(self.value), text_align="center", width=55, height=42, content_padding=padding.only(top=4), keyboard_type="number", on_change=changed)
+        self.txt_number = TextField(value=str(self.value), text_align=TextAlign.CENTER, width=55, height=42, content_padding=padding.only(top=4), keyboard_type=KeyboardType.NUMBER, on_change=changed)
         return Row([Text(self.label), IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 ''' Sample alt Object format
@@ -8154,13 +9187,20 @@ main = Main()'''
 
 port = 8510
 if tunnel_type == "ngrok":
-  from pyngrok import ngrok
-  public_url = ngrok.connect(port = str(port)).public_url
+  if bool(url):
+    public_url = url
+  else:
+    from pyngrok import ngrok
+    public_url = ngrok.connect(port = str(port)).public_url
 elif tunnel_type == "localtunnel":
-  import re
-  localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
-  url = str(localtunnel.stdout.readline())
-  public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
+  if False:
+  #if bool(url):
+    public_url = url
+  else:
+    import re
+    localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
+    url = str(localtunnel.stdout.readline())
+    public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
 else: public_url=""
 from IPython.display import Javascript
 if bool(public_url):
@@ -8168,7 +9208,7 @@ if bool(public_url):
         display(Javascript('window.open("{url}");'.format(url=public_url)))
         time.sleep(0.7)
         clear_output()
-    print("Open URL in browser: " + str(public_url))
+    print("\nOpen URL in browser to launch app in tab: " + str(public_url))
 
 #await google.colab.kernel.proxyPort(%s)
 # Still not working to display app in Colab console, but tried.
@@ -8199,5 +9239,6 @@ def show_port(adr, height=500):
 #flet.app(target=main, view=flet.WEB_BROWSER, port=port, host=host_address)
 #flet.app(target=main, view=flet.WEB_BROWSER, port=80, host=public_url.public_url)
 #flet.app(target=main, view=flet.WEB_BROWSER, port=port, host="0.0.0.0")
+#flet.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 #flet.app(target=main, view=flet.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
 flet.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
