@@ -5420,6 +5420,11 @@ def clear_pipes(allbut=None):
     if not 'safe' in but: clear_safe_pipe()
     if not 'upscale' in but: clear_upscale_pipe()
 
+import base64
+def get_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        my_string = base64.b64encode(img_file.read()).decode('utf-8')
+        return my_string
 
 def available_file(folder, name, idx, ext='png'):
   available = False
@@ -5508,7 +5513,7 @@ def start_diffusion(page):
   clear_repaint_pipe()
   output_files = []
   retry_attempts_if_NSFW = prefs['retry_attempts']
-  if (prefs['use_Stability_api'] and status['installed_stability']) or bool(arg['use_Stability'] or (not status['installed_diffusers'] and status['installed_stability'])):
+  if (prefs['use_Stability_api'] and status['installed_stability']) or bool(not status['installed_diffusers'] and status['installed_stability']):
     update_stability()
   last_seed = args['seed']
   if args['seed'] < 1 or args['seed'] is None:
@@ -6169,6 +6174,7 @@ def start_diffusion(page):
           #print(f"Image path:{image_path}")
           upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           time.sleep(0.1)
+          #prt(Row([GestureDetector(content=Img(src_base64=get_base64(fpath), width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #display(image)
         if prefs['use_upscale'] and status['installed_upscale']:
@@ -6293,6 +6299,7 @@ def start_diffusion(page):
         if prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']:
           upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           time.sleep(0.4)
+          #prt(Row([GestureDetector(content=Img(src_base64=get_base64(upscaled_path), width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           prt(Row([GestureDetector(content=Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
           #prt(Img(src=upscaled_path))
