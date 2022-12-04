@@ -4,7 +4,7 @@ from PyInstaller.utils.hooks import copy_metadata
 # pyinstaller Stable-Diffusion-Deluxe.py --hidden-import=requests --hidden-import=huggingface-hub --hidden-import=transformers --hidden-import=tqdm --hidden-import=regex  --hidden-import=git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch] --collect-all=tqdm --collect-all=git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]  --collect-all=transformers --collect-all=regex --collect-all=stability_api --copy-metadata=requests --copy-metadata=packaging --copy-metadata=filelock --copy-metadata=transformers --copy-metadata=numpy --copy-metadata=numba --copy-metadata=tokenizers
 datas = []
 binaries = []
-hiddenimports = ['requests', 'huggingface-hub', 'transformers', 'tqdm', 'regex', 'stability_api', 'tensors_pb2', 'torch.jit', 'git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]', 'stability_sdk.interfaces.gooseai.generation.generation_pb2']
+hiddenimports = ['requests', 'huggingface-hub', 'transformers', 'tqdm', 'regex', 'stability_api', 'nsp_pantry', 'tensors_pb2', 'torch.jit', 'git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]', 'stability_sdk.interfaces', 'stability_sdk.interfaces.gooseai.generation.generation_pb2']
 datas += copy_metadata('requests')
 datas += copy_metadata('packaging')
 datas += copy_metadata('filelock')
@@ -14,15 +14,10 @@ datas += copy_metadata('numba')
 datas += copy_metadata('tokenizers')
 tmp_ret = collect_all('tqdm')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('transformers')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('regex')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('stability_api')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-
 
 block_cipher = None
 

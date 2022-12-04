@@ -199,7 +199,8 @@ else:
 clear_output()
 
 import json
-prefs = {}
+if 'prefs' not in locals():
+  prefs = {}
 def load_settings_file():
   global prefs
   if os.path.isfile(saved_settings_json):
@@ -341,8 +342,8 @@ def load_settings_file():
           'permutate_artists': False,
       },
     }
-
-load_settings_file()
+if prefs == {}:
+  load_settings_file()
 version_checker()
 
 
@@ -351,7 +352,7 @@ version_checker()
 import flet
 #from flet import *
 from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
-from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, AnimationCurve, KeyboardType, TextThemeStyle
+from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, KeyboardType, TextThemeStyle, AnimationCurve
 from flet.types import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
 from flet import Image as Img
 try:
@@ -758,6 +759,9 @@ def buildInstallers(page):
                 dropdown.Option("DPM Solver++"),
                 dropdown.Option("K-Euler Discrete"),
                 dropdown.Option("K-Euler Ancestrial"),
+                #dropdown.Option("Heun Discrete"),
+                #dropdown.Option("K-DPM2 Ancestral"),
+                #dropdown.Option("K-DPM2 Discrete"),
             ], value=prefs['scheduler_mode'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_mode'),
         )
   def changed_model_ckpt(e):
@@ -896,7 +900,7 @@ def buildInstallers(page):
     #stability_box.update()
   install_Stability_api = Tooltip(message="Use DreamStudio.com servers without your GPU to create images on CPU.", content=Switch(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_stability))
   use_Stability_api = Checkbox(label="Use Stability-api by default", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
-  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1.4")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
+  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-inpainting-v1-0"), dropdown.Option("stable-inpainting-512-v2-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
   #generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM"), dropdown.Option("K_EULER"), dropdown.Option("K_EULER_ANCESTRAL"), dropdown.Option("K_HEUN"), dropdown.Option("K_DPMPP_2M"), dropdown.Option("K_DPM_2_ANCESTRAL"), dropdown.Option("K_LMS"), dropdown.Option("K_DPMPP_2S_ANCESTRAL"), dropdown.Option("K_DPM_2")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   #"K_EULER" "K_DPM_2" "K_LMS" "K_DPMPP_2S_ANCESTRAL" "K_DPMPP_2M" "DDIM" "DDPM" "K_EULER_ANCESTRAL" "K_HEUN" "K_DPM_2_ANCESTRAL"
@@ -1718,7 +1722,9 @@ def buildPromptsList(page):
       status['changed_prompts'] = True
   def duplicate_prompt(e):
       #print("Duplicate " + str(e.control))
-      idx = prompts.index(e.control.data)
+      open_dream = e.control.data
+      add_to_prompts(open_dream.prompt, open_dream.arg)
+      '''idx = prompts.index(e.control.data)
       new_dream = copy.copy(e.control.data)
       prompts.insert(idx, new_dream)
       diffs = arg_diffs(e.control.data.arg, args)
@@ -1729,12 +1735,34 @@ def buildPromptsList(page):
               PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=edit_prompt, data=new_dream),
               PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=new_dream),
               PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE, text="Duplicate Prompt", on_click=duplicate_prompt, data=new_dream),
+              PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE, text="Duplicate Multiple", on_click=duplicate_multiple, data=new_dream),
               PopupMenuItem(icon=icons.ARROW_UPWARD, text="Move Up", on_click=move_up, data=new_dream),
               PopupMenuItem(icon=icons.ARROW_DOWNWARD, text="Move Down", on_click=move_down, data=new_dream),
           ],
       )))
       prompts_list.update()
-      status['changed_prompts'] = True
+      status['changed_prompts'] = True'''
+  def duplicate_multiple(e):
+      open_dream = e.control.data
+      num_times = 2
+      def close_dlg(e):
+          duplicate_modal.open = False
+          page.update()
+      def save_dlg(e):
+          for i in range(num_times):
+            add_to_prompts(open_dream.prompt, open_dream.arg)
+          duplicate_modal.open = False
+          page.update()
+      def change_num(e):
+          nonlocal num_times
+          num_times = int(e.control.value)
+      duplicate_modal = AlertDialog(modal=False, title=Text("🌀  Duplicate Prompt Multiple Times"), content=Container(Column([
+            Container(content=None, height=7),
+            NumberPicker(label="Number of Copies: ", min=1, max=99, value=num_times, on_change=change_num),
+          ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":bowling:") + "  Duplicate Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
+      e.page.dialog = duplicate_modal
+      duplicate_modal.open = True
+      e.page.update()
   def move_down(e):
       idx = prompts.index(e.control.data)
       if idx < (len(prompts) - 1):
@@ -1766,6 +1794,7 @@ def buildPromptsList(page):
               PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=edit_prompt, data=dream),
               PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=dream),
               PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE, text="Duplicate Prompt", on_click=duplicate_prompt, data=dream),
+              PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE_SHARP, text="Duplicate Multiple", on_click=duplicate_multiple, data=dream),
               PopupMenuItem(icon=icons.ARROW_UPWARD, text="Move Up", on_click=move_up, data=dream),
               PopupMenuItem(icon=icons.ARROW_DOWNWARD, text="Move Down", on_click=move_down, data=dream),
           ],
@@ -2037,11 +2066,16 @@ def buildPromptGenerator(page):
         Text("Enter a phrase each prompt should start with and the amount of prompts to generate. 'Subject Details' is optional to influence the output. 'Phase as subject' makes it about phrase and subject detail. 'Request mode' is the way it asks for the visual description. Just experiment, AI will continue to surprise.", style="titleSmall"),
         Divider(thickness=1, height=5),
         Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], on_change=lambda e: changed(e, 'phrase')), TextField(label="Subject Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_generator']['subject_detail'], on_change=lambda e: changed(e, 'subject_detail')), Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'phrase_as_subject'))]),
-        Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_generator']['amount'], on_change=lambda e: changed(e, 'amount')),
-             NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_generator']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),
-             NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_generator']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-             Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment=MainAxisAlignment.SPACE_BETWEEN),        
-        Row([Text("Request Mode:"), request_slider, Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))]),
+        ResponsiveRow([
+          Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_generator']['amount'], on_change=lambda e: changed(e, 'amount')),
+              NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_generator']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+          Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_generator']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
+              Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+        ]),
+        ResponsiveRow([
+          Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
+          Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
+        ]),
         ElevatedButton(content=Text("💭   Generate Prompts", size=18), on_click=click_prompt_generator),
         page.prompt_generator_list,
         generator_list_buttons,
@@ -2097,12 +2131,16 @@ def buildPromptRemixer(page):
         Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friend. Experiment.", style="titleSmall"),
         Divider(thickness=1, height=5),
         Row([TextField(label="Seed Prompt", expand=True, value=prefs['prompt_remixer']['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt')), TextField(label="Optional About Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_remixer']['optional_about_influencer'], on_change=lambda e: changed(e, 'optional_about_influencer'))]),
-        Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_remixer']['amount'], on_change=lambda e: changed(e, 'amount')),
-             NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_remixer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),
-             NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-             Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Row([Text("Request Mode:"), request_slider, 
-             Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))]),
+        ResponsiveRow([
+          Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_remixer']['amount'], on_change=lambda e: changed(e, 'amount')),
+              NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_remixer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+          Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
+              Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+        ]),
+        ResponsiveRow([
+          Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
+          Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
+        ]),
         ElevatedButton(content=Text("🍹   Remix Prompts", size=18), on_click=click_prompt_remixer),
         page.prompt_remixer_list,
         remixer_list_buttons,
@@ -2217,10 +2255,12 @@ def buildPromptWriter(page):
         TextField(label="Arts Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects')),
         Row([TextField(label="by Artists", value=prefs['prompt_writer']['by_Artists'], on_change=lambda e: changed(e, 'by_Artists')),
              TextField(label="Art Styles", value=prefs['prompt_writer']['art_Styles'], on_change=lambda e: changed(e, 'art_Styles')),]),
-        Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_writer']['amount'], on_change=lambda e: changed(e, 'amount')),
-            NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_writer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),
-            NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_writer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-            Checkbox(label="Permutate Artists", value=prefs['prompt_writer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        ResponsiveRow([
+          Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_writer']['amount'], on_change=lambda e: changed(e, 'amount')),
+              NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_writer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+          Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_writer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
+              Checkbox(label="Permutate Artists", value=prefs['prompt_writer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+        ]),
         ElevatedButton(content=Text("✍️   Write Prompts", size=18), on_click=lambda _: run_prompt_writer(page)),
         page.prompt_writer_list,
         writer_list_buttons,
@@ -2437,7 +2477,7 @@ def buildESRGANupscaler(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("↕️  Real-ESRGAN AI Upscale Enlarging", style=TextThemeStyle.TITLE_LARGE),
+        Text("↕️   Real-ESRGAN AI Upscale Enlarging", style=TextThemeStyle.TITLE_LARGE),
         Text("Select one or more files, or give path to image or folder. Save to your Google Drive and/or Download."),
         Divider(thickness=1, height=5),
         enlarge_scale_slider,
@@ -4287,8 +4327,7 @@ def get_diffusers(page):
     except ModuleNotFoundError as e:
       run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
       run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
-      run_process("pip install -q --upgrade git+https://github.com/huggingface/transformers", page=page)
-      run_process("pip install -q --upgrade huggingface-hub", page=page)
+      run_process("pip install -q --upgrade git+https://github.com/huggingface/transformers")
       #run_process("pip install -q transformers==4.23.1", page=page)
       run_process("pip install -q --upgrade scipy ftfy", page=page)
       run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
@@ -4357,6 +4396,15 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "Heun Discrete":
       from diffusers import HeunDiscreteScheduler
       s = HeunDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "K-DPM2 Ancestral":
+      from diffusers import KDPM2AncestralDiscreteScheduler
+      s = KDPM2AncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "K-DPM2 Discrete":
+      from diffusers import KDPM2DiscreteScheduler
+      s = KDPM2DiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "IPNDM":
+      from diffusers import IPNDMScheduler
+      s = IPNDMScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "Score-SDE-Vp":
       from diffusers import ScoreSdeVpScheduler
       s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -4373,7 +4421,7 @@ def model_scheduler(model, big3=False):
       from diffusers import KarrasVeScheduler
       s = KarrasVeScheduler() #(sigma_min=0.02, sigma_max=100, s_noise=1.007, s_churn=80, s_min=0.05, s_max=50, tensor_format="pt")
       use_custom_scheduler = True
-    elif scheduler_mode == "LMS":
+    elif scheduler_mode == "LMS": #no more
       from diffusers import LMSScheduler
       s = LMSScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
       #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, tensor_format="pt")
@@ -5072,9 +5120,10 @@ def get_stability(page):
     stability_api = client.StabilityInference(
         key=prefs['Stability_api_key'], 
         verbose=True,
-        engine=prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1",
+        engine=prefs['model_checkpoint']# if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1",
     )
-    SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'])
+    SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'].lower())
+    # New way, other is obsolete
     import requests
     api_host = os.getenv('API_HOST', 'https://api.stability.ai')
     stability_url = f"{api_host}/v1alpha/engines/list" #user/account"
@@ -5083,8 +5132,18 @@ def get_stability(page):
       alert_msg(page, "ERROR with Stability-ai: " + str(response.text))
       return
     payload = response.json()
-    print(str(payload))
+    #print(str(payload))
     status['installed_stability'] = True
+
+def update_stability():
+    global SD_sampler, stability_api
+    from stability_sdk import client
+    stability_api = client.StabilityInference(
+        key=prefs['Stability_api_key'], 
+        verbose=True,
+        engine=prefs['model_checkpoint']
+    )
+    SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'].lower())
 
 def get_ESRGAN(page):
     os.chdir(root_dir)
@@ -5449,9 +5508,11 @@ def start_diffusion(page):
   clear_repaint_pipe()
   output_files = []
   retry_attempts_if_NSFW = prefs['retry_attempts']
+  if (prefs['use_Stability_api'] and status['installed_stability']) or bool(arg['use_Stability'] or (not status['installed_diffusers'] and status['installed_stability'])):
+    update_stability()
   last_seed = args['seed']
   if args['seed'] < 1 or args['seed'] is None:
-    rand_seed = random.randint(0,4294967295)
+    rand_seed = random.randint(0,2147483647)
     if not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability'])):
       if use_custom_scheduler:
         generator = torch.manual_seed(rand_seed)
@@ -5503,12 +5564,12 @@ def start_diffusion(page):
             new_dream = copy.copy(p)
             new_dream.prompt = pr[0] if type(pr) == list else pr
             new_arg = new_dream.arg.copy()
-            new_arg['seed'] = random.randint(0,4294967295)
+            new_arg['seed'] = random.randint(0,2147483647)
             new_arg['n_iterations'] = 1
             new_dream.arg = new_arg
             #new_dream.arg['seed'] = random.randint(0,4294967295)
           else:
-            new_dream = Dream(p, seed=random.randint(0,4294967295), n_iterations=1)
+            new_dream = Dream(p, seed=random.randint(0,2147483647), n_iterations=1)
           new_dream.arg['n_iterations'] = 1
           #prompts.insert(p_idx+1, new_dream)
           updated_prompts.append(new_dream)
@@ -5534,7 +5595,7 @@ def start_diffusion(page):
           arg['negative_prompt'] = [arg['negative_prompt']] * arg['batch_size']
       if last_seed != arg['seed']:
         if arg['seed'] < 1 or arg['seed'] is None:
-          rand_seed = random.randint(0,4294967295)
+          rand_seed = random.randint(0,2147483647)
           if not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability'])):
             if use_custom_scheduler:
               generator = torch.manual_seed(rand_seed)
@@ -5561,7 +5622,7 @@ def start_diffusion(page):
       #prt(f'{pr[0] if type(pr) == list else pr} - seed:{arg["seed"]}')
       total_steps = arg['steps']
       
-      if prefs['use_Stability_api'] or bool(arg['use_Stability'] or (not status['installed_diffusers'] and status['installed_stability'])):    
+      if prefs['use_Stability_api'] or bool(arg['use_Stability'] or (not status['installed_diffusers'] and status['installed_stability'])):
         if not status['installed_stability']:
           alert_msg(page, f"ERROR: To use Stability-API, you must run the install it first and have proper API key")
           return
@@ -5574,13 +5635,14 @@ def start_diffusion(page):
           arg['height'] = multiple_of_64(arg['height'])
           prt(pb)
           import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
-          answers = None
+          answers = response = None
+          
           import requests
           api_host = os.getenv('API_HOST', 'https://api.stability.ai')
-          engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
+          engine_id = prefs['model_checkpoint']# if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
           url = f"{api_host}/v1alpha/generation/{engine_id}/"#image-to-image"
           headers = {
-              'accept': 'image/png',
+              'accept': 'application/json',#'image/png',
               'Authorization': prefs['Stability_api_key'],
           }
           payload = {
@@ -5589,7 +5651,7 @@ def start_diffusion(page):
               "height": arg['height'],
               "width": arg['width'],
               "sampler": prefs['generation_sampler'],
-              "samples": arg['batch_size'],
+              "samples": int(arg['batch_size']),
               "seed": arg['seed'],
               "steps": arg['steps'],
               "text_prompts": [
@@ -5601,6 +5663,7 @@ def start_diffusion(page):
           }
           if bool(arg['negative_prompt']):
             payload['text_prompts'].append({"text": arg['negative_prompt'], "weight": -1})
+
           if bool(arg['mask_image']):
             if not bool(arg['init_image']):
               clear_last()
@@ -5634,8 +5697,9 @@ def start_diffusion(page):
                 'mask_image': base64.b64encode(mask.tobytes()).decode(),#open(mask_img, 'rb'),
                 'options': (None, json.dumps(payload)),
             }
+            #engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
             #response = requests.post(url+"inpaint", headers=headers, files=files)
-            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=not prefs["disable_nsfw_filter"], sampler=SD_sampler)
+            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
           elif bool(arg['init_image']):
             from io import BytesIO
             import base64
@@ -5649,26 +5713,32 @@ def start_diffusion(page):
                 clear_last()
                 prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
             init_img = init_img.resize((arg['width'], arg['height']))
-            buff = BytesIO()
+            
+            '''buff = BytesIO()
             init_img.save(buff, format="PNG")
-            img_str = base64.b64encode(buff.getvalue())
+            buff.seek(0)
+            img_str = io.BufferedReader(buff).read()
+            #img_str = open(buff.read(), 'rb') #base64.b64encode(buff.getvalue())  init_img.tobytes("raw")
+            payload["step_schedule_end"] = 0.01
+            payload["step_schedule_start"] = 1 - arg['init_image_strength']
             files = {
                 'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
                 'options': (None, json.dumps(payload)),
-            }
-            response = requests.post(url+"image-to-image", headers=headers, files=files)
-            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=not prefs["disable_nsfw_filter"], sampler=SD_sampler)
+            }'''
+            #response = requests.post(url+"image-to-image", headers=headers, files=files)
+            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
           else:
-            response = requests.post(url+"text-to-image", headers=headers, json=payload)
-            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], safety=False, sampler=SD_sampler)
+            #response = requests.post(url+"text-to-image", headers=headers, json=payload)
+            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
           clear_last()
-          if response.status_code != 200:
-            prt("Stability-API ERROR: " + str(response.text))
-            continue
-          #with open(output_file, "wb") as f:
-          #  f.write(response.content)
-          print(type(response.content))
-          images.append(PILImage.open(io.BytesIO(response.content)))
+          if response != None:
+            if response.status_code != 200:
+              prt("Stability-API ERROR: " + str(response.text))
+              continue
+            #with open(output_file, "wb") as f:
+            #  f.write(response.content)
+            #print(type(response.content))
+            images.append(PILImage.open(io.BytesIO(response.content)))
           if answers != None:
             for resp in answers:
               for artifact in resp.artifacts:
@@ -6031,6 +6101,9 @@ def start_diffusion(page):
         newFolder = gdrive.CreateFile({'title': prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
         newFolder.Upload()
         batch_output = newFolder
+      else:
+        if not os.path.exists(batch_output):
+          os.makedirs(batch_output)
 
       filename = format_filename(pr[0] if type(pr) == list else pr)
       if images is None:
@@ -6084,14 +6157,17 @@ def start_diffusion(page):
         #fpath = os.path.join(txt2img_output, f'{fname}-{idx}.png')
         #fpath = available_file(txt2img_output, fname, idx)
         fpath = image_path
-        new_file = available_file(batch_output if save_to_GDrive else txt2img_output, fname, num)
+        if txt2img_output != batch_output:
+          new_file = available_file(batch_output, fname, num)
+        else:
+          new_file = image_path
         #print(f'fpath: {fpath} - idx: {idx}')
         if prefs['centipede_prompts_as_init_images']:
           shutil.copy(fpath, os.path.join(root_dir, 'init_images'))
           last_image = os.path.join(root_dir, 'init_images', f'{fname}-{num}.png')
         if not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']:
           #print(f"Image path:{image_path}")
-          upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
+          upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           time.sleep(0.1)
           prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #display(image)
@@ -6193,7 +6269,7 @@ def start_diffusion(page):
         #  new_file += '-' + random.choice(string.ascii_letters) + random.choice(string.ascii_letters)
         #new_file += f'-{idx}.png'
         if save_to_GDrive:
-          shutil.copy(fpath, os.path.join(batch_output, new_file))
+          shutil.copy(fpath, new_file)#os.path.join(batch_output, new_file))
           #shutil.move(fpath, os.path.join(batch_output, new_file))
         elif storage_type == "PyDrive Google Drive":
           #batch_output
@@ -6201,7 +6277,7 @@ def start_diffusion(page):
           out_file.SetContentFile(fpath)
           out_file.Upload()
         elif bool(prefs['image_output']):
-          shutil.copy(fpath, os.path.join(batch_output, new_file))
+          shutil.copy(fpath, new_file)#os.path.join(batch_output, new_file))
         if prefs['save_config_json']:
           json_file = new_file.rpartition('.')[0] + '.json'
           with open(os.path.join(stable_dir, json_file), "w") as f:
@@ -6340,6 +6416,65 @@ def start_diffusion(page):
 
 
 
+def wget(url, output):
+    import subprocess
+    res = subprocess.run(['wget', '-q', url, '-O', output], stdout=subprocess.PIPE).stdout.decode('utf-8')
+    print(res)
+
+nspterminology = None
+# nsp_parse( prompt )
+# Input: dict, list, str
+# Parse strings for terminology keys and replace them with random terms
+def nsp_parse(prompt):
+    import random, os, json
+    global nspterminology
+    new_prompt = ''
+    new_prompts = []
+    new_dict = {}
+    ptype = type(prompt)
+	
+    if not os.path.exists('./nsp_pantry.json'):
+        wget('https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.json', f'.{slash}nsp_pantry.json')
+    if nspterminology is None:
+        with open(f'.{slash}nsp_pantry.json', 'r') as f:
+          nspterminology = json.loads(f.read())
+    if ptype == dict:
+        for pstep, pvalue in prompt.items():
+            if type(pvalue) == list:
+                for prompt in pvalue:
+                    new_prompt = prompt
+                    for term in nspterminology:
+                        tkey = f'_{term}_'
+                        tcount = prompt.count(tkey)
+                        for i in range(tcount):
+                            new_prompt = new_prompt.replace(tkey, random.choice(nspterminology[term]), 1)
+                    new_prompts.append(new_prompt)
+                new_dict[pstep] = new_prompts
+                new_prompts = []
+        return new_dict
+    elif ptype == list:
+        for pstr in prompt:
+            new_prompt = pstr
+            for term in nspterminology:
+                tkey = f'_{term}_'
+                tcount = new_prompt.count(tkey)
+                for i in range(tcount):
+                    new_prompt = new_prompt.replace(tkey, random.choice(nspterminology[term]), 1)
+            new_prompts.append(new_prompt)
+            new_prompt = None
+        return new_prompts
+    elif ptype == str:
+        new_prompt = prompt
+        for term in nspterminology:
+            tkey = f'_{term}_'
+            tcount = new_prompt.count(tkey)
+            for i in range(tcount):
+                new_prompt = new_prompt.replace(tkey, random.choice(nspterminology[term]), 1)
+        return new_prompt
+    else:
+        return
+
+
 artists = ( "Ivan Aivazovsky", "Beeple", "Zdzislaw Beksinski", "Albert Bierstadt", "Noah Bradley", "Jim Burns", "John Harris", "John Howe", "Thomas Kinkade", "Gediminas Pranckevicius", "Andreas Rocha", "Marc Simonetti", "Simon Stalenhag", "Yuumei", "Asher Brown Durand", "Tyler Edlin", "Jesper Ejsing", "Peter Mohrbacher", "RHADS", "Greg Rutkowski", "H.P. Lovecraft", "George Lucas", "Benoit B. Mandelbrot", "Edwin Austin Abbey", "Ansel Adams", "Arthur Adams", "Charles Addams", "Alena Aenami", "Pieter Aertsen", "Hilma af Klint", "Affandi", "Leonid Afremov", "Eileen Agar", "Ivan Aivazovsky", "Anni Albers", "Josef Albers", "Ivan Albright", "Yoshitaka Amano", "Cuno Amiet", "Sophie Anderson", "Wes Anderson", "Esao Andrews", "Charles Angrand", "Sofonisba Anguissola", "Hirohiko Araki", "Nobuyoshi Araki", "Shinji Aramaki", "Diane Arbus", "Giuseppe Arcimboldo", "Steve Argyle", "Jean Arp", "Artgerm", "John James Audubon", "Frank Auerbach", "Milton Avery", "Tex Avery", "Harriet Backer", "Francis Bacon", "Peter Bagge", "Tom Bagshaw", "Karol Bak", "Christopher Balaskas", "Hans Baldung", "Ronald Balfour", "Giacomo Balla", "Banksy", "Cicely Mary Barker", "Carl Barks", "Wayne Barlowe", "Jean-Michel Basquiat", "Jules Bastien-Lepage", "David Bates", "John Bauer", "Aubrey Beardsley", "Jasmine Becket-Griffith", "Max Beckmann", "Beeple", "Zdzislaw Beksinski", "Zdzisław Beksiński", "Julie Bell", "Hans Bellmer", "John Berkey", "Émile Bernard", "Elsa Beskow", "Albert Bierstadt", "Enki Bilal", "Ivan Bilibin", "Simon Bisley", "Charles Blackman", "Thomas Blackshear", "Mary Blair", "Quentin Blake", "William Blake", "Antoine Blanchard", "John Blanche", "Pascal Blanché", "Karl Blossfeldt", "Don Bluth", "Umberto Boccioni", "Arnold Böcklin", "Chesley Bonestell", "Franklin Booth", "Guido Borelli da Caluso", "Marius Borgeaud", "Hieronymous Bosch", "Hieronymus Bosch", "Sam Bosma", "Johfra Bosschart", "Sandro Botticelli", "William-Adolphe Bouguereau", "Louise Bourgeois", "Eleanor Vere Boyle", "Noah Bradley", "Victor Brauner", "Austin Briggs", "Raymond Briggs", "Mark Briscoe", "Romero Britto", "Gerald Brom", "Mark Brooks", "Patrick Brown", "Pieter Bruegel the Elder", "Bernard Buffet", "Laurel Burch", "Charles E. Burchfield", "David Burdeny", "Richard Burlet", "David Burliuk", "Edward Burne-Jones", "Jim Burns", "William S. Burroughs", "Gaston Bussière", "Kaethe Butcher", "Jack Butler Yeats", "Bob Byerley", "Alexandre Cabanel", "Ray Caesar", "Claude Cahun", "Zhichao Cai", "Randolph Caldecott", "Alexander Milne Calder", "Clyde Caldwell", "Eddie Campbell", "Pascale Campion", "Canaletto", "Caravaggio", "Annibale Carracci", "Carl Gustav Carus", "Santiago Caruso", "Mary Cassatt", "Paul Cézanne", "Marc Chagall", "Marcel Chagall", "Yanjun Cheng", "Sandra Chevrier", "Judy Chicago", "James C. Christensen", "Frederic Church", "Mikalojus Konstantinas Ciurlionis", "Pieter Claesz", "Amanda Clark", "Harry Clarke", "Thomas Cole", "Mat Collishaw", "John Constable", "Cassius Marcellus Coolidge", "Richard Corben", "Lovis Corinth", "Joseph Cornell", "Camille Corot", "cosmic nebulae", "Gustave Courbet", "Lucas Cranach the Elder", "Walter Crane", "Craola", "Gregory Crewdson", "Henri-Edmond Cross", "Robert Crumb", "Tivadar Csontváry Kosztka", "Krenz Cushart", "Leonardo da Vinci", "Richard Dadd", "Louise Dahl-Wolfe", "Salvador Dalí", "Farel Dalrymple", "Geof Darrow", "Honoré Daumier", "Jack Davis", "Marc Davis", "Stuart Davis", "Craig Davison", "Walter Percy Day", "Pierre Puvis de Chavannes", "Giorgio de Chirico", "Pieter de Hooch", "Elaine de Kooning", "Willem de Kooning", "Evelyn De Morgan", "Henri de Toulouse-Lautrec", "Richard Deacon", "Roger Dean", "Michael Deforge", "Edgar Degas", "Lise Deharme", "Eugene Delacroix", "Beauford Delaney", "Sonia Delaunay", "Nicolas Delort", "Paul Delvaux", "Jean Delville", "Martin Deschambault", "Brian Despain", "Vincent Di Fate", "Steve Dillon", "Walt Disney", "Tony DiTerlizzi", "Steve Ditko", "Anna Dittmann", "Otto Dix", "Óscar Domínguez", "Russell Dongjun Lu", "Stanley Donwood", "Gustave Doré", "Dave Dorman", "Arthur Dove", "Richard Doyle", "Tim Doyle", "Philippe Druillet", "Joseph Ducreux", "Edmund Dulac", "Asher Brown Durand", "Albrecht Dürer", "Thomas Eakins", "Eyvind Earle", "Jeff Easley", "Tyler Edlin", "Jason Edmiston", "Les Edwards", "Bob Eggleton", "Jesper Ejsing", "El Greco", "Olafur Eliasson", "Harold Elliott", "Dean Ellis", "Larry Elmore", "Peter Elson", "Ed Emshwiller", "Kilian Eng", "James Ensor", "Max Ernst", "Elliott Erwitt", "M.C. Escher", "Richard Eurich", "Glen Fabry", "Anton Fadeev", "Shepard Fairey", "John Philip Falter", "Lyonel Feininger", "Joe Fenton", "Agustín Fernández", "Roberto Ferri", "Hugh Ferriss", "David Finch", "Virgil Finlay", "Howard Finster", "Anton Otto Fischer", "Paul Gustav Fischer", "Paul Gustave Fischer", "Art Fitzpatrick", "Dan Flavin", "Kaja Foglio", "Phil Foglio", "Chris Foss", "Hal Foster", "Jean-Honoré Fragonard", "Victoria Francés", "Lisa Frank", "Frank Frazetta", "Kelly Freas", "Lucian Freud", "Caspar David Friedrich", "Brian Froud", "Wendy Froud", "Ernst Fuchs", "Goro Fujita", "Henry Fuseli", "Thomas Gainsborough", "Emile Galle", "Stephen Gammell", "Hope Gangloff", "Antoni Gaudi", "Antoni Gaudí", "Jack Gaughan", "Paul Gauguin", "Giovanni Battista Gaulli", "Nikolai Ge", "Emma Geary", "Anne Geddes", "Jeremy Geddes", "Artemisia Gentileschi", "Justin Gerard", "Jean-Leon Gerome", "Jean-Léon Gérôme", "Atey Ghailan", "Alberto Giacometti", "Donato Giancola", "Dave Gibbons", "H. R. Giger", "James Gilleard", "Jean Giraud", "Milton Glaser", "Warwick Goble", "Andy Goldsworthy", "Hendrick Goltzius", "Natalia Goncharova", "Rob Gonsalves", "Josan Gonzalez", "Edward Gorey", "Arshile Gorky", "Francisco Goya", "J. J. Grandville", "Jane Graverol", "Mab Graves", "Laurie Greasley", "Kate Greenaway", "Alex Grey", "Peter Gric", "Carne Griffiths", "John Atkinson Grimshaw", "Henriette Grindat", "Matt Groening", "William Gropper", "George Grosz", "Matthias Grünewald", "Rebecca Guay", "James Gurney", "Philip Guston", "Sir James Guthrie", "Zaha Hadid", "Ernst Haeckel", "Sydney Prior Hall", "Asaf Hanuka", "Tomer Hanuka", "David A. Hardy", "Keith Haring", "John Harris", "Lawren Harris", "Marsden Hartley", "Ryohei Hase", "Jacob Hashimoto", "Martin Johnson Heade", "Erich Heckel", "Michael Heizer", "Steve Henderson", "Patrick Heron", "Ryan Hewett", "Jamie Hewlett", "Brothers Hildebrandt", "Greg Hildebrandt", "Tim Hildebrandt", "Miho Hirano", "Adolf Hitler", "Hannah Hoch", "David Hockney", "Filip Hodas", "Howard Hodgkin", "Ferdinand Hodler", "William Hogarth", "Katsushika Hokusai", "Carl Holsoe", "Winslow Homer", "Edward Hopper", "Aaron Horkey", "Kati Horna", "Ralph Horsley", "John Howe", "John Hoyland", "Arthur Hughes", "Edward Robert Hughes", "Friedensreich Regentag Dunkelbunt Hundertwasser", "Hundertwasser", "William Henry Hunt", "Louis Icart", "Ismail Inceoglu", "Bjarke Ingels", "George Inness", "Shotaro Ishinomori", "Junji Ito", "Johannes Itten", "Ub Iwerks", "Alexander Jansson", "Jarosław Jaśnikowski", "James Jean", "Ruan Jia", "Martine Johanna", "Richard S. Johnson", "Jeffrey Catherine Jones", "Peter Andrew Jones", "Kim Jung Gi", "Joe Jusko", "Frida Kahlo", "M.W. Kaluta", "Wassily Kandinsky", "Terada Katsuya", "Audrey Kawasaki", "Hasui Kawase", "Zhang Kechun", "Felix Kelly", "John Frederick Kensett", "Rockwell Kent", "Hendrik Kerstens", "Brian Kesinger", "Jeremiah Ketner", "Adonna Khare", "Kitty Lange Kielland", "Thomas Kinkade", "Jack Kirby", "Ernst Ludwig Kirchner", "Tatsuro Kiuchi", "Mati Klarwein", "Jon Klassen", "Paul Klee", "Yves Klein", "Heinrich Kley", "Gustav Klimt", "Daniel Ridgway Knight", "Nick Knight", "Daniel Ridgway Knights", "Ayami Kojima", "Oskar Kokoschka", "Käthe Kollwitz", "Satoshi Kon", "Jeff Koons", "Konstantin Korovin", "Leon Kossoff", "Hugh Kretschmer", "Barbara Kruger", "Alfred Kubin", "Arkhyp Kuindzhi", "Kengo Kuma", "Yasuo Kuniyoshi", "Yayoi Kusama", "Ilya Kuvshinov", "Chris LaBrooy", "Raphael Lacoste", "Wilfredo Lam", "Mikhail Larionov", "Abigail Larson", "Jeffrey T. Larson", "Carl Larsson", "Dorothy Lathrop", "John Lavery", "Edward Lear", "André Leblanc", "Bastien Lecouffe-Deharme", "Alan Lee", "Jim Lee", "Heinrich Lefler", "Paul Lehr", "Edmund Leighton", "Frederick Lord Leighton", "Jeff Lemire", "Isaac Levitan", "J.C. Leyendecker", "Roy Lichtenstein", "Rob Liefeld", "Malcolm Liepke", "Jeremy Lipking", "Filippino Lippi", "Laurie Lipton", "Michal Lisowski", "Scott Listfield", "Cory Loftis", "Travis Louie", "George Luks", "Dora Maar", "August Macke", "Margaret Macdonald Mackintosh", "Clive Madgwick", "Lee Madgwick", "Rene Magritte", "Don Maitz", "Kazimir Malevich", "Édouard Manet", "Jeremy Mann", "Sally Mann", "Franz Marc", "Chris Mars", "Otto Marseus van Schrieck", "John Martin", "Masaaki Masamoto", "André Masson", "Henri Matisse", "Leiji Matsumoto", "Taiyō Matsumoto", "Roberto Matta", "Rodney Matthews", "David B. Mattingly", "Peter Max", "Marco Mazzoni", "Robert McCall", "Todd McFarlane", "Ryan McGinley", "Dave McKean", "Kelly McKernan", "Angus McKie", "Ralph McQuarrie", "Ian McQue", "Syd Mead", "Józef Mehoffer", "Eddie Mendoza", "Adolph Menzel", "Maria Sibylla Merian", "Daniel Merriam", "Jean Metzinger", "Michelangelo", "Mike Mignola", "Frank Miller", "Ian Miller", "Russ Mills", "Victor Adame Minguez", "Joan Miro", "Kentaro Miura", "Paula Modersohn-Becker", "Amedeo Modigliani", "Moebius", "Peter Mohrbacher", "Piet Mondrian", "Claude Monet", "Jean-Baptiste Monge", "Kent Monkman", "Alyssa Monks", "Sailor Moon", "Chris Moore", "Gustave Moreau", "William Morris", "Igor Morski", "John Kenn Mortensen", "Victor Moscoso", "Grandma Moses", "Robert Motherwell", "Alphonse Mucha", "Craig Mullins", "Augustus Edwin Mulready", "Dan Mumford", "Edvard Munch", "Gabriele Münter", "Gerhard Munthe", "Takashi Murakami", "Patrice Murciano", "Go Nagai", "Hiroshi Nagai", "Tibor Nagy", "Ted Nasmith", "Alice Neel", "Odd Nerdrum", "Mikhail Nesterov", "C. R. W. Nevinson", "Helmut Newton", "Victo Ngai", 
            "Dustin Nguyen", "Kay Nielsen", "Tsutomu Nihei", "Yasushi Nirasawa", "Sidney Nolan", "Emil Nolde", "Sven Nordqvist", "Earl Norem", "Marianne North", "Georgia O'Keeffe", "Terry Oakes", "Takeshi Obata", "Eiichiro Oda", "Koson Ohara", "Noriyoshi Ohrai", "Marek Okon", "Méret Oppenheim", "Katsuhiro Otomo", "Shohei Otomo", "Siya Oum", "Ida Rentoul Outhwaite", "James Paick", "David Palumbo", "Michael Parkes", "Keith Parkinson", "Maxfield Parrish", "Alfred Parsons", "Max Pechstein", "Agnes Lawrence Pelton", "Bruce Pennington", "John Perceval", "Gaetano Pesce", "Coles Phillips", "Francis Picabia", "Pablo Picasso", "Mauro Picenardi", "Anton Pieck", "Bonnard Pierre", "Yuri Ivanovich Pimenov", "Robert Antoine Pinchon", "Giovanni Battista Piranesi", "Camille Pissarro", "Patricia Polacco", "Jackson Pollock", "Lyubov Popova", "Candido Portinari", "Beatrix Potter", "Beatrix Potter", "Gediminas Pranckevicius", "Dod Procter", "Howard Pyle", "Arthur Rackham", "Alice Rahon", "Paul Ranson", "Raphael", "Robert Rauschenberg", "Man Ray", "Odilon Redon", "Pierre-Auguste Renoir", "Ilya Repin", "RHADS", "Gerhard Richter", "Diego Rivera", "Hubert Robert", "Andrew Robinson", "Charles Robinson", "W. Heath Robinson", "Andreas Rocha", "Norman Rockwell", "Nicholas Roerich", "Conrad Roset", "Bob Ross", "Jessica Rossier", "Ed Roth", "Mark Rothko", "Georges Rouault", "Henri Rousseau", "Luis Royo", "Jakub Rozalski", "Joao Ruas", "Peter Paul Rubens", "Mark Ryden", "Jan Pietersz Saenredam", "Pieter Jansz Saenredam", "Kay Sage", "Apollonia Saintclair", "John Singer Sargent", "Martiros Saryan", "Masaaki Sasamoto", "Thomas W Schaller", "Miriam Schapiro", "Yohann Schepacz", "Egon Schiele", "Karl Schmidt-Rottluff", "Charles Schulz", "Charles Schulz", "Carlos Schwabe", "Sean Scully", "Franz Sedlacek", "Maurice Sendak", "Zinaida Serebriakova", "Georges Seurat", "Ben Shahn", "Barclay Shaw", "E. H. Shepard", "Cindy Sherman", "Makoto Shinkai", "Yoji Shinkawa", "Chiharu Shiota", "Masamune Shirow", "Ivan Shishkin", "Bill Sienkiewicz", "Greg Simkins", "Marc Simonetti", "Kevin Sloan", "Adrian Smith", "Douglas Smith", "Jeffrey Smith", "Pamela Coleman Smith", "Zack Snyder", "Simeon Solomon", "Joaquín Sorolla", "Ettore Sottsass", "Chaïm Soutine", "Austin Osman Spare", "Sparth ", "Art Spiegelman", "Simon Stalenhag", "Ralph Steadman", "William Steig", "Joseph Stella", "Irma Stern", "Anne Stokes", "James Stokoe", "William Stout", "George Stubbs", "Tatiana Suarez", "Ken Sugimori", "Hiroshi Sugimoto", "Brian Sum", "Matti Suuronen", "Raymond Swanland", "Naoko Takeuchi", "Rufino Tamayo", "Shaun Tan", "Yves Tanguay", "Henry Ossawa Tanner", "Dorothea Tanning", "Ben Templesmith", "theCHAMBA", "Tom Thomson", "Storm Thorgerson", "Bridget Bate Tichenor", "Louis Comfort Tiffany", "Tintoretto", "James Tissot", "Titian", "Akira Toriyama", "Ross Tran", "Clovis Trouille", "J.M.W. Turner", "James Turrell", "Daniela Uhlig", "Boris Vallejo", "Gustave Van de Woestijne", "Frits Van den Berghe", "Anthony van Dyck", "Jan van Eyck", "Vincent Van Gogh", "Willem van Haecht", "Rembrandt van Rijn", "Jacob van Ruisdael", "Salomon van Ruysdael", "Theo van Rysselberghe", "Remedios Varo", "Viktor Vasnetsov", "Kuno Veeber", "Diego Velázquez", "Giovanni Battista Venanzi", "Johannes Vermeer", "Alexej von Jawlensky", "Marianne von Werefkin", "Hendrick Cornelisz Vroom", "Mikhail Vrubel", "Louis Wain", "Ron Walotsky", "Andy Warhol", "John William Waterhouse", "Jean-Antoine Watteau", "George Frederic Watts", "Max Weber", "Gerda Wegener", "Edward Weston", "Michael Whelan", "James Abbott McNeill Whistler", "Tim White", "Coby Whitmore", "John Wilhelm", "Robert Williams", "Al Williamson", "Carel Willink", "Mike Winkelmann", "Franz Xaver Winterhalter", "Klaus Wittmann", "Liam Wong", "Paul Wonner", "Ashley Wood", "Grant Wood", "Patrick Woodroffe", "Frank Lloyd Wright", "Bernie Wrightson", "Andrew Wyeth", "Qian Xuan", "Takato Yamamoto", "Liu Ye", "Jacek Yerka", "Akihiko Yoshida", "Hiroshi Yoshida", "Skottie Young", "Konstantin Yuon", "Yuumei", "Amir Zand", "Fenghua Zhong", "Nele Zirnite", "Anders Zorn") 
 styles = ( "1970s era", "2001: A Space Odyssey", "60s kitsch and psychedelia", "Aaahh!!! Real Monsters", "abstract illusionism", "afrofuturism", "alabaster", "alhambresque", "ambrotype", "american romanticism", "amethyst", "amigurumi", "anaglyph effect", "anaglyph filter", "Ancient Egyptian", "ancient Greek architecture", "anime", "art nouveau", "astrophotography", "at dawn", "at dusk", "at high noon", "at night", "atompunk", "aureolin", "avant-garde", "Avatar The Last Airbender", "Babylonian", "Baker-Miller pink", "Baroque", "Bauhaus", "biopunk", "bismuth", "Blade Runner 2049", "blueprint", "bokeh", "bonsai", "bright", "bronze", "brutalism", "burgundy", "Byzantine", "calotype", "Cambrian", "camcorder effect", "carmine", "cassette futurism", "cassettepunk", "catholicpunk", "cerulean", "chalk art", "chartreuse", "chiaroscuro", "chillwave", "chromatic aberration", "chrome", "Cirque du Soleil", "claymation", "clockpunk", "cloudpunk", "cobalt", "colored pencil art", "Concept Art World", "copper patina", "copper verdigris", "Coraline", "cosmic horror", "cottagecore", "crayon art", "crimson", "CryEngine", "crystalline lattice", "cubic zirconia", "cubism", "cyanotype", "cyber noir", "cyberpunk", "cyclopean masonry", "daguerreotype", "Danny Phantom", "dark academia", "dark pastel", "dark rainbow", "DayGlo", "decopunk", "Dexter's Lab", "diamond", "dieselpunk", "Digimon", "digital art", "doge", "dollpunk", "Doom engine", "Dreamworks", "dutch golden age", "Egyptian", "eldritch", "emerald", "empyrean", "Eraserhead", "ethereal", "expressionism", "Fantastic Planet", "Fendi", "figurativism", "fire", "fisheye lens", "fluorescent", "forestpunk", "fractal manifold", "fractalism", "fresco", "fuchsia", "futuresynth", "Game of Thrones", "german romanticism", "glitch art", "glittering", "golden", "golden hour", "gothic", "gothic art", "graffiti", "graphite", "grim dark", "Harry Potter", "holography", "Howl’s Moving Castle", "hygge", "hyperrealism", "icy", "ikebana", "impressionism", "in Ancient Egypt", "in Egypt", "in Italy", "in Japan", "in the Central African Republic", "in the desert", "in the jungle", "in the swamp", "in the tundra", "incandescent", "indigo", "infrared", "Interstellar", "inverted colors", "iridescent", "iron", "islandpunk", "isotype", "Kai Fine Art", "khaki", "kokedama", "Korean folk art", "lapis lazuli", "Lawrence of Arabia", "leather", "leopard print", "lilac", "liminal space", "long exposure", "Lord of the Rings", "Louis Vuitton", "Lovecraftian", "low poly", "mac and cheese", "macro lens", "magenta", "magic realism", "manga", "mariachi", "marimekko", "maroon", "Medieval", "Mediterranean", "modernism", "Monster Rancher", "moonstone", "Moulin Rouge!", "multiple exposure", "Myst", "nacreous", "narrative realism", "naturalism", "neon", "Nosferatu", "obsidian", "oil and canvas", "opalescent", "optical illusion", "optical art", "organometallics", "ossuary", "outrun", "Paleolithic", "Pan's Labyrinth", "pastel", "patina", "pearlescent", "pewter", "Pixar", "Play-Doh", "pointillism", "Pokemon", "polaroid", "porcelain", "positivism", "postcyberpunk", "Pride & Prejudice", "prismatic", "pyroclastic flow", "Quake engine", "quartz", "rainbow", "reflective", "Renaissance", "retrowave", "Rococo", "rococopunk", "ruby", "rusty", "Salad Fingers", "sapphire", "scarlet", "shimmering", "silk", "sketched", "Slenderman", "smoke", "snakeskin", "Spaceghost Coast to Coast", "stained glass", "Star Wars", "steampunk", "steel", "steelpunk", "still life", "stonepunk", "Stranger Things", "street art", "stuckism", "Studio Ghibli", "Sumerian", "surrealism", "symbolism", "synthwave", "telephoto lens", "thalassophobia", "thangka", "the matrix", "tiger print", "tilt-shift", "tintype", "tonalism", "Toonami", "turquoise", "Ukiyo-e", "ultramarine", "ultraviolet", "umber", "underwater photography", "Unreal Engine", "vantablack", "vaporwave", "verdigris", "Versacci", "viridian", "wabi-sabi", "watercolor painting", "wooden", "x-ray photography", "minimalist", "dadaist", "neo-expressionist", "post-impressionist", "hyper real", "Art brut", "3D rendering", "uncanny valley", "fractal landscape", "fractal flames", "Mandelbulb", "inception dream", "waking life", "occult inscriptions", "barr relief", "marble sculpture", "wood carving", "church stained glass", "Japanese jade", "Zoetrope", "beautiful", "wide-angle", "Digital Painting", "glossy reflections", "cinematic", "spooky", "Digital paint concept art", "dramatic", "global illumination", "immaculate", "woods", ) 
@@ -6465,7 +6600,7 @@ def run_prompt_remixer(page):
     openai.api_key = prefs['OpenAI_api_key']
   except:
     pass
-  if '_' in prefs['prompt_remixer']['seed_prompt'] or '_' in prefs['prompt_remixer']['optional_about_influencer']:
+  '''if '_' in prefs['prompt_remixer']['seed_prompt'] or '_' in prefs['prompt_remixer']['optional_about_influencer']:
     try:
         import nsp_pantry
         from nsp_pantry import nsp_parse
@@ -6473,7 +6608,7 @@ def run_prompt_remixer(page):
         run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.py")
     finally:
         import nsp_pantry
-        from nsp_pantry import nsp_parse
+        from nsp_pantry import nsp_parse'''
   prompts_remix = []
   prompt_results = []
   
@@ -6596,7 +6731,7 @@ def run_prompt_brainstormer(page):
       except NameError: good_key = False
       if not good_key:
         print(f"\33[91mMissing HuggingFace_api_key...\33[0m Define your key up above.")
-    if '_' in prefs['prompt_brainstormer']['about_prompt']:
+    '''if '_' in prefs['prompt_brainstormer']['about_prompt']:
       try:
         import nsp_pantry
         from nsp_pantry import nsp_parse
@@ -6604,7 +6739,7 @@ def run_prompt_brainstormer(page):
         run_sp("wget -qq --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.py")
       finally:
         import nsp_pantry
-        from nsp_pantry import nsp_parse
+        from nsp_pantry import nsp_parse'''
     #ask_OpenAI_instead = False #@param {type:'boolean'}
 
     prompt_request_modes = [
@@ -6693,7 +6828,7 @@ def run_prompt_brainstormer(page):
       prompt_brainstormer()
 
 def run_prompt_writer(page):
-    try:
+    '''try:
         import nsp_pantry
         from nsp_pantry import nsp_parse
     except ModuleNotFoundError:
@@ -6701,7 +6836,7 @@ def run_prompt_writer(page):
         #print(subprocess.run(['wget', '-q', '--show-progress', '--no-cache', '--backups=1', 'https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.py'], stdout=subprocess.PIPE).stdout.decode('utf-8'))
     finally:
         import nsp_pantry
-        from nsp_pantry import nsp_parse
+        from nsp_pantry import nsp_parse'''
     import random as rnd
     def generate_prompt():
       text_prompts = []
@@ -9239,6 +9374,7 @@ def show_port(adr, height=500):
 #flet.app(target=main, view=flet.WEB_BROWSER, port=port, host=host_address)
 #flet.app(target=main, view=flet.WEB_BROWSER, port=80, host=public_url.public_url)
 #flet.app(target=main, view=flet.WEB_BROWSER, port=port, host="0.0.0.0")
-#flet.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
-#flet.app(target=main, view=flet.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
-flet.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
+if tunnel_type == "desktop":
+  flet.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
+else:
+  flet.app(target=main, view=flet.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
