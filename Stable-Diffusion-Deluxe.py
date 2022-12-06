@@ -1348,7 +1348,7 @@ def buildParameters(page):
   page.use_inpaint_model.visible = status['installed_img2img']
   page.use_versatile = Tooltip(message="Dual Guided between prompt & image, or create Image Variation", content=Switch(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile')))
   page.use_versatile.visible = status['installed_versatile']
-  centipede_prompts_as_init_images = Tooltip(message="Feeds each image to the next prompt sequentially down the line", content=Switch(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede))
+  centipede_prompts_as_init_images = Tooltip(message="Feeds each image to the next prompt sequentially down the line", content=Switch(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_centipede))
   use_interpolation = Tooltip(message="Creates animation frames transitioning, but it's not always perfect.", content=Switch(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_interpolation))
   interpolation_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['num_interpolation_steps'], on_change=change_interpolation_steps, expand=True)
   interpolation_steps_value = Text(f" {int(prefs['num_interpolation_steps'])} steps", weight=FontWeight.BOLD)
@@ -1780,7 +1780,10 @@ def buildPromptsList(page):
         prompts_list.controls.insert(idx-1, dr)
         prompts_list.update()
   def add_prompt(e):
-      add_to_prompts(prompt_text.value)
+      if bool(negative_prompt_text.value):
+        add_to_prompts(prompt_text.value, {'negative_prompt': negative_prompt_text.value})
+      else:
+        add_to_prompts(prompt_text.value)
   def add_to_prompts(p, arg=None):
       global prompts
       dream = Dream(p)
@@ -1914,6 +1917,9 @@ def buildPromptsList(page):
   def clear_prompt(e):
       prompt_text.value = ""
       prompt_text.update()
+  def clear_negative_prompt(e):
+      negative_prompt_text.value = ""
+      negative_prompt_text.update()
   def clear_list(e):
       global prompts
       if prefs['enable_sounds']: page.snd_delete.play()
@@ -1950,11 +1956,12 @@ def buildPromptsList(page):
       start_diffusion(page)
   has_changed = False
   prompts_list = Column([],spacing=1)
-  prompt_text = TextField(label="Prompt Text", expand=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt)
+  prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt, col={'lg':9})
+  negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
   add_prompt_button = ElevatedButton(content=Text(value="➕  Add Prompt", size=17, weight=FontWeight.BOLD), on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
-  prompt_row = Row([prompt_text, add_prompt_button])
+  prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True), add_prompt_button])
   #diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
   clear_prompts_button = ElevatedButton("❌   Clear Prompts List", on_click=clear_list)
   prompts_buttons = Row([clear_prompts_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
@@ -4438,11 +4445,13 @@ torch_device = "cuda"
 try:
     import torch
 except Exception:
-    run_sp("pip install torch", realtime=False)
+    print("Installing PyTorch with CUDA 1.17")
+    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117", realtime=False)
     import torch
     pass
 finally:
     torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch_device == "cpu": print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API & OpenAI, but not Diffusers...")
 import gc
 #from torch.amp.autocast_mode import autocast
 from random import random
@@ -4602,9 +4611,9 @@ def get_unet_pipe():
   tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
   text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
   if prefs['higher_vram_mode']:
-    unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
+    unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", feature_extractor=None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
   else:
-    unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", torch_dtype=torch.float16, subfolder="unet", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
+    unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", feature_extractor=None, torch_dtype=torch.float16, subfolder="unet", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
   vae = vae.to(torch_device)
   text_encoder = text_encoder.to(torch_device)
   #if enable_attention_slicing:
@@ -5054,6 +5063,7 @@ def get_clip_guided_pipe():
 
     clip_model = CLIPModel.from_pretrained(prefs['clip_model_id'], torch_dtype=torch.float16)
     feature_extractor = CLIPFeatureExtractor.from_pretrained(prefs['clip_model_id'])
+
     if 'revision' in model:
       pipe_clip_guided = DiffusionPipeline.from_pretrained(
               model_path,
@@ -5062,12 +5072,13 @@ def get_clip_guided_pipe():
               feature_extractor=feature_extractor,
               scheduler=model_scheduler(model_path, big3=True),
               cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+              safety_checker=None,
               torch_dtype=torch.float16,
               revision=model['revision'],
               #device_map="auto",
           )
     else:
-      pipe_clip_guided = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/clip_guided_stable_diffusion_mod", clip_model=clip_model, feature_extractor=feature_extractor, scheduler=model_scheduler(model_path, big3=True), cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16)
+      pipe_clip_guided = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/clip_guided_stable_diffusion_mod", clip_model=clip_model, feature_extractor=feature_extractor, scheduler=model_scheduler(model_path, big3=True), safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16)
     pipe_clip_guided = pipe_clip_guided.to(torch_device)
     '''
     pipe_clip_guided = CLIPGuidedStableDiffusion(
@@ -5081,8 +5092,8 @@ def get_clip_guided_pipe():
     )'''
     if prefs['memory_optimization'] != 'None':
       pipe_clip_guided.enable_attention_slicing()
-    if prefs['vae_slicing']:
-      pipe_clip_guided.enable_vae_slicing()
+    #if prefs['vae_slicing']:
+    #  pipe_clip_guided.enable_vae_slicing()
     return pipe_clip_guided
 
 def get_repaint(page):
@@ -6363,9 +6374,9 @@ def start_diffusion(page):
           #prt(Row([Text(p_count), Text(walk_prompts[img_idx], expand=True, weight=FontWeight.BOLD), Text(f'seed: {walk_seeds[img_idx]}')]))
           prt(Row([Img(src=event.src_path, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
           prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
-          prt(pb)
           page.update()
           page.auto_scrolling(False)
+          prt(pb)
           img_idx += 1
     image_handler = Handler()
     observer = Observer()
@@ -6429,9 +6440,7 @@ def wget(url, output):
     print(res)
 
 nspterminology = None
-# nsp_parse( prompt )
-# Input: dict, list, str
-# Parse strings for terminology keys and replace them with random terms
+
 def nsp_parse(prompt):
     import random, os, json
     global nspterminology
@@ -6439,12 +6448,11 @@ def nsp_parse(prompt):
     new_prompts = []
     new_dict = {}
     ptype = type(prompt)
-	
-    if not os.path.exists('./nsp_pantry.json'):
-        wget('https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.json', f'.{slash}nsp_pantry.json')
+    #if not os.path.exists('./nsp_pantry.json'):
+    #    wget('https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.json', f'.{slash}nsp_pantry.json')
     if nspterminology is None:
-        with open(f'.{slash}nsp_pantry.json', 'r') as f:
-          nspterminology = json.loads(f.read())
+        response = requests.get("https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.json")
+        nspterminology = json.loads(response.content)
     if ptype == dict:
         for pstep, pvalue in prompt.items():
             if type(pvalue) == list:
@@ -6607,15 +6615,6 @@ def run_prompt_remixer(page):
     openai.api_key = prefs['OpenAI_api_key']
   except:
     pass
-  '''if '_' in prefs['prompt_remixer']['seed_prompt'] or '_' in prefs['prompt_remixer']['optional_about_influencer']:
-    try:
-        import nsp_pantry
-        from nsp_pantry import nsp_parse
-    except ImportError:
-        run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.py")
-    finally:
-        import nsp_pantry
-        from nsp_pantry import nsp_parse'''
   prompts_remix = []
   prompt_results = []
   
@@ -6738,15 +6737,6 @@ def run_prompt_brainstormer(page):
       except NameError: good_key = False
       if not good_key:
         print(f"\33[91mMissing HuggingFace_api_key...\33[0m Define your key up above.")
-    '''if '_' in prefs['prompt_brainstormer']['about_prompt']:
-      try:
-        import nsp_pantry
-        from nsp_pantry import nsp_parse
-      except ImportError:
-        run_sp("wget -qq --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/WASasquatch/noodle-soup-prompts/main/nsp_pantry.py")
-      finally:
-        import nsp_pantry
-        from nsp_pantry import nsp_parse'''
     #ask_OpenAI_instead = False #@param {type:'boolean'}
 
     prompt_request_modes = [
@@ -9166,7 +9156,7 @@ def main(page: Page):
           runtime.unassign()
           #import time
     help_dlg = AlertDialog(
-        title=Text("💁   Help/Information"), content=Column([Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI friends with our pretty interface."),
+        title=Text("💁   Help/Information - Stable Diffusion Deluxe " + version), content=Column([Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI friends with our pretty interface."),
               Text("Simply go through the self-explanitory tabs step-by-step and set your preferences to get started. The default values are good for most, but you can have some fun experimenting. All values are automatically saved as you make changes and change tabs."),
               Text("Each time you open the app, you should start in the Installers section, turn on all the components you plan on using in you session, then Run the Installers and let them download. You can multitask and work in other tabs while it's installing."),
               Text("In the Prompts List, add as many text prompts as you can think of, and edit any prompt to override any default Image Parameter.  Once you're ready, run diffusion on your prompts list and watch it fill your Google Drive.."),
@@ -9202,7 +9192,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
       page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
     app_icon_color = colors.AMBER_800
     
-    appbar=AppBar(title=Text("👨‍🎨️  Stable Diffusion - Deluxe Edition  🖌️" if page.width >= 768 else "Stable Diffusion Deluxe  🖌️"),elevation=20,
+    appbar=AppBar(title=Text("👨‍🎨️  Stable Diffusion - Deluxe Edition  🖌️" if page.width >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD),elevation=20,
       center_title=True,
           bgcolor=colors.SURFACE_VARIANT,
           leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
