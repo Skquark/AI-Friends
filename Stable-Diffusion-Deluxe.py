@@ -11,23 +11,28 @@ saved_settings_json = '.\sdd-settings.json' #@param {'type': 'string'}
 tunnel_type = "desktop" #@param ["localtunnel", "ngrok"] 
 #, "cloudflared"
 auto_launch_website = False #@param {'type': 'boolean'}
-version = "v1.4"
+version = "v1.6.0"
 import os, subprocess, sys, shutil
 root_dir = '/content/'
+dist_dir = root_dir
 is_Colab = True
 try:
   import google.colab
   root_dir = '/content/'
 except:
   root_dir = os.getcwd()
+  dist_dir = os.path.join(root_dir, 'dist', 'Stable-Diffusion-Deluxe')
+  if not os.path.isdir(dist_dir):
+    dist_dir = root_dir
+  #print(f'Root: {root_dir} Dist:{dist_dir}')
   is_Colab = False
   pass
 stable_dir = root_dir
 save_to_GDrive = storage_type == "Colab Google Drive"
 if save_to_GDrive:
-  if not os.path.isdir(f'{root_dir}drive'):
+  if not os.path.isdir(os.path.join(root_dir, 'drive')):
     from google.colab import drive
-    drive.mount('/content/drive')
+    drive.mount(os.path.join(root_dir, 'drive'))
 elif storage_type == "PyDrive Google Drive":
   "pip install PyDrive2"
 stable_dir = os.path.join(root_dir, 'Stable_Diffusion')
@@ -93,7 +98,7 @@ def version_checker():
   response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/DSD_version.txt")
   current_v = response.text.strip()
   if current_v != version:
-    print(f'{Color.GREEN}A new update is available.{Color.END} You are running {version} and {current_v} is up. We recommended refreshing Enhanced Stable Diffusion for the latest cool features or fixes.\nhttps://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb\nChangelog if interested: https://github.com/Skquark/AI-Friends/commits/main/Stable_Diffusion_Deluxe.ipynb')
+    print(f'A new update is available. You are running {version} and {current_v} is up. We recommended refreshing Stable Diffusion Deluxe for the latest cool features or fixes.\nhttps://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb\nChangelog if interested: https://github.com/Skquark/AI-Friends/commits/main/Stable_Diffusion_Deluxe.ipynb')
 def ng():
   response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/_ng")
   ng_list = response.text.strip().split('\n')
@@ -273,8 +278,9 @@ def load_settings_file():
       'clip_model_id': "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
       'install_Stability_api': False,
       'use_Stability_api': False,
-      'model_checkpoint': "stable-diffusion-v1-5",
+      'model_checkpoint': "stable-diffusion-768-v2-1",
       'generation_sampler': "K_EULER_ANCESTRAL",
+      'clip_guidance_preset': "FAST_BLUE",
       'install_ESRGAN': True,
       'batch_folder_name': "",
       'batch_size': 1,
@@ -288,6 +294,8 @@ def load_settings_file():
       'init_image': "",
       'mask_image': "",
       'init_image_strength': 0.25,
+      'alpha_mask': False,
+      'invert_mask': False,
       'precision': 'autocast',
       'use_inpaint_model': False,
       'centipede_prompts_as_init_images': False,
@@ -400,8 +408,9 @@ status = {
     'initialized': False,
 }
 
-def save_settings_file(page):
-  page.app_icon_save()
+def save_settings_file(page, change_icon=True):
+  if change_icon:
+    page.app_icon_save()
   if not os.path.isfile(saved_settings_json):
     settings_path = saved_settings_json.rpartition(slash)[0]
     os.makedirs(settings_path, exist_ok=True)
@@ -539,6 +548,9 @@ if 'use_versatile' not in prefs: prefs['use_versatile'] = False
 if 'install_upscale' not in prefs: prefs['install_upscale'] = False
 if 'use_upscale' not in prefs: prefs['use_upscale'] = False
 if 'upscale_noise_level' not in prefs: prefs['upscale_noise_level'] = 20
+if 'alpha_mask' not in prefs: prefs['alpha_mask'] = False
+if 'invert_mask' not in prefs: prefs['invert_mask'] = False
+if 'clip_guidance_preset' not in prefs: prefs['clip_guidance_preset'] = "FAST_BLUE"
 
 def initState(page):
     global status, current_tab
@@ -827,9 +839,9 @@ def buildInstallers(page):
   #install_megapipe = Switch(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Tooltip(message="The best general purpose component. Create images with long prompts, weights & models", content=Switch(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_text2img')))
   install_img2img = Tooltip(message="Gets more coherant results modifying Inpaint init & mask images", content=Switch(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_img2img')))
-  install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switch(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
+  #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switch(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
   install_interpolation = Tooltip(message="Create multiple tween images between prompts latent space. Almost animation.", content=Switch(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation')))
-  install_dreamfusion = Tooltip(message="Generate interesting mesh .obj, texture and preview video from a prompt.", content=Switch(label="Install Stable Diffusion DreamFusion 3D Pipeline", value=prefs['install_dreamfusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_dreamfusion'], on_change=lambda e:changed(e, 'install_dreamfusion')))
+  #install_dreamfusion = Tooltip(message="Generate interesting mesh .obj, texture and preview video from a prompt.", content=Switch(label="Install Stable Diffusion DreamFusion 3D Pipeline", value=prefs['install_dreamfusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_dreamfusion'], on_change=lambda e:changed(e, 'install_dreamfusion')))
   install_imagic = Tooltip(message="Edit your image according to the prompted instructions like magic.", content=Switch(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic')))
   install_composable = Tooltip(message="Craft your prompts with precise weights and composed together components.", content=Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable')))
   install_safe = Tooltip(message="Use a content quality tuned safety model, providing levels of NSFW protection.", content=Switch(label="Install Stable Diffusion Safe text2image Pipeline", value=prefs['install_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_safe'], on_change=toggle_safe))
@@ -899,12 +911,13 @@ def buildInstallers(page):
     #stability_box.content = stability_settings if prefs['install_stability'] else Container(content=None)
     #stability_box.update()
   install_Stability_api = Tooltip(message="Use DreamStudio.com servers without your GPU to create images on CPU.", content=Switch(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_stability))
-  use_Stability_api = Checkbox(label="Use Stability-api by default", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
-  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-inpainting-v1-0"), dropdown.Option("stable-inpainting-512-v2-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
+  use_Stability_api = Checkbox(label="Use Stability-ai API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
+  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
+  clip_guidance_preset = Dropdown(label="Clip Guidance Preset", width=350, options=[dropdown.Option("SIMPLE"), dropdown.Option("FAST_BLUE"), dropdown.Option("FAST_GREEN"), dropdown.Option("SLOW"), dropdown.Option("SLOWER"), dropdown.Option("SLOWEST"), dropdown.Option("NONE")], value=prefs['clip_guidance_preset'], autofocus=False, on_change=lambda e:changed(e, 'clip_guidance_preset'))
   #generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM"), dropdown.Option("K_EULER"), dropdown.Option("K_EULER_ANCESTRAL"), dropdown.Option("K_HEUN"), dropdown.Option("K_DPMPP_2M"), dropdown.Option("K_DPM_2_ANCESTRAL"), dropdown.Option("K_LMS"), dropdown.Option("K_DPMPP_2S_ANCESTRAL"), dropdown.Option("K_DPM_2")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   #"K_EULER" "K_DPM_2" "K_LMS" "K_DPMPP_2S_ANCESTRAL" "K_DPMPP_2M" "DDIM" "DDPM" "K_EULER_ANCESTRAL" "K_HEUN" "K_DPM_2_ANCESTRAL"
-  stability_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_Stability_api, model_checkpoint, Container(content=None, height=4), generation_sampler]))
+  stability_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_Stability_api, model_checkpoint, generation_sampler, clip_guidance_preset]))
   
   install_ESRGAN = Tooltip(message="Recommended to enlarge & sharpen all images as they're made.", content=Switch(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_ESRGAN')))
   install_OpenAI = Tooltip(message="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.", content=Switch(label="Install OpenAI GPT-3 Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_OpenAI')))
@@ -932,6 +945,9 @@ def buildInstallers(page):
           page.banner.content.controls.append(Text(msg.strip(), weight=FontWeight.BOLD, color=colors.GREEN_600))
         page.update()
       page.console_msg = console_msg
+      if status['changed_installers']:
+        save_settings_file(page, change_icon=False)
+        status['changed_installers'] = False
       # Temporary until I get Xformers to work
       prefs['memory_optimization'] = 'Attention Slicing' if prefs['enable_attention_slicing'] else 'None'
       if prefs['install_diffusers'] and not bool(prefs['HuggingFace_api_key']):
@@ -1055,7 +1071,7 @@ def buildInstallers(page):
         get_stability(page)
         status['installed_stability'] = True
       if prefs['install_ESRGAN'] and not status['installed_ESRGAN']:
-        if not os.path.isdir(os.path.join(root_dir, 'Real-ESRGAN')):
+        if not os.path.isdir(os.path.join(dist_dir, 'Real-ESRGAN')):
           get_ESRGAN(page)
           console_msg("Installing Real-ESRGAN Upscaler...")
         status['installed_ESRGAN'] = True
@@ -1227,7 +1243,7 @@ def buildParameters(page):
   def on_upload_progress(e: FilePickerUploadEvent):
     nonlocal pick_type
     if e.progress == 1:
-      fname = f"{root_dir}{e.file_name}"
+      fname = os.path.join(root_dir, e.file_name)
       if pick_type == "init":
         init_image.value = fname
         init_image.update()
@@ -1337,9 +1353,11 @@ def buildParameters(page):
   height_value = Text(f" {int(prefs['height'])}px", weight=FontWeight.BOLD)
   height_slider = Row([Text(f"Height: "), height_value, height])
 
-  init_image = TextField(label="Init Image", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={"xs":12, "md":6})
-  mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={"xs":12, "md":6})
-  image_pickers = Container(content=ResponsiveRow([init_image, mask_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  init_image = TextField(label="Init Image", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+  mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
+  alpha_mask = Checkbox(label="Alpha Mask", value=prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
+  invert_mask = Checkbox(label="Invert Mask", value=prefs['invert_mask'], tooltip="Reverse Black & White of Image Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+  image_pickers = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={"lg":6}), Row([mask_image, invert_mask], col={"lg":6})]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   image_pickers.height = None if not prefs['centipede_prompts_as_init_images'] else 0
   init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=prefs['init_image_strength'], on_change=change_strength, expand=True)
   strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight=FontWeight.BOLD)
@@ -1447,7 +1465,8 @@ def update_args():
         "init_image": prefs['init_image'],
         "init_image_strength": prefs['init_image_strength'],
         "mask_image": prefs['mask_image'],
-        "alpha_mask": False,
+        "alpha_mask": prefs['alpha_mask'],
+        "invert_mask": prefs['invert_mask'],
         "prompt2": None, "tweens": 10,
         "negative_prompt": None,
         "use_clip_guided_model": prefs['use_clip_guided_model'],
@@ -1481,6 +1500,7 @@ class Dream:
           elif key=="init_image_strength": self.arg[key] = value
           elif key=="mask_image": self.arg[key] = value
           elif key=="alpha_mask": self.arg[key] = value
+          elif key=="invert_mask": self.arg[key] = value
           elif key=="prompt2": self.arg[key] = value
           elif key=="tweens": self.arg[key] = int(value)
           elif key=="negative_prompt": self.arg[key] = value
@@ -1494,7 +1514,7 @@ class Dream:
           elif key=="use_Stability": self.arg[key] = value
           elif key=="use_conceptualizer": self.arg[key] = value
           elif key=="prompt": self.prompt = value
-          else: print(f"{Color.RED2}Unknown argument: {key} = {value}{Color.END}")
+          else: print(f"Unknown argument: {key} = {value}")
         #self.arg = arg
     #arg = args
 #print(str(args))
@@ -1550,6 +1570,7 @@ def buildPromptsList(page):
           arg['mask_image'] = mask_image.value
           arg['init_image_strength'] = float(init_image_strength.value)
           arg['alpha_mask'] = alpha_mask.value
+          arg['invert_mask'] = invert_mask.value
           arg['prompt2'] = prompt2.value if bool(use_prompt_tweening.value) else None
           arg['tweens'] = int(tweens.value)
           arg['negative_prompt'] = negative_prompt.value if bool(negative_prompt.value) else None
@@ -1575,7 +1596,7 @@ def buildPromptsList(page):
       def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-          fname = f"{root_dir}{e.file_name}"
+          fname = os.path.join(root_dir, e.file_name)
           if pick_type == "init":
             init_image.value = fname
             init_image.update()
@@ -1645,7 +1666,8 @@ def buildPromptsList(page):
       init_image = TextField(label="Init Image", value=arg['init_image'], expand=1, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
       mask_image = TextField(label="Mask Image", value=arg['mask_image'], expand=1, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
       alpha_mask = Checkbox(label="Alpha Mask", value=arg['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
-      image_row = Row([init_image, alpha_mask, mask_image])
+      invert_mask = Checkbox(label="Invert Mask", value=arg['invert_mask'], tooltip="Reverse Black & White of Image Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
+      image_row = ResponsiveRow([Row([init_image, alpha_mask], col={"lg":6}), Row([mask_image, invert_mask], col={"lg":6})])
       init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(arg['init_image_strength']), expand=True)
       strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
       img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -1780,10 +1802,16 @@ def buildPromptsList(page):
         prompts_list.controls.insert(idx-1, dr)
         prompts_list.update()
   def add_prompt(e):
-      if bool(negative_prompt_text.value):
-        add_to_prompts(prompt_text.value, {'negative_prompt': negative_prompt_text.value})
+      positive_prompt = prompt_text.value
+      negative_prompt = negative_prompt_text.value
+      if '_' in positive_prompt:
+        positive_prompt = nsp_parse(positive_prompt)
+      if bool(negative_prompt):
+        if '_' in negative_prompt:
+          negative_prompt = nsp_parse(negative_prompt)
+        add_to_prompts(positive_prompt, {'negative_prompt': negative_prompt})
       else:
-        add_to_prompts(prompt_text.value)
+        add_to_prompts(positive_prompt)
   def add_to_prompts(p, arg=None):
       global prompts
       dream = Dream(p)
@@ -1841,6 +1869,7 @@ def buildPromptsList(page):
               if not bool(a['init_image']):
                 del a['init_image']
                 del a['init_image_strength']
+                del a['invert_mask']
               elif bool(a['mask_image']):
                 del a['alpha_mask']
             if 'mask_image' in a:
@@ -2444,12 +2473,13 @@ def buildESRGANupscaler(page):
       ESRGAN_output.update()
       clear_button.visible = False
       clear_button.update()
+    page.clear_ESRGAN_output = clear_output
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        fname = f"{root_dir}{e.file_name}"
+        fname = os.path.join(root_dir, e.file_name)
         image_path.value = fname
         image_path.update()
         ESRGAN_prefs['image_path'] = fname
@@ -2660,7 +2690,7 @@ def buildImage2Text(page):
         if not os.path.exists(save_dir):
           os.mkdir(save_dir)
         image2text_prefs['folder_path'] = save_dir
-        fname = f"{root_dir}{e.file_name}"
+        fname = os.path.join(root_dir, e.file_name)
         fpath = os.path.join(save_dir, e.file_name)
         original_img = PILImage.open(fname)
         width, height = original_img.size
@@ -2971,7 +3001,7 @@ def buildRepainter(page):
       nonlocal pick_type
       if e.progress == 1:
         repaint_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = f"{root_dir}{e.file_name}"
+        fname = os.path.join(root_dir, e.file_name)
         if pick_type == "original":
           original_image.value = fname
           original_image.update()
@@ -3094,7 +3124,7 @@ def buildMaterialDiffusion(page):
     def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-            fname = f"{root_dir}{e.file_name}"
+            fname = os.path.join(root_dir, e.file_name)
             if pick_type == "init":
                 init_image.value = fname
                 init_image.update()
@@ -3264,7 +3294,7 @@ def buildDallE2(page):
     def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-            fname = f"{root_dir}{e.file_name}"
+            fname = os.path.join(root_dir, e.file_name)
             if pick_type == "init":
                 init_image.value = fname
                 init_image.update()
@@ -3421,7 +3451,7 @@ def buildKandinsky(page):
     def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-            fname = f"{root_dir}{e.file_name}"
+            fname = os.path.join(root_dir, e.file_name)
             if pick_type == "init":
                 init_image.value = fname
                 init_image.update()
@@ -3593,7 +3623,7 @@ def buildCLIPstyler(page):
             upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-            fname = f"{root_dir}{e.file_name}"
+            fname = os.path.join(root_dir, e.file_name)
             original_image.value = fname
             original_image.update()
             CLIPstyler_prefs['original_image'] = fname
@@ -5119,8 +5149,8 @@ def get_repaint_pipe():
 
 SD_sampler = None
 def get_stability(page):
-    global SD_sampler, stability_api, prefs
-    try:
+    global prefs, SD_sampler#, stability_api
+    '''try:
       from stability_sdk import client
       import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
     except ImportError as e:
@@ -5133,7 +5163,7 @@ def get_stability(page):
         verbose=True,
         engine=prefs['model_checkpoint']# if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1",
     )
-    SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'].lower())
+    SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'].lower())'''
     # New way, other is obsolete
     import requests
     api_host = os.getenv('API_HOST', 'https://api.stability.ai')
@@ -5146,6 +5176,7 @@ def get_stability(page):
     #print(str(payload))
     status['installed_stability'] = True
 
+'''
 def update_stability():
     global SD_sampler, stability_api
     from stability_sdk import client
@@ -5155,17 +5186,17 @@ def update_stability():
         engine=prefs['model_checkpoint']
     )
     SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'].lower())
-
+'''
 def get_ESRGAN(page):
-    os.chdir(root_dir)
-    run_process("git clone https://github.com/xinntao/Real-ESRGAN.git -q", page=page)
-    os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
-    run_process("pip install basicsr --quiet", page=page)
-    run_process("pip install facexlib --quiet", page=page)
-    run_process("pip install gfpgan --quiet", page=page)
-    run_process("pip install -r requirements.txt --quiet", page=page, realtime=False)
-    run_process("python setup.py develop --quiet", page=page, realtime=False)
-    run_process("wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P experiments/pretrained_models --quiet", page=page)
+    os.chdir(dist_dir)
+    run_process(f"git clone https://github.com/xinntao/Real-ESRGAN.git -q", page=page, cwd=dist_dir)
+    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+    run_process("pip install basicsr --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
+    run_process("pip install facexlib --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
+    run_process("pip install gfpgan --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
+    run_process(f"pip install -r requirements.txt --quiet", page=page, realtime=False, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
+    run_process(f"python setup.py develop --quiet", page=page, realtime=False, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
+    run_process(f"wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P experiments/pretrained_models --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
     os.chdir(root_dir)
 
 
@@ -5524,8 +5555,8 @@ def start_diffusion(page):
   clear_repaint_pipe()
   output_files = []
   retry_attempts_if_NSFW = prefs['retry_attempts']
-  if (prefs['use_Stability_api'] and status['installed_stability']) or bool(not status['installed_diffusers'] and status['installed_stability']):
-    update_stability()
+  #if (prefs['use_Stability_api'] and status['installed_stability']) or bool(not status['installed_diffusers'] and status['installed_stability']):
+  #  update_stability()
   last_seed = args['seed']
   if args['seed'] < 1 or args['seed'] is None:
     rand_seed = random.randint(0,2147483647)
@@ -5654,20 +5685,23 @@ def start_diffusion(page):
           answers = response = None
           
           import requests
+          from io import BytesIO
+          import base64
           api_host = os.getenv('API_HOST', 'https://api.stability.ai')
           engine_id = prefs['model_checkpoint']# if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
           url = f"{api_host}/v1alpha/generation/{engine_id}/"#image-to-image"
           headers = {
-              'accept': 'application/json',#'image/png',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',#'image/png',
               'Authorization': prefs['Stability_api_key'],
           }
           payload = {
               "cfg_scale": arg['guidance_scale'],
-              "clip_guidance_preset": "FAST_BLUE",
+              "clip_guidance_preset": prefs['clip_guidance_preset'],
               "height": arg['height'],
               "width": arg['width'],
               "sampler": prefs['generation_sampler'],
-              "samples": int(arg['batch_size']),
+              "samples": arg['batch_size'],
               "seed": arg['seed'],
               "steps": arg['steps'],
               "text_prompts": [
@@ -5680,13 +5714,11 @@ def start_diffusion(page):
           if bool(arg['negative_prompt']):
             payload['text_prompts'].append({"text": arg['negative_prompt'], "weight": -1})
 
-          if bool(arg['mask_image']):
+          if bool(arg['mask_image']) or (bool(arg['init_image']) and arg['alpha_mask']):
             if not bool(arg['init_image']):
               clear_last()
-              prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: You have not selected an init_image to go with your image mask..")
+              prt(f"ERROR: You have not selected an init_image to go with your image mask..")
               continue
-            from io import BytesIO
-            import base64
             if arg['init_image'].startswith('http'):
               response = requests.get(arg['init_image'])
               init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
@@ -5695,30 +5727,43 @@ def start_diffusion(page):
                 init_img = PILImage.open(arg['init_image'])
               else: 
                 clear_last()
-                prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: Couldn't find your init_image {arg['init_image']}")
+                prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
             init_img = init_img.resize((arg['width'], arg['height']))
+            buff = BytesIO()
+            init_img.save(buff, format="PNG")
+            buff.seek(0)
+            img_str = io.BufferedReader(buff).read()
             #init_image = preprocess(init_img)
-            if arg['mask_image'].startswith('http'):
-              response = requests.get(arg['mask_image'])
-              mask_img = PILImage.open(BytesIO(response.content)).convert("RGB")
-            else:
-              if os.path.isfile(arg['mask_image']):
-                mask_img = PILImage.open(arg['mask_image'])
+            if not arg['alpha_mask']:
+              if arg['mask_image'].startswith('http'):
+                response = requests.get(arg['mask_image'])
+                mask_img = PILImage.open(BytesIO(response.content)).convert("RGB")
               else:
-                clear_last()
-                prt(f"{Color.RED}{Color.BOLD}ERROR{Color.END}: Couldn't find your mask_image {arg['mask_image']}")
-            mask = mask_img.resize((arg['width'], arg['height']))
+                if os.path.isfile(arg['mask_image']):
+                  mask_img = PILImage.open(arg['mask_image'])
+                else:
+                  clear_last()
+                  prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
+              mask = mask_img.resize((arg['width'], arg['height']))
+
+              buff = BytesIO()
+              mask.save(buff, format="PNG")
+              buff.seek(0)
+              mask_str = io.BufferedReader(buff).read()
+            payload["step_schedule_end"] = 0.01
+            payload["step_schedule_start"] = 1 - arg['init_image_strength']
             files = {
-                'init_image': base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
-                'mask_image': base64.b64encode(mask.tobytes()).decode(),#open(mask_img, 'rb'),
+                'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
+                #'mask_image': mask_str,
+                'mask_source': "init-image-alpha" if arg['alpha_mask'] else "mask-image-black" if arg['invert_mask'] else "mask-image-white",
                 'options': (None, json.dumps(payload)),
             }
+            if not arg['alpha_mask']:
+              files['mask_image'] = mask_str
             #engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
-            #response = requests.post(url+"inpaint", headers=headers, files=files)
-            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
+            response = requests.post(url+"inpainting", headers=headers, files=files)
+            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
           elif bool(arg['init_image']):
-            from io import BytesIO
-            import base64
             if arg['init_image'].startswith('http'):
               response = requests.get(arg['init_image'])
               init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
@@ -5730,7 +5775,7 @@ def start_diffusion(page):
                 prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
             init_img = init_img.resize((arg['width'], arg['height']))
             
-            '''buff = BytesIO()
+            buff = BytesIO()
             init_img.save(buff, format="PNG")
             buff.seek(0)
             img_str = io.BufferedReader(buff).read()
@@ -5740,21 +5785,29 @@ def start_diffusion(page):
             files = {
                 'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
                 'options': (None, json.dumps(payload)),
-            }'''
-            #response = requests.post(url+"image-to-image", headers=headers, files=files)
-            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
+            }
+            response = requests.post(url+"image-to-image", headers=headers, files=files)
+            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
           else:
-            #response = requests.post(url+"text-to-image", headers=headers, json=payload)
-            answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
+            response = requests.post(url+"text-to-image", headers=headers, json=payload)
+            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
           clear_last()
           if response != None:
             if response.status_code != 200:
-              prt("Stability-API ERROR: " + str(response.text))
-              continue
+              if response.status_code == 402:
+                alert_msg(page, "Stability-API ERROR: Insufficient Credit Balance. Reload at DreamStudio.com...", content=Text(str(response.text)))
+                return
+              else:
+                prt(f"Stability-API ERROR {response.status_code}: " + str(response.text))
+                continue
             #with open(output_file, "wb") as f:
             #  f.write(response.content)
-            #print(type(response.content))
-            images.append(PILImage.open(io.BytesIO(response.content)))
+            artifacts = json.loads(response.content)
+            for resp in artifacts['artifacts']:
+              #print(f'{type(resp)} - {resp["seed"]}')
+              if resp == None: continue
+              images.append(PILImage.open(io.BytesIO(base64.b64decode(resp['base64']))))
+            #print(f'{type(response.content)} {response.content}')
           if answers != None:
             for resp in answers:
               for artifact in resp.artifacts:
@@ -5921,6 +5974,9 @@ def start_diffusion(page):
                   if os.path.isfile(arg['mask_image']):
                     mask_img = PILImage.open(arg['mask_image'])
                   else: prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
+              if arg['invert_mask'] and not arg['alpha_mask']:
+                from PIL import ImageOps
+                mask_img = ImageOps.invert(mask_img.convert('RGB'))
               mask_img = mask_img.convert("L")
               mask_img = mask_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS).convert("RGB")
               #mask = mask_img.resize((arg['width'], arg['height']))
@@ -6205,7 +6261,7 @@ def start_diffusion(page):
           clear_last()
           #clear_upscale_pipe()
         if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-          os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
+          os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
           upload_folder = 'upload'
           result_folder = 'results'     
           if os.path.isdir(upload_folder):
@@ -6215,17 +6271,17 @@ def start_diffusion(page):
           os.mkdir(upload_folder)
           os.mkdir(result_folder)
           short_name = f'{fname[:80]}-{num}.png'
-          dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, short_name)
+          dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
           #print(f'Moving {fpath} to {dst_path}')
           #shutil.move(fpath, dst_path)
           shutil.copy(fpath, dst_path)
           faceenhance = ' --face_enhance' if prefs["face_enhance"] else ''
           #python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {enlarge_scale}{faceenhance}
-          run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
+          run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
           out_file = short_name.rpartition('.')[0] + '_out.png'
           #print(f'move {root_dir}Real-ESRGAN/{result_folder}/{out_file} to {fpath}')
           #shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
-          shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, out_file), fpath)
+          shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), fpath)
           # !python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
           os.chdir(stable_dir)
         
@@ -6249,6 +6305,7 @@ def start_diffusion(page):
           del config_json['alpha_mask']
         if not bool(config_json['mask_image']):
           del config_json['mask_image']
+          del config_json['invert_mask']
         if not bool(config_json['use_clip_guided_model']):
           del config_json["use_clip_guided_model"]
           del config_json["clip_prompt"]
@@ -6394,7 +6451,7 @@ def start_diffusion(page):
     bfolder = fpath.rpartition(slash)[2]
     if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
       prt('Applying Real-ESRGAN Upscaling to images...')
-      os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
+      os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
       upload_folder = 'upload'
       result_folder = 'results'     
       if os.path.isdir(upload_folder):
@@ -6405,16 +6462,16 @@ def start_diffusion(page):
       os.mkdir(result_folder)
       for i in images:
         fname = i.rpartition(slash)[2]
-        dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, fname)
+        dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, fname)
         shutil.move(i, dst_path)
       faceenhance = ' --face_enhance' if prefs["face_enhance"] else ''
-      run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
-      filenames = os.listdir(os.path.join(root_dir, 'Real-ESRGAN', 'results'))
+      run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+      filenames = os.listdir(os.path.join(dist_dir, 'Real-ESRGAN', 'results'))
       for oname in filenames:
         fparts = oname.rpartition('_out')
         fname_clean = fparts[0] + fparts[2]
         opath = os.path.join(fpath, fname_clean)
-        shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, oname), opath)
+        shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, oname), opath)
       os.chdir(stable_dir)
     os.makedirs(os.path.join(batch_output, bfolder), exist_ok=True)
     imgs = os.listdir(fpath)
@@ -6919,7 +6976,7 @@ def run_upscaling(page):
             #print("Cleaning up: " + img_path)
             os.remove(img_path)
     
-    os.chdir(f'{root_dir}/Real-ESRGAN')
+    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
     upload_folder = 'upload'
     result_folder = 'results'
     if os.path.isdir(upload_folder):
@@ -6950,6 +7007,7 @@ def run_upscaling(page):
           return
     else:
       uploaded = files.upload()
+    page.clear_ESRGAN_output(uploaded)
     page.add_to_ESRGAN_output(Text(f"Upscaling {len(uploaded)} images.."))
     for filename in uploaded.keys():
       if not os.path.isfile(filename):
@@ -6962,9 +7020,9 @@ def run_upscaling(page):
       if split_image_grid:
         img = PILImage.open(dst_path)
         split(img, rows, cols, dst_path, True)
-    os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
+    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
     faceenhance = ' --face_enhance' if face_enhance else ''
-    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i {upload_folder} --outscale {enlarge_scale}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
+    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i {upload_folder} --outscale {enlarge_scale}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
     os.chdir(root_dir)
     if is_Colab:
       from google.colab import files
@@ -6972,8 +7030,8 @@ def run_upscaling(page):
       if os.path.isdir(image_path):
           dst_image_path = image_path
       else:
-          dst_image_path = image_path.rpartition(slash)[0]
-    filenames = os.listdir(os.path.join(root_dir, 'Real-ESRGAN', 'results'))
+          dst_image_path = prefs['image_output'] #image_path.rpartition(slash)[0]
+    filenames = os.listdir(os.path.join(dist_dir, 'Real-ESRGAN', 'results'))
     for fname in filenames:
       fparts = fname.rpartition('_out')
       fname_clean = fparts[0] + filename_suffix + fparts[2]
@@ -6981,12 +7039,14 @@ def run_upscaling(page):
       if save_to_GDrive:
         if not os.path.isdir(dst_image_path):
           os.makedirs(dst_image_path)
-        shutil.copy(os.path.join(root_dir, 'Real-ESRGAN', 'results', fname), os.path.join(dst_image_path, fname_clean))
+        shutil.copy(os.path.join(dist_dir, 'Real-ESRGAN', 'results', fname), os.path.join(dst_image_path, fname_clean))
+      else: # TODO PyDrive
+        shutil.copy(os.path.join(dist_dir, 'Real-ESRGAN', 'results', fname), os.path.join(dst_image_path, fname_clean))
       if download_locally:
-        files.download(os.path.join(root_dir, 'Real-ESRGAN', 'results', fname))
+        files.download(os.path.join(dist_dir, 'Real-ESRGAN', 'results', fname))
       if display_image:
-        page.add_to_ESRGAN_output(Image(src=os.path.join(root_dir, 'Real-ESRGAN', 'results', fname)))
-      page.add_to_ESRGAN_output(Row([Text(fname_clean)], alignment=MainAxisAlignment.CENTER))
+        page.add_to_ESRGAN_output(Image(src=os.path.join(dist_dir, 'Real-ESRGAN', 'results', fname)))
+      page.add_to_ESRGAN_output(Row([Text(os.path.join(dst_image_path, fname_clean))], alignment=MainAxisAlignment.CENTER))
 
 def run_retrieve(page):
     upload_file = retrieve_prefs['upload_file']
@@ -8791,7 +8851,7 @@ def run_materialdiffusion(page):
         out_path = batch_output if save_to_GDrive else txt2img_output
         
         if materialdiffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
             upload_folder = 'upload'
             result_folder = 'results'     
             if os.path.isdir(upload_folder):
@@ -8801,19 +8861,19 @@ def run_materialdiffusion(page):
             os.mkdir(upload_folder)
             os.mkdir(result_folder)
             short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, short_name)
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
             #print(f'Moving {fpath} to {dst_path}')
             #shutil.move(fpath, dst_path)
             shutil.copy(image_path, dst_path)
             #faceenhance = ' --face_enhance' if materialdiffusion_prefs["face_enhance"] else ''
             faceenhance = ''
             #python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {enlarge_scale}{faceenhance}
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {materialdiffusion_prefs["enlarge_scale"]}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
+            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {materialdiffusion_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             #print(f'move {root_dir}Real-ESRGAN/{result_folder}/{out_file} to {fpath}')
             #shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             # !python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
             os.chdir(stable_dir)
             if materialdiffusion_prefs['display_upscaled_image']:
@@ -8950,7 +9010,7 @@ def run_dall_e(page):
         out_path = batch_output if save_to_GDrive else txt2img_output
         
         if dall_e_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
             upload_folder = 'upload'
             result_folder = 'results'     
             if os.path.isdir(upload_folder):
@@ -8960,15 +9020,15 @@ def run_dall_e(page):
             os.mkdir(upload_folder)
             os.mkdir(result_folder)
             short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, short_name)
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
             #print(f'Moving {fpath} to {dst_path}')
             #shutil.move(fpath, dst_path)
             shutil.copy(image_path, dst_path)
             faceenhance = ' --face_enhance' if dall_e_prefs["face_enhance"] else ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
+            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
             os.chdir(stable_dir)
             if dall_e_prefs['display_upscaled_image']:
@@ -9099,7 +9159,7 @@ def run_kandinsky(page):
         out_path = batch_output if save_to_GDrive else txt2img_output
         
         if kandinsky_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(root_dir, 'Real-ESRGAN'))
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
             upload_folder = 'upload'
             result_folder = 'results'     
             if os.path.isdir(upload_folder):
@@ -9109,15 +9169,15 @@ def run_kandinsky(page):
             os.mkdir(upload_folder)
             os.mkdir(result_folder)
             short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(root_dir, 'Real-ESRGAN', upload_folder, short_name)
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
             #print(f'Moving {fpath} to {dst_path}')
             #shutil.move(fpath, dst_path)
             shutil.copy(image_path, dst_path)
             faceenhance = ' --face_enhance' if kandinsky_prefs["face_enhance"] else ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {kandinsky_prefs["enlarge_scale"]}{faceenhance}', cwd=f'{root_dir}Real-ESRGAN', realtime=False)
+            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {kandinsky_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(os.path.join(root_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
             os.chdir(stable_dir)
             if kandinsky_prefs['display_upscaled_image']:
