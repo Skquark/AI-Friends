@@ -51,47 +51,6 @@ from IPython.display import clear_output
 #loaded_img2img = False
 #use_Stability_api = False
 
-class Color:
-  END      = '\33[0m'
-  BOLD     = '\33[1m'
-  ITALIC   = '\33[3m'
-  URL      = '\33[4m'
-  BLINK    = '\33[5m'
-  BLINK2   = '\33[6m'
-  SELECTED = '\33[7m'
-  BLACK  = '\33[30m'
-  RED    = '\33[31m'
-  GREEN  = '\33[32m'
-  YELLOW = '\33[33m'
-  BLUE   = '\33[34m'
-  VIOLET = '\33[35m'
-  BEIGE  = '\33[36m'
-  WHITE  = '\33[37m'
-  BLACKBG  = '\33[40m'
-  REDBG    = '\33[41m'
-  GREENBG  = '\33[42m'
-  YELLOWBG = '\33[43m'
-  BLUEBG   = '\33[44m'
-  VIOLETBG = '\33[45m'
-  BEIGEBG  = '\33[46m'
-  WHITEBG  = '\33[47m'
-  GREY    = '\33[90m'
-  RED2    = '\33[91m'
-  GREEN2  = '\33[92m'
-  YELLOW2 = '\33[93m'
-  BLUE2   = '\33[94m'
-  VIOLET2 = '\33[95m'
-  BEIGE2  = '\33[96m'
-  WHITE2  = '\33[97m'
-  GREYBG    = '\33[100m'
-  REDBG2    = '\33[101m'
-  GREENBG2  = '\33[102m'
-  YELLOWBG2 = '\33[103m'
-  BLUEBG2   = '\33[104m'
-  VIOLETBG2 = '\33[105m'
-  BEIGEBG2  = '\33[106m'
-  WHITEBG2  = '\33[107m'
-
 import requests
 import random as rnd
 def version_checker():
@@ -811,7 +770,9 @@ def buildInstallers(page):
     safety_config.update()
   model = get_model(prefs['model_ckpt'])
   model_path = model['path']
-  model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"), dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
+  model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[
+      dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"), 
+      dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"), dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
   finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':10, 'lg':4})
   model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
@@ -1987,7 +1948,7 @@ def buildPromptsList(page):
   prompts_list = Column([],spacing=1)
   prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt, col={'lg':9})
   negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
-  add_prompt_button = ElevatedButton(content=Text(value="➕  Add Prompt", size=17, weight=FontWeight.BOLD), on_click=add_prompt)
+  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if page.width > 720 else ""), size=17, weight=FontWeight.BOLD), on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
   prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True), add_prompt_button])
@@ -2501,7 +2462,7 @@ def buildESRGANupscaler(page):
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ESRGAN_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     image_path = TextField(label="Image File or Folder Path", value=ESRGAN_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     dst_image_path = TextField(label="Destination Image Path", value=ESRGAN_prefs['dst_image_path'], on_change=lambda e:changed(e,'dst_image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_destination), expand=1)
-    filename_suffix = TextField(label="Optional Filename Suffix", value=ESRGAN_prefs['filename_suffix'], on_change=lambda e:changed(e,'filename_suffix'), width=260)
+    filename_suffix = TextField(label="Optional Filename Suffix", hint_text="-big", value=ESRGAN_prefs['filename_suffix'], on_change=lambda e:changed(e,'filename_suffix'), width=260)
     download_locally = Checkbox(label="Download Images Locally", value=ESRGAN_prefs['download_locally'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'download_locally'))
     display_image = Checkbox(label="Display Upscaled Image", value=ESRGAN_prefs['display_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_image'))
     split_image_grid = Switch(label="Split Image Grid", value=ESRGAN_prefs['split_image_grid'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_split)
@@ -2864,7 +2825,7 @@ def buildDanceDiffusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("📂 Create experimental music or sounds with HarmonAI trained audio models", style=TextThemeStyle.TITLE_LARGE),
+        Text("👯 Create experimental music or sounds with HarmonAI trained audio models", style=TextThemeStyle.TITLE_LARGE),
         Text("Tools to train a generative model on arbitrary audio samples..."),
         Divider(thickness=1, height=4),
         Row([dance_model, community_model]),
@@ -4315,7 +4276,11 @@ dreambooth_models = [{'name': 'disco-diffusion-style', 'token': 'a photo of ddfu
 
 def get_model(name):
   #dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4", dropdown.Option("Community Finetuned Model", dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")
-  if name == "Stable Diffusion v2.0":
+  if name == "Stable Diffusion v2.1 x768":
+    return {'name':'Stable Diffusion v2.1 x768', 'path':'stabilityai/stable-diffusion-2-1', 'prefix':''}
+  elif name == "Stable Diffusion v2.1 x512":
+    return {'name':'Stable Diffusion v2.1 x512', 'path':'stabilityai/stable-diffusion-2-1-base', 'prefix':''}
+  elif name == "Stable Diffusion v2.0":
     return {'name':'Stable Diffusion v2.0', 'path':'stabilityai/stable-diffusion-2', 'prefix':'', 'revision': 'fp16'}
   elif name == "Stable Diffusion v2.0 x768":
     return {'name':'Stable Diffusion v2.0 x768', 'path':'stabilityai/stable-diffusion-2', 'prefix':'', 'revision': 'fp16'}
@@ -4408,6 +4373,9 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "DPM Solver":
       from diffusers import DPMSolverMultistepScheduler #"hf-internal-testing/tiny-stable-diffusion-torch"
       s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "DPM Solver Singlestep":
+      from diffusers import DPMSolverSinglestepScheduler
+      s = DPMSolverSinglestepScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "K-Euler Discrete":
       from diffusers import EulerDiscreteScheduler
       s = EulerDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
@@ -4579,8 +4547,8 @@ def get_lpw_pipe():
   #if not os.path.isfile(os.path.join(root_dir, 'lpw_stable_diffusion.py')):
   #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/lpw_stable_diffusion.py")
   #from lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
-  if prefs['higher_vram_mode']:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None)
+  if prefs['higher_vram_mode'] or model['name'] == "Stable Diffusion v2.1 x768": #, revision="fp32"
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None)
   else:
     if 'revision' in model:
       pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None)
@@ -4797,9 +4765,9 @@ def get_composable_pipe():
   
   #if prefs['higher_vram_mode']:
   if True:
-    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, feature_extractor=None)
+    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, feature_extractor=None, safety_checker=None)
   else:
-    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), revision="fp16", torch_dtype=torch.float16, feature_extractor=None)
+    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), revision="fp16", torch_dtype=torch.float16, feature_extractor=None, safety_checker=None)
   pipe_composable = pipe_composable.to(torch_device)
   def dummy(images, **kwargs):
     return images, False
@@ -5232,8 +5200,8 @@ def get_conceptualizer(page):
       else:
         run_sp(f"wget -q -O {downloaded_embedding_folder}/learned_embeds.bin {embeds_url}")
         #!wget -q -O $downloaded_embedding_folder/learned_embeds.bin $embeds_url
-    except:
-      alert_msg(page, f"Error getting concept. May need to accept model at https://huggingface.co/sd-concepts-library/{prefs['concepts_model']}")
+    except Exception as e:
+      alert_msg(page, f"Error getting concept. May need to accept model at https://huggingface.co/sd-concepts-library/{prefs['concepts_model']}", content=Text(e))
       return
     learned_embeds_path = f"{downloaded_embedding_folder}/learned_embeds.bin"
     tokenizer = CLIPTokenizer.from_pretrained(model_path, subfolder="tokenizer")
@@ -5252,7 +5220,11 @@ def get_conceptualizer(page):
       text_encoder.resize_token_embeddings(len(tokenizer))
       token_id = tokenizer.convert_tokens_to_ids(token)
       text_encoder.get_input_embeddings().weight.data[token_id] = embeds
-    load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer)
+    try:
+      load_learned_embed_in_clip(learned_embeds_path, text_encoder, tokenizer)
+    except Exception as e:
+      alert_msg(page, f"Error Loading Concept", content=Text(e))
+      return
     pipe_conceptualizer = StableDiffusionPipeline.from_pretrained(
         model_path,
         revision="fp16",
@@ -5490,16 +5462,23 @@ def available_folder(folder, name, idx):
 def start_diffusion(page):
   global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_safe, pipe_upscale
   global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
-  def prt(line):
+  def prt(line, update=True):
     if type(line) == str:
       line = Text(line)
-    page.imageColumn.controls.append(line)
-    page.imageColumn.update()
-    page.Images.update()
-  def clear_last():
+    try:
+      page.imageColumn.controls.append(line)
+      if update:
+        page.imageColumn.update()
+    except Exception:
+      clear_image_output()
+      pass
+    if update:
+      page.Images.update()
+  def clear_last(update=True):
     del page.imageColumn.controls[-1]
-    page.imageColumn.update()
-    page.Images.update()
+    if update:
+      page.imageColumn.update()
+      page.Images.update()
   abort_run = False
   def abort_diffusion(e):
     nonlocal abort_run
@@ -5526,10 +5505,10 @@ def start_diffusion(page):
     try:
       page.imageColumn.update()
     except Exception as e:
-      alert_msg(page, f"ERROR: Problem Clearing Image Output List. May need to stop script and restart app to recover, sorry...", content=Text(str(e)))
       try:
         page.imageColumn = Column([], auto_scroll=True, scroll=ScrollMode.AUTO)
-      except Exception:
+      except Exception as er:
+        alert_msg(page, f"ERROR: Problem Clearing Image Output List. May need to stop script and restart app to recover, sorry...", content=Text(f'{e}\n{er}'))
         page.Images = buildImages(page)
         pass
       page.update()
@@ -5662,9 +5641,10 @@ def start_diffusion(page):
       #if p_idx % 30 == 0 and p_idx > 1:
       #  clear_output()
       #  print(f"{Color.BEIGE2}Cleared console display due to memory limit in console logging.  Images still saving.{Color.END}")
-      page.auto_scrolling(False)
-      prt(Divider(height=6, thickness=2))
+      prt(Divider(height=6, thickness=2), update=False)
       prt(Row([Text(p_count), Text(pr[0] if type(pr) == list else pr, expand=True, weight=FontWeight.BOLD), Text(f'seed: {arg["seed"]}   ')]))
+      time.sleep(0.1)
+      page.auto_scrolling(False)
       #prt(p_count + ('─' * 90))
       #prt(f'{pr[0] if type(pr) == list else pr} - seed:{arg["seed"]}')
       total_steps = arg['steps']
@@ -5791,6 +5771,7 @@ def start_diffusion(page):
           else:
             response = requests.post(url+"text-to-image", headers=headers, json=payload)
             #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
+          clear_last(update=False)
           clear_last()
           if response != None:
             if response.status_code != 200:
@@ -6240,9 +6221,10 @@ def start_diffusion(page):
         if not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']:
           #print(f"Image path:{image_path}")
           upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
-          time.sleep(0.1)
+          time.sleep(0.2)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(fpath), width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
+          time.sleep(0.3)
           #display(image)
         if prefs['use_upscale'] and status['installed_upscale']:
           clear_pipes(['upscale'])
@@ -6261,6 +6243,9 @@ def start_diffusion(page):
           clear_last()
           #clear_upscale_pipe()
         if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+          w = int(arg['width'] * prefs["enlarge_scale"])
+          h = int(arg['height'] * prefs["enlarge_scale"])
+          prt(Row([Text(f'Enlarging {prefs["enlarge_scale"]}X to {w}x{h}')], alignment=MainAxisAlignment.CENTER))
           os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
           upload_folder = 'upload'
           result_folder = 'results'     
@@ -6284,6 +6269,7 @@ def start_diffusion(page):
           shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), fpath)
           # !python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
           os.chdir(stable_dir)
+          clear_last(update=False)
         
         config_json = arg.copy()
         del config_json['batch_size']
@@ -6424,14 +6410,15 @@ def start_diffusion(page):
         if event.is_directory:
           return None
         elif event.event_type == 'created':
-          clear_last()
           page.auto_scrolling(True)
+          clear_last()
           #p_count = f'[{img_idx + 1} of {(len(walk_prompts) -1) * int(prefs['num_interpolation_steps'])}]  '
           #prt(Divider(height=6, thickness=2))
           #prt(Row([Text(p_count), Text(walk_prompts[img_idx], expand=True, weight=FontWeight.BOLD), Text(f'seed: {walk_seeds[img_idx]}')]))
           prt(Row([Img(src=event.src_path, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
           prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
           page.update()
+          time.sleep(0.2)
           page.auto_scrolling(False)
           prt(pb)
           img_idx += 1
