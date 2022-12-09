@@ -218,6 +218,7 @@ def load_settings_file():
       'install_composable': False,
       'install_safe': False,
       'install_versatile': False,
+      'install_depth2img': False,
       'install_upscale': False,
       'safety_config': 'Strong',
       'use_imagic': False,
@@ -258,6 +259,7 @@ def load_settings_file():
       'precision': 'autocast',
       'use_inpaint_model': False,
       'centipede_prompts_as_init_images': False,
+      'use_depth2img': False,
       'use_interpolation': False,
       'num_interpolation_steps': 22,
       'use_clip_guided_model': False,
@@ -354,6 +356,7 @@ status = {
     'installed_composable': False,
     'installed_safe': False,
     'installed_versatile': False,
+    'installed_depth2img': False,
     'installed_upscale': False,
     'finetuned_model': False,
     'changed_settings': False,
@@ -504,6 +507,8 @@ if 'use_safe' not in prefs: prefs['use_safe'] = False
 if 'safety_config' not in prefs: prefs['safety_config'] = "Strong"
 if 'install_versatile' not in prefs: prefs['install_versatile'] = False
 if 'use_versatile' not in prefs: prefs['use_versatile'] = False
+if 'install_depth2img' not in prefs: prefs['install_depth2img'] = False
+if 'use_depth2img' not in prefs: prefs['use_depth2img'] = False
 if 'install_upscale' not in prefs: prefs['install_upscale'] = False
 if 'use_upscale' not in prefs: prefs['use_upscale'] = False
 if 'upscale_noise_level' not in prefs: prefs['upscale_noise_level'] = 20
@@ -516,6 +521,7 @@ def initState(page):
     if os.path.isdir(os.path.join(root_dir, 'Real-ESRGAN')):
       status['installed_ESRGAN'] = True
     page.load_prompts()
+    # TODO: Try to load from assets folder
     page.snd_alert = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-alert.mp3?raw=true", autoplay=False)
     page.snd_delete = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-delete.mp3?raw=true", autoplay=False)
     page.snd_error = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-error.mp3?raw=true", autoplay=False)
@@ -772,7 +778,8 @@ def buildInstallers(page):
   model_path = model['path']
   model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[
       dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"), 
-      dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"), dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
+      dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"), 
+      dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
   finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':10, 'lg':4})
   model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
@@ -804,6 +811,7 @@ def buildInstallers(page):
   install_interpolation = Tooltip(message="Create multiple tween images between prompts latent space. Almost animation.", content=Switch(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation')))
   #install_dreamfusion = Tooltip(message="Generate interesting mesh .obj, texture and preview video from a prompt.", content=Switch(label="Install Stable Diffusion DreamFusion 3D Pipeline", value=prefs['install_dreamfusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_dreamfusion'], on_change=lambda e:changed(e, 'install_dreamfusion')))
   install_imagic = Tooltip(message="Edit your image according to the prompted instructions like magic.", content=Switch(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic')))
+  install_depth2img = Tooltip(message="Uses Depth-map of init image for text-guided image to image generation.", content=Switch(label="Install Stable Diffusion Depth2Image Pipeline", value=prefs['install_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_depth2img'], on_change=lambda e:changed(e, 'install_depth2img')))
   install_composable = Tooltip(message="Craft your prompts with precise weights and composed together components.", content=Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable')))
   install_safe = Tooltip(message="Use a content quality tuned safety model, providing levels of NSFW protection.", content=Switch(label="Install Stable Diffusion Safe text2image Pipeline", value=prefs['install_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_safe'], on_change=toggle_safe))
   safety_config = Container(Dropdown(label="Model Safety Level", width=350, options=[dropdown.Option("Weak"), dropdown.Option("Medium"), dropdown.Option("Strong"), dropdown.Option("Max")], value=prefs['safety_config'], on_change=lambda e:changed(e, 'safety_config')), padding=padding.only(left=32))
@@ -859,9 +867,12 @@ def buildInstallers(page):
   install_upscale = Tooltip(message="Allows you to enlarge images with prompts. Note: Will run out of mem for images larger than 512px, start small.", content=Switch(label="Install Stable Diffusion v2 Upscale 4X Pipeline", value=prefs['install_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_upscale'], on_change=lambda e:changed(e, 'install_upscale')))
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
-                                 Column([Container(Column([model_row, Container(content=None, height=4), scheduler_mode, higher_vram_mode, enable_attention_slicing, enable_vae_slicing]), padding=padding.only(left=32, top=4)),
+                                 Column([Container(Column([model_row, Container(content=None, height=4), scheduler_mode, higher_vram_mode, 
+                                 #memory_optimization, sequential_cpu_offload,
+                                 enable_attention_slicing, enable_vae_slicing]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, 
-                                         install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, install_versatile, install_imagic, install_composable, install_upscale]))
+                                         install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, 
+                                         install_versatile, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
     prefs['install_Stability_api'] = install_Stability_api.content.value
     has_changed=True
@@ -987,8 +998,17 @@ def buildInstallers(page):
         console_msg("Installing Stable Diffusion RePaint Pipeline...")
         get_repaint(page)
         status['installed_repaint'] = True
+      if prefs['install_depth2img'] and prefs['install_diffusers']:
+        console_msg("Installing Stable Diffusion 2 Depth2Image Pipeline...")
+        get_depth2img(page)
+        status['installed_depth2img'] = True
+        if not status['installed_txt2img']:
+          page.img_block.height = None
+          page.img_block.update()
+        page.use_depth2img.visible = True
+        page.use_depth2img.update()
       if prefs['install_imagic'] and prefs['install_diffusers']:
-        console_msg("Installing Stable Diffusion iMagic image2imge Pipeline...")
+        console_msg("Installing Stable Diffusion iMagic image2image Pipeline...")
         get_imagic(page)
         status['installed_imagic'] = True
         if not status['installed_txt2img']:
@@ -1353,7 +1373,8 @@ def buildParameters(page):
   page.clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.use_conceptualizer_model = Tooltip(message="Use Textual-Inversion Community Model Concepts", content=Switch(label="Use Custom Conceptualizer Model", tooltip="Use Textual-Inversion Community Model", value=prefs['use_conceptualizer'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_conceptualizer))
   page.use_conceptualizer_model.visible = bool(status['installed_conceptualizer'])
-
+  page.use_depth2img = Tooltip(message="To use, provide init_image with a good composition and prompts to approximate same depth.", content=Switch(label="Use Depth2Image Pipeline for img2img init image generation", value=prefs['use_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_depth2img')))
+  page.use_depth2img.visible = bool(status['installed_depth2img'])
   page.use_imagic = Tooltip(message="Allows you to edit an image with prompt text.", content=Switch(label="Use iMagic for img2img init image editing", value=prefs['use_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_imagic')))
   page.use_imagic.visible = bool(status['installed_imagic'])
   page.use_composable = Tooltip(message="Allows conjunction and negation operators for compositional generation with conditional diffusion models", content=Switch(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_composable')))
@@ -1401,7 +1422,7 @@ def buildParameters(page):
         Text ("📝  Stable Diffusion Image Parameters", style=TextThemeStyle.TITLE_LARGE),
         Divider(thickness=1, height=4),
         param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
-        page.interpolation_block, page.use_safe, page.img_block, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_conceptualizer_model, page.use_imagic, page.use_composable, page.use_upscale, page.ESRGAN_block,
+        page.interpolation_block, page.use_safe, page.img_block, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_conceptualizer_model, page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
         #parameters_row,
       ],
@@ -2343,6 +2364,7 @@ So in Subject try something like: `A _color_ _noun-general_ that is _adj-beauty_
 def buildStableDiffusers(page):
     page.DanceDiffusion = buildDanceDiffusion(page)
     page.RePainter = buildRepainter(page)
+    page.ImageVariation = buildImageVariation(page)
     page.CLIPstyler = buildCLIPstyler(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.MaskMaker = buildDreamMask(page)
@@ -2355,6 +2377,7 @@ def buildStableDiffusers(page):
         tabs=[
             Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
             Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
+            Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
@@ -3023,6 +3046,116 @@ def buildRepainter(page):
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO)
+    return c
+
+image_variation_prefs = {
+    'init_image': '',
+    'guidance_scale': 7.5,
+    'num_inference_steps': 50,
+    'eta': 0.4,
+    'seed': 0,
+    'num_images': 1,
+    'file_name': '',
+    'max_size': 1024,
+    'width': 960,
+    'height': 512,
+}
+def buildImageVariation(page):
+    global image_variation_prefs, prefs, pipe_image_variation
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        if ptype == "int":
+          image_variation_prefs[pref] = int(e.control.value)
+        elif ptype == "float":
+          image_variation_prefs[pref] = float(e.control.value)
+        else:
+          image_variation_prefs[pref] = e.control.value
+    def add_to_image_variation_output(o):
+      page.image_variation_output.controls.append(o)
+      page.image_variation_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_image_variation_output = add_to_image_variation_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.image_variation_output.controls = []
+      page.image_variation_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def image_variation_help(e):
+      def close_image_variation_dlg(e):
+        nonlocal image_variation_help_dlg
+        image_variation_help_dlg.open = False
+        page.update()
+      image_variation_help_dlg = AlertDialog(title=Text("🙅   Help with Image Variations"), content=Column([
+          Text("Give it any of your favorite images and create variations of it.... Simple as that, no prompt needed."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🤗  Sounds Fun... ", on_click=close_image_variation_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = image_variation_help_dlg
+      image_variation_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        image_variation_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        fname = os.path.join(root_dir, e.file_name)
+        init_image.value = fname
+        init_image.update()
+        image_variation_prefs['init_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_init(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
+    def change_guidance(e):
+      guidance_value.value = f" {e.control.value}"
+      guidance_value.update()
+      #guidance.controls[1].value = f" {e.control.value}"
+      guidance.update()
+      changed(e, 'guidance_scale', ptype="float")
+    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=image_variation_prefs['guidance_scale'], on_change=change_guidance, expand=True)
+    guidance_value = Text(f" {image_variation_prefs['guidance_scale']}", weight=FontWeight.BOLD)
+    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    init_image = TextField(label="Initial Image", value=image_variation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    seed = TextField(label="Seed", width=90, value=str(image_variation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    
+    #num_inference_steps = TextField(label="Inference Steps", value=str(image_variation_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
+    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(image_variation_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
+    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps])
+    #eta = TextField(label="ETA", value=str(image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
+    eta_row = Row([Text("DDIM ETA: "), eta])
+    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(image_variation_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
+    max_row = Row([Text("Max Resolution Size: "), max_size])
+    page.image_variation_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.image_variation_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🪩  Image Variations of any Init Image", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Creates a new version of your picture, without a prompt..."),
+        Divider(thickness=1, height=4),
+        init_image,
+        #Row([init_image, mask_image, invert_mask]),
+        num_inference_row,
+        guidance,
+        eta_row,
+        max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=image_variation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed]),
+        ElevatedButton(content=Text("🖍️  Get Image Variation", size=18), on_click=lambda _: run_image_variation(page)),
+        page.image_variation_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=True)
     return c
 
 materialdiffusion_prefs = {
@@ -4203,6 +4336,8 @@ pipe_versatile_text2img = None
 pipe_versatile_variation = None
 pipe_versatile_dualguided = None
 pipe_upscale = None
+pipe_depth = None
+pipe_image_variation = None
 pipe_kandinsky = None
 stability_api = None
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -4236,6 +4371,7 @@ finetuned_models = [
     {"name": "WikiArt v2", "path": "valhalla/sd-wikiart-v2", "prefix": ""},
     {"name": "Jak's Woolitize", "path": "plasmo/woolitize", "prefix": "woolitize "},
     {"name": "Inkpunk Diffusion", "path": "Envvi/Inkpunk-Diffusion", "prefix": "nvinkpunk "},
+    {"name": "Simpsons Model", "path": "Norod78/sd-simpsons-model", "prefix":""},
     {"name": "Spider-Verse", "path": "nitrosocke/spider-verse-diffusion", "prefix":"spiderverse style "},
     {"name": "Pokémon", "path": "lambdalabs/sd-pokemon-diffusers", "prefix": ""},
     {"name": "Pony Diffusion", "path": "AstraliteHeart/pony-diffusion", "prefix": ""},
@@ -4277,7 +4413,7 @@ dreambooth_models = [{'name': 'disco-diffusion-style', 'token': 'a photo of ddfu
 def get_model(name):
   #dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4", dropdown.Option("Community Finetuned Model", dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")
   if name == "Stable Diffusion v2.1 x768":
-    return {'name':'Stable Diffusion v2.1 x768', 'path':'stabilityai/stable-diffusion-2-1', 'prefix':''}
+    return {'name':'Stable Diffusion v2.1 x768', 'path':'stabilityai/stable-diffusion-2-1', 'prefix':'fp16'}
   elif name == "Stable Diffusion v2.1 x512":
     return {'name':'Stable Diffusion v2.1 x512', 'path':'stabilityai/stable-diffusion-2-1-base', 'prefix':''}
   elif name == "Stable Diffusion v2.0":
@@ -4474,10 +4610,23 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
+def optimize_pipe(p, vae=True):
+    if prefs['sequential_cpu_offload']:
+      p.enable_sequential_cpu_offload()
+    if prefs['memory_optimization'] == 'Attention Slicing':
+      #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
+      if prefs['sequential_cpu_offload']:
+        p.enable_attention_slicing(1)
+      else:
+        p.enable_attention_slicing()
+    elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+      p.enable_xformers_memory_efficient_attention()
+    if prefs['vae_slicing'] and vae:
+      p.enable_vae_slicing()
+    return p
+
 def get_text2image(page):
     os.chdir(root_dir)
-    torch_device = "cuda" if torch.cuda.is_available() else "cpu"
-    from diffusers import StableDiffusionPipeline
     global pipe, unet, scheduler, prefs
     def open_url(e):
       page.launch_url(e.data)
@@ -4528,12 +4677,7 @@ def get_mega_pipe():
     pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="stable_diffusion_mega", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   pipe = pipe.to(torch_device)
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    pipe.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe.enable_xformers_memory_efficient_attention()
-  if prefs['sequential_cpu_offload']:
-    pipe.enable_sequential_cpu_offload()
+  pipe = optimize_pipe(pipe)
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
@@ -4548,33 +4692,22 @@ def get_lpw_pipe():
   #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/lpw_stable_diffusion.py")
   #from lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
   if prefs['higher_vram_mode'] or model['name'] == "Stable Diffusion v2.1 x768": #, revision="fp32"
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None)
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
   else:
     if 'revision' in model:
-      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None)
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
     else:
       if 'vae' in model:
         from diffusers import AutoencoderKL, UNet2DConditionModel
         vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
         unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16)
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None)
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
       else:
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None)
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   pipe = pipe.to(torch_device)
-  if prefs['sequential_cpu_offload']:
-    pipe.enable_sequential_cpu_offload()
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
-    if prefs['sequential_cpu_offload']:
-      pipe.enable_attention_slicing(1)
-    else:
-      pipe.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe.enable_xformers_memory_efficient_attention()
-  if prefs['vae_slicing']:
-    pipe.enable_vae_slicing()
+  pipe = optimize_pipe(pipe)
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
@@ -4586,14 +4719,7 @@ def get_txt2img_pipe():
   #if status['finetuned_model']:
   #  vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
   #  unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16)
-  if prefs['higher_vram_mode']:
-    pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-  else:
-    pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-  if prefs['memory_optimization'] != 'None':
-    pipe.enable_attention_slicing()
-  if prefs['vae_slicing']:
-    pipe.enable_vae_slicing()
+  pipe = optimize_pipe(pipe)
   pipe.set_progress_bar_config(disable=True)
   pipe = pipe.to(torch_device)
   return pipe
@@ -4654,8 +4780,7 @@ def get_interpolation_pipe():
         pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     pipe_interpolation = pipe_interpolation.to(torch_device)
-    if prefs['memory_optimization'] != 'None':
-      pipe_interpolation.enable_attention_slicing()
+    pipe_interpolation = optimize_pipe(pipe_interpolation, vae=False)
     pipe_interpolation.set_progress_bar_config(disable=True)
     return pipe_interpolation
 
@@ -4706,15 +4831,7 @@ def get_img2img_pipe():
   #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
   if prefs['sequential_cpu_offload']:
     pipe_img2img.enable_sequential_cpu_offload()
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    if prefs['sequential_cpu_offload']:
-      pipe_img2img.enable_attention_slicing(1)
-    else:
-      pipe_img2img.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe_img2img.enable_xformers_memory_efficient_attention()
-  if prefs['vae_slicing']:
-    pipe_img2img.enable_vae_slicing()
+  pipe_img2img = optimize_pipe(pipe_img2img)
   pipe_img2img.set_progress_bar_config(disable=True)
   #def dummy(images, **kwargs): return images, False
   #pipe_img2img.safety_checker = dummy
@@ -4743,10 +4860,7 @@ def get_imagic_pipe():
     return images, False
   if prefs['disable_nsfw_filter']:
     pipe_imagic.safety_checker = dummy
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    pipe_imagic.enable_attention_slicing()
-  if prefs['vae_slicing']:
-    pipe_imagic.enable_vae_slicing()
+  pipe_imagic = optimize_pipe(pipe_imagic)
   #pipe_imagic.set_progress_bar_config(disable=True)
   return pipe_imagic
 
@@ -4773,10 +4887,7 @@ def get_composable_pipe():
     return images, False
   if prefs['disable_nsfw_filter']:
     pipe_composable.safety_checker = dummy
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    pipe_composable.enable_attention_slicing()
-  if prefs['vae_slicing']:
-    pipe_composable.enable_vae_slicing()
+  pipe_composable = optimize_pipe(pipe_composable)
   #pipe_composable.set_progress_bar_config(disable=True)
   return pipe_composable
 
@@ -4814,13 +4925,7 @@ def get_versatile_pipe(): # Mega was taking up too much vram and crashing the sy
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   pipe_versatile.to(torch_device)
-  #if prefs['enable_attention_slicing']: pipe_versatile.enable_attention_slicing() #slice_size
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    pipe_versatile.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe_versatile.enable_xformers_memory_efficient_attention()
-  if prefs['sequential_cpu_offload']:
-    pipe_versatile.enable_sequential_cpu_offload()
+  pipeversatile = optimize_pipe(pipeversatile)
   pipe_versatile.set_progress_bar_config(disable=True)
   return pipe_versatile
 
@@ -4846,16 +4951,7 @@ def get_versatile_text2img_pipe():
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   pipe_versatile_text2img.to(torch_device)
-  #if prefs['enable_attention_slicing']: pipe_versatile.enable_attention_slicing() #slice_size
-  if prefs['sequential_cpu_offload']:
-    pipe_versatile_text2img.enable_sequential_cpu_offload()
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    if prefs['sequential_cpu_offload']:
-      pipe_versatile_text2img.enable_attention_slicing(1)
-    else:
-      pipe_versatile_text2img.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe_versatile_text2img.enable_xformers_memory_efficient_attention()
+  pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img)
   pipe_versatile_text2img.set_progress_bar_config(disable=True)
   return pipe_versatile_text2img
 
@@ -4881,16 +4977,7 @@ def get_versatile_variation_pipe():
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   pipe_versatile_variation.to(torch_device)
-  #if prefs['enable_attention_slicing']: pipe_versatile.enable_attention_slicing() #slice_size
-  if prefs['sequential_cpu_offload']:
-    pipe_versatile_variation.enable_sequential_cpu_offload()
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    if prefs['sequential_cpu_offload']:
-      pipe_versatile_variation.enable_attention_slicing(1)
-    else:
-      pipe_versatile_variation.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe_versatile_variation.enable_xformers_memory_efficient_attention()
+  pipe_versatile_variation = optimize_pipe(pipe_versatile_variation)
   pipe_versatile_variation.set_progress_bar_config(disable=True)
   return pipe_versatile_variation
 
@@ -4916,16 +5003,7 @@ def get_versatile_dualguided_pipe():
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   pipe_versatile_dualguided.to(torch_device)
-  #if prefs['enable_attention_slicing']: pipe_versatile.enable_attention_slicing() #slice_size
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    if prefs['sequential_cpu_offload']:
-      pipe_versatile_dualguided.enable_attention_slicing(1)
-    else:
-      pipe_versatile_dualguided.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe_versatile_dualguided.enable_xformers_memory_efficient_attention()
-  if prefs['sequential_cpu_offload']:
-    pipe_versatile_dualguided.enable_sequential_cpu_offload()
+  pipe_versatile_dualguided = optimize_pipe(pipe_versatile_dualguided)
   pipe_versatile_dualguided.set_progress_bar_config(disable=True)
   return pipe_versatile_dualguided
 
@@ -4972,16 +5050,7 @@ def get_safe_pipe():
         safety_checker=None# if prefs['disable_nsfw_filter'] else SafeStableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
       )
   pipe_safe.to(torch_device)
-  #if prefs['enable_attention_slicing']: pipe_safe.enable_attention_slicing() #slice_size
-  if prefs['sequential_cpu_offload']:
-    pipe_safe.enable_sequential_cpu_offload()
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    if prefs['sequential_cpu_offload']:
-      pipe_safe.enable_attention_slicing(1)
-    else:
-      pipe_safe.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe_safe.enable_xformers_memory_efficient_attention()
+  pipe_safe = optimize_pipe(pipe_safe, vae=False)
   pipe_safe.set_progress_bar_config(disable=True)
   return pipe_safe
 
@@ -5019,13 +5088,7 @@ def get_upscale_pipe():
       #safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
     )
   pipe_upscale.to(torch_device)
-  #if prefs['enable_attention_slicing']: pipe_upscale.enable_attention_slicing() #slice_size
-  if prefs['memory_optimization'] == 'Attention Slicing':
-    pipe_upscale.enable_attention_slicing()
-  elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    pipe_upscale.enable_xformers_memory_efficient_attention()
-  if prefs['sequential_cpu_offload']:
-    pipe_upscale.enable_sequential_cpu_offload()
+  pipe_upscale = optimize_pipe(pipe_upscale, vae=False)
   pipe_upscale.set_progress_bar_config(disable=True)
   return pipe_upscale
 
@@ -5088,10 +5151,7 @@ def get_clip_guided_pipe():
         clip_model=clip_model,
         feature_extractor=feature_extractor,
     )'''
-    if prefs['memory_optimization'] != 'None':
-      pipe_clip_guided.enable_attention_slicing()
-    #if prefs['vae_slicing']:
-    #  pipe_clip_guided.enable_vae_slicing()
+    pipe_clip_guided = optimize_pipe(pipe_clip_guided, vae=False)
     return pipe_clip_guided
 
 def get_repaint(page):
@@ -5114,6 +5174,33 @@ def get_repaint_pipe():
     pipe_repaint = RePaintPipeline(unet=unet, scheduler=repaint_scheduler).to(torch_device)
     return pipe_repaint
 
+def get_depth2img(page):
+  global pipe_depth
+  pipe_depth = get_depth_pipe()
+
+def get_depth_pipe():
+  global pipe_depth, prefs
+  from diffusers import StableDiffusionDepth2ImgPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  model_id = "stabilityai/stable-diffusion-2-depth"
+  if prefs['higher_vram_mode']:
+    pipe_depth = StableDiffusionDepth2ImgPipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+    )
+  else:
+    pipe_depth = StableDiffusionDepth2ImgPipeline.from_pretrained(
+        model_id,
+        scheduler=model_scheduler(model_id),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        revision="fp16", 
+        torch_dtype=torch.float16,
+    )
+  pipe_depth.to(torch_device)
+  pipe_depth = optimize_pipe(pipe_depth, vae=False)
+  pipe_depth.set_progress_bar_config(disable=True)
+  return pipe_depth
 
 SD_sampler = None
 def get_stability(page):
@@ -5234,13 +5321,7 @@ def get_conceptualizer(page):
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
     )
-    #if prefs['enable_attention_slicing']: pipe_conceptualizer.enable_attention_slicing()
-    if prefs['memory_optimization'] == 'Attention Slicing':
-      pipe_conceptualizer.enable_attention_slicing()
-    elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-      pipe_conceptualizer.enable_xformers_memory_efficient_attention()
-    if prefs['sequential_cpu_offload']:
-      pipe_conceptualizer.enable_sequential_cpu_offload()
+    pipe_conceptualizer = optimize_pipe(pipe_conceptualizer, vae=False)
     pipe_conceptualizer.set_progress_bar_config(disable=True)
     pipe_conceptualizer = pipe_conceptualizer.to(torch_device)
     return pipe_conceptualizer
@@ -5402,7 +5483,13 @@ def clear_versatile_dualguided_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_versatile_dualguided = None
-
+def clear_depth_pipe():
+  global pipe_depth
+  if pipe_depth is not None:
+    del pipe_depth
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_depth = None
 def clear_safe_pipe():
   global pipe_safe
   if pipe_safe is not None:
@@ -5417,7 +5504,13 @@ def clear_upscale_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_upscale = None
-
+def clear_image_variation_pipe():
+  global pipe_image_variation
+  if pipe_image_variation is not None:
+    del pipe_image_variation
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_image_variation = None
 def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
     if not 'txt2img' in but: clear_txt2img_pipe()
@@ -5431,8 +5524,10 @@ def clear_pipes(allbut=None):
     if not 'versatile_text2img' in but: clear_versatile_text2img_pipe()
     if not 'versatile_variation' in but: clear_versatile_variation_pipe()
     if not 'versatile_dualguided' in but: clear_versatile_dualguided_pipe()
+    if not 'depth' in but: clear_depth_pipe()
     if not 'safe' in but: clear_safe_pipe()
     if not 'upscale' in but: clear_upscale_pipe()
+    if not 'image_variation' in but: clear_image_variation_pipe()
 
 import base64
 def get_base64(image_path):
@@ -5460,7 +5555,7 @@ def available_folder(folder, name, idx):
 #import asyncio
 #async 
 def start_diffusion(page):
-  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_safe, pipe_upscale
+  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_safe, pipe_upscale
   global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
   def prt(line, update=True):
     if type(line) == str:
@@ -5976,7 +6071,7 @@ def start_diffusion(page):
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['init_image']):
-              if not status['installed_txt2img'] and not (prefs['use_imagic'] and status['installed_imagic']):
+              if not status['installed_txt2img'] and not (prefs['use_imagic'] and status['installed_imagic']) and not (prefs['use_depth2img'] and status['installed_depth2img']):
                 alert_msg(page, f"CRITICAL ERROR: You have not installed the image2image pipeline yet.  Run in the Installer..")
                 continue
               if prefs['use_versatile'] and status['installed_versatile']:
@@ -5992,6 +6087,12 @@ def start_diffusion(page):
                     prt(Row([ProgressRing(), Text("Initializing Versatile Image Variation Pipeline...", weight=FontWeight.BOLD)]))
                     pipe_versatile_variation = get_versatile_variation_pipe()
                     clear_last()
+              elif prefs['use_depth2img'] and status['installed_depth2img']:
+                clear_pipes("depth")
+                if pipe_depth is None:
+                  prt(Row([ProgressRing(), Text("Initializing SD2 Depth2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  pipe_depth = get_depth_pipe()
+                  clear_last()
               elif prefs['use_inpaint_model'] and status['installed_img2img']:
                 clear_pipes("img2img")
                 if pipe_img2img is None:
@@ -6038,6 +6139,8 @@ def start_diffusion(page):
                   images = pipe_versatile_dualguided(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, text_to_image_strength= arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 else:
                   images = pipe_versatile_variation(negative_prompt=arg['negative_prompt'], image=init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_depth2img'] and status['installed_depth2img']:
+                images = pipe_depth(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_inpaint_model'] and status['installed_img2img']:
                 white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
                 images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -7357,6 +7460,88 @@ def run_repainter(page):
     prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_image_variation(page):
+    global image_variation_prefs, pipe_image_variation
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.image_variation_output.controls.append(line)
+      page.image_variation_output.update()
+    def clear_last():
+      del page.image_variation_output.controls[-1]
+      page.image_variation_output.update()
+    progress = ProgressBar(bar_height=8)
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = image_variation_prefs['num_inference_steps']#len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.update()
+    page.image_variation_output.controls.clear()
+    from io import BytesIO
+    from PIL import Image as PILImage
+    from PIL import ImageOps
+    if image_variation_prefs['init_image'].startswith('http'):
+      init_img = PILImage.open(requests.get(image_variation_prefs['init_image'], stream=True).raw)
+    else:
+      if os.path.isfile(image_variation_prefs['init_image']):
+        init_img = PILImage.open(image_variation_prefs['init_image'])
+      else:
+        alert_msg(page, f"ERROR: Couldn't find your init_image {image_variation_prefs['init_image']}")
+        return
+    width, height = init_img.size
+    width, height = scale_dimensions(width, height, image_variation_prefs['max_size'])
+    init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
+    init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    clear_pipes('image_variation')
+    if pipe_image_variation == None:
+        from diffusers import StableDiffusionImageVariationPipeline
+        prt(Row([ProgressRing(), Text(" Downloading Image Variation Pipeline", weight=FontWeight.BOLD)]))
+        model_id = "fusing/sd-image-variations-diffusers"
+        pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, scheduler=model_scheduler(model_id), safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_image_variation.to(torch_device)
+        pipe_image_variation = optimize_pipe(pipe_image_variation)
+        #pipe_image_variation.set_progress_bar_config(disable=True)
+        clear_last()
+    s = "s" if image_variation_prefs['num_images'] > 1 else ""
+    prt(f"Generating Variation{s} of your Image...")
+    prt(progress)
+    random_seed = int(image_variation_prefs['seed']) if int(image_variation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+
+    try:
+        images = pipe_image_variation(image=init_img, height=height, width=width, num_inference_steps=image_variation_prefs['num_inference_steps'], guidance_scale=image_variation_prefs['guidance_scale'], eta=image_variation_prefs['eta'], num_images_per_prompt=image_variation_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+    except Exception as e:
+        clear_last()
+        clear_last()
+        alert_msg(page, "Error running pipeline", content=Text(str(e)))
+        return
+    clear_last()
+    clear_last()
+    fname = image_variation_prefs['init_image'].rpartition('.')[0]
+    fname = fname.rpartition(slash)[2]
+    if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+    for image in images:
+        image_path = available_file(stable_dir, fname, 1)
+        image.save(image_path)
+        out_path = image_path
+        prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        #TODO: ESRGAN, Metadata & PyDrive
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(prefs['image_output'], fname, 1)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(prefs['image_output'], fname, 1)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_CLIPstyler(page):
     def prt(line):
