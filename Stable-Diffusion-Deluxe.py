@@ -607,7 +607,7 @@ def buildSettings(page):
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters", value=prefs['disable_nsfw_filter'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
   retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
-  api_instructions = Container(height=147, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens and accept the cards for [1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5), [1.4 model](https://huggingface.co/CompVis/stable-diffusion-v1-4),  & [Inpainting model](https://huggingface.co/runwayml/stable-diffusion-inpainting).\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=152, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens and accept the cards for [1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5), [1.4 model](https://huggingface.co/CompVis/stable-diffusion-v1-4),  & [Inpainting model](https://huggingface.co/runwayml/stable-diffusion-inpainting).\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
@@ -635,12 +635,12 @@ def buildSettings(page):
         Row([theme_mode, theme_color]),
         Row([enable_sounds, start_in_installation]),
         #VerticalDivider(thickness=2, width=1),
-        api_instructions,
         HuggingFace_api,
         Stability_api,
         OpenAI_api,
         TextSynth_api,
         Replicate_api,
+        api_instructions,
         #save_button,
         Container(content=None, height=32),
       ],  
@@ -720,10 +720,10 @@ def buildInstallers(page):
   #save_to_GDrive = Checkbox(label="Save to Google Drive", value=prefs['save_to_GDrive'])
 
   def toggle_diffusers(e):
-    prefs['install_diffusers'] = install_diffusers.content.value
-    diffusers_settings.height=None if prefs['install_diffusers'] else 0
-    diffusers_settings.update()
-    status['changed_installers'] = True
+      prefs['install_diffusers'] = install_diffusers.content.value
+      diffusers_settings.height=None if prefs['install_diffusers'] else 0
+      diffusers_settings.update()
+      status['changed_installers'] = True
   install_diffusers = Tooltip(message="Required Libraries for most Image Generation functionality", content=Switch(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_diffusers))
 
   scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the noise", width=200,
@@ -742,38 +742,38 @@ def buildInstallers(page):
             ], value=prefs['scheduler_mode'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_mode'),
         )
   def changed_model_ckpt(e):
-    changed(e, 'model_ckpt')
-    model = get_model(e.control.value)
-    model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-    model_card.update()
-    if e.control.value.startswith("Stable"):
-      custom_area.content = model_card
-    elif e.control.value == "Community Finetuned Model":
-      custom_area.content = Row([finetuned_model, model_card])
-    elif e.control.value == "DreamBooth Library Model":
-      custom_area.content = Row([dreambooth_library, model_card])
-    elif e.control.value == "Custom Model Path":
-      custom_area.content = Row([custom_model, model_card])
-    custom_area.update()
+      changed(e, 'model_ckpt')
+      model = get_model(e.control.value)
+      model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
+      model_card.update()
+      if e.control.value.startswith("Stable"):
+        custom_area.content = model_card
+      elif e.control.value == "Community Finetuned Model":
+        custom_area.content = Row([finetuned_model, model_card])
+      elif e.control.value == "DreamBooth Library Model":
+        custom_area.content = Row([dreambooth_library, model_card])
+      elif e.control.value == "Custom Model Path":
+        custom_area.content = Row([custom_model, model_card])
+      custom_area.update()
   def changed_finetuned_model(e):
-    changed(e, 'finetuned_model')
-    model = get_finetuned_model(e.control.value)
-    model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-    model_card.update()
+      changed(e, 'finetuned_model')
+      model = get_finetuned_model(e.control.value)
+      model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
+      model_card.update()
   def changed_dreambooth_library(e):
-    changed(e, 'dreambooth_model')
-    model = get_dreambooth_model(e.control.value)
-    model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-    model_card.update()
+      changed(e, 'dreambooth_model')
+      model = get_dreambooth_model(e.control.value)
+      model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
+      model_card.update()
   def changed_custom_model(e):
-    changed(e, 'custom_model')
-    model = {'name': 'Custom Model', 'path': e.control.value, 'prefix': ''}
-    model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-    model_card.update()
+      changed(e, 'custom_model')
+      model = {'name': 'Custom Model', 'path': e.control.value, 'prefix': ''}
+      model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
+      model_card.update()
   def toggle_safe(e):
-    changed(e, 'install_safe')
-    safety_config.visible = e.control.value
-    safety_config.update()
+      changed(e, 'install_safe')
+      safety_config.visible = e.control.value
+      safety_config.update()
   model = get_model(prefs['model_ckpt'])
   model_path = model['path']
   model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[
@@ -783,21 +783,21 @@ def buildInstallers(page):
   finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':10, 'lg':4})
   model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
-    finetuned_model.options.append(dropdown.Option(mod["name"]))
+      finetuned_model.options.append(dropdown.Option(mod["name"]))
   dreambooth_library = Dropdown(label="DreamBooth Library", hint_text="", width=370, options=[], value=prefs['dreambooth_model'], autofocus=False, on_change=changed_dreambooth_library, col={'xs':10, 'md':4})
   for db in dreambooth_models:
-    dreambooth_library.options.append(dropdown.Option(db["name"]))
+      dreambooth_library.options.append(dropdown.Option(db["name"]))
   custom_model = TextField(label="Custom Model Path", value=prefs['custom_model'], width=370, on_change=changed_custom_model)
   #custom_area = AnimatedSwitcher(model_card, transition="scale", duration=500, reverse_duration=200, switch_in_curve=AnimationCurve.EASE_OUT, switch_out_curve="easeIn")
   custom_area = Container(model_card, col={'xs':4, 'lg':2})
   if prefs['model_ckpt'].startswith("Stable"):
-    custom_area.content = model_card
+      custom_area.content = model_card
   elif prefs['model_ckpt'] == "Community Finetuned Model":
-    custom_area.content = Row([finetuned_model, model_card], col={'xs':9, 'lg':4})
+      custom_area.content = Row([finetuned_model, model_card], col={'xs':9, 'lg':4})
   elif prefs['model_ckpt'] == "DreamBooth Library Model":
-    custom_area.content = Row([dreambooth_library, model_card], col={'xs':9, 'lg':4})
+      custom_area.content = Row([dreambooth_library, model_card], col={'xs':9, 'lg':4})
   elif prefs['model_ckpt'] == "Custom Model Path":
-    custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
+      custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
   model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
   memory_optimization = Dropdown(label="Enable Memory Optimization", width=350, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
@@ -824,7 +824,7 @@ def buildInstallers(page):
       clip_settings.height=None if prefs['install_CLIP_guided'] else 0
       clip_settings.update()
   install_CLIP_guided = Tooltip(message="Uses alternative LAION & OpenAI ViT diffusion. Takes more VRAM, so may need to make images smaller", content=Switch(label="Install Stable Diffusion CLIP-Guided Pipeline", value=prefs['install_CLIP_guided'], disabled=status['installed_clip'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
-  clip_model_id = Dropdown(label="CLIP Model ID", hint_text="Hard to explain, but they take up more VRAM, so may need to make images smaller", width=350,
+  clip_model_id = Dropdown(label="CLIP Model ID", width=350,
             options=[
                 dropdown.Option("laion/CLIP-ViT-B-32-laion2B-s34B-b79K"),
                 dropdown.Option("laion/CLIP-ViT-L-14-laion2B-s32B-b82K"),
@@ -874,14 +874,14 @@ def buildInstallers(page):
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, 
                                          install_versatile, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
-    prefs['install_Stability_api'] = install_Stability_api.content.value
-    has_changed=True
-    #print(f"Toggle Stability {prefs['install_Stability_api']}")
-    stability_settings.height=None if prefs['install_Stability_api'] else 0
-    stability_settings.update()
-    page.update()
-    #stability_box.content = stability_settings if prefs['install_stability'] else Container(content=None)
-    #stability_box.update()
+      prefs['install_Stability_api'] = install_Stability_api.content.value
+      has_changed=True
+      #print(f"Toggle Stability {prefs['install_Stability_api']}")
+      stability_settings.height=None if prefs['install_Stability_api'] else 0
+      stability_settings.update()
+      page.update()
+      #stability_box.content = stability_settings if prefs['install_stability'] else Container(content=None)
+      #stability_box.update()
   install_Stability_api = Tooltip(message="Use DreamStudio.com servers without your GPU to create images on CPU.", content=Switch(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_stability))
   use_Stability_api = Checkbox(label="Use Stability-ai API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
   model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
@@ -1065,18 +1065,18 @@ def buildInstallers(page):
         page.ESRGAN_block_dalle.update()
         page.ESRGAN_block_kandinsky.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
-        console_msg("Installing OpenAI GPT-3 Libraries...")
         try:
           import openai
         except ImportError as e:
+          console_msg("Installing OpenAI GPT-3 Libraries...")
           run_process("pip install openai -qq", page=page)
           pass
         status['installed_OpenAI'] = True
       if prefs['install_TextSynth'] and not status['installed_TextSynth']:
-        console_msg("Installing TextSynth GPT-J Libraries...")
         try:
           from textsynthpy import TextSynth, Complete
         except ImportError as e:
+          console_msg("Installing TextSynth GPT-J Libraries...")
           run_process("pip install textsynthpy -qq", page=page)
           pass
         status['installed_TextSynth'] = True
@@ -3444,11 +3444,11 @@ def buildDallE2(page):
     #height = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_prefs['height'], on_change=change_height, expand=True)
     #height_value = Text(f" {int(dall_e_prefs['height'])}px", weight=FontWeight.BOLD)
     #height_slider = Row([Text(f"Height: "), height_value, height])
-    init_image = TextField(label="Init Image", value=dall_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, col={"xs":10, "md":4}, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
-    mask_image = TextField(label="Mask Image", value=dall_e_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, col={"xs":10, "md":4}, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
-    variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_prefs['variation'], col={"xs":2}, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
-    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_prefs['invert_mask'], col={"xs":2}, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
-    image_pickers = Container(content=ResponsiveRow([init_image, variation, mask_image, invert_mask], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    init_image = TextField(label="Init Image", value=dall_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
+    mask_image = TextField(label="Mask Image", value=dall_e_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
+    variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_prefs['variation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    image_pickers = Container(content=ResponsiveRow([Row([init_image, variation], col={"md":6}), Row([mask_image, invert_mask], col={"md":6})], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=dall_e_prefs['prompt_strength'], on_change=change_strength, expand=True)
     #strength_value = Text(f" {int(dall_e_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD) 
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
@@ -3464,9 +3464,10 @@ def buildDallE2(page):
     page.ESRGAN_block_dalle.height = None if status['installed_ESRGAN'] else 0
     if not dall_e_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
+    list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_dall_e(page, from_list=True))
     parameters_button = ElevatedButton(content=Text(value="🖼️   Run Dall-E 2", size=20), on_click=lambda _: run_dall_e(page))
 
-    parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    parameters_row = Row([parameters_button, list_button], spacing=22)#, alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.dall_e_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
@@ -4356,6 +4357,7 @@ finetuned_models = [
     {"name": "Openjourney", "path": "prompthero/openjourney", "prefix": "mdjrny-v4 style "},
     {"name": "Future Diffusion", "path": "nitrosocke/Future-Diffusion", "prefix": "future style "},
     {"name": "Anything v3.0", "path": "Linaqruf/anything-v3.0", "prefix": ""},
+    {"name": "Analog Diffusion", "path": "wavymulder/Analog-Diffusion", "prefix": "analog style "},
     {"name": "Architecture Diffusers", "path": "rrustom/stable-architecture-diffusers", "prefix": ""},
     {"name": "Arcane", "path":"nitrosocke/Arcane-Diffusion", "prefix":"arcane style "},
     {"name": "Archer Diffusion", "path":"nitrosocke/archer-diffusion", "prefix":"archer style "},
@@ -4389,8 +4391,10 @@ finetuned_models = [
     {"name": "Cats the Musical", "path": "dallinmackay/Cats-Musical-diffusion", "prefix": "ctsmscl "},
     {"name": "Anon v1", "path": "TheMindExpansionNetwork/anonv1", "prefix": "AnonV1 "},
     {"name": "Avatar", "path": "Jersonm89/Avatar", "prefix": "avatar style "},
+    {"name": "Dreamlike Diffusion v1", "path": "dreamlike-art/dreamlike-diffusion-1.0", "prefix": "dreamlikeart "},
     {"name": "Glitch", "path": "BakkerHenk/glitch", "prefix": "a photo in sks glitched style "},
     {"name": "Knollingcase", "path": "Aybeeceedee/knollingcase", "prefix": "knollingcase "},
+    {"name": "Wavy Diffusion", "path": "wavymulder/wavyfusion", "prefix": "wa-vy style "},
     {"name": "TARDISfusion Classic Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Classic Tardis style "},
     {"name": "TARDISfusion Modern Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Modern Tardis style "},
     {"name": "TARDISfusion Tardis Box", "path": "Guizmus/Tardisfusion", "prefix": "Tardis Box style "},
@@ -4408,12 +4412,12 @@ finetuned_models = [
     #{"name": "Smoke Diffusion", "path": "guumaster/smoke-diffusion", "prefix": "ssmoky "},
     #{"name": "reasonableDrink Dreams", "path": "elRivx/reasonableDrink", "prefix": "reasonableDrink "},
 ]
-dreambooth_models = [{'name': 'disco-diffusion-style', 'token': 'a photo of ddfusion style'}, {'name': 'cat-toy', 'token': 'a photo of sks toy'}, {'name': 'herge-style', 'token': 'a photo of sks herge_style'}, {'name': 'alberto-pablo', 'token': 'a photo of sks Alberto'}, {'name': 'noggles-sd15-800-4e6', 'token': 'someone wearing sks glasses'}, {'name': 'spacecat', 'token': 'a photo of sks spacecat'}, {'name': 'pikachu', 'token': 'pikachu'}, {'name': 'kaltsit', 'token': 'kaltsit'}, {'name': 'robeez-baby-girl-water-shoes', 'token': 'a photo of sks  shoes'}, {'name': 'mertgunhan', 'token': 'mertgunhan'}, {'name': 'soydavidtapia', 'token': 'a photo of david tapia'}, {'name': 'spacecat0001', 'token': 'a photo of sks spacecat'}, {'name': 'noggles-glasses-600', 'token': 'a photo of a person wearing sks glasses'}, {'name': 'mario-action-figure', 'token': 'a photo of sks action figure'}, {'name': 'tattoo-design', 'token': 'line art sks tattoo design'}, {'name': 'danielveneco2', 'token': 'danielveneco'}, {'name': 'scarlet-witch-two', 'token': 'a photo of scarletwi person'}, {'name': 'angus-mcbride-style', 'token': 'angus mcbride style'}, {'name': 'mirtha-legrand', 'token': 'a photo of sks mirtha legrand'}, {'name': 'kiril', 'token': 'kiril'}, {'name': 'mr-potato-head', 'token': 'a photo of sks mr potato head'}, {'name': 'homelander', 'token': 'a photo of homelander guy'}, {'name': 'king-dog-sculpture', 'token': 'a photo of sks king dog sculpture'}, {'name': 'pedrocastillodonkey', 'token': 'a photo of PedroCastilloDonkey'}, {'name': 'xogren', 'token': 'a photo of xogren'}, {'name': 'emily-carroll-style', 'token': 'a detailed digital matte illustration by sks'}, {'name': 'sneaker', 'token': 'a photo of sks sneaker'}, {'name': 'rajj', 'token': 'a photo of sks man face'}, {'name': 'puuung', 'token': 'Puuung'}, {'name': 'partis', 'token': 'a photo of sks partis'}, {'name': 'alien-coral', 'token': 'a photo of sks alien coral'}, {'name': 'hensley-art-style', 'token': 'a painting in style of sks'}, {'name': 'tails-from-sonic', 'token': 'tails'}, {'name': 'ba-shiroko', 'token': 'a photo of sks shiroko'}, {'name': 'marina', 'token': 'marina'}, {'name': 'noggles-glasses-1200', 'token': 'a photo of a person wearing sks glasses'}, {'name': 'a-hat-in-time-girl', 'token': 'a render of sks'}, {'name': 'axolotee', 'token': 'a photo of sks Axolote'}, {'name': 'transparent-90s-console', 'token': 'a photo of sks handheld gaming console'}, {'name': 'andynsane', 'token': 'a photo of sks andynsane'}, {'name': 'tanidareal-v1', 'token': 'tanidareal'}, {'name': 'adventure-time-style', 'token': 'advtime style'}, {'name': 'sks-rv', 'token': 'a photo of sks rv'}, {'name': 'neff-voice-amp-2', 'token': 'a photo of sks neff voice amp #1'}, {'name': '27-from-mayonnaise-salesmen', 'token': 'a drawing of 27 from Mayonnaise SalesMen'}, {'name': 'baracus', 'token': 'b.a. baracus mr t'}, {'name': 'tahdig-rice', 'token': 'tahmricdig'}, {'name': 'angus-mcbride-style-v4', 'token': 'mcbride_style'}, {'name': 'the-witcher-game-ciri', 'token': 'a photo of a sks woman with white hair'}, {'name': 'paolo-bonolis', 'token': 'a photo of sks paolo bonolis'}, {'name': 'the-child', 'token': 'a photo of a mini australian shepherd with a slight underbite sks'}, {'name': 'gomber', 'token': 'a photo of sks toy'}, {'name': 'backpack', 'token': 'a photo of sks backpack'}, {'name': 'ricky-fort', 'token': 'a photo of sks ricky fort'}, {'name': 'mate', 'token': 'a photo of sks mate'}, {'name': 'zombie-head', 'token': 'a photo of sks zombie'}, {'name': 'leone-from-akame-ga-kill-v2', 'token': 'an anime woman character of sks'}, {'name': 'face2contra', 'token': 'a photo of sks face2contra'}, {'name': 'yakuza-0-kiryu-kazuma', 'token': 'photo of sks kiryu'}, {'name': 'gemba-cat', 'token': 'a photo of sks cat'}, {'name': 'angus-mcbride-v-3', 'token': 'angus mcbride style'}, {'name': 'california-gurls-music-video', 'token': 'caligurls'}, {'name': 'solo-levelling-art-style', 'token': 'sololeveling'}, {'name': 'blue-lightsaber-toy', 'token': 'a photo of sks toy'}, {'name': 'dmt-entity', 'token': 'a photo of sks DMT Entity'}, {'name': 'yingdream', 'token': 'a photo of an anime girl'}, {'name': 'kamenridergeats', 'token': 'a photo of kamenridergeats'}, {'name': 'quino', 'token': 'a photo of sks quino'}, {'name': 'digimon-adventure-anime-background-style', 'token': 'a landscape in sks style'}, {'name': 'evangelion-mech-unit-01', 'token': 'rendering of sks evangelion mech'}, {'name': 'elvis', 'token': 'elvis'}, {'name': 'musical-isotope', 'token': 'mi'}, {'name': 'tempa', 'token': 'a photo of sks Tempa'}, {'name': 'tempa2', 'token': 'a photo of sks Tempa'}, {'name': 'froggewut', 'token': 'a painting in the style of sks'}, {'name': 'smiling-friends-cartoon-style', 'token': 'a photo in style of sks'}, {'name': 'smario-world-map', 'token': 'a map in style of sks'}, {'name': 'edd', 'token': 'sks boy smiles'}, {'name': 'fang-yuan-002', 'token': 'an anime art of sks Fang_Yuan'}, {'name': 'langel', 'token': 'Langel'}, {'name': 'arthur-leywin', 'token': 'a photo of sks guy'}, {'name': 'kid-chameleon-character', 'token': 'kid-chameleon-character'}, {'name': 'road-to-ruin', 'token': 'starry night. sks themed level design. tiki ruins, stone statues, night sky and black silhouettes'}, {'name': 'vaporfades', 'token': 'an image in the style of sks'}, {'name': 'beard-oil-big-sur', 'token': 'a photo of sks beard oil'}, {'name': 'monero', 'token': 'a logo of sks'}, {'name': 'yagami-taichi-from-digimon-adventure-1999', 'token': 'an anime boy character of sks'}, {'name': 'duregar', 'token': 'a painting of sks character'}, {'name': 'pathfinder-iconics', 'token': 'drawing in the style of sks'}, {'name': 'tyxxxszv', 'token': 'tyxxxszv'}, {'name': 'Origtron', 'token': 'Entry not found'}, {'name': 'oleg-kog', 'token': 'oleg'}, {'name': 'mau-cat', 'token': 'a photo of sks cat'}, {'name': 'justinkrane-artwork', 'token': 'art by sks JustinKrane'}, {'name': 'little-mario-jumping', 'token': 'a screenshot of tiny sks character'}, {'name': 'blue-moo-moo', 'token': 'an image of sks creature'}, {'name': 'noggles-render-1k', 'token': 'a render of sks'}, {'name': 'metahuman-rkr', 'token': 'a photo of sks rkr'}, {'name': 'taras', 'token': 'photo of sks taras'}, {'name': 'rollerbeetle', 'token': 'a photo of rollerbeetle mount'}, {'name': 'joseph-russel-ammen', 'token': 'Joseph Russel Ammen'}, {'name': 'manybearsx', 'token': 'a photo of sks drawing'}, {'name': 'mexican-concha', 'token': 'a photo of sks Mexican Concha'}, {'name': 'angus-mcbride-style-v2', 'token': 'angus mcbride style'} ]
+dreambooth_models = [{'name': 'disco-diffusion-style', 'token': 'a photo of ddfusion style'}, {'name': 'cat-toy', 'token': 'a photo of sks toy'}, {'name': 'herge-style', 'token': 'a photo of sks herge_style'}, {'name': 'alberto-pablo', 'token': 'a photo of sks Alberto'}, {'name': 'noggles-sd15-800-4e6', 'token': 'someone wearing sks glasses'}, {'name': 'spacecat', 'token': 'a photo of sks spacecat'}, {'name': 'pikachu', 'token': 'pikachu'}, {'name': 'kaltsit', 'token': 'kaltsit'}, {'name': 'robeez-baby-girl-water-shoes', 'token': 'a photo of sks  shoes'}, {'name': 'mertgunhan', 'token': 'mertgunhan'}, {'name': 'soydavidtapia', 'token': 'a photo of david tapia'}, {'name': 'spacecat0001', 'token': 'a photo of sks spacecat'}, {'name': 'noggles-glasses-600', 'token': 'a photo of a person wearing sks glasses'}, {'name': 'mario-action-figure', 'token': 'a photo of sks action figure'}, {'name': 'tattoo-design', 'token': 'line art sks tattoo design'}, {'name': 'danielveneco2', 'token': 'danielveneco'}, {'name': 'scarlet-witch-two', 'token': 'a photo of scarletwi person'}, {'name': 'angus-mcbride-style', 'token': 'angus mcbride style'}, {'name': 'mirtha-legrand', 'token': 'a photo of sks mirtha legrand'}, {'name': 'kiril', 'token': 'kiril'}, {'name': 'mr-potato-head', 'token': 'a photo of sks mr potato head'}, {'name': 'homelander', 'token': 'a photo of homelander guy'}, {'name': 'king-dog-sculpture', 'token': 'a photo of sks king dog sculpture'}, {'name': 'pedrocastillodonkey', 'token': 'a photo of PedroCastilloDonkey'}, {'name': 'xogren', 'token': 'a photo of xogren'}, {'name': 'emily-carroll-style', 'token': 'a detailed digital matte illustration by sks'}, {'name': 'sneaker', 'token': 'a photo of sks sneaker'}, {'name': 'rajj', 'token': 'a photo of sks man face'}, {'name': 'puuung', 'token': 'Puuung'}, {'name': 'partis', 'token': 'a photo of sks partis'}, {'name': 'alien-coral', 'token': 'a photo of sks alien coral'}, {'name': 'hensley-art-style', 'token': 'a painting in style of sks'}, {'name': 'tails-from-sonic', 'token': 'tails'}, {'name': 'ba-shiroko', 'token': 'a photo of sks shiroko'}, {'name': 'marina', 'token': 'marina'}, {'name': 'noggles-glasses-1200', 'token': 'a photo of a person wearing sks glasses'}, {'name': 'a-hat-in-time-girl', 'token': 'a render of sks'}, {'name': 'axolotee', 'token': 'a photo of sks Axolote'}, {'name': 'transparent-90s-console', 'token': 'a photo of sks handheld gaming console'}, {'name': 'andynsane', 'token': 'a photo of sks andynsane'}, {'name': 'tanidareal-v1', 'token': 'tanidareal'}, {'name': 'adventure-time-style', 'token': 'advtime style'}, {'name': 'sks-rv', 'token': 'a photo of sks rv'}, {'name': 'neff-voice-amp-2', 'token': 'a photo of sks neff voice amp #1'}, {'name': '27-from-mayonnaise-salesmen', 'token': 'a drawing of 27 from Mayonnaise SalesMen'}, {'name': 'baracus', 'token': 'b.a. baracus mr t'}, {'name': 'tahdig-rice', 'token': 'tahmricdig'}, {'name': 'angus-mcbride-style-v4', 'token': 'mcbride_style'}, {'name': 'the-witcher-game-ciri', 'token': 'a photo of a sks woman with white hair'}, {'name': 'paolo-bonolis', 'token': 'a photo of sks paolo bonolis'}, {'name': 'the-child', 'token': 'a photo of a mini australian shepherd with a slight underbite sks'}, {'name': 'gomber', 'token': 'a photo of sks toy'}, {'name': 'backpack', 'token': 'a photo of sks backpack'}, {'name': 'ricky-fort', 'token': 'a photo of sks ricky fort'}, {'name': 'mate', 'token': 'a photo of sks mate'}, {'name': 'zombie-head', 'token': 'a photo of sks zombie'}, {'name': 'leone-from-akame-ga-kill-v2', 'token': 'an anime woman character of sks'}, {'name': 'face2contra', 'token': 'a photo of sks face2contra'}, {'name': 'yakuza-0-kiryu-kazuma', 'token': 'photo of sks kiryu'}, {'name': 'gemba-cat', 'token': 'a photo of sks cat'}, {'name': 'angus-mcbride-v-3', 'token': 'angus mcbride style'}, {'name': 'california-gurls-music-video', 'token': 'caligurls'}, {'name': 'solo-levelling-art-style', 'token': 'sololeveling'}, {'name': 'blue-lightsaber-toy', 'token': 'a photo of sks toy'}, {'name': 'dmt-entity', 'token': 'a photo of sks DMT Entity'}, {'name': 'yingdream', 'token': 'a photo of an anime girl'}, {'name': 'kamenridergeats', 'token': 'a photo of kamenridergeats'}, {'name': 'quino', 'token': 'a photo of sks quino'}, {'name': 'digimon-adventure-anime-background-style', 'token': 'a landscape in sks style'}, {'name': 'evangelion-mech-unit-01', 'token': 'rendering of sks evangelion mech'}, {'name': 'elvis', 'token': 'elvis'}, {'name': 'musical-isotope', 'token': 'mi'}, {'name': 'tempa', 'token': 'a photo of sks Tempa'}, {'name': 'tempa2', 'token': 'a photo of sks Tempa'}, {'name': 'froggewut', 'token': 'a painting in the style of sks'}, {'name': 'smiling-friends-cartoon-style', 'token': 'a photo in style of sks'}, {'name': 'smario-world-map', 'token': 'a map in style of sks'}, {'name': 'edd', 'token': 'sks boy smiles'}, {'name': 'fang-yuan-002', 'token': 'an anime art of sks Fang_Yuan'}, {'name': 'langel', 'token': 'Langel'}, {'name': 'arthur-leywin', 'token': 'a photo of sks guy'}, {'name': 'kid-chameleon-character', 'token': 'kid-chameleon-character'}, {'name': 'road-to-ruin', 'token': 'starry night. sks themed level design. tiki ruins, stone statues, night sky and black silhouettes'}, {'name': 'vaporfades', 'token': 'an image in the style of sks'}, {'name': 'beard-oil-big-sur', 'token': 'a photo of sks beard oil'}, {'name': 'monero', 'token': 'a logo of sks'}, {'name': 'yagami-taichi-from-digimon-adventure-1999', 'token': 'an anime boy character of sks'}, {'name': 'duregar', 'token': 'a painting of sks character'}, {'name': 'pathfinder-iconics', 'token': 'drawing in the style of sks'}, {'name': 'tyxxxszv', 'token': 'tyxxxszv'}, {'name': 'Origtron', 'token': 'Entry not found'}, {'name': 'oleg-kog', 'token': 'oleg'}, {'name': 'mau-cat', 'token': 'a photo of sks cat'}, {'name': 'justinkrane-artwork', 'token': 'art by sks JustinKrane'}, {'name': 'little-mario-jumping', 'token': 'a screenshot of tiny sks character'}, {'name': 'blue-moo-moo', 'token': 'an image of sks creature'}, {'name': 'noggles-render-1k', 'token': 'a render of sks'}, {'name': 'metahuman-rkr', 'token': 'a photo of sks rkr'}, {'name': 'taras', 'token': 'photo of sks taras'}, {'name': 'rollerbeetle', 'token': 'a photo of rollerbeetle mount'}, {'name': 'joseph-russel-ammen', 'token': 'Joseph Russel Ammen'}, {'name': 'manybearsx', 'token': 'a photo of sks drawing'}, {'name': 'mexican-concha', 'token': 'a photo of sks Mexican Concha'}, {'name': 'angus-mcbride-style-v2', 'token': 'angus mcbride style'}, {'name': 'magikarp-pokemon', 'token': 'a photo of sks pokemon'}, {'name': 'seraphm', 'token': 'serphm'}, {'name': 'estelle-sims-style', 'token': '3D render from a videogame in sks style'}, {'name': 'iman-maleki-morteza-koutzian', 'token': 'imamk'}, {'name': 'abstract-patterns-in-nature', 'token': 'abnapa'}, {'name': 'retro3d', 'token': 'trsldamrl'}, {'name': 'glitched', 'token': 'trsldamrl'}, {'name': 'dulls', 'token': '<dulls-avatar> face'}, {'name': 'nasa-space-v2-768', 'token': 'Nasa style'}, {'name': 'avocado-toy', 'token': '<avocado-toy> toy'}, {'name': 'crisimsestelle', 'token': '3d render in <cri-sims> style'}, {'name': 'sally-whitemanev', 'token': 'whitemanedb'}, {'name': 'taylorswift', 'token': 'indexaa.png'}, {'name': 'house-emblem', 'token': 'a photo of sks house-emblem'}, {'name': 'skshikakinotonoderugomi', 'token': 'sksHikakinotonoderugomi'}, {'name': 'sksbinjousoudayo', 'token': 'sksBinjouSoudayo'}, {'name': 'sksseisupusyamuzero', 'token': 'ダウンロード'}, {'name': 'sksuminaoshishimabu', 'token': 'ダウンロード'}, {'name': 'hog-rider', 'token': 'a photo of sks character'}, {'name': 'harvard-beating-yale-ii', 'token': 'a photo of sks Harvard beating Yale'}, {'name': 'hockey-player', 'token': 'a photo of sks hockey'}, {'name': 'christiano-ronaldo', 'token': 'a photo of sks'}, {'name': 'colorful-ball', 'token': 'a photo of sks ball'}, {'name': 'american-flag-cowboy-hat', 'token': 'a photo of sks hat'}, {'name': 'pranav', 'token': 'a photo of sks person'}, {'name': 'top-gun-jacket-stable-diffusion', 'token': 'a photo of sks jacket'}, {'name': 'english-bulldog-1', 'token': 'a photo of sks an english bulldog'}, {'name': 'danreynolds', 'token': 'a photo of sks dan reynolds'}, {'name': 'persona-5-shigenori-style', 'token': 'descarga'}, {'name': 'original-character-cyclps', 'token': 'cyclps'}, {'name': 'zlnsky', 'token': 'zlnsky'}, {'name': 'true-guweiz-style', 'token': 'descarga'}, {'name': 'noggles-widescreen-4e6-800', 'token': 'noggles'}, {'name': 'conf', 'token': 'AWCDJG'}, {'name': 'dtv-pkmn-monster-style', 'token': 'image'}, {'name': 'xmasvibes', 'token': 'xmasvibes'}, {'name': 'blue-lightsaber-toy', 'token': 'a photo of sks toy'}, {'name': 'adventure-time-style', 'token': 'advtime style'}, {'name': 'brime', 'token': 'prplbrime'}, {'name': 'angus-mcbride-style-v4', 'token': 'mcbride_style'}, {'name': 'oleg-kog', 'token': 'oleg'}, {'name': 'tanidareal-v1', 'token': 'tanidareal'}, {'name': 'mertgunhan', 'token': 'mertgunhan'}, {'name': 'solo-levelling-art-style', 'token': 'sololeveling'}, {'name': 'tyxxxszv', 'token': 'tyxxxszv'}, {'name': 'california-gurls-music-video', 'token': 'caligurls'}, {'name': 'mario-action-figure', 'token': 'a photo of sks action figure'}, {'name': 'tahdig-rice', 'token': 'tahmricdig'}, {'name': 'pathfinder-iconics', 'token': 'drawing in the style of sks'}, {'name': 'angus-mcbride-v-3', 'token': 'angus mcbride style'}, {'name': 'angus-mcbride-style-v2', 'token': 'angus mcbride style'}, {'name': 'angus-mcbride-style', 'token': 'angus mcbride style'}, {'name': 'danielveneco2', 'token': 'danielveneco'}, {'name': 'emily-carroll-style', 'token': 'a detailed digital matte illustration by sks'}, {'name': 'noggles-sd15-800-4e6', 'token': 'someone wearing sks glasses'}, {'name': 'alberto-pablo', 'token': 'a photo of sks Alberto'}, {'name': 'marina', 'token': 'marina'}, {'name': 'kiril', 'token': 'kiril'}, {'name': 'spacecat0001', 'token': 'a photo of sks spacecat'}, {'name': 'baracus', 'token': 'b.a. baracus mr t'}, {'name': 'gemba-cat', 'token': 'a photo of sks cat'}, {'name': 'xogren', 'token': 'a photo of xogren'}, {'name': 'musical-isotope', 'token': 'mi'}, {'name': 'spacecat', 'token': 'a photo of sks spacecat'}, {'name': 'soydavidtapia', 'token': 'a photo of david tapia'}, {'name': 'yakuza-0-kiryu-kazuma', 'token': 'photo of sks kiryu'}, {'name': 'pedrocastillodonkey', 'token': 'a photo of PedroCastilloDonkey'}, {'name': 'rajj', 'token': 'a photo of sks man face'}, {'name': 'tails-from-sonic', 'token': 'tails'}, {'name': 'pikachu', 'token': 'pikachu'}, {'name': '27-from-mayonnaise-salesmen', 'token': 'a drawing of 27 from Mayonnaise SalesMen'}, {'name': 'vaporfades', 'token': 'an image in the style of sks'}, {'name': 'sally-whitemanev', 'token': 'whitemanedb'} ]
 
 def get_model(name):
   #dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4", dropdown.Option("Community Finetuned Model", dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")
   if name == "Stable Diffusion v2.1 x768":
-    return {'name':'Stable Diffusion v2.1 x768', 'path':'stabilityai/stable-diffusion-2-1', 'prefix':'fp16'}
+    return {'name':'Stable Diffusion v2.1 x768', 'path':'stabilityai/stable-diffusion-2-1', 'prefix':'', 'revision': 'fp16'}
   elif name == "Stable Diffusion v2.1 x512":
     return {'name':'Stable Diffusion v2.1 x512', 'path':'stabilityai/stable-diffusion-2-1-base', 'prefix':''}
   elif name == "Stable Diffusion v2.0":
@@ -4462,7 +4466,8 @@ def get_diffusers(page):
     try:
       from huggingface_hub import notebook_login, HfApi, HfFolder, login
       from diffusers import StableDiffusionPipeline, logging
-    except ModuleNotFoundError as e:
+      import transformers
+    except Exception:#ModuleNotFoundError as e:
       run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
       run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
       run_process("pip install -q --upgrade git+https://github.com/huggingface/transformers")
@@ -4470,13 +4475,7 @@ def get_diffusers(page):
       run_process("pip install -q --upgrade scipy ftfy", page=page)
       run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
       run_process("git config --global credential.helper store", page=page)
-      if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-        # Still not the best way.  TODO: Fix importing, try ninja?
-        page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
-        run_process("pip install -q https://github.com/TheLastBen/fast-stable-diffusion/raw/main/precompiled/T4/xformers-0.0.13.dev0-py3-none-any.whl", page=page)
-        #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
-        page.banner.open = False
-        page.banner.update()
+      
       from huggingface_hub import notebook_login, HfApi, HfFolder, login
       from diffusers import StableDiffusionPipeline, logging
       pass
@@ -4491,7 +4490,14 @@ def get_diffusers(page):
     model_path = model['path']
     scheduler = model_scheduler(model_path)
     status['finetuned_model'] = False if model['name'].startswith("Stable") else True
-
+    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+        # Still not the best way.  TODO: Fix importing, try ninja or other wheels?
+        page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
+        run_process("pip install pyre-extensions==0.0.23", page=page)
+        run_process("pip install -i https://test.pypi.org/simple/ formers==0.0.15.dev376", page=page)
+        #run_process("pip install -q https://github.com/TheLastBen/fast-stable-diffusion/raw/main/precompiled/T4/xformers-0.0.13.dev0-py3-none-any.whl", page=page)
+        #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
+        
 def model_scheduler(model, big3=False):
     scheduler_mode = prefs['scheduler_mode']
     if scheduler_mode == "K-LMS":
@@ -4520,7 +4526,7 @@ def model_scheduler(model, big3=False):
       s = EulerAncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
-      s = DPMSolverMultistepScheduler(
+      s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler",
         beta_start=0.00085,
         beta_end=0.012,
         beta_schedule="scaled_linear",
@@ -4531,6 +4537,7 @@ def model_scheduler(model, big3=False):
         thresholding=False,
         algorithm_type="dpmsolver++",
         solver_type="midpoint",
+        solver_order=2,
         #denoise_final=True,
         lower_order_final=True,
       )
@@ -4630,12 +4637,12 @@ def get_text2image(page):
     global pipe, unet, scheduler, prefs
     def open_url(e):
       page.launch_url(e.data)
-    if pipe is not None:
+    '''if pipe is not None:
         #print("Clearing the ol' pipe first...")
         del pipe
         gc.collect()
         torch.cuda.empty_cache()
-        pipe = None
+        pipe = None'''
     try:
       if use_custom_scheduler:
         from transformers import CLIPTextModel, CLIPTokenizer
@@ -4691,7 +4698,7 @@ def get_lpw_pipe():
   #if not os.path.isfile(os.path.join(root_dir, 'lpw_stable_diffusion.py')):
   #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/lpw_stable_diffusion.py")
   #from lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
-  if prefs['higher_vram_mode'] or model['name'] == "Stable Diffusion v2.1 x768": #, revision="fp32"
+  if prefs['higher_vram_mode']:# or model['name'] == "Stable Diffusion v2.1 x768": #, revision="fp32"
     pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
   else:
     if 'revision' in model:
@@ -4860,7 +4867,7 @@ def get_imagic_pipe():
     return images, False
   if prefs['disable_nsfw_filter']:
     pipe_imagic.safety_checker = dummy
-  pipe_imagic = optimize_pipe(pipe_imagic)
+  pipe_imagic = optimize_pipe(pipe_imagic, vae=False)
   #pipe_imagic.set_progress_bar_config(disable=True)
   return pipe_imagic
 
@@ -4887,7 +4894,7 @@ def get_composable_pipe():
     return images, False
   if prefs['disable_nsfw_filter']:
     pipe_composable.safety_checker = dummy
-  pipe_composable = optimize_pipe(pipe_composable)
+  pipe_composable = optimize_pipe(pipe_composable, vae=False)
   #pipe_composable.set_progress_bar_config(disable=True)
   return pipe_composable
 
@@ -4925,7 +4932,7 @@ def get_versatile_pipe(): # Mega was taking up too much vram and crashing the sy
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   pipe_versatile.to(torch_device)
-  pipeversatile = optimize_pipe(pipeversatile)
+  pipeversatile = optimize_pipe(pipeversatile, vae=False)
   pipe_versatile.set_progress_bar_config(disable=True)
   return pipe_versatile
 
@@ -4951,7 +4958,7 @@ def get_versatile_text2img_pipe():
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   pipe_versatile_text2img.to(torch_device)
-  pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img)
+  pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img, vae=False)
   pipe_versatile_text2img.set_progress_bar_config(disable=True)
   return pipe_versatile_text2img
 
@@ -4977,7 +4984,7 @@ def get_versatile_variation_pipe():
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   pipe_versatile_variation.to(torch_device)
-  pipe_versatile_variation = optimize_pipe(pipe_versatile_variation)
+  pipe_versatile_variation = optimize_pipe(pipe_versatile_variation, vae=False)
   pipe_versatile_variation.set_progress_bar_config(disable=True)
   return pipe_versatile_variation
 
@@ -5003,7 +5010,7 @@ def get_versatile_dualguided_pipe():
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   pipe_versatile_dualguided.to(torch_device)
-  pipe_versatile_dualguided = optimize_pipe(pipe_versatile_dualguided)
+  pipe_versatile_dualguided = optimize_pipe(pipe_versatile_dualguided, vae=False)
   pipe_versatile_dualguided.set_progress_bar_config(disable=True)
   return pipe_versatile_dualguided
 
@@ -5255,7 +5262,8 @@ def get_ESRGAN(page):
     os.chdir(root_dir)
 
 
-concepts = [{'name': 'cat-toy', 'token': 'cat-toy'}, {'name': 'madhubani-art', 'token': 'madhubani-art'}, {'name': 'birb-style', 'token': 'birb-style'}, {'name': 'indian-watercolor-portraits', 'token': 'watercolor-portrait'}, {'name': 'xyz', 'token': 'xyz'}, {'name': 'poolrooms', 'token': 'poolrooms'}, {'name': 'cheburashka', 'token': 'cheburashka'}, {'name': 'hours-style', 'token': 'hours'}, {'name': 'turtlepics', 'token': 'henry-leonardi'}, {'name': 'karl-s-lzx-1', 'token': 'lzx'}, {'name': 'canary-cap', 'token': 'canary-cap'}, {'name': 'ti-junglepunk-v0', 'token': 'jungle-punk'}, {'name': 'mafalda-character', 'token': 'mafalda-quino'}, {'name': 'magic-pengel', 'token': 'magic-pengel'}, {'name': 'schloss-mosigkau', 'token': 'ralph'}, {'name': 'cubex', 'token': 'cube'}, {'name': 'covid-19-rapid-test', 'token': 'covid-test'}, {'name': 'character-pingu', 'token': 'character-pingu'}, {'name': '2814-roth', 'token': '2814Roth'}, {'name': 'vkuoo1', 'token': 'style-vkuoo1'}, {'name': 'ina-art', 'token': ''}, {'name': 'monte-novo', 'token': 'monte novo cutting board'}, {'name': 'interchanges', 'token': 'xchg'}, {'name': 'walter-wick-photography', 'token': 'walter-wick'}, {'name': 'arcane-style-jv', 'token': 'arcane-style-jv'}, {'name': 'w3u', 'token': 'w3u'}, {'name': 'smiling-friend-style', 'token': 'smilingfriends-cartoon'}, {'name': 'dr-livesey', 'token': 'dr-livesey'}, {'name': 'monster-girl', 'token': 'monster-girl'}, {'name': 'abstract-concepts', 'token': 'art-style'}, {'name': 'reeducation-camp', 'token': 'reeducation-camp'}, {'name': 'miko-3-robot', 'token': 'miko-3'}, {'name': 'party-girl', 'token': 'party-girl'}, {'name': 'dicoo', 'token': 'Dicoo'}, {'name': 'kuvshinov', 'token': 'kuvshinov'}, {'name': 'mass', 'token': 'mass'}, {'name': 'ldr', 'token': 'ldr'}, {'name': 'hub-city', 'token': 'HubCity'}, {'name': 'masyunya', 'token': 'masyunya'}, {'name': 'david-moreno-architecture', 'token': 'dm-arch'}, {'name': 'lolo', 'token': 'lolo'}, {'name': 'apulian-rooster-v0-1', 'token': 'apulian-rooster-v0.1'}, {'name': 'fractal', 'token': 'fractal'}, {'name': 'nebula', 'token': 'nebula'}, {'name': 'ldrs', 'token': 'ldrs'}, {'name': 'art-brut', 'token': 'art-brut'}, {'name': 'malika-favre-art-style', 'token': 'malika-favre'}, {'name': 'line-art', 'token': 'line-art'}, {'name': 'shrunken-head', 'token': 'shrunken-head'}, {'name': 'bonzi-monkey', 'token': 'bonzi'}, {'name': 'herge-style', 'token': 'herge'}, {'name': 'johnny-silverhand', 'token': 'johnny-silverhand'}, {'name': 'linnopoke', 'token': 'linnopoke'}, {'name': 'koko-dog', 'token': 'koko-dog'}, {'name': 'stuffed-penguin-toy', 'token': 'pengu-toy'}, {'name': 'monster-toy', 'token': 'monster-toy'}, {'name': 'dong-ho', 'token': 'dong-ho'}, {'name': 'orangejacket', 'token': 'orangejacket'}, {'name': 'fergal-cat', 'token': 'fergal-cat'}, {'name': 'summie-style', 'token': 'summie-style'}, {'name': 'chonkfrog', 'token': 'chonkfrog'}, {'name': 'alberto-mielgo', 'token': 'street'}, {'name': 'lucky-luke', 'token': 'lucky-luke'}, {'name': 'zdenek-art', 'token': 'zdenek-artwork'}, {'name': 'star-tours-posters', 'token': 'star-tours'}, {'name': 'huang-guang-jian', 'token': 'huang-guang-jian'}, {'name': 'painting', 'token': 'will'}, {'name': 'line-style', 'token': 'line-style'}, {'name': 'venice', 'token': 'venice'}, {'name': 'russian', 'token': 'Russian'}, {'name': 'tony-diterlizzi-s-planescape-art', 'token': 'tony-diterlizzi-planescape'}, {'name': 'moeb-style', 'token': 'moe-bius'}, {'name': 'amine', 'token': 'ayna'}, {'name': 'kojima-ayami', 'token': 'KOJIMA'}, {'name': 'dong-ho2', 'token': 'dong-ho-2'}, {'name': 'ruan-jia', 'token': 'ruan-jia'}, {'name': 'purplefishli', 'token': 'purplefishli'}, {'name': 'cry-baby-style', 'token': 'cry-baby'}, {'name': 'between2-mt-fade', 'token': 'b2MTfade'}, {'name': 'mtl-longsky', 'token': 'mtl-longsky'}, {'name': 'scrap-style', 'token': 'style-chewie'}, {'name': 'tela-lenca', 'token': 'tela-lenca'}, {'name': 'zillertal-can', 'token': 'zillertal-ipa'}, {'name': 'shu-doll', 'token': 'shu-doll'}, {'name': 'eastward', 'token': 'eastward'}, {'name': 'chuck-walton', 'token': 'Chuck_Walton'}, {'name': 'chucky', 'token': 'merc'}, {'name': 'smw-map', 'token': 'smw-map'}, {'name': 'erwin-olaf-style', 'token': 'erwin-olaf'}, {'name': 'maurice-quentin-de-la-tour-style', 'token': 'maurice'}, {'name': 'dan-seagrave-art-style', 'token': 'dan-seagrave'}, {'name': 'drive-scorpion-jacket', 'token': 'drive-scorpion-jacket'}, {'name': 'dark-penguin-pinguinanimations', 'token': 'darkpenguin-robot'}, {'name': 'rd-paintings', 'token': 'rd-painting'}, {'name': 'borderlands', 'token': 'borderlands'}, {'name': 'depthmap', 'token': 'depthmap'}, {'name': 'lego-astronaut', 'token': 'lego-astronaut'}, {'name': 'transmutation-circles', 'token': 'tcircle'}, {'name': 'mycat', 'token': 'mycat'}, {'name': 'ilya-shkipin', 'token': 'ilya-shkipin-style'}, {'name': 'moxxi', 'token': 'moxxi'}, {'name': 'riker-doll', 'token': 'rikerdoll'}, {'name': 'apex-wingman', 'token': 'wingman-apex'}, {'name': 'naf', 'token': 'nal'}, {'name': 'handstand', 'token': 'handstand'}, {'name': 'vb-mox', 'token': 'vb-mox'}, {'name': 'pixel-toy', 'token': 'pixel-toy'}, {'name': 'olli-olli', 'token': 'olli-olli'}, {'name': 'floral', 'token': 'ntry not foun'}, {'name': 'minecraft-concept-art', 'token': 'concept'}, {'name': 'yb-anime', 'token': 'anime-character'}, {'name': 'ditko', 'token': 'cat-toy'}, {'name': 'disquieting-muses', 'token': 'muses'}, {'name': 'ned-flanders', 'token': 'flanders'}, {'name': 'fluid-acrylic-jellyfish-creatures-style-of-carl-ingram-art', 'token': 'jelly-core'}, {'name': 'ic0n', 'token': 'ic0n'}, {'name': 'pyramidheadcosplay', 'token': 'Cos-Pyramid'}, {'name': 'phc', 'token': 'Cos-Pyramid'}, {'name': 'og-mox-style', 'token': 'og-mox-style'}, {'name': 'klance', 'token': 'klance'}, {'name': 'john-blanche', 'token': 'john-blanche'}, {'name': 'cowboy', 'token': 'cowboyStyle'}, {'name': 'darkpenguinanimatronic', 'token': 'penguin-robot'}, {'name': 'doener-red-line-art', 'token': 'dnr'}, {'name': 'style-of-marc-allante', 'token': 'Marc_Allante'}, {'name': 'crybaby-style-2-0', 'token': 'crybaby2'}, {'name': 'werebloops', 'token': 'werebloops'}, {'name': 'xbh', 'token': 'xbh'}, {'name': 'unfinished-building', 'token': 'unfinished-building'}, {'name': 'teelip-ir-landscape', 'token': 'teelip-ir-landscape'}, {'name': 'road-to-ruin', 'token': 'RtoR'}, {'name': 'piotr-jablonski', 'token': 'piotr-jablonski'}, {'name': 'jamiels', 'token': 'jamiels'}, {'name': 'tomcat', 'token': 'tom-cat'}, {'name': 'meyoco', 'token': 'meyoco'}, {'name': 'nixeu', 'token': 'nixeu'}, {'name': 'tnj', 'token': 'tnj'}, {'name': 'cute-bear', 'token': 'cute-bear'}, {'name': 'leica', 'token': 'leica'}, {'name': 'anime-boy', 'token': 'myAItestShota'}, {'name': 'garfield-pizza-plush', 'token': 'garfield-plushy'}, {'name': 'design', 'token': 'design'}, {'name': 'mikako-method', 'token': 'm-m'}, {'name': 'cornell-box', 'token': 'cornell-box'}, {'name': 'sculptural-style', 'token': 'diaosu'}, {'name': 'aavegotchi', 'token': 'aave-gotchi'}, {'name': 'swamp-choe-2', 'token': 'cat-toy'}, {'name': 'super-nintendo-cartridge', 'token': 'snesfita-object'}, {'name': 'garfield-pizza-plush-v2', 'token': 'garfield-plushy'}, {'name': 'rickyart', 'token': 'RickyArt'}, {'name': 'eye-of-agamotto', 'token': 'eye-aga'}, {'name': 'freddy-fazbear', 'token': 'freddy-fazbear'}, {'name': 'glass-pipe', 'token': 'glass-sherlock'}, {'name': 'black-waifu', 'token': 'black-waifu'}, {'name': 'roy-lichtenstein', 'token': 'roy-lichtenstein'}, {'name': 'ugly-sonic', 'token': 'ugly-sonic'}, {'name': 'glow-forest', 'token': 'dark-forest'}, {'name': 'painted-student', 'token': 'painted_student'}, {'name': 'salmonid', 'token': 'salmonid'}, {'name': 'huayecai820-greyscale', 'token': 'huayecaigreyscale-style'}, {'name': 'arthur1', 'token': 'arthur1'}, {'name': 'huckleberry', 'token': 'huckleberry'}, {'name': 'collage3', 'token': 'Collage3'}, {'name': 'spritual-monsters', 'token': 'spritual-monsters'}, {'name': 'baldi', 'token': 'baldi'}, {'name': 'tcirle', 'token': 'tcircle'}, {'name': 'pantone-milk', 'token': 'pantone-milk'}, {'name': 'retropixelart-pinguin', 'token': 'retropixelart-style'}, {'name': 'doose-s-realistic-art-style', 'token': 'doose-realistic'}, {'name': 'grit-toy', 'token': 'grit-toy'}, {'name': 'pink-beast-pastelae-style', 'token': 'pinkbeast'}, {'name': 'mikako-methodi2i', 'token': 'm-mi2i'}, {'name': 'aj-fosik', 'token': 'AJ-Fosik'}, {'name': 'collage-cutouts', 'token': 'collage-cutouts'}, {'name': 'cute-cat', 'token': 'cute-bear'}, {'name': 'kaleido', 'token': 'kaleido'}, {'name': 'xatu', 'token': 'xatu-pokemon'}, {'name': 'a-female-hero-from-the-legend-of-mir', 'token': ' <female-hero> from The Legend of Mi'}, {'name': 'cologne', 'token': 'cologne-dom'}, {'name': 'wlop-style', 'token': 'wlop-style'}, {'name': 'larrette', 'token': 'larrette'}, {'name': 'bert-muppet', 'token': 'bert-muppet'}, {'name': 'my-hero-academia-style', 'token': 'MHA style'}, {'name': 'vcr-classique', 'token': 'vcr_c'}, {'name': 'xatu2', 'token': 'xatu-test'}, {'name': 'tela-lenca2', 'token': 'tela-lenca'}, {'name': 'dragonborn', 'token': 'dragonborn'}, {'name': 'mate', 'token': 'mate'}, {'name': 'alien-avatar', 'token': 'alien-avatar'}, {'name': 'pastelartstyle', 'token': 'Arzy'}, {'name': 'kings-quest-agd', 'token': 'ings-quest-ag'}, {'name': 'doge-pound', 'token': 'doge-pound'}, {'name': 'type', 'token': 'typeface'}, {'name': 'fileteado-porteno', 'token': 'fileteado-porteno'}, {'name': 'bullvbear', 'token': 'bullVBear'}, {'name': 'freefonix-style', 'token': 'Freefonix'}, {'name': 'garcon-the-cat', 'token': 'garcon-the-cat'}, {'name': 'better-collage3', 'token': 'C3'}, {'name': 'metagabe', 'token': 'metagabe'}, {'name': 'ggplot2', 'token': 'ggplot2'}, {'name': 'yoshi', 'token': 'yoshi'}, {'name': 'illustration-style', 'token': 'illustration-style'}, {'name': 'centaur', 'token': 'centaur'}, {'name': 'zoroark', 'token': 'zoroark'}, {'name': 'bad_Hub_Hugh', 'token': 'HubHugh'}, {'name': 'irasutoya', 'token': 'irasutoya'}, {'name': 'liquid-light', 'token': 'lls'}, {'name': 'zaneypixelz', 'token': 'zaneypixelz'}, {'name': 'tubby', 'token': 'tubby'}, {'name': 'atm-ant', 'token': 'atm-ant'}, {'name': 'fang-yuan-001', 'token': 'fang-yuan'}, {'name': 'dullboy-caricature', 'token': 'dullboy-cari'}, {'name': 'bada-club', 'token': 'bada-club'}, {'name': 'zaney', 'token': 'zaney'}, {'name': 'a-tale-of-two-empires', 'token': 'two-empires'}, {'name': 'dabotap', 'token': 'dabotap'}, {'name': 'harley-quinn', 'token': 'harley-quinn'}, {'name': 'vespertine', 'token': 'Vesp'}, {'name': 'ricar', 'token': 'ricard'}, {'name': 'conner-fawcett-style', 'token': 'badbucket'}, {'name': 'ingmar-bergman', 'token': 'ingmar-bergman'}, {'name': 'poutine-dish', 'token': 'poutine-qc'}, {'name': 'shev-linocut', 'token': 'shev-linocut'}, {'name': 'grifter', 'token': 'grifter'}, {'name': 'dog', 'token': 'Winston'}, {'name': 'tangles', 'token': 'cora-tangle'}, {'name': 'lost-rapper', 'token': 'lost-rapper'}, {'name': 'eddie', 'token': 'ddi'}, {'name': 'thunderdome-covers', 'token': 'thunderdome'}, {'name': 'she-mask', 'token': 'she-mask'}, {'name': 'chillpill', 'token': 'Chillpill'}, {'name': 'robertnava', 'token': 'robert-nava'}, {'name': 'looney-anime', 'token': 'looney-anime'}, {'name': 'axe-tattoo', 'token': 'axe-tattoo'}, {'name': 'fireworks-over-water', 'token': 'firework'}, {'name': 'collage14', 'token': 'C14'}, {'name': 'green-tent', 'token': 'green-tent'}, {'name': 'dtv-pkmn', 'token': 'dtv-pkm2'}, {'name': 'crinos-form-garou', 'token': 'crinos'}, {'name': '8bit', 'token': '8bit'}, {'name': 'tubby-cats', 'token': 'tubby'}, {'name': 'travis-bedel', 'token': 'bedelgeuse2'}, {'name': 'uma', 'token': 'uma'}, {'name': 'ie-gravestone', 'token': 'internet-explorer-gravestone'}, {'name': 'colossus', 'token': 'colossus'}, {'name': 'uma-style-classic', 'token': 'uma'}, {'name': 'collage3-hubcity', 'token': 'C3Hub'}, {'name': 'goku', 'token': 'goku'}, {'name': 'galaxy-explorer', 'token': 'galaxy-explorer'}, {'name': 'rl-pkmn-test', 'token': 'rl-pkmn'}, {'name': 'naval-portrait', 'token': 'naval-portrait'}, {'name': 'daycare-attendant-sun-fnaf', 'token': 'biblic-sun-fnaf'}, {'name': 'reksio-dog', 'token': 'reksio-dog'}, {'name': 'breakcore', 'token': 'reakcor'}, {'name': 'junji-ito-artstyle', 'token': 'junji-ito-style'}, {'name': 'gram-tops', 'token': 'gram-tops'}, {'name': 'henjo-techno-show', 'token': 'HENJOTECHNOSHOW'}, {'name': 'trash-polka-artstyle', 'token': 'trash-polka-style'}, {'name': 'faraon-love-shady', 'token': ''}, {'name': 'trigger-studio', 'token': 'Trigger Studio'}, {'name': 'tb303', 'token': '"tb303'}, {'name': 'neon-pastel', 'token': 'neon-pastel'}, {'name': 'fursona', 'token': 'fursona-2'}, {'name': 'sterling-archer', 'token': 'archer-style'}, {'name': 'captain-haddock', 'token': 'captain-haddock'}, {'name': 'my-mug', 'token': 'my-mug'}, {'name': 'joe-whiteford-art-style', 'token': 'joe-whiteford-artstyle'}, {'name': 'on-kawara', 'token': 'on-kawara'}, {'name': 'hours-sentry-fade', 'token': 'Hours_Sentry'}, {'name': 'rektguy', 'token': 'rektguy'}, {'name': 'dyoudim-style', 'token': 'DyoudiM-style'}, {'name': 'kaneoya-sachiko', 'token': 'Kaneoya'}, {'name': 'retro-girl', 'token': 'retro-girl'}, {'name': 'buddha-statue', 'token': 'buddha-statue'}, {'name': 'hitokomoru-style-nao', 'token': 'hitokomoru-style'}, {'name': 'plant-style', 'token': 'plant'}, {'name': 'cham', 'token': 'cham'}, {'name': 'mayor-richard-irvin', 'token': 'Richard_Irvin'}, {'name': 'sd-concepts-library-uma-meme', 'token': 'uma-object-full'}, {'name': 'uma-meme', 'token': 'uma-object-full'}, {'name': 'thunderdome-cover', 'token': 'thunderdome-cover'}, {'name': 'sem-mac2n', 'token': 'SEM_Mac2N'}, {'name': 'hoi4', 'token': 'hoi4'}, {'name': 'hd-emoji', 'token': 'HDemoji-object'}, {'name': 'lumio', 'token': 'lumio'}, {'name': 't-skrang', 'token': 'tskrang'}, {'name': 'agm-style-nao', 'token': 'agm-style'}, {'name': 'uma-meme-style', 'token': 'uma-meme-style'}, {'name': 'retro-mecha-rangers', 'token': 'aesthetic'}, {'name': 'babushork', 'token': 'babushork'}, {'name': 'qpt-atrium', 'token': 'QPT_ATRIUM'}, {'name': 'sushi-pixel', 'token': 'sushi-pixel'}, {'name': 'osrsmini2', 'token': ''}, {'name': 'ttte', 'token': 'ttte-2'}, {'name': 'atm-ant-2', 'token': 'atm-ant'}, {'name': 'dan-mumford', 'token': 'dan-mumford'}, {'name': 'renalla', 'token': 'enall'}, {'name': 'cow-uwu', 'token': 'cow-uwu'}, {'name': 'one-line-drawing', 'token': 'lineart'}, {'name': 'inuyama-muneto-style-nao', 'token': 'inuyama-muneto-style'}, {'name': 'altvent', 'token': 'AltVent'}, {'name': 'accurate-angel', 'token': 'accurate-angel'}, {'name': 'mtg-card', 'token': 'mtg-card'}, {'name': 'ddattender', 'token': 'ddattender'}, {'name': 'thalasin', 'token': 'thalasin-plus'}, {'name': 'moebius', 'token': 'moebius'}, {'name': 'liqwid-aquafarmer', 'token': 'aquafarmer'}, {'name': 'onepunchman', 'token': 'OnePunch'}, {'name': 'kawaii-colors', 'token': 'kawaii-colors-style'}, {'name': 'naruto', 'token': 'Naruto'}, {'name': 'backrooms', 'token': 'Backrooms'}, {'name': 'a-hat-kid', 'token': 'hatintime-kid'}, {'name': 'furrpopasthetic', 'token': 'furpop'}, {'name': 'RINGAO', 'token': ''}, {'name': 'csgo-awp-texture-map', 'token': 'csgo_awp_texture'}, {'name': 'luinv2', 'token': 'luin-waifu'}, {'name': 'hydrasuit', 'token': 'hydrasuit'}, {'name': 'milady', 'token': 'milady'}, {'name': 'ganyu-genshin-impact', 'token': 'ganyu'}, {'name': 'wayne-reynolds-character', 'token': 'warcharport'}, {'name': 'david-firth-artstyle', 'token': 'david-firth-artstyle'}, {'name': 'seraphimmoonshadow-art', 'token': 'seraphimmoonshadow-art'}, {'name': 'osrstiny', 'token': 'osrstiny'}, {'name': 'lugal-ki-en', 'token': 'lugal-ki-en'}, {'name': 'seamless-ground', 'token': 'seamless-ground'}, {'name': 'sewerslvt', 'token': 'ewerslv'}, {'name': 'diaosu-toy', 'token': 'diaosu-toy'}, {'name': 'sakimi-style', 'token': 'sakimi'}, {'name': 'rj-palmer', 'token': 'rj-palmer'}, {'name': 'harmless-ai-house-style-1', 'token': 'bee-style'}, {'name': 'harmless-ai-1', 'token': 'bee-style'}, {'name': 'yerba-mate', 'token': 'yerba-mate'}, {'name': 'bella-goth', 'token': 'bella-goth'}, {'name': 'bobs-burgers', 'token': 'bobs-burgers'}, {'name': 'jamie-hewlett-style', 'token': 'hewlett'}, {'name': 'belen', 'token': 'belen'}, {'name': 'shvoren-style', 'token': 'shvoren-style'}, {'name': 'gymnastics-leotard-v2', 'token': 'gymnastics-leotard2'}, {'name': 'rd-chaos', 'token': 'rd-chaos'}, {'name': 'armor-concept', 'token': 'armor-concept'}, {'name': 'ouroboros', 'token': 'ouroboros'}, {'name': 'm-geo', 'token': 'm-geo'}, {'name': 'Akitsuki', 'token': ''}, {'name': 'uzumaki', 'token': 'NARUTO'}, {'name': 'sorami-style', 'token': 'sorami-style'}, {'name': 'lxj-o4', 'token': 'csp'}, {'name': 'she-hulk-law-art', 'token': 'shehulk-style'}, {'name': 'led-toy', 'token': 'led-toy'}, {'name': 'durer-style', 'token': 'drr-style'}, {'name': 'hiten-style-nao', 'token': 'hiten-style-nao'}, {'name': 'mechasoulall', 'token': 'mechasoulall'}, {'name': 'wish-artist-stile', 'token': 'wish-style'}, {'name': 'max-foley', 'token': 'max-foley'}, {'name': 'loab-style', 'token': 'loab-style'}, {'name': '3d-female-cyborgs', 'token': 'A female cyborg'}, {'name': 'r-crumb-style', 'token': 'rcrumb'}, {'name': 'paul-noir', 'token': 'paul-noir'}, {'name': 'cgdonny1', 'token': 'donny1'}, {'name': 'valorantstyle', 'token': 'valorant'}, {'name': 'loab-character', 'token': 'loab-character'}, {'name': 'Atako', 'token': ''}, {'name': 'threestooges', 'token': 'threestooges'}, {'name': 'dsmuses', 'token': 'DSmuses'}, {'name': 'fish', 'token': 'fish'}, {'name': 'glass-prism-cube', 'token': 'glass-prism-cube'}, {'name': 'elegant-flower', 'token': 'elegant-flower'}, {'name': 'hanfu-anime-style', 'token': 'hanfu-anime-style'}, {'name': 'green-blue-shanshui', 'token': 'green-blue shanshui'}, {'name': 'lizardman', 'token': 'laceholderTokenLizardma'}, {'name': 'rail-scene', 'token': 'rail-pov'}, {'name': 'lula-13', 'token': 'lula-13'}, {'name': 'laala-character', 'token': 'laala'}, {'name': 'margo', 'token': 'dog-margo'}, {'name': 'carrascharacter', 'token': 'Carras'}, {'name': 'vietstoneking', 'token': 'vietstoneking'}, {'name': 'rhizomuse-machine-bionic-sculpture', 'token': ''}, {'name': 'rcrumb-portraits-style', 'token': 'rcrumb-portraits'}, {'name': 'mu-sadr', 'token': '783463b'}, {'name': 'bozo-22', 'token': 'bozo-22'}, {'name': 'skyfalls', 'token': 'SkyFalls'}, {'name': 'zk', 'token': ''}, {'name': 'tudisco', 'token': 'cat-toy'}, {'name': 'kogecha', 'token': 'kogecha'}, {'name': 'ori-toor', 'token': 'ori-toor'}, {'name': 'isabell-schulte-pviii-style', 'token': 'isabell-schulte-p8-style'}, {'name': 'rilakkuma', 'token': 'rilakkuma'}, {'name': 'indiana', 'token': 'indiana'}, {'name': 'black-and-white-design', 'token': 'PM_style'}, {'name': 'isabell-schulte-pviii-1024px-1500-steps-style', 'token': 'isabell-schulte-p8-style-1024p-1500s'}, {'name': 'fold-structure', 'token': 'fold-geo'}, {'name': 'brunnya', 'token': 'Brunnya'}, {'name': 'jos-de-kat', 'token': 'kat-jos'}, {'name': 'singsing-doll', 'token': 'singsing'}, {'name': 'singsing', 'token': 'singsing'}, {'name': 'isabell-schulte-pviii-12tiles-3000steps-style', 'token': 'isabell-schulte-p8-style-12tiles-3000s'}, {'name': 'f-22', 'token': 'f-22'}, {'name': 'jin-kisaragi', 'token': 'jin-kisaragi'}, {'name': 'depthmap-style', 'token': 'depthmap'}, {'name': 'crested-gecko', 'token': 'crested-gecko'}, {'name': 'grisstyle', 'token': 'gris'}, {'name': 'ikea-fabler', 'token': 'ikea-fabler'}, {'name': 'joe-mad', 'token': 'joe-mad'}, {'name': 'boissonnard', 'token': 'boissonnard'}, {'name': 'overprettified', 'token': 'overprettified'}, {'name': 'all-rings-albuns', 'token': 'rings-all-albuns'}, {'name': 'shiny-polyman', 'token': 'shiny-polyman'}, {'name': 'scarlet-witch', 'token': 'sw-mom'}, {'name': 'wojaks-now', 'token': 'red-wojak'}, {'name': 'carasibana', 'token': 'carasibana'}, {'name': 'towerplace', 'token': 'TowerPlace'}, {'name': 'cumbia-peruana', 'token': 'cumbia-peru'}, {'name': 'bloo', 'token': 'owl-guy'}, {'name': 'dog-django', 'token': 'dog-django'}, {'name': 'facadeplace', 'token': 'FacadePlace'}, {'name': 'blue-zombie', 'token': 'blue-zombie'}, {'name': 'blue-zombiee', 'token': 'blue-zombie'}, {'name': 'jinjoon-lee-they', 'token': 'jinjoon_lee_they'}, {'name': 'ralph-mcquarrie', 'token': 'ralph-mcquarrie'}, {'name': 'hiyuki-chan', 'token': 'hiyuki-chan'}, {'name': 'isabell-schulte-pviii-4tiles-6000steps', 'token': 'isabell-schulte-p8-style-4tiles-6000s'}, {'name': 'liliana', 'token': 'liliana'}, {'name': 'morino-hon-style', 'token': 'morino-hon'}, {'name': 'artist-yukiko-kanagai', 'token': 'Yukiko Kanagai '}, {'name': 'wheatland', 'token': ''}, {'name': 'm-geoo', 'token': 'm-geo'}, {'name': 'wheatland-arknight', 'token': 'golden-wheats-fields'}, {'name': 'mokoko', 'token': 'mokoko'}, {'name': '001glitch-core', 'token': '01glitch_cor'}, {'name': 'stardew-valley-pixel-art', 'token': 'pixelart-stardew'}, {'name': 'isabell-schulte-pviii-4tiles-500steps', 'token': 'isabell-schulte-p8-style-4tiles-500s'}, {'name': 'anime-girl', 'token': 'anime-girl'}, {'name': 'heather', 'token': 'eather'}, {'name': 'rail-scene-style', 'token': 'rail-pov'}, {'name': 'quiesel', 'token': 'quiesel'}, {'name': 'matthew-stone', 'token': 'atthew-ston'}, {'name': 'dreamcore', 'token': 'dreamcore'}, {'name': 'pokemon-conquest-sprites', 'token': 'poke-conquest'}, {'name': 'tili-concept', 'token': 'tili'}, {'name': 'nouns-glasses', 'token': 'nouns glasses'}, {'name': 'shigure-ui-style', 'token': 'shigure-ui'}, {'name': 'pen-ink-portraits-bennorthen', 'token': 'ink-portrait-by-BenNorthern'}, {'name': 'nikodim', 'token': 'nikodim'}, {'name': 'ori', 'token': 'Ori'}, {'name': 'anya-forger', 'token': 'anya-forger'}, {'name': 'lavko', 'token': 'lavko'}, {'name': 'fasina', 'token': 'Fasina'}, {'name': 'uma-clean-object', 'token': 'uma-clean-object'}, {'name': 'wojaks-now-now-now', 'token': 'red-wojak'}, {'name': 'memnarch-mtg', 'token': 'mtg-memnarch'}, {'name': 'tonal1', 'token': 'Tonal'}, {'name': 'tesla-bot', 'token': 'tesla-bot'}, {'name': 'red-glasses', 'token': 'red-glasses'}, {'name': 'csgo-awp-object', 'token': 'csgo_awp'}, {'name': 'stretch-re1-robot', 'token': 'stretch'}, {'name': 'isabell-schulte-pv-pvii-3000steps', 'token': 'isabell-schulte-p5-p7-style-3000s'}, {'name': 'insidewhale', 'token': 'InsideWhale'}, {'name': 'noggles', 'token': 'noggles'}, {'name': 'isometric-tile-test', 'token': 'iso-tile'}, {'name': 'bamse-og-kylling', 'token': 'bamse-kylling'}, {'name': 'marbling-art', 'token': 'marbling-art'}, {'name': 'joemad', 'token': 'joemad'}, {'name': 'bamse', 'token': 'bamse'}, {'name': 'dq10-anrushia', 'token': 'anrushia'}, {'name': 'test', 'token': 'AIO'}, {'name': 'naoki-saito', 'token': 'naoki_saito'}, {'name': 'raichu', 'token': 'raichu'}, {'name': 'child-zombie', 'token': 'child-zombie'}, {'name': 'yf21', 'token': 'YF21'}, {'name': 'titan-robot', 'token': 'titan'}, {'name': 'cyberpunk-lucy', 'token': 'cyberpunk-lucy'}, {'name': 'giygas', 'token': 'giygas'}, {'name': 'david-martinez-cyberpunk', 'token': 'david-martinez-cyberpunk'}, {'name': 'phan-s-collage', 'token': 'pcollage'}, {'name': 'jojo-bizzare-adventure-manga-lineart', 'token': 'JoJo_lineart'}, {'name': 'homestuck-sprite', 'token': 'homestuck-sprite'}, {'name': 'kogatan-shiny', 'token': 'ogata'}, {'name': 'moo-moo', 'token': 'moomoo'}, {'name': 'detectivedinosaur1', 'token': 'dd1'}, {'name': 'arcane-face', 'token': 'arcane-face'}, {'name': 'sherhook-painting', 'token': 'sherhook'}, {'name': 'isabell-schulte-pviii-1-image-style', 'token': 'isabell-schulte-p8-1-style'}, {'name': 'dicoo2', 'token': 'dicoo'}, {'name': 'hrgiger-drmacabre', 'token': 'barba'}, {'name': 'babau', 'token': 'babau'}, {'name': 'darkplane', 'token': 'DarkPlane'}, {'name': 'wildkat', 'token': 'wildkat'}, {'name': 'half-life-2-dog', 'token': 'hl-dog'}, {'name': 'outfit-items', 'token': 'outfit-items'}, {'name': 'midjourney-style', 'token': 'midjourney-style'}, {'name': 'puerquis-toy', 'token': 'puerquis'}, {'name': 'maus', 'token': 'Maus'}, {'name': 'jetsetdreamcastcovers', 'token': 'jet'}, {'name': 'karan-gloomy', 'token': 'karan'}, {'name': 'yoji-shinkawa-style', 'token': 'yoji-shinkawa'}, {'name': 'million-live-akane-15k', 'token': 'akane'}, {'name': 'million-live-akane-3k', 'token': 'akane'}, {'name': 'sherhook-painting-v2', 'token': 'sherhook'}, {'name': 'gba-pokemon-sprites', 'token': 'GBA-Poke-Sprites'}, {'name': 'gim', 'token': 'grimes-album-style'}, {'name': 'char-con', 'token': 'char-con'}, {'name': 'bluebey', 'token': 'bluebey'}, {'name': 'homestuck-troll', 'token': 'homestuck-troll'}, {'name': 'million-live-akane-shifuku-3k', 'token': 'akane'}, {'name': 'thegeneral', 'token': 'bobknight'}, {'name': 'million-live-spade-q-object-3k', 'token': 'spade_q'}, {'name': 'million-live-spade-q-style-3k', 'token': 'spade_q'}, {'name': 'ibere-thenorio', 'token': 'ibere-thenorio'}, {'name': 'yinit', 'token': 'init-dropca'}, {'name': 'bee', 'token': 'b-e-e'}, {'name': 'pixel-mania', 'token': 'pixel-mania'}, {'name': 'sunfish', 'token': 'SunFish'}, {'name': 'test2', 'token': 'AIOCARD'}, {'name': 'pool-test', 'token': 'pool_test'}, {'name': 'mokoko-seed', 'token': 'mokoko-seed'}, {'name': 'isabell-schulte-pviii-4-tiles-1-lr-3000-steps-style', 'token': 'isabell-schulte-p8-4tiles-1lr-300s-style'}, {'name': 'ghostproject-men', 'token': 'ghostsproject-style'}, {'name': 'phan', 'token': 'phan'}, {'name': 'chen-1', 'token': 'chen-1'}, {'name': 'bluebey-2', 'token': 'bluebey'}, {'name': 'waterfallshadow', 'token': 'WaterfallShadow'}, {'name': 'chop', 'token': 'Le Petit Prince'}, {'name': 'sintez-ico', 'token': 'sintez-ico'}, {'name': 'carlitos-el-mago', 'token': 'carloscarbonell'}, {'name': 'david-martinez-edgerunners', 'token': 'david-martinez-edgerunners'}, {'name': 'isabell-schulte-pviii-4-tiles-3-lr-5000-steps-style', 'token': 'isabell-schulte-p8-4tiles-3lr-5000s-style'}, {'name': 'guttestreker', 'token': 'guttestreker'}, {'name': 'ransom', 'token': 'ransom'}, {'name': 'museum-by-coop-himmelblau', 'token': 'coop himmelblau museum'}, {'name': 'coop-himmelblau', 'token': 'coop himmelblau'}, {'name': 'yesdelete', 'token': 'yesdelete'}, {'name': 'conway-pirate', 'token': 'conway'}, {'name': 'ilo-kunst', 'token': 'ilo-kunst'}, {'name': 'yilanov2', 'token': 'yilanov'}, {'name': 'dr-strange', 'token': 'dr-strange'}, {'name': 'hubris-oshri', 'token': 'Hubris'}, {'name': 'osaka-jyo', 'token': 'osaka-jyo'}, {'name': 'paolo-bonolis', 'token': 'paolo-bonolis'}, {'name': 'repeat', 'token': 'repeat'}, {'name': 'geggin', 'token': 'geggin'}, {'name': 'lex', 'token': 'lex'}, {'name': 'osaka-jyo2', 'token': 'osaka-jyo2'}, {'name': 'owl-house', 'token': 'owl-house'}, {'name': 'nazuna', 'token': 'nazuna'}, {'name': 'thorneworks', 'token': 'Thorneworks'}, {'name': 'kysa-v-style', 'token': 'kysa-v-style'}, {'name': 'senneca', 'token': 'Senneca'}, {'name': 'zero-suit-samus', 'token': 'zero-suit-samus'}, {'name': 'kanv1', 'token': 'KAN'}, {'name': 'dlooak', 'token': 'dlooak'}, {'name': 'wire-angels', 'token': 'wire-angels'}, {'name': 'mizkif', 'token': 'mizkif'}, {'name': 'brittney-williams-art', 'token': 'Brittney_Williams'}, {'name': 'wheelchair', 'token': 'wheelchair'}, {'name': 'yuji-himukai-style', 'token': 'Yuji Himukai-Style'}, {'name': 'cindlop', 'token': 'cindlop'}, {'name': 'sas-style', 'token': 'smooth-aesthetic-style'}, {'name': 'remert', 'token': 'Remert'}, {'name': 'alex-portugal', 'token': 'alejandro-portugal'}, {'name': 'explosions-cat', 'token': 'explosions-cat'}, {'name': 'onzpo', 'token': 'onzpo'}, {'name': 'eru-chitanda-casual', 'token': 'c-eru-chitanda'}, {'name': 'poring-ragnarok-online', 'token': 'poring-ro'}, {'name': 'cg-bearded-man', 'token': 'LH-Keeper'}, {'name': 'ba-shiroko', 'token': 'shiroko'}, {'name': 'at-wolf-boy-object', 'token': 'AT-Wolf-Boy-Object'}, {'name': 'fairytale', 'token': 'fAIrytale'}, {'name': 'kira-sensei', 'token': 'kira-sensei'}, {'name': 'kawaii-girl-plus-style', 'token': 'kawaii_girl'}, {'name': 'kawaii-girl-plus-object', 'token': 'kawaii_girl'}, {'name': 'boris-anderson', 'token': 'boris-anderson'}, {'name': 'medazzaland', 'token': 'edazzalan'}, {'name': 'duranduran', 'token': 'uranDura'}, {'name': 'crbart', 'token': 'crbart'}, {'name': 'happy-person12345', 'token': 'Happy-Person12345'}, {'name': 'fzk', 'token': 'fzk'}, {'name': 'rishusei-style', 'token': 'crishusei-style'}, {'name': 'felps', 'token': 'Felps'}, {'name': 'plen-ki-mun', 'token': 'plen-ki-mun'}, {'name': 'babs-bunny', 'token': 'babs_bunny'}, {'name': 'james-web-space-telescope', 'token': 'James-Web-Telescope'}, {'name': 'blue-haired-boy', 'token': 'Blue-Haired-Boy'}, {'name': '80s-anime-ai', 'token': '80s-anime-AI'}, {'name': 'spider-gwen', 'token': 'spider-gwen'}, {'name': 'takuji-kawano', 'token': 'takuji-kawano'}, {'name': 'fractal-temple-style', 'token': 'fractal-temple'}, {'name': 'sanguo-guanyu', 'token': 'sanguo-guanyu'}, {'name': 's1m-naoto-ohshima', 'token': 's1m-naoto-ohshima'}, {'name': 'kawaii-girl-plus-style-v1-1', 'token': 'kawaii'}, {'name': 'nathan-wyatt', 'token': 'Nathan-Wyatt'}, {'name': 'kasumin', 'token': 'kasumin'}, {'name': 'happy-person12345-assets', 'token': 'Happy-Person12345-assets'}, {'name': 'oleg-kuvaev', 'token': 'oleg-kuvaev'}, {'name': 'kanovt', 'token': 'anov'}, {'name': 'lphr-style', 'token': 'lphr-style'}, {'name': 'concept-art', 'token': 'concept-art'}, {'name': 'trust-support', 'token': 'trust'}, {'name': 'altyn-helmet', 'token': 'Altyn'}, {'name': '80s-anime-ai-being', 'token': 'anime-AI-being'}, {'name': 'baluchitherian', 'token': 'baluchiter'}, {'name': 'pineda-david', 'token': 'pineda-david'}, {'name': 'ohisashiburi-style', 'token': 'ohishashiburi-style'}, {'name': 'crb-portraits', 'token': 'crbportrait'}, {'name': 'i-love-chaos', 'token': 'chaos'}, {'name': 'alex-thumbnail-object-2000-steps', 'token': 'alex'}, {'name': '852style-girl', 'token': '852style-girl'}, {'name': 'nomad', 'token': 'nomad'}, {'name': 'new-priests', 'token': 'new-priest'}, {'name': 'liminalspaces', 'token': 'liminal image'}, {'name': 'aadhav-face', 'token': 'aadhav-face'}, {'name': 'jang-sung-rak-style', 'token': 'Jang-Sung-Rak-style'}, {'name': 'mattvidpro', 'token': 'mattvidpro'}, {'name': 'chungus-poodl-pet', 'token': 'poodl-chungus-big'}, {'name': 'liminal-spaces-2-0', 'token': 'iminal imag'}, {'name': 'crb-surrealz', 'token': 'crbsurreal'}, {'name': 'final-fantasy-logo', 'token': 'final-fantasy-logo'}, {'name': 'canadian-goose', 'token': 'canadian-goose'}, {'name': 'scratch-project', 'token': 'scratch-project'}, {'name': 'lazytown-stephanie', 'token': 'azytown-stephani'}, {'name': 'female-kpop-singer', 'token': 'female-kpop-star'}, {'name': 'aleyna-tilki', 'token': 'aleyna-tilki'}, {'name': 'other-mother', 'token': 'ther-mothe'}, {'name': 'beldam', 'token': 'elda'}, {'name': 'button-eyes', 'token': 'utton-eye'}, {'name': 'alisa', 'token': 'alisa-selezneva'}, {'name': 'im-poppy', 'token': 'm-popp'}, {'name': 'fractal-flame', 'token': 'fractal-flame'}, {'name': 'Exodus-Styling', 'token': 'Exouds-Style'}, {'name': '8sconception', 'token': '80s-car'}, {'name': 'christo-person', 'token': 'christo'}, {'name': 'slm', 'token': 'c-w388'}, {'name': 'meze-audio-elite-headphones', 'token': 'meze-elite'}, {'name': 'fox-purple', 'token': 'foxi-purple'}, {'name': 'roblox-avatar', 'token': 'roblox-avatar'}, {'name': 'toy-bonnie-plush', 'token': 'toy-bonnie-plush'}, {'name': 'alf', 'token': 'alf'}, {'name': 'wojak', 'token': 'oja'}, {'name': 'animalve3-1500seq', 'token': 'diodio'}, {'name': 'muxoyara', 'token': 'muxoyara'}, {'name': 'selezneva-alisa', 'token': 'selezneva-alisa'}, {'name': 'ayush-spider-spr', 'token': 'spr-mn'}, {'name': 'natasha-johnston', 'token': 'natasha-johnston'}, {'name': 'nard-style', 'token': 'nard'}, {'name': 'kirby', 'token': 'kirby'}, {'name': 'el-salvador-style-style', 'token': 'el-salvador-style'}, {'name': 'rahkshi-bionicle', 'token': 'rahkshi-bionicle'}, {'name': 'masyanya', 'token': 'masyanya'}, {'name': 'command-and-conquer-remastered-cameos', 'token': 'command_and_conquer_remastered_cameos'}, {'name': 'lucario', 'token': 'lucario'}, {'name': 'bruma', 'token': 'Bruma-the-cat'}, {'name': 'nissa-revane', 'token': 'nissa-revane'}, {'name': 'tamiyo', 'token': 'tamiyo'}, {'name': 'pascalsibertin', 'token': 'pascalsibertin'}, {'name': 'chandra-nalaar', 'token': 'chandra-nalaar'}, {'name': 'sam-yang', 'token': 'sam-yang'}, {'name': 'kiora', 'token': 'kiora'}, {'name': 'wedding', 'token': 'wedding1'}, {'name': 'arwijn', 'token': 'rwij'}, {'name': 'gba-fe-class-cards', 'token': 'lasscar'}, {'name': 'painted-by-silver-of-999', 'token': 'cat-toy'}, {'name': 'painted-by-silver-of-999-2', 'token': 'girl-painted-by-silver-of-999'}, {'name': 'toyota-sera', 'token': 'toyota-sera'}, {'name': 'vraska', 'token': 'vraska'}, {'name': 'mystical-nature', 'token': ''}, {'name': 'cartoona-animals', 'token': 'cartoona-animals'}, {'name': 'amogus', 'token': 'amogus'}, {'name': 'kinda-sus', 'token': 'amogus'}, {'name': 'xuna', 'token': 'Xuna'}, {'name': 'pion-by-august-semionov', 'token': 'pion'}, {'name': 'rikiart', 'token': 'rick-art'}, {'name': 'jacqueline-the-unicorn', 'token': 'jacqueline'}, {'name': 'flaticon-lineal-color', 'token': 'flaticon-lineal-color'}, {'name': 'test-epson', 'token': 'epson-branch'}, {'name': 'orientalist-art', 'token': 'orientalist-art'}, {'name': 'ki', 'token': 'ki-mars'}, {'name': 'fnf-boyfriend', 'token': 'fnf-boyfriend'}, {'name': 'phoenix-01', 'token': 'phoenix-style'}, {'name': 'society-finch', 'token': 'society-finch'}, {'name': 'rikiboy-art', 'token': 'Rikiboy-Art'}, {'name': 'flatic', 'token': 'flat-ct'}, {'name': 'logo-with-face-on-shield', 'token': 'logo-huizhang'}, {'name': 'elspeth-tirel', 'token': 'elspeth-tirel'}, {'name': 'zero', 'token': 'zero'}, {'name': 'willy-hd', 'token': 'willy_character'}, {'name': 'kaya-ghost-assasin', 'token': 'kaya-ghost-assasin'}, {'name': 'starhavenmachinegods', 'token': 'StarhavenMachineGods'}, {'name': 'namine-ritsu', 'token': 'namine-ritsu'}, {'name': 'mildemelwe-style', 'token': 'mildemelwe'}, {'name': 'nahiri', 'token': 'nahiri'}, {'name': 'ghost-style', 'token': 'ghost'}, {'name': 'arq-render', 'token': 'arq-style'}, {'name': 'saheeli-rai', 'token': 'saheeli-rai'}, {'name': 'youpi2', 'token': 'youpi'}, {'name': 'youtooz-candy', 'token': 'youtooz-candy'}, {'name': 'beholder', 'token': 'beholder'}, {'name': 'progress-chip', 'token': 'progress-chip'}, {'name': 'lofa', 'token': 'lofa'}, {'name': 'huatli', 'token': 'huatli'}, {'name': 'vivien-reid', 'token': 'vivien-reid'}, {'name': 'wedding-HandPainted', 'token': ''}, {'name': 'sims-2-portrait', 'token': 'sims2-portrait'}, {'name': 'flag-ussr', 'token': 'flag-ussr'}, {'name': 'cortana', 'token': 'cortana'}, {'name': 'azura-from-vibrant-venture', 'token': 'azura'}, {'name': 'liliana-vess', 'token': 'liliana-vess'}, {'name': 'dreamy-painting', 'token': 'dreamy-painting'}, {'name': 'munch-leaks-style', 'token': 'munch-leaks-style'}, {'name': 'gta5-artwork', 'token': 'gta5-artwork'}, {'name': 'xioboma', 'token': 'xi-obama'}, {'name': 'ashiok', 'token': 'ashiok'}, {'name': 'Aflac-duck', 'token': 'aflac duck'}, {'name': 'toho-pixel', 'token': 'toho-pixel'}, {'name': 'alicebeta', 'token': 'Alice-style'}, {'name': 'cute-game-style', 'token': 'cute-game-style'}, {'name': 'a-yakimova', 'token': 'a-yakimova'}, {'name': 'anime-background-style', 'token': 'anime-background-style'}, {'name': 'uliana-kudinova', 'token': 'liana-kudinov'}, {'name': 'msg', 'token': 'MSG69'}, {'name': 'gio', 'token': 'gio-single'}, {'name': 'smooth-pencils', 'token': ''}, {'name': 'pintu', 'token': 'pintu-dog'}, {'name': 'marty6', 'token': 'marty6'}, {'name': 'marty', 'token': 'marty'}, {'name': 'xi', 'token': 'JinpingXi'}, {'name': 'captainkirb', 'token': 'captainkirb'}, {'name': 'urivoldemort', 'token': 'uriboldemort'}, {'name': 'anime-background-style-v2', 'token': 'anime-background-style-v2'}, {'name': 'hk-peach', 'token': 'hk-peach'}, {'name': 'hk-goldbuddha', 'token': 'hk-goldbuddha'}, {'name': 'edgerunners-style', 'token': 'edgerunners-style-av'}, {'name': 'warhammer-40k-drawing-style', 'token': 'warhammer40k-drawing-style'}, {'name': 'hk-opencamera', 'token': 'hk-opencamera'}, {'name': 'hk-breakfast', 'token': 'hk-breakfast'}, {'name': 'iridescent-illustration-style', 'token': 'iridescent-illustration-style'}, {'name': 'edgerunners-style-v2', 'token': 'edgerunners-style-av-v2'}, {'name': 'leif-jones', 'token': 'leif-jones'}, {'name': 'hk-buses', 'token': 'hk-buses'}, {'name': 'hk-goldenlantern', 'token': 'hk-goldenlantern'}, {'name': 'hk-hkisland', 'token': 'hk-hkisland'}, {'name': 'hk-leaves', 'token': ''}, {'name': 'hk-oldcamera', 'token': 'hk-oldcamera'}, {'name': 'frank-frazetta', 'token': 'rank franzett'}, {'name': 'obama-based-on-xi', 'token': 'obama> <JinpingXi'}, {'name': 'hk-vintage', 'token': ''}, {'name': 'degods', 'token': 'degods'}, {'name': 'dishonored-portrait-styles', 'token': 'portrait-style-dishonored'}, {'name': 'manga-style', 'token': 'manga'}, {'name': 'degodsheavy', 'token': 'degods-heavy'}, {'name': 'teferi', 'token': 'teferi'}, {'name': 'car-toy-rk', 'token': 'car-toy'}, {'name': 'anders-zorn', 'token': 'anders-zorn'}, {'name': 'rayne-weynolds', 'token': 'rayne-weynolds'}, {'name': 'hk-bamboo', 'token': 'hk-bamboo'}, {'name': 'hk-betweenislands', 'token': 'hk-betweenislands'}, {'name': 'hk-bicycle', 'token': 'hk-bicycle'}, {'name': 'hk-blackandwhite', 'token': 'hk-blackandwhite'}, {'name': 'pjablonski-style', 'token': 'pjablonski-style'}, {'name': 'hk-market', 'token': 'hk-market'}, {'name': 'hk-phonevax', 'token': 'hk-phonevax'}, {'name': 'hk-clouds', 'token': 'hk-cloud'}, {'name': 'hk-streetpeople', 'token': 'hk-streetpeople'}, {'name': 'iridescent-photo-style', 'token': 'iridescent-photo-style'}, {'name': 'color-page', 'token': 'coloring-page'}, {'name': 'hoi4-leaders', 'token': 'HOI4-Leader'}, {'name': 'franz-unterberger', 'token': 'franz-unterberger'}, {'name': 'angus-mcbride-style', 'token': 'angus-mcbride-style'}, {'name': 'happy-chaos', 'token': 'happychaos'}, {'name': 'gt-color-paint-2', 'token': 'my-color-paint-GT'}, {'name': 'smurf-style', 'token': 'smurfy'}, {'name': 'coraline', 'token': 'coraline'}, {'name': 'terraria-style', 'token': 'terr-sty'}, {'name': 'ettblackteapot', 'token': 'my-teapot'}, {'name': 'gibasachan-v0.1', 'token': 'gibasachan'}, {'name': 'kodakvision500t', 'token': 'kodakvision_500T'}, {'name': 'obama-based-on-xi', 'token': 'obama'}, {'name': 'obama-self-2', 'token': 'Obama'}]
+concepts = [{'name': 'cat-toy', 'token': 'cat-toy'}, {'name': 'madhubani-art', 'token': 'madhubani-art'}, {'name': 'birb-style', 'token': 'birb-style'}, {'name': 'indian-watercolor-portraits', 'token': 'watercolor-portrait'}, {'name': 'xyz', 'token': 'xyz'}, {'name': 'poolrooms', 'token': 'poolrooms'}, {'name': 'cheburashka', 'token': 'cheburashka'}, {'name': 'hours-style', 'token': 'hours'}, {'name': 'turtlepics', 'token': 'henry-leonardi'}, {'name': 'karl-s-lzx-1', 'token': 'lzx'}, {'name': 'canary-cap', 'token': 'canary-cap'}, {'name': 'ti-junglepunk-v0', 'token': 'jungle-punk'}, {'name': 'mafalda-character', 'token': 'mafalda-quino'}, {'name': 'magic-pengel', 'token': 'magic-pengel'}, {'name': 'schloss-mosigkau', 'token': 'ralph'}, {'name': 'cubex', 'token': 'cube'}, {'name': 'covid-19-rapid-test', 'token': 'covid-test'}, {'name': 'character-pingu', 'token': 'character-pingu'}, {'name': '2814-roth', 'token': '2814Roth'}, {'name': 'vkuoo1', 'token': 'style-vkuoo1'}, {'name': 'ina-art', 'token': ''}, {'name': 'monte-novo', 'token': 'monte novo cutting board'}, {'name': 'interchanges', 'token': 'xchg'}, {'name': 'walter-wick-photography', 'token': 'walter-wick'}, {'name': 'arcane-style-jv', 'token': 'arcane-style-jv'}, {'name': 'w3u', 'token': 'w3u'}, {'name': 'smiling-friend-style', 'token': 'smilingfriends-cartoon'}, {'name': 'dr-livesey', 'token': 'dr-livesey'}, {'name': 'monster-girl', 'token': 'monster-girl'}, {'name': 'abstract-concepts', 'token': 'art-style'}, {'name': 'reeducation-camp', 'token': 'reeducation-camp'}, {'name': 'miko-3-robot', 'token': 'miko-3'}, {'name': 'party-girl', 'token': 'party-girl'}, {'name': 'dicoo', 'token': 'Dicoo'}, {'name': 'kuvshinov', 'token': 'kuvshinov'}, {'name': 'mass', 'token': 'mass'}, {'name': 'ldr', 'token': 'ldr'}, {'name': 'hub-city', 'token': 'HubCity'}, {'name': 'masyunya', 'token': 'masyunya'}, {'name': 'david-moreno-architecture', 'token': 'dm-arch'}, {'name': 'lolo', 'token': 'lolo'}, {'name': 'apulian-rooster-v0-1', 'token': 'apulian-rooster-v0.1'}, {'name': 'fractal', 'token': 'fractal'}, {'name': 'nebula', 'token': 'nebula'}, {'name': 'ldrs', 'token': 'ldrs'}, {'name': 'art-brut', 'token': 'art-brut'}, {'name': 'malika-favre-art-style', 'token': 'malika-favre'}, {'name': 'line-art', 'token': 'line-art'}, {'name': 'shrunken-head', 'token': 'shrunken-head'}, {'name': 'bonzi-monkey', 'token': 'bonzi'}, {'name': 'herge-style', 'token': 'herge'}, {'name': 'johnny-silverhand', 'token': 'johnny-silverhand'}, {'name': 'linnopoke', 'token': 'linnopoke'}, {'name': 'koko-dog', 'token': 'koko-dog'}, {'name': 'stuffed-penguin-toy', 'token': 'pengu-toy'}, {'name': 'monster-toy', 'token': 'monster-toy'}, {'name': 'dong-ho', 'token': 'dong-ho'}, {'name': 'orangejacket', 'token': 'orangejacket'}, {'name': 'fergal-cat', 'token': 'fergal-cat'}, {'name': 'summie-style', 'token': 'summie-style'}, {'name': 'chonkfrog', 'token': 'chonkfrog'}, {'name': 'alberto-mielgo', 'token': 'street'}, {'name': 'lucky-luke', 'token': 'lucky-luke'}, {'name': 'zdenek-art', 'token': 'zdenek-artwork'}, {'name': 'star-tours-posters', 'token': 'star-tours'}, {'name': 'huang-guang-jian', 'token': 'huang-guang-jian'}, {'name': 'painting', 'token': 'will'}, {'name': 'line-style', 'token': 'line-style'}, {'name': 'venice', 'token': 'venice'}, {'name': 'russian', 'token': 'Russian'}, {'name': 'tony-diterlizzi-s-planescape-art', 'token': 'tony-diterlizzi-planescape'}, {'name': 'moeb-style', 'token': 'moe-bius'}, {'name': 'amine', 'token': 'ayna'}, {'name': 'kojima-ayami', 'token': 'KOJIMA'}, {'name': 'dong-ho2', 'token': 'dong-ho-2'}, {'name': 'ruan-jia', 'token': 'ruan-jia'}, {'name': 'purplefishli', 'token': 'purplefishli'}, {'name': 'cry-baby-style', 'token': 'cry-baby'}, {'name': 'between2-mt-fade', 'token': 'b2MTfade'}, {'name': 'mtl-longsky', 'token': 'mtl-longsky'}, {'name': 'scrap-style', 'token': 'style-chewie'}, {'name': 'tela-lenca', 'token': 'tela-lenca'}, {'name': 'zillertal-can', 'token': 'zillertal-ipa'}, {'name': 'shu-doll', 'token': 'shu-doll'}, {'name': 'eastward', 'token': 'eastward'}, {'name': 'chuck-walton', 'token': 'Chuck_Walton'}, {'name': 'chucky', 'token': 'merc'}, {'name': 'smw-map', 'token': 'smw-map'}, {'name': 'erwin-olaf-style', 'token': 'erwin-olaf'}, {'name': 'maurice-quentin-de-la-tour-style', 'token': 'maurice'}, {'name': 'dan-seagrave-art-style', 'token': 'dan-seagrave'}, {'name': 'drive-scorpion-jacket', 'token': 'drive-scorpion-jacket'}, {'name': 'dark-penguin-pinguinanimations', 'token': 'darkpenguin-robot'}, {'name': 'rd-paintings', 'token': 'rd-painting'}, {'name': 'borderlands', 'token': 'borderlands'}, {'name': 'depthmap', 'token': 'depthmap'}, {'name': 'lego-astronaut', 'token': 'lego-astronaut'}, {'name': 'transmutation-circles', 'token': 'tcircle'}, {'name': 'mycat', 'token': 'mycat'}, {'name': 'ilya-shkipin', 'token': 'ilya-shkipin-style'}, {'name': 'moxxi', 'token': 'moxxi'}, {'name': 'riker-doll', 'token': 'rikerdoll'}, {'name': 'apex-wingman', 'token': 'wingman-apex'}, {'name': 'naf', 'token': 'nal'}, {'name': 'handstand', 'token': 'handstand'}, {'name': 'vb-mox', 'token': 'vb-mox'}, {'name': 'pixel-toy', 'token': 'pixel-toy'}, {'name': 'olli-olli', 'token': 'olli-olli'}, {'name': 'floral', 'token': 'ntry not foun'}, {'name': 'minecraft-concept-art', 'token': 'concept'}, {'name': 'yb-anime', 'token': 'anime-character'}, {'name': 'ditko', 'token': 'cat-toy'}, {'name': 'disquieting-muses', 'token': 'muses'}, {'name': 'ned-flanders', 'token': 'flanders'}, {'name': 'fluid-acrylic-jellyfish-creatures-style-of-carl-ingram-art', 'token': 'jelly-core'}, {'name': 'ic0n', 'token': 'ic0n'}, {'name': 'pyramidheadcosplay', 'token': 'Cos-Pyramid'}, {'name': 'phc', 'token': 'Cos-Pyramid'}, {'name': 'og-mox-style', 'token': 'og-mox-style'}, {'name': 'klance', 'token': 'klance'}, {'name': 'john-blanche', 'token': 'john-blanche'}, {'name': 'cowboy', 'token': 'cowboyStyle'}, {'name': 'darkpenguinanimatronic', 'token': 'penguin-robot'}, {'name': 'doener-red-line-art', 'token': 'dnr'}, {'name': 'style-of-marc-allante', 'token': 'Marc_Allante'}, {'name': 'crybaby-style-2-0', 'token': 'crybaby2'}, {'name': 'werebloops', 'token': 'werebloops'}, {'name': 'xbh', 'token': 'xbh'}, {'name': 'unfinished-building', 'token': 'unfinished-building'}, {'name': 'teelip-ir-landscape', 'token': 'teelip-ir-landscape'}, {'name': 'road-to-ruin', 'token': 'RtoR'}, {'name': 'piotr-jablonski', 'token': 'piotr-jablonski'}, {'name': 'jamiels', 'token': 'jamiels'}, {'name': 'tomcat', 'token': 'tom-cat'}, {'name': 'meyoco', 'token': 'meyoco'}, {'name': 'nixeu', 'token': 'nixeu'}, {'name': 'tnj', 'token': 'tnj'}, {'name': 'cute-bear', 'token': 'cute-bear'}, {'name': 'leica', 'token': 'leica'}, {'name': 'anime-boy', 'token': 'myAItestShota'}, {'name': 'garfield-pizza-plush', 'token': 'garfield-plushy'}, {'name': 'design', 'token': 'design'}, {'name': 'mikako-method', 'token': 'm-m'}, {'name': 'cornell-box', 'token': 'cornell-box'}, {'name': 'sculptural-style', 'token': 'diaosu'}, {'name': 'aavegotchi', 'token': 'aave-gotchi'}, {'name': 'swamp-choe-2', 'token': 'cat-toy'}, {'name': 'super-nintendo-cartridge', 'token': 'snesfita-object'}, {'name': 'garfield-pizza-plush-v2', 'token': 'garfield-plushy'}, {'name': 'rickyart', 'token': 'RickyArt'}, {'name': 'eye-of-agamotto', 'token': 'eye-aga'}, {'name': 'freddy-fazbear', 'token': 'freddy-fazbear'}, {'name': 'glass-pipe', 'token': 'glass-sherlock'}, {'name': 'black-waifu', 'token': 'black-waifu'}, {'name': 'roy-lichtenstein', 'token': 'roy-lichtenstein'}, {'name': 'ugly-sonic', 'token': 'ugly-sonic'}, {'name': 'glow-forest', 'token': 'dark-forest'}, {'name': 'painted-student', 'token': 'painted_student'}, {'name': 'salmonid', 'token': 'salmonid'}, {'name': 'huayecai820-greyscale', 'token': 'huayecaigreyscale-style'}, {'name': 'arthur1', 'token': 'arthur1'}, {'name': 'huckleberry', 'token': 'huckleberry'}, {'name': 'collage3', 'token': 'Collage3'}, {'name': 'spritual-monsters', 'token': 'spritual-monsters'}, {'name': 'baldi', 'token': 'baldi'}, {'name': 'tcirle', 'token': 'tcircle'}, {'name': 'pantone-milk', 'token': 'pantone-milk'}, {'name': 'retropixelart-pinguin', 'token': 'retropixelart-style'}, {'name': 'doose-s-realistic-art-style', 'token': 'doose-realistic'}, {'name': 'grit-toy', 'token': 'grit-toy'}, {'name': 'pink-beast-pastelae-style', 'token': 'pinkbeast'}, {'name': 'mikako-methodi2i', 'token': 'm-mi2i'}, {'name': 'aj-fosik', 'token': 'AJ-Fosik'}, {'name': 'collage-cutouts', 'token': 'collage-cutouts'}, {'name': 'cute-cat', 'token': 'cute-bear'}, {'name': 'kaleido', 'token': 'kaleido'}, {'name': 'xatu', 'token': 'xatu-pokemon'}, {'name': 'a-female-hero-from-the-legend-of-mir', 'token': ' <female-hero> from The Legend of Mi'}, {'name': 'cologne', 'token': 'cologne-dom'}, {'name': 'wlop-style', 'token': 'wlop-style'}, {'name': 'larrette', 'token': 'larrette'}, {'name': 'bert-muppet', 'token': 'bert-muppet'}, {'name': 'my-hero-academia-style', 'token': 'MHA style'}, {'name': 'vcr-classique', 'token': 'vcr_c'}, {'name': 'xatu2', 'token': 'xatu-test'}, {'name': 'tela-lenca2', 'token': 'tela-lenca'}, {'name': 'dragonborn', 'token': 'dragonborn'}, {'name': 'mate', 'token': 'mate'}, {'name': 'alien-avatar', 'token': 'alien-avatar'}, {'name': 'pastelartstyle', 'token': 'Arzy'}, {'name': 'kings-quest-agd', 'token': 'ings-quest-ag'}, {'name': 'doge-pound', 'token': 'doge-pound'}, {'name': 'type', 'token': 'typeface'}, {'name': 'fileteado-porteno', 'token': 'fileteado-porteno'}, {'name': 'bullvbear', 'token': 'bullVBear'}, {'name': 'freefonix-style', 'token': 'Freefonix'}, {'name': 'garcon-the-cat', 'token': 'garcon-the-cat'}, {'name': 'better-collage3', 'token': 'C3'}, {'name': 'metagabe', 'token': 'metagabe'}, {'name': 'ggplot2', 'token': 'ggplot2'}, {'name': 'yoshi', 'token': 'yoshi'}, {'name': 'illustration-style', 'token': 'illustration-style'}, {'name': 'centaur', 'token': 'centaur'}, {'name': 'zoroark', 'token': 'zoroark'}, {'name': 'bad_Hub_Hugh', 'token': 'HubHugh'}, {'name': 'irasutoya', 'token': 'irasutoya'}, {'name': 'liquid-light', 'token': 'lls'}, {'name': 'zaneypixelz', 'token': 'zaneypixelz'}, {'name': 'tubby', 'token': 'tubby'}, {'name': 'atm-ant', 'token': 'atm-ant'}, {'name': 'fang-yuan-001', 'token': 'fang-yuan'}, {'name': 'dullboy-caricature', 'token': 'dullboy-cari'}, {'name': 'bada-club', 'token': 'bada-club'}, {'name': 'zaney', 'token': 'zaney'}, {'name': 'a-tale-of-two-empires', 'token': 'two-empires'}, {'name': 'dabotap', 'token': 'dabotap'}, {'name': 'harley-quinn', 'token': 'harley-quinn'}, {'name': 'vespertine', 'token': 'Vesp'}, {'name': 'ricar', 'token': 'ricard'}, {'name': 'conner-fawcett-style', 'token': 'badbucket'}, {'name': 'ingmar-bergman', 'token': 'ingmar-bergman'}, {'name': 'poutine-dish', 'token': 'poutine-qc'}, {'name': 'shev-linocut', 'token': 'shev-linocut'}, {'name': 'grifter', 'token': 'grifter'}, {'name': 'dog', 'token': 'Winston'}, {'name': 'tangles', 'token': 'cora-tangle'}, {'name': 'lost-rapper', 'token': 'lost-rapper'}, {'name': 'eddie', 'token': 'ddi'}, {'name': 'thunderdome-covers', 'token': 'thunderdome'}, {'name': 'she-mask', 'token': 'she-mask'}, {'name': 'chillpill', 'token': 'Chillpill'}, {'name': 'robertnava', 'token': 'robert-nava'}, {'name': 'looney-anime', 'token': 'looney-anime'}, {'name': 'axe-tattoo', 'token': 'axe-tattoo'}, {'name': 'fireworks-over-water', 'token': 'firework'}, {'name': 'collage14', 'token': 'C14'}, {'name': 'green-tent', 'token': 'green-tent'}, {'name': 'dtv-pkmn', 'token': 'dtv-pkm2'}, {'name': 'crinos-form-garou', 'token': 'crinos'}, {'name': '8bit', 'token': '8bit'}, {'name': 'tubby-cats', 'token': 'tubby'}, {'name': 'travis-bedel', 'token': 'bedelgeuse2'}, {'name': 'uma', 'token': 'uma'}, {'name': 'ie-gravestone', 'token': 'internet-explorer-gravestone'}, {'name': 'colossus', 'token': 'colossus'}, {'name': 'uma-style-classic', 'token': 'uma'}, {'name': 'collage3-hubcity', 'token': 'C3Hub'}, {'name': 'goku', 'token': 'goku'}, {'name': 'galaxy-explorer', 'token': 'galaxy-explorer'}, {'name': 'rl-pkmn-test', 'token': 'rl-pkmn'}, {'name': 'naval-portrait', 'token': 'naval-portrait'}, {'name': 'daycare-attendant-sun-fnaf', 'token': 'biblic-sun-fnaf'}, {'name': 'reksio-dog', 'token': 'reksio-dog'}, {'name': 'breakcore', 'token': 'reakcor'}, {'name': 'junji-ito-artstyle', 'token': 'junji-ito-style'}, {'name': 'gram-tops', 'token': 'gram-tops'}, {'name': 'henjo-techno-show', 'token': 'HENJOTECHNOSHOW'}, {'name': 'trash-polka-artstyle', 'token': 'trash-polka-style'}, {'name': 'faraon-love-shady', 'token': ''}, {'name': 'trigger-studio', 'token': 'Trigger Studio'}, {'name': 'tb303', 'token': '"tb303'}, {'name': 'neon-pastel', 'token': 'neon-pastel'}, {'name': 'fursona', 'token': 'fursona-2'}, {'name': 'sterling-archer', 'token': 'archer-style'}, {'name': 'captain-haddock', 'token': 'captain-haddock'}, {'name': 'my-mug', 'token': 'my-mug'}, {'name': 'joe-whiteford-art-style', 'token': 'joe-whiteford-artstyle'}, {'name': 'on-kawara', 'token': 'on-kawara'}, {'name': 'hours-sentry-fade', 'token': 'Hours_Sentry'}, {'name': 'rektguy', 'token': 'rektguy'}, {'name': 'dyoudim-style', 'token': 'DyoudiM-style'}, {'name': 'kaneoya-sachiko', 'token': 'Kaneoya'}, {'name': 'retro-girl', 'token': 'retro-girl'}, {'name': 'buddha-statue', 'token': 'buddha-statue'}, {'name': 'hitokomoru-style-nao', 'token': 'hitokomoru-style'}, {'name': 'plant-style', 'token': 'plant'}, {'name': 'cham', 'token': 'cham'}, {'name': 'mayor-richard-irvin', 'token': 'Richard_Irvin'}, {'name': 'sd-concepts-library-uma-meme', 'token': 'uma-object-full'}, {'name': 'uma-meme', 'token': 'uma-object-full'}, {'name': 'thunderdome-cover', 'token': 'thunderdome-cover'}, {'name': 'sem-mac2n', 'token': 'SEM_Mac2N'}, {'name': 'hoi4', 'token': 'hoi4'}, {'name': 'hd-emoji', 'token': 'HDemoji-object'}, {'name': 'lumio', 'token': 'lumio'}, {'name': 't-skrang', 'token': 'tskrang'}, {'name': 'agm-style-nao', 'token': 'agm-style'}, {'name': 'uma-meme-style', 'token': 'uma-meme-style'}, {'name': 'retro-mecha-rangers', 'token': 'aesthetic'}, {'name': 'babushork', 'token': 'babushork'}, {'name': 'qpt-atrium', 'token': 'QPT_ATRIUM'}, {'name': 'sushi-pixel', 'token': 'sushi-pixel'}, {'name': 'osrsmini2', 'token': ''}, {'name': 'ttte', 'token': 'ttte-2'}, {'name': 'atm-ant-2', 'token': 'atm-ant'}, {'name': 'dan-mumford', 'token': 'dan-mumford'}, {'name': 'renalla', 'token': 'enall'}, {'name': 'cow-uwu', 'token': 'cow-uwu'}, {'name': 'one-line-drawing', 'token': 'lineart'}, {'name': 'inuyama-muneto-style-nao', 'token': 'inuyama-muneto-style'}, {'name': 'altvent', 'token': 'AltVent'}, {'name': 'accurate-angel', 'token': 'accurate-angel'}, {'name': 'mtg-card', 'token': 'mtg-card'}, {'name': 'ddattender', 'token': 'ddattender'}, {'name': 'thalasin', 'token': 'thalasin-plus'}, {'name': 'moebius', 'token': 'moebius'}, {'name': 'liqwid-aquafarmer', 'token': 'aquafarmer'}, {'name': 'onepunchman', 'token': 'OnePunch'}, {'name': 'kawaii-colors', 'token': 'kawaii-colors-style'}, {'name': 'naruto', 'token': 'Naruto'}, {'name': 'backrooms', 'token': 'Backrooms'}, {'name': 'a-hat-kid', 'token': 'hatintime-kid'}, {'name': 'furrpopasthetic', 'token': 'furpop'}, {'name': 'RINGAO', 'token': ''}, {'name': 'csgo-awp-texture-map', 'token': 'csgo_awp_texture'}, {'name': 'luinv2', 'token': 'luin-waifu'}, {'name': 'hydrasuit', 'token': 'hydrasuit'}, {'name': 'milady', 'token': 'milady'}, {'name': 'ganyu-genshin-impact', 'token': 'ganyu'}, {'name': 'wayne-reynolds-character', 'token': 'warcharport'}, {'name': 'david-firth-artstyle', 'token': 'david-firth-artstyle'}, {'name': 'seraphimmoonshadow-art', 'token': 'seraphimmoonshadow-art'}, {'name': 'osrstiny', 'token': 'osrstiny'}, {'name': 'lugal-ki-en', 'token': 'lugal-ki-en'}, {'name': 'seamless-ground', 'token': 'seamless-ground'}, {'name': 'sewerslvt', 'token': 'ewerslv'}, {'name': 'diaosu-toy', 'token': 'diaosu-toy'}, {'name': 'sakimi-style', 'token': 'sakimi'}, {'name': 'rj-palmer', 'token': 'rj-palmer'}, {'name': 'harmless-ai-house-style-1', 'token': 'bee-style'}, {'name': 'harmless-ai-1', 'token': 'bee-style'}, {'name': 'yerba-mate', 'token': 'yerba-mate'}, {'name': 'bella-goth', 'token': 'bella-goth'}, {'name': 'bobs-burgers', 'token': 'bobs-burgers'}, {'name': 'jamie-hewlett-style', 'token': 'hewlett'}, {'name': 'belen', 'token': 'belen'}, {'name': 'shvoren-style', 'token': 'shvoren-style'}, {'name': 'gymnastics-leotard-v2', 'token': 'gymnastics-leotard2'}, {'name': 'rd-chaos', 'token': 'rd-chaos'}, {'name': 'armor-concept', 'token': 'armor-concept'}, {'name': 'ouroboros', 'token': 'ouroboros'}, {'name': 'm-geo', 'token': 'm-geo'}, {'name': 'Akitsuki', 'token': ''}, {'name': 'uzumaki', 'token': 'NARUTO'}, {'name': 'sorami-style', 'token': 'sorami-style'}, {'name': 'lxj-o4', 'token': 'csp'}, {'name': 'she-hulk-law-art', 'token': 'shehulk-style'}, {'name': 'led-toy', 'token': 'led-toy'}, {'name': 'durer-style', 'token': 'drr-style'}, {'name': 'hiten-style-nao', 'token': 'hiten-style-nao'}, {'name': 'mechasoulall', 'token': 'mechasoulall'}, {'name': 'wish-artist-stile', 'token': 'wish-style'}, {'name': 'max-foley', 'token': 'max-foley'}, {'name': 'loab-style', 'token': 'loab-style'}, {'name': '3d-female-cyborgs', 'token': 'A female cyborg'}, {'name': 'r-crumb-style', 'token': 'rcrumb'}, {'name': 'paul-noir', 'token': 'paul-noir'}, {'name': 'cgdonny1', 'token': 'donny1'}, {'name': 'valorantstyle', 'token': 'valorant'}, {'name': 'loab-character', 'token': 'loab-character'}, {'name': 'Atako', 'token': ''}, {'name': 'threestooges', 'token': 'threestooges'}, {'name': 'dsmuses', 'token': 'DSmuses'}, {'name': 'fish', 'token': 'fish'}, {'name': 'glass-prism-cube', 'token': 'glass-prism-cube'}, {'name': 'elegant-flower', 'token': 'elegant-flower'}, {'name': 'hanfu-anime-style', 'token': 'hanfu-anime-style'}, {'name': 'green-blue-shanshui', 'token': 'green-blue shanshui'}, {'name': 'lizardman', 'token': 'laceholderTokenLizardma'}, {'name': 'rail-scene', 'token': 'rail-pov'}, {'name': 'lula-13', 'token': 'lula-13'}, {'name': 'laala-character', 'token': 'laala'}, {'name': 'margo', 'token': 'dog-margo'}, {'name': 'carrascharacter', 'token': 'Carras'}, {'name': 'vietstoneking', 'token': 'vietstoneking'}, {'name': 'rhizomuse-machine-bionic-sculpture', 'token': ''}, {'name': 'rcrumb-portraits-style', 'token': 'rcrumb-portraits'}, {'name': 'mu-sadr', 'token': '783463b'}, {'name': 'bozo-22', 'token': 'bozo-22'}, {'name': 'skyfalls', 'token': 'SkyFalls'}, {'name': 'zk', 'token': ''}, {'name': 'tudisco', 'token': 'cat-toy'}, {'name': 'kogecha', 'token': 'kogecha'}, {'name': 'ori-toor', 'token': 'ori-toor'}, {'name': 'isabell-schulte-pviii-style', 'token': 'isabell-schulte-p8-style'}, {'name': 'rilakkuma', 'token': 'rilakkuma'}, {'name': 'indiana', 'token': 'indiana'}, {'name': 'black-and-white-design', 'token': 'PM_style'}, {'name': 'isabell-schulte-pviii-1024px-1500-steps-style', 'token': 'isabell-schulte-p8-style-1024p-1500s'}, {'name': 'fold-structure', 'token': 'fold-geo'}, {'name': 'brunnya', 'token': 'Brunnya'}, {'name': 'jos-de-kat', 'token': 'kat-jos'}, {'name': 'singsing-doll', 'token': 'singsing'}, {'name': 'singsing', 'token': 'singsing'}, {'name': 'isabell-schulte-pviii-12tiles-3000steps-style', 'token': 'isabell-schulte-p8-style-12tiles-3000s'}, {'name': 'f-22', 'token': 'f-22'}, {'name': 'jin-kisaragi', 'token': 'jin-kisaragi'}, {'name': 'depthmap-style', 'token': 'depthmap'}, {'name': 'crested-gecko', 'token': 'crested-gecko'}, {'name': 'grisstyle', 'token': 'gris'}, {'name': 'ikea-fabler', 'token': 'ikea-fabler'}, {'name': 'joe-mad', 'token': 'joe-mad'}, {'name': 'boissonnard', 'token': 'boissonnard'}, {'name': 'overprettified', 'token': 'overprettified'}, {'name': 'all-rings-albuns', 'token': 'rings-all-albuns'}, {'name': 'shiny-polyman', 'token': 'shiny-polyman'}, {'name': 'scarlet-witch', 'token': 'sw-mom'}, {'name': 'wojaks-now', 'token': 'red-wojak'}, {'name': 'carasibana', 'token': 'carasibana'}, {'name': 'towerplace', 'token': 'TowerPlace'}, {'name': 'cumbia-peruana', 'token': 'cumbia-peru'}, {'name': 'bloo', 'token': 'owl-guy'}, {'name': 'dog-django', 'token': 'dog-django'}, {'name': 'facadeplace', 'token': 'FacadePlace'}, {'name': 'blue-zombie', 'token': 'blue-zombie'}, {'name': 'blue-zombiee', 'token': 'blue-zombie'}, {'name': 'jinjoon-lee-they', 'token': 'jinjoon_lee_they'}, {'name': 'ralph-mcquarrie', 'token': 'ralph-mcquarrie'}, {'name': 'hiyuki-chan', 'token': 'hiyuki-chan'}, {'name': 'isabell-schulte-pviii-4tiles-6000steps', 'token': 'isabell-schulte-p8-style-4tiles-6000s'}, {'name': 'liliana', 'token': 'liliana'}, {'name': 'morino-hon-style', 'token': 'morino-hon'}, {'name': 'artist-yukiko-kanagai', 'token': 'Yukiko Kanagai '}, {'name': 'wheatland', 'token': ''}, {'name': 'm-geoo', 'token': 'm-geo'}, {'name': 'wheatland-arknight', 'token': 'golden-wheats-fields'}, {'name': 'mokoko', 'token': 'mokoko'}, {'name': '001glitch-core', 'token': '01glitch_cor'}, {'name': 'stardew-valley-pixel-art', 'token': 'pixelart-stardew'}, {'name': 'isabell-schulte-pviii-4tiles-500steps', 'token': 'isabell-schulte-p8-style-4tiles-500s'}, {'name': 'anime-girl', 'token': 'anime-girl'}, {'name': 'heather', 'token': 'eather'}, {'name': 'rail-scene-style', 'token': 'rail-pov'}, {'name': 'quiesel', 'token': 'quiesel'}, {'name': 'matthew-stone', 'token': 'atthew-ston'}, {'name': 'dreamcore', 'token': 'dreamcore'}, {'name': 'pokemon-conquest-sprites', 'token': 'poke-conquest'}, {'name': 'tili-concept', 'token': 'tili'}, {'name': 'nouns-glasses', 'token': 'nouns glasses'}, {'name': 'shigure-ui-style', 'token': 'shigure-ui'}, {'name': 'pen-ink-portraits-bennorthen', 'token': 'ink-portrait-by-BenNorthern'}, {'name': 'nikodim', 'token': 'nikodim'}, {'name': 'ori', 'token': 'Ori'}, {'name': 'anya-forger', 'token': 'anya-forger'}, {'name': 'lavko', 'token': 'lavko'}, {'name': 'fasina', 'token': 'Fasina'}, {'name': 'uma-clean-object', 'token': 'uma-clean-object'}, {'name': 'wojaks-now-now-now', 'token': 'red-wojak'}, {'name': 'memnarch-mtg', 'token': 'mtg-memnarch'}, {'name': 'tonal1', 'token': 'Tonal'}, {'name': 'tesla-bot', 'token': 'tesla-bot'}, {'name': 'red-glasses', 'token': 'red-glasses'}, {'name': 'csgo-awp-object', 'token': 'csgo_awp'}, {'name': 'stretch-re1-robot', 'token': 'stretch'}, {'name': 'isabell-schulte-pv-pvii-3000steps', 'token': 'isabell-schulte-p5-p7-style-3000s'}, {'name': 'insidewhale', 'token': 'InsideWhale'}, {'name': 'noggles', 'token': 'noggles'}, {'name': 'isometric-tile-test', 'token': 'iso-tile'}, {'name': 'bamse-og-kylling', 'token': 'bamse-kylling'}, {'name': 'marbling-art', 'token': 'marbling-art'}, {'name': 'joemad', 'token': 'joemad'}, {'name': 'bamse', 'token': 'bamse'}, {'name': 'dq10-anrushia', 'token': 'anrushia'}, {'name': 'test', 'token': 'AIO'}, {'name': 'naoki-saito', 'token': 'naoki_saito'}, {'name': 'raichu', 'token': 'raichu'}, {'name': 'child-zombie', 'token': 'child-zombie'}, {'name': 'yf21', 'token': 'YF21'}, {'name': 'titan-robot', 'token': 'titan'}, {'name': 'cyberpunk-lucy', 'token': 'cyberpunk-lucy'}, {'name': 'giygas', 'token': 'giygas'}, {'name': 'david-martinez-cyberpunk', 'token': 'david-martinez-cyberpunk'}, {'name': 'phan-s-collage', 'token': 'pcollage'}, {'name': 'jojo-bizzare-adventure-manga-lineart', 'token': 'JoJo_lineart'}, {'name': 'homestuck-sprite', 'token': 'homestuck-sprite'}, {'name': 'kogatan-shiny', 'token': 'ogata'}, {'name': 'moo-moo', 'token': 'moomoo'}, {'name': 'detectivedinosaur1', 'token': 'dd1'}, {'name': 'arcane-face', 'token': 'arcane-face'}, {'name': 'sherhook-painting', 'token': 'sherhook'}, {'name': 'isabell-schulte-pviii-1-image-style', 'token': 'isabell-schulte-p8-1-style'}, {'name': 'dicoo2', 'token': 'dicoo'}, {'name': 'hrgiger-drmacabre', 'token': 'barba'}, {'name': 'babau', 'token': 'babau'}, {'name': 'darkplane', 'token': 'DarkPlane'}, {'name': 'wildkat', 'token': 'wildkat'}, {'name': 'half-life-2-dog', 'token': 'hl-dog'}, {'name': 'outfit-items', 'token': 'outfit-items'}, {'name': 'midjourney-style', 'token': 'midjourney-style'}, {'name': 'puerquis-toy', 'token': 'puerquis'}, {'name': 'maus', 'token': 'Maus'}, {'name': 'jetsetdreamcastcovers', 'token': 'jet'}, {'name': 'karan-gloomy', 'token': 'karan'}, {'name': 'yoji-shinkawa-style', 'token': 'yoji-shinkawa'}, {'name': 'million-live-akane-15k', 'token': 'akane'}, {'name': 'million-live-akane-3k', 'token': 'akane'}, {'name': 'sherhook-painting-v2', 'token': 'sherhook'}, {'name': 'gba-pokemon-sprites', 'token': 'GBA-Poke-Sprites'}, {'name': 'gim', 'token': 'grimes-album-style'}, {'name': 'char-con', 'token': 'char-con'}, {'name': 'bluebey', 'token': 'bluebey'}, {'name': 'homestuck-troll', 'token': 'homestuck-troll'}, {'name': 'million-live-akane-shifuku-3k', 'token': 'akane'}, {'name': 'thegeneral', 'token': 'bobknight'}, {'name': 'million-live-spade-q-object-3k', 'token': 'spade_q'}, {'name': 'million-live-spade-q-style-3k', 'token': 'spade_q'}, {'name': 'ibere-thenorio', 'token': 'ibere-thenorio'}, {'name': 'yinit', 'token': 'init-dropca'}, {'name': 'bee', 'token': 'b-e-e'}, {'name': 'pixel-mania', 'token': 'pixel-mania'}, {'name': 'sunfish', 'token': 'SunFish'}, {'name': 'test2', 'token': 'AIOCARD'}, {'name': 'pool-test', 'token': 'pool_test'}, {'name': 'mokoko-seed', 'token': 'mokoko-seed'}, {'name': 'isabell-schulte-pviii-4-tiles-1-lr-3000-steps-style', 'token': 'isabell-schulte-p8-4tiles-1lr-300s-style'}, {'name': 'ghostproject-men', 'token': 'ghostsproject-style'}, {'name': 'phan', 'token': 'phan'}, {'name': 'chen-1', 'token': 'chen-1'}, {'name': 'bluebey-2', 'token': 'bluebey'}, {'name': 'waterfallshadow', 'token': 'WaterfallShadow'}, {'name': 'chop', 'token': 'Le Petit Prince'}, {'name': 'sintez-ico', 'token': 'sintez-ico'}, {'name': 'carlitos-el-mago', 'token': 'carloscarbonell'}, {'name': 'david-martinez-edgerunners', 'token': 'david-martinez-edgerunners'}, {'name': 'isabell-schulte-pviii-4-tiles-3-lr-5000-steps-style', 'token': 'isabell-schulte-p8-4tiles-3lr-5000s-style'}, {'name': 'guttestreker', 'token': 'guttestreker'}, {'name': 'ransom', 'token': 'ransom'}, {'name': 'museum-by-coop-himmelblau', 'token': 'coop himmelblau museum'}, {'name': 'coop-himmelblau', 'token': 'coop himmelblau'}, {'name': 'yesdelete', 'token': 'yesdelete'}, {'name': 'conway-pirate', 'token': 'conway'}, {'name': 'ilo-kunst', 'token': 'ilo-kunst'}, {'name': 'yilanov2', 'token': 'yilanov'}, {'name': 'dr-strange', 'token': 'dr-strange'}, {'name': 'hubris-oshri', 'token': 'Hubris'}, {'name': 'osaka-jyo', 'token': 'osaka-jyo'}, {'name': 'paolo-bonolis', 'token': 'paolo-bonolis'}, {'name': 'repeat', 'token': 'repeat'}, {'name': 'geggin', 'token': 'geggin'}, {'name': 'lex', 'token': 'lex'}, {'name': 'osaka-jyo2', 'token': 'osaka-jyo2'}, {'name': 'owl-house', 'token': 'owl-house'}, {'name': 'nazuna', 'token': 'nazuna'}, {'name': 'thorneworks', 'token': 'Thorneworks'}, {'name': 'kysa-v-style', 'token': 'kysa-v-style'}, {'name': 'senneca', 'token': 'Senneca'}, {'name': 'zero-suit-samus', 'token': 'zero-suit-samus'}, {'name': 'kanv1', 'token': 'KAN'}, {'name': 'dlooak', 'token': 'dlooak'}, {'name': 'wire-angels', 'token': 'wire-angels'}, {'name': 'mizkif', 'token': 'mizkif'}, {'name': 'brittney-williams-art', 'token': 'Brittney_Williams'}, {'name': 'wheelchair', 'token': 'wheelchair'}, {'name': 'yuji-himukai-style', 'token': 'Yuji Himukai-Style'}, {'name': 'cindlop', 'token': 'cindlop'}, {'name': 'sas-style', 'token': 'smooth-aesthetic-style'}, {'name': 'remert', 'token': 'Remert'}, {'name': 'alex-portugal', 'token': 'alejandro-portugal'}, {'name': 'explosions-cat', 'token': 'explosions-cat'}, {'name': 'onzpo', 'token': 'onzpo'}, {'name': 'eru-chitanda-casual', 'token': 'c-eru-chitanda'}, {'name': 'poring-ragnarok-online', 'token': 'poring-ro'}, {'name': 'cg-bearded-man', 'token': 'LH-Keeper'}, {'name': 'ba-shiroko', 'token': 'shiroko'}, {'name': 'at-wolf-boy-object', 'token': 'AT-Wolf-Boy-Object'}, {'name': 'fairytale', 'token': 'fAIrytale'}, {'name': 'kira-sensei', 'token': 'kira-sensei'}, {'name': 'kawaii-girl-plus-style', 'token': 'kawaii_girl'}, {'name': 'kawaii-girl-plus-object', 'token': 'kawaii_girl'}, {'name': 'boris-anderson', 'token': 'boris-anderson'}, {'name': 'medazzaland', 'token': 'edazzalan'}, {'name': 'duranduran', 'token': 'uranDura'}, {'name': 'crbart', 'token': 'crbart'}, {'name': 'happy-person12345', 'token': 'Happy-Person12345'}, {'name': 'fzk', 'token': 'fzk'}, {'name': 'rishusei-style', 'token': 'crishusei-style'}, {'name': 'felps', 'token': 'Felps'}, {'name': 'plen-ki-mun', 'token': 'plen-ki-mun'}, {'name': 'babs-bunny', 'token': 'babs_bunny'}, {'name': 'james-web-space-telescope', 'token': 'James-Web-Telescope'}, {'name': 'blue-haired-boy', 'token': 'Blue-Haired-Boy'}, {'name': '80s-anime-ai', 'token': '80s-anime-AI'}, {'name': 'spider-gwen', 'token': 'spider-gwen'}, {'name': 'takuji-kawano', 'token': 'takuji-kawano'}, {'name': 'fractal-temple-style', 'token': 'fractal-temple'}, {'name': 'sanguo-guanyu', 'token': 'sanguo-guanyu'}, {'name': 's1m-naoto-ohshima', 'token': 's1m-naoto-ohshima'}, {'name': 'kawaii-girl-plus-style-v1-1', 'token': 'kawaii'}, {'name': 'nathan-wyatt', 'token': 'Nathan-Wyatt'}, {'name': 'kasumin', 'token': 'kasumin'}, {'name': 'happy-person12345-assets', 'token': 'Happy-Person12345-assets'}, {'name': 'oleg-kuvaev', 'token': 'oleg-kuvaev'}, {'name': 'kanovt', 'token': 'anov'}, {'name': 'lphr-style', 'token': 'lphr-style'}, {'name': 'concept-art', 'token': 'concept-art'}, {'name': 'trust-support', 'token': 'trust'}, {'name': 'altyn-helmet', 'token': 'Altyn'}, {'name': '80s-anime-ai-being', 'token': 'anime-AI-being'}, {'name': 'baluchitherian', 'token': 'baluchiter'}, {'name': 'pineda-david', 'token': 'pineda-david'}, {'name': 'ohisashiburi-style', 'token': 'ohishashiburi-style'}, {'name': 'crb-portraits', 'token': 'crbportrait'}, {'name': 'i-love-chaos', 'token': 'chaos'}, {'name': 'alex-thumbnail-object-2000-steps', 'token': 'alex'}, {'name': '852style-girl', 'token': '852style-girl'}, {'name': 'nomad', 'token': 'nomad'}, {'name': 'new-priests', 'token': 'new-priest'}, {'name': 'liminalspaces', 'token': 'liminal image'}, {'name': 'aadhav-face', 'token': 'aadhav-face'}, {'name': 'jang-sung-rak-style', 'token': 'Jang-Sung-Rak-style'}, {'name': 'mattvidpro', 'token': 'mattvidpro'}, {'name': 'chungus-poodl-pet', 'token': 'poodl-chungus-big'}, {'name': 'liminal-spaces-2-0', 'token': 'iminal imag'}, {'name': 'crb-surrealz', 'token': 'crbsurreal'}, {'name': 'final-fantasy-logo', 'token': 'final-fantasy-logo'}, {'name': 'canadian-goose', 'token': 'canadian-goose'}, {'name': 'scratch-project', 'token': 'scratch-project'}, {'name': 'lazytown-stephanie', 'token': 'azytown-stephani'}, {'name': 'female-kpop-singer', 'token': 'female-kpop-star'}, {'name': 'aleyna-tilki', 'token': 'aleyna-tilki'}, {'name': 'other-mother', 'token': 'ther-mothe'}, {'name': 'beldam', 'token': 'elda'}, {'name': 'button-eyes', 'token': 'utton-eye'}, {'name': 'alisa', 'token': 'alisa-selezneva'}, {'name': 'im-poppy', 'token': 'm-popp'}, {'name': 'fractal-flame', 'token': 'fractal-flame'}, {'name': 'Exodus-Styling', 'token': 'Exouds-Style'}, {'name': '8sconception', 'token': '80s-car'}, {'name': 'christo-person', 'token': 'christo'}, {'name': 'slm', 'token': 'c-w388'}, {'name': 'meze-audio-elite-headphones', 'token': 'meze-elite'}, {'name': 'fox-purple', 'token': 'foxi-purple'}, {'name': 'roblox-avatar', 'token': 'roblox-avatar'}, {'name': 'toy-bonnie-plush', 'token': 'toy-bonnie-plush'}, {'name': 'alf', 'token': 'alf'}, {'name': 'wojak', 'token': 'oja'}, {'name': 'animalve3-1500seq', 'token': 'diodio'}, {'name': 'muxoyara', 'token': 'muxoyara'}, {'name': 'selezneva-alisa', 'token': 'selezneva-alisa'}, {'name': 'ayush-spider-spr', 'token': 'spr-mn'}, {'name': 'natasha-johnston', 'token': 'natasha-johnston'}, {'name': 'nard-style', 'token': 'nard'}, {'name': 'kirby', 'token': 'kirby'}, {'name': 'el-salvador-style-style', 'token': 'el-salvador-style'}, {'name': 'rahkshi-bionicle', 'token': 'rahkshi-bionicle'}, {'name': 'masyanya', 'token': 'masyanya'}, {'name': 'command-and-conquer-remastered-cameos', 'token': 'command_and_conquer_remastered_cameos'}, {'name': 'lucario', 'token': 'lucario'}, {'name': 'bruma', 'token': 'Bruma-the-cat'}, {'name': 'nissa-revane', 'token': 'nissa-revane'}, {'name': 'tamiyo', 'token': 'tamiyo'}, {'name': 'pascalsibertin', 'token': 'pascalsibertin'}, {'name': 'chandra-nalaar', 'token': 'chandra-nalaar'}, {'name': 'sam-yang', 'token': 'sam-yang'}, {'name': 'kiora', 'token': 'kiora'}, {'name': 'wedding', 'token': 'wedding1'}, {'name': 'arwijn', 'token': 'rwij'}, {'name': 'gba-fe-class-cards', 'token': 'lasscar'}, {'name': 'painted-by-silver-of-999', 'token': 'cat-toy'}, {'name': 'painted-by-silver-of-999-2', 'token': 'girl-painted-by-silver-of-999'}, {'name': 'toyota-sera', 'token': 'toyota-sera'}, {'name': 'vraska', 'token': 'vraska'}, {'name': 'mystical-nature', 'token': ''}, {'name': 'cartoona-animals', 'token': 'cartoona-animals'}, {'name': 'amogus', 'token': 'amogus'}, {'name': 'kinda-sus', 'token': 'amogus'}, {'name': 'xuna', 'token': 'Xuna'}, {'name': 'pion-by-august-semionov', 'token': 'pion'}, {'name': 'rikiart', 'token': 'rick-art'}, {'name': 'jacqueline-the-unicorn', 'token': 'jacqueline'}, {'name': 'flaticon-lineal-color', 'token': 'flaticon-lineal-color'}, {'name': 'test-epson', 'token': 'epson-branch'}, {'name': 'orientalist-art', 'token': 'orientalist-art'}, {'name': 'ki', 'token': 'ki-mars'}, {'name': 'fnf-boyfriend', 'token': 'fnf-boyfriend'}, {'name': 'phoenix-01', 'token': 'phoenix-style'}, {'name': 'society-finch', 'token': 'society-finch'}, {'name': 'rikiboy-art', 'token': 'Rikiboy-Art'}, {'name': 'flatic', 'token': 'flat-ct'}, {'name': 'logo-with-face-on-shield', 'token': 'logo-huizhang'}, {'name': 'elspeth-tirel', 'token': 'elspeth-tirel'}, {'name': 'zero', 'token': 'zero'}, {'name': 'willy-hd', 'token': 'willy_character'}, {'name': 'kaya-ghost-assasin', 'token': 'kaya-ghost-assasin'}, {'name': 'starhavenmachinegods', 'token': 'StarhavenMachineGods'}, {'name': 'namine-ritsu', 'token': 'namine-ritsu'}, {'name': 'mildemelwe-style', 'token': 'mildemelwe'}, {'name': 'nahiri', 'token': 'nahiri'}, {'name': 'ghost-style', 'token': 'ghost'}, {'name': 'arq-render', 'token': 'arq-style'}, {'name': 'saheeli-rai', 'token': 'saheeli-rai'}, {'name': 'youpi2', 'token': 'youpi'}, {'name': 'youtooz-candy', 'token': 'youtooz-candy'}, {'name': 'beholder', 'token': 'beholder'}, {'name': 'progress-chip', 'token': 'progress-chip'}, {'name': 'lofa', 'token': 'lofa'}, {'name': 'huatli', 'token': 'huatli'}, {'name': 'vivien-reid', 'token': 'vivien-reid'}, {'name': 'wedding-HandPainted', 'token': ''}, {'name': 'sims-2-portrait', 'token': 'sims2-portrait'}, {'name': 'flag-ussr', 'token': 'flag-ussr'}, {'name': 'cortana', 'token': 'cortana'}, {'name': 'azura-from-vibrant-venture', 'token': 'azura'}, {'name': 'liliana-vess', 'token': 'liliana-vess'}, {'name': 'dreamy-painting', 'token': 'dreamy-painting'}, {'name': 'munch-leaks-style', 'token': 'munch-leaks-style'}, {'name': 'gta5-artwork', 'token': 'gta5-artwork'}, {'name': 'xioboma', 'token': 'xi-obama'}, {'name': 'ashiok', 'token': 'ashiok'}, {'name': 'Aflac-duck', 'token': 'aflac duck'}, {'name': 'toho-pixel', 'token': 'toho-pixel'}, {'name': 'alicebeta', 'token': 'Alice-style'}, {'name': 'cute-game-style', 'token': 'cute-game-style'}, {'name': 'a-yakimova', 'token': 'a-yakimova'}, {'name': 'anime-background-style', 'token': 'anime-background-style'}, {'name': 'uliana-kudinova', 'token': 'liana-kudinov'}, {'name': 'msg', 'token': 'MSG69'}, {'name': 'gio', 'token': 'gio-single'}, {'name': 'smooth-pencils', 'token': ''}, {'name': 'pintu', 'token': 'pintu-dog'}, {'name': 'marty6', 'token': 'marty6'}, {'name': 'marty', 'token': 'marty'}, {'name': 'xi', 'token': 'JinpingXi'}, {'name': 'captainkirb', 'token': 'captainkirb'}, {'name': 'urivoldemort', 'token': 'uriboldemort'}, {'name': 'anime-background-style-v2', 'token': 'anime-background-style-v2'}, {'name': 'hk-peach', 'token': 'hk-peach'}, {'name': 'hk-goldbuddha', 'token': 'hk-goldbuddha'}, {'name': 'edgerunners-style', 'token': 'edgerunners-style-av'}, {'name': 'warhammer-40k-drawing-style', 'token': 'warhammer40k-drawing-style'}, {'name': 'hk-opencamera', 'token': 'hk-opencamera'}, {'name': 'hk-breakfast', 'token': 'hk-breakfast'}, {'name': 'iridescent-illustration-style', 'token': 'iridescent-illustration-style'}, {'name': 'edgerunners-style-v2', 'token': 'edgerunners-style-av-v2'}, {'name': 'leif-jones', 'token': 'leif-jones'}, {'name': 'hk-buses', 'token': 'hk-buses'}, {'name': 'hk-goldenlantern', 'token': 'hk-goldenlantern'}, {'name': 'hk-hkisland', 'token': 'hk-hkisland'}, {'name': 'hk-leaves', 'token': ''}, {'name': 'hk-oldcamera', 'token': 'hk-oldcamera'}, {'name': 'frank-frazetta', 'token': 'rank franzett'}, {'name': 'obama-based-on-xi', 'token': 'obama> <JinpingXi'}, {'name': 'hk-vintage', 'token': ''}, {'name': 'degods', 'token': 'degods'}, {'name': 'dishonored-portrait-styles', 'token': 'portrait-style-dishonored'}, {'name': 'manga-style', 'token': 'manga'}, {'name': 'degodsheavy', 'token': 'degods-heavy'}, {'name': 'teferi', 'token': 'teferi'}, {'name': 'car-toy-rk', 'token': 'car-toy'}, {'name': 'anders-zorn', 'token': 'anders-zorn'}, {'name': 'rayne-weynolds', 'token': 'rayne-weynolds'}, {'name': 'hk-bamboo', 'token': 'hk-bamboo'}, {'name': 'hk-betweenislands', 'token': 'hk-betweenislands'}, {'name': 'hk-bicycle', 'token': 'hk-bicycle'}, {'name': 'hk-blackandwhite', 'token': 'hk-blackandwhite'}, {'name': 'pjablonski-style', 'token': 'pjablonski-style'}, {'name': 'hk-market', 'token': 'hk-market'}, {'name': 'hk-phonevax', 'token': 'hk-phonevax'}, {'name': 'hk-clouds', 'token': 'hk-cloud'}, {'name': 'hk-streetpeople', 'token': 'hk-streetpeople'}, {'name': 'iridescent-photo-style', 'token': 'iridescent-photo-style'}, {'name': 'color-page', 'token': 'coloring-page'}, {'name': 'hoi4-leaders', 'token': 'HOI4-Leader'}, {'name': 'franz-unterberger', 'token': 'franz-unterberger'}, {'name': 'angus-mcbride-style', 'token': 'angus-mcbride-style'}, {'name': 'happy-chaos', 'token': 'happychaos'}, {'name': 'gt-color-paint-2', 'token': 'my-color-paint-GT'}, {'name': 'smurf-style', 'token': 'smurfy'}, {'name': 'coraline', 'token': 'coraline'}, {'name': 'terraria-style', 'token': 'terr-sty'}, {'name': 'ettblackteapot', 'token': 'my-teapot'}, {'name': 'gibasachan-v0.1', 'token': 'gibasachan'}, {'name': 'kodakvision500t', 'token': 'kodakvision_500T'}, {'name': 'obama-based-on-xi', 'token': 'obama'}, {'name': 'obama-self-2', 'token': 'Obama'}, {'name': 'bob-dobbs', 'token': 'bob'}, {'name': 'ahx-model-1', 'token': 'ivan-stripes'}, {'name': 'ahx-model-2', 'token': 'artist'}, {'name': 'beetlejuice-cartoon-style', 'token': 'beetlejuice-cartoon'}, {'name': 'pokemon-modern-artwork', 'token': 'pkmn-modern'}, {'name': 'pokemon-classic-artwork', 'token': 'pkmn-classic'}, {'name': 'pokemon-gens-1-to-8', 'token': 'pkmn-galar'}, {'name': 'pokemon-rgby-sprite', 'token': 'pkmn-rgby'}, {'name': 'max-twain', 'token': 'max-twain'}, {'name': 'ihylc', 'token': 'ihylc'}, {'name': 'test-man', 'token': 'Test-man'}, {'name': 'tron-style', 'token': 'tron-style>'}, {'name': 'dulls', 'token': 'dulls-avatar'}, {'name': 'vie-proceres', 'token': 'vie-proceres'}, {'name': 'dovin-baan', 'token': 'dovin-baan'}, {'name': 'polki-jewellery', 'token': 'ccess to model sd-concepts-library/polki-jewellery is restricted and you are not in the authorized list. Visit https://huggingface.co/sd-concepts-library/polki-jewellery to ask for access'}, {'name': 'dog2', 'token': 'ccess to model sd-concepts-library/dog2 is restricted and you are not in the authorized list. Visit https://huggingface.co/sd-concepts-library/dog2 to ask for access'}, {'name': 'caitlin-fairchild-character-gen13-comics-by-j-scott-campbell', 'token': 'Caitlin-Fairchild'}, {'name': 'ugly-sonic', 'token': 'ugly-sonic'}, {'name': 'utopia-beer-mat', 'token': 'utopia-beer-mat'}, {'name': 'old-brno', 'token': 'old-brno'}, {'name': 'moka-pot', 'token': 'moka-pot'}, {'name': 'brno-trenck', 'token': 'brno-trenck'}, {'name': 'brno-tram', 'token': 'brno-tram'}, {'name': 'brno-obasa', 'token': 'brno-obasa'}, {'name': 'brno-night', 'token': 'brno-night'}, {'name': 'brno-dorm', 'token': 'brno-dorm'}, {'name': 'brno-busstop', 'token': 'brno-busstop'}, {'name': 'twitch-league-of-legends', 'token': 'twitch-lol'}, {'name': 'fp-shop2', 'token': 'fp-shop2'}, {'name': 'fp-shop1', 'token': 'fp-shop1'}, {'name': 'fp-content-b', 'token': 'fp-content-b'}, {'name': 'fp-content-a', 'token': 'fp-content-a'}, {'name': 'fp-city', 'token': 'fp-city'}, {'name': 'brno-city-results', 'token': 'brno-city-results'}, {'name': 'brno-city', 'token': 'brno-city'}, {'name': 'brno-chair-results', 'token': 'brno-chair-results'}, {'name': 'brno-chair', 'token': 'brno-chair'}, {'name': 'manga-char-nov-23', 'token': 'char-nov23'}, {'name': 'manga-nov-23', 'token': 'manga-characters-nov23'}, {'name': 'yellow-cockatiel-parrot', 'token': 'rosa-popugai'}, {'name': 'dreams', 'token': 'meeg'}, {'name': 'alberto-montt', 'token': 'AlbertoMontt'}, {'name': 'tooth-wu', 'token': 'tooth-wu'}, {'name': 'filename-2', 'token': 'filename2'}, {'name': 'iridescent-photo-style', 'token': 'iridescent-photo-style'}, {'name': 'bored-ape-textual-inversion', 'token': 'bored_ape'}, {'name': 'ghibli-face', 'token': 'ghibli-face'}, {'name': 'yoshimurachi', 'token': 'yoshi-san'}, {'name': 'jm-bergling-monogram', 'token': 'JM-Bergling-monogram'}, {'name': '4tnght', 'token': '4tNGHT'}, {'name': 'dancing-cactus', 'token': 'dancing-cactus'}, {'name': 'yolandi-visser', 'token': 'olandi-visse'}, {'name': 'zizigooloo', 'token': 'zizigooloo'}, {'name': 'princess-knight-art', 'token': 'princess-knight'}, {'name': 'belle-delphine', 'token': 'elle-delphin'}, {'name': 'cancer_style', 'token': 'cancer_style'}, {'name': 'trypophobia', 'token': 'rypophobi'}, {'name': 'incendegris-grey', 'token': 'incendegris-grey'}, {'name': 'fairy-tale-painting-style', 'token': 'fairy-tale-painting-style'}, {'name': 'arcimboldo-style', 'token': 'arcimboldo-style'}, {'name': 'xidiversity', 'token': 'JinpingXi'}, {'name': 'obama-based-on-xi', 'token': 'obama'}, {'name': 'zero-bottle', 'token': 'zero-bottle'}, {'name': 'victor-narm', 'token': 'victor-narm'}, {'name': 'supitcha-mask', 'token': 'supitcha-mask'}, {'name': 'smarties', 'token': 'smarties'}, {'name': 'rico-face', 'token': 'rico-face'}, {'name': 'rex-deno', 'token': 'rex-deno'}, {'name': 'abby-face', 'token': 'abby-face'}, {'name': 'nic-papercuts', 'token': 'nic-papercuts'}]
+
 
 def get_concept(name):
   for con in concepts:
@@ -5825,18 +5833,18 @@ def start_diffusion(page):
               mask.save(buff, format="PNG")
               buff.seek(0)
               mask_str = io.BufferedReader(buff).read()
-            payload["step_schedule_end"] = 0.01
-            payload["step_schedule_start"] = 1 - arg['init_image_strength']
+            #payload["step_schedule_end"] = 0.01
+            payload["step_schedule_start"] = 1# - arg['init_image_strength']
             files = {
                 'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
                 #'mask_image': mask_str,
-                'mask_source': "init-image-alpha" if arg['alpha_mask'] else "mask-image-black" if arg['invert_mask'] else "mask-image-white",
+                'mask_source': "INIT_IMAGE_ALPHA" if arg['alpha_mask'] else "MASK_IMAGE_BLACK" if arg['invert_mask'] else "MASK_IMAGE_WHITE",
                 'options': (None, json.dumps(payload)),
             }
             if not arg['alpha_mask']:
               files['mask_image'] = mask_str
             #engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
-            response = requests.post(url+"inpainting", headers=headers, files=files)
+            response = requests.post(url+"image-to-image/masking", headers=headers, files=files)
             #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
           elif bool(arg['init_image']):
             if arg['init_image'].startswith('http'):
@@ -7433,7 +7441,7 @@ def run_repainter(page):
     try:
       #from IPython.utils.capture import capture_output
       #with capture_output() as captured:
-      image = pipe_repaint(original_image=original_img, mask_image=mask_img, num_inference_steps=repaint_prefs['num_inference_steps'], eta=repaint_prefs['eta'], jump_length=repaint_prefs['jump_length'], jump_n_sample=repaint_prefs['jump_length'], generator=generator, callback=callback_fnc, callback_steps=1).images[0]
+      image = pipe_repaint(image=original_img, mask_image=mask_img, num_inference_steps=repaint_prefs['num_inference_steps'], eta=repaint_prefs['eta'], jump_length=repaint_prefs['jump_length'], jump_n_sample=repaint_prefs['jump_length'], generator=generator, callback=callback_fnc, callback_steps=1).images[0]
       #print(str(captured.stdout))
     except Exception as e:
       clear_last()
@@ -7496,8 +7504,20 @@ def run_image_variation(page):
         return
     width, height = init_img.size
     width, height = scale_dimensions(width, height, image_variation_prefs['max_size'])
-    init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
-    init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    tform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize(
+            (width, height),
+            interpolation=transforms.InterpolationMode.BICUBIC,
+            antialias=False,
+            ),
+        transforms.Normalize(
+          [0.48145466, 0.4578275, 0.40821073],
+          [0.26862954, 0.26130258, 0.27577711]),
+    ])
+    init_img = tform(init_img).to(torch_device)
+    #init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
+    #init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     clear_pipes('image_variation')
     if pipe_image_variation == None:
         from diffusers import StableDiffusionImageVariationPipeline
@@ -7805,9 +7825,14 @@ def run_image2text(page):
     #try:
     #    import clip
     #except ModuleNotFoundError:
+    try:
+        if transformers.__version__ != "4.21.3": # Diffusers conflict
+          run_process("pip uninstall -y transformers", realtime=False)
+    except Exception:
+        pass
     run_process("pip install ftfy regex tqdm timm fairscale requests", realtime=False)
     #run_sp("pip install --upgrade transformers==4.21.2", realtime=False)
-    run_process("pip install transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
+    run_process("pip install -q transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
     run_process("pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip", realtime=False)
     run_process("pip install -e git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
     run_process("pip clone https://github.com/pharmapsychotic/clip-interrogator.git", realtime=False)
@@ -7857,27 +7882,27 @@ def run_image2text(page):
     mode = image2text_prefs['mode'] #'best' #param ["best","classic", "fast"]
     files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
     clear_last()
-    prompts = []
+    i2t_prompts = []
     for file in files:
         image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
         prompt = inference(image, mode)
-        prompts.append(prompt)
+        i2t_prompts.append(prompt)
         page.add_to_image2text(prompt)
         #thumb = image.copy()
         #thumb.thumbnail([256, 256])
         #display(thumb)
         #print(prompt)
     if image2text_prefs['save_csv']:
-        if len(prompts):
+        if len(i2t_prompts):
             import csv
             csv_path = os.path.join(folder_path, 'img2txt_prompts.csv')
             with open(csv_path, 'w', encoding='utf-8', newline='') as f:
                 w = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
                 w.writerow(['image', 'prompt'])
-                for file, prompt in zip(files, prompts):
+                for file, prompt in zip(files, i2t_prompts):
                     w.writerow([file, prompt])
 
-            prt(f"\n\n\nGenerated {len(prompts)} and saved to {csv_path}, enjoy!")
+            prt(f"\n\n\nGenerated {len(i2t_prompts)} and saved to {csv_path}, enjoy!")
         else:
             prt(f"Sorry, we couldn't find any images in {folder_path}")
     run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
@@ -9058,9 +9083,9 @@ def run_materialdiffusion(page):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
-def run_dall_e(page):
-    global dall_e_prefs, prefs
-    if not bool(dall_e_prefs['prompt']):
+def run_dall_e(page, from_list=False):
+    global dall_e_prefs, prefs, prompts
+    if (not bool(dall_e_prefs['prompt']) and not from_list) or (from_list and (len(prompts) == 0)):
       alert_msg(page, "You must provide a text prompt to process your image generation...")
       return
     if not bool(prefs['OpenAI_api_key']):
@@ -9086,130 +9111,145 @@ def run_dall_e(page):
     import requests
     from io import BytesIO
     from PIL import ImageOps
+    
     save_dir = os.path.join(root_dir, 'dalle_inputs')
     init_img = None
-    if bool(dall_e_prefs['init_image']):
-        fname = dall_e_prefs['init_image'].rpartition(slash)[2]
-        init_file = os.path.join(save_dir, fname)
-        if dall_e_prefs['init_image'].startswith('http'):
-            init_img = PILImage.open(requests.get(dall_e_prefs['init_image'], stream=True).raw)
+    dall_e_list = []
+    if from_list:
+        if len(prompts) > 0:
+            for p in prompts:
+                dall_e_list.append({'prompt': p.prompt, 'init_image': p.arg['init_image'], 'mask_image': p.arg['mask_image']})
         else:
-            if os.path.isfile(dall_e_prefs['init_image']):
-                init_img = PILImage.open(dall_e_prefs['init_image'])
+            alert_msg(page, f"Your Prompts List is empty. Add to your batch list to use feature.")
+            return
+    else:
+        dall_e_list.append({'prompt': dall_e_prefs['prompt'], 'init_image': dall_e_prefs['init_image'], 'mask_image': dall_e_prefs['mask_image']})
+    
+    for p in dall_e_list:
+        init_image = p['init_image']
+        mask_image = p['mask_image']
+        if bool(init_image):
+            fname = init_image.rpartition(slash)[2]
+            init_file = os.path.join(save_dir, fname)
+            if init_image.startswith('http'):
+                init_img = PILImage.open(requests.get(init_image, stream=True).raw)
             else:
-                alert_msg(page, f"ERROR: Couldn't find your init_image {dall_e_prefs['init_image']}")
-                return
-        init_img = init_img.resize((dall_e_prefs['size'], dall_e_prefs['size']), resample=PILImage.LANCZOS)
-        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
-        init_img.save(init_file)
-    mask_img = None
-    if bool(dall_e_prefs['mask_image']):
-        fname = dall_e_prefs['init_image'].rpartition(slash)[2]
-        mask_file = os.path.join(save_dir, fname)
-        if dall_e_prefs['mask_image'].startswith('http'):
-            mask_img = PILImage.open(requests.get(dall_e_prefs['mask_image'], stream=True).raw)
-        else:
-            if os.path.isfile(dall_e_prefs['mask_image']):
-                mask_img = PILImage.open(dall_e_prefs['mask_image'])
+                if os.path.isfile(init_image):
+                    init_img = PILImage.open(init_image)
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {init_image}")
+                    return
+            init_img = init_img.resize((dall_e_prefs['size'], dall_e_prefs['size']), resample=PILImage.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            init_img.save(init_file)
+        mask_img = None
+        if bool(mask_image):
+            fname = init_image.rpartition(slash)[2]
+            mask_file = os.path.join(save_dir, fname)
+            if mask_image.startswith('http'):
+                mask_img = PILImage.open(requests.get(mask_image, stream=True).raw)
             else:
-                alert_msg(page, f"ERROR: Couldn't find your mask_image {dall_e_prefs['mask_image']}")
-                return
-            if dall_e_prefs['invert_mask']:
-                mask_img = ImageOps.invert(mask_img.convert('RGB'))
-        mask_img = mask_img.resize((dall_e_prefs['size'], dall_e_prefs['size']), resample=PILImage.NEAREST)
-        mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
-        mask_img.save(mask_file)
-    #print(f'Resize to {width}x{height}')
-    clear_pipes()
-    clear_last()
-    prt("Generating your Dall-E 2 Image...")
-    prt(progress)
+                if os.path.isfile(mask_image):
+                    mask_img = PILImage.open(mask_image)
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {mask_image}")
+                    return
+                if dall_e_prefs['invert_mask']:
+                    mask_img = ImageOps.invert(mask_img.convert('RGB'))
+            mask_img = mask_img.resize((dall_e_prefs['size'], dall_e_prefs['size']), resample=PILImage.NEAREST)
+            mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            mask_img.save(mask_file)
+        #print(f'Resize to {width}x{height}')
+        clear_pipes()
+        clear_last()
+        prt("Generating your Dall-E 2 Image...")
+        prt(progress)
 
-    try:
-        if bool(dall_e_prefs['init_image']) and bool(dall_e_prefs['variation']):
-            response = openai.Image.create_variation(image=open(init_file, 'rb'), size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
-        elif bool(dall_e_prefs['init_image']) and not bool(dall_e_prefs['mask_image']):
-            response = openai.Image.create_edit(prompt=dall_e_prefs['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'))
-        elif bool(dall_e_prefs['init_image']) and bool(dall_e_prefs['mask_image']):
-            response = openai.Image.create_edit(prompt=dall_e_prefs['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'), mask=open(mask_file, 'rb'))
-        else:
-            response = openai.Image.create(prompt=dall_e_prefs['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
-    except Exception as e:
+        try:
+            if bool(init_image) and bool(dall_e_prefs['variation']):
+                response = openai.Image.create_variation(image=open(init_file, 'rb'), size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
+            elif bool(init_image) and not bool(mask_image):
+                response = openai.Image.create_edit(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'))
+            elif bool(init_image) and bool(mask_image):
+                response = openai.Image.create_edit(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'), mask=open(mask_file, 'rb'))
+            else:
+                response = openai.Image.create(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating image form API...", content=Text(str(e)))
+            return
         clear_last()
         clear_last()
-        alert_msg(page, f"ERROR: Something went wrong generating image form API...", content=Text(str(e)))
-        return
-    clear_last()
-    clear_last()
-    txt2img_output = stable_dir
-    batch_output = prefs['image_output']
-    #print(str(images))
-    if response is None:
-        prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
-        return
-    print(str(response))
-    idx = 0
-    for i in response['data']:
-        image = i['url']
-        #random_seed += idx
-        fname = format_filename(dall_e_prefs['prompt'])
-        #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
-        fname = f'{dall_e_prefs["file_prefix"]}{fname}'
         txt2img_output = stable_dir
-        if bool(dall_e_prefs['batch_folder_name']):
-            txt2img_output = os.path.join(stable_dir, dall_e_prefs['batch_folder_name'])
-        if not os.path.exists(txt2img_output):
-            os.makedirs(txt2img_output)
-        image_path = available_file(txt2img_output, fname, 1)
-        #image.save(image_path)
-        response = requests.get(image, stream=True)
-        with open(image_path, "wb") as f:
-          f.write(response.content)
-        #img = i['url']
-        new_file = image_path.rpartition(slash)[2]
-        size = int(dall_e_prefs['size'].rpartition('x')[0])
-        if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
-            prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        batch_output = prefs['image_output']
+        #print(str(images))
+        if response is None:
+            prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
+            return
+        #print(str(response))
+        idx = 0
+        for i in response['data']:
+            image = i['url']
+            #random_seed += idx
+            fname = format_filename(p['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{dall_e_prefs["file_prefix"]}{fname}'
+            txt2img_output = stable_dir
+            if bool(dall_e_prefs['batch_folder_name']):
+                txt2img_output = os.path.join(stable_dir, dall_e_prefs['batch_folder_name'])
+            if not os.path.exists(txt2img_output):
+                os.makedirs(txt2img_output)
+            image_path = available_file(txt2img_output, fname, 1)
+            #image.save(image_path)
+            response = requests.get(image, stream=True)
+            with open(image_path, "wb") as f:
+                f.write(response.content)
+            #img = i['url']
+            new_file = image_path.rpartition(slash)[2].rpartition('-')[0]
+            size = int(dall_e_prefs['size'].rpartition('x')[0])
+            if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
+                prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
 
-        if save_to_GDrive:
-            batch_output = os.path.join(prefs['image_output'], dall_e_prefs['batch_folder_name'])
-            if not os.path.exists(batch_output):
-                os.makedirs(batch_output)
-        elif storage_type == "PyDrive Google Drive":
-            newFolder = gdrive.CreateFile({'title': dall_e_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
-            newFolder.Upload()
-            batch_output = newFolder
-        out_path = batch_output if save_to_GDrive else txt2img_output
-        
-        if dall_e_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'     
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            faceenhance = ' --face_enhance' if dall_e_prefs["face_enhance"] else ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-            os.chdir(stable_dir)
-            if dall_e_prefs['display_upscaled_image']:
-                time.sleep(0.6)
-                prt(Row([Img(src=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        else:
-            shutil.copy(image_path, os.path.join(out_path, new_file))
-        # TODO: Add Metadata
-        prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            if save_to_GDrive:
+                batch_output = os.path.join(prefs['image_output'], dall_e_prefs['batch_folder_name'])
+                if not os.path.exists(batch_output):
+                    os.makedirs(batch_output)
+            elif storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': dall_e_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = batch_output if save_to_GDrive else txt2img_output
+            new_path = available_file(out_path, new_file, idx)
+            if dall_e_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'     
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{idx}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                #print(f'Moving {fpath} to {dst_path}')
+                #shutil.move(fpath, dst_path)
+                shutil.copy(image_path, dst_path)
+                faceenhance = ' --face_enhance' if dall_e_prefs["face_enhance"] else ''
+                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                upscaled_path = new_path #os.path.join(out_path, new_file)
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                os.chdir(stable_dir)
+                if dall_e_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            else:
+                shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
+            # TODO: Add Metadata
+            prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_kandinsky(page):
@@ -9228,11 +9268,18 @@ def run_kandinsky(page):
     progress = ProgressBar(bar_height=8)
     prt(Row([ProgressRing(), Text("Installing Kandinsky 2.0 Engine & Models... See console log for progress.", weight=FontWeight.BOLD)]))
     try:
+        if transformers.__version__ != "4.23.1": # Kandinsky conflict
+          run_process("pip uninstall -y transformers", realtime=False)
+    except Exception:
+        pass
+    finally:
+      run_process("pip install transformers==4.23.1 --upgrade --force-reinstall -q", realtime=False)
+    try:
         from kandinsky2 import get_kandinsky2
     except Exception:
-        run_process("pip install transformers==4.23.1 --upgrade --force-reinstall", realtime=False)
+        #run_process("pip install transformers==4.23.1 --upgrade --force-reinstall -q", realtime=False)
         #run_process("pip install -q git+https://github.com/ai-forever/Kandinsky-2.0.git", realtime=False)
-        run_sp('pip install "git+https://github.com/ai-forever/Kandinsky-2.0.git"', realtime=True)
+        run_sp('pip install -q "git+https://github.com/ai-forever/Kandinsky-2.0.git"', realtime=True)
         from kandinsky2 import get_kandinsky2
         pass
     import requests
@@ -9269,7 +9316,7 @@ def run_kandinsky(page):
             if kandinsky_prefs['invert_mask']:
                 mask_img = ImageOps.invert(mask_img.convert('RGB'))
         mask_img = mask_img.resize((kandinsky_prefs['width'], kandinsky_prefs['height']), resample=PILImage.NEAREST)
-        mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
         mask_img = numpy.asarray(mask_img)
         #mask_img.save(mask_file)
     #print(f'Resize to {width}x{height}')
