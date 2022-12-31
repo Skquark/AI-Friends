@@ -54,10 +54,12 @@ from IPython.display import clear_output
 import requests
 import random as rnd
 def version_checker():
-  response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/DSD_version.txt")
-  current_v = response.text.strip()
-  if current_v != version:
-    print(f'A new update is available. You are running {version} and {current_v} is up. We recommended refreshing Stable Diffusion Deluxe for the latest cool features or fixes.\nhttps://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb\nChangelog if interested: https://github.com/Skquark/AI-Friends/commits/main/Stable_Diffusion_Deluxe.ipynb')
+  try:
+    response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/DSD_version.txt")
+    current_v = response.text.strip()
+    if current_v != version:
+      print(f'A new update is available. You are running {version} and {current_v} is up. We recommended refreshing Stable Diffusion Deluxe for the latest cool features or fixes.\nhttps://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb\nChangelog if interested: https://github.com/Skquark/AI-Friends/commits/main/Stable_Diffusion_Deluxe.ipynb')
+  except: pass #Probably offline
 def ng():
   response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/_ng")
   ng_list = response.text.strip().split('\n')
@@ -480,6 +482,7 @@ def get_color(color):
     elif color == "amber": return colors.AMBER
     elif color == "brown": return colors.BROWN
     elif color == "teal": return colors.TEAL
+    elif color == "yellow": return colors.YELLOW
 
 # Delete these after everyone's updated
 if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
@@ -567,6 +570,7 @@ def buildSettings(page):
       page.theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
     page.theme_mode = prefs['theme_mode'].lower()
     page.update()
+    status['changed_settings'] = True
   def change_theme_color(e):
     prefs['theme_color'] = e.control.value
     if prefs['theme_mode'].lower() == "dark":
@@ -574,6 +578,7 @@ def buildSettings(page):
     else:
       page.theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
     page.update()
+    status['changed_settings'] = True
   def toggle_nsfw(e):
     retry_attempts.width = 0 if e.control.value else None
     retry_attempts.update()
@@ -601,19 +606,19 @@ def buildSettings(page):
   save_config_in_metadata = Checkbox(label="Save Config in Metadata    ", tooltip="Embeds all prompt parameters in the file's EXIF to recreate", value=prefs['save_config_in_metadata'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_config_in_metadata'))
   save_config_json = Checkbox(label="Save Config JSON files", tooltip="Creates a json text file with all prompt parameters with each image", value=prefs['save_config_json'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_config_json'))
   theme_mode = Dropdown(label="Theme Mode", width=200, options=[dropdown.Option("Dark"), dropdown.Option("Light")], value=prefs['theme_mode'], on_change=change_theme_mode)
-  theme_color = Dropdown(label="Accent Color", width=200, options=[dropdown.Option("Green"), dropdown.Option("Blue"), dropdown.Option("Red"), dropdown.Option("Indigo"), dropdown.Option("Purple"), dropdown.Option("Orange"), dropdown.Option("Amber"), dropdown.Option("Brown"), dropdown.Option("Teal")], value=prefs['theme_color'], on_change=change_theme_color)
+  theme_color = Dropdown(label="Accent Color", width=200, options=[dropdown.Option("Green"), dropdown.Option("Blue"), dropdown.Option("Red"), dropdown.Option("Indigo"), dropdown.Option("Purple"), dropdown.Option("Orange"), dropdown.Option("Amber"), dropdown.Option("Brown"), dropdown.Option("Teal"), dropdown.Option("Yellow")], value=prefs['theme_color'], on_change=change_theme_color)
   enable_sounds = Checkbox(label="Enable UI Sound Effects    ", tooltip="Turn on for audible errors, deletes and generation done notifications", value=prefs['enable_sounds'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_sounds'))
   start_in_installation = Checkbox(label="Start in Installation Page", tooltip="When launching app, switch to Installer tab. Saves time..", value=prefs['start_in_installation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'start_in_installation'))
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters", value=prefs['disable_nsfw_filter'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
   retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
-  api_instructions = Container(height=152, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens and accept the cards for [1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5), [1.4 model](https://huggingface.co/CompVis/stable-diffusion-v1-4),  & [Inpainting model](https://huggingface.co/runwayml/stable-diffusion-inpainting).\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens and accept the cards for [1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5), [1.4 model](https://huggingface.co/CompVis/stable-diffusion-v1-4) & [Inpainting model](https://huggingface.co/runwayml/stable-diffusion-inpainting).\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
   TextSynth_api = TextField(label="TextSynth API Key", value=prefs['TextSynth_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'TextSynth_api_key'))
   Replicate_api = TextField(label="Replicate API Key", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Replicate_api_key'))
-  save_button = ElevatedButton(content=Text(value="💾  Save Settings", size=20), on_click=save_settings, style=b_style())
+  #save_button = ElevatedButton(content=Text(value="💾  Save Settings", size=20), on_click=save_settings, style=b_style())
   
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
@@ -676,9 +681,9 @@ def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False)
 def close_alert_dlg(e):
       e.page.alert_dlg.open = False
       e.page.update()
-def alert_msg(page, msg, content=None):
+def alert_msg(page, msg, content=None, okay=""):
       if prefs['enable_sounds']: page.snd_error.play()
-      okay = ElevatedButton("👌  OKAY ", on_click=close_alert_dlg)
+      okay = ElevatedButton("👌  OKAY " if okay == "" else okay, on_click=close_alert_dlg)
       page.alert_dlg = AlertDialog(title=Text(msg), content=content, actions=[okay], actions_alignment=MainAxisAlignment.END)
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
@@ -1045,7 +1050,7 @@ def buildInstallers(page):
         page.use_upscale.update()
       if prefs['install_dreamfusion'] and not status['installed_dreamfusion'] and prefs['install_diffusers']:
         console_msg("Installing Stable Diffusion DreamFusion 3D Pipeline...")
-        get_dreamfusion(page)
+        get_dreamfusion(page) # No longer installing from here
         status['installed_dreamfusion'] = True
       if prefs['install_Stability_api']:
         console_msg("Installing Stability-API DreamStudio.ai Pipeline...")
@@ -1056,14 +1061,21 @@ def buildInstallers(page):
           get_ESRGAN(page)
           console_msg("Installing Real-ESRGAN Upscaler...")
         status['installed_ESRGAN'] = True
+      if prefs['install_ESRGAN']:
         page.ESRGAN_block.height = None
         page.ESRGAN_block_material.height = None
         page.ESRGAN_block_dalle.height = None
         page.ESRGAN_block_kandinsky.height = None
+        page.ESRGAN_block_unCLIP.height = None
+        page.ESRGAN_block_unCLIP_image_variation.height = None
+        page.ESRGAN_block_magic_mix.height = None
         page.ESRGAN_block.update()
         page.ESRGAN_block_material.update()
         page.ESRGAN_block_dalle.update()
         page.ESRGAN_block_kandinsky.update()
+        page.ESRGAN_block_unCLIP.update()
+        page.ESRGAN_block_unCLIP_image_variation.update()
+        page.ESRGAN_block_magic_mix.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
           import openai
@@ -1606,6 +1618,12 @@ def buildPromptsList(page):
           nonlocal pick_type
           pick_type = "mask"
           file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
+      def change_width(e):
+          width_slider.controls[1].value = f" {int(e.control.value)}px"
+          width_slider.update()
+      def change_height(e):
+          height_slider.controls[1].value = f" {int(e.control.value)}px"
+          height_slider.update()
       def toggle_clip(e):
           if e.control.value:
             img_block.height = 0
@@ -1641,10 +1659,12 @@ def buildPromptsList(page):
       param_columns = Row([Column([batch_size, n_iterations, steps]), Column([guidance_scale, seed, eta])])
       #guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=arg['guidance_scale'], expand=True)
       #guidance = Row([Text("Guidance Scale: "), guidance_scale])
-      width = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['width']), expand=True)
-      width_slider = Row([Text("Width: "), width])
-      height = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['height']), expand=True)
-      height_slider = Row([Text("Height: "), height])
+      width = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['width']), expand=True, on_change=change_width)
+      width_value = Text(f" {int(arg['width'])}px", weight=FontWeight.BOLD)
+      width_slider = Row([Text("Width: "), width_value, width])
+      height = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['height']), expand=True, on_change=change_height)
+      height_value = Text(f" {int(arg['height'])}px", weight=FontWeight.BOLD)
+      height_slider = Row([Text("Height: "), height_value, height])
       init_image = TextField(label="Init Image", value=arg['init_image'], expand=1, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
       mask_image = TextField(label="Mask Image", value=arg['mask_image'], expand=1, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
       alpha_mask = Checkbox(label="Alpha Mask", value=arg['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
@@ -2071,7 +2091,7 @@ def buildPromptGenerator(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
-    generator_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=18), on_click=add_to_list),
+    generator_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_generator_list.controls) < 1:
@@ -2094,7 +2114,7 @@ def buildPromptGenerator(page):
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
         ]),
-        ElevatedButton(content=Text("💭   Generate Prompts", size=18), on_click=click_prompt_generator),
+        ElevatedButton(content=Text("💭   Generate Prompts", size=20), on_click=click_prompt_generator),
         page.prompt_generator_list,
         generator_list_buttons,
       ],
@@ -2136,7 +2156,7 @@ def buildPromptRemixer(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
-    remixer_list_buttons = Row([ElevatedButton(content=Text("Add All Prompts to List", size=18), on_click=add_to_list),
+    remixer_list_buttons = Row([ElevatedButton(content=Text("Add All Prompts to List", size=20), on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_remixer_list.controls) < 1:
@@ -2159,7 +2179,7 @@ def buildPromptRemixer(page):
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
         ]),
-        ElevatedButton(content=Text("🍹   Remix Prompts", size=18), on_click=click_prompt_remixer),
+        ElevatedButton(content=Text("🍹   Remix Prompts", size=20), on_click=click_prompt_remixer),
         page.prompt_remixer_list,
         remixer_list_buttons,
       ],
@@ -2225,7 +2245,7 @@ def buildPromptBrainstormer(page):
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], on_change=lambda e: changed(e, 'about_prompt')),]),
-        ElevatedButton(content=Text("⛈️    Brainstorm Prompt", size=18), on_click=lambda _: run_prompt_brainstormer(page)),
+        ElevatedButton(content=Text("⛈️    Brainstorm Prompt", size=20), on_click=lambda _: run_prompt_brainstormer(page)),
         page.prompt_brainstormer_list,
         brainstormer_list_buttons,
       ],
@@ -2258,7 +2278,7 @@ def buildPromptWriter(page):
       page.prompt_writer_list.update()
       writer_list_buttons.visible = False
       writer_list_buttons.update()
-    writer_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=18), on_click=add_to_list),
+    writer_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_writer_list.controls) < 1:
@@ -2364,8 +2384,11 @@ So in Subject try something like: `A _color_ _noun-general_ that is _adj-beauty_
 def buildStableDiffusers(page):
     page.DanceDiffusion = buildDanceDiffusion(page)
     page.RePainter = buildRepainter(page)
+    page.unCLIP = buildUnCLIP(page)
+    page.unCLIPImageVariation = buildUnCLIPImageVariation(page)
     page.ImageVariation = buildImageVariation(page)
     page.CLIPstyler = buildCLIPstyler(page)
+    page.MagicMix = buildMagicMix(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.MaskMaker = buildDreamMask(page)
     page.DreamFusion = buildDreamFusion(page)
@@ -2375,12 +2398,15 @@ def buildStableDiffusers(page):
         selected_index=0,
         animation_duration=300,
         tabs=[
-            Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
-            Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
+            Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
+            Tab(text="unCLIP Image Variation", content=page.unCLIPImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
+            Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
+            Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
+            Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
             Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
@@ -2512,7 +2538,7 @@ def buildESRGANupscaler(page):
         #Divider(thickness=2, height=4),
         split_image_grid,
         split_container,
-        ElevatedButton(content=Text("🐘  Run AI Upscaling", size=18), on_click=lambda _: run_upscaling(page)),
+        ElevatedButton(content=Text("🐘  Run AI Upscaling", size=20), on_click=lambda _: run_upscaling(page)),
         ESRGAN_output,
         clear_button,
       ],
@@ -2559,7 +2585,7 @@ def buildRetrievePrompts(page):
         add_to_prompts,
         display_full_metadata,
         display_image,
-        ElevatedButton(content=Text("😴  Retrieve Dream", size=18), on_click=lambda _: run_retrieve(page)),
+        ElevatedButton(content=Text("😴  Retrieve Dream", size=20), on_click=lambda _: run_retrieve(page)),
         retrieve_output,
         clear_button,
       ],
@@ -2612,7 +2638,7 @@ def buildInitFolder(page):
         prompt_string,
         include_strength,
         strength_row,
-        ElevatedButton(content=Text("➕  Add to Prompts", size=18), on_click=lambda _: run_initfolder(page)),
+        ElevatedButton(content=Text("➕  Add to Prompts", size=20), on_click=lambda _: run_initfolder(page)),
         initfolder_output,
         clear_button,
       ]
@@ -2764,7 +2790,7 @@ def buildImage2Text(page):
       prompts = []
       image2text_list_buttons.visible = False
       image2text_list_buttons.update()
-    image2text_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=18), on_click=add_to_list),
+    image2text_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.image2text_list.controls) < 1:
@@ -2792,7 +2818,7 @@ def buildImage2Text(page):
         page.image2text_file_list,
         page.image2text_list,
         image2text_list_buttons,
-        ElevatedButton(content=Text("👨‍🎨️  Get Prompts from Images", size=18), on_click=lambda _: run_image2text(page)),
+        ElevatedButton(content=Text("👨‍🎨️  Get Prompts from Images", size=20), on_click=lambda _: run_image2text(page)),
         page.image2text_output,
       ],
     ))], scroll=ScrollMode.AUTO)
@@ -2854,7 +2880,7 @@ def buildDanceDiffusion(page):
         Row([dance_model, community_model]),
         inference_row,
         number_row,
-        ElevatedButton(content=Text("🎵  Run Dance Diffusion", size=18), on_click=lambda _: run_dance_diffusion(page)),
+        ElevatedButton(content=Text("🎵  Run Dance Diffusion", size=20), on_click=lambda _: run_dance_diffusion(page)),
         page.dance_output,
       ]
     ))], scroll=ScrollMode.AUTO)
@@ -2926,7 +2952,7 @@ def buildDreamFusion(page):
         Row([training_iters,learning_rate, lambda_entropy]),
         Row([seed, training_nerf_resolution, max_steps]),
         Row([workspace]),
-        ElevatedButton(content=Text("🔨  Run DreamFusion", size=18), on_click=lambda _: run_dreamfusion(page)),
+        ElevatedButton(content=Text("🔨  Run DreamFusion", size=20), on_click=lambda _: run_dreamfusion(page)),
         page.dreamfusion_output,
         clear_button,
       ]
@@ -3041,7 +3067,7 @@ def buildRepainter(page):
         eta_row,
         max_row,
         Row([jump_length, jump_n_sample, seed]),
-        ElevatedButton(content=Text("🖌️  Run Repainter", size=18), on_click=lambda _: run_repainter(page)),
+        ElevatedButton(content=Text("🖌️  Run Repainter", size=20), on_click=lambda _: run_repainter(page)),
         page.repaint_output,
         clear_button,
       ]
@@ -3115,6 +3141,16 @@ def buildImageVariation(page):
     page.overlay.append(file_picker)
     def pick_init(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
+    def change_num_inference_steps(e):
+      changed(e, 'num_inference_steps', ptype="int")
+      num_inference_steps_value.value = f" {image_variation_prefs['num_inference_steps']}"
+      num_inference_steps_value.update()
+      num_inference_row.update()
+    def change_max_size(e):
+      changed(e, 'max_size', ptype="int")
+      max_size_value.value = f" {image_variation_prefs['max_size']}px"
+      max_size_value.update()
+      max_row.update()
     def change_guidance(e):
       guidance_value.value = f" {e.control.value}"
       guidance_value.update()
@@ -3128,13 +3164,15 @@ def buildImageVariation(page):
     seed = TextField(label="Seed", width=90, value=str(image_variation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     
     #num_inference_steps = TextField(label="Inference Steps", value=str(image_variation_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(image_variation_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps])
+    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(image_variation_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
+    num_inference_steps_value = Text(f" {magic_mix_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
+    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
     #eta = TextField(label="ETA", value=str(image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     eta_row = Row([Text("DDIM ETA: "), eta])
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(image_variation_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
-    max_row = Row([Text("Max Resolution Size: "), max_size])
+    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(image_variation_prefs['max_size']), expand=True, on_change=change_max_size)
+    max_size_value = Text(f" {image_variation_prefs['max_size']}px", weight=FontWeight.BOLD)
+    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
     page.image_variation_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.image_variation_output.controls) > 0
@@ -3151,12 +3189,498 @@ def buildImageVariation(page):
         eta_row,
         max_row,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=image_variation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed]),
-        ElevatedButton(content=Text("🖍️  Get Image Variation", size=18), on_click=lambda _: run_image_variation(page)),
+        ElevatedButton(content=Text("🖍️  Get Image Variation", size=20), on_click=lambda _: run_image_variation(page)),
         page.image_variation_output,
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=True)
     return c
+
+unCLIP_prefs = {
+    'prompt': '',
+    'batch_folder_name': '',
+    'prior_guidance_scale': 4.0,
+    'decoder_guidance_scale': 8.0,
+    'prior_num_inference_steps': 25,
+    'decoder_num_inference_steps': 25,
+    'super_res_num_inference_steps': 7,
+    'seed': 0,
+    'num_images': 1,
+    #'variance_type': 'learned_range',#fixed_small_log
+    #'num_train_timesteps': 1000,
+    #'prediction_type': 'epsilon',#sample
+    #'clip_sample': True,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 4.0,
+    "display_upscaled_image": True,
+}
+def buildUnCLIP(page):
+    global unCLIP_prefs, prefs, pipe_unCLIP
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        if ptype == "int":
+          unCLIP_prefs[pref] = int(e.control.value)
+        elif ptype == "float":
+          unCLIP_prefs[pref] = float(e.control.value)
+        else:
+          unCLIP_prefs[pref] = e.control.value
+    def add_to_unCLIP_output(o):
+      page.unCLIP_output.controls.append(o)
+      page.unCLIP_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_unCLIP_output = add_to_unCLIP_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.unCLIP_output.controls = []
+      page.unCLIP_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def unCLIP_help(e):
+      def close_unCLIP_dlg(e):
+        nonlocal unCLIP_help_dlg
+        unCLIP_help_dlg.open = False
+        page.update()
+      unCLIP_help_dlg = AlertDialog(title=Text("🙅   Help with unCLIP Pipeline"), content=Column([
+          Text("Contrastive models like CLIP have been shown to learn robust representations of images that capture both semantics and style. To leverage these representations for image generation, we propose a two-stage model: a prior that generates a CLIP image embedding given a text caption, and a decoder that generates an image conditioned on the image embedding. We show that explicitly generating image representations improves image diversity with minimal loss in photorealism and caption similarity. Our decoders conditioned on image representations can also produce variations of an image that preserve both its semantics and style, while varying the non-essential details absent from the image representation. Moreover, the joint embedding space of CLIP enables language-guided image manipulations in a zero-shot fashion. We use diffusion models for the decoder and experiment with both autoregressive and diffusion models for the prior, finding that the latter are computationally more efficient and produce higher-quality samples."),
+          Text("The scheduler is a modified DDPM that has some minor variations in how it calculates the learned range variance and dynamically re-calculates betas based off the timesteps it is skipping. The scheduler also uses a slightly different step ratio when computing timesteps to use for inference."),
+          Markdown("The unCLIP model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Tricky... ", on_click=close_unCLIP_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = unCLIP_help_dlg
+      unCLIP_help_dlg.open = True
+      page.update()
+    
+    def change_prior_guidance(e):
+      prior_guidance_value.value = f" {e.control.value}"
+      prior_guidance_value.update()
+      #guidance.controls[1].value = f" {e.control.value}"
+      prior_guidance.update()
+      changed(e, 'prior_guidance_scale', ptype="float")
+    prior_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_prefs['prior_guidance_scale'], on_change=change_prior_guidance, expand=True)
+    prior_guidance_value = Text(f" {unCLIP_prefs['prior_guidance_scale']}", weight=FontWeight.BOLD)
+    prior_guidance = Row([Text("Prior Guidance Scale: "), prior_guidance_value, prior_guidance_scale])
+
+    def change_decoder_guidance(e):
+      decoder_guidance_value.value = f" {e.control.value}"
+      decoder_guidance_value.update()
+      #guidance.controls[1].value = f" {e.control.value}"
+      decoder_guidance.update()
+      changed(e, 'decoder_guidance_scale', ptype="float")
+    decoder_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_prefs['decoder_guidance_scale'], on_change=change_decoder_guidance, expand=True)
+    decoder_guidance_value = Text(f" {unCLIP_prefs['decoder_guidance_scale']}", weight=FontWeight.BOLD)
+    decoder_guidance = Row([Text("Decoder Guidance Scale: "), decoder_guidance_value, decoder_guidance_scale])
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        unCLIP_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    prompt = TextField(label="Prompt Text", value=unCLIP_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    seed = TextField(label="Seed", width=90, value=str(unCLIP_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    def change_prior_num_inference(e):
+      changed(e, 'prior_num_inference_steps', ptype="int")
+      prior_num_inference_value.value = f" {unCLIP_prefs['prior_num_inference_steps']}"
+      prior_num_inference_value.update()
+      prior_num_inference_row.update()
+    def change_decoder_num_inference(e):
+      changed(e, 'decoder_num_inference_steps', ptype="int")
+      decoder_num_inference_value.value = f" {unCLIP_prefs['decoder_num_inference_steps']}"
+      decoder_num_inference_value.update()
+      decoder_num_inference_row.update()
+    def change_super_res_num_inference(e):
+      changed(e, 'super_res_num_inference_steps', ptype="int")
+      super_res_num_inference_value.value = f" {unCLIP_prefs['super_res_num_inference_steps']}"
+      super_res_num_inference_value.update()
+      super_res_num_inference_row.update()
+    #prior_num_inference_steps = TextField(label="Inference Steps", value=str(unCLIP_prefs['prior_num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'prior_num_inference_steps', ptype='int'))
+    prior_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_prefs['prior_num_inference_steps']), tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_prior_num_inference)
+    decoder_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_prefs['decoder_num_inference_steps']), tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_decoder_num_inference)
+    super_res_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_prefs['super_res_num_inference_steps']), tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_super_res_num_inference)
+    prior_num_inference_value = Text(f" {unCLIP_prefs['prior_num_inference_steps']}", weight=FontWeight.BOLD)
+    decoder_num_inference_value = Text(f" {unCLIP_prefs['decoder_num_inference_steps']}", weight=FontWeight.BOLD)
+    super_res_num_inference_value = Text(f" {unCLIP_prefs['super_res_num_inference_steps']}", weight=FontWeight.BOLD)
+    prior_num_inference_row = Row([Text("Number of Prior Inference Steps: "), prior_num_inference_value, prior_num_inference_steps])
+    decoder_num_inference_row = Row([Text("Number of Decoder Inference Steps: "), decoder_num_inference_value, decoder_num_inference_steps])
+    super_res_num_inference_row = Row([Text("Number of Super-Res Inference Steps: "), super_res_num_inference_value, super_res_num_inference_steps])
+    batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    #eta = TextField(label="ETA", value=str(unCLIP_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta_row = Row([Text("DDIM ETA: "), eta])
+    #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(unCLIP_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
+    #max_row = Row([Text("Max Resolution Size: "), max_size])
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(unCLIP_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP.height = None if status['installed_ESRGAN'] else 0
+    if not unCLIP_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    page.unCLIP_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.unCLIP_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🌐  unCLIP Text-to-Image Generator", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Hierarchical Text-Conditional Image Generation with CLIP Latents.  Similar results to DALL-E 2..."),
+        Divider(thickness=1, height=4),
+        prompt,
+        #Row([prompt, mask_image, invert_mask]),
+        prior_num_inference_row, decoder_num_inference_row, super_res_num_inference_row,
+        prior_guidance, decoder_guidance,
+        #eta_row, max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
+        page.ESRGAN_block_unCLIP,
+        Row([ElevatedButton(content=Text("🖇️   Get unCLIP Generation", size=20), on_click=lambda _: run_unCLIP(page)), 
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_unCLIP(page, from_list=True))]),
+        
+      ]
+    )), page.unCLIP_output,
+        clear_button,
+    ], scroll=ScrollMode.AUTO, auto_scroll=True)
+    return c
+
+unCLIP_image_variation_prefs = {
+    'init_image': '',
+    'file_name': '',
+    'batch_folder_name': '',
+    'decoder_guidance_scale': 8.0,
+    'decoder_num_inference_steps': 25,
+    'super_res_num_inference_steps': 7,
+    'seed': 0,
+    'num_images': 1,
+    #'variance_type': 'learned_range',#fixed_small_log
+    #'num_train_timesteps': 1000,
+    #'prediction_type': 'epsilon',#sample
+    #'clip_sample': True,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 4.0,
+    "display_upscaled_image": True,
+}
+def buildUnCLIPImageVariation(page):
+    global unCLIP_image_variation_prefs, prefs, pipe_unCLIP_image_variation
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        if ptype == "int":
+          unCLIP_image_variation_prefs[pref] = int(e.control.value)
+        elif ptype == "float":
+          unCLIP_image_variation_prefs[pref] = float(e.control.value)
+        else:
+          unCLIP_image_variation_prefs[pref] = e.control.value
+    def add_to_unCLIP_image_variation_output(o):
+      page.unCLIP_image_variation_output.controls.append(o)
+      page.unCLIP_image_variation_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_unCLIP_image_variation_output = add_to_unCLIP_image_variation_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.unCLIP_image_variation_output.controls = []
+      page.unCLIP_image_variation_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def unCLIP_image_variation_help(e):
+      def close_unCLIP_image_variation_dlg(e):
+        nonlocal unCLIP_image_variation_help_dlg
+        unCLIP_image_variation_help_dlg.open = False
+        page.update()
+      unCLIP_image_variation_help_dlg = AlertDialog(title=Text("🙅   Help with unCLIP Image Variation Pipeline"), content=Column([
+          Text("Contrastive models like CLIP have been shown to learn robust representations of images that capture both semantics and style. To leverage these representations for image generation, we propose a two-stage model: a prior that generates a CLIP image embedding given a text caption, and a decoder that generates an image conditioned on the image embedding. We show that explicitly generating image representations improves image diversity with minimal loss in photorealism and caption similarity. Our decoders conditioned on image representations can also produce variations of an image that preserve both its semantics and style, while varying the non-essential details absent from the image representation. Moreover, the joint embedding space of CLIP enables language-guided image manipulations in a zero-shot fashion. We use diffusion models for the decoder and experiment with both autoregressive and diffusion models for the prior, finding that the latter are computationally more efficient and produce higher-quality samples."),
+          Text("The scheduler is a modified DDPM that has some minor variations in how it calculates the learned range variance and dynamically re-calculates betas based off the timesteps it is skipping. The scheduler also uses a slightly different step ratio when computing timesteps to use for inference."),
+          Markdown("The unCLIP Image Variation model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🐇  We'll see... ", on_click=close_unCLIP_image_variation_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = unCLIP_image_variation_help_dlg
+      unCLIP_image_variation_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        unCLIP_image_variation_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        fname = os.path.join(root_dir, e.file_name)
+        init_image.value = fname
+        init_image.update()
+        unCLIP_image_variation_prefs['init_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_init(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
+    init_image = TextField(label="Initial Image", value=unCLIP_image_variation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+
+    def change_decoder_guidance(e):
+      decoder_guidance_value.value = f" {e.control.value}"
+      decoder_guidance_value.update()
+      #guidance.controls[1].value = f" {e.control.value}"
+      decoder_guidance.update()
+      changed(e, 'decoder_guidance_scale', ptype="float")
+    decoder_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_image_variation_prefs['decoder_guidance_scale'], on_change=change_decoder_guidance, expand=True)
+    decoder_guidance_value = Text(f" {unCLIP_image_variation_prefs['decoder_guidance_scale']}", weight=FontWeight.BOLD)
+    decoder_guidance = Row([Text("Decoder Guidance Scale: "), decoder_guidance_value, decoder_guidance_scale])
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    #prompt = TextField(label="Prompt Text", value=unCLIP_image_variation_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    seed = TextField(label="Seed", width=90, value=str(unCLIP_image_variation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+
+    def change_decoder_num_inference(e):
+      changed(e, 'decoder_num_inference_steps', ptype="int")
+      decoder_num_inference_value.value = f" {unCLIP_image_variation_prefs['decoder_num_inference_steps']}"
+      decoder_num_inference_value.update()
+      decoder_num_inference_row.update()
+    def change_super_res_num_inference(e):
+      changed(e, 'super_res_num_inference_steps', ptype="int")
+      super_res_num_inference_value.value = f" {unCLIP_image_variation_prefs['super_res_num_inference_steps']}"
+      super_res_num_inference_value.update()
+      super_res_num_inference_row.update()
+    decoder_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_image_variation_prefs['decoder_num_inference_steps']), tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_decoder_num_inference)
+    super_res_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_image_variation_prefs['super_res_num_inference_steps']), tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_super_res_num_inference)
+    decoder_num_inference_value = Text(f" {unCLIP_image_variation_prefs['decoder_num_inference_steps']}", weight=FontWeight.BOLD)
+    super_res_num_inference_value = Text(f" {unCLIP_image_variation_prefs['super_res_num_inference_steps']}", weight=FontWeight.BOLD)
+    decoder_num_inference_row = Row([Text("Number of Decoder Inference Steps: "), decoder_num_inference_value, decoder_num_inference_steps])
+    super_res_num_inference_row = Row([Text("Number of Super-Res Inference Steps: "), super_res_num_inference_value, super_res_num_inference_steps])
+    batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_image_variation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    #eta = TextField(label="ETA", value=str(unCLIP_image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta_row = Row([Text("DDIM ETA: "), eta])
+    #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(unCLIP_image_variation_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
+    #max_row = Row([Text("Max Resolution Size: "), max_size])
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_image_variation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(unCLIP_image_variation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_image_variation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_image_variation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP_image_variation = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP_image_variation.height = None if status['installed_ESRGAN'] else 0
+    if not unCLIP_image_variation_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    page.unCLIP_image_variation_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.unCLIP_image_variation_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🎆  unCLIP Image Variation Generator", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Variation Settings", on_click=unCLIP_image_variation_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Generate Variations from an input image using unCLIP"),
+        Divider(thickness=1, height=4),
+        init_image,
+        #Row([prompt, mask_image, invert_mask]),
+        decoder_num_inference_row, super_res_num_inference_row,
+        decoder_guidance,
+        #eta_row, max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_image_variation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
+        page.ESRGAN_block_unCLIP_image_variation,
+        Row([ElevatedButton(content=Text("🦄   Get unCLIP Image Variation", size=20), on_click=lambda _: run_unCLIP_image_variation(page)), 
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_unCLIP_image_variation(page, from_list=True))]),
+        
+      ]
+    )), page.unCLIP_image_variation_output,
+        clear_button,
+    ], scroll=ScrollMode.AUTO, auto_scroll=True)
+    return c
+
+magic_mix_prefs = {
+    'init_image': '',
+    'prompt': '',
+    'guidance_scale': 7.5,
+    'num_inference_steps': 50,
+    'mix_factor': 0.5,
+    'kmin': 0.3,
+    'kmax': 0.6,
+    'seed': 0,
+    'num_images': 1,
+    'max_size': 1024,
+    'scheduler_mode': 'DDIM',
+    'scheduler_last': '',
+    'batch_folder_name': '',
+    'file_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 4.0,
+    "display_upscaled_image": True,
+}
+def buildMagicMix(page):
+    global magic_mix_prefs, prefs, pipe_magic_mix
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        if ptype == "int":
+          magic_mix_prefs[pref] = int(e.control.value)
+        elif ptype == "float":
+          magic_mix_prefs[pref] = float(e.control.value)
+        else:
+          magic_mix_prefs[pref] = e.control.value
+    def add_to_magic_mix_output(o):
+      page.magic_mix_output.controls.append(o)
+      page.magic_mix_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_magic_mix_output = add_to_magic_mix_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.magic_mix_output.controls = []
+      page.magic_mix_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def magic_mix_help(e):
+      def close_magic_mix_dlg(e):
+        nonlocal magic_mix_help_dlg
+        magic_mix_help_dlg.open = False
+        page.update()
+      magic_mix_help_dlg = AlertDialog(title=Text("🙅   Help with MagicMix"), content=Column([
+          Text("Have you ever imagined what a corgi-alike coffee machine or a tiger-alike rabbit would look like? In this work, we attempt to answer these questions by exploring a new task called semantic mixing, aiming at blending two different semantics to create a new concept (e.g., corgi + coffee machine -- > corgi-alike coffee machine). Unlike style transfer, where an image is stylized according to the reference style without changing the image content, semantic blending mixes two different concepts in a semantic manner to synthesize a novel concept while preserving the spatial layout and geometry. To this end, we present MagicMix, a simple yet effective solution based on pre-trained text-conditioned diffusion models. Motivated by the progressive generation property of diffusion models where layout/shape emerges at early denoising steps while semantically meaningful details appear at later steps during the denoising process, our method first obtains a coarse layout (either by corrupting an image or denoising from a pure Gaussian noise given a text prompt), followed by injection of conditional prompt for semantic mixing. Our method does not require any spatial mask or re-training, yet is able to synthesize novel objects with high fidelity. To improve the mixing quality, we further devise two simple strategies to provide better control and flexibility over the synthesized content. With our method, we present our results over diverse downstream applications, including semantic style transfer, novel object synthesis, breed mixing, and concept removal, demonstrating the flexibility of our method."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧙  Sounds like magic... ", on_click=close_magic_mix_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = magic_mix_help_dlg
+      magic_mix_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        magic_mix_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        fname = os.path.join(root_dir, e.file_name)
+        init_image.value = fname
+        init_image.update()
+        magic_mix_prefs['init_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_init(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
+    prompt = TextField(label="Prompt Text", value=magic_mix_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        magic_mix_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    def change_num_inference_steps(e):
+      changed(e, 'num_inference_steps', ptype="int")
+      num_inference_steps_value.value = f" {magic_mix_prefs['num_inference_steps']}"
+      num_inference_steps_value.update()
+      num_inference_row.update()
+    def change_mix_factor(e):
+      changed(e, 'mix_factor', ptype="float")
+      mix_factor_value.value = f" {magic_mix_prefs['mix_factor']}"
+      mix_factor_value.update()
+      mix_factor_row.update()
+    def change_kmin(e):
+      changed(e, 'kmin', ptype="float")
+      kmin_value.value = f" {magic_mix_prefs['kmin']}"
+      kmin_value.update()
+      kmin_row.update()
+    def change_kmax(e):
+      changed(e, 'kmax', ptype="float")
+      kmax_value.value = f" {magic_mix_prefs['kmax']}"
+      kmax_value.update()
+      kmax_row.update()
+    def change_max_size(e):
+      changed(e, 'max_size', ptype="int")
+      max_size_value.value = f" {magic_mix_prefs['max_size']}px"
+      max_size_value.update()
+      max_row.update()
+    def change_guidance(e):
+      guidance_value.value = f" {e.control.value}"
+      guidance_value.update()
+      #guidance.controls[1].value = f" {e.control.value}"
+      guidance.update()
+      changed(e, 'guidance_scale', ptype="float")
+    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=magic_mix_prefs['guidance_scale'], on_change=change_guidance, expand=True)
+    guidance_value = Text(f" {magic_mix_prefs['guidance_scale']}", weight=FontWeight.BOLD)
+    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    init_image = TextField(label="Initial Image", value=magic_mix_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    seed = TextField(label="Seed", width=90, value=str(magic_mix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the noise", width=200,
+            options=[
+                dropdown.Option("DDIM"),
+                dropdown.Option("K-LMS"),
+                dropdown.Option("PNDM"),
+            ], value=magic_mix_prefs['scheduler_mode'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_mode'),
+        )
+    #num_inference_steps = TextField(label="Inference Steps", value=str(magic_mix_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
+    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(magic_mix_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
+    num_inference_steps_value = Text(f" {magic_mix_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
+    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
+    #mix_factor = TextField(label="ETA", value=str(magic_mix_prefs['mix_factor']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'mix_factor', ptype='float'))
+    mix_factor = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['mix_factor']), tooltip="Interpolation constant used in the layout generation phase. The greater the value of `mix_factor`, the greater the influence of the prompt on the layout generation process.", expand=True, on_change=change_mix_factor)
+    mix_factor_value = Text(f" {magic_mix_prefs['mix_factor']}", weight=FontWeight.BOLD)
+    mix_factor_row = Row([Text("Mix Factor: "), mix_factor_value, mix_factor])
+    kmin = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['kmin']), tooltip="Determine the range for the layout and content generation process. A higher value of kmin results in more steps for content generation process.", expand=True, on_change=change_kmin)
+    kmin_value = Text(f" {magic_mix_prefs['kmin']}", weight=FontWeight.BOLD)
+    kmin_row = Row([Text("k-Min: "), kmin_value, kmin])
+    kmax = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['kmax']), tooltip="Determine the range for the layout and content generation process. A higher value of kmax results in loss of more information about the layout of the original image", expand=True, on_change=change_kmax)
+    kmax_value = Text(f" {magic_mix_prefs['kmax']}", weight=FontWeight.BOLD)
+    kmax_row = Row([Text("k-Max: "), kmax_value, kmax])
+    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(magic_mix_prefs['max_size']), expand=True, on_change=change_max_size)
+    max_size_value = Text(f" {magic_mix_prefs['max_size']}px", weight=FontWeight.BOLD)
+    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    batch_folder_name = TextField(label="Batch Folder Name", value=magic_mix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=magic_mix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(magic_mix_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=magic_mix_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=magic_mix_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_magic_mix = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_magic_mix.height = None if status['installed_ESRGAN'] else 0
+    if not unCLIP_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+
+    page.magic_mix_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.magic_mix_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🧚  MagicMix Init Image with Prompt", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with MagicMix Settings", on_click=magic_mix_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Diffusion Pipeline for semantic mixing of an image and a text prompt..."),
+        Divider(thickness=1, height=4),
+        init_image,
+        prompt,
+        scheduler_mode,
+        num_inference_row,
+        guidance,
+        mix_factor_row,
+        kmin_row, kmax_row,
+        max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=magic_mix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
+        page.ESRGAN_block_magic_mix,
+        Row([ElevatedButton(content=Text("🪄  Make MagicMix", size=20), on_click=lambda _: run_magic_mix(page)), 
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_magic_mix(page, from_list=True))]),
+        page.magic_mix_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=True)
+    return c
+
 
 materialdiffusion_prefs = {
     "material_prompt": '',
@@ -3602,7 +4126,7 @@ def buildKandinsky(page):
         guidance.update()
         changed(e, 'strength', ptype="float")
 
-    prompt = TextField(label="Text Prompt", value=kandinsky_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=kandinsky_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=kandinsky_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=kandinsky_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
@@ -4042,7 +4566,7 @@ def buildDreamBooth(page):
         max_row,
         Row([image_path, add_image_button]),
         page.db_file_list,
-        ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth", size=18), on_click=lambda _: run_dreambooth(page)),
+        ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth", size=20), on_click=lambda _: run_dreambooth(page)),
         page.dreambooth_output,
         clear_button,
       ]
@@ -4247,7 +4771,7 @@ def buildTextualInversion(page):
         max_row,
         Row([image_path, add_image_button]),
         page.ti_file_list,
-        ElevatedButton(content=Text("👨‍🎨️  Run Textual-Inversion", size=18), on_click=lambda _: run_textualinversion(page)),
+        ElevatedButton(content=Text("👨‍🎨️  Run Textual-Inversion", size=20), on_click=lambda _: run_textualinversion(page)),
         page.textualinversion_output,
         clear_button,
       ]
@@ -4315,7 +4839,7 @@ def buildCachedModelManager(page):
         Divider(thickness=1, height=4),
         
         page.cached_folders,
-        ElevatedButton(content=Text("🔍  Scan Cache Dirctory", size=18), on_click=scan_cache),
+        ElevatedButton(content=Text("🔍  Scan Cache Dirctory", size=20), on_click=scan_cache),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -4339,6 +4863,9 @@ pipe_versatile_dualguided = None
 pipe_upscale = None
 pipe_depth = None
 pipe_image_variation = None
+pipe_unCLIP = None
+pipe_unCLIP_image_variation = None
+pipe_magic_mix = None
 pipe_kandinsky = None
 stability_api = None
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -4398,6 +4925,7 @@ finetuned_models = [
     {"name": "TARDISfusion Classic Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Classic Tardis style "},
     {"name": "TARDISfusion Modern Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Modern Tardis style "},
     {"name": "TARDISfusion Tardis Box", "path": "Guizmus/Tardisfusion", "prefix": "Tardis Box style "},
+    {"name": "Rick-Roll Style", "path": "TheLastBen/rick-roll-style", "prefix": "rckrll "},
     #{"name": "Studio Ghibli", "path": "flax/StudioGhibli", "prefix": "", "vae": True},
     #{"name": "Picture of the Week", "path": "Guizmus/SD_PoW_Collection", "prefix": "PoW Style ", "vae": True},
     #{"name": "PoW Bendstract ", "path": "Guizmus/SD_PoW_Collection", "prefix": "Bendstract Style ", "vae": True},
@@ -5519,6 +6047,28 @@ def clear_image_variation_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_image_variation = None
+def clear_unCLIP_pipe():
+  global pipe_unCLIP
+  if pipe_unCLIP is not None:
+    del pipe_unCLIP
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_unCLIP = None
+def clear_unCLIP_image_variation_pipe():
+  global pipe_unCLIP_image_variation
+  if pipe_unCLIP_image_variation is not None:
+    del pipe_unCLIP_image_variation
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_unCLIP_image_variation = None
+def clear_magic_mix_pipe():
+  global pipe_magic_mix
+  if pipe_magic_mix is not None:
+    del pipe_magic_mix
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_magic_mix = None
+
 def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
     if not 'txt2img' in but: clear_txt2img_pipe()
@@ -5535,7 +6085,10 @@ def clear_pipes(allbut=None):
     if not 'depth' in but: clear_depth_pipe()
     if not 'safe' in but: clear_safe_pipe()
     if not 'upscale' in but: clear_upscale_pipe()
+    if not 'unCLIP' in but: clear_unCLIP_pipe()
+    if not 'unCLIP_image_variation' in but: clear_unCLIP_image_variation_pipe()
     if not 'image_variation' in but: clear_image_variation_pipe()
+    if not 'magic_mix' in but: clear_magic_mix_pipe()
 
 import base64
 def get_base64(image_path):
@@ -5636,6 +6189,7 @@ def start_diffusion(page):
   generator = None
   clear_repaint_pipe()
   output_files = []
+  pipe_used = ""
   retry_attempts_if_NSFW = prefs['retry_attempts']
   #if (prefs['use_Stability_api'] and status['installed_stability']) or bool(not status['installed_diffusers'] and status['installed_stability']):
   #  update_stability()
@@ -5843,6 +6397,7 @@ def start_diffusion(page):
             }
             if not arg['alpha_mask']:
               files['mask_image'] = mask_str
+            pipe_used = "Stability-API Inpainting"
             #engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
             response = requests.post(url+"image-to-image/masking", headers=headers, files=files)
             #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
@@ -5869,9 +6424,11 @@ def start_diffusion(page):
                 'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
                 'options': (None, json.dumps(payload)),
             }
+            pipe_used = "Stability-API Image-to-Image"
             response = requests.post(url+"image-to-image", headers=headers, files=files)
             #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
           else:
+            pipe_used = "Stability-API Text-to-Image"
             response = requests.post(url+"text-to-image", headers=headers, json=payload)
             #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
           clear_last(update=False)
@@ -5990,6 +6547,7 @@ def start_diffusion(page):
               arg["use_cutouts"] = True 
               page.auto_scrolling(False)
               prt(pb)
+              pipe_used = "CLIP Guided"
               images = pipe_clip_guided(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], clip_prompt=clip_prompt, clip_guidance_scale=arg["clip_guidance_scale"], num_cutouts=int(arg["num_cutouts"]) if arg["use_cutouts"] else None, use_cutouts=arg["use_cutouts"], generator=generator).images
               clear_last()
               page.auto_scrolling(True)
@@ -6002,6 +6560,7 @@ def start_diffusion(page):
               total_steps = arg['steps']
               page.auto_scrolling(False)
               prt(pb)
+              pipe_used = f"Conceptualizer {prefs['concepts_model']}"
               images = pipe_conceptualizer(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               clear_last()
               page.auto_scrolling(True)
@@ -6073,8 +6632,10 @@ def start_diffusion(page):
               prt(pb)
               #with autocast("cuda"):
               if prefs['use_inpaint_model'] and status['installed_img2img']:
+                pipe_used = "Diffusers Inpaint"
                 images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               else:
+                pipe_used = "Long Prompt Weight Inpaint"
                 images = pipe.inpaint(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               clear_last()
               page.auto_scrolling(True)
@@ -6144,15 +6705,20 @@ def start_diffusion(page):
               #images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               if prefs['use_versatile'] and status['installed_versatile']:
                 if len(pr.strip()) > 2:
+                  pipe_used = "Versatile Dual-Guided"
                   images = pipe_versatile_dualguided(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, text_to_image_strength= arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 else:
+                  pipe_used = "Versatile Variation"
                   images = pipe_versatile_variation(negative_prompt=arg['negative_prompt'], image=init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_depth2img'] and status['installed_depth2img']:
+                pipe_used = "Depth-to-Image"
                 images = pipe_depth(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_inpaint_model'] and status['installed_img2img']:
+                pipe_used = "Diffusers Inpaint Image-to-Image"
                 white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
                 images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_imagic'] and status['installed_imagic']:
+                pipe_used = "iMagic Image-to-Image"
                 #only one element tensors can be converted to Python scalars
                 total_steps = None
                 res = pipe_imagic.train(pr, init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -6166,6 +6732,7 @@ def start_diffusion(page):
                 res = pipe_imagic(alpha=2, callback=callback_fn, callback_steps=1)
                 images.append(res.images[0])
               else:
+                pipe_used = "Long Prompt Weight Image-to-Image"
                 images = pipe.img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               clear_last()
               page.auto_scrolling(True)
@@ -6174,6 +6741,7 @@ def start_diffusion(page):
                 pipe = get_txt2img_pipe()
               #with precision_scope("cuda"):
               #    with torch.no_grad():
+              pipe_used = "LPW Tween Lerp"
               images_tween = pipe.lerp_between_prompts(pr, arg["prompt2"], length = arg['tweens'], save=False, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator)
               #print(str(images_tween))
               images = images_tween['images']
@@ -6217,15 +6785,19 @@ def start_diffusion(page):
                 if not bool(weights):
                   segments = len(pr.split('|'))
                   weights = '|'.join(['1' * segments])
+                pipe_used = "Composable Text-to-Image"
                 images = pipe_composable(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], weights=weights, generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_versatile'] and status['installed_versatile']:
+                pipe_used = "Versatile Text-to-Image"
                 images = pipe_versatile_text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_safe'] and status['installed_safe']:
                 from diffusers.pipelines.stable_diffusion_safe import SafetyConfig
                 s = prefs['safety_config']
                 safety = SafetyConfig.WEAK if s == 'Weak' else SafetyConfig.MEDIUM if s == 'Medium' else SafetyConfig.STRONG if s == 'Strong' else SafetyConfig.MAX if s == 'Max' else SafetyConfig.STRONG 
+                pipe_used = f"Safe Diffusion {safety}"
                 images = pipe_safe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **safety).images
               else:
+                pipe_used = "Long Prompt Weight Text-to-Image"
                 images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               '''if prefs['precision'] == "autocast":
                 with autocast("cuda"):
@@ -6416,6 +6988,7 @@ def start_diffusion(page):
         if prefs['apply_ESRGAN_upscale']:
           config_json['upscale'] = f"Upscaled {prefs['enlarge_scale']}x with ESRGAN" + (" with GFPGAN Face-Enhance" if prefs['face_enhance'] else "")
         sampler_str = prefs['generation_sampler'] if prefs['use_Stability_api'] else prefs['scheduler_mode']
+        config_json['pipeline'] = pipe_used
         config_json['scheduler_mode'] = sampler_str
         config_json['model_path'] = model_path
         if prefs['save_image_metadata']:
@@ -6705,7 +7278,7 @@ def run_prompt_generator(page):
       pr = p.strip()
       if not bool(pr): continue
       if pr[-1] == '.': pr = pr[:-1]
-      if pr[0] == '*': pr = pr[2:]
+      if pr[0] == '*': pr = pr[1:].strip()
       elif '.' in pr: # Sometimes got 1. 2.
         pr = pr.partition('.')[2].strip()
       if '"' in pr: pr = pr.replace('"', '')
@@ -6795,7 +7368,7 @@ def run_prompt_remixer(page):
       pr = p.strip()
       if not bool(pr): continue
       if pr[-1] == '.': pr = pr[:-1]
-      if pr[0] == '*': pr = pr[2:]
+      if pr[0] == '*': pr = pr[1:].strip()
       elif '.' in pr: # Sometimes got 1. 2.
         pr = pr.partition('.')[2].strip()
       prompt_results.append(pr)
@@ -7423,10 +7996,7 @@ def run_repainter(page):
     mask_img = mask_img.resize((width, height), resample=PILImage.NEAREST)
     mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
     #print(f'Resize to {width}x{height}')
-    clear_txt2img_pipe()
-    clear_img2img_pipe()
-    clear_unet_pipe()
-    clear_clip_guided_pipe()
+    clear_pipes('repaint')
     if not status['installed_repaint']:
       get_repaint(page)
       status['installed_repaint'] = True
@@ -8918,6 +9488,516 @@ class TextualInversionDataset(Dataset):
         example["pixel_values"] = torch.from_numpy(image).permute(2, 0, 1)
         return example
 
+def run_unCLIP(page, from_list=False):
+    global unCLIP_prefs, pipe_unCLIP
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      page.unCLIP_output.controls.append(line)
+      if update:
+        page.unCLIP_output.update()
+    def clear_last():
+      del page.unCLIP_output.controls[-1]
+      page.unCLIP_output.update()
+    def autoscroll(scroll=True):
+      page.unCLIP_output.auto_scroll = scroll
+      page.unCLIP_output.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = unCLIP_prefs['prior_num_inference_steps'] + unCLIP_prefs['decoder_num_inference_steps'] + unCLIP_prefs['super_res_num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.update()
+    unCLIP_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        unCLIP_prompts.append(p.prompt)
+    else:
+      if not bool(unCLIP_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      unCLIP_prompts.append(unCLIP_prefs['prompt'])
+    page.unCLIP_output.controls.clear()
+    from PIL import Image as PILImage
+    from PIL.PngImagePlugin import PngInfo
+    clear_pipes('unCLIP')
+    torch.cuda.empty_cache()
+    torch.cuda.reset_max_memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+    if pipe_unCLIP == None:
+        from diffusers import UnCLIPPipeline
+        prt(Row([ProgressRing(), Text("  Downloading unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
+        try:
+            pipe_unCLIP = UnCLIPPipeline.from_pretrained("kakaobrain/karlo-v1-alpha", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_unCLIP.to(torch_device)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Downloading unCLIP Pipeline", content=Text(str(e)))
+            return
+        pipe_unCLIP.set_progress_bar_config(disable=True)
+        clear_last()
+    s = "s" if unCLIP_prefs['num_images'] > 1 else ""
+    prt(f"Generating unCLIP{s} of your Image...")
+    batch_output = os.path.join(stable_dir, unCLIP_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], unCLIP_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in unCLIP_prompts:
+        for num in range(unCLIP_prefs['num_images']):
+            autoscroll(False)
+            prt(progress)
+            autoscroll(True)
+            random_seed = (int(unCLIP_prefs['seed']) + num) if int(unCLIP_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            try:
+                images = pipe_unCLIP([pr], prior_num_inference_steps=unCLIP_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_prefs['super_res_num_inference_steps'], prior_guidance_scale=unCLIP_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_prefs['decoder_guidance_scale'], num_images_per_prompt=1, generator=generator, callback=callback_fnc, callback_steps=1).images
+            except Exception as e:
+                clear_last()
+                alert_msg(page, "Error running unCLIP Pipeline", content=Text(str(e)))
+                return
+            clear_last()
+            fname = format_filename(pr)
+
+            if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+            for image in images:
+                image_path = available_file(os.path.join(stable_dir, unCLIP_prefs['batch_folder_name']), fname, num)
+                unscaled_path = image_path
+                output_file = image_path.rpartition(slash)[2]
+                image.save(image_path)
+                out_path = image_path.rpartition(slash)[0]
+                if not unCLIP_prefs['display_upscaled_image'] or not unCLIP_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if unCLIP_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                    upload_folder = 'upload'
+                    result_folder = 'results'     
+                    if os.path.isdir(upload_folder):
+                        shutil.rmtree(upload_folder)
+                    if os.path.isdir(result_folder):
+                        shutil.rmtree(result_folder)
+                    os.mkdir(upload_folder)
+                    os.mkdir(result_folder)
+                    short_name = f'{fname[:80]}-{num}.png'
+                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                    #print(f'Moving {fpath} to {dst_path}')
+                    #shutil.move(fpath, dst_path)
+                    shutil.copy(image_path, dst_path)
+                    #faceenhance = ' --face_enhance' if unCLIP_prefs["face_enhance"] else ''
+                    faceenhance = ''
+                    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    out_file = short_name.rpartition('.')[0] + '_out.png'
+                    upscaled_path = os.path.join(out_path, output_file)
+                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    image_path = upscaled_path
+                    os.chdir(stable_dir)
+                    if unCLIP_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {unCLIP_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", "unCLIP")
+                    if prefs['save_config_in_metadata']:
+                      metadata.add_text("title", pr)
+                      config_json = unCLIP_prefs.copy()
+                      config_json['model_path'] = "kakaobrain/karlo-v1-alpha"
+                      config_json['seed'] = random_seed
+                      del config_json['num_images']
+                      del config_json['display_upscaled_image']
+                      del config_json['batch_folder_name']
+                      if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                #TODO: PyDrive
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], unCLIP_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], unCLIP_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                time.sleep(0.2)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_unCLIP_image_variation(page, from_list=False):
+    global unCLIP_image_variation_prefs, pipe_unCLIP_image_variation
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      page.unCLIP_image_variation_output.controls.append(line)
+      if update:
+        page.unCLIP_image_variation_output.update()
+    def clear_last():
+      del page.unCLIP_image_variation_output.controls[-1]
+      page.unCLIP_image_variation_output.update()
+    def autoscroll(scroll=True):
+      page.unCLIP_image_variation_output.auto_scroll = scroll
+      page.unCLIP_image_variation_output.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = unCLIP_image_variation_prefs['decoder_num_inference_steps'] + unCLIP_image_variation_prefs['super_res_num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.update()
+    unCLIP_image_variation_inits = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if bool(p['init_image']):
+          unCLIP_image_variation_inits.append(p.prompt)
+    else:
+      if not bool(unCLIP_image_variation_prefs['init_image']):
+        alert_msg(page, "You need to add a Initial Image first... ")
+        return
+      unCLIP_image_variation_inits.append(unCLIP_image_variation_prefs['prompt'])
+    page.unCLIP_image_variation_output.controls.clear()
+    from io import BytesIO
+    from PIL import Image as PILImage
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    
+    clear_pipes('unCLIP_image_variation')
+    torch.cuda.empty_cache()
+    torch.cuda.reset_max_memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+    if pipe_unCLIP_image_variation == None:
+        from diffusers import UnCLIPImageVariationPipeline
+        prt(Row([ProgressRing(), Text("  Downloading unCLIP Image Variation Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
+        try:
+            pipe_unCLIP_image_variation = UnCLIPImageVariationPipeline.from_pretrained("fusing/karlo-image-variations-diffusers", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_unCLIP_image_variation.to(torch_device)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Downloading unCLIP Image Variation Pipeline", content=Text(str(e)))
+            return
+        pipe_unCLIP_image_variation.set_progress_bar_config(disable=True)
+        clear_last()
+    s = "s" if unCLIP_image_variation_prefs['num_images'] > 1 else ""
+    prt(f"Generating unCLIP Image Variation{s} of your Image...")
+    batch_output = os.path.join(stable_dir, unCLIP_image_variation_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], unCLIP_image_variation_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for init in unCLIP_image_variation_inits:
+        if init.startswith('http'):
+          init_img = PILImage.open(requests.get(init, stream=True).raw)
+        else:
+          if os.path.isfile(init):
+            init_img = PILImage.open(init)
+          else:
+            alert_msg(page, f"ERROR: Couldn't find your init_image {init}")
+            return
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, unCLIP_image_variation_prefs['max_size'])
+        init_img = init_img.resize((width, height), resample=PILImage.BICUBIC)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        for num in range(unCLIP_image_variation_prefs['num_images']):
+            autoscroll(False)
+            prt(progress)
+            autoscroll(True)
+            random_seed = (int(unCLIP_image_variation_prefs['seed']) + num) if int(unCLIP_image_variation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            try:
+                images = pipe_unCLIP_image_variation(image=init, decoder_num_inference_steps=unCLIP_image_variation_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_image_variation_prefs['super_res_num_inference_steps'], decoder_guidance_scale=unCLIP_image_variation_prefs['decoder_guidance_scale'], num_images_per_prompt=1, generator=generator, callback=callback_fnc, callback_steps=1).images
+            except Exception as e:
+                clear_last()
+                alert_msg(page, "Error running unCLIP Image Variation Pipeline", content=Text(str(e)))
+                return
+            clear_last()
+            #fname = format_filename(unCLIP_image_variation_prefs['file_name'])
+            fname = init.rpartition(slash)[2].rpartition('.')[0]
+            if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+            for image in images:
+                image_path = available_file(os.path.join(stable_dir, unCLIP_image_variation_prefs['batch_folder_name']), fname, num)
+                unscaled_path = image_path
+                output_file = image_path.rpartition(slash)[2]
+                image.save(image_path)
+                out_path = image_path.rpartition(slash)[0]
+                if not unCLIP_image_variation_prefs['display_upscaled_image'] or not unCLIP_image_variation_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                    upload_folder = 'upload'
+                    result_folder = 'results'     
+                    if os.path.isdir(upload_folder):
+                        shutil.rmtree(upload_folder)
+                    if os.path.isdir(result_folder):
+                        shutil.rmtree(result_folder)
+                    os.mkdir(upload_folder)
+                    os.mkdir(result_folder)
+                    short_name = f'{fname[:80]}-{num}.png'
+                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                    #print(f'Moving {fpath} to {dst_path}')
+                    #shutil.move(fpath, dst_path)
+                    shutil.copy(image_path, dst_path)
+                    #faceenhance = ' --face_enhance' if unCLIP_image_variation_prefs["face_enhance"] else ''
+                    faceenhance = ''
+                    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_image_variation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    out_file = short_name.rpartition('.')[0] + '_out.png'
+                    upscaled_path = os.path.join(out_path, output_file)
+                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    image_path = upscaled_path
+                    os.chdir(stable_dir)
+                    if unCLIP_image_variation_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {unCLIP_image_variation_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", "unCLIP_image_variation")
+                    if prefs['save_config_in_metadata']:
+                      #metadata.add_text("title", unCLIP_image_variation_prefs['file_name'])
+                      config_json = unCLIP_image_variation_prefs.copy()
+                      config_json['model_path'] = "fusing/karlo-image-variations-diffusers"
+                      config_json['seed'] = random_seed
+                      del config_json['num_images']
+                      del config_json['display_upscaled_image']
+                      del config_json['batch_folder_name']
+                      del config_json['file_name']
+                      if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                #TODO: PyDrive
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], unCLIP_image_variation_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], unCLIP_image_variation_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                time.sleep(0.2)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_magic_mix(page, from_list=False):
+    global magic_mix_prefs, pipe_magic_mix
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      page.magic_mix_output.controls.append(line)
+      if update:
+        page.magic_mix_output.update()
+    def clear_last():
+      del page.magic_mix_output.controls[-1]
+      page.magic_mix_output.update()
+    def autoscroll(scroll=True):
+      page.magic_mix_output.auto_scroll = scroll
+      page.magic_mix_output.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = magic_mix_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.update()
+    magic_mix_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        magic_mix_prompts.append(p.prompt)
+    else:
+      if not bool(magic_mix_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      magic_mix_prompts.append(magic_mix_prefs['prompt'])
+    page.magic_mix_output.controls.clear()
+    from io import BytesIO
+    from PIL import Image as PILImage
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    if magic_mix_prefs['init_image'].startswith('http'):
+      init_img = PILImage.open(requests.get(magic_mix_prefs['init_image'], stream=True).raw)
+    else:
+      if os.path.isfile(magic_mix_prefs['init_image']):
+        init_img = PILImage.open(magic_mix_prefs['init_image'])
+      else:
+        alert_msg(page, f"ERROR: Couldn't find your init_image {magic_mix_prefs['init_image']}")
+        return
+    width, height = init_img.size
+    width, height = scale_dimensions(width, height, magic_mix_prefs['max_size'])
+    init_img = init_img.resize((width, height), resample=PILImage.BICUBIC)
+    init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    '''tform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize(
+            (width, height),
+            interpolation=transforms.InterpolationMode.BICUBIC,
+            antialias=False,
+            ),
+        transforms.Normalize(
+          [0.48145466, 0.4578275, 0.40821073],
+          [0.26862954, 0.26130258, 0.27577711]),
+    ])
+    init_img = tform(init_img).to(torch_device)'''
+    clear_pipes('magic_mix')
+    #torch.cuda.empty_cache()
+    #torch.cuda.reset_max_memory_allocated()
+    #torch.cuda.reset_peak_memory_stats()
+    model = get_model(prefs['model_ckpt'])
+    scheduler_mode = magic_mix_prefs['scheduler_mode']
+    if scheduler_mode == "K-LMS":
+      from diffusers import LMSDiscreteScheduler
+      schedule = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "PNDM":
+      from diffusers import PNDMScheduler
+      schedule = PNDMScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "DDIM":
+      from diffusers import DDIMScheduler
+      schedule = DDIMScheduler.from_pretrained(model, subfolder="scheduler")
+    if pipe_magic_mix == None or magic_mix_prefs['scheduler_mode'] != magic_mix_prefs['scheduler_last']:
+        from diffusers import DiffusionPipeline
+        prt(Row([ProgressRing(), Text("  Downloading MagicMix Pipeline... ", weight=FontWeight.BOLD)]))
+        try:
+            pipe_magic_mix = DiffusionPipeline.from_pretrained(model, custom_pipeline="AlanB/magic_mix_mod", scheduler=schedule, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_magic_mix.to(torch_device)
+            pipe_magic_mix = optimize_pipe(pipe_magic_mix, vae=False)
+            magic_mix_prefs['scheduler_last'] = magic_mix_prefs['scheduler_mode']
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Downloading MagicMix Pipeline", content=Text(str(e)))
+            return
+        #pipe_magic_mix.set_progress_bar_config(disable=True)
+        clear_last()
+    s = "es" if magic_mix_prefs['num_images'] > 1 else ""
+    prt(f"Generating MagicMix{s} of your Image...")
+    batch_output = os.path.join(stable_dir, magic_mix_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], magic_mix_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in magic_mix_prompts:
+        for num in range(magic_mix_prefs['num_images']):
+            autoscroll(False)
+            prt(progress)
+            autoscroll(True)
+            random_seed = (int(magic_mix_prefs['seed']) + num) if int(magic_mix_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            #generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            try:
+                images = pipe_magic_mix(image=init_img, prompt=pr, steps=magic_mix_prefs['num_inference_steps'], kmin=magic_mix_prefs['kmin'], kmax=magic_mix_prefs['kmax'], mix_factor=magic_mix_prefs['mix_factor'], guidance_scale=magic_mix_prefs['guidance_scale'], seed=random_seed).images #, callback=callback_fnc, callback_steps=1
+            except Exception as e:
+                clear_last()
+                alert_msg(page, "Error running MagicMix Pipeline", content=Text(str(e)))
+                return
+            clear_last()
+            fname = format_filename(pr)
+
+            if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+            for image in images:
+                image_path = available_file(os.path.join(stable_dir, magic_mix_prefs['batch_folder_name']), fname, num)
+                unscaled_path = image_path
+                output_file = image_path.rpartition(slash)[2]
+                image.save(image_path)
+                out_path = image_path.rpartition(slash)[0]
+                if not magic_mix_prefs['display_upscaled_image'] or not magic_mix_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if magic_mix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                    upload_folder = 'upload'
+                    result_folder = 'results'     
+                    if os.path.isdir(upload_folder):
+                        shutil.rmtree(upload_folder)
+                    if os.path.isdir(result_folder):
+                        shutil.rmtree(result_folder)
+                    os.mkdir(upload_folder)
+                    os.mkdir(result_folder)
+                    short_name = f'{fname[:80]}-{num}.png'
+                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                    #print(f'Moving {fpath} to {dst_path}')
+                    #shutil.move(fpath, dst_path)
+                    shutil.copy(image_path, dst_path)
+                    #faceenhance = ' --face_enhance' if magic_mix_prefs["face_enhance"] else ''
+                    faceenhance = ''
+                    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {magic_mix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    out_file = short_name.rpartition('.')[0] + '_out.png'
+                    upscaled_path = os.path.join(out_path, output_file)
+                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    image_path = upscaled_path
+                    os.chdir(stable_dir)
+                    if magic_mix_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {magic_mix_prefs['enlarge_scale']}x with ESRGAN" if magic_mix_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", "magic_mix")
+                    if prefs['save_config_in_metadata']:
+                      metadata.add_text("title", pr)
+                      config_json = magic_mix_prefs.copy()
+                      config_json['model_path'] = model
+                      config_json['seed'] = random_seed
+                      del config_json['num_images']
+                      del config_json['display_upscaled_image']
+                      del config_json['batch_folder_name']
+                      del config_json['file_name']
+                      del config_json["scheduler_last"]
+                      del config_json['max_size']
+                      if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                #TODO: PyDrive
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], magic_mix_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], magic_mix_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                time.sleep(0.2)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+
 def run_materialdiffusion(page):
     global materialdiffusion_prefs, prefs
     if not bool(materialdiffusion_prefs['material_prompt']):
@@ -9100,9 +10180,14 @@ def run_dall_e(page, from_list=False):
       del page.dall_e_output.controls[-1]
       page.dall_e_output.update()
     progress = ProgressBar(bar_height=8)
-    prt(Row([ProgressRing(), Text("Installing OpenAi Dall-E 2 API...", weight=FontWeight.BOLD)]))
-    run_process("pip install -q openai", realtime=False)
-    import openai
+    try:
+        import openai
+    except:
+        prt(Row([ProgressRing(), Text("Installing OpenAi Dall-E 2 API...", weight=FontWeight.BOLD)]))
+        run_process("pip install -q openai", realtime=False)
+        clear_last()
+        import openai
+        pass
     try:
         openai.api_key = prefs['OpenAI_api_key']
     except Exception as e:
@@ -9160,8 +10245,7 @@ def run_dall_e(page, from_list=False):
             mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
             mask_img.save(mask_file)
         #print(f'Resize to {width}x{height}')
-        clear_pipes()
-        clear_last()
+        #clear_pipes()
         prt("Generating your Dall-E 2 Image...")
         prt(progress)
 
@@ -9254,6 +10338,9 @@ def run_dall_e(page, from_list=False):
 
 def run_kandinsky(page):
     global kandinsky_prefs, pipe_kandinsky, prefs
+    if status['insalled_diffusers']:
+      alert_msg(page, "Sorry, currently incompatible with Diffusers installed...", content=Text("To run Kandinsky, restart runtime fresh and DO NOT install HuggingFace Diffusers library first, but you can install ESRGAN to use. Kandinsky is currently using an older version of Transformers and we haven't figured out how to easily downgrade version yet to run models together.. Sorry, trying to fix."))
+      return
     if not bool(kandinsky_prefs['prompt']):
       alert_msg(page, "You must provide a text prompt to process your image generation...")
       return
@@ -9267,19 +10354,23 @@ def run_kandinsky(page):
       page.kandinsky_output.update()
     progress = ProgressBar(bar_height=8)
     prt(Row([ProgressRing(), Text("Installing Kandinsky 2.0 Engine & Models... See console log for progress.", weight=FontWeight.BOLD)]))
-    try:
+    '''try:
         if transformers.__version__ != "4.23.1": # Kandinsky conflict
-          run_process("pip uninstall -y transformers", realtime=False)
+          run_sp("pip uninstall -y transformers", realtime=True)
+          run_process("pip uninstall -y git+https://github.com/huggingface/transformers", realtime=False)
     except Exception:
         pass
     finally:
-      run_process("pip install transformers==4.23.1 --upgrade --force-reinstall -q", realtime=False)
+        run_sp("pip install --target lib --upgrade transformers==4.23.1 -q", realtime=True)
+        #print(f"Installed transformers v{transformers.__version__}")
+    run_process("pip install -q sentencepiece", realtime=False)'''
     try:
         from kandinsky2 import get_kandinsky2
     except Exception:
         #run_process("pip install transformers==4.23.1 --upgrade --force-reinstall -q", realtime=False)
         #run_process("pip install -q git+https://github.com/ai-forever/Kandinsky-2.0.git", realtime=False)
-        run_sp('pip install -q "git+https://github.com/ai-forever/Kandinsky-2.0.git"', realtime=True)
+        #run_sp('pip install -q "git+https://github.com/ai-forever/Kandinsky-2.0.git"', realtime=True)
+        run_sp('pip install -q "git+https://github.com/Skquark/Kandinsky-2.0.git"', realtime=True)
         from kandinsky2 import get_kandinsky2
         pass
     import requests
@@ -9321,12 +10412,18 @@ def run_kandinsky(page):
         #mask_img.save(mask_file)
     #print(f'Resize to {width}x{height}')
     clear_pipes()
-    if bool(kandinsky_prefs['init_image']) and not bool(kandinsky_prefs['mask_image']):
-        pipe_kandinsky = get_kandinsky2('cuda', task_type='img2img')
-    elif bool(kandinsky_prefs['init_image']) and bool(kandinsky_prefs['mask_image']):
-        pipe_kandinsky = get_kandinsky2('cuda', task_type='inpainting')
-    else:
-        pipe_kandinsky = get_kandinsky2('cuda', task_type='text2img')
+    try:
+        if bool(kandinsky_prefs['init_image']) and not bool(kandinsky_prefs['mask_image']):
+            pipe_kandinsky = get_kandinsky2('cuda', task_type='img2img')
+        elif bool(kandinsky_prefs['init_image']) and bool(kandinsky_prefs['mask_image']):
+            pipe_kandinsky = get_kandinsky2('cuda', task_type='inpainting')
+        else:
+            pipe_kandinsky = get_kandinsky2('cuda', task_type='text2img')
+    except Exception as e:
+        import traceback
+        clear_last()
+        alert_msg(page, f"ERROR Initializing Kandinsky, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
     clear_last()
     prt("Generating your Kandinsky 2.0 Image...")
     prt(progress)
