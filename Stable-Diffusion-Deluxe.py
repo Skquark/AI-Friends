@@ -2389,6 +2389,7 @@ def buildStableDiffusers(page):
     page.ImageVariation = buildImageVariation(page)
     page.CLIPstyler = buildCLIPstyler(page)
     page.MagicMix = buildMagicMix(page)
+    page.PaintByExample = buildPaintByExample(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.MaskMaker = buildDreamMask(page)
     page.DreamFusion = buildDreamFusion(page)
@@ -2403,6 +2404,7 @@ def buildStableDiffusers(page):
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
             Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
+            Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
@@ -3039,6 +3041,21 @@ def buildRepainter(page):
         nonlocal pick_type
         pick_type = "mask"
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Black & White Mask Image")
+    def change_num_inference_steps(e):
+        changed(e, 'num_inference_steps', ptype="int")
+        num_inference_steps_value.value = f" {repaint_prefs['num_inference_steps']}"
+        num_inference_steps_value.update()
+        num_inference_row.update()
+    def change_eta(e):
+        changed(e, 'eta', ptype="float")
+        eta_value.value = f" {repaint_prefs['eta']}"
+        eta_value.update()
+        eta_row.update()
+    def change_max_size(e):
+        changed(e, 'max_size', ptype="int")
+        max_size_value.value = f" {repaint_prefs['max_size']}px"
+        max_size_value.update()
+        max_row.update()
     original_image = TextField(label="Original Image", value=repaint_prefs['original_image'], expand=1, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     mask_image = TextField(label="Mask Image", value=repaint_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=repaint_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
@@ -3046,13 +3063,16 @@ def buildRepainter(page):
     jump_n_sample = TextField(label="Jump Number of Sample", tooltip="The number of times we will make forward time jump for a given chosen time sample.", value=repaint_prefs['jump_n_sample'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_n_sample', ptype='int'))
     seed = TextField(label="Seed", value=str(repaint_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     #num_inference_steps = TextField(label="Inference Steps", value=str(repaint_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_steps = Slider(min=10, max=3000, divisions=2990, label="{value}", value=float(repaint_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps])
+    num_inference_steps = Slider(min=10, max=3000, divisions=2990, label="{value}", value=float(repaint_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
+    num_inference_steps_value = Text(f" {repaint_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
+    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
     #eta = TextField(label="ETA", value=str(repaint_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(repaint_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
-    eta_row = Row([Text("ETA:    DDIM"), eta, Text("DDPM")])
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(repaint_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
-    max_row = Row([Text("Max Resolution Size: "), max_size])
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(repaint_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta_value = Text(f" {repaint_prefs['eta']}", weight=FontWeight.BOLD)
+    eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
+    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(repaint_prefs['max_size']), expand=True, on_change=change_max_size)
+    max_size_value = Text(f" {repaint_prefs['max_size']}px", weight=FontWeight.BOLD)
+    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
     page.repaint_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.repaint_output.controls) > 0
@@ -3681,6 +3701,181 @@ def buildMagicMix(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=True)
     return c
 
+paint_by_example_prefs = {
+    'original_image': '',
+    'mask_image': '',
+    'example_image': '',
+    'num_inference_steps': 50,
+    'guidance_scale': 7.5,
+    'eta': 0.0,
+    'seed': 0,
+    'max_size': 1024,
+    'alpha_mask': False,
+    'invert_mask': False,
+    'num_images': 1,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 4.0,
+    "display_upscaled_image": True,
+}
+def buildPaintByExample(page):
+    global paint_by_example_prefs, prefs, pipe_paint_by_example
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        if ptype == "int":
+          paint_by_example_prefs[pref] = int(e.control.value)
+        elif ptype == "float":
+          paint_by_example_prefs[pref] = float(e.control.value)
+        else:
+          paint_by_example_prefs[pref] = e.control.value
+    def add_to_paint_by_example_output(o):
+      page.paint_by_example_output.controls.append(o)
+      page.paint_by_example_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.paint_by_example_output.controls = []
+      page.paint_by_example_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def paint_by_example_help(e):
+      def close_paint_by_example_dlg(e):
+        nonlocal paint_by_example_help_dlg
+        paint_by_example_help_dlg.open = False
+        page.update()
+      paint_by_example_help_dlg = AlertDialog(title=Text("💁   Help with Paint-by-Example"), content=Column([
+          Text("Language-guided image editing has achieved great success recently. In this pipeline, we use exemplar-guided image editing for more precise control. We achieve this goal by leveraging self-supervised training to disentangle and re-organize the source image and the exemplar. However, the naive approach will cause obvious fusing artifacts. We carefully analyze it and propose an information bottleneck and strong augmentations to avoid the trivial solution of directly copying and pasting the exemplar image. Meanwhile, to ensure the controllability of the editing process, we design an arbitrary shape mask for the exemplar image and leverage the classifier-free guidance to increase the similarity to the exemplar image. The whole framework involves a single forward of the diffusion model without any iterative optimization. We demonstrate that our method achieves an impressive performance and enables controllable editing on in-the-wild images with high fidelity.  Credit goes to https://github.com/Fantasy-Studio/Paint-by-Example"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😸  Sweetness... ", on_click=close_paint_by_example_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = paint_by_example_help_dlg
+      paint_by_example_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      nonlocal pick_type
+      if e.progress == 1:
+        paint_by_example_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        fname = os.path.join(root_dir, e.file_name)
+        if pick_type == "original":
+          original_image.value = fname
+          original_image.update()
+          paint_by_example_prefs['original_image'] = fname
+        elif pick_type == "mask":
+          mask_image.value = fname
+          mask_image.update()
+          paint_by_example_prefs['mask_image'] = fname
+        elif pick_type == "example":
+          example_image.value = fname
+          example_image.update()
+          paint_by_example_prefs['example_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    #page.overlay.append(pick_files_dialog)
+    def pick_original(e):
+        nonlocal pick_type
+        pick_type = "original"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def pick_mask(e):
+        nonlocal pick_type
+        pick_type = "mask"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Black & White Mask Image")
+    def pick_example(e):
+        nonlocal pick_type
+        pick_type = "example"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Example Style Image")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        paint_by_example_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    def change_num_inference_steps(e):
+        changed(e, 'num_inference_steps', ptype="int")
+        num_inference_steps_value.value = f" {paint_by_example_prefs['num_inference_steps']}"
+        num_inference_steps_value.update()
+        num_inference_row.update()
+    def change_guidance(e):
+        guidance_value.value = f" {e.control.value}"
+        guidance_value.update()
+        #guidance.controls[1].value = f" {e.control.value}"
+        guidance.update()
+        changed(e, 'guidance_scale', ptype="float")
+    def change_eta(e):
+        changed(e, 'eta', ptype="float")
+        eta_value.value = f" {paint_by_example_prefs['eta']}"
+        eta_value.update()
+        eta_row.update()
+    def change_max_size(e):
+        changed(e, 'max_size', ptype="int")
+        max_size_value.value = f" {paint_by_example_prefs['max_size']}px"
+        max_size_value.update()
+        max_row.update()
+    original_image = TextField(label="Original Image", value=paint_by_example_prefs['original_image'], expand=1, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    mask_image = TextField(label="Mask Image", value=paint_by_example_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
+    alpha_mask = Checkbox(label="Alpha Mask", value=paint_by_example_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=paint_by_example_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    example_image = TextField(label="Example Style Image", value=paint_by_example_prefs['example_image'], on_change=lambda e:changed(e,'example_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_example))
+    seed = TextField(label="Seed", width=90, value=str(paint_by_example_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    #num_inference_steps = TextField(label="Inference Steps", value=str(paint_by_example_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
+    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=float(paint_by_example_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
+    num_inference_steps_value = Text(f" {paint_by_example_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
+    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
+    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=paint_by_example_prefs['guidance_scale'], on_change=change_guidance, expand=True)
+    guidance_value = Text(f" {paint_by_example_prefs['guidance_scale']}", weight=FontWeight.BOLD)
+    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    #eta = TextField(label="ETA", value=str(paint_by_example_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(paint_by_example_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta_value = Text(f" {paint_by_example_prefs['eta']}", weight=FontWeight.BOLD)
+    eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
+    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(paint_by_example_prefs['max_size']), expand=True, on_change=change_max_size)
+    max_size_value = Text(f" {paint_by_example_prefs['max_size']}px", weight=FontWeight.BOLD)
+    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    batch_folder_name = TextField(label="Batch Folder Name", value=paint_by_example_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=paint_by_example_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(paint_by_example_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=paint_by_example_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=paint_by_example_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_paint_by_example = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_paint_by_example.height = None if status['installed_ESRGAN'] else 0
+    page.paint_by_example_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.paint_by_example_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🦁  Paint-by-Example", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Paint-by-Example Settings", on_click=paint_by_example_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Image-guided Inpainting using an Example Image to Transfer Subject to Masked area..."),
+        Divider(thickness=1, height=4),
+        ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        example_image,
+        num_inference_row,
+        guidance,
+        eta_row,
+        max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=paint_by_example_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
+        page.ESRGAN_block_paint_by_example,
+        #Row([jump_length, jump_n_sample, seed]),
+        ElevatedButton(content=Text("🐾  Run Paint-by-Example", size=20), on_click=lambda _: run_paint_by_example(page)),
+        page.paint_by_example_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
 
 materialdiffusion_prefs = {
     "material_prompt": '',
@@ -4866,6 +5061,7 @@ pipe_image_variation = None
 pipe_unCLIP = None
 pipe_unCLIP_image_variation = None
 pipe_magic_mix = None
+pipe_paint_by_example = None
 pipe_kandinsky = None
 stability_api = None
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -6068,6 +6264,13 @@ def clear_magic_mix_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_magic_mix = None
+def clear_paint_by_example_pipe():
+  global pipe_paint_by_example
+  if pipe_paint_by_example is not None:
+    del pipe_paint_by_example
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_paint_by_example = None
 
 def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
@@ -6089,6 +6292,7 @@ def clear_pipes(allbut=None):
     if not 'unCLIP_image_variation' in but: clear_unCLIP_image_variation_pipe()
     if not 'image_variation' in but: clear_image_variation_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
+    if not 'paint_by_example' in but: clear_paint_by_example_pipe()
 
 import base64
 def get_base64(image_path):
@@ -9997,6 +10201,183 @@ def run_magic_mix(page, from_list=False):
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_paint_by_example(page):
+    global paint_by_example_prefs, prefs, status, pipe_paint_by_example
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if not bool(paint_by_example_prefs['original_image']) or (not bool(paint_by_example_prefs['alpha_image']) and not bool(paint_by_example_prefs['mask_image'])):
+      alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
+      return
+    if not bool(paint_by_example_prefs['example_image']):
+      alert_msg(page, "You must provide an Example Image to Transfer Subject from...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.paint_by_example_output.controls.append(line)
+      page.paint_by_example_output.update()
+    def clear_last():
+      del page.paint_by_example_output.controls[-1]
+      page.paint_by_example_output.update()
+    progress = ProgressBar(bar_height=8)
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    prt(Row([ProgressRing(), Text("Installing Paint-by-Example Pipeline...", weight=FontWeight.BOLD)]))
+    import requests, random
+    from io import BytesIO
+    from PIL import Image as PILImage
+    from PIL import ImageOps
+    from PIL.PngImagePlugin import PngInfo
+    if paint_by_example_prefs['original_image'].startswith('http'):
+      #response = requests.get(paint_by_example_prefs['original_image'])
+      #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+      original_img = PILImage.open(requests.get(paint_by_example_prefs['original_image'], stream=True).raw)
+    else:
+      if os.path.isfile(paint_by_example_prefs['original_image']):
+        original_img = PILImage.open(paint_by_example_prefs['original_image'])
+      else:
+        alert_msg(page, f"ERROR: Couldn't find your original_image {paint_by_example_prefs['original_image']}")
+        return
+    width, height = original_img.size
+    width, height = scale_dimensions(width, height, paint_by_example_prefs['max_size'])
+    if bool(paint_by_example_prefs['alpha_mask']):
+      original_img = ImageOps.exif_transpose(original_img).convert("RGBA")
+    else:
+      original_img = ImageOps.exif_transpose(original_img).convert("RGB")
+    original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
+    mask_img = None
+    if not bool(paint_by_example_prefs['mask_image']) and bool(paint_by_example_prefs['alpha_mask']):
+      red, green, blue, alpha = PILImage.Image.split(original_img)
+      mask_img = alpha.convert('L')
+    else:
+      if paint_by_example_prefs['mask_image'].startswith('http'):
+        mask_img = PILImage.open(requests.get(paint_by_example_prefs['mask_image'], stream=True).raw)
+      else:
+        if os.path.isfile(paint_by_example_prefs['mask_image']):
+          mask_img = PILImage.open(paint_by_example_prefs['mask_image'])
+        else:
+          alert_msg(page, f"ERROR: Couldn't find your mask_image {paint_by_example_prefs['mask_image']}")
+          return
+      if paint_by_example_prefs['invert_mask']:
+        mask_img = ImageOps.invert(mask_img.convert('RGB'))
+    #mask_img = mask_img.convert("L")
+    #mask_img = mask_img.convert("1")
+    mask_img = mask_img.resize((width, height), resample=PILImage.NEAREST)
+    mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
+    #print(f'Resize to {width}x{height}')
+    if paint_by_example_prefs['example_image'].startswith('http'):
+      example_img = PILImage.open(requests.get(paint_by_example_prefs['example_image'], stream=True).raw)
+    else:
+      if os.path.isfile(paint_by_example_prefs['example_image']):
+        example_img = PILImage.open(paint_by_example_prefs['example_image'])
+      else:
+        alert_msg(page, f"ERROR: Couldn't find your Example Image {paint_by_example_prefs['example_image']}")
+        return
+    
+    clear_pipes('paint_by_example')
+    model_id = "Fantasy-Studio/Paint-by-Example"
+    if pipe_paint_by_example is None:
+      from diffusers import PaintByExamplePipeline
+      pipe_paint_by_example = PaintByExamplePipeline.from_pretrained(model_id, scheduler=model_scheduler(model_id, big3=True), cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+    clear_last()
+    prt("Generating Paint-by-Example of your Image...")
+    prt(progress)
+    batch_output = os.path.join(stable_dir, paint_by_example_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], paint_by_example_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = int(paint_by_example_prefs['seed']) if int(paint_by_example_prefs['seed']) > 0 else random.randint(0,4294967295)
+    generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+    try:
+      images = pipe_paint_by_example(image=original_img, mask_image=mask_img, example_image=example_img, num_inference_steps=paint_by_example_prefs['num_inference_steps'], eta=paint_by_example_prefs['eta'], guidance_scale=paint_by_example_prefs['guidance_scale'], num_images_per_prompt=paint_by_example_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+    except Exception as e:
+      clear_last()
+      alert_msg(page, f"ERROR: Couldn't Paint-by-Example your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
+      return
+    filename = paint_by_example_prefs['original_image'].rpartition(slash)[2].rpartition('.')[0]
+    #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+    num = 0
+    for image in images:
+        random_seed += num
+        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+        image_path = available_file(os.path.join(stable_dir, paint_by_example_prefs['batch_folder_name']), fname, num)
+        unscaled_path = image_path
+        output_file = image_path.rpartition(slash)[2]
+        image.save(image_path)
+        out_path = image_path.rpartition(slash)[0]
+        if not paint_by_example_prefs['display_upscaled_image'] or not paint_by_example_prefs['apply_ESRGAN_upscale']:
+            prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if paint_by_example_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'     
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{num}.png'
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+            #print(f'Moving {fpath} to {dst_path}')
+            #shutil.move(fpath, dst_path)
+            shutil.copy(image_path, dst_path)
+            #faceenhance = ' --face_enhance' if paint_by_example_prefs["face_enhance"] else ''
+            faceenhance = ''
+            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {paint_by_example_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            upscaled_path = os.path.join(out_path, output_file)
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            image_path = upscaled_path
+            os.chdir(stable_dir)
+            if paint_by_example_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if prefs['save_image_metadata']:
+            img = PILImage.open(image_path)
+            metadata = PngInfo()
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+            metadata.add_text("copyright", prefs['meta_Copyright'])
+            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {paint_by_example_prefs['enlarge_scale']}x with ESRGAN" if paint_by_example_prefs['apply_ESRGAN_upscale'] else "")
+            metadata.add_text("pipeline", "Paint-by-Example")
+            if prefs['save_config_in_metadata']:
+              config_json = paint_by_example_prefs.copy()
+              config_json['model_path'] = model_id
+              config_json['seed'] = random_seed
+              del config_json['num_images']
+              del config_json['max_size']
+              del config_json['display_upscaled_image']
+              del config_json['batch_folder_name']
+              del config_json['invert_mask']
+              del config_json['alpha_mask']
+              if not config_json['apply_ESRGAN_upscale']:
+                del config_json['enlarge_scale']
+                del config_json['apply_ESRGAN_upscale']
+              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+            img.save(image_path, pnginfo=metadata)
+        #TODO: PyDrive
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(os.path.join(prefs['image_output'], paint_by_example_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(os.path.join(prefs['image_output'], paint_by_example_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        time.sleep(0.2)
+        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        num += 1
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_materialdiffusion(page):
     global materialdiffusion_prefs, prefs
@@ -10675,10 +11056,7 @@ class Component(UserControl):
         self.expand = True
         #self.table
         self.parameter = Ref[TextField]()
-        return Column(
-            controls=[
-            ],
-        )
+        return Column(controls=[])
 class Main:
     def __init__(self):
         self.page = None
@@ -10687,9 +11065,7 @@ class Main:
         page.title = "Alternative Boot experiment"
         self.add_stuff()
     def add_stuff(self):
-        self.page.add(
-            Text("Some text", size=20),
-        )
+        self.page.add(Text("Some text", size=20))
         self.page.update()
 main = Main()'''
 
