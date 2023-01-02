@@ -1069,6 +1069,7 @@ def buildInstallers(page):
         page.ESRGAN_block_unCLIP.height = None
         page.ESRGAN_block_unCLIP_image_variation.height = None
         page.ESRGAN_block_magic_mix.height = None
+        page.ESRGAN_block_paint_by_example.height = None
         page.ESRGAN_block.update()
         page.ESRGAN_block_material.update()
         page.ESRGAN_block_dalle.update()
@@ -1076,6 +1077,7 @@ def buildInstallers(page):
         page.ESRGAN_block_unCLIP.update()
         page.ESRGAN_block_unCLIP_image_variation.update()
         page.ESRGAN_block_magic_mix.update()
+        page.ESRGAN_block_paint_by_example.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
           import openai
@@ -2041,6 +2043,7 @@ def buildPromptHelpers(page):
     page.remixer = buildPromptRemixer(page)
     page.brainstormer = buildPromptBrainstormer(page)
     page.writer = buildPromptWriter(page)
+    page.RetrievePrompts = buildRetrievePrompts(page)
     promptTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -2049,6 +2052,7 @@ def buildPromptHelpers(page):
             Tab(text="Prompt Generator", content=page.generator, icon=icons.CLOUD),
             Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
             Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
+            Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
         ],
         expand=1,
         #on_change=tab_on_change
@@ -2420,7 +2424,6 @@ def buildStableDiffusers(page):
 
 def buildExtras(page):
     page.ESRGAN_upscaler = buildESRGANupscaler(page)
-    page.RetrievePrompts = buildRetrievePrompts(page)
     page.InitFolder = buildInitFolder(page)
     page.CachedModelManager = buildCachedModelManager(page)
     page.Image2Text = buildImage2Text(page)
@@ -2431,7 +2434,6 @@ def buildExtras(page):
         animation_duration=300,
         tabs=[
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
-            Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
             Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
             Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
             Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
@@ -3059,9 +3061,9 @@ def buildRepainter(page):
     original_image = TextField(label="Original Image", value=repaint_prefs['original_image'], expand=1, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     mask_image = TextField(label="Mask Image", value=repaint_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=repaint_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
-    jump_length = TextField(label="Jump Length", tooltip="The number of steps taken forward in time before going backward in time for a single jump", value=repaint_prefs['jump_length'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_length', ptype='int'))
-    jump_n_sample = TextField(label="Jump Number of Sample", tooltip="The number of times we will make forward time jump for a given chosen time sample.", value=repaint_prefs['jump_n_sample'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_n_sample', ptype='int'))
-    seed = TextField(label="Seed", value=str(repaint_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    jump_length = TextField(label="Jump Length", width=130, tooltip="The number of steps taken forward in time before going backward in time for a single jump", value=repaint_prefs['jump_length'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_length', ptype='int'))
+    jump_n_sample = TextField(label="Jump # of Sample", width=130, tooltip="The number of times we will make forward time jump for a given chosen time sample.", value=repaint_prefs['jump_n_sample'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_n_sample', ptype='int'))
+    seed = TextField(label="Seed", width=90, value=str(repaint_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     #num_inference_steps = TextField(label="Inference Steps", value=str(repaint_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
     num_inference_steps = Slider(min=10, max=3000, divisions=2990, label="{value}", value=float(repaint_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
     num_inference_steps_value = Text(f" {repaint_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
@@ -4139,7 +4141,6 @@ def buildDallE2(page):
         ESRGAN_settings.height = None if e.control.value else 0
         dall_e_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-        has_changed = True
     def change_enlarge_scale(e):
         enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
         enlarge_scale_slider.update()
