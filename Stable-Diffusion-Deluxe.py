@@ -239,6 +239,7 @@ def load_settings_file():
       'dreambooth_model': 'disco-diffusion-style',
       'custom_model': '',
       'custom_models': [],
+      'tortoise_custom_voices': [],
       'clip_model_id': "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
       'install_Stability_api': False,
       'use_Stability_api': False,
@@ -524,6 +525,7 @@ if 'upscale_noise_level' not in prefs: prefs['upscale_noise_level'] = 20
 if 'alpha_mask' not in prefs: prefs['alpha_mask'] = False
 if 'invert_mask' not in prefs: prefs['invert_mask'] = False
 if 'clip_guidance_preset' not in prefs: prefs['clip_guidance_preset'] = "FAST_BLUE"
+if 'tortoise_custom_voices' not in prefs: prefs['tortoise_custom_voices'] = []
 
 def initState(page):
     global status, current_tab
@@ -1890,11 +1892,13 @@ def buildPromptsList(page):
                 del a['init_image']
                 del a['init_image_strength']
                 del a['invert_mask']
+                del a['alpha_mask']
               elif bool(a['mask_image']):
                 del a['alpha_mask']
             if 'mask_image' in a:
               if not bool(a['mask_image']):
                 del a['mask_image']
+                del a['alpha_mask']
             if 'use_clip_guided_model' in a:
               if not bool(a['use_clip_guided_model']):
                 del a["use_clip_guided_model"]
@@ -2445,6 +2449,7 @@ def buildExtras(page):
     page.Image2Text = buildImage2Text(page)
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
+    page.TortoiseTTS = buildTortoiseTTS(page)
     extrasTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -2455,6 +2460,7 @@ def buildExtras(page):
             Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
+            Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
         ],
         expand=1,
         #on_change=tab_on_change
@@ -5000,6 +5006,197 @@ def buildTextualInversion(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+tortoise_prefs = {
+    'text': '',
+    'preset': 'standard', #"ultra_fast", "fast", "standard", "high_quality"
+    'voice': [],
+    'voices': ['angie', 'applejack', 'daniel', 'deniro', 'emma', 'freeman', 'geralt', 'halle', 'jlaw', 'lj', 'mol', 'myself', 'pat', 'pat2', 'rainbow', 'snakes', 'tim_reynolds', 'tom', 'train_atkins', 'train_daws', 'train_dotrice', 'train_dreams', 'train_empire', 'train_grace', 'train_kennard', 'train_lescault', 'train_mouse', 'weaver', 'william'],
+    'train_custom': False,
+    'custom_voice_name': '',
+    'custom_wavs': [],
+    'wav_path': '',
+    'batch_folder_name': '',
+    'file_prefix': 'tts-',
+}
+
+def buildTortoiseTTS(page):
+    global prefs, tortoise_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          if ptype == "int":
+            tortoise_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            tortoise_prefs[pref] = float(e.control.value)
+          else:
+            tortoise_prefs[pref] = e.control.value
+    def add_to_tortoise_output(o):
+        page.tortoise_output.controls.append(o)
+        page.tortoise_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.tortoise_output.controls = []
+        page.tortoise_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def tortoise_help(e):
+        def close_tortoise_dlg(e):
+          nonlocal tortoise_help_dlg
+          tortoise_help_dlg.open = False
+          page.update()
+        tortoise_help_dlg = AlertDialog(title=Text("💁   Help with Tortoise-TTS"), content=Column([
+            Text("Tortoise was specifically trained to be a multi-speaker model. It accomplishes this by consulting reference clips. These reference clips are recordings of a speaker that you provide to guide speech generation. These clips are used to determine many properties of the output, such as the pitch and tone of the voice, speaking speed, and even speaking defects like a lisp or stuttering. The reference clip is also used to determine non-voice related aspects of the audio output like volume, background noise, recording quality and reverb."),
+            Text("This comes with several pre-packaged voices. Voices prepended with 'train_' came from the training set and perform far better than the others. If your goal is high quality speech, we recommend you pick one of them. If you want to see what Tortoise can do for zero-shot mimicing, take a look at the others."),
+            Text("To add new voices to Tortoise, you will need to do the following: Gather audio clips of your speaker(s). Good sources are YouTube interviews (you can use youtube-dl to fetch the audio), audiobooks or podcasts. Guidelines for good clips are in the next section. Cut your clips into ~10 second segments. You want at least 3 clips. More is better, but I only experimented with up to 5 in my testing. Save the clips as a WAV file with floating point format and a 22,050 sample rate.")
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("👄  What to say... ", on_click=close_tortoise_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = tortoise_help_dlg
+        tortoise_help_dlg.open = True
+        page.update()
+    def delete_audio(e):
+        f = e.control.data
+        if os.path.isfile(f):
+          os.remove(f)
+          for i, fl in enumerate(page.tortoise_file_list.controls):
+            if fl.title.value == f:
+              del page.tortoise_file_list.controls[i]
+              page.tortoise_file_list.update()
+              if f in tortoise_prefs['custom_wavs']:
+                tortoise_prefs['custom_wavs'].remove(f)
+              continue
+    def delete_all_audios(e):
+        for fl in page.tortoise_file_list.controls:
+          f = fl.title.value
+          if os.path.isfile(f):
+            os.remove(f)
+        page.tortoise_file_list.controls.clear()
+        page.tortoise_file_list.update()
+        tortoise_prefs['custom_wavs'].clear()
+    def add_file(fpath, update=True):
+        page.tortoise_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[#TODO: View Image
+              PopupMenuItem(icon=icons.DELETE, text="Delete Audio", on_click=delete_audio, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_audios, data=fpath),
+          ])))
+        tortoise_prefs['custom_wavs'].append(fpath)
+        if update: page.tortoise_file_list.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    save_dir = os.path.join(root_dir, 'tortoise-audio')
+    def on_upload_progress(e: FilePickerUploadEvent):
+        if e.progress == 1:
+          if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+          fname = os.path.join(root_dir, e.file_name)
+          fpath = os.path.join(save_dir, e.file_name)
+          shutil.move(fname, fpath)
+          add_file(fpath)
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def pick_path(e):
+        file_picker.pick_files(allow_multiple=True, allowed_extensions=["wav", "WAV", "mp3", "MP3"], dialog_title="Pick Voice WAV or MP3 Files to Train")
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def download_file(url):
+        local_filename = url.split(slash)[-1]
+        with requests.get(url, stream=True) as r:
+            with open(local_filename, 'wb') as f:
+                shutil.copyfileobj(r.raw, f)
+        return local_filename
+    def add_wav(e):
+        if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+        if wav_path.value.startswith('http'):
+            import requests
+            from io import BytesIO
+            #response = requests.get(wav_path.value)
+            fpath = download_file(wav_path.value)
+            #fpath = os.path.join(save_dir, wav_path.value.rpartition(slash)[2])
+            add_file(fpath)
+        elif os.path.isfile(wav_path.value):
+          fpath = os.path.join(save_dir, wav_path.value.rpartition(slash)[2])
+          shutil.copy(wav_path.value, fpath)
+          add_file(fpath)
+        elif os.path.isdir(wav_path.value):
+          for f in os.listdir(wav_path.value):
+            file_path = os.path.join(wav_path.value, f)
+            if os.path.isdir(file_path): continue
+            if f.lower().endswith(('.wav', '.WAV', '.mp3', '.MP3')):
+              fpath = os.path.join(save_dir, f)
+              shutil.copy(file_path, fpath)
+              add_file(fpath)
+        else:
+          if bool(wav_path.value):
+            alert_msg(page, "Couldn't find a valid File, Path or URL...")
+          else:
+            pick_path(e)
+          return
+        wav_path.value = ""
+        wav_path.update()
+    def load_wavs():
+        if os.path.exists(save_dir):
+          for f in os.listdir(save_dir):
+            existing = os.path.join(save_dir, f)
+            if os.path.isdir(existing): continue
+            if f.lower().endswith(('.wav', '.WAV', '.mp3', '.MP3')):
+              add_file(existing, update=False)
+    def toggle_custom(e):
+        changed(e, 'train_custom')
+        custom_box.visible = tortoise_prefs['train_custom']
+        custom_box.update()
+        custom_voice_name.visible = tortoise_prefs['train_custom']
+        custom_voice_name.update()
+    text = TextField(label="Text to Read", value=tortoise_prefs['text'], multiline=True, min_lines=1, max_lines=5, on_change=lambda e:changed(e,'text'))
+    preset = Dropdown(label="Quality Preset", width=250, options=[dropdown.Option("ultra_fast"), dropdown.Option("fast"), dropdown.Option("standard"), dropdown.Option("high_quality")], value=tortoise_prefs['preset'], on_change=lambda e: changed(e, 'preset'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=tortoise_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=tortoise_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
+    page.tortoise_voices = ResponsiveRow(controls=[])
+    for v in tortoise_prefs['voices']:
+      page.tortoise_voices.controls.append(Checkbox(label=v, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    if len(prefs['tortoise_custom_voices']) > 0:
+      for custom in prefs['tortoise_custom_voices']:
+        page.tortoise_voices.controls.append(Checkbox(label=custom['name'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    custom_voice_name = TextField(label="Custom Voice Name", value=tortoise_prefs['custom_voice_name'], on_change=lambda e:changed(e,'custom_voice_name'))
+    train_custom = Switch(label="Train Custom Voice  ", value=tortoise_prefs['train_custom'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_custom)
+    wav_path = TextField(label="Wav Files or Folder Path or URL to Train", value=tortoise_prefs['wav_path'], on_change=lambda e:changed(e,'wav_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
+    add_wav_button = ElevatedButton(content=Text("Add Audio Files"), on_click=add_wav)
+    page.tortoise_file_list = Column([], tight=True, spacing=0)
+    custom_box = Container(Column([Text("Provide 3 or more ~10 second clips of voice as wav files with 22050 sample rate or mp3s:"),
+        Row([wav_path, add_wav_button]),
+        page.tortoise_file_list,]))
+    custom_box.visible = tortoise_prefs['train_custom']
+    custom_voice_name.visible = tortoise_prefs['train_custom']
+    load_wavs()
+    #seed = TextField(label="Seed", value=tortoise_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfustortoise_prefsion_prefs['lambda_entropy'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
+    #max_steps = TextField(label="Max Steps", value=tortoise_prefs['max_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
+    page.tortoise_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.tortoise_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🐢  Tortoise Text-to-Speech Voice Modeling", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Tortoise-TTS Settings", on_click=tortoise_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Reads your text in a realistic voice, train your own to mimic..."),
+        Divider(thickness=1, height=4),
+        text,
+        preset,
+        Row([batch_folder_name, file_prefix]),
+        Text("Select one or more voices:"),
+        page.tortoise_voices,
+        Row([train_custom, custom_voice_name]),
+        #Row([output_dir]),
+        custom_box,
+        ElevatedButton(content=Text("🗣️  Run Tortoise-TTS", size=20), on_click=lambda _: run_tortoise_tts(page)),
+        page.tortoise_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 def get_directory_size(directory):
     total = 0
     for entry in os.scandir(directory):
@@ -5092,7 +5289,9 @@ pipe_paint_by_example = None
 pipe_alt_diffusion = None
 pipe_alt_diffusion_img2img = None
 pipe_kandinsky = None
+pipe_tortoise_tts = None
 stability_api = None
+
 model_path = "CompVis/stable-diffusion-v1-4"
 inpaint_model = "stabilityai/stable-diffusion-2-inpainting"
 #"runwayml/stable-diffusion-inpainting"
@@ -6414,6 +6613,13 @@ def clear_alt_diffusion_img2img_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_alt_diffusion_img2img = None
+def clear_tortoise_tts_pipe():
+  global pipe_tortoise_tts
+  if pipe_tortoise_tts is not None:
+    del pipe_tortoise_tts
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_tortoise_tts = None
 
 def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
@@ -6438,6 +6644,7 @@ def clear_pipes(allbut=None):
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
     if not 'alt_diffusion_img2img' in but: clear_alt_diffusion_img2img_pipe()
     if not 'paint_by_example' in but: clear_paint_by_example_pipe()
+    if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
 
 import base64
 def get_base64(image_path):
@@ -9859,6 +10066,151 @@ class TextualInversionDataset(Dataset):
         image = (image / 127.5 - 1.0).astype(np.float32)
         example["pixel_values"] = torch.from_numpy(image).permute(2, 0, 1)
         return example
+
+
+def run_tortoise_tts(page):
+    #https://github.com/neonbjb/tortoise-tts
+    global tortoise_prefs, pipe_tortoise_tts, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.tortoise_output.controls.append(line)
+      page.tortoise_output.update()
+    def clear_last():
+      del page.tortoise_output.controls[-1]
+      page.tortoise_output.update()
+    def play_audio(e):
+      e.control.data.play()
+    if tortoise_prefs['train_custom'] and not bool(tortoise_prefs['custom_voice_name']):
+      alert_msg(page, "Provide a Custom Voice Name when training your audio files.")
+      return
+    if not bool(tortoise_prefs['text']):
+      alert_msg(page, "Provide Text for the AI voice to read...")
+      return
+    progress = ProgressBar(bar_height=8)
+    state_text = Text("Downloading Tortoise-TTS Packages...", weight=FontWeight.BOLD)
+    prt(Row([ProgressRing(), state_text]))
+    tortoise_dir = os.path.join(root_dir, "tortoise-tts")
+    voice_dir = os.path.join(tortoise_dir, 'tortoise', 'voices')
+    if not os.path.isdir(tortoise_dir):
+      os.chdir(root_dir)
+      run_process("git clone https://github.com/jnordberg/tortoise-tts.git", page=page)
+      os.chdir(tortoise_dir)
+      try:
+        run_process("pip3 install -r requirements.txt", page=page, cwd=tortoise_dir)
+        run_process("python3 setup.py install", page=page, cwd=tortoise_dir)
+        run_process("pip install -q ffmpeg", page=page)
+        run_process("pip install -q pydub", page=page)
+      except Exception as e:
+        import traceback
+        clear_last()
+        alert_msg(page, "Error Installing Tortoise TextToSpeech requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+    import torch
+    import torchaudio
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import IPython
+    from tortoise.api import TextToSpeech
+    from tortoise.utils.audio import load_audio, load_voice, load_voices
+    clear_pipes('tortoise_tts')
+    # This will download all the models used by Tortoise from the HuggingFace hub.
+    if pipe_tortoise_tts == None:
+      try:
+        pipe_tortoise_tts = TextToSpeech()
+      except Exception as e:
+        import traceback
+        clear_last()
+        alert_msg(page, "Error downloading Tortoise TextToSpeech package", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+    clear_last()
+    prt(Text("  Generating Tortoise Text-to-Speech... Slow, but wins the race.", weight=FontWeight.BOLD))
+    prt(progress)
+    save_dir = os.path.join(root_dir, 'audio_out', tortoise_prefs['batch_folder_name'])
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir, exist_ok=True)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    custom_voices = os.path.join(audio_out, 'custom_voices')
+    if bool(tortoise_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, tortoise_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    #voice_dirs = os.listdir(os.path.join(root_dir, "tortoise-tts", 'tortoise', 'voices'))
+    #print(str(voice_dirs))
+    fname = format_filename(tortoise_prefs['text'])
+    if fname[-1] == '.': fname = fname[:-1]
+    file_prefix = tortoise_prefs['file_prefix']
+    tortoise_custom_voices = prefs['tortoise_custom_voices']
+    tortoise_prefs['voice'] = []
+    
+    if tortoise_prefs['train_custom']:
+        if len(tortoise_prefs['custom_wavs']) <2:
+          alert_msg(page, "To train a custom voice, provide at least 2 audio files to mimic.")
+          return
+        CUSTOM_VOICE_NAME = format_filename(tortoise_prefs['custom_voice_name'])
+        custom_voice_folder = os.path.join(root_dir, "tortoise-tts", 'tortoise', 'voices', CUSTOM_VOICE_NAME)
+        os.makedirs(custom_voice_folder, exist_ok=True)
+        for i, f in enumerate(tortoise_prefs['custom_wavs']):
+            if f.endswith('mp3'):
+              import pydub
+              sound = pydub.AudioSegment.from_mp3(f)
+              sound.export(os.path.join(custom_voice_folder, f'{i+1}.wav'), format="wav", bitrate="22050")
+            else:
+              shutil.move(f, os.path.join(custom_voice_folder, f'{i+1}.wav'))
+        #for i, file_data in enumerate(files.upload().values()):
+        #    with open(os.path.join(custom_voice_folder, f'{i}.wav'), 'wb') as f:
+        #        f.write(file_data)
+        if not CUSTOM_VOICE_NAME in tortoise_prefs['voice']:
+          #tortoise_prefs['voice'].append(CUSTOM_VOICE_NAME)
+          page.tortoise_voices.controls.append(Checkbox(label=CUSTOM_VOICE_NAME, value=True, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+          page.tortoise_voices.update()
+          output_voice_folder = os.path.join(custom_voices, CUSTOM_VOICE_NAME)
+          if os.path.exists(output_voice_folder):
+            shutil.rmtree(output_voice_folder)
+            print(f'Output Voice Folder already existed: {output_voice_folder}... Deleting to remake.')
+          #os.makedirs(output_voice_folder, exist_ok=False)
+          shutil.copytree(custom_voice_folder, output_voice_folder)
+          prefs['tortoise_custom_voices'].append({'name':CUSTOM_VOICE_NAME, 'folder': output_voice_folder})
+          save_settings_file(page)
+    for v in page.tortoise_voices.controls:
+        if v.value == True:
+          tortoise_prefs['voice'].append(v.label)
+          if not os.path.exists(os.path.join(voice_dir, v.label)):
+            for custom in tortoise_custom_voices:
+              if custom['name'] == v.label:
+                if os.path.exists(custom['folder']):
+                  #os.makedirs(os.path.join(voice_dir, custom['name'], exist_ok=True))
+                  shutil.copytree(custom['folder'], os.path.join(voice_dir, custom['name']))
+                else:
+                  print(f"Couldn't find custom folder {custom['folder']}")
+    # Load it and send it through Tortoise.
+    voice = tortoise_prefs['voice']
+    v_str = voice if isinstance(voice, str) else '-'.join(voice) if isinstance(voice, list) else ''
+    audio_name = f'{file_prefix}{v_str}-{fname}'
+    fname = available_file(save_dir, audio_name, 0, ext="wav")
+    #print(str(voice))
+    #print(fname)
+    if len(voice) == 0:
+        voice_samples = conditioning_latents = None
+    elif len(voice) == 1:
+        voice_samples, conditioning_latents = load_voice(voice[0])
+    else:
+        voice_samples, conditioning_latents = load_voices(voice)
+    gen = pipe_tortoise_tts.tts_with_preset(tortoise_prefs['text'], voice_samples=voice_samples, conditioning_latents=conditioning_latents, preset=tortoise_prefs['preset'])
+    torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
+    #IPython.display.Audio('generated.wav')
+    clear_last()
+    clear_last()
+    a_out = Audio(src=fname, autoplay=False)
+    page.overlay.append(a_out)
+    page.update()
+    display_name = fname
+    #a.tofile(f"/content/dance-{i}.wav")
+    if storage_type == "Colab Google Drive":
+      audio_save = available_file(audio_out, audio_name, 0, ext='wav')
+      shutil.copy(fname, audio_save)
+      display_name = audio_save
+    prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    if prefs['enable_sounds']: page.snd_alert.play()
+  
+
 
 def run_unCLIP(page, from_list=False):
     global unCLIP_prefs, pipe_unCLIP
