@@ -198,6 +198,7 @@ def load_settings_file():
       'OpenAI_api_key': "",
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
+      'HuggingFace_username': "",
       'api_key_file': '/content/drive/MyDrive/AI/Stable_Diffusion/sd_api_keys.txt',
       'scheduler_mode': "DDIM",
       'higher_vram_mode': False,
@@ -459,6 +460,7 @@ def buildTabs(page):
     page.PromptHelpers = buildPromptHelpers(page)
     page.Images = buildImages(page)
     page.StableDiffusers = buildStableDiffusers(page)
+    page.Trainers = buildTrainers(page)
     page.Extras = buildExtras(page)
     
     t = Tabs(selected_index=0, animation_duration=300, expand=1,
@@ -470,6 +472,7 @@ def buildTabs(page):
             Tab(text="Generate Images", content=page.Images, icon=icons.IMAGE_OUTLINED),
             Tab(text="Prompt Helpers", content=page.PromptHelpers, icon=icons.BUBBLE_CHART_OUTLINED),
             Tab(text="Stable Diffusers", content=page.StableDiffusers, icon=icons.PALETTE),
+            Tab(text="AI Trainers", content=page.Trainers, icon=icons.TSUNAMI),
             Tab(text="Extras", content=page.Extras, icon=icons.ALL_INBOX),
         ],
     )
@@ -538,7 +541,6 @@ if 'invert_mask' not in prefs: prefs['invert_mask'] = False
 if 'clip_guidance_preset' not in prefs: prefs['clip_guidance_preset'] = "FAST_BLUE"
 if 'tortoise_custom_voices' not in prefs: prefs['tortoise_custom_voices'] = []
 if 'use_LoRA_model' not in prefs: prefs['use_LoRA_model'] = False
-prefs['use_LoRA_model'] = False
 if 'LoRA_model' not in prefs: prefs['LoRA_model'] = "Von Platen LoRA"
 if 'custom_LoRA_models' not in prefs: prefs['custom_LoRA_models'] = []
 if 'custom_dance_diffusion_models' not in prefs: prefs['custom_dance_diffusion_models'] = []
@@ -677,7 +679,7 @@ def buildSettings(page):
   ))], scroll=ScrollMode.AUTO,)
   return c
 
-def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False, show=False): # show when debugging
+def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False, show=False, print=False): # show when debugging
   cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
   if realtime:
     if cwd is None:
@@ -693,21 +695,29 @@ def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False,
         page.banner.content.controls.append(Text(realtime_output.strip()))
         page.update()
         sys.stdout.flush()
+      if print:
+        print(realtime_output.strip())
     if close_at_end:
       page.banner.open = False
       page.update()
   else:
     if cwd is None:
       #return subprocess.run(cmd_list, stdout=subprocess.PIPE).stdout.decode('utf-8')
-      return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env).stdout.decode('utf-8')
+      output = subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env).stdout.decode('utf-8')
     else:
-      return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env, cwd=cwd).stdout.decode('utf-8')
+      output = subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env, cwd=cwd).stdout.decode('utf-8')
+    if print:
+      print(output)
+    return output
 
 def close_alert_dlg(e):
       e.page.alert_dlg.open = False
       e.page.update()
-def alert_msg(page, msg, content=None, okay=""):
-      if prefs['enable_sounds']: page.snd_error.play()
+def alert_msg(page, msg, content=None, okay="", sound=True):
+      try:
+        if page.alert_dlg.open == True: return
+      except Exception: pass
+      if prefs['enable_sounds'] and sound: page.snd_error.play()
       okay = ElevatedButton("👌  OKAY " if okay == "" else okay, on_click=close_alert_dlg)
       page.alert_dlg = AlertDialog(title=Text(msg), content=content, actions=[okay], actions_alignment=MainAxisAlignment.END)
       page.dialog = page.alert_dlg
@@ -765,10 +775,11 @@ def buildInstallers(page):
                 dropdown.Option("DPM Solver"),
                 dropdown.Option("DPM Solver++"),
                 dropdown.Option("K-Euler Discrete"),
-                dropdown.Option("K-Euler Ancestrial"),
-                #dropdown.Option("Heun Discrete"),
-                #dropdown.Option("K-DPM2 Ancestral"),
-                #dropdown.Option("K-DPM2 Discrete"),
+                dropdown.Option("K-Euler Ancestral"),
+                dropdown.Option("DEIS Multistep"),
+                dropdown.Option("Heun Discrete"),
+                dropdown.Option("K-DPM2 Ancestral"),
+                dropdown.Option("K-DPM2 Discrete"),
             ], value=prefs['scheduler_mode'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_mode'),
         )
   def changed_model_ckpt(e):
@@ -810,7 +821,7 @@ def buildInstallers(page):
       dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"), 
       dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"), 
       dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
-  finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':10, 'lg':4})
+  finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':11, 'lg':6})
   model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
       finetuned_model.options.append(dropdown.Option(mod["name"]))
@@ -820,7 +831,7 @@ def buildInstallers(page):
   custom_model = TextField(label="Custom Model Path", value=prefs['custom_model'], width=370, on_change=changed_custom_model)
   page.custom_model = custom_model
   #custom_area = AnimatedSwitcher(model_card, transition="scale", duration=500, reverse_duration=200, switch_in_curve=AnimationCurve.EASE_OUT, switch_out_curve="easeIn")
-  custom_area = Container(model_card, col={'xs':4, 'lg':2})
+  custom_area = Container(model_card, col={'xs':12, 'lg':6})
   if prefs['model_ckpt'].startswith("Stable"):
       custom_area.content = model_card
   elif prefs['model_ckpt'] == "Community Finetuned Model":
@@ -844,7 +855,7 @@ def buildInstallers(page):
   install_alt_diffusion = Tooltip(message="Multilingual Stable Diffusion supporting English, Chinese, Spanish, French, Russian, Japanese, Korean, Arabic and Italian.", content=Switch(label="Install AltDiffusion text2image & image2image Multilingual Pipeline", value=prefs['install_alt_diffusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_alt_diffusion'], on_change=lambda e:changed(e, 'install_alt_diffusion')))
   install_imagic = Tooltip(message="Edit your image according to the prompted instructions like magic.", content=Switch(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic')))
   install_depth2img = Tooltip(message="Uses Depth-map of init image for text-guided image to image generation.", content=Switch(label="Install Stable Diffusion Depth2Image Pipeline", value=prefs['install_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_depth2img'], on_change=lambda e:changed(e, 'install_depth2img')))
-  install_composable = Tooltip(message="Craft your prompts with precise weights and composed together components.", content=Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable')))
+  install_composable = Tooltip(message="Craft your prompts with | precise | weights AND composed together components | with AND NOT negatives.", content=Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable')))
   install_safe = Tooltip(message="Use a content quality tuned safety model, providing levels of NSFW protection.", content=Switch(label="Install Stable Diffusion Safe text2image Pipeline", value=prefs['install_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_safe'], on_change=toggle_safe))
   safety_config = Container(Dropdown(label="Model Safety Level", width=350, options=[dropdown.Option("Weak"), dropdown.Option("Medium"), dropdown.Option("Strong"), dropdown.Option("Max")], value=prefs['safety_config'], on_change=lambda e:changed(e, 'safety_config')), padding=padding.only(left=32))
   safety_config.visible = prefs['install_safe']
@@ -900,8 +911,9 @@ def buildInstallers(page):
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
                                  Column([Container(Column([Container(None, height=3), model_row, Container(content=None, height=4), scheduler_mode, higher_vram_mode, 
-                                 #memory_optimization,# sequential_cpu_offload, enable_vae_slicing
-                                 enable_attention_slicing
+                                 #memory_optimization,#  enable_vae_slicing
+                                 enable_attention_slicing,
+                                 #sequential_cpu_offload,
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion, 
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, 
@@ -1213,7 +1225,8 @@ def update_parameters(page):
 if is_Colab:
     from google.colab import files
 
-LoRA_models = [{'name': 'Von Platen LoRA', 'path': 'patrickvonplaten/lora'}, {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'Trauter LoRAs', 'path': 'YoungMasterFromSect/Trauter_LoRAs'}, {'name': 'Capitalize T5', 'path': 'ShengdingHu/Capitalize_T5-LoRA'}]
+#LoRA_models = [{'name': 'Von Platen LoRA', 'path': 'patrickvonplaten/lora'}, {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'Trauter LoRAs', 'path': 'YoungMasterFromSect/Trauter_LoRAs'}, {'name': 'Capitalize T5', 'path': 'ShengdingHu/Capitalize_T5-LoRA'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}]
+LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}]
 
 def buildParameters(page):
   global prefs, status, args
@@ -1409,8 +1422,7 @@ def buildParameters(page):
   page.use_alt_diffusion.visible = status['installed_alt_diffusion']
   page.use_versatile = Tooltip(message="Dual Guided between prompt & image, or create Image Variation", content=Switch(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile')))
   page.use_versatile.visible = status['installed_versatile']
-  #, value=prefs['use_LoRA_model']
-  use_LoRA_model = Tooltip(message="Applies custom trained weighted attention model on top of loaded model", content=Switch(label="Use LoRA Model Adapter Layer ", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_LoRA))
+  use_LoRA_model = Tooltip(message="Applies custom trained weighted attention model on top of loaded model", content=Switch(label="Use LoRA Model Adapter Layer ", value=prefs['use_LoRA_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_LoRA))
   page.LoRA_model = Dropdown(label="LoRA Model Weights", width=200, options=[], value=prefs['LoRA_model'], on_change=lambda e:changed(e,'LoRA_model'))
   if len(prefs['custom_LoRA_models']) > 0:
     for l in prefs['custom_LoRA_models']:
@@ -1575,10 +1587,10 @@ class Dream:
 #print(str(args))
 import string
 from collections import ChainMap
-def format_filename(s):
+def format_filename(s, force_underscore=False):
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
     filename = ''.join(c for c in s if c in valid_chars)
-    if not prefs['file_allowSpace']: filename = filename.replace(' ','_')
+    if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
     return filename[:int(prefs['file_max_length'])]
 
 def merge_dict(*dicts):
@@ -1587,13 +1599,194 @@ def merge_dict(*dicts):
     return {k: chain_map[k] for k in all_keys}
 import copy
 
+def editPrompt(e):
+    global prompts, prefs, status
+    idx = prompts.index(e.control.data)
+    open_dream = e.control.data
+    def changed_tweening(e):
+        status['changed_prompts'] = True
+        tweening_params.height = None if e.control.value else 0
+        tweening_params.update()
+        #prompt2.visible = e.control.value
+        #tweens.visible = e.control.value
+        prompt_tweening = e.control.value
+        e.page.update()
+    def changed_tweens(e):
+        prefs['tweens'] = int(e.control.value)
+    def close_dlg(e):
+        dlg_modal.open = False
+        #page.dialog.open = False
+        e.page.update()
+        #page.dialog = None
+    def save_dlg(e):
+        nonlocal arg, open_dream
+        dream = open_dream #e.control.data
+        dream.prompt = edit_text.value
+        arg['batch_size'] = int(batch_size.value)
+        arg['n_iterations'] = int(n_iterations.value)
+        arg['steps'] = int(steps.value)
+        arg['eta'] = float(eta.value)
+        arg['seed'] = int(seed.value)
+        arg['guidance_scale'] = float(guidance_scale.value)
+        arg['width'] = int(width.value)
+        arg['height'] = int(height.value)
+        arg['init_image'] = init_image.value
+        arg['mask_image'] = mask_image.value
+        arg['init_image_strength'] = float(init_image_strength.value)
+        arg['alpha_mask'] = alpha_mask.value
+        arg['invert_mask'] = invert_mask.value
+        arg['prompt2'] = prompt2.value if bool(use_prompt_tweening.value) else None
+        arg['tweens'] = int(tweens.value)
+        arg['negative_prompt'] = negative_prompt.value if bool(negative_prompt.value) else None
+        arg['use_clip_guided_model'] = use_clip_guided_model.content.value
+        arg['clip_guidance_scale'] = float(clip_guidance_scale.value)
+        arg['use_cutouts'] = use_cutouts.value
+        arg['num_cutouts'] = int(num_cutouts.value)
+        arg['unfreeze_unet'] = unfreeze_unet.value
+        arg['unfreeze_vae'] = unfreeze_vae.value
+        dream.arg = arg
+        diffs = arg_diffs(arg, args)
+        if bool(diffs):
+          e.page.prompts_list.controls[idx].subtitle = Text("    " + diffs)
+        else:
+          e.page.prompts_list.controls[idx].subtitle = None
+        e.page.prompts_list.controls[idx].title.value = dream.prompt # = Text(edit_text.value)
+        status['changed_prompts'] = True
+        dlg_modal.open = False
+        e.page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      nonlocal pick_type
+      if e.progress == 1:
+        fname = os.path.join(root_dir, e.file_name)
+        if pick_type == "init":
+          init_image.value = fname
+          init_image.update()
+          prefs['init_image'] = fname
+        elif pick_type == "mask":
+          mask_image.value = fname
+          mask_image.update()
+          prefs['mask_image'] = fname
+        e.page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    e.page.overlay.append(file_picker)
+    pick_type = ""
+    #page.overlay.append(pick_files_dialog)
+    def pick_init(e):
+        nonlocal pick_type
+        pick_type = "init"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
+    def pick_mask(e):
+        nonlocal pick_type
+        pick_type = "mask"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
+    def change_width(e):
+        width_slider.controls[1].value = f" {int(e.control.value)}px"
+        width_slider.update()
+    def change_height(e):
+        height_slider.controls[1].value = f" {int(e.control.value)}px"
+        height_slider.update()
+    def toggle_clip(e):
+        if e.control.value:
+          img_block.height = 0
+          clip_block.height = None if status['installed_clip'] else 0
+        else:
+          img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
+          clip_block.height = 0
+        img_block.update()
+        clip_block.update()
+        #changed(e)
+    arg = open_dream.arg #e.control.data.arg
+    edit_text = TextField(label="Composable | Prompt | Text" if prefs['use_composable'] and status['installed_composable'] else "Prompt Text", expand=3, value=open_dream.prompt, multiline=True)
+    negative_prompt = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", expand=1, value=str((arg['negative_prompt'] or '') if 'negative_prompt' in arg else ''))
+    #batch_folder_name = TextField(label="Batch Folder Name", value=arg['batch_folder_name'], on_change=changed)
+    #print(str(arg))
+    prompt_tweening = bool(arg['prompt2']) if 'prompt2' in arg else False
+    use_prompt_tweening = Switch(label="Prompt Tweening", value=prompt_tweening, active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=changed_tweening)
+    use_prompt_tweening.visible = True if status['installed_txt2img'] and prefs['higher_vram_mode'] else False
+#TODO: Fix tweening code for float16 lpw pipeline to reactivate tweening
+    prompt2 = TextField(label="Prompt 2 Transition Text", expand=True, value=arg['prompt2'] if 'prompt2' in arg else '')
+    tweens = TextField(label="# of Tweens", value=str(arg['tweens'] if 'tweens' in arg else 8), keyboard_type=KeyboardType.NUMBER, width = 90)
+    #tweens =  NumberPicker(label="# of Tweens: ", min=2, max=300, value=int(arg['tweens'] if 'tweens' in arg else 8), on_change=changed_tweens),
+    #prompt2.visible = prompt_tweening
+    #tweens.visible = prompt_tweening
+    tweening_params = Container(Row([Container(content=None, width=8), prompt2, tweens]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    tweening_params.height = None if prompt_tweening else 0
+    #tweening_row = Row([use_prompt_tweening, ])#tweening_params
+
+    batch_size = TextField(label="Batch Size", value=str(arg['batch_size']), keyboard_type=KeyboardType.NUMBER)
+    n_iterations = TextField(label="Number of Iterations", value=str(arg['n_iterations']), keyboard_type=KeyboardType.NUMBER)
+    steps = TextField(label="Steps", value=str(arg['steps']), keyboard_type=KeyboardType.NUMBER)
+    eta = TextField(label="DDIM ETA", value=str(arg['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise (only with DDIM sampler)")
+    seed = TextField(label="Seed", value=str(arg['seed']), keyboard_type=KeyboardType.NUMBER, hint_text="0 or -1 picks a Random seed")
+    guidance_scale = TextField(label="Guidance Scale", value=str(arg['guidance_scale']), keyboard_type=KeyboardType.NUMBER)
+    param_columns = Row([Column([batch_size, n_iterations, steps]), Column([guidance_scale, seed, eta])])
+    #guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=arg['guidance_scale'], expand=True)
+    #guidance = Row([Text("Guidance Scale: "), guidance_scale])
+    width = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['width']), expand=True, on_change=change_width)
+    width_value = Text(f" {int(arg['width'])}px", weight=FontWeight.BOLD)
+    width_slider = Row([Text("Width: "), width_value, width])
+    height = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['height']), expand=True, on_change=change_height)
+    height_value = Text(f" {int(arg['height'])}px", weight=FontWeight.BOLD)
+    height_slider = Row([Text("Height: "), height_value, height])
+    init_image = TextField(label="Init Image", value=arg['init_image'], expand=1, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    mask_image = TextField(label="Mask Image", value=arg['mask_image'], expand=1, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
+    alpha_mask = Checkbox(label="Alpha Mask", value=arg['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
+    invert_mask = Checkbox(label="Invert Mask", value=arg['invert_mask'], tooltip="Reverse Black & White of Image Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
+    image_row = ResponsiveRow([Row([init_image, alpha_mask], col={"lg":6}), Row([mask_image, invert_mask], col={"lg":6})])
+    init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(arg['init_image_strength']), expand=True)
+    strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
+    img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    img_block.height = None if (status['installed_txt2img'] or status['installed_stability']) else 0
+    use_clip_guided_model = Tooltip(message="Uses more VRAM, so you'll probably need to make image size smaller", content=Switch(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=arg['use_clip_guided_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
+    clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=arg['clip_guidance_scale'], expand=True)
+    clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
+    use_cutouts = Checkbox(label="Use Cutouts", value=bool(arg['use_cutouts']), fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
+    num_cutouts = NumberPicker(label="    Number of Cutouts: ", min=1, max=10, value=arg['num_cutouts'])
+    #num_cutouts.visible = bool(prefs['use_cutouts'])
+    #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_cutouts', asInt=True))
+    unfreeze_unet = Checkbox(label="Unfreeze UNET", value=arg['unfreeze_unet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
+    unfreeze_vae = Checkbox(label="Unfreeze VAE", value=arg['unfreeze_vae'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
+    clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    if not status['installed_clip']:
+      use_clip_guided_model.visible = False
+      clip_block.height = 0
+    elif not arg['use_clip_guided_model']:
+      clip_block.height = 0
+    dlg_modal = AlertDialog(modal=False, title=Text("📝  Edit Prompt Dream Parameters"), content=Container(Column([
+          Container(content=None, height=7),
+          Row([
+            edit_text,
+            negative_prompt,
+          ]),
+          #Text("Override any Default Parameters"),
+          use_prompt_tweening,
+          tweening_params,
+          #batch_size, n_iterations, steps, eta, seed, guidance, 
+          param_columns, 
+          width_slider, height_slider, img_block,
+          use_clip_guided_model, clip_block,
+          #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
+        ], alignment=MainAxisAlignment.START, tight=True, width=e.page.width - 200, height=e.page.height - 100, scroll=ScrollMode.AUTO), width=e.page.width - 200, height=e.page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
+    e.page.dialog = dlg_modal
+    dlg_modal.open = True
+    e.page.update()
+
 def buildPromptsList(page):
   parameter = Ref[ListTile]()
   global prompts, args, prefs
   def changed(e):
       status['changed_prompts'] = True
       page.update()
-  
+  # TODO: Delete this edit_prompt in favor of root editPrompt
   def edit_prompt(e):
       idx = prompts.index(e.control.data)
       open_dream = e.control.data
@@ -1609,7 +1802,9 @@ def buildPromptsList(page):
           prefs['tweens'] = int(e.control.value)
       def close_dlg(e):
           dlg_modal.open = False
+          #page.dialog.open = False
           page.update()
+          #page.dialog = None
       def save_dlg(e):
           dream = open_dream #e.control.data
           dream.prompt = edit_text.value
@@ -1808,27 +2003,8 @@ def buildPromptsList(page):
       prompts_list.update()
       status['changed_prompts'] = True
   def duplicate_prompt(e):
-      #print("Duplicate " + str(e.control))
       open_dream = e.control.data
       add_to_prompts(open_dream.prompt, open_dream.arg)
-      '''idx = prompts.index(e.control.data)
-      new_dream = copy.copy(e.control.data)
-      prompts.insert(idx, new_dream)
-      diffs = arg_diffs(e.control.data.arg, args)
-      subtitle = None
-      if bool(diffs): subtitle = Text("    " + diffs)
-      prompts_list.controls.insert(idx, ListTile(title=Text(new_dream.prompt, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, data=new_dream, subtitle=subtitle, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
-          items=[
-              PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=edit_prompt, data=new_dream),
-              PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=new_dream),
-              PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE, text="Duplicate Prompt", on_click=duplicate_prompt, data=new_dream),
-              PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE, text="Duplicate Multiple", on_click=duplicate_multiple, data=new_dream),
-              PopupMenuItem(icon=icons.ARROW_UPWARD, text="Move Up", on_click=move_up, data=new_dream),
-              PopupMenuItem(icon=icons.ARROW_DOWNWARD, text="Move Down", on_click=move_down, data=new_dream),
-          ],
-      )))
-      prompts_list.update()
-      status['changed_prompts'] = True'''
   def duplicate_multiple(e):
       open_dream = e.control.data
       num_times = 2
@@ -1885,9 +2061,9 @@ def buildPromptsList(page):
         arg = merge_dict(args, arg)
         dream.arg = arg
       prompts.append(dream)
-      prompts_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+      prompts_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=editPrompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[
-              PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=edit_prompt, data=dream),
+              PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=editPrompt, data=dream),
               PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=dream),
               PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE, text="Duplicate Prompt", on_click=duplicate_prompt, data=dream),
               PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE_SHARP, text="Duplicate Multiple", on_click=duplicate_multiple, data=dream),
@@ -1968,23 +2144,8 @@ def buildPromptsList(page):
           for d in saved_prompts:
             #print(f'Loading {d}')
             if 'prompt' not in d: continue
-            #dream = Dream(d['prompt'])
             p = d['prompt']
-            #del d['prompt']
             page.add_to_prompts(p, d)
-            #dream.arg = d
-            #prompts.append(dream)
-            #prompts_list.controls.append(ListTile(title=Text(dream.prompt, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=edit_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
-            #  items=[
-            #      PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=edit_prompt, data=dream),
-            #      PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=dream),
-            #      PopupMenuItem(icon=icons.CONTROL_POINT_DUPLICATE, text="Duplicate Prompt", on_click=duplicate_prompt, data=dream),
-            #  ],
-            #)))
-          #prompts_list.update()
-          #prompts_buttons.visible=True
-          #prompts_buttons.update()
-          #update_prompts()
           page.update()
 
   page.load_prompts = load_prompts
@@ -2054,6 +2215,7 @@ def buildPromptsList(page):
       start_diffusion(page)
   has_changed = False
   prompts_list = Column([],spacing=1)
+  page.prompts_list = prompts_list
   prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt, col={'lg':9})
   negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
   add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if page.width > 720 else ""), size=17, weight=FontWeight.BOLD), on_click=add_prompt)
@@ -2372,8 +2534,10 @@ def buildPromptWriter(page):
         Row([Text("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", style=TextThemeStyle.TITLE_LARGE), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)),], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Construct your Stable Diffusion Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom.", style="titleSmall"),
         Divider(thickness=1, height=5),
-        TextField(label="Prompt Art Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects')),
-        TextField(label="Negative Prompt (optional)", value=prefs['prompt_writer']['negative_prompt'], on_change=lambda e: changed(e, 'negative_prompt')),
+        ResponsiveRow([
+          TextField(label="Prompt Art Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects'), multiline=True, max_lines=4, col={'lg':9}),
+          TextField(label="Negative Prompt (optional)", value=prefs['prompt_writer']['negative_prompt'], on_change=lambda e: changed(e, 'negative_prompt'), multiline=True, max_lines=4, col={'lg':3}),
+        ]),
         Row([TextField(label="by Artists", value=prefs['prompt_writer']['by_Artists'], on_change=lambda e: changed(e, 'by_Artists')),
              TextField(label="Art Styles", value=prefs['prompt_writer']['art_Styles'], on_change=lambda e: changed(e, 'art_Styles')),]),
         ResponsiveRow([
@@ -2465,7 +2629,6 @@ So in Subject try something like: `A _color_ _noun-general_ that is _adj-beauty_
     page.update()
 
 def buildStableDiffusers(page):
-    page.DanceDiffusion = buildDanceDiffusion(page)
     page.RePainter = buildRepainter(page)
     page.unCLIP = buildUnCLIP(page)
     page.unCLIPImageVariation = buildUnCLIPImageVariation(page)
@@ -2478,9 +2641,6 @@ def buildStableDiffusers(page):
     page.MaskMaker = buildDreamMask(page)
     page.DiT = buildDiT(page)
     page.DreamFusion = buildDreamFusion(page)
-    page.DreamBooth = buildDreamBooth(page)
-    page.TexualInversion = buildTextualInversion(page)
-    page.LoRA = buildLoRA(page)
     diffusersTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -2495,17 +2655,36 @@ def buildStableDiffusers(page):
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
-            Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
-            Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
-            Tab(text="LoRA", content=page.LoRA, icon=icons.SETTINGS_BRIGHTNESS),
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
-            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
         ],
         expand=1,
         #on_change=tab_on_change
     )
     return diffusersTabs
+
+def buildTrainers(page):
+    page.DreamBooth = buildDreamBooth(page)
+    page.TexualInversion = buildTextualInversion(page)
+    page.LoRA_Dreambooth = buildLoRA_Dreambooth(page)
+    page.LoRA = buildLoRA(page)
+    page.Converter = buildConverter(page)
+    page.CheckpointMerger = buildCheckpointMerger(page)
+    trainersTabs = Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            Tab(text="LoRA", content=page.LoRA, icon=icons.SETTINGS_SYSTEM_DAYDREAM),
+            Tab(text="LoRA DreamBooth", content=page.LoRA_Dreambooth, icon=icons.SETTINGS_BRIGHTNESS),
+            Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
+            Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
+            Tab(text="Model Converter", content=page.Converter, icon=icons.PUBLISHED_WITH_CHANGES),
+            Tab(text="Checkpoint Merger", content=page.CheckpointMerger, icon=icons.JOIN_FULL),
+        ],
+        expand=1,
+        #on_change=tab_on_change
+    )
+    return trainersTabs
 
 def buildExtras(page):
     page.ESRGAN_upscaler = buildESRGANupscaler(page)
@@ -2515,6 +2694,7 @@ def buildExtras(page):
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
     page.TortoiseTTS = buildTortoiseTTS(page)
+    page.DanceDiffusion = buildDanceDiffusion(page)
     extrasTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -2526,6 +2706,7 @@ def buildExtras(page):
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
+            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
         ],
         expand=1,
         #on_change=tab_on_change
@@ -3094,7 +3275,7 @@ def buildDanceDiffusion(page):
         if custom_model.visible:
           custom_model.visible = False
           custom_model.update()
-    dance_model = Dropdown(label="Dance Model", width=250, options=[dropdown.Option("maestro-150k"), dropdown.Option("glitch-440k"), dropdown.Option("jmann-small-190k"), dropdown.Option("jmann-large-580k"), dropdown.Option("unlocked-250k"), dropdown.Option("honk-140k"), dropdown.Option("gwf-440k"), dropdown.Option("Community"), dropdown.Option("Custom")], value=dance_prefs['dance_model'], on_change=changed_model)
+    dance_model = Dropdown(label="Dance Diffusion Model", width=250, options=[dropdown.Option("maestro-150k"), dropdown.Option("glitch-440k"), dropdown.Option("jmann-small-190k"), dropdown.Option("jmann-large-580k"), dropdown.Option("unlocked-250k"), dropdown.Option("honk-140k"), dropdown.Option("gwf-440k"), dropdown.Option("Community"), dropdown.Option("Custom")], value=dance_prefs['dance_model'], on_change=changed_model)
     community_model = Dropdown(label="Community Model", width=250, options=[], value=dance_prefs['community_model'], on_change=lambda e: changed(e, 'community_model'))
     custom_model = TextField(label="Custom Model Path", value=dance_prefs['custom_model'], on_change=lambda e:changed(e,'custom_model'))
     for c in community_models:
@@ -3500,6 +3681,7 @@ unCLIP_prefs = {
     'super_res_num_inference_steps': 7,
     'seed': 0,
     'num_images': 1,
+    'use_StableUnCLIP_pipeline': False,
     #'variance_type': 'learned_range',#fixed_small_log
     #'num_train_timesteps': 1000,
     #'prediction_type': 'epsilon',#sample
@@ -3537,7 +3719,7 @@ def buildUnCLIP(page):
         unCLIP_help_dlg.open = False
         page.update()
       unCLIP_help_dlg = AlertDialog(title=Text("🙅   Help with unCLIP Pipeline"), content=Column([
-          Text("Contrastive models like CLIP have been shown to learn robust representations of images that capture both semantics and style. To leverage these representations for image generation, we propose a two-stage model: a prior that generates a CLIP image embedding given a text caption, and a decoder that generates an image conditioned on the image embedding. We show that explicitly generating image representations improves image diversity with minimal loss in photorealism and caption similarity. Our decoders conditioned on image representations can also produce variations of an image that preserve both its semantics and style, while varying the non-essential details absent from the image representation. Moreover, the joint embedding space of CLIP enables language-guided image manipulations in a zero-shot fashion. We use diffusion models for the decoder and experiment with both autoregressive and diffusion models for the prior, finding that the latter are computationally more efficient and produce higher-quality samples."),
+          Text("Contrastive models like CLIP have been shown to learn robust representations of images that capture both semantics and style. To leverage these representations for image generation, we implemented a two-stage model: a prior that generates a CLIP image embedding given a text caption, and a decoder that generates an image conditioned on the image embedding. We show that explicitly generating image representations improves image diversity with minimal loss in photorealism and caption similarity. Our decoders conditioned on image representations can also produce variations of an image that preserve both its semantics and style, while varying the non-essential details absent from the image representation. Moreover, the joint embedding space of CLIP enables language-guided image manipulations in a zero-shot fashion. We use diffusion models for the decoder and experiment with both autoregressive and diffusion models for the prior, finding that the latter are computationally more efficient and produce higher-quality samples."),
           Text("The scheduler is a modified DDPM that has some minor variations in how it calculates the learned range variance and dynamically re-calculates betas based off the timesteps it is skipping. The scheduler also uses a slightly different step ratio when computing timesteps to use for inference."),
           Markdown("The unCLIP model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Tricky... ", on_click=close_unCLIP_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -3600,6 +3782,7 @@ def buildUnCLIP(page):
     decoder_num_inference_row = Row([Text("Number of Decoder Inference Steps: "), decoder_num_inference_value, decoder_num_inference_steps])
     super_res_num_inference_row = Row([Text("Number of Super-Res Inference Steps: "), super_res_num_inference_value, super_res_num_inference_steps])
     batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    use_StableUnCLIP_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switch(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_prefs['use_StableUnCLIP_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_StableUnCLIP_pipeline')))
     #eta = TextField(label="ETA", value=str(unCLIP_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
@@ -3629,6 +3812,7 @@ def buildUnCLIP(page):
         prior_num_inference_row, decoder_num_inference_row, super_res_num_inference_row,
         prior_guidance, decoder_guidance,
         #eta_row, max_row,
+        use_StableUnCLIP_pipeline,
         Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_unCLIP,
         Row([ElevatedButton(content=Text("🖇️   Get unCLIP Generation", size=20), on_click=lambda _: run_unCLIP(page)), 
@@ -3687,7 +3871,7 @@ def buildUnCLIPImageVariation(page):
         unCLIP_image_variation_help_dlg.open = False
         page.update()
       unCLIP_image_variation_help_dlg = AlertDialog(title=Text("🙅   Help with unCLIP Image Variation Pipeline"), content=Column([
-          Text("Contrastive models like CLIP have been shown to learn robust representations of images that capture both semantics and style. To leverage these representations for image generation, we propose a two-stage model: a prior that generates a CLIP image embedding given a text caption, and a decoder that generates an image conditioned on the image embedding. We show that explicitly generating image representations improves image diversity with minimal loss in photorealism and caption similarity. Our decoders conditioned on image representations can also produce variations of an image that preserve both its semantics and style, while varying the non-essential details absent from the image representation. Moreover, the joint embedding space of CLIP enables language-guided image manipulations in a zero-shot fashion. We use diffusion models for the decoder and experiment with both autoregressive and diffusion models for the prior, finding that the latter are computationally more efficient and produce higher-quality samples."),
+          Text("Contrastive models like CLIP have been shown to learn robust representations of images that capture both semantics and style. To leverage these representations for image generation, we implemented a two-stage model: a prior that generates a CLIP image embedding given a text caption, and a decoder that generates an image conditioned on the image embedding. We show that explicitly generating image representations improves image diversity with minimal loss in photorealism and caption similarity. Our decoders conditioned on image representations can also produce variations of an image that preserve both its semantics and style, while varying the non-essential details absent from the image representation. Moreover, the joint embedding space of CLIP enables language-guided image manipulations in a zero-shot fashion. We use diffusion models for the decoder and experiment with both autoregressive and diffusion models for the prior, finding that the latter are computationally more efficient and produce higher-quality samples."),
           Text("The scheduler is a modified DDPM that has some minor variations in how it calculates the learned range variance and dynamically re-calculates betas based off the timesteps it is skipping. The scheduler also uses a slightly different step ratio when computing timesteps to use for inference."),
           Markdown("The unCLIP Image Variation model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🐇  We'll see... ", on_click=close_unCLIP_image_variation_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -4206,7 +4390,7 @@ def buildInstructPix2Pix(page):
         instruct_pix2pix_help_dlg.open = False
         page.update()
       instruct_pix2pix_help_dlg = AlertDialog(title=Text("💁   Help with Instruct-Pix2Pix"), content=Column([
-          Text("We propose a method for editing images from human instructions: given an input image and a written instruction that tells the model what to do, our model follows these instructions to edit the image. To obtain training data for this problem, we combine the knowledge of two large pretrained models -- a language model (GPT-3) and a text-to-image model (Stable Diffusion) -- to generate a large dataset of image editing examples. Our conditional diffusion model, InstructPix2Pix, is trained on our generated data, and generalizes to real images and user-written instructions at inference time. Since it performs edits in the forward pass and does not require per example fine-tuning or inversion, our model edits images quickly, in a matter of seconds. We show compelling editing results for a diverse collection of input images and written instructions."),
+          Text("A method for editing images from human instructions: given an input image and a written instruction that tells the model what to do, our model follows these instructions to edit the image. To obtain training data for this problem, we combine the knowledge of two large pretrained models -- a language model (GPT-3) and a text-to-image model (Stable Diffusion) -- to generate a large dataset of image editing examples. Our conditional diffusion model, InstructPix2Pix, is trained on our generated data, and generalizes to real images and user-written instructions at inference time. Since it performs edits in the forward pass and does not require per example fine-tuning or inversion, our model edits images quickly, in a matter of seconds. We show compelling editing results for a diverse collection of input images and written instructions."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😎  Fun2Fun... ", on_click=close_instruct_pix2pix_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = instruct_pix2pix_help_dlg
       instruct_pix2pix_help_dlg.open = True
@@ -4278,7 +4462,7 @@ def buildInstructPix2Pix(page):
     guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=instruct_pix2pix_prefs['guidance_scale'], on_change=change_guidance, expand=True)
     guidance_value = Text(f" {instruct_pix2pix_prefs['guidance_scale']}", weight=FontWeight.BOLD)
     guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
-    image_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", tooltip="Image guidance scale is to push the generated image towards the inital image `image`. Higher image guidance scale encourages to generate images that are closely linked to the source image `image`, usually at the expense of lower image quality.", value=instruct_pix2pix_prefs['image_guidance_scale'], on_change=change_image_guidance, expand=True)
+    image_guidance_scale = Slider(min=0, max=200, divisions=400, label="{value}", tooltip="Image guidance scale is to push the generated image towards the inital image `image`. Higher image guidance scale encourages to generate images that are closely linked to the source image `image`, usually at the expense of lower image quality.", value=instruct_pix2pix_prefs['image_guidance_scale'], on_change=change_image_guidance, expand=True)
     image_guidance_value = Text(f" {instruct_pix2pix_prefs['image_guidance_scale']}", weight=FontWeight.BOLD)
     image_guidance = Row([Text("Image Guidance Scale: "), image_guidance_value, image_guidance_scale])
     #eta = TextField(label="ETA", value=str(instruct_pix2pix_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
@@ -4317,7 +4501,9 @@ def buildInstructPix2Pix(page):
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=instruct_pix2pix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_instruct_pix2pix,
         #Row([jump_length, jump_n_sample, seed]),
-        ElevatedButton(content=Text("🏖️  Run Instruct-Pix2Pix", size=20), on_click=lambda _: run_instruct_pix2pix(page)),
+        
+        Row([ElevatedButton(content=Text("🏖️  Run Instruct Pix2Pix", size=20), on_click=lambda _: run_instruct_pix2pix(page)),
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_instruct_pix2pix(page, from_list=True))]),
         page.instruct_pix2pix_output,
         clear_button,
       ]
@@ -5545,7 +5731,7 @@ def buildTextualInversion(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
-LoRA_prefs = {
+LoRA_dreambooth_prefs = {
     'instance_prompt': '', #The prompt with identifier specifying the instance
     'class_prompt': '',
     'prior_preservation': False, #Flag to add prior preservation loss.
@@ -5573,6 +5759,249 @@ LoRA_prefs = {
     'readme_description': '',
     'urls': [],
 }
+
+    #--lr_num_cycles=1 --lr_power=1 --prior_loss_weight=1.0 --sample_batch_size=4 --num_class_images=100
+LoRA_prefs = {
+    'instance_prompt': '', #The prompt with identifier specifying the instance
+    'class_prompt': '',
+    'prior_preservation': False, #Flag to add prior preservation loss.
+    #'num_class_images': 100, #Minimal class images for prior preservation loss. If there are not enough images already present in class_data_dir, additional images will be sampled with class_prompt.
+    #'sample_batch_size': 4, #Batch size (per device) for sampling images.
+    'train_batch_size': 1, #"Batch size (per device) for the training dataloader.
+    'gradient_accumulation_steps': 1, #Number of updates steps to accumulate before performing a backward/update pass.
+    'gradient_checkpointing': True, #Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.
+    'checkpointing_steps': 100,#Number of training steps between saving model checkpoints
+    'resume_from_checkpoint': '', #Whether training should be resumed from a previous checkpoint. Use a path saved by" `--checkpointing_steps`, or `latest` to automatically select the last available checkpoint.
+    'lr_scheduler': 'constant', #["linear", "cosine", "cosine_with_restarts", "polynomial", "constant", "constant_with_warmup"]
+    'lr_warmup_steps': 500, #Number of steps for the warmup in the lr scheduler.
+    #'lr_num_cycles': 1, #Number of hard resets of the lr in cosine_with_restarts scheduler.
+    #'lr_power': 1, #Power factor of the polynomial scheduler.
+    #'prior_loss_weight': 1.0, #The weight of prior preservation loss.
+    'class_data_dir': os.path.join(root_dir, "class_images"),
+    'learning_rate': 1e-4, #Initial learning rate (after the potential warmup period) to use.
+    'scale_lr': False, #Scale the learning rate by the number of GPUs, gradient accumulation steps, and batch size.
+    'max_train_steps': 500, #Total number of training steps to perform.  If provided, overrides num_train_epochs.
+    'seed': 0,
+    'validation_prompt': '', #A prompt that is sampled during training for inference.
+    'num_validation_images': 4, #Number of images that should be generated during validation with `validation_prompt`.
+    'validation_epochs': 1, #Run fine-tuning validation every X epochs. The validation process consists of running the prompt
+    'name_of_your_model': '',
+    'save_model': True,
+    'where_to_save_model': 'Public HuggingFace',
+    'resolution': 512,
+    'image_path': '',
+    'readme_description': '',
+    'urls': [],
+}
+
+def buildLoRA_Dreambooth(page):
+    global prefs, LoRA_dreambooth_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          if ptype == "int":
+            LoRA_dreambooth_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            LoRA_dreambooth_prefs[pref] = float(e.control.value)
+          else:
+            LoRA_dreambooth_prefs[pref] = e.control.value
+    def add_to_LoRA_dreambooth_output(o):
+        page.LoRA_dreambooth_output.controls.append(o)
+        page.LoRA_dreambooth_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.LoRA_dreambooth_output.controls = []
+        page.LoRA_dreambooth_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def lora_dreambooth_help(e):
+        def close_lora_dreambooth_dlg(e):
+          nonlocal lora_dreambooth_help_dlg
+          lora_dreambooth_help_dlg.open = False
+          page.update()
+        lora_dreambooth_help_dlg = AlertDialog(title=Text("💁   Help with LoRA DreamBooth"), content=Column([
+            Text("First thing is to collect all your own images that you want to teach it to dream.  Feed it at least 5 square pictures of the object or style to learn, and it'll save your Custom Model Checkpoint."),
+            Markdown("""Low-Rank Adaption of Large Language Models was first introduced by Microsoft in [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685) by *Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen*
+In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-decomposition matrices to existing weights and **only** training those newly added weights. This has a couple of advantages:
+- Previous pretrained weights are kept frozen so that the model is not prone to [catastrophic forgetting](https://www.pnas.org/doi/10.1073/pnas.1611835114)
+- Rank-decomposition matrices have significantly fewer parameters than the original model, which means that trained LoRA weights are easily portable.
+- LoRA attention layers allow to control to which extent the model is adapted torwards new training images via a `scale` parameter.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+            Text("Fine-tune your perameters, but be aware that the training process takes a long time to run, so careful with the settings if you don't have the patience or processor. Dream at your own risk."),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton(emojize(':sun_with_face:') + "  Neato... ", on_click=close_lora_dreambooth_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = lora_dreambooth_help_dlg
+        lora_dreambooth_help_dlg.open = True
+        page.update()
+    def delete_image(e):
+        f = e.control.data
+        if os.path.isfile(f):
+          os.remove(f)
+          for i, fl in enumerate(page.lora_dreambooth_file_list.controls):
+            if fl.title.value == f:
+              del page.lora_dreambooth_file_list.controls[i]
+              page.lora_dreambooth_file_list.update()
+              continue
+    def delete_all_images(e):
+        for fl in page.lora_dreambooth_file_list.controls:
+          f = fl.title.value
+          if os.path.isfile(f):
+            os.remove(f)
+        page.lora_dreambooth_file_list.controls.clear()
+        page.lora_dreambooth_file_list.update()
+    def image_details(e):
+        img = e.control.data
+        alert_msg(e.page, "Image Details", content=Image(src=img), sound=False)
+    def add_file(fpath, update=True):
+        page.lora_dreambooth_file_list.controls.append(ListTile(title=Text(fpath), dense=False, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[#TODO: View Image
+              PopupMenuItem(icon=icons.INFO, text="Image Details", on_click=image_details, data=fpath),
+              PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
+          ]), data=fpath, on_click=image_details))
+        if update: page.lora_dreambooth_file_list.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    save_dir = os.path.join(root_dir, 'my_model')
+    def on_upload_progress(e: FilePickerUploadEvent):
+        if e.progress == 1:
+          if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+          fname = os.path.join(root_dir, e.file_name)
+          fpath = os.path.join(save_dir, e.file_name)
+          original_img = PILImage.open(fname)
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
+          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img.save(fpath)
+          os.remove(fname)
+          #shutil.move(fname, fpath)
+          add_file(fpath)
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def pick_path(e):
+        file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def add_image(e):
+        save_dir = os.path.join(root_dir, 'my_model')
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if image_path.value.startswith('http'):
+          import requests
+          from io import BytesIO
+          response = requests.get(image_path.value)
+          fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
+          model_image = PILImage.open(BytesIO(response.content)).convert("RGB")
+          width, height = model_image.size
+          width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
+          model_image = model_image.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          model_image.save(fpath)
+          add_file(fpath)
+        elif os.path.isfile(image_path.value):
+          fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
+          original_img = PILImage.open(image_path.value)
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
+          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img.save(fpath)
+          #shutil.copy(image_path.value, fpath)
+          add_file(fpath)
+        elif os.path.isdir(image_path.value):
+          for f in os.listdir(image_path.value):
+            file_path = os.path.join(image_path.value, f)
+            if os.path.isdir(file_path): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+              fpath = os.path.join(save_dir, f)
+              original_img = PILImage.open(file_path)
+              width, height = original_img.size
+              width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
+              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img.save(fpath)
+              #shutil.copy(file_path, fpath)
+              add_file(fpath)
+        else:
+          if bool(image_path.value):
+            alert_msg(page, "Couldn't find a valid File, Path or URL...")
+          else:
+            pick_path(e)
+          return
+        image_path.value = ""
+        image_path.update()
+    def load_images():
+        if os.path.exists(save_dir):
+          for f in os.listdir(save_dir):
+            existing = os.path.join(save_dir, f)
+            if os.path.isdir(existing): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+              add_file(existing, update=False)
+    def toggle_save(e):
+        changed(e, 'save_model')
+        where_to_save_model.visible = LoRA_dreambooth_prefs['save_model']
+        where_to_save_model.update()
+        readme_description.visible = LoRA_dreambooth_prefs['save_model']
+        readme_description.update()
+    instance_prompt = Container(content=Tooltip(message="The prompt with identifier specifying the instance", content=TextField(label="Instance Prompt Token Text", value=LoRA_dreambooth_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'))), col={'md':9})
+    name_of_your_model = TextField(label="Name of your Model", value=LoRA_dreambooth_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'), col={'md':3})
+    class_prompt = TextField(label="Class Prompt", value=LoRA_dreambooth_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
+    lr_scheduler = Dropdown(label="Learning Rate Scheduler", width=250, options=[dropdown.Option("constant"), dropdown.Option("constant_with_warmup"), dropdown.Option("linear"), dropdown.Option("cosine"), dropdown.Option("cosine_with_restarts"), dropdown.Option("polynomial")], value=LoRA_dreambooth_prefs['lr_scheduler'], on_change=lambda e: changed(e, 'lr_scheduler'))
+    prior_preservation = Checkbox(label="Prior Preservation", tooltip="If you'd like class of the model (e.g.: toy, dog, painting) is guaranteed to be preserved. This increases the quality and helps with generalization at the cost of training time", value=LoRA_dreambooth_prefs['prior_preservation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'prior_preservation'))
+    gradient_checkpointing = Checkbox(label="Gradient Checkpointing   ", tooltip="Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.", value=LoRA_dreambooth_prefs['gradient_checkpointing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'gradient_checkpointing'))
+    num_class_images = Tooltip(message="Minimal class images for prior preservation loss. If there are not enough images already present in class_data_dir, additional images will be sampled with class_prompt.", content=TextField(label="Number of Class Images", value=LoRA_dreambooth_prefs['num_class_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_class_images', ptype='int'), width = 160))
+    sample_batch_size = Tooltip(message="Batch size (per device) for sampling images.", content=TextField(label="Sample Batch Size", value=LoRA_dreambooth_prefs['sample_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'sample_batch_size', ptype='int'), width = 160))
+    train_batch_size = Tooltip(message="Batch size (per device) for the training dataloader.", content=TextField(label="Train Batch Size", value=LoRA_dreambooth_prefs['train_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'train_batch_size', ptype='int'), width = 160))
+    prior_loss_weight = Tooltip(message="The weight of prior preservation loss.", content=TextField(label="Prior Loss Weight", value=LoRA_dreambooth_prefs['prior_loss_weight'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'prior_loss_weight', ptype='float'), width = 160))
+    max_train_steps = Tooltip(message="Total number of training steps to perform.  If provided, overrides num_train_epochs.", content=TextField(label="Max Training Steps", value=LoRA_dreambooth_prefs['max_train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160))
+    gradient_accumulation_steps = Tooltip(message="Number of updates steps to accumulate before performing a backward/update pass.", content=TextField(label="Gradient Accumulation Steps", value=LoRA_dreambooth_prefs['gradient_accumulation_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'gradient_accumulation_steps', ptype='int'), width = 160))
+    learning_rate = Tooltip(message="Initial learning rate (after the potential warmup period) to use.", content=TextField(label="Learning Rate", value=LoRA_dreambooth_prefs['learning_rate'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160))
+    lr_warmup_steps = Tooltip(message="Number of steps for the warmup in the lr scheduler.", content=TextField(label="LR Warmup Steps", value=LoRA_dreambooth_prefs['lr_warmup_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_warmup_steps', ptype='int'), width = 160))
+    lr_num_cycles = Tooltip(message="Number of hard resets of the lr in cosine_with_restarts scheduler.", content=TextField(label="LR Number of Cycles", value=LoRA_dreambooth_prefs['lr_num_cycles'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_num_cycles', ptype='int'), width = 160))
+    lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=LoRA_dreambooth_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
+    seed = Tooltip(message="0 or -1 for Random. Pick any number.", content=TextField(label="Seed", value=LoRA_dreambooth_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160))
+    save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_dreambooth_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
+    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=LoRA_dreambooth_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_dreambooth_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
+    #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_dreambooth_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
+    readme_description = TextField(label="Extra README Description", value=LoRA_dreambooth_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
+    resolution = Slider(min=256, max=1024, divisions=6, label="{value}px", value=float(LoRA_dreambooth_prefs['resolution']), expand=True, on_change=lambda e:changed(e,'resolution', ptype='int'))
+    max_row = Row([Text("Max Resolution Size: "), resolution])
+    image_path = TextField(label="Image File or Folder Path or URL to Train", value=LoRA_dreambooth_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
+    add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
+    page.lora_dreambooth_file_list = Column([], tight=True, spacing=0)
+    load_images()
+    where_to_save_model.visible = LoRA_dreambooth_prefs['save_model']
+    readme_description.visible = LoRA_dreambooth_prefs['save_model']
+    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfusLoRA_dreambooth_prefsion_prefs['lambda_entropy'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
+    #max_steps = TextField(label="Max Steps", value=LoRA_dreambooth_prefs['max_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
+    page.LoRA_dreambooth_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.LoRA_dreambooth_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA DreamBooth)", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_dreambooth_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Provide a collection of images to train. Adds on to the currently loaded Model Checkpoint..."),
+        Divider(thickness=1, height=4),
+        ResponsiveRow([instance_prompt, name_of_your_model]),
+        Row([num_class_images, sample_batch_size, train_batch_size, prior_loss_weight]),
+        Row([prior_preservation, gradient_checkpointing, lr_scheduler]),
+        Row([learning_rate, lr_warmup_steps, lr_num_cycles, lr_power]),
+        Row([max_train_steps, gradient_accumulation_steps, seed]),
+        Row([save_model, where_to_save_model]),
+        readme_description,
+        #Row([class_data_dir]),
+        max_row,
+        Row([image_path, add_image_button]),
+        page.lora_dreambooth_file_list,
+        Row([ElevatedButton(content=Text("🌄  Run LoRA DreamBooth", size=20), on_click=lambda _: run_LoRA_dreambooth(page))]),
+        page.LoRA_dreambooth_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 def buildLoRA(page):
     global prefs, LoRA_prefs
@@ -5626,12 +6055,17 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
             os.remove(f)
         page.lora_file_list.controls.clear()
         page.lora_file_list.update()
+    def image_details(e):
+        img = e.control.data
+        #TODO: Get file size & resolution
+        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=img, gapless_playback=True)]), sound=False)
     def add_file(fpath, update=True):
         page.lora_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[#TODO: View Image
+              PopupMenuItem(icon=icons.INFO, text="Image Details", on_click=image_details, data=fpath),
               PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
               PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
-          ])))
+          ]), subtitle=TextField(label="Caption Image Description", height=55, filled=True, content_padding=padding.only(top=12, left=12)), data=fpath, on_click=image_details))
         if update: page.lora_file_list.update()
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
@@ -5719,22 +6153,26 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         where_to_save_model.update()
         readme_description.visible = LoRA_prefs['save_model']
         readme_description.update()
-    instance_prompt = Container(content=Tooltip(message="The prompt with identifier specifying the instance", content=TextField(label="Instance Prompt Token Text", value=LoRA_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'))), col={'md':9})
+    validation_prompt = Container(content=Tooltip(message="A prompt that is sampled during training for inference.", content=TextField(label="Validation Prompt Text", value=LoRA_prefs['validation_prompt'], on_change=lambda e:changed(e,'validation_prompt'))), col={'md':9})
     name_of_your_model = TextField(label="Name of your Model", value=LoRA_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'), col={'md':3})
-    class_prompt = TextField(label="Class Prompt", value=LoRA_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
+    #class_prompt = TextField(label="Class Prompt", value=LoRA_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
+    #'num_validation_images': 4, #Number of images that should be generated during validation with `validation_prompt`.
+    #'validation_epochs': 1, #Run fine-tuning validation every X epochs. The validation process consists of running the prompt
+    num_validation_images = Tooltip(message="Number of images that should be generated during validation with `validation_prompt`", content=TextField(label="# of Validation Images", value=LoRA_prefs['num_validation_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_validation_images', ptype='int'), width = 160))
+    validation_epochs = Tooltip(message="Run fine-tuning validation every X epochs. The validation process consists of running the prompt", content=TextField(label="Validation Epochs", value=LoRA_prefs['validation_epochs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'validation_epochs', ptype='int'), width = 160))
     lr_scheduler = Dropdown(label="Learning Rate Scheduler", width=250, options=[dropdown.Option("constant"), dropdown.Option("constant_with_warmup"), dropdown.Option("linear"), dropdown.Option("cosine"), dropdown.Option("cosine_with_restarts"), dropdown.Option("polynomial")], value=LoRA_prefs['lr_scheduler'], on_change=lambda e: changed(e, 'lr_scheduler'))
     prior_preservation = Checkbox(label="Prior Preservation", tooltip="If you'd like class of the model (e.g.: toy, dog, painting) is guaranteed to be preserved. This increases the quality and helps with generalization at the cost of training time", value=LoRA_prefs['prior_preservation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'prior_preservation'))
     gradient_checkpointing = Checkbox(label="Gradient Checkpointing   ", tooltip="Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.", value=LoRA_prefs['gradient_checkpointing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'gradient_checkpointing'))
-    num_class_images = Tooltip(message="Minimal class images for prior preservation loss. If there are not enough images already present in class_data_dir, additional images will be sampled with class_prompt.", content=TextField(label="Number of Class Images", value=LoRA_prefs['num_class_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_class_images', ptype='int'), width = 160))
-    sample_batch_size = Tooltip(message="Batch size (per device) for sampling images.", content=TextField(label="Sample Batch Size", value=LoRA_prefs['sample_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'sample_batch_size', ptype='int'), width = 160))
+    #num_class_images = Tooltip(message="Minimal class images for prior preservation loss. If there are not enough images already present in class_data_dir, additional images will be sampled with class_prompt.", content=TextField(label="Number of Class Images", value=LoRA_prefs['num_class_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_class_images', ptype='int'), width = 160))
+    #sample_batch_size = Tooltip(message="Batch size (per device) for sampling images.", content=TextField(label="Sample Batch Size", value=LoRA_prefs['sample_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'sample_batch_size', ptype='int'), width = 160))
     train_batch_size = Tooltip(message="Batch size (per device) for the training dataloader.", content=TextField(label="Train Batch Size", value=LoRA_prefs['train_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'train_batch_size', ptype='int'), width = 160))
-    prior_loss_weight = Tooltip(message="The weight of prior preservation loss.", content=TextField(label="Prior Loss Weight", value=LoRA_prefs['prior_loss_weight'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'prior_loss_weight', ptype='float'), width = 160))
+    #prior_loss_weight = Tooltip(message="The weight of prior preservation loss.", content=TextField(label="Prior Loss Weight", value=LoRA_prefs['prior_loss_weight'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'prior_loss_weight', ptype='float'), width = 160))
     max_train_steps = Tooltip(message="Total number of training steps to perform.  If provided, overrides num_train_epochs.", content=TextField(label="Max Training Steps", value=LoRA_prefs['max_train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160))
     gradient_accumulation_steps = Tooltip(message="Number of updates steps to accumulate before performing a backward/update pass.", content=TextField(label="Gradient Accumulation Steps", value=LoRA_prefs['gradient_accumulation_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'gradient_accumulation_steps', ptype='int'), width = 160))
     learning_rate = Tooltip(message="Initial learning rate (after the potential warmup period) to use.", content=TextField(label="Learning Rate", value=LoRA_prefs['learning_rate'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160))
     lr_warmup_steps = Tooltip(message="Number of steps for the warmup in the lr scheduler.", content=TextField(label="LR Warmup Steps", value=LoRA_prefs['lr_warmup_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_warmup_steps', ptype='int'), width = 160))
-    lr_num_cycles = Tooltip(message="Number of hard resets of the lr in cosine_with_restarts scheduler.", content=TextField(label="LR Number of Cycles", value=LoRA_prefs['lr_num_cycles'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_num_cycles', ptype='int'), width = 160))
-    lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=LoRA_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
+    #lr_num_cycles = Tooltip(message="Number of hard resets of the lr in cosine_with_restarts scheduler.", content=TextField(label="LR Number of Cycles", value=LoRA_prefs['lr_num_cycles'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_num_cycles', ptype='int'), width = 160))
+    #lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=LoRA_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
     seed = Tooltip(message="0 or -1 for Random. Pick any number.", content=TextField(label="Seed", value=LoRA_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160))
     save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
     save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=LoRA_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
@@ -5757,13 +6195,13 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA)", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Provide a collection of images to train. Adds on to the currently loaded Model Checkpoint..."),
+        Row([Text("🌫️  Training text-to-image Low-Rank Adaptation of Large Language Models (LoRA)", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint..."),
         Divider(thickness=1, height=4),
-        ResponsiveRow([instance_prompt, name_of_your_model]),
-        Row([num_class_images, sample_batch_size, train_batch_size, prior_loss_weight]),
-        Row([prior_preservation, gradient_checkpointing, lr_scheduler]),
-        Row([learning_rate, lr_warmup_steps, lr_num_cycles, lr_power]),
+        ResponsiveRow([validation_prompt, name_of_your_model]),
+        Row([num_validation_images, validation_epochs, train_batch_size]),
+        Row([prior_preservation, gradient_checkpointing]),
+        Row([learning_rate, lr_warmup_steps, lr_scheduler]),
         Row([max_train_steps, gradient_accumulation_steps, seed]),
         Row([save_model, where_to_save_model]),
         readme_description,
@@ -5771,12 +6209,284 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         max_row,
         Row([image_path, add_image_button]),
         page.lora_file_list,
-        Row([ElevatedButton(content=Text("🌄  Run LoRA DreamBooth", size=20), on_click=lambda _: run_LoRA(page))]),
+        Row([ElevatedButton(content=Text("🏄  Run LoRA Training", size=20), on_click=lambda _: run_LoRA(page))]),
         page.LoRA_output,
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
+
+converter_prefs = {
+    'from_format': 'ckpt',
+    'to_format': 'pytorch',
+    'model_path': '',
+    'model_name': '',
+    'model_type': 'text2image',
+    'scheduler_type': 'pndm',
+    'save_model': False,
+    'where_to_save_model': "Public Library",
+    'readme_description': '',
+    'load_custom_model': True,
+}
+
+def buildConverter(page):
+    global prefs, converter_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          if ptype == "int":
+            converter_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            converter_prefs[pref] = float(e.control.value)
+          else:
+            converter_prefs[pref] = e.control.value
+    def add_to_converter_output(o):
+        page.converter_output.controls.append(o)
+        page.converter_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.converter_output.controls = []
+        page.converter_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def converter_help(e):
+        def close_converter_dlg(e):
+          nonlocal converter_help_dlg
+          converter_help_dlg.open = False
+          page.update()
+        converter_help_dlg = AlertDialog(title=Text("💁   Help with Converters"), content=Column([
+            Text("Because there have been so many competing formats for Stable Diffusion models, we here have standardized with HuggingFace Diffusers, which is great but doesn't support all the Checkpoint Model types that are out there in the wild.  This should allow you to take other peoples custom trained model files and convert it to the better Diffusers PyTorch format, and then it'll save your Custom Model Checkpoint to HuggingFace (free) to reuse and/or share."),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🎈  Handy... ", on_click=close_converter_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = converter_help_dlg
+        converter_help_dlg.open = True
+        page.update()
+    def toggle_save(e):
+        changed(e, 'save_model')
+        where_to_save_model.visible = converter_prefs['save_model']
+        where_to_save_model.update()
+        readme_description.visible = converter_prefs['save_model']
+        readme_description.update()
+    from_format = Dropdown(label="From Format", width=250, options=[dropdown.Option("ckpt"), dropdown.Option("safetensors")], value=converter_prefs['from_format'], on_change=lambda e: changed(e, 'from_format'), col={'lg':6})
+    to_format = Dropdown(label="To Format", width=250, options=[dropdown.Option("pytorch"), dropdown.Option("dance_diffusion")], value=converter_prefs['to_format'], on_change=lambda e: changed(e, 'to_format'), col={'lg':6})
+    #instance_prompt = Container(content=Tooltip(message="The prompt with identifier specifying the instance", content=TextField(label="Instance Prompt Token Text", value=converter_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'))), col={'md':9})
+    from_model_path = TextField(label="Model Path", value=converter_prefs['model_path'], on_change=lambda e:changed(e,'model_path'), col={'md':6})
+    from_model_name = TextField(label="Name of your Model", value=converter_prefs['model_name'], on_change=lambda e:changed(e,'model_name'), col={'md':6})
+    model_type = Dropdown(label="Model Type", width=250, options=[dropdown.Option("text2image")], value=converter_prefs['model_type'], on_change=lambda e: changed(e, 'model_type'), col={'lg':6})
+    #class_prompt = TextField(label="Class Prompt", value=converter_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
+    scheduler_type = Dropdown(label="Original Scheduler Mode", hint_text="Hopefuly you know what Scheduler/Sampler they used in training", width=200,
+            options=[
+                dropdown.Option("DDIM"),
+                dropdown.Option("K-LMS"),
+                dropdown.Option("PNDM"),
+                #dropdown.Option("DDPM"),
+                dropdown.Option("DPM Solver"),
+                dropdown.Option("DPM Solver++"),
+                dropdown.Option("K-Euler Discrete"),
+                dropdown.Option("K-Euler Ancestral"),
+                #dropdown.Option("DEIS Multistep"),
+                #dropdown.Option("Heun Discrete"),
+                #dropdown.Option("K-DPM2 Ancestral"),
+                #dropdown.Option("K-DPM2 Discrete"),
+            ], value=converter_prefs['scheduler_type'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_type'), col={'lg':6},
+        )
+    save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=converter_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
+    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=converter_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=converter_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
+    #class_data_dir = TextField(label="Prior Preservation Class Folder", value=converter_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
+    readme_description = TextField(label="Extra README Description", value=converter_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
+    load_custom_model = Checkbox(label="Load Custom Model", tooltip="After conversion is done, will put it in your Custom Model setting, ready to test out", value=converter_prefs['load_custom_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'load_custom_model'))
+    #resolution = Slider(min=256, max=1024, divisions=6, label="{value}px", value=float(converter_prefs['resolution']), expand=True, on_change=lambda e:changed(e,'resolution', ptype='int'))
+    #max_row = Row([Text("Max Resolution Size: "), resolution])
+    #image_path = TextField(label="Image File or Folder Path or URL to Train", value=converter_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
+    #add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
+    #page.converter_file_list = Column([], tight=True, spacing=0)
+    #load_images()
+    where_to_save_model.visible = converter_prefs['save_model']
+    readme_description.visible = converter_prefs['save_model']
+    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfusconverter_prefsion_prefs['lambda_entropy'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
+    #max_steps = TextField(label="Max Steps", value=converter_prefs['max_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
+    page.converter_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.converter_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🔀  Model Converter Tool", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Model Converters Settings", on_click=converter_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Lets you Convert Format of Model Checkpoints to work with Diffusers..."),
+        Divider(thickness=1, height=4),
+        ResponsiveRow([from_format, to_format]),
+        ResponsiveRow([from_model_path, from_model_name]),
+        ResponsiveRow([model_type, scheduler_type]),
+        Row([save_model, where_to_save_model]),
+        readme_description,
+        load_custom_model,
+        #max_row,
+        #Row([image_path, add_image_button]),
+        #page.converter_file_list,
+        Row([ElevatedButton(content=Text("〽️  Run Model Converter", size=20), on_click=lambda _: run_converter(page))]),
+        page.converter_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+checkpoint_merger_prefs = {
+    'pretrained_model': '',
+    'selected_model': 'Stable Diffusion v1.5',
+    'pretrained_models': [], #A list of valid pretrained model names in the HuggingFace hub or paths to locally stored models in the HuggingFace format.
+    'alpha': 0.5, #The interpolation parameter. Ranges from 0 to 1.  It affects the ratio in which the checkpoints are merged. A 0.8 alpha would mean that the first model checkpoints would affect the final result far less than an alpha of 0.2
+    'interp': 'weighted_sum', #The interpolation method to use for the merging. Supports "sigmoid", "inv_sigmoid", "add_difference" and None. Passing None uses the default interpolation which is weighted sum interpolation. For merging three checkpoints, only "add_difference" is supported.
+    'force': False, #Whether to ignore mismatch in model_config.json for the current models. Defaults to False.
+    'validation_prompt': '',
+    'name_of_your_model': '',
+    'save_model': True,
+    'where_to_save_model': 'Public HuggingFace',
+    'readme_description': '',
+}
+
+def buildCheckpointMerger(page):
+    global prefs, checkpoint_merger_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          if ptype == "int":
+            checkpoint_merger_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            checkpoint_merger_prefs[pref] = float(e.control.value)
+          else:
+            checkpoint_merger_prefs[pref] = e.control.value
+    def checkpoint_merger_help(e):
+        def close_checkpoint_merger_dlg(e):
+          nonlocal checkpoint_merger_help_dlg
+          checkpoint_merger_help_dlg.open = False
+          page.update()
+        checkpoint_merger_help_dlg = AlertDialog(title=Text("💁   Help with Checkpoint Merger"), content=Column([
+            Text("Provide a list of valid pretrained model names in the HuggingFace hub or paths to locally stored models in the HuggingFace format.  Merges the Checkpoint Weights into a new model that you can save for free to HuggingFace to reuse."),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🍻  Sure thing... ", on_click=close_checkpoint_merger_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = checkpoint_merger_help_dlg
+        checkpoint_merger_help_dlg.open = True
+        page.update()
+    def change_alpha(e):
+        changed(e, 'alpha', ptype="float")
+        alpha_value.value = f" {checkpoint_merger_prefs['alpha']}"
+        alpha_value.update()
+        alpha_row.update()
+    def toggle_save(e):
+        changed(e, 'save_model')
+        where_to_save_model.visible = checkpoint_merger_prefs['save_model']
+        where_to_save_model.update()
+        readme_description.visible = checkpoint_merger_prefs['save_model']
+        readme_description.update()
+    def remove_model(e):
+        f = e.control.data
+        for i, fl in enumerate(page.checkpoint_merger_file_list.controls):
+            if fl.title.value == f:
+                del page.checkpoint_merger_file_list.controls[i]
+                page.checkpoint_merger_file_list.update()
+                continue
+    def remove_all_models(e):
+        checkpoint_merger_prefs['pretrained_models'].clear()
+        page.checkpoint_merger_file_list.controls.clear()
+        page.checkpoint_merger_file_list.update()
+    def move_down(e):
+        idx = checkpoint_merger_prefs['pretrained_models'].index(e.control.data)
+        if idx < (len(checkpoint_merger_prefs['pretrained_models']) - 1):
+          d = checkpoint_merger_prefs['pretrained_models'].pop(idx)
+          checkpoint_merger_prefs['pretrained_models'].insert(idx+1, d)
+          dr = page.checkpoint_merger_file_list.controls.pop(idx)
+          page.checkpoint_merger_file_list.controls.insert(idx+1, dr)
+          page.checkpoint_merger_file_list.update()
+    def move_up(e):
+        idx = checkpoint_merger_prefs['pretrained_models'].index(e.control.data)
+        if idx > 0:
+          d = checkpoint_merger_prefs['pretrained_models'].pop(idx)
+          checkpoint_merger_prefs['pretrained_models'].insert(idx-1, d)
+          dr = page.checkpoint_merger_file_list.controls.pop(idx)
+          page.checkpoint_merger_file_list.controls.insert(idx-1, dr)
+          page.checkpoint_merger_file_list.update()
+    def add_selected_model(e):
+        name = checkpoint_merger_prefs['selected_model']
+        m = {'name':''}
+        if name == "Stable Diffusion v2.1 x768":
+            m = {'name':'Stable Diffusion v2.1 x768', 'path':'stabilityai/stable-diffusion-2-1'}
+        elif name == "Stable Diffusion v2.1 x512":
+            m = {'name':'Stable Diffusion v2.1 x512', 'path':'stabilityai/stable-diffusion-2-1-base'}
+        elif name == "Stable Diffusion v2.0":
+            m = {'name':'Stable Diffusion v2.0', 'path':'stabilityai/stable-diffusion-2'}
+        elif name == "Stable Diffusion v2.0 x768":
+            m = {'name':'Stable Diffusion v2.0 x768', 'path':'stabilityai/stable-diffusion-2'}
+        elif name == "Stable Diffusion v2.0 x512":
+            m = {'name':'Stable Diffusion v2.0 x512', 'path':'stabilityai/stable-diffusion-2-base'}
+        elif name == "Stable Diffusion v1.5":
+            m = {'name':'Stable Diffusion v1.5', 'path':'runwayml/stable-diffusion-v1-5'}
+        elif name == "Stable Diffusion v1.4":
+            m = {'name':'Stable Diffusion v1.4', 'path':'CompVis/stable-diffusion-v1-4'}
+        else:
+            m = get_finetuned_model(name)
+            if not bool(m['name']):
+                m = get_dreambooth_model(name)
+        if bool(m['path']):
+            add_model(m['path'])
+    def add_custom_model(e):
+        mpath = checkpoint_merger_prefs['pretrained_model']
+        add_model(mpath)
+    def add_model(mpath, update=True):
+        if mpath in checkpoint_merger_prefs['pretrained_models']:
+            alert_msg(page, "That model path is already in your list...")
+            return
+        page.checkpoint_merger_file_list.controls.append(ListTile(title=Text(mpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[#TODO: View Image
+              PopupMenuItem(icon=icons.DELETE, text="Remove Model", on_click=remove_model, data=mpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Remove All", on_click=remove_all_models, data=mpath),
+              PopupMenuItem(icon=icons.ARROW_UPWARD, text="Move Up", on_click=move_up, data=mpath),
+              PopupMenuItem(icon=icons.ARROW_DOWNWARD, text="Move Down", on_click=move_down, data=mpath),
+          ]), data=mpath))
+        checkpoint_merger_prefs['pretrained_models'].append(mpath)
+        if update: page.checkpoint_merger_file_list.update()
+    validation_prompt = Container(content=Tooltip(message="Optional prompt to test after the merger is finished.", content=TextField(label="Validation Test Prompt", value=checkpoint_merger_prefs['validation_prompt'], on_change=lambda e:changed(e,'validation_prompt'))), col={'md':9})
+    name_of_your_model = TextField(label="Name of New Model", value=checkpoint_merger_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'), col={'md':3})
+    force = Checkbox(label="Force if Mismatch", tooltip="Whether to ignore mismatch in model_config.json for the current models.", value=checkpoint_merger_prefs['force'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'force'))
+    alpha = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(checkpoint_merger_prefs['alpha']), tooltip="The interpolation parameter. Ranges from 0 to 1.  It affects the ratio in which the checkpoints are merged. A 0.8 alpha would mean that the first model checkpoints would affect the final result far less than an alpha of 0.2", expand=True, on_change=change_alpha)
+    alpha_value = Text(f" {checkpoint_merger_prefs['alpha']}", weight=FontWeight.BOLD)
+    alpha_row = Row([Text("Alpha Interpolation:"), alpha_value, alpha])
+    interp = Dropdown(label="Interpolation Method", width=250, options=[dropdown.Option("weighted_sum"), dropdown.Option("sigmoid"), dropdown.Option("inv_sigmoid"), dropdown.Option("add_difference")], value=checkpoint_merger_prefs['interp'], on_change=lambda e: changed(e, 'interp'))
+    #The interpolation method to use for the merging. Supports "sigmoid", "inv_sigmoid", "add_difference" and None. For merging three checkpoints, only "add_difference" is supported.
+    model_ckpt = Dropdown(label="Model Checkpoint", options=[
+        dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"), 
+        dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4")], value=checkpoint_merger_prefs['selected_model'], tooltip="", autofocus=False, on_change=lambda e: changed(e, 'selected_model'))
+    for mod in finetuned_models:
+        model_ckpt.options.append(dropdown.Option(mod["name"]))
+    for db in dreambooth_models:
+        model_ckpt.options.append(dropdown.Option(db["name"]))
+    add_selected_model_button = ElevatedButton(content=Text("Add Selected Model"), on_click=add_selected_model)
+    pretrained_model = TextField(label="HuggingFace Path or Local Path to Merge", value=checkpoint_merger_prefs['pretrained_model'], on_change=lambda e:changed(e,'pretrained_model'), expand=1)
+    add_model_button = ElevatedButton(content=Text("Add Model Path"), on_click=add_custom_model)
+    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=checkpoint_merger_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=checkpoint_merger_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
+    readme_description = TextField(label="Extra README Description", value=checkpoint_merger_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
+
+    page.checkpoint_merger_file_list = Column([], tight=True, spacing=0)
+    page.checkpoint_merger_output = Column([])
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("👥  Checkpoint Merger Tool", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Checkpoint Merger Settings", on_click=checkpoint_merger_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Combine together two or more custom models to create a mixture of weights..."),
+        Divider(thickness=1, height=4),
+        Row([model_ckpt, add_selected_model_button]),
+        Row([pretrained_model, add_model_button]),
+        page.checkpoint_merger_file_list,
+        Divider(thickness=3, height=6),
+        Row([interp, force]),
+        alpha_row,
+        ResponsiveRow([name_of_your_model, validation_prompt]),
+        Row([save_model, where_to_save_model]),
+        readme_description,
+        Row([ElevatedButton(content=Text("🤗  Run Checkpoint Merger", size=20), on_click=lambda _: run_checkpoint_merger(page))]),
+        page.checkpoint_merger_output,
+        #clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 tortoise_prefs = {
     'text': '',
@@ -6131,6 +6841,42 @@ finetuned_models = [
     {"name": "TARDISfusion Modern Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Modern Tardis style "},
     {"name": "TARDISfusion Tardis Box", "path": "Guizmus/Tardisfusion", "prefix": "Tardis Box style "},
     {"name": "Rick-Roll Style", "path": "TheLastBen/rick-roll-style", "prefix": "rckrll "},
+    {"name": "Filmation MOTU", "path": "zuleo/filmation-motu", "prefix": ""},
+    {"name": "Char Helper", "path": "ManglerFTW/CharHelper", "prefix": ""},
+    {"name": "Dreamlike Photoreal 2", "path": "dreamlike-art/dreamlike-photoreal-2.0", "prefix": ""},
+    {"name": "Maxwell the Cat", "path": "kabachuha/maxwell-the-cat-diffusion", "prefix": ""},
+    {"name": "Glitch Embedding", "path": "joachimsallstrom/Glitch-Embedding", "prefix": "glitch "},
+    {"name": "Pokemon 3D", "path": "Timmahw/SD2.1_Pokemon3D", "prefix": ""},
+    {"name": "Nephos", "path": "RomeroRZ/Nephos", "prefix": ""},
+    {"name": "effeffIX Concept", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 "},
+    {"name": "effeffIX Woman", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 woman "},
+    {"name": "effeffIX Man", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 man "},
+    {"name": "effeffIX Creature", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 creature "},
+    {"name": "effeffIX Architecture", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 architecture "},
+    #{"name": "", "path": "", "prefix": ""},
+    #{"name": "Laxpeint", "path": "EldritchAdam/laxpeint", "prefix": ""},
+    #{"name": "HeartArt", "path": "spaablauw/HeartArt", "prefix": ""},
+    #{"name": "ConceptArt", "path": "SatyamSSJ10/ConceptArt", "prefix": ""},
+    #{"name": "Modern Buildings", "path": "smereces/2.1-SD-Modern-Buildings-Style-MD", "prefix": ""},
+    #{"name": "Floral Marbles", "path": "N75242/FloralMarbles_Model", "prefix": ""},
+    #{"name": "Gemini_Anime", "path": "Cryonicus/Gemini_Anime", "prefix": ""},
+    #{"name": "Disco Difland", "path": "DarkBeam/discodifland", "prefix": ""},
+    #{"name": "Princess Jai Lee", "path": "zuleo/princess-jai-lee", "prefix": ""},
+    #{"name": "Style Goblinmode", "path": "TheAllyPrompts/Style-Goblinmode", "prefix": ""},
+    #{"name": "Joe87-Vibe", "path": "Joe87/joe87-vibe", "prefix": "joe87-vibe "},
+    #{"name": "Microwaist", "path": "SweetTalk/Microwaist", "prefix": ""},
+    #{"name": "Sci-Fi Diffusion", "path": "Corruptlake/Sci-Fi-Diffusion", "prefix": ""},
+    #{"name": "ParchArt", "path": "EldritchAdam/ParchArt", "prefix": ""},
+    #{"name": "Classipeint", "path": "EldritchAdam/classipeint", "prefix": ""},
+    #{"name": "Cyberpunked", "path": "GeneralAwareness/Cyberpunked", "prefix": ""},
+    #{"name": "Mangaka Boichi", "path": "Akumetsu971/SD_Boichi_Art_Style", "prefix": ""},
+    #{"name": "Samurai Anime", "path": "Akumetsu971/SD_Samurai_Anime_Style", "prefix": ""},
+    #{"name": "Cmodel", "path": "jinofcoolnes/CmodelSDV2", "prefix": "cmodel "},
+    #{"name": "Cyberware", "path": "Eppinette/Cyberware", "prefix": "-cyberware style "},
+    #{"name": "OldJourney", "path": "StarwingDigital/Oldjourney", "prefix": ""},
+    #{"name": "Hyper Smoke", "path": "spaablauw/HyperSmoke", "prefix": ""},
+    #{"name": "Fantasy Diffusion", "path": "IceChes/fantasydiffusionembedding", "prefix": ""},
+    #{"name": "Double-Exposure", "path": "joachimsallstrom/Double-Exposure-Embedding", "prefix": "dblx "},
     #{"name": "Studio Ghibli", "path": "flax/StudioGhibli", "prefix": "", "vae": True},
     #{"name": "Picture of the Week", "path": "Guizmus/SD_PoW_Collection", "prefix": "PoW Style ", "vae": True},
     #{"name": "PoW Bendstract ", "path": "Guizmus/SD_PoW_Collection", "prefix": "Bendstract Style ", "vae": True},
@@ -6212,11 +6958,27 @@ def get_diffusers(page):
       from diffusers import StableDiffusionPipeline, logging
       import transformers
     except ModuleNotFoundError as e:#ModuleNotFoundError as e:'''
-    run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
-    run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
-    run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
+    try:
+      import accelerate
+    except Exception:
+      run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
+      pass
+    try:
+      import diffusers
+    except Exception:
+      run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+      pass
+    try:
+      import transformers
+    except Exception:
+      run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
+      pass
     #run_process("pip install -q transformers==4.23.1", page=page)
-    run_process("pip install -qq --upgrade scipy ftfy", page=page)
+    try:
+      import scipy, ftfy
+    except Exception:
+      run_process("pip install -qq --upgrade scipy ftfy", page=page)
+      pass
     run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
     run_process("git config --global credential.helper store", page=page)
     
@@ -6228,7 +6990,14 @@ def get_diffusers(page):
     if not os.path.exists(HfFolder.path_token):
         #from huggingface_hub.commands.user import _login
         #_login(HfApi(), token=prefs['HuggingFace_api_key'])
-        login(token=prefs['HuggingFace_api_key'], add_to_git_credential=True)
+        try:
+          login(token=prefs['HuggingFace_api_key'], add_to_git_credential=True)
+        except Exception:
+          alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet conenction.")
+          return
+    # TODO: Get Username to prefs
+    api = HfApi()
+    prefs['HuggingFace_username'] = api.whoami()["name"]
     #if prefs['model_ckpt'] == "Stable Diffusion v1.5": model_path =  "runwayml/stable-diffusion-v1-5"
     #elif prefs['model_ckpt'] == "Stable Diffusion v1.4": model_path =  "CompVis/stable-diffusion-v1-4"
     model = get_model(prefs['model_ckpt'])
@@ -6238,7 +7007,6 @@ def get_diffusers(page):
     except Exception as e:
       alert_msg(page, f"ERROR: {prefs['scheduler_mode']} Scheduler couldn't load for {model_path}", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
       pass
-
     status['finetuned_model'] = False if model['name'].startswith("Stable") else True
     if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
         # Still not the best way.  TODO: Fix importing, try ninja or other wheels?
@@ -6273,7 +7041,7 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "K-Euler Discrete":
       from diffusers import EulerDiscreteScheduler
       s = EulerDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
-    elif scheduler_mode == "K-Euler Ancestrial":
+    elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
       s = EulerAncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "DPM Solver++":
@@ -6305,6 +7073,9 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "IPNDM":
       from diffusers import IPNDMScheduler
       s = IPNDMScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "DEIS Multistep":
+      from diffusers import DEISMultistepScheduler
+      s = DEISMultistepScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "Score-SDE-Vp":
       from diffusers import ScoreSdeVpScheduler
       s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -6333,6 +7104,92 @@ def model_scheduler(model, big3=False):
       s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     return s
 
+def pipeline_scheduler(p, big3=False):
+    scheduler_mode = prefs['scheduler_mode']
+    if scheduler_mode == "K-LMS":
+      from diffusers import LMSDiscreteScheduler
+      s = LMSDiscreteScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "PNDM":
+      from diffusers import PNDMScheduler
+      s = PNDMScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "DDIM":
+      from diffusers import DDIMScheduler
+      s = DDIMScheduler.from_config(p.scheduler.config)
+    elif big3:
+      from diffusers import DDIMScheduler
+      s = DDIMScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "DPM Solver":
+      from diffusers import DPMSolverMultistepScheduler #"hf-internal-testing/tiny-stable-diffusion-torch"
+      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "DPM Solver Singlestep":
+      from diffusers import DPMSolverSinglestepScheduler
+      s = DPMSolverSinglestepScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "K-Euler Discrete":
+      from diffusers import EulerDiscreteScheduler
+      s = EulerDiscreteScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "K-Euler Ancestral":
+      from diffusers import EulerAncestralDiscreteScheduler
+      s = EulerAncestralDiscreteScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "DPM Solver++":
+      from diffusers import DPMSolverMultistepScheduler
+      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config,
+        beta_start=0.00085,
+        beta_end=0.012,
+        beta_schedule="scaled_linear",
+        num_train_timesteps=1000,
+        trained_betas=None,
+        #predict_epsilon=True,
+        prediction_type="v_prediction" if model.startswith('stabilityai') else "epsilon",
+        thresholding=False,
+        algorithm_type="dpmsolver++",
+        solver_type="midpoint",
+        solver_order=2,
+        #denoise_final=True,
+        lower_order_final=True,
+      )
+    elif scheduler_mode == "Heun Discrete":
+      from diffusers import HeunDiscreteScheduler
+      s = HeunDiscreteScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "K-DPM2 Ancestral":
+      from diffusers import KDPM2AncestralDiscreteScheduler
+      s = KDPM2AncestralDiscreteScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "K-DPM2 Discrete":
+      from diffusers import KDPM2DiscreteScheduler
+      s = KDPM2DiscreteScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "IPNDM":
+      from diffusers import IPNDMScheduler
+      s = IPNDMScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "DEIS Multistep":
+      from diffusers import DEISMultistepScheduler
+      s = DEISMultistepScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "Score-SDE-Vp":
+      from diffusers import ScoreSdeVpScheduler
+      s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
+      use_custom_scheduler = True
+    elif scheduler_mode == "Score-SDE-Ve":
+      from diffusers import ScoreSdeVeScheduler
+      s = ScoreSdeVeScheduler() #(num_train_timesteps=2000, snr=0.15, sigma_min=0.01, sigma_max=1348, sampling_eps=1e-5, correct_steps=1, tensor_format="pt"
+      use_custom_scheduler = True
+    elif scheduler_mode == "DDPM":
+      from diffusers import DDPMScheduler
+      s = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt")
+      use_custom_scheduler = True
+    elif scheduler_mode == "Karras-Ve":
+      from diffusers import KarrasVeScheduler
+      s = KarrasVeScheduler() #(sigma_min=0.02, sigma_max=100, s_noise=1.007, s_churn=80, s_min=0.05, s_max=50, tensor_format="pt")
+      use_custom_scheduler = True
+    elif scheduler_mode == "LMS": #no more
+      from diffusers import LMSScheduler
+      s = LMSScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
+      #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, tensor_format="pt")
+      use_custom_scheduler = True
+    #print(f"Loaded Schedueler {scheduler_mode} {type(scheduler)}")
+    else:
+      print(f"Unknown scheduler request {scheduler_mode} - Using K-LMS")
+      from diffusers import LMSDiscreteScheduler
+      s = LMSDiscreteScheduler.from_config(p.scheduler.config)
+    p.scheduler = s
+    return s
 
 torch_device = "cuda"
 try:
@@ -6357,9 +7214,12 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
     global total_steps, pb
     if total_steps is None: total_steps = timestep
     if total_steps == 0: total_steps = len(latents)
-    percent = (step +1)/ total_steps
+    multiplier = 1
+    if prefs['scheduler_mode'].startswith("Heun") or prefs['scheduler_mode'].startswith("K-DPM"):
+      multiplier = 2
+    percent = (step +1)/ (total_steps * multiplier)
     pb.value = percent
-    pb.tooltip = f"[{step +1} / {total_steps}] (timestep: {timestep})"
+    pb.tooltip = f"[{step +1} / {total_steps * multiplier}] (timestep: {timestep})"
     #print(f"step: {step}, total: {total_steps}, latent: {len(latents)}")
     #if step == 0:
         #latents = latents.detach().cpu().numpy()
@@ -6369,9 +7229,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=True):
-    if prefs['sequential_cpu_offload']:
-      p.enable_sequential_cpu_offload()
+def optimize_pipe(p, vae=False):
     if prefs['memory_optimization'] == 'Attention Slicing':
       #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
       if prefs['sequential_cpu_offload']:
@@ -6387,6 +7245,9 @@ def optimize_pipe(p, vae=True):
     if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
       p.unet.load_attn_procs(lora['path'])
+    if prefs['sequential_cpu_offload']:
+      p.enable_sequential_cpu_offload()
+    else: p.to(torch_device)
     return p
 
 def install_xformers(page):
@@ -6467,7 +7328,7 @@ def get_mega_pipe():
   else:
     pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="stable_diffusion_mega", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-  pipe = pipe.to(torch_device)
+  #pipe = pipe.to(torch_device)
   pipe = optimize_pipe(pipe)
   pipe.set_progress_bar_config(disable=True)
   return pipe
@@ -6497,8 +7358,8 @@ def get_lpw_pipe():
         pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
-  pipe = pipe.to(torch_device)
-  pipe = optimize_pipe(pipe)
+  #pipe = pipe.to(torch_device)
+  pipe = optimize_pipe(pipe, vae=True)
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
@@ -6510,9 +7371,9 @@ def get_txt2img_pipe():
   #if status['finetuned_model']:
   #  vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
   #  unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16)
-  pipe = optimize_pipe(pipe)
+  pipe = optimize_pipe(pipe, vae=True)
   pipe.set_progress_bar_config(disable=True)
-  pipe = pipe.to(torch_device)
+  #pipe = pipe.to(torch_device)
   return pipe
 
 def get_unet_pipe():
@@ -6570,8 +7431,8 @@ def get_interpolation_pipe():
       else:
         pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-    pipe_interpolation = pipe_interpolation.to(torch_device)
-    pipe_interpolation = optimize_pipe(pipe_interpolation, vae=False)
+    #pipe_interpolation = pipe_interpolation.to(torch_device)
+    pipe_interpolation = optimize_pipe(pipe_interpolation)
     pipe_interpolation.set_progress_bar_config(disable=True)
     return pipe_interpolation
 
@@ -6618,11 +7479,9 @@ def get_img2img_pipe():
       revision="fp16", 
       torch_dtype=torch.float16,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
-  pipe_img2img.to(torch_device)
+  #pipe_img2img.to(torch_device)
   #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
-  if prefs['sequential_cpu_offload']:
-    pipe_img2img.enable_sequential_cpu_offload()
-  pipe_img2img = optimize_pipe(pipe_img2img)
+  pipe_img2img = optimize_pipe(pipe_img2img, vae=True)
   pipe_img2img.set_progress_bar_config(disable=True)
   #def dummy(images, **kwargs): return images, False
   #pipe_img2img.safety_checker = dummy
@@ -6646,12 +7505,12 @@ def get_imagic_pipe():
     pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   else:
     pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
-  pipe_imagic = pipe_imagic.to(torch_device)
+  #pipe_imagic = pipe_imagic.to(torch_device)
   def dummy(images, **kwargs):
     return images, False
   if prefs['disable_nsfw_filter']:
     pipe_imagic.safety_checker = dummy
-  pipe_imagic = optimize_pipe(pipe_imagic, vae=False)
+  pipe_imagic = optimize_pipe(pipe_imagic)
   #pipe_imagic.set_progress_bar_config(disable=True)
   return pipe_imagic
 
@@ -6673,12 +7532,12 @@ def get_composable_pipe():
     pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, feature_extractor=None, safety_checker=None)
   else:
     pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), revision="fp16", torch_dtype=torch.float16, feature_extractor=None, safety_checker=None)
-  pipe_composable = pipe_composable.to(torch_device)
+  #pipe_composable = pipe_composable.to(torch_device)
   def dummy(images, **kwargs):
     return images, False
   if prefs['disable_nsfw_filter']:
     pipe_composable.safety_checker = dummy
-  pipe_composable = optimize_pipe(pipe_composable, vae=False)
+  pipe_composable = optimize_pipe(pipe_composable)
   #pipe_composable.set_progress_bar_config(disable=True)
   return pipe_composable
 
@@ -6715,8 +7574,8 @@ def get_versatile_pipe(): # Mega was taking up too much vram and crashing the sy
         torch_dtype=torch.float16,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
-  pipe_versatile.to(torch_device)
-  pipe_versatile = optimize_pipe(pipe_versatile, vae=False)
+  #pipe_versatile.to(torch_device)
+  pipe_versatile = optimize_pipe(pipe_versatile)
   pipe_versatile.set_progress_bar_config(disable=True)
   return pipe_versatile
 
@@ -6741,8 +7600,8 @@ def get_versatile_text2img_pipe():
         torch_dtype=torch.float16,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
-  pipe_versatile_text2img.to(torch_device)
-  pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img, vae=False)
+  #pipe_versatile_text2img.to(torch_device)
+  pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img)
   pipe_versatile_text2img.set_progress_bar_config(disable=True)
   return pipe_versatile_text2img
 
@@ -6767,8 +7626,8 @@ def get_versatile_variation_pipe():
         torch_dtype=torch.float16,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
-  pipe_versatile_variation.to(torch_device)
-  pipe_versatile_variation = optimize_pipe(pipe_versatile_variation, vae=False)
+  #pipe_versatile_variation.to(torch_device)
+  pipe_versatile_variation = optimize_pipe(pipe_versatile_variation)
   pipe_versatile_variation.set_progress_bar_config(disable=True)
   return pipe_versatile_variation
 
@@ -6793,8 +7652,8 @@ def get_versatile_dualguided_pipe():
         torch_dtype=torch.float16,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
-  pipe_versatile_dualguided.to(torch_device)
-  pipe_versatile_dualguided = optimize_pipe(pipe_versatile_dualguided, vae=False)
+  #pipe_versatile_dualguided.to(torch_device)
+  pipe_versatile_dualguided = optimize_pipe(pipe_versatile_dualguided)
   pipe_versatile_dualguided.set_progress_bar_config(disable=True)
   return pipe_versatile_dualguided
 
@@ -6840,8 +7699,8 @@ def get_safe_pipe():
         torch_dtype=torch.float16,
         safety_checker=None# if prefs['disable_nsfw_filter'] else SafeStableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
       )
-  pipe_safe.to(torch_device)
-  pipe_safe = optimize_pipe(pipe_safe, vae=False)
+  #pipe_safe.to(torch_device)
+  pipe_safe = optimize_pipe(pipe_safe)
   pipe_safe.set_progress_bar_config(disable=True)
   return pipe_safe
 
@@ -6878,8 +7737,8 @@ def get_upscale_pipe():
       torch_dtype=torch.float16,
       #safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
     )
-  pipe_upscale.to(torch_device)
-  pipe_upscale = optimize_pipe(pipe_upscale, vae=False)
+  #pipe_upscale.to(torch_device)
+  pipe_upscale = optimize_pipe(pipe_upscale)
   pipe_upscale.set_progress_bar_config(disable=True)
   return pipe_upscale
 
@@ -6931,7 +7790,7 @@ def get_clip_guided_pipe():
           )
     else:
       pipe_clip_guided = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/clip_guided_stable_diffusion_mod", clip_model=clip_model, feature_extractor=feature_extractor, scheduler=model_scheduler(model_path, big3=True), safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16)
-    pipe_clip_guided = pipe_clip_guided.to(torch_device)
+    #pipe_clip_guided = pipe_clip_guided.to(torch_device)
     '''
     pipe_clip_guided = CLIPGuidedStableDiffusion(
         unet=pipeline.unet,
@@ -6942,7 +7801,7 @@ def get_clip_guided_pipe():
         clip_model=clip_model,
         feature_extractor=feature_extractor,
     )'''
-    pipe_clip_guided = optimize_pipe(pipe_clip_guided, vae=False)
+    pipe_clip_guided = optimize_pipe(pipe_clip_guided)
     return pipe_clip_guided
 
 def get_repaint(page):
@@ -6987,8 +7846,8 @@ def get_depth_pipe():
         revision="fp16", 
         torch_dtype=torch.float16,
     )
-  pipe_depth.to(torch_device)
-  pipe_depth = optimize_pipe(pipe_depth, vae=False)
+  #pipe_depth.to(torch_device)
+  pipe_depth = optimize_pipe(pipe_depth)
   pipe_depth.set_progress_bar_config(disable=True)
   return pipe_depth
 
@@ -7020,7 +7879,7 @@ def get_alt_diffusion_pipe():
           requires_safety_checker = not prefs['disable_nsfw_filter'],
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
       )
-    pipe_alt_diffusion.to(torch_device)
+    #pipe_alt_diffusion.to(torch_device)
     pipe_alt_diffusion = optimize_pipe(pipe_alt_diffusion)
     pipe_alt_diffusion.set_progress_bar_config(disable=True)
     return pipe_alt_diffusion
@@ -7055,7 +7914,7 @@ def get_alt_diffusion_img2img_pipe():
           requires_safety_checker = not prefs['disable_nsfw_filter'],
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
       )
-    pipe_alt_diffusion_img2img.to(torch_device)
+    #pipe_alt_diffusion_img2img.to(torch_device)
     pipe_alt_diffusion_img2img = optimize_pipe(pipe_alt_diffusion_img2img)
     pipe_alt_diffusion_img2img.set_progress_bar_config(disable=True)
     return pipe_alt_diffusion_img2img
@@ -7180,9 +8039,9 @@ def get_conceptualizer(page):
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
     )
-    pipe_conceptualizer = optimize_pipe(pipe_conceptualizer, vae=False)
+    pipe_conceptualizer = optimize_pipe(pipe_conceptualizer)
     pipe_conceptualizer.set_progress_bar_config(disable=True)
-    pipe_conceptualizer = pipe_conceptualizer.to(torch_device)
+    #pipe_conceptualizer = pipe_conceptualizer.to(torch_device)
     return pipe_conceptualizer
 
 def get_dreamfusion(page):
@@ -9227,7 +10086,7 @@ def run_retrieve(page):
         img = PILImage.open(filename)
         metadata = img.info
         if display_image:
-          page.add_to_retrieve_output(Image(src=filename))
+          page.add_to_retrieve_output(Img(src=filename, gapless_playback=True))
           #display(img)
         if metadata is None or len(metadata) < 1:
           alert_msg(page, 'Sorry, image has no exif data.')
@@ -9487,7 +10346,7 @@ def run_image_variation(page):
         prt(Row([ProgressRing(), Text(" Downloading Image Variation Pipeline", weight=FontWeight.BOLD)]))
         model_id = "fusing/sd-image-variations-diffusers"
         pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, scheduler=model_scheduler(model_id), safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-        pipe_image_variation.to(torch_device)
+        #pipe_image_variation.to(torch_device)
         pipe_image_variation = optimize_pipe(pipe_image_variation)
         #pipe_image_variation.set_progress_bar_config(disable=True)
         clear_last()
@@ -9878,9 +10737,9 @@ def run_dance_diffusion(page):
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
     global dance_pipe, dance_prefs
-    #if dance_prefs['dance_model'] == 'Community' or dance_prefs['dance_model'] == 'Custom':
-    #  alert_msg(page, "Custom Community Checkpoints are not functional yet, working on it so check back later... ")
-    #  return
+    if dance_prefs['dance_model'] == 'Community' or dance_prefs['dance_model'] == 'Custom':
+      alert_msg(page, "Custom Community Checkpoints are not functional yet, working on it so check back later... ")
+      return
     from diffusers import DanceDiffusionPipeline
     import scipy.io.wavfile, random
     from slugify import slugify
@@ -10564,7 +11423,7 @@ def run_dreambooth2(page):
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
     os.chdir(diffusers_dir)
     #run_process('pip install -e ".[training]"', cwd=diffusers_dir, realtime=False)
-    run_process('pip install "git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]"', cwd=diffusers_dir, realtime=False)
+    run_process('pip install "git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]"', cwd=root_dir, realtime=False)
     dreambooth_dir = os.path.join(diffusers_dir, "examples", "dreambooth")
     os.chdir(dreambooth_dir)
     run_process("pip install -r requirements.txt", cwd=dreambooth_dir, realtime=False)
@@ -11217,16 +12076,16 @@ class TextualInversionDataset(Dataset):
         return example
 
 
-def run_LoRA(page):
-    global LoRA_prefs, prefs
+def run_LoRA_dreambooth(page):
+    global LoRA_dreambooth_prefs, prefs
     def prt(line):
       if type(line) == str:
         line = Text(line)
-      page.LoRA_output.controls.append(line)
-      page.LoRA_output.update()
+      page.LoRA_dreambooth_output.controls.append(line)
+      page.LoRA_dreambooth_output.update()
     def clear_last():
-      del page.LoRA_output.controls[-1]
-      page.LoRA_output.update()
+      del page.LoRA_dreambooth_output.controls[-1]
+      page.LoRA_dreambooth_output.update()
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -11236,24 +12095,28 @@ def run_LoRA(page):
       error = True
     elif len(os.listdir(save_path)) == 0:
       error = True
-    if len(page.lora_file_list.controls) == 0:
+    if len(page.lora_dreambooth_file_list.controls) == 0:
       error = True
     if error:
       alert_msg(page, "Couldn't find a list of images to train model. Add image files to the list...")
       return
     from slugify import slugify
+    page.LoRA_dreambooth_output.controls.clear()
+    page.LoRA_dreambooth_output.update()
     prt(Row([ProgressRing(), Text(" Downloading LoRA DreamBooth Conceptualizers", weight=FontWeight.BOLD)]))
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       os.chdir(root_dir)
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
+    run_process('pip install git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]', cwd=root_dir, realtime=False)
     os.chdir(diffusers_dir)
-    run_sp('pip install -e ".[training]"', cwd=diffusers_dir, realtime=True)
-    run_process('pip install "git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]"', cwd=diffusers_dir, realtime=False)
-    LoRA_dir = os.path.join(diffusers_dir, "examples", "dreambooth")
-    os.chdir(LoRA_dir)
-    run_sp("pip install -r requirements.txt", cwd=LoRA_dir, realtime=True)
+    run_sp('pip install -e ".[training]"', cwd=diffusers_dir, realtime=False)
+    LoRA_dreambooth_dir = os.path.join(diffusers_dir, "examples", "dreambooth")
+    #LoRA_dreambooth_dir = os.path.join(diffusers_dir, "examples", "text_to_image")
+    os.chdir(LoRA_dreambooth_dir)
+    run_sp("pip install -r requirements.txt", cwd=LoRA_dreambooth_dir, realtime=False)
     run_process("pip install -qq bitsandbytes", page=page)
+    run_sp("accelerate config default", realtime=False)
     #from accelerate.utils import write_basic_config
     #write_basic_config()
     import argparse
@@ -11265,42 +12128,45 @@ def run_LoRA(page):
     clear_pipes()
     clear_last()
     #num_new_images = None
-    random_seed = int(LoRA_prefs['seed']) if int(LoRA_prefs['seed']) > 0 else rnd.randint(0,4294967295)
-    name_of_your_model = LoRA_prefs['name_of_your_model']
+    random_seed = int(LoRA_dreambooth_prefs['seed']) if int(LoRA_dreambooth_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    name_of_your_model = LoRA_dreambooth_prefs['name_of_your_model']
     from argparse import Namespace
-    LoRA_args = Namespace(
+    LoRA_dreambooth_args = Namespace(
         pretrained_model_name_or_path=model_path,
-        resolution=LoRA_prefs['resolution'],
+        resolution=LoRA_dreambooth_prefs['resolution'],
         center_crop=True,
+        #train_data_dir=save_path,
+        #caption_column=LoRA_dreambooth_prefs['instance_prompt'].strip(),
         instance_data_dir=save_path,
-        instance_prompt=LoRA_prefs['instance_prompt'].strip(),
-        learning_rate=LoRA_prefs['learning_rate'],#5e-06,'
-        lr_scheduler=LoRA_prefs['lr_scheduler'],
-        lr_warmup_steps=LoRA_prefs['lr_warmup_steps'],
-        lr_num_cycles=LoRA_prefs['lr_num_cycles'],
-        lr_power=LoRA_prefs['lr_power'],
-        scale_lr=LoRA_prefs['scale_lr'],
-        max_train_steps=LoRA_prefs['max_train_steps'],#450,
-        train_batch_size=LoRA_prefs['train_batch_size'],
-        checkpointing_steps=LoRA_prefs['checkpointing_steps'],
-        gradient_accumulation_steps=LoRA_prefs['gradient_accumulation_steps'],
+        instance_prompt=LoRA_dreambooth_prefs['instance_prompt'].strip(),
+        learning_rate=LoRA_dreambooth_prefs['learning_rate'],#5e-06,'
+        lr_scheduler=LoRA_dreambooth_prefs['lr_scheduler'],
+        lr_warmup_steps=LoRA_dreambooth_prefs['lr_warmup_steps'],
+        lr_num_cycles=LoRA_dreambooth_prefs['lr_num_cycles'],
+        lr_power=LoRA_dreambooth_prefs['lr_power'],
+        scale_lr=LoRA_dreambooth_prefs['scale_lr'],
+        max_train_steps=LoRA_dreambooth_prefs['max_train_steps'],#450,
+        train_batch_size=LoRA_dreambooth_prefs['train_batch_size'],
+        checkpointing_steps=LoRA_dreambooth_prefs['checkpointing_steps'],
+        gradient_accumulation_steps=LoRA_dreambooth_prefs['gradient_accumulation_steps'],
         max_grad_norm=1.0,
         #mixed_precision="no", # set to "fp16" for mixed-precision training.
         gradient_checkpointing=True, # set this to True to lower the memory usage.
         use_8bit_adam=not prefs['higher_vram_mode'], # use 8bit optimizer from bitsandbytes
         seed=random_seed,
-        with_prior_preservation=LoRA_prefs['prior_preservation'], 
-        prior_loss_weight=LoRA_prefs['prior_loss_weight'],
-        sample_batch_size=LoRA_prefs['sample_batch_size'],
-        #class_data_dir=LoRA_prefs['class_data_dir'], 
-        #class_prompt=LoRA_prefs['class_prompt'],
-        num_class_images=LoRA_prefs['num_class_images'], 
-        output_dir=os.path.join(root_dir, "LoRA-model", slugify(LoRA_prefs['name_of_your_model'])),
+        with_prior_preservation=LoRA_dreambooth_prefs['prior_preservation'], 
+        prior_loss_weight=LoRA_dreambooth_prefs['prior_loss_weight'],
+        sample_batch_size=LoRA_dreambooth_prefs['sample_batch_size'],
+        #class_data_dir=LoRA_dreambooth_prefs['class_data_dir'], 
+        #class_prompt=LoRA_dreambooth_prefs['class_prompt'],
+        num_class_images=LoRA_dreambooth_prefs['num_class_images'], 
+        output_dir=os.path.join(root_dir, "LoRA-model", slugify(LoRA_dreambooth_prefs['name_of_your_model'])),
     )
-    output_dir = LoRA_args.output_dir
+    output_dir = LoRA_dreambooth_args.output_dir
     if not os.path.exists(os.path.join(root_dir, "LoRA-model")): os.makedirs(os.path.join(root_dir, "LoRA-model"))
-    arg_str = "accelerate launch train_dreambooth_lora.py"
-    for k, v in vars(LoRA_args).items():
+    arg_str = "launch train_dreambooth_lora.py"
+    #arg_str = 'accelerate --mixed_precision="fp16" launch train_text_to_image_lora.py'
+    for k, v in vars(LoRA_dreambooth_args).items():
       if isinstance(v, str):
         if ' ' in v:
           v = f'"{v}"'
@@ -11311,29 +12177,29 @@ def run_LoRA(page):
         arg_str += f" --{k}={v}"
     prt(Text("*** Running training ***", weight=FontWeight.BOLD))
     #if num_new_images != None: prt(f"  Number of class images to sample: {num_new_images}.")
-    #prt(f"  Instantaneous batch size per device = {LoRA_args.train_batch_size}")
+    #prt(f"  Instantaneous batch size per device = {LoRA_dreambooth_args.train_batch_size}")
     #prt(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
-    #prt(f"  Gradient Accumulation steps = {LoRA_args.gradient_accumulation_steps}")
-    #prt(f"  Total optimization steps = {LoRA_args.max_train_steps}")
+    #prt(f"  Gradient Accumulation steps = {LoRA_dreambooth_args.gradient_accumulation_steps}")
+    #prt(f"  Total optimization steps = {LoRA_dreambooth_args.max_train_steps}")
     prt(arg_str)
     progress = ProgressBar(bar_height=8)
     prt(progress)
-    if(LoRA_prefs['save_model']):
+    if(LoRA_dreambooth_prefs['save_model']):
       from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
       from huggingface_hub import Repository, create_repo, whoami
       #from diffusers import StableDiffusionPipeline
       api = HfApi()
       your_username = api.whoami()["name"]
-      #LoRA_pipe = StableDiffusionPipeline.from_pretrained(
-      #  LoRA_args.output_dir,
+      #LoRA_dreambooth_pipe = StableDiffusionPipeline.from_pretrained(
+      #  LoRA_dreambooth_args.output_dir,
       #  torch_dtype=torch.float16,
       #).to("cuda")
       #os.makedirs("fp16_model",exist_ok=True)
-      #LoRA_pipe.save_pretrained("fp16_model")
+      #LoRA_dreambooth_pipe.save_pretrained("fp16_model")
       hf_token = prefs['HuggingFace_api_key']
-      private = False if LoRA_prefs['where_to_save_model'] == "Public HuggingFace" else True
+      private = False if LoRA_dreambooth_prefs['where_to_save_model'] == "Public HuggingFace" else True
       repo_id = f"{your_username}/{slugify(name_of_your_model)}"
-      output_dir = LoRA_args.output_dir
+      output_dir = LoRA_dreambooth_args.output_dir
       if(not prefs['HuggingFace_api_key']):
         with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
       else:
@@ -11348,8 +12214,12 @@ def run_LoRA(page):
       if not os.path.exists(output_dir): os.makedirs(output_dir, exist_ok=True)
 
     try:
-      run_sp(arg_str, cwd=LoRA_dir, realtime=True)
-      #run_sp(arg_str, cwd=LoRA_dir)
+      #%cd $LoRA_dreambooth_dir # type: ignore
+      os.chdir(LoRA_dreambooth_dir)
+      #!accelerate $arg_str # type: ignore
+      os.system("accelerate" + arg_str)
+      #run_sp(arg_str, cwd=LoRA_dreambooth_dir, realtime=True)
+      #run_sp(arg_str, cwd=LoRA_dreambooth_dir)
     except Exception as e:
       clear_last()
       alert_msg(page, f"ERROR: Out of Memory (or something else). Try reducing parameters and try again...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
@@ -11357,7 +12227,7 @@ def run_LoRA(page):
         torch.cuda.empty_cache()
       return
     clear_last()
-    if(LoRA_prefs['save_model']):
+    if(LoRA_dreambooth_prefs['save_model']):
       model_images = os.path.join(output_dir, 'model_images')
       if not os.path.exists(model_images): os.makedirs(model_images, exist_ok=True)
       images_upload = os.listdir(save_path)
@@ -11365,21 +12235,21 @@ def run_LoRA(page):
       #repo_id = f"sd-LoRA-library/{slugify(name_of_your_model)}"
       for i, image in enumerate(images_upload):
           img_name = f"image_{i}.png"
-          shutil.copy(os.path.join(save_path, image), os.path.join(model_images, img_name))
+          shutil.copy(os.path.join(save_path, image), os.path.join(model_images, image))
           #image.save(os.path.join(repo_folder, f"image_{i}.png"))
           #img_str += f"![img_{i}](./image_{i}.png)\n"
-          image_string = f'''{image_string}![img_{i}-{image}](https://huggingface.co/{repo_id}/resolve/main/model_images/{img_name})
+          image_string = f'''{image_string}![img_{i}-{image}](https://huggingface.co/{repo_id}/resolve/main/model_images/{image})
 '''
-      description = LoRA_prefs['readme_description']
+      description = LoRA_dreambooth_prefs['readme_description']
       if bool(description.strip()):
-        description = LoRA_prefs['readme_description'] + '\n\n'
+        description = LoRA_dreambooth_prefs['readme_description'] + '\n\n'
       readme_text = f'''---
 license: mit
 ---
 ### {name_of_your_model} on Stable Diffusion via LoRA Dreambooth using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
 #### model by {api.whoami()["name"]}
-This your the Stable Diffusion model fine-tuned the {name_of_your_model} model taught to Stable Diffusion with LoRA.
-It can be used by modifying the `instance_prompt`: **{LoRA_prefs['instance_prompt']}**
+This is a model fine-tuned on the {model_path} model taught to Stable Diffusion with LoRA.
+It can be used by modifying the `instance_prompt`: **{LoRA_dreambooth_prefs['instance_prompt']}**
 
 {description}You can also train your own models and upload them to the library by using [this notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb).
 And you can run your new model via `diffusers`: [Colab Notebook for Inference](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_inference.ipynb), [Spaces with the Public Concepts loaded](https://huggingface.co/spaces/sd-dreambooth-library/stable-diffusion-dreambooth-models)
@@ -11406,9 +12276,272 @@ inference: true
       """
       model_card = f"""
 # LoRA DreamBooth - {name_of_your_model}
-These are LoRA adaption weights for {name_of_your_model}. The weights were trained on {LoRA_args.instance_prompt} using [DreamBooth](https://dreambooth.github.io/).\n
+These are LoRA adaption weights for {name_of_your_model}. The weights were trained on {LoRA_dreambooth_args.instance_prompt} using [DreamBooth](https://dreambooth.github.io/).\n
 ### {repo_id} on Stable Diffusion via LoRA Dreambooth using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
 #### Model by {api.whoami()["name"]}
+
+{description}You can also train your own models and upload them to the library by using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb) or [this notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb).
+
+Images used for training this model:
+{image_string}
+"""
+      readme_file = open(os.path.join(output_dir, "README.md"), "w")
+      readme_file.write(yaml + model_card)#(readme_text)
+      readme_file.close()
+      #with open(os.path.join(output_dir, "README.md"), "w") as f:
+      #    f.write(yaml + model_card)
+      #Save the token identifier to a file
+      #text_file = open("token_identifier.txt", "w")
+      #text_file.write(LoRA_dreambooth_prefs['instance_prompt'])
+      #text_file.close()
+      #operations = [
+        #CommitOperationAdd(path_in_repo="token_identifier.txt", path_or_fileobj="token_identifier.txt"),
+        #CommitOperationAdd(path_in_repo="README.md", path_or_fileobj="README.md"),
+      #]
+      print(repo_id)
+      print(model_card)
+
+      
+      with open(os.path.join(output_dir, ".gitignore"), "w+") as gitignore:
+        if "step_*" not in gitignore:
+            gitignore.write("step_*\n")
+        if "epoch_*" not in gitignore:
+            gitignore.write("epoch_*\n")
+      try:
+        #api.upload_folder(folder_path=output_dir, path_in_repo="", repo_id=repo_id, token=hf_token)
+        #api.upload_folder(folder_path=save_path, path_in_repo="model_images", repo_id=repo_id, token=hf_token)
+        #api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the model {name_of_your_model} embeds and token",token=hf_token)
+        repo.push_to_hub(commit_message=f"Upload the LoRA model {name_of_your_model} embeds and weights", blocking=False, auto_lfs_prune=True)
+      except Exception as e:
+        alert_msg(page, f"ERROR Pushing {name_of_your_model} Repository {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+        return
+      #api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the model {name_of_your_model} embeds and token",token=hf_token)
+      #api.upload_folder(folder_path="fp16_model", path_in_repo="", repo_id=repo_id,token=hf_token)
+      prefs['LoRA_dreambooth_model'] = name_of_your_model
+      prefs['custom_models'].append({'name': name_of_your_model, 'path':repo_id})
+      page.LoRA_dreambooth_model.options.insert(0, dropdown.Option(name_of_your_model))
+      page.LoRA_dreambooth_model.value = name_of_your_model
+      page.LoRA_dreambooth_model.update()
+      save_settings_file(page)
+      prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.\n[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Parameters->Use LaRA Model_ dropdown on top of any other Model loaded.", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+
+def run_LoRA(page):
+    global LoRA_prefs, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.LoRA_output.controls.append(line)
+      page.LoRA_output.update()
+    def clear_last():
+      del page.LoRA_output.controls[-1]
+      page.LoRA_output.update()
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    save_path = os.path.join(root_dir, "my_model")
+    error = False
+    if not os.path.exists(save_path):
+      error = True
+    elif len(os.listdir(save_path)) == 0:
+      error = True
+    if len(page.lora_file_list.controls) == 0:
+      error = True
+    if error:
+      alert_msg(page, "Couldn't find a list of images to train model. Add image files to the list...")
+      return
+    from slugify import slugify
+    page.LoRA_output.controls.clear()
+    page.LoRA_output.update()
+    prt(Row([ProgressRing(), Text(" Downloading LoRA Conceptualizers", weight=FontWeight.BOLD)]))
+    diffusers_dir = os.path.join(root_dir, "diffusers")
+    if not os.path.exists(diffusers_dir):
+      os.chdir(root_dir)
+      run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
+    run_process('pip install git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]', cwd=root_dir, realtime=False)
+    os.chdir(diffusers_dir)
+    run_sp('pip install -e ".[training]"', cwd=diffusers_dir, realtime=False)
+    #LoRA_dir = os.path.join(diffusers_dir, "examples", "dreambooth")
+    LoRA_dir = os.path.join(diffusers_dir, "examples", "text_to_image")
+    os.chdir(LoRA_dir)
+    run_sp("pip install -r requirements.txt", cwd=LoRA_dir, realtime=False)
+    run_process("pip install -qq bitsandbytes", page=page)
+    run_sp("accelerate config default", realtime=False)
+    #from accelerate.utils import write_basic_config
+    #write_basic_config()
+    import argparse
+    from io import BytesIO
+    from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
+    from huggingface_hub import Repository, create_repo, whoami
+    #from diffusers import StableDiffusionPipeline
+    api = HfApi()
+    your_username = api.whoami()["name"]
+    hf_token = prefs['HuggingFace_api_key']
+    metadata_jsonl = []
+    for fl in page.lora_file_list.controls:
+        f = fl.title.value
+        fn = f.rpartition(slash)[2]
+        text = fl.subtitle.value
+        metadata_jsonl.append({'file_name':fn, 'text':text})
+    with open(os.path.join(save_path, "metadata.jsonl"), "w") as f:
+        for meta in metadata_jsonl:
+          print(json.dumps(meta), file=f)
+        #json.dump(metadata_jsonl, f, ensure_ascii=False, indent=4)
+    clear_pipes()
+    clear_last()
+    #num_new_images = None
+    random_seed = int(LoRA_prefs['seed']) if int(LoRA_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    name_of_your_model = LoRA_prefs['name_of_your_model']
+    repo_id = f"{your_username}/{slugify(name_of_your_model)}"
+    from argparse import Namespace
+    #--lr_num_cycles=1 --lr_power=1 --prior_loss_weight=1.0 --sample_batch_size=4 --num_class_images=100
+    LoRA_args = Namespace(
+        pretrained_model_name_or_path=model_path,
+        #dataset_name=repo_id,
+        train_data_dir=save_path,
+        resolution=LoRA_prefs['resolution'],
+        center_crop=True,
+        image_column="image",
+        caption_column="text",
+        #caption_column=LoRA_prefs['instance_prompt'].strip(),
+        #instance_data_dir=save_path,
+        validation_prompt=LoRA_prefs['validation_prompt'].strip(),
+        num_validation_images = LoRA_prefs['num_validation_images'],
+        validation_epochs=LoRA_prefs['validation_epochs'],
+        learning_rate=LoRA_prefs['learning_rate'],#5e-06,'
+        lr_scheduler=LoRA_prefs['lr_scheduler'],
+        lr_warmup_steps=LoRA_prefs['lr_warmup_steps'],
+        #lr_num_cycles=LoRA_prefs['lr_num_cycles'],
+        #lr_power=LoRA_prefs['lr_power'],
+        scale_lr=LoRA_prefs['scale_lr'],
+        max_train_steps=LoRA_prefs['max_train_steps'],#450,
+        train_batch_size=LoRA_prefs['train_batch_size'],
+        checkpointing_steps=LoRA_prefs['checkpointing_steps'],
+        gradient_accumulation_steps=LoRA_prefs['gradient_accumulation_steps'],
+        max_grad_norm=1.0,
+        mixed_precision="fp16", # set to "fp16" for mixed-precision training.
+        gradient_checkpointing=LoRA_prefs['gradient_checkpointing'], # set this to True to lower the memory usage.
+        use_8bit_adam=not prefs['higher_vram_mode'], # use 8bit optimizer from bitsandbytes
+        seed=random_seed,
+        with_prior_preservation=LoRA_prefs['prior_preservation'], 
+        #prior_loss_weight=LoRA_prefs['prior_loss_weight'],
+        #sample_batch_size=LoRA_prefs['sample_batch_size'],
+        #class_data_dir=LoRA_prefs['class_data_dir'], 
+        #class_prompt=LoRA_prefs['class_prompt'],
+        #num_class_images=LoRA_prefs['num_class_images'],
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        hub_model_id=repo_id,
+        output_dir=os.path.join(root_dir, "LoRA-model", slugify(LoRA_prefs['name_of_your_model'])),
+    )
+    output_dir = LoRA_args.output_dir
+    if not os.path.exists(os.path.join(root_dir, "LoRA-model")): os.makedirs(os.path.join(root_dir, "LoRA-model"))
+    #arg_str = "accelerate launch train_dreambooth_lora.py"
+    arg_str = 'launch train_text_to_image_lora.py'
+    for k, v in vars(LoRA_args).items():
+      if isinstance(v, str):
+        if ' ' in v:
+          v = f'"{v}"'
+      if isinstance(v, bool) or v == None:
+        if bool(v):
+          arg_str += f" --{k}"
+      else:
+        arg_str += f" --{k}={v}"
+    prt(Text("*** Running training ***", weight=FontWeight.BOLD))
+    #if num_new_images != None: prt(f"  Number of class images to sample: {num_new_images}.")
+    #prt(f"  Instantaneous batch size per device = {LoRA_args.train_batch_size}")
+    #prt(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
+    #prt(f"  Gradient Accumulation steps = {LoRA_args.gradient_accumulation_steps}")
+    #prt(f"  Total optimization steps = {LoRA_args.max_train_steps}")
+    prt(arg_str)
+    progress = ProgressBar(bar_height=8)
+    prt(progress)
+    if(LoRA_prefs['save_model']):
+      
+      private = False if LoRA_prefs['where_to_save_model'] == "Public HuggingFace" else True
+      output_dir = LoRA_args.output_dir
+      if(not prefs['HuggingFace_api_key']):
+        with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
+      else:
+        hf_token = prefs['HuggingFace_api_key']
+      try:
+        create_repo(repo_id, private=private, exist_ok=True, token=hf_token)
+        repo = Repository(output_dir, clone_from=repo_id, token=hf_token)
+      except Exception as e:
+        alert_msg(page, f"ERROR Creating repo {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+        return
+    else:
+      if not os.path.exists(output_dir): os.makedirs(output_dir, exist_ok=True)
+
+    try:
+      #run_sp("accelerate " + arg_str, cwd=LoRA_dir, realtime=True)
+      #run_sp(arg_str, cwd=LoRA_dir)
+      #%cd $LoRA_dir # type: ignore
+      #!accelerate $arg_str # type: ignore
+      os.chdir(LoRA_dir)
+      os.system("accelerate" + arg_str)
+    except Exception as e:
+      clear_last()
+      alert_msg(page, f"ERROR: Out of Memory (or something else). Try reducing parameters and try again...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+      with torch.no_grad():
+        torch.cuda.empty_cache()
+      return
+    clear_last()
+    if(LoRA_prefs['save_model']):
+      model_images = os.path.join(output_dir, 'model_images')
+      if not os.path.exists(model_images): os.makedirs(model_images, exist_ok=True)
+      images_upload = os.listdir(save_path)
+      image_string = ""
+      #repo_id = f"sd-LoRA-library/{slugify(name_of_your_model)}"
+      for i, image in enumerate(images_upload):
+          if image.endswith("jsonl"): continue
+          img_name = f"image_{i}.png"
+          shutil.copy(os.path.join(save_path, image), os.path.join(model_images, image))
+          #image.save(os.path.join(repo_folder, f"image_{i}.png"))
+          #img_str += f"![img_{i}](./image_{i}.png)\n"
+          image_string = f'''{image_string}![img_{i}-{image}](https://huggingface.co/{repo_id}/resolve/main/model_images/{image})
+'''
+      shutil.copy(os.path.join(save_path, "metadata.jsonl"), os.path.join(model_images, "metadata.jsonl"))
+      description = LoRA_prefs['readme_description']
+      if bool(description.strip()):
+        description = LoRA_prefs['readme_description'] + '\n\n'
+      readme_text = f'''---
+license: mit
+---
+### {name_of_your_model} on Stable Diffusion via LoRA Dreambooth using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
+#### model by {api.whoami()["name"]}
+This your the Stable Diffusion model fine-tuned the {name_of_your_model} model taught to Stable Diffusion with LoRA.
+It can be used by modifying the `validation_prompt`: **{LoRA_prefs['validation_prompt']}**
+
+{description}You can also train your own models and upload them to the library by using [this notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb).
+And you can run your new model via `diffusers`: [Colab Notebook for Inference](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_inference.ipynb), [Spaces with the Public Concepts loaded](https://huggingface.co/spaces/sd-dreambooth-library/stable-diffusion-dreambooth-models)
+
+Here are the images used for training this model:
+{image_string}
+'''
+      #Save the readme to a file
+      #readme_file = open(os.path.join(output_dir, "README.md"), "w")
+      #readme_file.write(readme_text)
+      #readme_file.close()
+      yaml = f"""
+---
+license: creativeml-openrail-m
+base_model: {model_path}
+tags:
+- stable-diffusion
+- stable-diffusion-diffusers
+- stable-diffusion-deluxe
+- text-to-image
+- diffusers
+- lora
+inference: true
+---
+      """
+      model_card = f"""
+# LoRA Model - {name_of_your_model}
+These are LoRA adaption weights for {model_path}. The weights were validated with {LoRA_args.validation_prompt} using [DreamBooth](https://dreambooth.github.io/).\n
+### {repo_id} on Stable Diffusion via LoRA using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
+#### Model by {your_username}
 
 {description}You can also train your own models and upload them to the library by using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb) or [this notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb).
 
@@ -11443,7 +12576,7 @@ Images used for training this model:
         #api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the model {name_of_your_model} embeds and token",token=hf_token)
         repo.push_to_hub(commit_message=f"Upload the LoRA model {name_of_your_model} embeds and weights", blocking=False, auto_lfs_prune=True)
       except Exception as e:
-        alert_msg(page, f"ERROR Pushing {repo_name} Repository {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+        alert_msg(page, f"ERROR Pushing {name_of_your_model} Repository {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
         return
       #api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the model {name_of_your_model} embeds and token",token=hf_token)
       #api.upload_folder(folder_path="fp16_model", path_in_repo="", repo_id=repo_id,token=hf_token)
@@ -11453,9 +12586,331 @@ Images used for training this model:
       page.LoRA_model.value = name_of_your_model
       page.LoRA_model.update()
       save_settings_file(page)
-      prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Parameters->Use LaRA Model_ dropdown on top of any other Model loaded.", on_tap_link=lambda e: e.page.launch_url(e.data)))
+      prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.\n[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Parameters->Use LaRA Model_ dropdown on top of any other Model loaded.", on_tap_link=lambda e: e.page.launch_url(e.data)))
     if prefs['enable_sounds']: page.snd_alert.play()
 
+
+def run_converter(page):
+    global converter_prefs, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.converter_output.controls.append(line)
+      page.converter_output.update()
+    def clear_last():
+      del page.converter_output.controls[-1]
+      page.converter_output.update()
+    def download_file(url):
+        local_filename = url.split(slash)[-1]
+        with requests.get(url, stream=True) as r:
+            with open(local_filename, 'wb') as f:
+                shutil.copyfileobj(r.raw, f)
+        return local_filename
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    if not bool(converter_prefs['model_name']):
+      alert(page, "Provide a name to call the converted custom model")
+      return
+    if not bool(model_path):
+      alert(page, "Provide the path to the custom model to convert")
+      return
+    from slugify import slugify
+    model_name = converter_prefs['model_name']
+    model_path = converter_prefs['model_path']
+    model_file = slugify(model_name)
+    if converter_prefs['from_format'] == 'ckpt':
+      model_file += '.ckpt'
+    custom_models = os.path.join(root_dir, 'custom_models',)
+    custom_path = os.path.join(custom_models, slugify(model_name))
+    checkpoint_file = os.path.join(custom_models, model_file)
+    if not os.path.exists(custom_path):
+      os.makedirs(custom_path, existsok=True)
+    diffusers_dir = os.path.join(root_dir, "diffusers")
+    if not os.path.exists(diffusers_dir):
+      run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
+    run_process('pip install "git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]"', cwd=root_dir, realtime=False)
+    scripts_dir = os.path.join(diffusers_dir, "scripts")
+    progress = ProgressBar(bar_height=8)
+    
+    if model_path.startswith('https://drive'):
+      gdown.download(model_path, checkpoint_file, quiet=True)
+    elif model_path.startswith('http'):
+      local = download_file(model_path)
+      print(f"Download {model_path} local:{local}")
+      shutil.move(local, checkpoint_file)
+    elif os.path.isfile(model_path):
+      shutil.copy(model_path, checkpoint_file)
+    elif os.path.isdir(model_path):
+      if os.path.exists(custom_path):
+        shutil.rmtree(custom_path)
+      shutil.copytree(model_path, custom_path)
+      checkpoint_file = custom_path
+    elif '/' in model_path and not model_path.startswith('/'):
+      checkpoint_file = model_path # hopefully Huggingface
+    else:
+      alert_msg(page, f"Couldn't recognize source model file path {model_path}.")
+      return
+    prt(Text(f'Converting {model_file} to {converter_prefs["to_format"]}...', weight=FontWeight.BOLD))
+    prt(progress)
+    run_cmd = "python3 {os.path.join(scripts_dir, 'convert_original_stable_diffusion_to_diffusers.py'}"
+    if converter_prefs['from_format'] == "ckpt":
+      run_cmd += f' --checkpoint_path {checkpoint_file}'
+    if converter_prefs['from_format'] == "safetensors":
+      run_cmd += f' --from_safetensors'
+    run_cmd += f' --dump_path {custom_path}'
+    try:
+      run_process(run_cmd, page=page, cwd=scripts_dir, show=True)
+    except Exception as e:
+      clear_last()
+      alert_msg(page, "Error Running convert_original_stable_diffusion_to_diffusers", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+      return
+    clear_last()
+    clear_last()
+    prt(f"Done Converting... Saved locally at {custom_path}")
+    if converter_prefs['load_custom_model']:
+      prefs['custom_model'] = custom_path
+      prefs['custom_models'].append({'name': model_name, 'path':custom_path})
+    if(converter_prefs['save_concept']):
+      from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
+      from huggingface_hub import model_info, create_repo, create_branch, upload_folder
+      from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
+      from diffusers import StableDiffusionPipeline
+      api = HfApi()
+      your_username = api.whoami()["name"]
+      '''dreambooth_pipe = StableDiffusionPipeline.from_pretrained(
+        custom_path,
+        torch_dtype=torch.float16,
+      ).to("cuda")
+      os.makedirs("fp16_model",exist_ok=True)
+      dreambooth_pipe.save_pretrained("fp16_model")'''
+      hf_token = prefs['HuggingFace_api_key']
+      private = True
+      if(converter_prefs['where_to_save_model'] == "Public Library"):
+        private = False
+      #  repo_id = f"sd-dreambooth-library/{slugify(model_name)}"
+      if '/' in model_path and not model_path.startswith('/'):
+        repo_id = model_path
+      else:
+        repo_id = f"{your_username}/{slugify(model_name)}"
+      #output_dir = dreambooth_args.output_dir
+      if(not bool(prefs['HuggingFace_api_key'])):
+        with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
+      else:
+        hf_token = prefs['HuggingFace_api_key'] 
+      
+      description = converter_prefs['readme_description']
+      if bool(description.strip()):
+        description = converter_prefs['readme_description'] + '\n\n'
+      readme_text = f'''---
+license: mit
+---
+### {model_name} model on Stable Diffusion using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
+#### model by {api.whoami()["name"]}
+
+{description}
+You can also train your own models and upload them to the library by using [this notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb).
+And you can run your new concept via `diffusers`: [Colab Notebook for Inference](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_inference.ipynb), [Spaces with the Public Concepts loaded](https://huggingface.co/spaces/sd-dreambooth-library/stable-diffusion-dreambooth-concepts)
+
+    '''
+      #Save the readme to a file
+      readme_file = open("README.md", "w")
+      readme_file.write(readme_text)
+      readme_file.close()
+      #Save the token identifier to a file
+      '''text_file = open("token_identifier.txt", "w")
+      text_file.write(dreambooth_prefs['instance_prompt'])
+      text_file.close()'''
+      operations = [
+        #CommitOperationAdd(path_in_repo="token_identifier.txt", path_or_fileobj="token_identifier.txt"),
+        CommitOperationAdd(path_in_repo="README.md", path_or_fileobj="README.md"),
+      ]
+      print(repo_id)
+      print(readme_text)
+      try:
+          repo_exists = True
+          r_info = model_info(repo_id, token=hf_token)
+      except RepositoryNotFoundError:
+          repo_exists = False
+          pass
+      if not repo_exists:
+        try:
+          create_repo(repo_id, private=private, token=hf_token)
+        except Exception as e:
+          alert_msg(page, f"ERROR Creating repo {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+          return
+      branch = f"{converter_prefs['from_format']}-to-{converter_prefs['to_format']}"
+      try:
+          branch_exists = True
+          b_info = model_info(repo_id, revision=branch, token=hf_token)
+      except RevisionNotFoundError:
+          branch_exists = False
+      finally:
+          if branch_exists:
+              print(b_info)
+          else:
+              create_branch(repo_id, branch=branch, token=hf_token)
+      api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the converted model {model_name} embeds",token=hf_token)
+      api.upload_folder(folder_path=custom_path, path_in_repo="", revision=branch, repo_id=repo_id, commit_message=f"Upload the converted model {model_name} embeds", token=hf_token)
+      #api.upload_folder(folder_path="fp16_model", path_in_repo="", repo_id=repo_id,token=hf_token)
+      #api.upload_folder(folder_path=save_path, path_in_repo="concept_images", repo_id=repo_id, token=hf_token)
+      prefs['custom_model'] = repo_id
+      prefs['custom_models'].append({'name': model_name, 'path':repo_id})
+      page.custom_model.value = repo_id
+      page.custom_model.update()
+      prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token in prompts.", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    
+    def push_ckpt(model_to, token, branch):
+      try:
+          repo_exists = True
+          r_info = model_info(model_to, token=token)
+      except RepositoryNotFoundError:
+          repo_exists = False
+      finally:
+          if repo_exists:
+              print(r_info)
+          else:
+              create_repo(model_to, private=True, token=token)
+      try:
+          branch_exists = True
+          b_info = model_info(model_to, revision=branch, token=token)
+      except RevisionNotFoundError:
+          branch_exists = False
+      finally:
+          if branch_exists:
+              print(b_info)
+          else:
+              create_branch(model_to, branch=branch, token=token)    
+      upload_folder(folder_path="ckpt", path_in_repo="", revision=branch, repo_id=model_to, commit_message=f"ckpt", token=token)
+      return "push ckpt done!"
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_checkpoint_merger(page):
+    global checkpoint_merger_prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.checkpoint_merger_output.controls.append(line)
+      page.checkpoint_merger_output.update()
+    def clear_last():
+      del page.checkpoint_merger_output.controls[-1]
+      page.checkpoint_merger_output.update()
+    if not status['installed_diffusers']:
+        alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+        return
+    if len(checkpoint_merger_prefs['pretrained_models']) < 2:
+        alert_msg(page, "Select 2 or more compatible checkpoint models to the list before running...")
+        return
+    prt(Row([ProgressRing(), Text(" Downloading Required Models and Merging...", weight=FontWeight.BOLD)]))
+    try:
+        from diffusers import DiffusionPipeline
+        model_path = checkpoint_merger_prefs['pretrained_models'][0]
+        checkpoint_merger_pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="checkpoint_merger.py", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        merged_pipe = checkpoint_merger_pipe.merge(checkpoint_merger_prefs['pretrained_models'], interp = checkpoint_merger_prefs['interp'] if checkpoint_merger_prefs['interp'] != "weighted_sum" else None, alpha = checkpoint_merger_prefs['alpha'], force = checkpoint_merger_prefs['force'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        merged_pipe.to(torch_device)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Problem running Merger. Check parameters and try again...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+        with torch.no_grad():
+            torch.cuda.empty_cache()
+        return
+    model_name = format_filename(checkpoint_merger_prefs['name_of_your_model'], force_underscores=True)
+    output_dir = os.path.join(root_dir, 'my_models', model_name)
+    repo_id = f"{prefs['HuggingFace_username']}/{model_name}"
+    if bool(checkpoint_merger_prefs['validation_prompt']):
+        prt("Generating Test Validation Image...")
+        try:
+            image = merged_pipe(checkpoint_merger_prefs['validation_prompt']).images[0]
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Problem creating image with merged_pipe...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+            with torch.no_grad():
+                torch.cuda.empty_cache()
+            return
+        fname = format_filename(checkpoint_merger_prefs['validation_prompt'])
+        fpath = available_file(stable_dir, fname, 0)
+        image.save(fpath)
+        clear_last()
+        prt(Img(src=fpath))
+    if checkpoint_merger_prefs['save_model']:
+        private = False if checkpoint_merger_prefs['where_to_save_model'] == "Public HuggingFace" else True
+        if(not prefs['HuggingFace_api_key']):
+            with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
+        else:
+            hf_token = prefs['HuggingFace_api_key']
+        try:
+            create_repo(repo_id, private=private, exist_ok=True, token=hf_token)
+            repo = Repository(output_dir, clone_from=repo_id, token=hf_token)
+        except Exception as e:
+            alert_msg(page, f"ERROR Creating repo {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+            return
+    else:
+        if os.path.exists(output_dir):
+            os.makedirs(output_dir, existsok=True)
+    try:
+        merged_pipe.save_pretrained(output_dir)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Issue saving pretrained.  Check parameters and try again...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+        with torch.no_grad():
+            torch.cuda.empty_cache()
+        return
+    del checkpoint_merger_pipe
+    del merged_pipe
+    if checkpoint_merger_prefs['save_model']:
+        description = checkpoint_merger_prefs['readme_description']
+        if bool(description.strip()):
+            description = checkpoint_merger_prefs['readme_description'] + '\n\n'
+        models_string = ""
+        for m in checkpoint_merger_prefs['pretrained_models']:
+            models_string += f"* [{m}](https://huggingface.co/{m})\n"
+        yaml = f"""
+---
+license: creativeml-openrail-m
+base_model: {model_path}
+tags:
+- stable-diffusion
+- stable-diffusion-diffusers
+- stable-diffusion-deluxe
+- text-to-image
+- diffusers
+- merge
+inference: true
+---
+"""
+        model_card = f"""
+# Merged Checkpoint Model - {checkpoint_merger_prefs['name_of_your_model']}
+These are fine-tuned combined weights of {' + '.join(checkpoint_merger_prefs['pretrained_models'])}.\n
+### {repo_id} on Stable Diffusion via Custom Checkpoint using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
+#### Model by {prefs['HuggingFace_username']}
+{description}
+
+Checkpoints used for training this model:
+{models_string}
+Alpha Interpolation: {checkpoint_merger_prefs['alpha']}
+Interpolation Method: {checkpoint_merger_prefs['interp']}
+"""
+        readme_file = open(os.path.join(output_dir, "README.md"), "w")
+        readme_file.write(yaml + model_card)#(readme_text)
+        readme_file.close()
+        print(repo_id)
+        print(model_card)        
+        with open(os.path.join(output_dir, ".gitignore"), "w+") as gitignore:
+            if "step_*" not in gitignore:
+                gitignore.write("step_*\n")
+            if "epoch_*" not in gitignore:
+                gitignore.write("epoch_*\n")
+        try:
+            #api.upload_folder(folder_path=output_dir, path_in_repo="", repo_id=repo_id, token=hf_token)
+            #api.upload_folder(folder_path=save_path, path_in_repo="model_images", repo_id=repo_id, token=hf_token)
+            #api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the model {name_of_your_model} embeds and token",token=hf_token)
+            repo.push_to_hub(commit_message=f"Upload the Merged model {model_name} embeds and weights", blocking=False, auto_lfs_prune=True)
+        except Exception as e:
+            alert_msg(page, f"ERROR Pushing {model_name} Repository {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+            return
+        prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.\n[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Installers->Diffusers Custom Model_ dropdown.", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_tortoise_tts(page):
     #https://github.com/neonbjb/tortoise-tts
@@ -11613,9 +13068,9 @@ def run_tortoise_tts(page):
     if prefs['enable_sounds']: page.snd_alert.play()
   
 
-
+loaded_StableUnCLIP = None
 def run_unCLIP(page, from_list=False):
-    global unCLIP_prefs, pipe_unCLIP
+    global unCLIP_prefs, pipe_unCLIP, loaded_StableUnCLIP
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -11632,7 +13087,10 @@ def run_unCLIP(page, from_list=False):
       page.unCLIP_output.auto_scroll = scroll
       page.unCLIP_output.update()
     progress = ProgressBar(bar_height=8)
-    total_steps = unCLIP_prefs['prior_num_inference_steps'] + unCLIP_prefs['decoder_num_inference_steps'] + unCLIP_prefs['super_res_num_inference_steps']
+    if unCLIP_prefs['use_StableUnCLIP_pipeline']:
+      total_steps = unCLIP_prefs['prior_num_inference_steps'] + unCLIP_prefs['decoder_num_inference_steps']
+    else:
+      total_steps = unCLIP_prefs['prior_num_inference_steps'] + unCLIP_prefs['decoder_num_inference_steps'] + unCLIP_prefs['super_res_num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
@@ -11659,20 +13117,34 @@ def run_unCLIP(page, from_list=False):
     torch.cuda.empty_cache()
     torch.cuda.reset_max_memory_allocated()
     torch.cuda.reset_peak_memory_stats()
+    model_id = "kakaobrain/karlo-v1-alpha"
+    stable = "Stable " if unCLIP_prefs['use_StableUnCLIP_pipeline'] else ""
+    if pipe_unCLIP != None and ((loaded_StableUnCLIP == True and not unCLIP_prefs['use_StableUnCLIP_pipeline']) or (loaded_StableUnCLIP == False and unCLIP_prefs['use_StableUnCLIP_pipeline'])):
+        del pipe_unCLIP
+        gc.collect()
+        torch.cuda.empty_cache()
+        pipe_unCLIP = None
     if pipe_unCLIP == None:
-        from diffusers import UnCLIPPipeline
-        prt(Row([ProgressRing(), Text("  Downloading unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
+        prt(Row([ProgressRing(), Text(f"  Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)], padding=padding.only(left=8)))
         try:
-            pipe_unCLIP = UnCLIPPipeline.from_pretrained("kakaobrain/karlo-v1-alpha", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            pipe_unCLIP.to(torch_device)
+            if unCLIP_prefs['use_StableUnCLIP_pipeline']:
+              from diffusers import DiffusionPipeline
+              pipe_unCLIP = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="stable_unclip", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, decoder_pipe_kwargs=dict(image_encoder=None))
+              pipe_unCLIP.to(torch_device)
+              loaded_StableUnCLIP = True
+            else:
+              from diffusers import UnCLIPPipeline
+              pipe_unCLIP = UnCLIPPipeline.from_pretrained(model_id, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+              pipe_unCLIP.to(torch_device)
+              loaded_StableUnCLIP = False
         except Exception as e:
             clear_last()
-            alert_msg(page, "Error Downloading unCLIP Pipeline", content=Text(str(e)))
+            alert_msg(page, f"Error Downloading {stable}unCLIP Pipeline", content=Text(str(e)))
             return
         pipe_unCLIP.set_progress_bar_config(disable=True)
         clear_last()
     s = "s" if unCLIP_prefs['num_images'] > 1 else ""
-    prt(f"Generating unCLIP{s} of your Image...")
+    prt(f" Generating {stable}unCLIP{s} of your Image...")
     batch_output = os.path.join(stable_dir, unCLIP_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
@@ -11687,10 +13159,13 @@ def run_unCLIP(page, from_list=False):
             random_seed = (int(unCLIP_prefs['seed']) + num) if int(unCLIP_prefs['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
-                images = pipe_unCLIP([pr], prior_num_inference_steps=unCLIP_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_prefs['super_res_num_inference_steps'], prior_guidance_scale=unCLIP_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_prefs['decoder_guidance_scale'], num_images_per_prompt=1, generator=generator, callback=callback_fnc, callback_steps=1).images
+                if unCLIP_prefs['use_StableUnCLIP_pipeline']:
+                  images = pipe_unCLIP([pr], prior_num_inference_steps=unCLIP_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_prefs['decoder_num_inference_steps'], prior_guidance_scale=unCLIP_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_prefs['decoder_guidance_scale'], num_images_per_prompt=1, width=512, height=512, generator=generator).images
+                else:
+                  images = pipe_unCLIP([pr], prior_num_inference_steps=unCLIP_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_prefs['super_res_num_inference_steps'], prior_guidance_scale=unCLIP_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_prefs['decoder_guidance_scale'], num_images_per_prompt=1, generator=generator, callback=callback_fnc, callback_steps=1).images
             except Exception as e:
                 clear_last()
-                alert_msg(page, "Error running unCLIP Pipeline", content=Text(str(e)))
+                alert_msg(page, f"Error running {stable}unCLIP Pipeline", content=Text(str(e)))
                 return
             clear_last()
             fname = format_filename(pr)
@@ -11703,7 +13178,7 @@ def run_unCLIP(page, from_list=False):
                 image.save(image_path)
                 out_path = image_path.rpartition(slash)[0]
                 if not unCLIP_prefs['display_upscaled_image'] or not unCLIP_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                     upload_folder = 'upload'
@@ -11727,20 +13202,18 @@ def run_unCLIP(page, from_list=False):
                     shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                     image_path = upscaled_path
                     os.chdir(stable_dir)
-                    if unCLIP_prefs['display_upscaled_image']:
-                        time.sleep(0.6)
-                        prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
                     metadata = PngInfo()
                     metadata.add_text("artist", prefs['meta_ArtistName'])
                     metadata.add_text("copyright", prefs['meta_Copyright'])
                     metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {unCLIP_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_prefs['apply_ESRGAN_upscale'] else "")
-                    metadata.add_text("pipeline", "unCLIP")
+                    metadata.add_text("pipeline", f"{stable}unCLIP")
                     if prefs['save_config_in_metadata']:
                       metadata.add_text("title", pr)
                       config_json = unCLIP_prefs.copy()
-                      config_json['model_path'] = "kakaobrain/karlo-v1-alpha"
+                      config_json['model_path'] = model_id
                       config_json['seed'] = random_seed
                       del config_json['num_images']
                       del config_json['display_upscaled_image']
@@ -11760,6 +13233,9 @@ def run_unCLIP(page, from_list=False):
                     out_path = new_file
                     shutil.copy(image_path, new_file)
                 time.sleep(0.2)
+                if unCLIP_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -12016,8 +13492,8 @@ def run_magic_mix(page, from_list=False):
         prt(Row([ProgressRing(), Text("  Downloading MagicMix Pipeline... ", weight=FontWeight.BOLD)]))
         try:
             pipe_magic_mix = DiffusionPipeline.from_pretrained(model, custom_pipeline="AlanB/magic_mix_mod", scheduler=schedule, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            pipe_magic_mix.to(torch_device)
-            pipe_magic_mix = optimize_pipe(pipe_magic_mix, vae=False)
+            #pipe_magic_mix.to(torch_device)
+            pipe_magic_mix = optimize_pipe(pipe_magic_mix)
             magic_mix_prefs['scheduler_last'] = magic_mix_prefs['scheduler_mode']
         except Exception as e:
             clear_last()
@@ -12308,7 +13784,7 @@ def run_paint_by_example(page):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
-def run_instruct_pix2pix(page):
+def run_instruct_pix2pix(page, from_list=False):
     global instruct_pix2pix_prefs, prefs, status, pipe_instruct_pix2pix
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
@@ -12338,23 +13814,26 @@ def run_instruct_pix2pix(page):
       progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    instruct_pix2pix_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        instruct = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else instruct_pix2pix_prefs['original_image'], 'seed': p['seed']}
+        instruct_pix2pix_prompts.append(instruct)
+    else:
+      if not bool(instruct_pix2pix_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      instruct = {'prompt':instruct_pix2pix_prefs['prompt'], 'negative_prompt': instruct_pix2pix_prefs['negative_prompt'], 'original_image': instruct_pix2pix_prefs['original_image'], 'seed': instruct_pix2pix_prefs['seed']}
+      instruct_pix2pix_prompts.append(instruct)
+    page.instruct_pix2pix_output.controls.clear()
     prt(Row([ProgressRing(), Text("Installing Instruct-Pix2Pix Pipeline...", weight=FontWeight.BOLD)]))
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
     from PIL.PngImagePlugin import PngInfo
-    if instruct_pix2pix_prefs['original_image'].startswith('http'):
-      #response = requests.get(instruct_pix2pix_prefs['original_image'])
-      #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
-      original_img = PILImage.open(requests.get(instruct_pix2pix_prefs['original_image'], stream=True).raw)
-    else:
-      if os.path.isfile(instruct_pix2pix_prefs['original_image']):
-        original_img = PILImage.open(instruct_pix2pix_prefs['original_image'])
-      else:
-        alert_msg(page, f"ERROR: Couldn't find your original_image {instruct_pix2pix_prefs['original_image']}")
-        return
-    width, height = original_img.size
-    width, height = scale_dimensions(width, height, instruct_pix2pix_prefs['max_size'])
     
     clear_pipes('instruct_pix2pix')
     torch.cuda.empty_cache()
@@ -12364,8 +13843,10 @@ def run_instruct_pix2pix(page):
     if pipe_instruct_pix2pix is None:
       from diffusers import StableDiffusionInstructPix2PixPipeline
       from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-      pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, scheduler=model_scheduler(model_id), torch_dtype=torch.float16, revision="fp16", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-      pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
+      pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+      pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
+      #pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
+    pipeline_scheduler(pipe_instruct_pix2pix)
     clear_last()
     prt("Generating Instruct-Pix2Pix of your Image...")
     prt(progress)
@@ -12375,94 +13856,107 @@ def run_instruct_pix2pix(page):
     batch_output = os.path.join(prefs['image_output'], instruct_pix2pix_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
-    random_seed = int(instruct_pix2pix_prefs['seed']) if int(instruct_pix2pix_prefs['seed']) > 0 else rnd.randint(0,4294967295)
-    generator = torch.Generator(device=torch_device).manual_seed(random_seed)
-    #generator = torch.manual_seed(random_seed)
-    try:
-      images = pipe_instruct_pix2pix(instruct_pix2pix_prefs['prompt'], image=original_img, negative_prompt=instruct_pix2pix_prefs['negative_prompt'] if bool(instruct_pix2pix_prefs['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
-    except Exception as e:
-      clear_last()
-      alert_msg(page, f"ERROR: Couldn't run Instruct-Pix2Pix on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
-      gc.collect()
-      torch.cuda.empty_cache()
-      return
-    clear_last()
-    clear_last()
-    filename = instruct_pix2pix_prefs['original_image'].rpartition(slash)[2].rpartition('.')[0]
-    filename = f"-{format_filename(instruct_pix2pix_prefs['prompt'])}"
-    filename = filename[:int(prefs['file_max_length'])]
-    #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
-    num = 0
-    for image in images:
-        random_seed += num
-        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
-        image_path = available_file(os.path.join(stable_dir, instruct_pix2pix_prefs['batch_folder_name']), fname, num)
-        unscaled_path = image_path
-        output_file = image_path.rpartition(slash)[2]
-        image.save(image_path)
-        out_path = image_path.rpartition(slash)[0]
-        if not instruct_pix2pix_prefs['display_upscaled_image'] or not instruct_pix2pix_prefs['apply_ESRGAN_upscale']:
-            prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'     
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if instruct_pix2pix_prefs["face_enhance"] else ''
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {instruct_pix2pix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            upscaled_path = os.path.join(out_path, output_file)
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            image_path = upscaled_path
-            os.chdir(stable_dir)
-            if instruct_pix2pix_prefs['display_upscaled_image']:
-                time.sleep(0.6)
-                prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        if prefs['save_image_metadata']:
-            img = PILImage.open(image_path)
-            metadata = PngInfo()
-            metadata.add_text("artist", prefs['meta_ArtistName'])
-            metadata.add_text("copyright", prefs['meta_Copyright'])
-            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {instruct_pix2pix_prefs['enlarge_scale']}x with ESRGAN" if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] else "")
-            metadata.add_text("pipeline", "Instruct-Pix2Pix")
-            if prefs['save_config_in_metadata']:
-              config_json = instruct_pix2pix_prefs.copy()
-              config_json['model_path'] = model_id
-              config_json['seed'] = random_seed
-              del config_json['num_images']
-              del config_json['max_size']
-              del config_json['display_upscaled_image']
-              del config_json['batch_folder_name']
-              del config_json['invert_mask']
-              del config_json['alpha_mask']
-              if not config_json['apply_ESRGAN_upscale']:
-                del config_json['enlarge_scale']
-                del config_json['apply_ESRGAN_upscale']
-              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-            img.save(image_path, pnginfo=metadata)
-        #TODO: PyDrive
-        if storage_type == "Colab Google Drive":
-            new_file = available_file(os.path.join(prefs['image_output'], instruct_pix2pix_prefs['batch_folder_name']), fname, num)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        elif bool(prefs['image_output']):
-            new_file = available_file(os.path.join(prefs['image_output'], instruct_pix2pix_prefs['batch_folder_name']), fname, num)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        time.sleep(0.2)
-        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
-        num += 1
+    for pr in instruct_pix2pix_prompts:
+      for num in range(instruct_pix2pix_prefs['num_images']):
+        prt(progress)
+        random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+        #generator = torch.manual_seed(random_seed)
+        if instruct_pix2pix_prefs['original_image'].startswith('http'):
+          #response = requests.get(instruct_pix2pix_prefs['original_image'])
+          #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+          original_img = PILImage.open(requests.get(pr['original_image'], stream=True).raw)
+        else:
+          if os.path.isfile(pr['original_image']):
+            original_img = PILImage.open(pr['original_image'])
+          else:
+            alert_msg(page, f"ERROR: Couldn't find your original_image {pr['original_image']}")
+            return
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, pr['max_size'])
+        try:
+          images = pipe_instruct_pix2pix(pr['prompt'], image=original_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+        except Exception as e:
+          clear_last()
+          alert_msg(page, f"ERROR: Couldn't run Instruct-Pix2Pix on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
+          gc.collect()
+          torch.cuda.empty_cache()
+          return
+        clear_last()
+        clear_last()
+        filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
+        filename = f"-{format_filename(pr['prompt'])}"
+        filename = filename[:int(prefs['file_max_length'])]
+        #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+        #num = 0
+        for image in images:
+            random_seed += num
+            fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+            image_path = available_file(os.path.join(stable_dir, instruct_pix2pix_prefs['batch_folder_name']), fname, num)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            image.save(image_path)
+            out_path = image_path.rpartition(slash)[0]
+            if not instruct_pix2pix_prefs['display_upscaled_image'] or not instruct_pix2pix_prefs['apply_ESRGAN_upscale']:
+                prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'     
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{num}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                #print(f'Moving {fpath} to {dst_path}')
+                #shutil.move(fpath, dst_path)
+                shutil.copy(image_path, dst_path)
+                #faceenhance = ' --face_enhance' if instruct_pix2pix_prefs["face_enhance"] else ''
+                faceenhance = ''
+                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {instruct_pix2pix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                upscaled_path = os.path.join(out_path, output_file)
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if instruct_pix2pix_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {instruct_pix2pix_prefs['enlarge_scale']}x with ESRGAN" if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", "Instruct-Pix2Pix")
+                if prefs['save_config_in_metadata']:
+                  config_json = instruct_pix2pix_prefs.copy()
+                  config_json['model_path'] = model_id
+                  config_json['seed'] = random_seed
+                  del config_json['num_images']
+                  del config_json['max_size']
+                  del config_json['display_upscaled_image']
+                  del config_json['batch_folder_name']
+                  if not config_json['apply_ESRGAN_upscale']:
+                    del config_json['enlarge_scale']
+                    del config_json['apply_ESRGAN_upscale']
+                  metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            #TODO: PyDrive
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], instruct_pix2pix_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], instruct_pix2pix_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            time.sleep(0.2)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+            #num += 1
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_materialdiffusion(page):
@@ -13315,9 +14809,9 @@ main = Main()'''
 
 port = 8510
 if tunnel_type == "ngrok":
-  if bool(url):
-    public_url = url
-  else:
+  #if bool(url):
+  #  public_url = url
+  #else:
     from pyngrok import ngrok
     public_url = ngrok.connect(port = str(port)).public_url
 elif tunnel_type == "localtunnel":
