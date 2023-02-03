@@ -461,6 +461,7 @@ def buildTabs(page):
     page.Images = buildImages(page)
     page.StableDiffusers = buildStableDiffusers(page)
     page.Trainers = buildTrainers(page)
+    page.AudioAIs = buildAudioAIs(page)
     page.Extras = buildExtras(page)
     
     t = Tabs(selected_index=0, animation_duration=300, expand=1,
@@ -473,6 +474,7 @@ def buildTabs(page):
             Tab(text="Prompt Helpers", content=page.PromptHelpers, icon=icons.BUBBLE_CHART_OUTLINED),
             Tab(text="Stable Diffusers", content=page.StableDiffusers, icon=icons.PALETTE),
             Tab(text="AI Trainers", content=page.Trainers, icon=icons.TSUNAMI),
+            Tab(text="Audio AIs", content=page.AudioAIs, icon=icons.EQUALIZER),
             Tab(text="Extras", content=page.Extras, icon=icons.ALL_INBOX),
         ],
     )
@@ -528,10 +530,10 @@ def buildStableDiffusers(page):
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Image Variation", content=page.unCLIPImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
+            Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
             Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
             Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
-            Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
@@ -566,15 +568,31 @@ def buildTrainers(page):
     )
     return trainersTabs
 
+def buildAudioAIs(page):
+    page.TortoiseTTS = buildTortoiseTTS(page)
+    page.DanceDiffusion = buildDanceDiffusion(page)
+    page.AudioLDM = buildAudioLDM(page)
+    page.Mubert = buildMubert(page)
+    audioAIsTabs = Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
+            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
+            Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
+            Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
+        ],
+        expand=1,
+        #on_change=tab_on_change
+    )
+    return audioAIsTabs
+
 def buildExtras(page):
     page.ESRGAN_upscaler = buildESRGANupscaler(page)
     page.CachedModelManager = buildCachedModelManager(page)
     page.Image2Text = buildImage2Text(page)
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
-    page.TortoiseTTS = buildTortoiseTTS(page)
-    page.DanceDiffusion = buildDanceDiffusion(page)
-    page.Mubert = buildMubert(page)
     extrasTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -584,9 +602,6 @@ def buildExtras(page):
             Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
-            Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
-            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
-            Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
         ],
         expand=1,
         #on_change=tab_on_change
@@ -843,7 +858,7 @@ def alert_msg(page, msg, content=None, okay="", sound=True):
         if page.alert_dlg.open == True: return
       except Exception: pass
       if prefs['enable_sounds'] and sound: page.snd_error.play()
-      okay = ElevatedButton("👌  OKAY " if okay == "" else okay, on_click=close_alert_dlg)
+      okay = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
       page.alert_dlg = AlertDialog(title=Text(msg), content=content, actions=[okay], actions_alignment=MainAxisAlignment.END)
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
@@ -1925,7 +1940,7 @@ def editPrompt(e):
           use_clip_guided_model, clip_block,
           #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
         ], alignment=MainAxisAlignment.START, width=e.page.width - 200, height=e.page.height - 100, scroll=ScrollMode.AUTO), width=e.page.width - 200, height=e.page.height - 100), 
-        actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
+        actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
     open_dlg()
     #e.page.dialog = edit_dlg
     #edit_dlg.open = True
@@ -1971,7 +1986,7 @@ def buildPromptsList(page):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, multiline=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=page.width - 180, height=page.height - 100, scroll="none"), width=page.width - 180, height=page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=page.width - 180, height=page.height - 100, scroll="none"), width=page.width - 180, height=page.height - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_paste
       dlg_paste.open = True
       page.update()
@@ -2002,7 +2017,7 @@ def buildPromptsList(page):
       duplicate_modal = AlertDialog(modal=False, title=Text("🌀  Duplicate Prompt Multiple Times"), content=Container(Column([
             Container(content=None, height=7),
             NumberPicker(label="Number of Copies: ", min=1, max=99, value=num_times, on_change=change_num),
-          ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":bowling:") + "  Duplicate Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
+          ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":bowling:") + "  Duplicate Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
       e.page.dialog = duplicate_modal
       duplicate_modal.open = True
       e.page.update()
@@ -6750,6 +6765,93 @@ def buildTortoiseTTS(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+audioLDM_prefs = {
+    'text': '',
+    'duration': 5.0,
+    'guidance_scale': 2.5,
+    'n_candidates': 3,#This number control the number of candidates (e.g., generate three audios and choose the best to show you). A Larger value usually lead to better quality with heavier computation
+    'seed': 0,
+    'wav_path': '',
+    'batch_folder_name': '',
+    'file_prefix': 'ldm-',
+}
+
+def buildAudioLDM(page):
+    global prefs, audioLDM_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              audioLDM_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              audioLDM_prefs[pref] = float(e.control.value)
+            else:
+              audioLDM_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_audioLDM_output(o):
+        page.audioLDM_output.controls.append(o)
+        page.audioLDM_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.audioLDM_output.controls = []
+        page.audioLDM_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def audioLDM_help(e):
+        def close_audioLDM_dlg(e):
+          nonlocal audioLDM_help_dlg
+          audioLDM_help_dlg.open = False
+          page.update()
+        audioLDM_help_dlg = AlertDialog(title=Text("💁   Help with Audio-LDM"), content=Column([
+            Text("AudioLDM is a TTA system that is built on a latent space to learn the continuous audio representations from contrastive language-audio pretraining (CLAP) latents. The pretrained CLAP models enable us to train LDMs with audio embedding while providing text embedding as a condition during sampling. By learning the latent representations of audio signals and their compositions without modeling the cross-modal relationship, AudioLDM is advantageous in both generation quality and computational efficiency. Trained on AudioCaps with a single GPU, AudioLDM achieves state-of-the-art TTA performance measured by both objective and subjective metrics (e.g., frechet distance). Moreover, AudioLDM is the first TTA system that enables various text-guided audio manipulations (e.g., style transfer) in a zero-shot fashion."),
+            Markdown("They built the model with data from [AudioSet](http://research.google.com/audioset/), [Freesound](https://freesound.org/) and [BBC Sound Effect library](https://sound-effects.bbcrewind.co.uk/). We share this demo based on the [UK copyright exception](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/375954/Research.pdf) of data for academic research.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🔔  Good to hear... ", on_click=close_audioLDM_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = audioLDM_help_dlg
+        audioLDM_help_dlg.open = True
+        page.update()
+    def change_duration(e):
+        changed(e, 'duration', ptype="float")
+        duration_value.value = f" {audioLDM_prefs['duration']}s"
+        duration_value.update()
+    duration = Slider(min=1, max=20, divisions=38, label="{value}s", value=float(audioLDM_prefs['duration']), expand=True, on_change=change_duration)
+    duration_value = Text(f" {float(audioLDM_prefs['duration'])}s", weight=FontWeight.BOLD)
+    duration_row = Row([Text("Duration: "), duration_value, duration])
+    def change_guidance(e):
+      guidance_value.value = f" {e.control.value}"
+      guidance_value.update()
+      guidance.update()
+      changed(e, 'guidance_scale', ptype="float")
+    guidance_scale = Slider(min=0, max=5, divisions=10, label="{value}", value=audioLDM_prefs['guidance_scale'], tooltip="Large => better quality and relavancy to text; Small => better diversity", on_change=change_guidance, expand=True)
+    guidance_value = Text(f" {audioLDM_prefs['guidance_scale']}", weight=FontWeight.BOLD)
+    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    text = TextField(label="Text Prompt to Auditorialize", value=audioLDM_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=audioLDM_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=audioLDM_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:  ", min=1, max=5, value=audioLDM_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
+    seed = TextField(label="Seed", value=audioLDM_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.audioLDM_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.audioLDM_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🦻  Audio LDM Modeling", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("Text-to-Audio Generation with Latent Diffusion Model..."),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        text,
+        duration_row,
+        guidance,
+        Row([n_candidates, seed]),
+        Row([batch_folder_name, file_prefix]),
+        ElevatedButton(content=Text("👏  Run AudioLDM", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_audio_ldm(page)),
+        page.audioLDM_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 mubert_prefs = {
     'prompt': '',
     'duration': 30,
@@ -6930,6 +7032,7 @@ pipe_DiT = None
 pipe_dance = None
 pipe_kandinsky = None
 pipe_tortoise_tts = None
+pipe_audio_ldm = None
 stability_api = None
 
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -8465,6 +8568,13 @@ def clear_tortoise_tts_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_tortoise_tts = None
+def clear_audio_ldm_pipe():
+  global pipe_audio_ldm
+  if pipe_audio_ldm is not None:
+    del pipe_audio_ldm
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_audio_ldm = None
 
 def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
@@ -8493,6 +8603,7 @@ def clear_pipes(allbut=None):
     if not 'DiT' in but: clear_DiT_pipe()
     if not 'dance' in but: clear_dance_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
+    if not 'audio_ldm' in but: clear_audio_ldm_pipe()
 
 import base64
 def get_base64(image_path):
@@ -13419,6 +13530,103 @@ def run_tortoise_tts(page):
     prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     if prefs['enable_sounds']: page.snd_alert.play()
   
+def run_audio_ldm(page):
+    global audioLDM_prefs, pipe_audio_ldm, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.audioLDM_output.controls.append(line)
+      page.audioLDM_output.update()
+    def clear_last():
+      if len(page.audioLDM_output.controls) < 1: return
+      del page.audioLDM_output.controls[-1]
+      page.audioLDM_output.update()
+    def play_audio(e):
+      e.control.data.play()
+    if not bool(audioLDM_prefs['text']):
+      alert_msg(page, "Provide Text for the AI to create the sound of...")
+      return
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    progress = ProgressBar(bar_height=8)
+    state_text = Text(" Downloading Audio LDM Packages...", weight=FontWeight.BOLD)
+    prt(Row([ProgressRing(), state_text]))
+    audioLDM_dir = os.path.join(root_dir, "audioldm-text-to-audio-generation")
+    #voice_dir = os.path.join(audioLDM_dir, 'audioldm', 'voices')
+    if not os.path.isdir(audioLDM_dir):
+      os.chdir(root_dir)
+      run_process("git clone https://huggingface.co/spaces/haoheliu/audioldm-text-to-audio-generation", page=page)
+    os.chdir(audioLDM_dir)
+    import sys
+    sys.path.append(os.path.join(audioLDM_dir, 'audioldm'))
+    try:
+        from audioldm import text_to_audio, build_model
+    except Exception:
+        try:
+            run_process("pip install -q pyyaml", page=page, show=True, print=True)
+            run_process("pip install -q einops", page=page, show=True, print=True)
+            run_process("pip install -q soundfile", page=page, show=True, print=True)
+            run_process("pip install -q librosa", page=page, show=True, print=True)
+            run_process("pip install -q pandas", page=page, show=True, print=True)
+            run_process("pip install -q gradio", page=page)
+            run_process("pip install -q torchlibrosa", page=page, show=True, print=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing AudioLDM requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+            return
+        pass
+    finally:
+        from audioldm import text_to_audio, build_model
+    import soundfile as sf
+    model_id="haoheliu/AudioLDM-S-Full"
+    clear_pipes('audio_ldm')
+    # This will download all the models used by Audio LDM from the HuggingFace hub.
+    if pipe_audio_ldm == None:
+      try:
+        pipe_audio_ldm = build_model()
+      except Exception as e:
+        clear_last()
+        alert_msg(page, "Error downloading Audio LDM package", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    clear_last()
+    prt(Text("  Generating AudioLDM Sounds...", weight=FontWeight.BOLD))
+    prt(progress)
+    random_seed = int(audioLDM_prefs['seed']) if int(audioLDM_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    waveform = text_to_audio(pipe_audio_ldm, audioLDM_prefs['text'], random_seed, duration=audioLDM_prefs['duration'], guidance_scale=audioLDM_prefs['guidance_scale'], n_candidate_gen_per_text=int(audioLDM_prefs['n_candidates']))
+    save_dir = os.path.join(root_dir, 'audio_out', audioLDM_prefs['batch_folder_name'])
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir, exist_ok=True)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(audioLDM_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, audioLDM_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm-tts", 'audioldm', 'voices'))
+    #print(str(voice_dirs))
+    fname = format_filename(audioLDM_prefs['text'])
+    if fname[-1] == '.': fname = fname[:-1]
+    file_prefix = audioLDM_prefs['file_prefix']
+    audio_name = f'{file_prefix}-{fname}'
+    audio_name = audio_name[:int(prefs['file_max_length'])]
+    fname = available_file(save_dir, audio_name, 0, ext="wav")
+    for i in range(waveform.shape[0]):
+        sf.write(fname, waveform[i, 0], samplerate=16000)
+    #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
+    #IPython.display.Audio('generated.wav')
+    clear_last()
+    clear_last()
+    a_out = Audio(src=fname, autoplay=False)
+    page.overlay.append(a_out)
+    page.update()
+    display_name = fname
+    #a.tofile(f"/content/dance-{i}.wav")
+    if storage_type == "Colab Google Drive":
+      audio_save = available_file(audio_out, audio_name, 0, ext='wav')
+      shutil.copy(fname, audio_save)
+      display_name = audio_save
+    prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_mubert(page):
     def prt(line):
@@ -13758,19 +13966,32 @@ def run_unCLIP_image_variation(page, from_list=False):
     global unCLIP_image_variation_prefs, pipe_unCLIP_image_variation
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+      return 
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
-      page.unCLIP_image_variation_output.controls.append(line)
-      if update:
-        page.unCLIP_image_variation_output.update()
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.unCLIP_image_variation_output.controls.append(line)
+        if update:
+          page.unCLIP_image_variation_output.update()
     def clear_last():
-      del page.unCLIP_image_variation_output.controls[-1]
-      page.unCLIP_image_variation_output.update()
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.unCLIP_image_variation_output.controls[-1]
+        page.unCLIP_image_variation_output.update()
     def autoscroll(scroll=True):
-      page.unCLIP_image_variation_output.auto_scroll = scroll
-      page.unCLIP_image_variation_output.update()
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.unCLIP_image_variation_output.auto_scroll = scroll
+        page.unCLIP_image_variation_output.update()
     progress = ProgressBar(bar_height=8)
     total_steps = unCLIP_image_variation_prefs['decoder_num_inference_steps'] + unCLIP_image_variation_prefs['super_res_num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -13798,7 +14019,9 @@ def run_unCLIP_image_variation(page, from_list=False):
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
-    
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
     clear_pipes('unCLIP_image_variation')
     torch.cuda.empty_cache()
     torch.cuda.reset_max_memory_allocated()
@@ -13928,15 +14151,28 @@ def run_magic_mix(page, from_list=False):
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
-      page.magic_mix_output.controls.append(line)
-      if update:
-        page.magic_mix_output.update()
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.magic_mix_output.controls.append(line)
+        if update:
+          page.magic_mix_output.update()
     def clear_last():
-      del page.magic_mix_output.controls[-1]
-      page.magic_mix_output.update()
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.magic_mix_output.controls[-1]
+        page.magic_mix_output.update()
     def autoscroll(scroll=True):
-      page.magic_mix_output.auto_scroll = scroll
-      page.magic_mix_output.update()
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.magic_mix_output.auto_scroll = scroll
+        page.magic_mix_output.update()
     progress = ProgressBar(bar_height=8)
     total_steps = magic_mix_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -13959,7 +14195,11 @@ def run_magic_mix(page, from_list=False):
         alert_msg(page, "You need to add a Text Prompt first... ")
         return
       magic_mix_prompts.append(magic_mix_prefs['prompt'])
-    page.magic_mix_output.controls.clear()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    else:
+      page.magic_mix_output.controls.clear()
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
@@ -14318,6 +14558,32 @@ def run_instruct_pix2pix(page, from_list=False):
     def clear_last():
       del page.instruct_pix2pix_output.controls[-1]
       page.instruct_pix2pix_output.update()
+      
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.instruct_pix2pix_output.controls.append(line)
+        if update:
+          page.instruct_pix2pix_output.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.instruct_pix2pix_output.controls[-1]
+        page.instruct_pix2pix_output.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.instruct_pix2pix_output.auto_scroll = scroll
+        page.instruct_pix2pix_output.update()
     progress = ProgressBar(bar_height=8)
     total_steps = instruct_pix2pix_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -14337,13 +14603,16 @@ def run_instruct_pix2pix(page, from_list=False):
       for p in prompts:
         instruct = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else instruct_pix2pix_prefs['original_image'], 'seed': p['seed']}
         instruct_pix2pix_prompts.append(instruct)
+      page.tabs.selected_index = 4
+      page.tabs.update()
+      page.instruct_pix2pix_output.controls.clear()
     else:
       if not bool(instruct_pix2pix_prefs['prompt']):
         alert_msg(page, "You need to add a Text Prompt first... ")
         return
       instruct = {'prompt':instruct_pix2pix_prefs['prompt'], 'negative_prompt': instruct_pix2pix_prefs['negative_prompt'], 'original_image': instruct_pix2pix_prefs['original_image'], 'seed': instruct_pix2pix_prefs['seed']}
       instruct_pix2pix_prompts.append(instruct)
-    page.instruct_pix2pix_output.controls.clear()
+      page.instruct_pix2pix_output.controls.clear()
     prt(Row([ProgressRing(), Text("Installing Instruct-Pix2Pix Pipeline...", weight=FontWeight.BOLD)]))
     import requests, random
     from io import BytesIO
