@@ -89,7 +89,7 @@ def run_sp(cmd_str, cwd=None, realtime=True):
 try:
   import flet
 except ImportError as e:
-  run_sp("pip install flet --upgrade --quiet")
+  run_sp("pip install flet --upgrade --quiet --pre")
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
@@ -332,7 +332,7 @@ import flet as ft
 #from flet import *
 from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
 from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, KeyboardType, TextThemeStyle, AnimationCurve
-from flet.types import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
+from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
 from flet import Image as Img
 try:
     import PIL
@@ -479,6 +479,121 @@ def buildTabs(page):
     page.tabs = t
     return t
 
+def buildPromptHelpers(page):
+    def changed(e, pref=None):
+      if pref is not None:
+        prefs[pref] = e.control.value
+      status['changed_prompt_helpers'] = True
+    page.generator = buildPromptGenerator(page)
+    page.remixer = buildPromptRemixer(page)
+    page.brainstormer = buildPromptBrainstormer(page)
+    page.writer = buildPromptWriter(page)
+    page.RetrievePrompts = buildRetrievePrompts(page)
+    page.InitFolder = buildInitFolder(page)
+    page.InitVideo = buildInitVideo(page)
+    promptTabs = Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            Tab(text="Prompt Writer", content=page.writer, icon=icons.CLOUD_CIRCLE),
+            Tab(text="Prompt Generator", content=page.generator, icon=icons.CLOUD),
+            Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
+            Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
+            Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
+            Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
+            Tab(text="Init Images from Video", content=page.InitVideo, icon=icons.SWITCH_VIDEO),
+        ],
+        expand=1,
+        #on_change=tab_on_change
+    )
+    return promptTabs
+
+def buildStableDiffusers(page):
+    page.RePainter = buildRepainter(page)
+    page.unCLIP = buildUnCLIP(page)
+    page.unCLIPImageVariation = buildUnCLIPImageVariation(page)
+    page.ImageVariation = buildImageVariation(page)
+    page.CLIPstyler = buildCLIPstyler(page)
+    page.MagicMix = buildMagicMix(page)
+    page.PaintByExample = buildPaintByExample(page)
+    page.InstructPix2Pix = buildInstructPix2Pix(page)
+    page.MaterialDiffusion = buildMaterialDiffusion(page)
+    page.MaskMaker = buildDreamMask(page)
+    page.DiT = buildDiT(page)
+    page.DreamFusion = buildDreamFusion(page)
+    diffusersTabs = Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
+            Tab(text="unCLIP Image Variation", content=page.unCLIPImageVariation, icon=icons.AIRLINE_STOPS),
+            Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
+            Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
+            Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
+            Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
+            Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
+            Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
+            Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
+            Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
+            Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
+            #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
+        ],
+        expand=1,
+        #on_change=tab_on_change
+    )
+    return diffusersTabs
+
+def buildTrainers(page):
+    page.DreamBooth = buildDreamBooth(page)
+    page.TexualInversion = buildTextualInversion(page)
+    page.LoRA_Dreambooth = buildLoRA_Dreambooth(page)
+    page.LoRA = buildLoRA(page)
+    page.Converter = buildConverter(page)
+    page.CheckpointMerger = buildCheckpointMerger(page)
+    trainersTabs = Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            Tab(text="LoRA", content=page.LoRA, icon=icons.SETTINGS_SYSTEM_DAYDREAM),
+            Tab(text="LoRA DreamBooth", content=page.LoRA_Dreambooth, icon=icons.SETTINGS_BRIGHTNESS),
+            Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
+            Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
+            Tab(text="Model Converter", content=page.Converter, icon=icons.PUBLISHED_WITH_CHANGES),
+            Tab(text="Checkpoint Merger", content=page.CheckpointMerger, icon=icons.JOIN_FULL),
+        ],
+        expand=1,
+        #on_change=tab_on_change
+    )
+    return trainersTabs
+
+def buildExtras(page):
+    page.ESRGAN_upscaler = buildESRGANupscaler(page)
+    page.CachedModelManager = buildCachedModelManager(page)
+    page.Image2Text = buildImage2Text(page)
+    page.DallE2 = buildDallE2(page)
+    page.Kandinsky = buildKandinsky(page)
+    page.TortoiseTTS = buildTortoiseTTS(page)
+    page.DanceDiffusion = buildDanceDiffusion(page)
+    page.Mubert = buildMubert(page)
+    extrasTabs = Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
+            Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
+            Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
+            Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
+            Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
+            Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
+            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
+            Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
+        ],
+        expand=1,
+        #on_change=tab_on_change
+    )
+    return extrasTabs
+
+
 def b_style():
     return ButtonStyle(elevation=8)
 def dict_diff(dict1, dict2):
@@ -502,6 +617,16 @@ def get_color(color):
     elif color == "brown": return colors.BROWN
     elif color == "teal": return colors.TEAL
     elif color == "yellow": return colors.YELLOW
+
+def download_file(url, to=None):
+    local_filename = url.split(slash)[-1]
+    if '?' in local_filename:
+        local_filename = local_filename.rpartition('?')[0]
+    local_filename = os.path.join(to if to != None else root_dir, local_filename)
+    with requests.get(url, stream=True) as r:
+        with open(local_filename, 'wb') as f:
+            shutil.copyfileobj(r.raw, f)
+    return local_filename
 
 # Delete these after everyone's updated
 if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
@@ -650,8 +775,8 @@ def buildSettings(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text ("⚙️   Deluxe Stable Diffusion Settings & Preferences", style=TextThemeStyle.TITLE_LARGE),
-        Divider(thickness=1, height=4),
+        Text ("⚙️   Deluxe Stable Diffusion Settings & Preferences", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
+        Divider(thickness=3, height=6, color=colors.SURFACE_VARIANT),
         #save_to_GDrive,
         ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
         #VerticalDivider(thickness=2),
@@ -910,9 +1035,10 @@ def buildInstallers(page):
   install_upscale = Tooltip(message="Allows you to enlarge images with prompts. Note: Will run out of mem for images larger than 512px, start small.", content=Switch(label="Install Stable Diffusion v2 Upscale 4X Pipeline", value=prefs['install_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_upscale'], on_change=lambda e:changed(e, 'install_upscale')))
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
-                                 Column([Container(Column([Container(None, height=3), model_row, Container(content=None, height=4), scheduler_mode, higher_vram_mode, 
-                                 #memory_optimization,#  enable_vae_slicing
-                                 enable_attention_slicing,
+                                 Column([Container(Column([Container(None, height=3), model_row, Container(content=None, height=4), scheduler_mode,
+                                 memory_optimization,#  enable_vae_slicing
+                                 higher_vram_mode, 
+                                 #enable_attention_slicing,
                                  #sequential_cpu_offload,
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion, 
@@ -966,7 +1092,7 @@ def buildInstallers(page):
         save_settings_file(page, change_icon=False)
         status['changed_installers'] = False
       # Temporary until I get Xformers to work
-      prefs['memory_optimization'] = 'Attention Slicing' if prefs['enable_attention_slicing'] else 'None'
+      #prefs['memory_optimization'] = 'Attention Slicing' if prefs['enable_attention_slicing'] else 'None'
       if prefs['install_diffusers'] and not bool(prefs['HuggingFace_api_key']):
         alert_msg(e.page, "You must provide your HuggingFace API Key to use Diffusers.")
         return
@@ -1170,7 +1296,8 @@ def buildInstallers(page):
         page.update()
   def show_install_fab(show = True):
     if show:
-      page.floating_action_button = FloatingActionButton(icon=icons.FILE_DOWNLOAD, text="Run Installations", on_click=run_installers)
+      page.floating_action_button = FloatingActionButton(content=Row([Icon(icons.FILE_DOWNLOAD), Text("Run Installations", size=18)], alignment="center", spacing=5), width=205, shape=ft.RoundedRectangleBorder(radius=22), on_click=run_installers)
+      #page.floating_action_button = FloatingActionButton(icon=icons.FILE_DOWNLOAD, text="Run Installations", on_click=run_installers)
       page.update()
     else:
       if page.floating_action_button is not None:
@@ -1183,8 +1310,8 @@ def buildInstallers(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
                 content=Column([
-        Text ("📥  Stable Diffusion Required & Optional Installers", style=TextThemeStyle.TITLE_LARGE),
-        Divider(thickness=1, height=4),
+        Text ("📥  Stable Diffusion Required & Optional Installers", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         install_diffusers,
         diffusers_settings,
         #install_text2img,
@@ -1486,7 +1613,8 @@ def buildParameters(page):
   #apply_changes_button.visible = len(prompts) > 0 and status['changed_parameters']
   def show_apply_fab(show = True):
     if show:
-      page.floating_action_button = FloatingActionButton(icon=icons.TRANSFORM, text="Apply Changes to Current Prompts", on_click=apply_to_prompts)
+      page.floating_action_button = FloatingActionButton(content=Row([Icon(icons.TRANSFORM), Text("Apply Changes to Current Prompts", size=18)], alignment="center", spacing=5), width=333, shape=ft.RoundedRectangleBorder(radius=22), on_click=apply_to_prompts)
+      #page.floating_action_button = FloatingActionButton(icon=icons.TRANSFORM, text="Apply Changes to Current Prompts", on_click=apply_to_prompts)
       page.update()
     else:
       if page.floating_action_button is not None:
@@ -1503,8 +1631,8 @@ def buildParameters(page):
 
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
-        Text ("📝  Stable Diffusion Image Parameters", style=TextThemeStyle.TITLE_LARGE),
-        Divider(thickness=1, height=4),
+        Text ("📝  Stable Diffusion Image Parameters", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
         page.interpolation_block, page.use_safe, page.img_block, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_conceptualizer_model,
         Row([use_LoRA_model, LoRA_block]), page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
@@ -1593,16 +1721,30 @@ def format_filename(s, force_underscore=False):
     if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
     return filename[:int(prefs['file_max_length'])]
 
+'''
 def merge_dict(*dicts):
     all_keys  = set(k for d in dicts for k in d.keys())
     chain_map = ChainMap(*reversed(dicts))
     return {k: chain_map[k] for k in all_keys}
+
+def merge_dict(dict1, dict2): 
+    merged_dict = {**dict1, **dict2}
+    return merged_dict
+'''
+def merge_dict(dict1, dict2):
+    new_dict = {}
+    for key in dict1:
+        new_dict[key] = dict1[key]
+    for key in dict2:
+        new_dict[key] = dict2[key]
+    return new_dict
+
 import copy
 
 def editPrompt(e):
     global prompts, prefs, status
-    idx = prompts.index(e.control.data)
     open_dream = e.control.data
+    idx = prompts.index(open_dream)
     def changed_tweening(e):
         status['changed_prompts'] = True
         tweening_params.height = None if e.control.value else 0
@@ -1614,10 +1756,17 @@ def editPrompt(e):
     def changed_tweens(e):
         prefs['tweens'] = int(e.control.value)
     def close_dlg(e):
-        dlg_modal.open = False
-        #page.dialog.open = False
+        nonlocal edit_dlg
+        edit_dlg.open = False
+        #e.page.dialog.open = False
         e.page.update()
-        #page.dialog = None
+        #del edit_dlg
+        #e.page.dialog = None
+    def open_dlg():
+        nonlocal edit_dlg
+        e.page.dialog = edit_dlg
+        edit_dlg.open = True
+        e.page.update()
     def save_dlg(e):
         nonlocal arg, open_dream
         dream = open_dream #e.control.data
@@ -1652,7 +1801,7 @@ def editPrompt(e):
           e.page.prompts_list.controls[idx].subtitle = None
         e.page.prompts_list.controls[idx].title.value = dream.prompt # = Text(edit_text.value)
         status['changed_prompts'] = True
-        dlg_modal.open = False
+        edit_dlg.open = False
         e.page.update()
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
@@ -1705,8 +1854,8 @@ def editPrompt(e):
         clip_block.update()
         #changed(e)
     arg = open_dream.arg #e.control.data.arg
-    edit_text = TextField(label="Composable | Prompt | Text" if prefs['use_composable'] and status['installed_composable'] else "Prompt Text", expand=3, value=open_dream.prompt, multiline=True)
-    negative_prompt = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", expand=1, value=str((arg['negative_prompt'] or '') if 'negative_prompt' in arg else ''))
+    edit_text = TextField(label="Composable | Prompt | Text" if prefs['use_composable'] and status['installed_composable'] else "Prompt Text", col={'lg':9}, value=open_dream.prompt, multiline=True)
+    negative_prompt = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", col={'lg':3}, value=str((arg['negative_prompt'] or '') if 'negative_prompt' in arg else ''))
     #batch_folder_name = TextField(label="Batch Folder Name", value=arg['batch_folder_name'], on_change=changed)
     #print(str(arg))
     prompt_tweening = bool(arg['prompt2']) if 'prompt2' in arg else False
@@ -1761,209 +1910,32 @@ def editPrompt(e):
       clip_block.height = 0
     elif not arg['use_clip_guided_model']:
       clip_block.height = 0
-    dlg_modal = AlertDialog(modal=False, title=Text("📝  Edit Prompt Dream Parameters"), content=Container(Column([
+    edit_dlg = AlertDialog(title=Text("📝  Edit Prompt Dream Parameters"), content=Container(Column([
           Container(content=None, height=7),
-          Row([
+          ResponsiveRow([
             edit_text,
             negative_prompt,
           ]),
           #Text("Override any Default Parameters"),
-          use_prompt_tweening,
-          tweening_params,
+          #use_prompt_tweening,
+          #tweening_params,
           #batch_size, n_iterations, steps, eta, seed, guidance, 
           param_columns, 
           width_slider, height_slider, img_block,
           use_clip_guided_model, clip_block,
           #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
-        ], alignment=MainAxisAlignment.START, tight=True, width=e.page.width - 200, height=e.page.height - 100, scroll=ScrollMode.AUTO), width=e.page.width - 200, height=e.page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
-    e.page.dialog = dlg_modal
-    dlg_modal.open = True
-    e.page.update()
+        ], alignment=MainAxisAlignment.START, width=e.page.width - 200, height=e.page.height - 100, scroll=ScrollMode.AUTO), width=e.page.width - 200, height=e.page.height - 100), 
+        actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
+    open_dlg()
+    #e.page.dialog = edit_dlg
+    #edit_dlg.open = True
+    #e.page.update()
 
 def buildPromptsList(page):
   parameter = Ref[ListTile]()
   global prompts, args, prefs
   def changed(e):
       status['changed_prompts'] = True
-      page.update()
-  # TODO: Delete this edit_prompt in favor of root editPrompt
-  def edit_prompt(e):
-      idx = prompts.index(e.control.data)
-      open_dream = e.control.data
-      def changed_tweening(e):
-          status['changed_prompts'] = True
-          tweening_params.height = None if e.control.value else 0
-          tweening_params.update()
-          #prompt2.visible = e.control.value
-          #tweens.visible = e.control.value
-          prompt_tweening = e.control.value
-          page.update()
-      def changed_tweens(e):
-          prefs['tweens'] = int(e.control.value)
-      def close_dlg(e):
-          dlg_modal.open = False
-          #page.dialog.open = False
-          page.update()
-          #page.dialog = None
-      def save_dlg(e):
-          dream = open_dream #e.control.data
-          dream.prompt = edit_text.value
-          arg['batch_size'] = int(batch_size.value)
-          arg['n_iterations'] = int(n_iterations.value)
-          arg['steps'] = int(steps.value)
-          arg['eta'] = float(eta.value)
-          arg['seed'] = int(seed.value)
-          arg['guidance_scale'] = float(guidance_scale.value)
-          arg['width'] = int(width.value)
-          arg['height'] = int(height.value)
-          arg['init_image'] = init_image.value
-          arg['mask_image'] = mask_image.value
-          arg['init_image_strength'] = float(init_image_strength.value)
-          arg['alpha_mask'] = alpha_mask.value
-          arg['invert_mask'] = invert_mask.value
-          arg['prompt2'] = prompt2.value if bool(use_prompt_tweening.value) else None
-          arg['tweens'] = int(tweens.value)
-          arg['negative_prompt'] = negative_prompt.value if bool(negative_prompt.value) else None
-          arg['use_clip_guided_model'] = use_clip_guided_model.content.value
-          arg['clip_guidance_scale'] = float(clip_guidance_scale.value)
-          arg['use_cutouts'] = use_cutouts.value
-          arg['num_cutouts'] = int(num_cutouts.value)
-          arg['unfreeze_unet'] = unfreeze_unet.value
-          arg['unfreeze_vae'] = unfreeze_vae.value
-          dream.arg = arg
-          diffs = arg_diffs(arg, args)
-          if bool(diffs):
-            prompts_list.controls[idx].subtitle = Text("    " + diffs)
-          else:
-            prompts_list.controls[idx].subtitle = None
-          prompts_list.controls[idx].title.value = dream.prompt # = Text(edit_text.value)
-          status['changed_prompts'] = True
-          dlg_modal.open = False
-          page.update()
-      def file_picker_result(e: FilePickerResultEvent):
-          if e.files != None:
-            upload_files(e)
-      def on_upload_progress(e: FilePickerUploadEvent):
-        nonlocal pick_type
-        if e.progress == 1:
-          fname = os.path.join(root_dir, e.file_name)
-          if pick_type == "init":
-            init_image.value = fname
-            init_image.update()
-            prefs['init_image'] = fname
-          elif pick_type == "mask":
-            mask_image.value = fname
-            mask_image.update()
-            prefs['mask_image'] = fname
-          page.update()
-      file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-      def upload_files(e):
-          uf = []
-          if file_picker.result != None and file_picker.result.files != None:
-              for f in file_picker.result.files:
-                  uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              file_picker.upload(uf)
-      page.overlay.append(file_picker)
-      pick_type = ""
-      #page.overlay.append(pick_files_dialog)
-      def pick_init(e):
-          nonlocal pick_type
-          pick_type = "init"
-          file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
-      def pick_mask(e):
-          nonlocal pick_type
-          pick_type = "mask"
-          file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
-      def change_width(e):
-          width_slider.controls[1].value = f" {int(e.control.value)}px"
-          width_slider.update()
-      def change_height(e):
-          height_slider.controls[1].value = f" {int(e.control.value)}px"
-          height_slider.update()
-      def toggle_clip(e):
-          if e.control.value:
-            img_block.height = 0
-            clip_block.height = None if status['installed_clip'] else 0
-          else:
-            img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
-            clip_block.height = 0
-          img_block.update()
-          clip_block.update()
-          changed(e)
-      arg = open_dream.arg #e.control.data.arg
-      edit_text = TextField(label="Composable | Prompt | Text" if prefs['use_composable'] and status['installed_composable'] else "Prompt Text", expand=3, value=open_dream.prompt, multiline=True)
-      negative_prompt = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", expand=1, value=str((arg['negative_prompt'] or '') if 'negative_prompt' in arg else ''), on_change=changed)
-      #batch_folder_name = TextField(label="Batch Folder Name", value=arg['batch_folder_name'], on_change=changed)
-      #print(str(arg))
-      prompt_tweening = bool(arg['prompt2']) if 'prompt2' in arg else False
-      use_prompt_tweening = Switch(label="Prompt Tweening", value=prompt_tweening, active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=changed_tweening)
-      use_prompt_tweening.visible = True if status['installed_txt2img'] and prefs['higher_vram_mode'] else False
-#TODO: Fix tweening code for float16 lpw pipeline to reactivate tweening
-      prompt2 = TextField(label="Prompt 2 Transition Text", expand=True, value=arg['prompt2'] if 'prompt2' in arg else '', on_change=changed)
-      tweens = TextField(label="# of Tweens", value=str(arg['tweens'] if 'tweens' in arg else 8), keyboard_type=KeyboardType.NUMBER, on_change=changed, width = 90)
-      #tweens =  NumberPicker(label="# of Tweens: ", min=2, max=300, value=int(arg['tweens'] if 'tweens' in arg else 8), on_change=changed_tweens),
-      #prompt2.visible = prompt_tweening
-      #tweens.visible = prompt_tweening
-      tweening_params = Container(Row([Container(content=None, width=8), prompt2, tweens]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-      tweening_params.height = None if prompt_tweening else 0
-      #tweening_row = Row([use_prompt_tweening, ])#tweening_params
-
-      batch_size = TextField(label="Batch Size", value=str(arg['batch_size']), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-      n_iterations = TextField(label="Number of Iterations", value=str(arg['n_iterations']), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-      steps = TextField(label="Steps", value=str(arg['steps']), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-      eta = TextField(label="DDIM ETA", value=str(arg['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise (only with DDIM sampler)", on_change=changed)
-      seed = TextField(label="Seed", value=str(arg['seed']), keyboard_type=KeyboardType.NUMBER, hint_text="0 or -1 picks a Random seed", on_change=changed)
-      guidance_scale = TextField(label="Guidance Scale", value=str(arg['guidance_scale']), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-      param_columns = Row([Column([batch_size, n_iterations, steps]), Column([guidance_scale, seed, eta])])
-      #guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=arg['guidance_scale'], expand=True)
-      #guidance = Row([Text("Guidance Scale: "), guidance_scale])
-      width = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['width']), expand=True, on_change=change_width)
-      width_value = Text(f" {int(arg['width'])}px", weight=FontWeight.BOLD)
-      width_slider = Row([Text("Width: "), width_value, width])
-      height = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['height']), expand=True, on_change=change_height)
-      height_value = Text(f" {int(arg['height'])}px", weight=FontWeight.BOLD)
-      height_slider = Row([Text("Height: "), height_value, height])
-      init_image = TextField(label="Init Image", value=arg['init_image'], expand=1, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
-      mask_image = TextField(label="Mask Image", value=arg['mask_image'], expand=1, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
-      alpha_mask = Checkbox(label="Alpha Mask", value=arg['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
-      invert_mask = Checkbox(label="Invert Mask", value=arg['invert_mask'], tooltip="Reverse Black & White of Image Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
-      image_row = ResponsiveRow([Row([init_image, alpha_mask], col={"lg":6}), Row([mask_image, invert_mask], col={"lg":6})])
-      init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(arg['init_image_strength']), expand=True)
-      strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
-      img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-      img_block.height = None if (status['installed_txt2img'] or status['installed_stability']) else 0
-      use_clip_guided_model = Tooltip(message="Uses more VRAM, so you'll probably need to make image size smaller", content=Switch(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=arg['use_clip_guided_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
-      clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=arg['clip_guidance_scale'], on_change=changed, expand=True)
-      clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
-      use_cutouts = Checkbox(label="Use Cutouts", value=bool(arg['use_cutouts']), fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
-      num_cutouts = NumberPicker(label="    Number of Cutouts: ", min=1, max=10, value=arg['num_cutouts'], on_change=changed)
-      #num_cutouts.visible = bool(prefs['use_cutouts'])
-      #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_cutouts', asInt=True))
-      unfreeze_unet = Checkbox(label="Unfreeze UNET", value=arg['unfreeze_unet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
-      unfreeze_vae = Checkbox(label="Unfreeze VAE", value=arg['unfreeze_vae'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=changed)
-      clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-      if not status['installed_clip']:
-        use_clip_guided_model.visible = False
-        clip_block.height = 0
-      elif not arg['use_clip_guided_model']:
-        clip_block.height = 0
-      dlg_modal = AlertDialog(modal=False, title=Text("📝  Edit Prompt Dream Parameters"), content=Container(Column([
-            Container(content=None, height=7),
-            Row([
-              edit_text,
-              negative_prompt,
-            ]),
-            #Text("Override any Default Parameters"),
-            use_prompt_tweening,
-            tweening_params,
-            #batch_size, n_iterations, steps, eta, seed, guidance, 
-            param_columns, 
-            width_slider, height_slider, img_block,
-            use_clip_guided_model, clip_block,
-            #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
-          ], alignment=MainAxisAlignment.START, tight=True, width=page.width - 200, height=page.height - 100, scroll=ScrollMode.AUTO), width=page.width - 200, height=page.height - 100), actions=[TextButton("Cancel", on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = dlg_modal
-      dlg_modal.open = True
       page.update()
   def prompt_help(e):
       def close_help_dlg(e):
@@ -1983,9 +1955,17 @@ def buildPromptsList(page):
       def save_prompts_list(e):
         plist = enter_text.value.strip()
         prompts_list = plist.split('\n')
+        negative_prompt = negative_prompt_text.value
+        negative = None
+        if bool(negative_prompt):
+          if '_' in negative_prompt:
+            negative_prompt = nsp_parse(negative_prompt)
+          negative = {'negative_prompt': negative_prompt}
         for pr in prompts_list:
           if bool(pr.strip()):
-            add_to_prompts(pr.strip())
+            if '_' in pr:
+              pr = nsp_parse(pr)
+            add_to_prompts(pr.strip(), negative)
         close_dlg(e)
       def close_dlg(e):
           dlg_paste.open = False
@@ -2151,7 +2131,6 @@ def buildPromptsList(page):
   page.load_prompts = load_prompts
 
   def update_prompts():
-      #print("Update prompts")
       if len(prompts_list.controls) > 0:
         for p in prompts_list.controls:
           diffs = arg_diffs(p.data.arg, args)
@@ -2162,12 +2141,21 @@ def buildPromptsList(page):
           p.update()
         prompts_list.update()
   page.update_prompts = update_prompts
+
   def apply_changes(e):
       global prompts
       if len(prompts_list.controls) > 0:
         i = 0
         for p in prompts_list.controls:
+          negative = prompts[i].arg['negative_prompt']
+          init = prompts[i].arg['init_image']
+          mask = prompts[i].arg['mask_image']
           prompts[i].arg = merge_dict(prompts[i].arg, args)
+          prompts[i].arg['negative_prompt'] = negative
+          if not bool(args['init_image']):
+            prompts[i].arg['init_image'] = init
+          if not bool(args['mask_image']):
+            prompts[i].arg['mask_image'] = mask
           p.data = prompts[i]
           i += 1
         update_prompts()
@@ -2192,6 +2180,7 @@ def buildPromptsList(page):
       e.page.save_prompts()
       save_settings_file(e.page)
       #status['changed_prompts'] = True
+  page.clear_prompts_list = clear_list
   def on_keyboard (e: KeyboardEvent):
       if e.key == "Escape":
         if current_tab == 3:
@@ -2223,11 +2212,12 @@ def buildPromptsList(page):
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
   prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True), add_prompt_button])
   #diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
-  clear_prompts_button = ElevatedButton("❌   Clear Prompts List", on_click=clear_list)
+  clear_prompts_button = ElevatedButton(content=Text("❌   Clear Prompts List", size=18), on_click=clear_list)
   prompts_buttons = Row([clear_prompts_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
   def show_run_diffusion_fab(show = True):
     if show:
-      page.floating_action_button = FloatingActionButton(icon=icons.PLAY_ARROW, text="Run Diffusion on Prompts", on_click=run_diffusion)
+      page.floating_action_button = FloatingActionButton(content=Row([Icon(icons.PLAY_ARROW), Text("Run Diffusion on Prompts", size=18)], alignment="center", spacing=5), width=270, shape=ft.RoundedRectangleBorder(radius=22), on_click=run_diffusion)
+      #page.floating_action_button = FloatingActionButton(icon=icons.PLAY_ARROW, text="Run Diffusion on Prompts", on_click=run_diffusion)
       page.update()
     else:
       if page.floating_action_button is not None:
@@ -2240,8 +2230,8 @@ def buildPromptsList(page):
     prompts_buttons.visible=False
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
-        Row([Text("🗒️   List of Prompts to Diffuse", style=TextThemeStyle.TITLE_LARGE), Row([prompt_help_button, paste_prompts_button])], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Divider(thickness=1, height=4),
+        Row([Text("🗒️   List of Prompts to Diffuse", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row([prompt_help_button, paste_prompts_button])], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         #add_prompt_button,
         prompt_row,
         prompts_list,
@@ -2257,34 +2247,9 @@ def buildImages(page):
       page.imageColumn.update()
       c.update()
     page.auto_scrolling = auto_scrolling
-    page.imageColumn = Column([Text("▶️   Get ready to make your images, run from Prompts List", style=TextThemeStyle.TITLE_LARGE), Divider(thickness=1, height=4)], scroll=ScrollMode.AUTO, auto_scroll=True)
+    page.imageColumn = Column([Text("▶️   Get ready to make your images, run from Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT)], scroll=ScrollMode.AUTO, auto_scroll=True)
     c = Container(padding=padding.only(18, 12, 0, 0), content=page.imageColumn)
     return c
-
-def buildPromptHelpers(page):
-    def changed(e, pref=None):
-      if pref is not None:
-        prefs[pref] = e.control.value
-      status['changed_prompt_helpers'] = True
-    page.generator = buildPromptGenerator(page)
-    page.remixer = buildPromptRemixer(page)
-    page.brainstormer = buildPromptBrainstormer(page)
-    page.writer = buildPromptWriter(page)
-    page.RetrievePrompts = buildRetrievePrompts(page)
-    promptTabs = Tabs(
-        selected_index=0,
-        animation_duration=300,
-        tabs=[
-            Tab(text="Prompt Writer", content=page.writer, icon=icons.CLOUD_CIRCLE),
-            Tab(text="Prompt Generator", content=page.generator, icon=icons.CLOUD),
-            Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
-            Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
-            Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
-        ],
-        expand=1,
-        #on_change=tab_on_change
-    )
-    return promptTabs
 
 def buildPromptGenerator(page):
     def changed(e, pref=None):
@@ -2331,9 +2296,9 @@ def buildPromptGenerator(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("🧠  OpenAI GPT-3 Prompt Genenerator", style=TextThemeStyle.TITLE_LARGE),
+        Text("🧠  OpenAI GPT-3 Prompt Genenerator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
         Text("Enter a phrase each prompt should start with and the amount of prompts to generate. 'Subject Details' is optional to influence the output. 'Phase as subject' makes it about phrase and subject detail. 'Request mode' is the way it asks for the visual description. Just experiment, AI will continue to surprise.", style="titleSmall"),
-        Divider(thickness=1, height=5),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], on_change=lambda e: changed(e, 'phrase')), TextField(label="Subject Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_generator']['subject_detail'], on_change=lambda e: changed(e, 'subject_detail')), Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'phrase_as_subject'))]),
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_generator']['amount'], on_change=lambda e: changed(e, 'amount')),
@@ -2345,7 +2310,7 @@ def buildPromptGenerator(page):
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
         ]),
-        ElevatedButton(content=Text("💭   Generate Prompts", size=20), on_click=click_prompt_generator),
+        ElevatedButton(content=Text("💭   Generate Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=click_prompt_generator),
         page.prompt_generator_list,
         generator_list_buttons,
       ],
@@ -2387,7 +2352,7 @@ def buildPromptRemixer(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
-    remixer_list_buttons = Row([ElevatedButton(content=Text("Add All Prompts to List", size=20), on_click=add_to_list),
+    remixer_list_buttons = Row([ElevatedButton(content=Text("Add All Prompts to List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_remixer_list.controls) < 1:
@@ -2396,9 +2361,9 @@ def buildPromptRemixer(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🔄  Prompt Remixer - GPT-3 AI Helper", style=TextThemeStyle.TITLE_LARGE), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🔄  Prompt Remixer - GPT-3 AI Helper", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friend. Experiment.", style="titleSmall"),
-        Divider(thickness=1, height=5),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         Row([TextField(label="Seed Prompt", expand=True, value=prefs['prompt_remixer']['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt')), TextField(label="Optional About Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_remixer']['optional_about_influencer'], on_change=lambda e: changed(e, 'optional_about_influencer'))]),
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_remixer']['amount'], on_change=lambda e: changed(e, 'amount')),
@@ -2410,7 +2375,7 @@ def buildPromptRemixer(page):
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
         ]),
-        ElevatedButton(content=Text("🍹   Remix Prompts", size=20), on_click=click_prompt_remixer),
+        ElevatedButton(content=Text("🍹   Remix Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=click_prompt_remixer),
         page.prompt_remixer_list,
         remixer_list_buttons,
       ],
@@ -2469,14 +2434,14 @@ def buildPromptBrainstormer(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", style=TextThemeStyle.TITLE_LARGE), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friends. Experiment, each has different personalities.", style="titleSmall"),
-        Divider(thickness=1, height=5),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], on_change=lambda e: changed(e, 'about_prompt')),]),
-        ElevatedButton(content=Text("⛈️    Brainstorm Prompt", size=20), on_click=lambda _: run_prompt_brainstormer(page)),
+        ElevatedButton(content=Text("⛈️    Brainstorm Prompt", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_prompt_brainstormer(page)),
         page.prompt_brainstormer_list,
         brainstormer_list_buttons,
       ],
@@ -2523,7 +2488,7 @@ def buildPromptWriter(page):
       writer_list_buttons.visible = False
       writer_list_buttons.update()
     writer_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list),
-        ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
+        ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_writer_list.controls) < 1:
       writer_list_buttons.visible = False
@@ -2531,9 +2496,9 @@ def buildPromptWriter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", style=TextThemeStyle.TITLE_LARGE), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)),], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)),], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Construct your Stable Diffusion Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom.", style="titleSmall"),
-        Divider(thickness=1, height=5),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         ResponsiveRow([
           TextField(label="Prompt Art Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects'), multiline=True, max_lines=4, col={'lg':9}),
           TextField(label="Negative Prompt (optional)", value=prefs['prompt_writer']['negative_prompt'], on_change=lambda e: changed(e, 'negative_prompt'), multiline=True, max_lines=4, col={'lg':3}),
@@ -2546,7 +2511,7 @@ def buildPromptWriter(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_writer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_writer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
-        ElevatedButton(content=Text("✍️   Write Prompts", size=20), on_click=lambda _: run_prompt_writer(page)),
+        ElevatedButton(content=Text("✍️   Write Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_prompt_writer(page)),
         page.prompt_writer_list,
         writer_list_buttons,
       ],
@@ -2628,90 +2593,6 @@ So in Subject try something like: `A _color_ _noun-general_ that is _adj-beauty_
     instruction_alert.open = True
     page.update()
 
-def buildStableDiffusers(page):
-    page.RePainter = buildRepainter(page)
-    page.unCLIP = buildUnCLIP(page)
-    page.unCLIPImageVariation = buildUnCLIPImageVariation(page)
-    page.ImageVariation = buildImageVariation(page)
-    page.CLIPstyler = buildCLIPstyler(page)
-    page.MagicMix = buildMagicMix(page)
-    page.PaintByExample = buildPaintByExample(page)
-    page.InstructPix2Pix = buildInstructPix2Pix(page)
-    page.MaterialDiffusion = buildMaterialDiffusion(page)
-    page.MaskMaker = buildDreamMask(page)
-    page.DiT = buildDiT(page)
-    page.DreamFusion = buildDreamFusion(page)
-    diffusersTabs = Tabs(
-        selected_index=0,
-        animation_duration=300,
-        tabs=[
-            Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
-            Tab(text="unCLIP Image Variation", content=page.unCLIPImageVariation, icon=icons.AIRLINE_STOPS),
-            Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
-            Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
-            Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
-            Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
-            Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
-            Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
-            Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
-            Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
-            Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
-            #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
-        ],
-        expand=1,
-        #on_change=tab_on_change
-    )
-    return diffusersTabs
-
-def buildTrainers(page):
-    page.DreamBooth = buildDreamBooth(page)
-    page.TexualInversion = buildTextualInversion(page)
-    page.LoRA_Dreambooth = buildLoRA_Dreambooth(page)
-    page.LoRA = buildLoRA(page)
-    page.Converter = buildConverter(page)
-    page.CheckpointMerger = buildCheckpointMerger(page)
-    trainersTabs = Tabs(
-        selected_index=0,
-        animation_duration=300,
-        tabs=[
-            Tab(text="LoRA", content=page.LoRA, icon=icons.SETTINGS_SYSTEM_DAYDREAM),
-            Tab(text="LoRA DreamBooth", content=page.LoRA_Dreambooth, icon=icons.SETTINGS_BRIGHTNESS),
-            Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
-            Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
-            Tab(text="Model Converter", content=page.Converter, icon=icons.PUBLISHED_WITH_CHANGES),
-            Tab(text="Checkpoint Merger", content=page.CheckpointMerger, icon=icons.JOIN_FULL),
-        ],
-        expand=1,
-        #on_change=tab_on_change
-    )
-    return trainersTabs
-
-def buildExtras(page):
-    page.ESRGAN_upscaler = buildESRGANupscaler(page)
-    page.InitFolder = buildInitFolder(page)
-    page.CachedModelManager = buildCachedModelManager(page)
-    page.Image2Text = buildImage2Text(page)
-    page.DallE2 = buildDallE2(page)
-    page.Kandinsky = buildKandinsky(page)
-    page.TortoiseTTS = buildTortoiseTTS(page)
-    page.DanceDiffusion = buildDanceDiffusion(page)
-    extrasTabs = Tabs(
-        selected_index=0,
-        animation_duration=300,
-        tabs=[
-            Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
-            Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
-            Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
-            Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
-            Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
-            Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
-            Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
-            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
-        ],
-        expand=1,
-        #on_change=tab_on_change
-    )
-    return extrasTabs
 
 ESRGAN_prefs = {
     'enlarge_scale': 1.5,
@@ -2796,9 +2677,9 @@ def buildESRGANupscaler(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("↕️   Real-ESRGAN AI Upscale Enlarging", style=TextThemeStyle.TITLE_LARGE),
+        Text("↕️   Real-ESRGAN AI Upscale Enlarging", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
         Text("Select one or more files, or give path to image or folder. Save to your Google Drive and/or Download."),
-        Divider(thickness=1, height=5),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         enlarge_scale_slider,
         face_enhance,
         ResponsiveRow([image_path, dst_image_path]),
@@ -2808,7 +2689,7 @@ def buildESRGANupscaler(page):
         #Divider(thickness=2, height=4),
         split_image_grid,
         split_container,
-        ElevatedButton(content=Text("🐘  Run AI Upscaling", size=20), on_click=lambda _: run_upscaling(page)),
+        ElevatedButton(content=Text("🐘  Run AI Upscaling", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_upscaling(page)),
         ESRGAN_output,
         clear_button,
       ],
@@ -2848,14 +2729,14 @@ def buildRetrievePrompts(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("📰  Retrieve Dream Prompts from Image Metadata", style=TextThemeStyle.TITLE_LARGE),
+        Text("📰  Retrieve Dream Prompts from Image Metadata", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
         Text("Give it images made here and gives you all parameters used to recreate it. Either upload png file(s) or paste path to image or folder or config.json to revive your dreams.."),
-        Divider(thickness=1, height=5),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         image_path,
         add_to_prompts,
         display_full_metadata,
         display_image,
-        ElevatedButton(content=Text("😴  Retrieve Dream", size=20), on_click=lambda _: run_retrieve(page)),
+        ElevatedButton(content=Text("😴  Retrieve Dream", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_retrieve(page)),
         retrieve_output,
         clear_button,
       ],
@@ -2864,6 +2745,7 @@ def buildRetrievePrompts(page):
 
 initfolder_prefs = {
     'prompt_string': '',
+    'negative_prompt': '',
     'init_folder': '',
     'include_strength': True,
     'image_strength': 0.5,
@@ -2888,28 +2770,144 @@ def buildInitFolder(page):
       strength_row.visible = e.control.value
       strength_row.update()
     page.add_to_initfolder_output = add_to_initfolder_output
-    prompt_string = TextField(label="Prompt Text", value=initfolder_prefs['prompt_string'], on_change=lambda e:changed(e,'prompt_string'))
+    prompt_string = TextField(label="Prompt Text", value=initfolder_prefs['prompt_string'], col={'md': 9}, on_change=lambda e:changed(e,'prompt_string'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=initfolder_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+
     init_folder = TextField(label="Init Image Folder Path", value=initfolder_prefs['init_folder'], on_change=lambda e:changed(e,'init_folder'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     include_strength = Checkbox(label="Include Strength", value=initfolder_prefs['include_strength'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_strength)
     image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(initfolder_prefs['image_strength']), expand=True)
     strength_row = Row([Text("Image Strength:"), image_strength])
     strength_row.visible = initfolder_prefs['include_strength']
-    strength_container = Container(Row([Text("Init Image Strength: "), image_strength]))
     initfolder_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(initfolder_output.controls) > 0
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("📂 Generate Prompts from Folder as Init Images", style=TextThemeStyle.TITLE_LARGE),
+        Text("📂 Generate Prompts from Folder as Init Images", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
         Text("Provide a Folder with a collection of images that you want to automatically add to prompts list with init_image overides..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         init_folder,
-        prompt_string,
+        ResponsiveRow([prompt_string, negative_prompt]),
         include_strength,
         strength_row,
-        ElevatedButton(content=Text("➕  Add to Prompts", size=20), on_click=lambda _: run_initfolder(page)),
+        ElevatedButton(content=Text("➕  Add to Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_initfolder(page)),
         initfolder_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+init_video_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'init_folder': '',
+    'include_strength': False,
+    'image_strength': 0.5,
+    'max_size': 960,
+    'file_prefix': 'frame-',
+    'video_file': '',
+    'fps': 15,
+    'start_time': 0.0,
+    'end_time': 0.0,
+    'batch_folder_name': '',
+    'show_images': False,
+}
+def buildInitVideo(page):
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            init_video_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            init_video_prefs[pref] = float(e.control.value)
+          else:
+            init_video_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_init_video_output(o):
+      init_video_output.controls.append(o)
+      init_video_output.update()
+      if clear_button.visible == False:
+          clear_button.visible = True
+          clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      init_video_output.controls = []
+      init_video_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        init_video_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        fname = os.path.join(root_dir, e.file_name)
+        video_file.value = fname
+        video_file.update()
+        init_video_prefs['video_file'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    #page.overlay.append(pick_files_dialog)
+    def pick_video(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["avi", "mp4", "mov"], dialog_title="Pick Video File")
+    def change_max_size(e):
+        changed(e, 'max_size', ptype="int")
+        max_size_value.value = f" {init_video_prefs['max_size']}px"
+        max_size_value.update()
+        max_row.update()
+    def toggle_strength(e):
+      changed(e,'include_strength')
+      strength_row.visible = e.control.value
+      strength_row.update()
+    page.add_to_init_video_output = add_to_init_video_output
+    prompt = TextField(label="Prompt Text", value=init_video_prefs['prompt'], col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=init_video_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=init_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Image Filename Prefix", value=init_video_prefs['file_prefix'], width=150, on_change=lambda e:changed(e,'file_prefix'))
+    
+    video_file = TextField(label="Video File", value=init_video_prefs['video_file'], on_change=lambda e:changed(e,'video_file'), height=60, suffix=IconButton(icon=icons.VIDEO_CALL, on_click=pick_video))
+    #init_folder = TextField(label="Init Image Folder Path", value=init_video_prefs['init_folder'], on_change=lambda e:changed(e,'init_folder'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    fps = TextField(label="Frames Per Seccond", value=init_video_prefs['fps'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'fps', ptype="int"))
+    start_time = TextField(label="Start Time (s)", value=init_video_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=init_video_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    
+    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(init_video_prefs['max_size']), expand=True, on_change=change_max_size)
+    max_size_value = Text(f" {init_video_prefs['max_size']}px", weight=FontWeight.BOLD)
+    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    show_images = Checkbox(label="Show Extracted Images", value=init_video_prefs['show_images'], tooltip="Fills up screen with all frames, you probably don't need to.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_images'))
+    include_strength = Checkbox(label="Include Strength   ", value=init_video_prefs['include_strength'], tooltip="Otherwise defaults to setting in Image Parameters", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_strength)
+    image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(init_video_prefs['image_strength']), expand=True)
+    strength_row = Row([Text("Image Strength:"), image_strength])
+    strength_row.visible = init_video_prefs['include_strength']
+    init_video_output = Column([])
+    page.init_video_output = init_video_output
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Prompts List", size=18), on_click=page.clear_prompts_list), ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(init_video_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Text("🎥 Generate Prompts from Video File Frames", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
+        Text("Provide a short video clip to automatically add sequence to prompts list with init_image overides..."),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        video_file, #init_folder,
+        Row([fps, start_time, end_time]),
+        Row([batch_folder_name, file_prefix]),
+        ResponsiveRow([prompt, negative_prompt]),
+        Row([include_strength, show_images]),
+        strength_row,
+        max_row,
+        ElevatedButton(content=Text("⏩  Frames to Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_init_video(page)),
+        init_video_output,
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO)
@@ -2928,12 +2926,16 @@ def buildImage2Text(page):
     global prefs, image2text_prefs
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          image2text_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          image2text_prefs[pref] = float(e.control.value)
-        else:
-          image2text_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            image2text_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            image2text_prefs[pref] = float(e.control.value)
+          else:
+            image2text_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_image2text_output(o):
       page.image2text_output.controls.append(o)
       page.image2text_output.update()
@@ -3060,7 +3062,7 @@ def buildImage2Text(page):
       prompts = []
       image2text_list_buttons.visible = False
       image2text_list_buttons.update()
-    image2text_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list),
+    image2text_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_list),
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.image2text_list.controls) < 1:
@@ -3079,16 +3081,16 @@ def buildImage2Text(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Image2Text CLIP-Interrogator", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("😶‍🌫️  Image2Text CLIP-Interrogator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Create prompts by describing input images..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         mode,
         max_row,
         Row([image_path, add_image_button]),
         page.image2text_file_list,
         page.image2text_list,
         image2text_list_buttons,
-        ElevatedButton(content=Text("👨‍🎨️  Get Prompts from Images", size=20), on_click=lambda _: run_image2text(page)),
+        ElevatedButton(content=Text("👨‍🎨️  Get Prompts from Images", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_image2text(page)),
         page.image2text_output,
       ],
     ))], scroll=ScrollMode.AUTO)
@@ -3204,12 +3206,6 @@ def buildDanceDiffusion(page):
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
-    def download_file(url):
-        local_filename = url.split(slash)[-1]
-        with requests.get(url, stream=True) as r:
-            with open(local_filename, 'wb') as f:
-                shutil.copyfileobj(r.raw, f)
-        return local_filename
     def add_wav(e):
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
@@ -3329,15 +3325,15 @@ def buildDanceDiffusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("👯 Create experimental music or sounds with HarmonAI trained audio models", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("👯 Create experimental music or sounds with HarmonAI trained audio models", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Tools to train a generative model on arbitrary audio samples..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         Row([dance_model, community_model, custom_model]),
         inference_row,
         number_row,
         Row([train_custom, custom_audio_name], vertical_alignment=CrossAxisAlignment.START),
         custom_box,
-        ElevatedButton(content=Text("🎵  Run Dance Diffusion", size=20), on_click=lambda _: run_dance_diffusion(page)),
+        ElevatedButton(content=Text("🎵  Run Dance Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dance_diffusion(page)),
         page.dance_output,
       ]
     ))], scroll=ScrollMode.AUTO)
@@ -3359,12 +3355,16 @@ def buildDreamFusion(page):
     global prefs, dreamfusion_prefs
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          dreamfusion_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          dreamfusion_prefs[pref] = float(e.control.value)
-        else:
-          dreamfusion_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            dreamfusion_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            dreamfusion_prefs[pref] = float(e.control.value)
+          else:
+            dreamfusion_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_dreamfusion_output(o):
       page.dreamfusion_output.controls.append(o)
       page.dreamfusion_output.update()
@@ -3402,14 +3402,14 @@ def buildDreamFusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🗿  Create experimental DreamFusion 3D Model and Video", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with DreamFusion Settings", on_click=df_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🗿  Create experimental DreamFusion 3D Model and Video", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with DreamFusion Settings", on_click=df_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Provide a prompt to render a model. Warning: May take over an hour to run the training..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         prompt_text,
         Row([training_iters,learning_rate, lambda_entropy]),
         Row([seed, training_nerf_resolution, max_steps]),
         Row([workspace]),
-        ElevatedButton(content=Text("🔨  Run DreamFusion", size=20), on_click=lambda _: run_dreamfusion(page)),
+        ElevatedButton(content=Text("🔨  Run DreamFusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dreamfusion(page)),
         page.dreamfusion_output,
         clear_button,
       ]
@@ -3432,12 +3432,16 @@ def buildRepainter(page):
     global repaint_prefs, prefs, pipe_repaint
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          repaint_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          repaint_prefs[pref] = float(e.control.value)
-        else:
-          repaint_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            repaint_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            repaint_prefs[pref] = float(e.control.value)
+          else:
+            repaint_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_repaint_output(o):
       page.repaint_output.controls.append(o)
       page.repaint_output.update()
@@ -3534,15 +3538,15 @@ def buildRepainter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("💅  Repaint masked areas of an image", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Repainter Settings", on_click=repaint_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("💅  Repaint masked areas of an image", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Repainter Settings", on_click=repaint_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Fills in areas of picture with what it thinks it should be, without a prompt..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         Row([original_image, mask_image, invert_mask]),
         num_inference_row,
         eta_row,
         max_row,
         Row([jump_length, jump_n_sample, seed]),
-        ElevatedButton(content=Text("🖌️  Run Repainter", size=20), on_click=lambda _: run_repainter(page)),
+        ElevatedButton(content=Text("🖌️  Run Repainter", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_repainter(page)),
         page.repaint_output,
         clear_button,
       ]
@@ -3565,12 +3569,16 @@ def buildImageVariation(page):
     global image_variation_prefs, prefs, pipe_image_variation
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          image_variation_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          image_variation_prefs[pref] = float(e.control.value)
-        else:
-          image_variation_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            image_variation_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            image_variation_prefs[pref] = float(e.control.value)
+          else:
+            image_variation_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_image_variation_output(o):
       page.image_variation_output.controls.append(o)
       page.image_variation_output.update()
@@ -3654,9 +3662,9 @@ def buildImageVariation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🪩  Image Variations of any Init Image", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🪩  Image Variations of any Init Image", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Creates a new version of your picture, without a prompt..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         init_image,
         #Row([init_image, mask_image, invert_mask]),
         num_inference_row,
@@ -3664,7 +3672,7 @@ def buildImageVariation(page):
         eta_row,
         max_row,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=image_variation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed]),
-        ElevatedButton(content=Text("🖍️  Get Image Variation", size=20), on_click=lambda _: run_image_variation(page)),
+        ElevatedButton(content=Text("🖍️  Get Image Variation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_image_variation(page)),
         page.image_variation_output,
         clear_button,
       ]
@@ -3694,12 +3702,16 @@ def buildUnCLIP(page):
     global unCLIP_prefs, prefs, pipe_unCLIP
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          unCLIP_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          unCLIP_prefs[pref] = float(e.control.value)
-        else:
-          unCLIP_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            unCLIP_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            unCLIP_prefs[pref] = float(e.control.value)
+          else:
+            unCLIP_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_unCLIP_output(o):
       page.unCLIP_output.controls.append(o)
       page.unCLIP_output.update()
@@ -3804,9 +3816,9 @@ def buildUnCLIP(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🌐  unCLIP Text-to-Image Generator", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🌐  unCLIP Text-to-Image Generator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Hierarchical Text-Conditional Image Generation with CLIP Latents.  Similar results to DALL-E 2..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         prompt,
         #Row([prompt, mask_image, invert_mask]),
         prior_num_inference_row, decoder_num_inference_row, super_res_num_inference_row,
@@ -3815,8 +3827,8 @@ def buildUnCLIP(page):
         use_StableUnCLIP_pipeline,
         Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_unCLIP,
-        Row([ElevatedButton(content=Text("🖇️   Get unCLIP Generation", size=20), on_click=lambda _: run_unCLIP(page)), 
-             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_unCLIP(page, from_list=True))]),
+        Row([ElevatedButton(content=Text("🖇️   Get unCLIP Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP(page)), 
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP(page, from_list=True))]),
         
       ]
     )), page.unCLIP_output,
@@ -3846,12 +3858,16 @@ def buildUnCLIPImageVariation(page):
     global unCLIP_image_variation_prefs, prefs, pipe_unCLIP_image_variation
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          unCLIP_image_variation_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          unCLIP_image_variation_prefs[pref] = float(e.control.value)
-        else:
-          unCLIP_image_variation_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            unCLIP_image_variation_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            unCLIP_image_variation_prefs[pref] = float(e.control.value)
+          else:
+            unCLIP_image_variation_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_unCLIP_image_variation_output(o):
       page.unCLIP_image_variation_output.controls.append(o)
       page.unCLIP_image_variation_output.update()
@@ -3967,9 +3983,9 @@ def buildUnCLIPImageVariation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🎆  unCLIP Image Variation Generator", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Variation Settings", on_click=unCLIP_image_variation_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🎆  unCLIP Image Variation Generator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Variation Settings", on_click=unCLIP_image_variation_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Generate Variations from an input image using unCLIP"),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         init_image,
         #Row([prompt, mask_image, invert_mask]),
         decoder_num_inference_row, super_res_num_inference_row,
@@ -3978,8 +3994,8 @@ def buildUnCLIPImageVariation(page):
         max_row,
         Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_image_variation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_unCLIP_image_variation,
-        Row([ElevatedButton(content=Text("🦄   Get unCLIP Image Variation", size=20), on_click=lambda _: run_unCLIP_image_variation(page)), 
-             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_unCLIP_image_variation(page, from_list=True))]),
+        Row([ElevatedButton(content=Text("🦄   Get unCLIP Image Variation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_variation(page)), 
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_variation(page, from_list=True))]),
         
       ]
     )), page.unCLIP_image_variation_output,
@@ -4010,12 +4026,16 @@ def buildMagicMix(page):
     global magic_mix_prefs, prefs, pipe_magic_mix
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          magic_mix_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          magic_mix_prefs[pref] = float(e.control.value)
-        else:
-          magic_mix_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            magic_mix_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            magic_mix_prefs[pref] = float(e.control.value)
+          else:
+            magic_mix_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_magic_mix_output(o):
       page.magic_mix_output.controls.append(o)
       page.magic_mix_output.update()
@@ -4148,9 +4168,9 @@ def buildMagicMix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🧚  MagicMix Init Image with Prompt", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with MagicMix Settings", on_click=magic_mix_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🧚  MagicMix Init Image with Prompt", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with MagicMix Settings", on_click=magic_mix_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Diffusion Pipeline for semantic mixing of an image and a text prompt..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         init_image,
         prompt,
         scheduler_mode,
@@ -4161,8 +4181,8 @@ def buildMagicMix(page):
         max_row,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=magic_mix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_magic_mix,
-        Row([ElevatedButton(content=Text("🪄  Make MagicMix", size=20), on_click=lambda _: run_magic_mix(page)), 
-             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_magic_mix(page, from_list=True))]),
+        Row([ElevatedButton(content=Text("🪄  Make MagicMix", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_magic_mix(page)), 
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_magic_mix(page, from_list=True))]),
         page.magic_mix_output,
         clear_button,
       ]
@@ -4190,12 +4210,16 @@ def buildPaintByExample(page):
     global paint_by_example_prefs, prefs, pipe_paint_by_example
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          paint_by_example_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          paint_by_example_prefs[pref] = float(e.control.value)
-        else:
-          paint_by_example_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            paint_by_example_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            paint_by_example_prefs[pref] = float(e.control.value)
+          else:
+            paint_by_example_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_paint_by_example_output(o):
       page.paint_by_example_output.controls.append(o)
       page.paint_by_example_output.update()
@@ -4326,9 +4350,9 @@ def buildPaintByExample(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🦁  Paint-by-Example", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Paint-by-Example Settings", on_click=paint_by_example_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🦁  Paint-by-Example", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Paint-by-Example Settings", on_click=paint_by_example_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Image-guided Inpainting using an Example Image to Transfer Subject to Masked area..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         example_image,
         num_inference_row,
@@ -4338,7 +4362,7 @@ def buildPaintByExample(page):
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=paint_by_example_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_paint_by_example,
         #Row([jump_length, jump_n_sample, seed]),
-        ElevatedButton(content=Text("🐾  Run Paint-by-Example", size=20), on_click=lambda _: run_paint_by_example(page)),
+        ElevatedButton(content=Text("🐾  Run Paint-by-Example", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_paint_by_example(page)),
         page.paint_by_example_output,
         clear_button,
       ]
@@ -4366,12 +4390,16 @@ def buildInstructPix2Pix(page):
     global instruct_pix2pix_prefs, prefs, pipe_instruct_pix2pix
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          instruct_pix2pix_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          instruct_pix2pix_prefs[pref] = float(e.control.value)
-        else:
-          instruct_pix2pix_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            instruct_pix2pix_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            instruct_pix2pix_prefs[pref] = float(e.control.value)
+          else:
+            instruct_pix2pix_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_instruct_pix2pix_output(o):
       page.instruct_pix2pix_output.controls.append(o)
       page.instruct_pix2pix_output.update()
@@ -4487,9 +4515,9 @@ def buildInstructPix2Pix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🏜️  Instruct-Pix2Pix", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🏜️  Instruct-Pix2Pix", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Text-Based Image Editing - Learning to Follow Image Editing Instructions..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         original_image,
         ResponsiveRow([prompt, negative_prompt]),
@@ -4502,8 +4530,8 @@ def buildInstructPix2Pix(page):
         page.ESRGAN_block_instruct_pix2pix,
         #Row([jump_length, jump_n_sample, seed]),
         
-        Row([ElevatedButton(content=Text("🏖️  Run Instruct Pix2Pix", size=20), on_click=lambda _: run_instruct_pix2pix(page)),
-             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_instruct_pix2pix(page, from_list=True))]),
+        Row([ElevatedButton(content=Text("🏖️  Run Instruct Pix2Pix", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instruct_pix2pix(page)),
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instruct_pix2pix(page, from_list=True))]),
         page.instruct_pix2pix_output,
         clear_button,
       ]
@@ -4536,12 +4564,16 @@ def buildMaterialDiffusion(page):
 
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          materialdiffusion_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          materialdiffusion_prefs[pref] = float(e.control.value)
-        else:
-          materialdiffusion_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            materialdiffusion_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            materialdiffusion_prefs[pref] = float(e.control.value)
+          else:
+            materialdiffusion_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def pick_files_result(e: FilePickerResultEvent):
         if e.files:
             img = e.files
@@ -4667,15 +4699,15 @@ def buildMaterialDiffusion(page):
     page.ESRGAN_block_material.height = None if status['installed_ESRGAN'] else 0
     if not materialdiffusion_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="💨   Run Material Diffusion", size=20), on_click=lambda _: run_materialdiffusion(page))
+    parameters_button = ElevatedButton(content=Text(value="💨   Run Material Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_materialdiffusion(page))
 
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.materialdiffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("🧱  Replicate Material Diffusion", style=TextThemeStyle.TITLE_LARGE),
+            Text ("🧱  Replicate Material Diffusion", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
             Text ("Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key."),
-            Divider(thickness=1, height=4),
+            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
             material_prompt,
             param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
             img_block, page.ESRGAN_block_material,
@@ -4706,12 +4738,16 @@ def buildDiT(page):
     global DiT_prefs, prefs, pipe_DiT
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          DiT_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          DiT_prefs[pref] = float(e.control.value)
-        else:
-          DiT_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            DiT_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            DiT_prefs[pref] = float(e.control.value)
+          else:
+            DiT_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def add_to_DiT_output(o):
       page.DiT_output.controls.append(o)
       page.DiT_output.update()
@@ -4794,17 +4830,17 @@ def buildDiT(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("⚧️  DiT Models with Transformers Class-to-Image Generator", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with DiT Settings", on_click=DiT_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("⚧️  DiT Models with Transformers Class-to-Image Generator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with DiT Settings", on_click=DiT_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Scalable Diffusion Models with Transformers..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         prompt,
         #Row([prompt, mask_image, invert_mask]),
         num_inference_row,
         guidance_scale,
         Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=DiT_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_DiT,
-        Row([ElevatedButton(content=Text("🔀   Get DiT Generation", size=20), on_click=lambda _: run_DiT(page)), 
-             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_DiT(page, from_list=True))
+        Row([ElevatedButton(content=Text("🔀   Get DiT Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiT(page)), 
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiT(page, from_list=True))
              ]),
         
       ]
@@ -4833,12 +4869,16 @@ def buildDallE2(page):
     global dall_e_prefs
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          dall_e_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          dall_e_prefs[pref] = float(e.control.value)
-        else:
-          dall_e_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            dall_e_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            dall_e_prefs[pref] = float(e.control.value)
+          else:
+            dall_e_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def pick_files_result(e: FilePickerResultEvent):
         if e.files:
             img = e.files
@@ -4942,16 +4982,16 @@ def buildDallE2(page):
     page.ESRGAN_block_dalle.height = None if status['installed_ESRGAN'] else 0
     if not dall_e_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), on_click=lambda _: run_dall_e(page, from_list=True))
-    parameters_button = ElevatedButton(content=Text(value="🖼️   Run Dall-E 2", size=20), on_click=lambda _: run_dall_e(page))
+    list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page, from_list=True))
+    parameters_button = ElevatedButton(content=Text(value="🖼️   Run Dall-E 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page))
 
     parameters_row = Row([parameters_button, list_button], spacing=22)#, alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.dall_e_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("👺  OpenAI Dall-E 2", style=TextThemeStyle.TITLE_LARGE),
+            Text ("👺  OpenAI Dall-E 2", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
             Text ("Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
-            Divider(thickness=1, height=4),
+            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
             prompt,
             param_rows,
             img_block, page.ESRGAN_block_dalle,
@@ -4990,12 +5030,16 @@ def buildKandinsky(page):
 
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          kandinsky_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          kandinsky_prefs[pref] = float(e.control.value)
-        else:
-          kandinsky_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            kandinsky_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            kandinsky_prefs[pref] = float(e.control.value)
+          else:
+            kandinsky_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def pick_files_result(e: FilePickerResultEvent):
         if e.files:
             img = e.files
@@ -5123,15 +5167,15 @@ def buildKandinsky(page):
     page.ESRGAN_block_kandinsky.height = None if status['installed_ESRGAN'] else 0
     if not kandinsky_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2", size=20), on_click=lambda _: run_kandinsky(page))
+    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
 
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.kandinsky_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("🎎  Kandinsky 2.0", style=TextThemeStyle.TITLE_LARGE),
+            Text ("🎎  Kandinsky 2.0", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
             Text ("A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia."),
-            Divider(thickness=1, height=4),
+            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
             prompt,
             param_rows, dropdown_row, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
             img_block, page.ESRGAN_block_kandinsky,
@@ -5163,12 +5207,16 @@ def buildCLIPstyler(page):
     global CLIPstyler, prefs
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
-        if ptype == "int":
-          CLIPstyler_prefs[pref] = int(e.control.value)
-        elif ptype == "float":
-          CLIPstyler_prefs[pref] = float(e.control.value)
-        else:
-          CLIPstyler_prefs[pref] = e.control.value
+        try:
+          if ptype == "int":
+            CLIPstyler_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            CLIPstyler_prefs[pref] = float(e.control.value)
+          else:
+            CLIPstyler_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
     def pick_files_result(e: FilePickerResultEvent):
         if e.files:
             img = e.files
@@ -5273,15 +5321,15 @@ def buildCLIPstyler(page):
     page.ESRGAN_block_styler.height = None if status['installed_ESRGAN'] else 0
     if not CLIPstyler_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="📎   Run CLIP-Styler", size=20), on_click=lambda _: run_CLIPstyler(page))
+    parameters_button = ElevatedButton(content=Text(value="📎   Run CLIP-Styler", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_CLIPstyler(page))
 
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.CLIPstyler_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("😎   CLIP-Styler", style=TextThemeStyle.TITLE_LARGE),
+            Text ("😎   CLIP-Styler", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
             Text ("Transfers a Text Guided Style onto your Image From Prompt Description..."),
-            Divider(thickness=1, height=4),
+            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
             image_picker, prompt_text,
             param_rows, iterations, width_slider, height_slider, #Divider(height=9, thickness=2), 
             page.ESRGAN_block_styler,
@@ -5349,12 +5397,16 @@ def buildDreamBooth(page):
     global prefs, dreambooth_prefs
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
-          if ptype == "int":
-            dreambooth_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            dreambooth_prefs[pref] = float(e.control.value)
-          else:
-            dreambooth_prefs[pref] = e.control.value
+          try:
+            if ptype == "int":
+              dreambooth_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              dreambooth_prefs[pref] = float(e.control.value)
+            else:
+              dreambooth_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
     def add_to_dreambooth_output(o):
         page.dreambooth_output.controls.append(o)
         page.dreambooth_output.update()
@@ -5508,9 +5560,9 @@ def buildDreamBooth(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Create Custom DreamBooth Concept Model", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with DreamBooth Settings", on_click=db_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("😶‍🌫️  Create Custom DreamBooth Concept Model", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with DreamBooth Settings", on_click=db_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Provide a collection of images to conceptualize. Warning: May take over an hour to run the training..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         Row([instance_prompt, name_of_your_concept]),
         Row([num_class_images, sample_batch_size, prior_loss_weight]),
         Row([max_train_steps, learning_rate, seed]),
@@ -5520,7 +5572,7 @@ def buildDreamBooth(page):
         max_row,
         Row([image_path, add_image_button]),
         page.db_file_list,
-        Row([ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth", size=20), on_click=lambda _: run_dreambooth(page)), ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth 2", size=20), on_click=lambda _: run_dreambooth2(page))]),
+        Row([ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dreambooth(page)), ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dreambooth2(page))]),
         page.dreambooth_output,
         clear_button,
       ]
@@ -5551,12 +5603,16 @@ def buildTextualInversion(page):
     global prefs, textualinversion_prefs
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
-          if ptype == "int":
-            textualinversion_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            textualinversion_prefs[pref] = float(e.control.value)
-          else:
-            textualinversion_prefs[pref] = e.control.value
+          try:
+            if ptype == "int":
+              textualinversion_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              textualinversion_prefs[pref] = float(e.control.value)
+            else:
+              textualinversion_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
     def add_to_textualinversion_output(o):
         page.textualinversion_output.controls.append(o)
         page.textualinversion_output.update()
@@ -5710,9 +5766,9 @@ def buildTextualInversion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Provide a collection of images to conceptualize. Warning: May take over an hour to run the training..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         Row([what_to_teach, initializer_token]),
         Row([placeholder_token, name_of_your_concept]),
         scale_lr,
@@ -5724,7 +5780,7 @@ def buildTextualInversion(page):
         max_row,
         Row([image_path, add_image_button]),
         page.ti_file_list,
-        ElevatedButton(content=Text("👨‍🎨️  Run Textual-Inversion", size=20), on_click=lambda _: run_textualinversion(page)),
+        ElevatedButton(content=Text("👨‍🎨️  Run Textual-Inversion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_textualinversion(page)),
         page.textualinversion_output,
         clear_button,
       ]
@@ -5798,12 +5854,16 @@ def buildLoRA_Dreambooth(page):
     global prefs, LoRA_dreambooth_prefs
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
-          if ptype == "int":
-            LoRA_dreambooth_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            LoRA_dreambooth_prefs[pref] = float(e.control.value)
-          else:
-            LoRA_dreambooth_prefs[pref] = e.control.value
+          try:
+            if ptype == "int":
+              LoRA_dreambooth_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              LoRA_dreambooth_prefs[pref] = float(e.control.value)
+            else:
+              LoRA_dreambooth_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
     def add_to_LoRA_dreambooth_output(o):
         page.LoRA_dreambooth_output.controls.append(o)
         page.LoRA_dreambooth_output.update()
@@ -5981,9 +6041,9 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA DreamBooth)", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_dreambooth_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA DreamBooth)", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_dreambooth_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Provide a collection of images to train. Adds on to the currently loaded Model Checkpoint..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         ResponsiveRow([instance_prompt, name_of_your_model]),
         Row([num_class_images, sample_batch_size, train_batch_size, prior_loss_weight]),
         Row([prior_preservation, gradient_checkpointing, lr_scheduler]),
@@ -5995,7 +6055,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         max_row,
         Row([image_path, add_image_button]),
         page.lora_dreambooth_file_list,
-        Row([ElevatedButton(content=Text("🌄  Run LoRA DreamBooth", size=20), on_click=lambda _: run_LoRA_dreambooth(page))]),
+        Row([ElevatedButton(content=Text("🌄  Run LoRA DreamBooth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_LoRA_dreambooth(page))]),
         page.LoRA_dreambooth_output,
         clear_button,
       ]
@@ -6007,12 +6067,16 @@ def buildLoRA(page):
     global prefs, LoRA_prefs
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
-          if ptype == "int":
-            LoRA_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            LoRA_prefs[pref] = float(e.control.value)
-          else:
-            LoRA_prefs[pref] = e.control.value
+          try:
+            if ptype == "int":
+              LoRA_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              LoRA_prefs[pref] = float(e.control.value)
+            else:
+              LoRA_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
     def add_to_LoRA_output(o):
         page.LoRA_output.controls.append(o)
         page.LoRA_output.update()
@@ -6195,9 +6259,9 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🌫️  Training text-to-image Low-Rank Adaptation of Large Language Models (LoRA)", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🌫️  Training text-to-image Low-Rank Adaptation of Large Language Models (LoRA)", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         ResponsiveRow([validation_prompt, name_of_your_model]),
         Row([num_validation_images, validation_epochs, train_batch_size]),
         Row([prior_preservation, gradient_checkpointing]),
@@ -6209,7 +6273,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         max_row,
         Row([image_path, add_image_button]),
         page.lora_file_list,
-        Row([ElevatedButton(content=Text("🏄  Run LoRA Training", size=20), on_click=lambda _: run_LoRA(page))]),
+        Row([ElevatedButton(content=Text("🏄  Run LoRA Training", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_LoRA(page))]),
         page.LoRA_output,
         clear_button,
       ]
@@ -6233,12 +6297,16 @@ def buildConverter(page):
     global prefs, converter_prefs
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
-          if ptype == "int":
-            converter_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            converter_prefs[pref] = float(e.control.value)
-          else:
-            converter_prefs[pref] = e.control.value
+          try:
+            if ptype == "int":
+              converter_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              converter_prefs[pref] = float(e.control.value)
+            else:
+              converter_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
     def add_to_converter_output(o):
         page.converter_output.controls.append(o)
         page.converter_output.update()
@@ -6265,7 +6333,7 @@ def buildConverter(page):
         where_to_save_model.update()
         readme_description.visible = converter_prefs['save_model']
         readme_description.update()
-    from_format = Dropdown(label="From Format", width=250, options=[dropdown.Option("ckpt"), dropdown.Option("safetensors")], value=converter_prefs['from_format'], on_change=lambda e: changed(e, 'from_format'), col={'lg':6})
+    from_format = Dropdown(label="From Format", width=250, options=[dropdown.Option("ckpt"), dropdown.Option("safetensors"), dropdown.Option("KerasCV")], value=converter_prefs['from_format'], on_change=lambda e: changed(e, 'from_format'), col={'lg':6})
     to_format = Dropdown(label="To Format", width=250, options=[dropdown.Option("pytorch"), dropdown.Option("dance_diffusion")], value=converter_prefs['to_format'], on_change=lambda e: changed(e, 'to_format'), col={'lg':6})
     #instance_prompt = Container(content=Tooltip(message="The prompt with identifier specifying the instance", content=TextField(label="Instance Prompt Token Text", value=converter_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'))), col={'md':9})
     from_model_path = TextField(label="Model Path", value=converter_prefs['model_path'], on_change=lambda e:changed(e,'model_path'), col={'md':6})
@@ -6310,9 +6378,9 @@ def buildConverter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🔀  Model Converter Tool", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Model Converters Settings", on_click=converter_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🔀  Model Converter Tool", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Model Converters Settings", on_click=converter_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Lets you Convert Format of Model Checkpoints to work with Diffusers..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         ResponsiveRow([from_format, to_format]),
         ResponsiveRow([from_model_path, from_model_name]),
         ResponsiveRow([model_type, scheduler_type]),
@@ -6322,7 +6390,7 @@ def buildConverter(page):
         #max_row,
         #Row([image_path, add_image_button]),
         #page.converter_file_list,
-        Row([ElevatedButton(content=Text("〽️  Run Model Converter", size=20), on_click=lambda _: run_converter(page))]),
+        Row([ElevatedButton(content=Text("〽️  Run Model Converter", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_converter(page))]),
         page.converter_output,
         clear_button,
       ]
@@ -6347,12 +6415,16 @@ def buildCheckpointMerger(page):
     global prefs, checkpoint_merger_prefs
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
-          if ptype == "int":
-            checkpoint_merger_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            checkpoint_merger_prefs[pref] = float(e.control.value)
-          else:
-            checkpoint_merger_prefs[pref] = e.control.value
+          try:
+            if ptype == "int":
+              checkpoint_merger_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              checkpoint_merger_prefs[pref] = float(e.control.value)
+            else:
+              checkpoint_merger_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
     def checkpoint_merger_help(e):
         def close_checkpoint_merger_dlg(e):
           nonlocal checkpoint_merger_help_dlg
@@ -6451,7 +6523,7 @@ def buildCheckpointMerger(page):
     #The interpolation method to use for the merging. Supports "sigmoid", "inv_sigmoid", "add_difference" and None. For merging three checkpoints, only "add_difference" is supported.
     model_ckpt = Dropdown(label="Model Checkpoint", options=[
         dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"), 
-        dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4")], value=checkpoint_merger_prefs['selected_model'], tooltip="", autofocus=False, on_change=lambda e: changed(e, 'selected_model'))
+        dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4")], value=checkpoint_merger_prefs['selected_model'], on_change=lambda e: changed(e, 'selected_model'))
     for mod in finetuned_models:
         model_ckpt.options.append(dropdown.Option(mod["name"]))
     for db in dreambooth_models:
@@ -6468,9 +6540,9 @@ def buildCheckpointMerger(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("👥  Checkpoint Merger Tool", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Checkpoint Merger Settings", on_click=checkpoint_merger_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("👥  Checkpoint Merger Tool", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Checkpoint Merger Settings", on_click=checkpoint_merger_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Combine together two or more custom models to create a mixture of weights..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         Row([model_ckpt, add_selected_model_button]),
         Row([pretrained_model, add_model_button]),
         page.checkpoint_merger_file_list,
@@ -6480,7 +6552,7 @@ def buildCheckpointMerger(page):
         ResponsiveRow([name_of_your_model, validation_prompt]),
         Row([save_model, where_to_save_model]),
         readme_description,
-        Row([ElevatedButton(content=Text("🤗  Run Checkpoint Merger", size=20), on_click=lambda _: run_checkpoint_merger(page))]),
+        Row([ElevatedButton(content=Text("🤗  Run Checkpoint Merger", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_checkpoint_merger(page))]),
         page.checkpoint_merger_output,
         #clear_button,
       ]
@@ -6505,12 +6577,16 @@ def buildTortoiseTTS(page):
     global prefs, tortoise_prefs
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
-          if ptype == "int":
-            tortoise_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            tortoise_prefs[pref] = float(e.control.value)
-          else:
-            tortoise_prefs[pref] = e.control.value
+          try:
+            if ptype == "int":
+              tortoise_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              tortoise_prefs[pref] = float(e.control.value)
+            else:
+              tortoise_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
     def add_to_tortoise_output(o):
         page.tortoise_output.controls.append(o)
         page.tortoise_output.update()
@@ -6583,12 +6659,6 @@ def buildTortoiseTTS(page):
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
-    def download_file(url):
-        local_filename = url.split(slash)[-1]
-        with requests.get(url, stream=True) as r:
-            with open(local_filename, 'wb') as f:
-                shutil.copyfileobj(r.raw, f)
-        return local_filename
     def add_wav(e):
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
@@ -6662,9 +6732,9 @@ def buildTortoiseTTS(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🐢  Tortoise Text-to-Speech Voice Modeling", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.HELP, tooltip="Help with Tortoise-TTS Settings", on_click=tortoise_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Row([Text("🐢  Tortoise Text-to-Speech Voice Modeling", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Tortoise-TTS Settings", on_click=tortoise_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
         Text("Reads your text in a realistic AI voice, train your own to mimic vocal performances..."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         text,
         preset,
         Row([batch_folder_name, file_prefix]),
@@ -6673,12 +6743,96 @@ def buildTortoiseTTS(page):
         Row([train_custom, custom_voice_name], vertical_alignment=CrossAxisAlignment.START),
         #Row([output_dir]),
         custom_box,
-        ElevatedButton(content=Text("🗣️  Run Tortoise-TTS", size=20), on_click=lambda _: run_tortoise_tts(page)),
+        ElevatedButton(content=Text("🗣️  Run Tortoise-TTS", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_tortoise_tts(page)),
         page.tortoise_output,
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
+
+mubert_prefs = {
+    'prompt': '',
+    'duration': 30,
+    'is_loop': False,
+    'email': '',
+    'tags': '',
+    'tag_list': '',
+    'batch_folder_name': '',
+    'file_prefix': 'mu-'
+}
+
+def buildMubert(page):
+    global mubert_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              mubert_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              mubert_prefs[pref] = float(e.control.value)
+            else:
+              mubert_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_mubert_output(o):
+        page.mubert_output.controls.append(o)
+        page.mubert_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.mubert_output.controls = []
+        page.mubert_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def mubert_help(e):
+        def close_mubert_dlg(e):
+          nonlocal mubert_help_dlg
+          mubert_help_dlg.open = False
+          page.update()
+        mubert_help_dlg = AlertDialog(title=Text("💁   Help with Mubert"), content=Column([
+            Text("Mubert "),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🥁  Gimme a Beat... ", on_click=close_mubert_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = mubert_help_dlg
+        mubert_help_dlg.open = True
+        page.update()
+    def change_duration(e):
+        changed(e, 'duration', ptype="int")
+        duration_value.value = f" {mubert_prefs['duration']}s"
+        duration_value.update()
+    prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=mubert_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
+    duration = Slider(min=1, max=250, divisions=249, label="{value}s", value=float(mubert_prefs['duration']), expand=True, on_change=change_duration)
+    duration_value = Text(f" {float(mubert_prefs['duration'])}s", weight=FontWeight.BOLD)
+    duration_row = Row([Text("Duration: "), duration_value, duration])
+    is_loop = Checkbox(label="Is Audio Loop   ", value=mubert_prefs['is_loop'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'is_loop'))
+    email = TextField(label="Email Address (for API use)", keyboard_type=KeyboardType.EMAIL, value=mubert_prefs['email'], on_change=lambda e:changed(e,'email'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=mubert_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=mubert_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    #page.mubert_songs = ResponsiveRow(controls=[])
+    #for v in mubert_prefs['tag_list']:
+    #  page.mubert_songs.controls.append(Checkbox(label=v, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    page.mubert_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.mubert_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Row([Text("🎼  Mubert Music Generator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Mubert Settings", on_click=mubert_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        Text("AI music is generated by Mubert API. Pretty good grooves..."),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        prompt,
+        duration_row,
+        is_loop,
+        email,
+        Row([batch_folder_name, file_prefix]),
+        #Row([Text("Select one or more tags:", weight=FontWeight.BOLD), Text("(none for random or custom)")]),
+        #page.mubert_songs,
+        ElevatedButton(content=Text("🎻  Run Mubert Music", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_mubert(page)),
+        page.mubert_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 def get_directory_size(directory):
     total = 0
@@ -6736,12 +6890,12 @@ def buildCachedModelManager(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("🗂️   Manage your Cache Directory Saved Models", style=TextThemeStyle.TITLE_LARGE),
+        Text("🗂️   Manage your Cache Directory Saved Models", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
         Text("If you're cacheing your model files, it can fill up your drive space quickly, so you can trim the fat as needed... Redownloads when used."),
-        Divider(thickness=1, height=4),
+        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
         
         page.cached_folders,
-        ElevatedButton(content=Text("🔍  Scan Cache Dirctory", size=20), on_click=scan_cache),
+        ElevatedButton(content=Text("🔍  Scan Cache Dirctory", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=scan_cache),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -6940,6 +7094,22 @@ def get_LoRA_model(name):
 
 def get_diffusers(page):
     global scheduler, model_path, prefs, status
+    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+        # Still not the best way.  TODO: Fix importing, try ninja or other wheels?
+        try:
+          import xformers
+        except Exception:
+          #page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
+          run_process("pip install triton", page=page)
+          run_process("pip install -U xformers", page=page)
+          import xformers
+          pass
+        #run_process("pip install pyre-extensions==0.0.23", page=page)
+        #run_process("pip install -i https://test.pypi.org/simple/ formers==0.0.15.dev376", page=page)
+        #run_process("pip install -q https://github.com/TheLastBen/fast-stable-diffusion/raw/main/precompiled/T4/xformers-0.0.13.dev0-py3-none-any.whl", page=page)
+        #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
+        #if install_xformers(page):
+        status['installed_xformers'] = True
     try:
       import transformers
       #print(f"transformers=={transformers.__version__}")
@@ -7008,15 +7178,7 @@ def get_diffusers(page):
       alert_msg(page, f"ERROR: {prefs['scheduler_mode']} Scheduler couldn't load for {model_path}", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
       pass
     status['finetuned_model'] = False if model['name'].startswith("Stable") else True
-    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-        # Still not the best way.  TODO: Fix importing, try ninja or other wheels?
-        page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
-        #run_process("pip install pyre-extensions==0.0.23", page=page)
-        #run_process("pip install -i https://test.pypi.org/simple/ formers==0.0.15.dev376", page=page)
-        #run_process("pip install -q https://github.com/TheLastBen/fast-stable-diffusion/raw/main/precompiled/T4/xformers-0.0.13.dev0-py3-none-any.whl", page=page)
-        #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
-        if install_xformers(page):
-          status['installed_xformers'] = True
+    
 
 def model_scheduler(model, big3=False):
     scheduler_mode = prefs['scheduler_mode']
@@ -7190,18 +7352,21 @@ def pipeline_scheduler(p, big3=False):
       s = LMSDiscreteScheduler.from_config(p.scheduler.config)
     p.scheduler = s
     return s
-
+#if is_Colab:
+#    os.remove("/usr/local/lib/python3.8/dist-packages/torch/lib/libcudnn.so.8")
+#    download_file("https://github.com/Skquark/diffusers/blob/main/utils/libcudnn.so.8?raw=true", to="/usr/local/lib/python3.8/dist-packages/torch/lib/")
 torch_device = "cuda"
 try:
     import torch
 except Exception:
-    print("Installing PyTorch with CUDA 1.17")
+    page.console_msg("Installing PyTorch with CUDA 1.17")
     run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117", realtime=False)
     import torch
     pass
 finally:
     torch_device = "cuda" if torch.cuda.is_available() else "cpu"
     if torch_device == "cpu": print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API & OpenAI, but not Diffusers...")
+
 import gc
 #from torch.amp.autocast_mode import autocast
 from random import random
@@ -7219,7 +7384,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       multiplier = 2
     percent = (step +1)/ (total_steps * multiplier)
     pb.value = percent
-    pb.tooltip = f"[{step +1} / {total_steps * multiplier}] (timestep: {timestep})"
+    pb.tooltip = f"[{step +1} / {total_steps * multiplier}] (Timestep: {timestep})"
     #print(f"step: {step}, total: {total_steps}, latent: {len(latents)}")
     #if step == 0:
         #latents = latents.detach().cpu().numpy()
@@ -7237,6 +7402,7 @@ def optimize_pipe(p, vae=False):
       else:
         p.enable_attention_slicing()
     elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention' and status['installed_xformers']:
+      #p.set_use_memory_efficient_attention_xformers(True)
       p.enable_xformers_memory_efficient_attention()
     elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
       p.enable_attention_slicing()
@@ -8411,7 +8577,7 @@ def start_diffusion(page):
   #page.Images.content.controls = []
   clear_image_output()
   pb.width=page.width - 50
-  prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
+  prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
   import string, shutil, random, gc, io, json
   from collections import ChainMap
   from PIL.PngImagePlugin import PngInfo
@@ -10139,6 +10305,8 @@ def run_initfolder(page):
           if os.path.isdir(init_path): continue
           if f.lower().endswith(('.png', '.jpg', '.jpeg')):
             page.add_to_initfolder_output(Text(f'    Dream({p_str}, init_image="{init_path}"{skip_str}),'))
+            if bool(initfolder_prefs['negative_prompt']):
+              arg['negative_prompt'] = initfolder_prefs['negative_prompt']
             arg['init_image'] = init_path
             if bool(include_strength):
               arg['init_image_strength'] = image_strength
@@ -10149,6 +10317,199 @@ def run_initfolder(page):
       else:
         alert_msg(page, 'The init_folder directory does not exist.')
     else: alert_msg(page, 'Your prompt_string is empty. What do you want to apply to images?')
+
+def run_init_video(page):
+    prompt = init_video_prefs['prompt']
+    video_file = init_video_prefs['video_file']
+    file_prefix = init_video_prefs['file_prefix']
+    try:
+        start_time = float(init_video_prefs['start_time'])
+        end_time = float(init_video_prefs['end_time'])
+        fps = int(init_video_prefs['fps'])
+    except Exception:
+        alert_msg(page, "Make sure your Numbers are actual numbers...")
+        return
+    max_size = init_video_prefs['max_size']
+    show_images = init_video_prefs['show_images']
+    output_dir = os.path.join(stable_dir, init_video_prefs['batch_folder_name'])
+    if not bool(prompt):
+        alert_msg(page, "Provide a good prompt to apply to All Frames in List.")
+        return
+    def clear_last():
+      del page.init_video_output.controls[-1]
+      page.init_video_output.update()
+    page.init_video_output.controls.clear()
+    page.init_video_output.update()
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    if video_file.startswith("http"):
+        page.add_to_init_video_output(Text("Downloading the Video File..."))
+        local = download_file(video_file)
+        vname = local.rpartition(slash)
+        vout = os.path.join(root_dir, vname)
+        shutil.move(local, vout)
+        video_file = vout
+        clear_last()
+    if not bool(video_file):
+        alert_msg(page, "Provide a valid Video File to Extract...")
+        return
+    else:
+        if not os.path.exists(video_file):
+            alert_msg(page, "The provided Video File doesn't Exist...")
+            return
+    
+    '''try:
+        import ffmpeg
+    except Exception:
+        run_process("pip install -q ffmpeg", page=page)
+        import ffmpeg
+        pass
+    def convert_video_to_images(video_file, fps, start_time, end_time, output_dir):
+        """
+        Convert a video file to a sequence of images.
+        """
+        # Check if the output directory exists, otherwise create it.
+        command = ['ffmpeg',
+                '-i', video_file,
+                #'-r', str(fps),
+                #'-ss', str(start_time),
+                #'-t', str(end_time),
+                '-vf', f'fps={fps}'
+                #'-vf', "select='between(t,2,6)+between(t,15,24)'"
+                #'-qscale:v', '2',
+                '-vsync', "0"
+                '-f', 'image2',
+                os.path.join(output_dir, '%08d.png')]
+
+        run_process(command, page, print=True)
+    try:
+        import imageio
+    except Exception:
+        run_process("pip install -q imageio", page=page)
+        import imageio
+        pass
+    def convert_video_to_images(video_file, fps, start_time, end_time, resolution):
+        # create video reader object 
+        reader = imageio.get_reader(video_file)
+        # set the reader parameters
+        reader.set_fps(fps)
+        reader.set_start_time(start_time)
+        reader.set_end_time(end_time)
+        # get list of frames
+        frames = reader.get_meta_data()['nframes']
+        # loop through each frame and save as png with frame number in filename
+        for frame in range(frames):
+            frame_img = reader.get_data(frame)
+            frame_img = frame_img.resize(resolution)
+            imageio.imwrite("frame_{}.png".format(frame), frame_img)  
+        reader.close()'''
+    progress = ProgressBar(bar_height=8)
+    page.add_to_init_video_output(Row([ProgressRing(), Text(" Processing Video File...", weight=FontWeight.BOLD)]))
+    page.add_to_init_video_output(progress)
+    try:
+        import cv2
+    except Exception:
+        run_process("pip install -q cv2", page=page)
+        import cv2
+        pass
+    try:
+        cap = cv2.VideoCapture(video_file)
+    except Exception as e:
+        alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
+        clear_last()
+        return
+    count = 0
+    files = []
+    frames = []
+    w = h = 0
+    cap.set(cv2.CAP_PROP_FPS, fps)
+    video_length = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    start_frame = int(start_time * fps)
+    if end_time == 0 or end_time == 0.0:
+        end_frame = int(video_length)
+    else:
+        end_frame = int(end_time * fps)
+    total = end_frame - start_frame
+
+    #print(f"Length: {video_length}, start_frame: {start_frame}, end_frame: {end_frame}")
+    for i in range(start_frame, end_frame):
+        # Read frame
+        cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+        success, image = cap.read()
+        
+        # Save frame as png
+        if success:
+            filename = os.path.join(output_dir, f'{file_prefix}{count}.png')
+            if w == 0:
+                shape = image.shape
+                w, h = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
+                clear_last()
+                page.add_to_init_video_output(Text(f'Extracting {len(frames)} frames at {w}x{h}, {video_length} seconds long...'))
+            image = cv2.resize(image, (w, h), interpolation = cv2.INTER_AREA)
+            percent = count / total
+            progress.value = percent
+            progress.update()
+            #print(f"{count / total}% - Saving {filename} - {shape}")
+            cv2.imwrite(os.path.join(output_dir, filename), image)
+            files.append(filename)
+            if show_images:
+                page.add_to_init_video_output(Row([Img(src=filename, width=w, height=h, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                #page.add_to_init_video_output(Row([Text(filename)], alignment=MainAxisAlignment.CENTER))
+            count += 1
+    cap.release()
+    if show_images:
+        progress.value = 0.0
+        progress.update()
+    else:
+        clear_last()
+        clear_last()
+    '''
+    cap.set(cv2.CAP_PROP_POS_MSEC, start_time * 1000)
+    end_time = min(end_time, video_length / fps)
+    cap.set(cv2.CAP_PROP_FPS, fps)
+    print(f"Length: {video_length}, end_time: {end_time}")
+    
+    while cap.isOpened():
+        ret, frame = cap.read()
+        current_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
+        # Break if past end time
+        if current_time > end_time and (end_time != 0.0 or end_time == 0):
+            break
+        frames.append(frame)
+        print(f"{count} - ret:{ret}, time: {current_time}")
+        count += 1
+    for i, frame in enumerate(frames):
+        filename = os.path.join(output_dir, f'{file_prefix}{i}.png')
+        if w == 0:
+            shape = frame.shape
+            w, h = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
+            clear_last()
+            page.add_to_init_video_output(Text(f'Extracting {len(frames)} frames at {w}x{h}, {video_length} seconds long...'))
+        frame = cv2.resize(frame, (w, h), interpolation = cv2.INTER_AREA)
+        cv2.imwrite(filename, frame)
+        files.append(filename)
+        if show_images:
+            page.add_to_init_video_output(Row([Img(src=filename, width=w, height=h, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            page.add_to_init_video_output(Row([Text(filename)], alignment=MainAxisAlignment.CENTER))
+    cap.release()'''
+    if not bool(files):
+        alert_msg(page, "ERROR Creating Images from Video...")
+        return
+    
+    for f in files:
+        arg = {}
+        if bool(init_video_prefs['negative_prompt']):
+            arg['negative_prompt'] = init_video_prefs['negative_prompt']
+        arg['init_image'] = f
+        arg['width'] = w
+        arg['height'] = h
+        if bool(init_video_prefs['include_strength']):
+            arg['init_image_strength'] = init_video_prefs['image_strength']
+        page.add_to_prompts(prompt, arg)
+    page.add_to_init_video_output(Text(f'Added {len(files)} Files as Init-Image in Prompts List...', weight=FontWeight.BOLD))
+    page.add_to_init_video_output(Text(f'Saved to {output_dir}'))
+    if prefs['enable_sounds']: page.snd_drop.play()
 
 def multiple_of_64(x):
     return int(round(x/64)*64)
@@ -10210,7 +10571,7 @@ def run_repainter(page):
       total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     prt(Row([ProgressRing(), Text("Installing RePaint Pipeline...", weight=FontWeight.BOLD)]))
@@ -10311,7 +10672,7 @@ def run_image_variation(page):
       total_steps = image_variation_prefs['num_inference_steps']#len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     page.image_variation_output.controls.clear()
     from io import BytesIO
@@ -10763,12 +11124,6 @@ def run_dance_diffusion(page):
       page.dance_output.update()
     def play_audio(e):
       e.control.data.play()
-    def download_file(url):
-        local_filename = url.split(slash)[-1]
-        with requests.get(url, stream=True) as r:
-            with open(local_filename, 'wb') as f:
-                shutil.copyfileobj(r.raw, f)
-        return local_filename
     progress = ProgressBar(bar_height=8)
     prt(Row([ProgressRing(), Text(" Downloading Dance Diffusion Models", weight=FontWeight.BOLD)]))
     diffusers_dir = os.path.join(root_dir, "diffusers")
@@ -11455,6 +11810,7 @@ def run_dreambooth2(page):
         #mixed_precision="no", # set to "fp16" for mixed-precision training.
         gradient_checkpointing=True, # set this to True to lower the memory usage.
         use_8bit_adam=not prefs['higher_vram_mode'], # use 8bit optimizer from bitsandbytes
+        enable_xformers_memory_efficient_attention = status['installed_xformers'],
         seed=dreambooth_prefs['seed'],#3434554,
         with_prior_preservation=dreambooth_prefs['prior_preservation'], 
         prior_loss_weight=dreambooth_prefs['prior_loss_weight'],
@@ -12153,13 +12509,14 @@ def run_LoRA_dreambooth(page):
         #mixed_precision="no", # set to "fp16" for mixed-precision training.
         gradient_checkpointing=True, # set this to True to lower the memory usage.
         use_8bit_adam=not prefs['higher_vram_mode'], # use 8bit optimizer from bitsandbytes
+        enable_xformers_memory_efficient_attention = status['installed_xformers'],
         seed=random_seed,
         with_prior_preservation=LoRA_dreambooth_prefs['prior_preservation'], 
         prior_loss_weight=LoRA_dreambooth_prefs['prior_loss_weight'],
         sample_batch_size=LoRA_dreambooth_prefs['sample_batch_size'],
         #class_data_dir=LoRA_dreambooth_prefs['class_data_dir'], 
         #class_prompt=LoRA_dreambooth_prefs['class_prompt'],
-        num_class_images=LoRA_dreambooth_prefs['num_class_images'], 
+        num_class_images=LoRA_dreambooth_prefs['num_class_images'],
         output_dir=os.path.join(root_dir, "LoRA-model", slugify(LoRA_dreambooth_prefs['name_of_your_model'])),
     )
     output_dir = LoRA_dreambooth_args.output_dir
@@ -12423,6 +12780,7 @@ def run_LoRA(page):
         mixed_precision="fp16", # set to "fp16" for mixed-precision training.
         gradient_checkpointing=LoRA_prefs['gradient_checkpointing'], # set this to True to lower the memory usage.
         use_8bit_adam=not prefs['higher_vram_mode'], # use 8bit optimizer from bitsandbytes
+        enable_xformers_memory_efficient_attention = status['installed_xformers'],
         seed=random_seed,
         with_prior_preservation=LoRA_prefs['prior_preservation'], 
         #prior_loss_weight=LoRA_prefs['prior_loss_weight'],
@@ -12600,12 +12958,6 @@ def run_converter(page):
     def clear_last():
       del page.converter_output.controls[-1]
       page.converter_output.update()
-    def download_file(url):
-        local_filename = url.split(slash)[-1]
-        with requests.get(url, stream=True) as r:
-            with open(local_filename, 'wb') as f:
-                shutil.copyfileobj(r.raw, f)
-        return local_filename
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -12625,7 +12977,7 @@ def run_converter(page):
     custom_path = os.path.join(custom_models, slugify(model_name))
     checkpoint_file = os.path.join(custom_models, model_file)
     if not os.path.exists(custom_path):
-      os.makedirs(custom_path, existsok=True)
+      os.makedirs(custom_path, exist_ok=True)
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
@@ -12846,7 +13198,7 @@ def run_checkpoint_merger(page):
             return
     else:
         if os.path.exists(output_dir):
-            os.makedirs(output_dir, existsok=True)
+            os.makedirs(output_dir, exist_ok=True)
     try:
         merged_pipe.save_pretrained(output_dir)
     except Exception as e:
@@ -13068,6 +13420,153 @@ def run_tortoise_tts(page):
     if prefs['enable_sounds']: page.snd_alert.play()
   
 
+def run_mubert(page):
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.tortoise_output.controls.append(line)
+      page.tortoise_output.update()
+    def clear_last():
+      if len(page.tortoise_output.controls) == 0: return
+      del page.tortoise_output.controls[-1]
+      page.tortoise_output.update()
+    def play_audio(e):
+      e.control.data.play()
+    progress = ProgressBar(bar_height=8)
+    state_text = Text(" Downloading Mubert Packages...", weight=FontWeight.BOLD)
+    prt(Row([ProgressRing(), state_text]))
+    mubert_dir = os.path.join(root_dir, "mubert-songs")
+    if bool(mubert_prefs['batch_folder_name']):
+        mubert_dir = os.path.join(mubert_dir, mubert_prefs['batch_folder_name'])
+    if not os.path.exists(mubert_dir):
+        os.makedirs(mubert_dir)
+    import time
+    try:
+        from sentence_transformers import SentenceTransformer
+    except Exception:
+        run_process("pip install sentence_transformers", page=page, show=True, print=True)
+        from sentence_transformers import SentenceTransformer
+        pass
+    try:
+        import httpx
+    except Exception:
+        run_process("pip install httpx", page=page)
+        import httpx
+        pass
+
+    MUBERT_TAGS_STRING = 'tribal,action,kids,neo-classic,run 130,pumped,jazz / funk,ethnic,dubtechno,reggae,acid jazz,liquidfunk,funk,witch house,tech house,underground,artists,mystical,disco,sensorium,r&b,agender,psychedelic trance / psytrance,peaceful,run 140,piano,run 160,setting,meditation,christmas,ambient,horror,cinematic,electro house,idm,bass,minimal,underscore,drums,glitchy,beautiful,technology,tribal house,country pop,jazz & funk,documentary,space,classical,valentines,chillstep,experimental,trap,new jack swing,drama,post-rock,tense,corporate,neutral,happy,analog,funky,spiritual,sberzvuk special,chill hop,dramatic,catchy,holidays,fitness 90,optimistic,orchestra,acid techno,energizing,romantic,minimal house,breaks,hyper pop,warm up,dreamy,dark,urban,microfunk,dub,nu disco,vogue,keys,hardcore,aggressive,indie,electro funk,beauty,relaxing,trance,pop,hiphop,soft,acoustic,chillrave / ethno-house,deep techno,angry,dance,fun,dubstep,tropical,latin pop,heroic,world music,inspirational,uplifting,atmosphere,art,epic,advertising,chillout,scary,spooky,slow ballad,saxophone,summer,erotic,jazzy,energy 100,kara mar,xmas,atmospheric,indie pop,hip-hop,yoga,reggaeton,lounge,travel,running,folk,chillrave & ethno-house,detective,darkambient,chill,fantasy,minimal techno,special,night,tropical house,downtempo,lullaby,meditative,upbeat,glitch hop,fitness,neurofunk,sexual,indie rock,future pop,jazz,cyberpunk,melancholic,happy hardcore,family / kids,synths,electric guitar,comedy,psychedelic trance & psytrance,edm,psychedelic rock,calm,zen,bells,podcast,melodic house,ethnic percussion,nature,heavy,bassline,indie dance,techno,drumnbass,synth pop,vaporwave,sad,8-bit,chillgressive,deep,orchestral,futuristic,hardtechno,nostalgic,big room,sci-fi,tutorial,joyful,pads,minimal 170,drill,ethnic 108,amusing,sleepy ambient,psychill,italo disco,lofi,house,acoustic guitar,bassline house,rock,k-pop,synthwave,deep house,electronica,gabber,nightlife,sport & fitness,road trip,celebration,electro,disco house,electronic'
+    MUBERT_TAGS = np.array(MUBERT_TAGS_STRING.split(','))
+    MUBERT_LICENSE = "ttmmubertlicense#f0acYBenRcfeFpNT4wpYGaTQIyDI4mJGv5MfIhBFz97NXDwDNFHmMRsBSzmGsJwbTpP1A6i07AXcIeAHo5"
+    MUBERT_MODE = "loop"
+    MUBERT_TOKEN = "4951f6428e83172a4f39de05d5b3ab10d58560b8"
+
+    def get_mubert_tags_embeddings(w2v_model):
+        return w2v_model.encode(MUBERT_TAGS)
+
+    def get_pat(email: str):
+        r = httpx.post('https://api-b2b.mubert.com/v2/GetServiceAccess',
+                    json={
+                        "method": "GetServiceAccess",
+                        "params": {
+                            "email": email,
+                            "license": MUBERT_LICENSE,
+                            "token": MUBERT_TOKEN,
+                            "mode": MUBERT_MODE,
+                        }
+                    })
+
+        rdata = json.loads(r.text)
+        if rdata['status'] != 1:
+            alert_msg(page, "ERROR Requesting Mubert Service. Probably incorrect e-mail...")
+        pat = rdata['data']['pat']
+        return pat
+
+    def find_similar(em, embeddings, method='cosine'):
+        scores = []
+        for ref in embeddings:
+            if method == 'cosine':
+                scores.append(1 - np.dot(ref, em) / (np.linalg.norm(ref) * np.linalg.norm(em)))
+            if method == 'norm':
+                scores.append(np.linalg.norm(ref - em))
+        return np.array(scores), np.argsort(scores)
+
+    def get_tags_for_prompts(w2v_model, mubert_tags_embeddings, prompts, top_n=3, debug=False):
+        prompts_embeddings = w2v_model.encode(prompts)
+        ret = []
+        for i, pe in enumerate(prompts_embeddings):
+            scores, idxs = find_similar(pe, mubert_tags_embeddings)
+            top_tags = MUBERT_TAGS[idxs[:top_n]]
+            top_prob = 1 - scores[idxs[:top_n]]
+            if debug:
+                prt(f"Prompt: {prompts[i]}\nTags: {', '.join(top_tags)}\nScores: {top_prob}\n\n\n")
+            ret.append((prompts[i], list(top_tags)))
+        return ret
+    minilm = SentenceTransformer('all-MiniLM-L6-v2')
+    mubert_tags_embeddings = get_mubert_tags_embeddings(minilm)
+
+    def get_track_by_tags(tags, pat, duration, maxit=20, loop=False):
+        if loop:
+            mode = "loop"
+        else:
+            mode = "track"
+        r = httpx.post('https://api-b2b.mubert.com/v2/RecordTrackTTM',
+                    json={
+                        "method": "RecordTrackTTM",
+                        "params": {
+                            "pat": pat,
+                            "duration": duration,
+                            "tags": tags,
+                            "mode": mode
+                        }
+                    })
+        rdata = json.loads(r.text)
+        assert rdata['status'] == 1, rdata['error']['text']
+        trackurl = rdata['data']['tasks'][0]['download_link']
+        prt('Generating your Mubert track... ')
+        for i in range(maxit):
+            r = httpx.get(trackurl)
+            if r.status_code == 200:
+                return trackurl
+            time.sleep(1)
+
+    def generate_track_by_prompt(email, prompt, duration, loop=False):
+        try:
+            pat = get_pat(email)
+            _, tags = get_tags_for_prompts(minilm, mubert_tags_embeddings, [prompt, ])[0]
+            return get_track_by_tags(tags, pat, int(duration), loop=loop), "Success", ", ".join(tags)
+        except Exception as e:
+            return None, str(e), ""
+    #btn.click(fn=generate_track_by_prompt, inputs=[email, prompt, duration, is_loop], outputs=[out, result_msg, tags])
+    clear_last()
+    out, result_msg, tags = generate_track_by_prompt(mubert_prefs['email'], mubert_prefs['prompt'], mubert_prefs['duration'], loop=mubert_prefs['is_loop'])    
+    if out == None:
+      alert_msg(page, "Error generating track by prompt. The API Key problably reached montly limit...",  content=Text(result_msg))
+      return
+    clear_last()
+    clear_last()
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    mubert_songs = os.path.join(audio_out, 'mubert_songs')
+    audio_name = format_filename(mubert_prefs['prompt'])
+    audio_name = f"{mubert_prefs['file_prefix']}{audio_name}"
+    if bool(mubert_prefs['batch_folder_name']):
+      mubert_songs = os.path.join(audio_out, mubert_prefs['batch_folder_name'])
+    os.makedirs(mubert_songs, exist_ok=True)
+    fname = available_file(mubert_songs, audio_name, 0, ext="mp3")
+    audio_file = download_file(out)
+    shutil.copy(audio_file, fname)
+    a_out = Audio(src=fname, autoplay=False)
+    page.overlay.append(a_out)
+    page.update()
+    display_name = fname
+    #a.tofile(f"/content/dance-{i}.wav")
+    if storage_type == "Colab Google Drive":
+      audio_save = available_file(audio_out, audio_name, 0, ext='mp3')
+      shutil.copy(fname, audio_save)
+      display_name = audio_save
+    prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Column([Text(display_name), Text(tags, style=TextThemeStyle.DISPLAY_SMALL)])]))
+    if prefs['enable_sounds']: page.snd_alert.play()
+    
+
 loaded_StableUnCLIP = None
 def run_unCLIP(page, from_list=False):
     global unCLIP_prefs, pipe_unCLIP, loaded_StableUnCLIP
@@ -13077,15 +13576,28 @@ def run_unCLIP(page, from_list=False):
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
-      page.unCLIP_output.controls.append(line)
-      if update:
-        page.unCLIP_output.update()
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.unCLIP_output.controls.append(line)
+        if update:
+          page.unCLIP_output.update()
     def clear_last():
-      del page.unCLIP_output.controls[-1]
-      page.unCLIP_output.update()
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.unCLIP_output.controls[-1]
+        page.unCLIP_output.update()
     def autoscroll(scroll=True):
-      page.unCLIP_output.auto_scroll = scroll
-      page.unCLIP_output.update()
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.unCLIP_output.auto_scroll = scroll
+        page.unCLIP_output.update()
     progress = ProgressBar(bar_height=8)
     if unCLIP_prefs['use_StableUnCLIP_pipeline']:
       total_steps = unCLIP_prefs['prior_num_inference_steps'] + unCLIP_prefs['decoder_num_inference_steps']
@@ -13097,7 +13609,7 @@ def run_unCLIP(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     unCLIP_prompts = []
     if from_list:
@@ -13117,6 +13629,9 @@ def run_unCLIP(page, from_list=False):
     torch.cuda.empty_cache()
     torch.cuda.reset_max_memory_allocated()
     torch.cuda.reset_peak_memory_stats()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
     model_id = "kakaobrain/karlo-v1-alpha"
     stable = "Stable " if unCLIP_prefs['use_StableUnCLIP_pipeline'] else ""
     if pipe_unCLIP != None and ((loaded_StableUnCLIP == True and not unCLIP_prefs['use_StableUnCLIP_pipeline']) or (loaded_StableUnCLIP == False and unCLIP_prefs['use_StableUnCLIP_pipeline'])):
@@ -13264,7 +13779,7 @@ def run_unCLIP_image_variation(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     unCLIP_image_variation_inits = []
     if from_list:
@@ -13430,7 +13945,7 @@ def run_magic_mix(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     magic_mix_prompts = []
     if from_list:
@@ -13623,7 +14138,7 @@ def run_paint_by_example(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     prt(Row([ProgressRing(), Text("Installing Paint-by-Example Pipeline...", weight=FontWeight.BOLD)]))
@@ -13811,7 +14326,7 @@ def run_instruct_pix2pix(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     instruct_pix2pix_prompts = []
@@ -13857,23 +14372,23 @@ def run_instruct_pix2pix(page, from_list=False):
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
     for pr in instruct_pix2pix_prompts:
+      if pr['original_image'].startswith('http'):
+        #response = requests.get(instruct_pix2pix_prefs['original_image'])
+        #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+        original_img = PILImage.open(requests.get(pr['original_image'], stream=True).raw)
+      else:
+        if os.path.isfile(pr['original_image']):
+          original_img = PILImage.open(pr['original_image'])
+        else:
+          alert_msg(page, f"ERROR: Couldn't find your original_image {pr['original_image']}")
+          return
+      width, height = original_img.size
+      width, height = scale_dimensions(width, height, pr['max_size'])
       for num in range(instruct_pix2pix_prefs['num_images']):
         prt(progress)
         random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator(device=torch_device).manual_seed(random_seed)
         #generator = torch.manual_seed(random_seed)
-        if instruct_pix2pix_prefs['original_image'].startswith('http'):
-          #response = requests.get(instruct_pix2pix_prefs['original_image'])
-          #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
-          original_img = PILImage.open(requests.get(pr['original_image'], stream=True).raw)
-        else:
-          if os.path.isfile(pr['original_image']):
-            original_img = PILImage.open(pr['original_image'])
-          else:
-            alert_msg(page, f"ERROR: Couldn't find your original_image {pr['original_image']}")
-            return
-        width, height = original_img.size
-        width, height = scale_dimensions(width, height, pr['max_size'])
         try:
           images = pipe_instruct_pix2pix(pr['prompt'], image=original_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
         except Exception as e:
@@ -13982,7 +14497,7 @@ def run_materialdiffusion(page):
       total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     try:
@@ -14148,7 +14663,7 @@ def run_DiT(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps} timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     DiT_prompts = []
     if from_list:
@@ -14629,13 +15144,6 @@ def main(page: Page):
     page.title = "Stable Diffusion Deluxe - FletUI"
     #page.scroll=ScrollMode.AUTO
     #page.auto_scroll=True
-    def open_help_dlg(e):
-        page.dialog = help_dlg
-        help_dlg.open = True
-        page.update()
-    def close_help_dlg(e):
-        help_dlg.open = False
-        page.update()
     def open_url(e):
         page.launch_url(e.data)
     def exit_disconnect(e):
@@ -14650,12 +15158,35 @@ def main(page: Page):
           from google.colab import runtime
           runtime.unassign()
           #import time
+        else:
+          page.window_close()
+    def minimize_window(e):
+        page.window_minimized = True
+        page.update()
+    def maximize_window(e):
+        if page.window_maximized:
+          page.window_maximized = False
+          appbar.actions[2].icon=icons.CHECK_BOX_OUTLINE_BLANK
+          appbar.actions[2].tooltip = "Maximize Window"
+        else:
+          page.window_maximized = True
+          appbar.actions[2].icon=icons.MAXIMIZE
+          appbar.actions[2].tooltip = "Restore Window"
+        page.update()
+    def open_help_dlg(e):
+        page.dialog = help_dlg
+        help_dlg.open = True
+        page.update()
+    def close_help_dlg(e):
+        help_dlg.open = False
+        page.update()
     help_dlg = AlertDialog(
         title=Text("💁   Help/Information - Stable Diffusion Deluxe " + version), content=Column([Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI friends with our pretty interface."),
               Text("Simply go through the self-explanitory tabs step-by-step and set your preferences to get started. The default values are good for most, but you can have some fun experimenting. All values are automatically saved as you make changes and change tabs."),
               Text("Each time you open the app, you should start in the Installers section, turn on all the components you plan on using in you session, then Run the Installers and let them download. You can multitask and work in other tabs while it's installing."),
-              Text("In the Prompts List, add as many text prompts as you can think of, and edit any prompt to override any default Image Parameter.  Once you're ready, run diffusion on your prompts list and watch it fill your Google Drive.."),
+              Text("In the Prompts List, add as many text prompts as you can think of, and edit any prompt to override any default Image Parameter.  Once you're ready, Run Diffusion on your Prompts List and watch it fill your Drive with beauty.."),
               Text("Try out any and all of our Prompt Helpers to use practical text AIs to make unique descriptive prompts fast, with our Prompt Generator, Remixer, Brainstormer and Advanced Writer.  You'll never run out of inspiration again..."),
+              Text("Use the other Stable Diffusers to get unique results with advanced AI tools to refine your art to the next level with powerful surpises.. Have fun, and go crazy with it..."),
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("👍  Thanks! ", on_click=close_help_dlg)], actions_alignment=MainAxisAlignment.END,
     )
@@ -14666,9 +15197,9 @@ def main(page: Page):
     def close_credits_dlg(e):
         credits_dlg.open = False
         page.update()
-    credits_markdown = '''This notebook is an Open-Source side project by [Skquark, Inc.](https://Skquark.com), primarily created by Alan Bedian for fun and functionality.
+    credits_markdown = '''This notebook is an Open-Source side project by [Skquark, Inc.](https://Skquark.com), primarily created by Alan Bedian for fun and full-feature functionality.
 
-The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the Diffusers Pipeline.
+The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the Diffusers Pipeline. The HuggingFace Diffusers team includes Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj & Thomas Wolf.
 
 For the great app UI framework, we thank [Flet](https://Flet.dev) with the amazing Flutter based Python library with a very functional dev platform that made this possible.
 
@@ -14680,6 +15211,22 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("👊   Good Stuff... ", on_click=close_credits_dlg)], actions_alignment=MainAxisAlignment.END,
     )
+    def open_donate_dlg(e):
+        page.dialog = donate_dlg
+        donate_dlg.open = True
+        page.update()
+    def close_donate_dlg(e):
+        donate_dlg.open = False
+        page.update()
+    donate_dlg = AlertDialog(
+        title=Text("🎁  Donate to the Cause"), content=Column([
+          Text("This app has been a one-man labour of love with a lot of effort poured into it over several months. It's powerful enough to be a paid commercial application, however it's all open-source code behind it created by many contributers to make the tools as cool as they are."),
+          Text("While we offer this software free of charge, your support would be greatly appreciated to continue the efforts to keep making it better. If you find value in this software and are able to show some love, any amount you can offer is welcomed..."),
+          Text("If you're technical enough, you can also donate by making contributions to the code, offering suggestions for improvements, adding to the Community Fine-Tuned Models list, or whatever enhancements to the project you can provide..."),
+          Row([ft.FilledButton("Donate with PayPal", on_click=lambda _:page.launch_url("https://paypal.me/StarmaTech")), ft.FilledButton("Donate with Venmo", on_click=lambda _:page.launch_url("https://venmo.com/u/Alan-Bedian"))], alignment=MainAxisAlignment.CENTER),
+        ], scroll=ScrollMode.AUTO),
+        actions=[TextButton("💸  Much appreciated", on_click=close_donate_dlg)], actions_alignment=MainAxisAlignment.END,
+    )
     page.theme_mode = prefs['theme_mode'].lower()
     if prefs['theme_mode'] == 'Dark':
       page.dark_theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())#, use_material3=True)
@@ -14687,26 +15234,31 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
       page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
     app_icon_color = colors.AMBER_800
     
-    appbar=AppBar(title=Text("👨‍🎨️  Stable Diffusion - Deluxe Edition  🧰" if page.width >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD),elevation=20,
+    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text("👨‍🎨️  Stable Diffusion - Deluxe Edition  🧰" if page.width >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
       center_title=True,
-          bgcolor=colors.SURFACE_VARIANT,
-          leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
-          #leading_width=40,
-          actions=[
-              PopupMenuButton(
-                  items=[
-                      PopupMenuItem(text="🤔  Help/Info", on_click=open_help_dlg),
-                      PopupMenuItem(text="👏  Credits", on_click=open_credits_dlg),
-                      PopupMenuItem(text="🤧  Issues/Suggestions", on_click=lambda _:page.launch_url("https://github.com/Skquark/AI-Friends/issues")),
-                      PopupMenuItem(text="📨  Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")),
-                      PopupMenuItem(text="🤑  Offer Donation", on_click=lambda _:page.launch_url("https://paypal.me/StarmaTech")),
-                      #PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect) if is_Colab else PopupMenuItem(),
-                  ]
-              ),
-          ])
+      bgcolor=colors.SURFACE,
+      leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
+      #leading_width=40,
+      actions=[
+          PopupMenuButton(
+              items=[
+                  PopupMenuItem(text="🤔  Help/Info", on_click=open_help_dlg),
+                  PopupMenuItem(text="👏  Credits", on_click=open_credits_dlg),
+                  PopupMenuItem(text="🤧  Issues/Suggestions", on_click=lambda _:page.launch_url("https://github.com/Skquark/AI-Friends/issues")),
+                  PopupMenuItem(text="📨  Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")),
+                  PopupMenuItem(text="🤑  Offer Donation", on_click=open_donate_dlg),
+                  #PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect) if is_Colab else PopupMenuItem(),
+              ]
+          ),
+      ])
     if is_Colab:
       appbar.actions[0].items.append(PopupMenuItem())
       appbar.actions[0].items.append(PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect))
+    else:
+      appbar.actions.append(IconButton(icon=icons.MINIMIZE, tooltip="Minimize Window", on_click=minimize_window))
+      appbar.actions.append(IconButton(icon=icons.CHECK_BOX_OUTLINE_BLANK, tooltip="Maximize Window", on_click=maximize_window))
+      appbar.actions.append(IconButton(icon=icons.CLOSE, tooltip="❎  Exit Application", on_click=exit_disconnect))
+      page.window_title_bar_hidden = True
     page.appbar = appbar
     def app_icon_save():
       app_icon_color = colors.GREEN_800
@@ -14739,13 +15291,14 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     #page.add (Text ("Enhanced Stable Diffusion Deluxe by Skquark, Inc."))
 
 class NumberPicker(UserControl):
-    def __init__(self, label="", value=1, min=0, max=20, step=1, on_change=None):
+    def __init__(self, label="", value=1, min=0, max=20, step=1, height=50, on_change=None):
         super().__init__()
         self.value = value
         self.min = min
         self.max = max
         self.step = step
         self.label = label
+        self.height = height
         self.on_change = on_change
         self.build()
     def build(self):
@@ -14780,7 +15333,7 @@ class NumberPicker(UserControl):
               e.control = self
               if self.on_change is not None:
                 self.on_change(e)
-        self.txt_number = TextField(value=str(self.value), text_align=TextAlign.CENTER, width=55, height=42, content_padding=padding.only(top=4), keyboard_type=KeyboardType.NUMBER, on_change=changed)
+        self.txt_number = TextField(value=str(self.value), text_align=TextAlign.CENTER, width=55, height=self.height, content_padding=padding.only(top=4), keyboard_type=KeyboardType.NUMBER, on_change=changed)
         return Row([Text(self.label), IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 ''' Sample alt Object format
@@ -14803,11 +15356,11 @@ class Main:
         page.title = "Alternative Boot experiment"
         self.add_stuff()
     def add_stuff(self):
-        self.page.add(Text("Some text", size=20))
+        self.page.add(Text("Some text", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45)
         self.page.update()
 main = Main()'''
 
-port = 8510
+port = 8502
 if tunnel_type == "ngrok":
   #if bool(url):
   #  public_url = url
