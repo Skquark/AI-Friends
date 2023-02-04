@@ -15780,9 +15780,9 @@ class Header(UserControl):
             Row([
                 Column([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
                         Text(self.subtitle, style="titleSmall", color=colors.TERTIARY) if bool(self.subtitle) else Container(content=None),
-                        ], spacing=4),
+                        ], spacing=4, expand=True),
                 Row(self.actions) if bool(self.actions) else Container(content=None),
-            ], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=1, vertical_alignment=CrossAxisAlignment.CENTER),
+            ], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=1, vertical_alignment=CrossAxisAlignment.END),
             Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT) if self.divider else Container(content=None),
             Container(content=None, height=3),
         ])
