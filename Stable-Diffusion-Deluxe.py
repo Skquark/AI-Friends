@@ -790,8 +790,7 @@ def buildSettings(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text ("⚙️   Deluxe Stable Diffusion Settings & Preferences", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Divider(thickness=3, height=6, color=colors.SURFACE_VARIANT),
+        Header("⚙️   Deluxe Stable Diffusion Settings & Preferences"),
         #save_to_GDrive,
         ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
         #VerticalDivider(thickness=2),
@@ -1325,8 +1324,7 @@ def buildInstallers(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
                 content=Column([
-        Text ("📥  Stable Diffusion Required & Optional Installers", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("📥  Stable Diffusion Required & Optional Installers"),
         install_diffusers,
         diffusers_settings,
         #install_text2img,
@@ -1646,8 +1644,7 @@ def buildParameters(page):
 
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
-        Text ("📝  Stable Diffusion Image Parameters", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("📝  Stable Diffusion Image Parameters"),
         param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
         page.interpolation_block, page.use_safe, page.img_block, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_conceptualizer_model,
         Row([use_LoRA_model, LoRA_block]), page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
@@ -2245,8 +2242,7 @@ def buildPromptsList(page):
     prompts_buttons.visible=False
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
-        Row([Text("🗒️   List of Prompts to Diffuse", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row([prompt_help_button, paste_prompts_button])], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🗒️   List of Prompts to Diffuse", actions=[prompt_help_button, paste_prompts_button]),
         #add_prompt_button,
         prompt_row,
         prompts_list,
@@ -2262,7 +2258,7 @@ def buildImages(page):
       page.imageColumn.update()
       c.update()
     page.auto_scrolling = auto_scrolling
-    page.imageColumn = Column([Text("▶️   Get ready to make your images, run from Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT)], scroll=ScrollMode.AUTO, auto_scroll=True)
+    page.imageColumn = Column([Text("▶️   Get ready to make your Images, run from Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT)], scroll=ScrollMode.AUTO, auto_scroll=True)
     c = Container(padding=padding.only(18, 12, 0, 0), content=page.imageColumn)
     return c
 
@@ -2311,9 +2307,7 @@ def buildPromptGenerator(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("🧠  OpenAI GPT-3 Prompt Genenerator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Text("Enter a phrase each prompt should start with and the amount of prompts to generate. 'Subject Details' is optional to influence the output. 'Phase as subject' makes it about phrase and subject detail. 'Request mode' is the way it asks for the visual description. Just experiment, AI will continue to surprise.", style="titleSmall"),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🧠  OpenAI GPT-3 Prompt Genenerator", "Enter a phrase each prompt should start with and the amount of prompts to generate. 'Subject Details' is optional to influence the output. 'Phase as subject' makes it about phrase and subject detail. 'Request mode' is the way it asks for the visual description. Just experiment, AI will continue to surprise."),
         Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], on_change=lambda e: changed(e, 'phrase')), TextField(label="Subject Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_generator']['subject_detail'], on_change=lambda e: changed(e, 'subject_detail')), Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'phrase_as_subject'))]),
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_generator']['amount'], on_change=lambda e: changed(e, 'amount')),
@@ -2376,9 +2370,7 @@ def buildPromptRemixer(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🔄  Prompt Remixer - GPT-3 AI Helper", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friend. Experiment.", style="titleSmall"),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🔄  Prompt Remixer - GPT-3 AI Helper", "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friend. Experiment.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
         Row([TextField(label="Seed Prompt", expand=True, value=prefs['prompt_remixer']['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt')), TextField(label="Optional About Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_remixer']['optional_about_influencer'], on_change=lambda e: changed(e, 'optional_about_influencer'))]),
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_remixer']['amount'], on_change=lambda e: changed(e, 'amount')),
@@ -2449,9 +2441,8 @@ def buildPromptBrainstormer(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friends. Experiment, each has different personalities.", style="titleSmall"),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", 
+               "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
         Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
@@ -2511,9 +2502,7 @@ def buildPromptWriter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)),], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Construct your Stable Diffusion Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom.", style="titleSmall"),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", "Construct your Stable Diffusion Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom."),
         ResponsiveRow([
           TextField(label="Prompt Art Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects'), multiline=True, max_lines=4, col={'lg':9}),
           TextField(label="Negative Prompt (optional)", value=prefs['prompt_writer']['negative_prompt'], on_change=lambda e: changed(e, 'negative_prompt'), multiline=True, max_lines=4, col={'lg':3}),
@@ -2692,9 +2681,7 @@ def buildESRGANupscaler(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("↕️   Real-ESRGAN AI Upscale Enlarging", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Text("Select one or more files, or give path to image or folder. Save to your Google Drive and/or Download."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("↕️   Real-ESRGAN AI Upscale Enlarging", "Select one or more files, or give path to image or folder. Save to your Google Drive and/or Download."),
         enlarge_scale_slider,
         face_enhance,
         ResponsiveRow([image_path, dst_image_path]),
@@ -2744,9 +2731,7 @@ def buildRetrievePrompts(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("📰  Retrieve Dream Prompts from Image Metadata", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Text("Give it images made here and gives you all parameters used to recreate it. Either upload png file(s) or paste path to image or folder or config.json to revive your dreams.."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("📰  Retrieve Dream Prompts from Image Metadata", "Give it images made here and gives you all parameters used to recreate it. Either upload png file(s) or paste path to image or folder or config.json to revive your dreams.."),
         image_path,
         add_to_prompts,
         display_full_metadata,
@@ -2799,9 +2784,7 @@ def buildInitFolder(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("📂 Generate Prompts from Folder as Init Images", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Text("Provide a Folder with a collection of images that you want to automatically add to prompts list with init_image overides..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("📂 Generate Prompts from Folder as Init Images", "Provide a Folder with a collection of images that you want to automatically add to prompts list with init_image overides..."),
         init_folder,
         ResponsiveRow([prompt_string, negative_prompt]),
         include_strength,
@@ -2911,9 +2894,7 @@ def buildInitVideo(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("🎥 Generate Prompts from Video File Frames", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Text("Provide a short video clip to automatically add sequence to prompts list with init_image overides..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🎥 Generate Prompts from Video File Frames", "Provide a short video clip to automatically add sequence to prompts list with init_image overides..."),
         video_file, #init_folder,
         Row([fps, start_time, end_time]),
         Row([batch_folder_name, file_prefix]),
@@ -3096,9 +3077,7 @@ def buildImage2Text(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Image2Text CLIP-Interrogator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Create prompts by describing input images..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
         mode,
         max_row,
         Row([image_path, add_image_button]),
@@ -3340,9 +3319,7 @@ def buildDanceDiffusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("👯 Create experimental music or sounds with HarmonAI trained audio models", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Tools to train a generative model on arbitrary audio samples..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("👯 Create experimental music or sounds with HarmonAI trained audio models", "Tools to train a generative model on arbitrary audio samples...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)]),
         Row([dance_model, community_model, custom_model]),
         inference_row,
         number_row,
@@ -3417,9 +3394,7 @@ def buildDreamFusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🗿  Create experimental DreamFusion 3D Model and Video", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with DreamFusion Settings", on_click=df_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Provide a prompt to render a model. Warning: May take over an hour to run the training..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🗿  Create experimental DreamFusion 3D Model and Video", "Provide a prompt to render a model. Warning: May take over an hour to run the training...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DreamFusion Settings", on_click=df_help)]),
         prompt_text,
         Row([training_iters,learning_rate, lambda_entropy]),
         Row([seed, training_nerf_resolution, max_steps]),
@@ -3553,9 +3528,7 @@ def buildRepainter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("💅  Repaint masked areas of an image", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Repainter Settings", on_click=repaint_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Fills in areas of picture with what it thinks it should be, without a prompt..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("💅  Repaint masked areas of an image", "Fills in areas of picture with what it thinks it should be, without a prompt...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Repainter Settings", on_click=repaint_help)]),
         Row([original_image, mask_image, invert_mask]),
         num_inference_row,
         eta_row,
@@ -3677,9 +3650,7 @@ def buildImageVariation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🪩  Image Variations of any Init Image", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Creates a new version of your picture, without a prompt..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🪩  Image Variations of any Init Image", "Creates a new version of your picture, without a prompt...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)]),
         init_image,
         #Row([init_image, mask_image, invert_mask]),
         num_inference_row,
@@ -3831,9 +3802,7 @@ def buildUnCLIP(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🌐  unCLIP Text-to-Image Generator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Hierarchical Text-Conditional Image Generation with CLIP Latents.  Similar results to DALL-E 2..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🌐  unCLIP Text-to-Image Generator", "Hierarchical Text-Conditional Image Generation with CLIP Latents.  Similar results to DALL-E 2...", actions=[IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_help)]),
         prompt,
         #Row([prompt, mask_image, invert_mask]),
         prior_num_inference_row, decoder_num_inference_row, super_res_num_inference_row,
@@ -3998,9 +3967,7 @@ def buildUnCLIPImageVariation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🎆  unCLIP Image Variation Generator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Variation Settings", on_click=unCLIP_image_variation_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Generate Variations from an input image using unCLIP"),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🎆  unCLIP Image Variation Generator", "Generate Variations from an input image using unCLIP...", actions=[IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Variation Settings", on_click=unCLIP_image_variation_help)]),
         init_image,
         #Row([prompt, mask_image, invert_mask]),
         decoder_num_inference_row, super_res_num_inference_row,
@@ -4183,9 +4150,7 @@ def buildMagicMix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🧚  MagicMix Init Image with Prompt", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with MagicMix Settings", on_click=magic_mix_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Diffusion Pipeline for semantic mixing of an image and a text prompt..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🧚  MagicMix Init Image with Prompt", "Diffusion Pipeline for semantic mixing of an image and a text prompt...", actions=[IconButton(icon=icons.HELP, tooltip="Help with MagicMix Settings", on_click=magic_mix_help)]),
         init_image,
         prompt,
         scheduler_mode,
@@ -4365,9 +4330,7 @@ def buildPaintByExample(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🦁  Paint-by-Example", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Paint-by-Example Settings", on_click=paint_by_example_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Image-guided Inpainting using an Example Image to Transfer Subject to Masked area..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🦁  Paint-by-Example", "Image-guided Inpainting using an Example Image to Transfer Subject to Masked area...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Paint-by-Example Settings", on_click=paint_by_example_help)]),
         ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         example_image,
         num_inference_row,
@@ -4530,9 +4493,7 @@ def buildInstructPix2Pix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🏜️  Instruct-Pix2Pix", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Text-Based Image Editing - Learning to Follow Image Editing Instructions..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🏜️  Instruct-Pix2Pix", "Text-Based Image Editing - Learning to Follow Image Editing Instructions...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         original_image,
         ResponsiveRow([prompt, negative_prompt]),
@@ -4684,7 +4645,7 @@ def buildMaterialDiffusion(page):
     eta = TextField(label="DDIM ETA", value=materialdiffusion_prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta', ptype="float"))
     seed = TextField(label="Seed", value=materialdiffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
     param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=4, step=3, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}), 
-                      Column([steps, eta, seed], col={'xs':12, 'md':6})])
+                      Column([steps, eta, seed], col={'xs':12, 'md':6})], vertical_alignment=CrossAxisAlignment.START)
     guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=materialdiffusion_prefs['guidance_scale'], on_change=change_guidance, expand=True)
     guidance_value = Text(f" {materialdiffusion_prefs['guidance_scale']}", weight=FontWeight.BOLD)
     guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
@@ -4720,9 +4681,7 @@ def buildMaterialDiffusion(page):
     page.materialdiffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("🧱  Replicate Material Diffusion", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-            Text ("Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key."),
-            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+            Header("🧱  Replicate Material Diffusion", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key."),
             material_prompt,
             param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
             img_block, page.ESRGAN_block_material,
@@ -4845,9 +4804,7 @@ def buildDiT(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("⚧️  DiT Models with Transformers Class-to-Image Generator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with DiT Settings", on_click=DiT_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Scalable Diffusion Models with Transformers..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("⚧️  DiT Models with Transformers Class-to-Image Generator", "Scalable Diffusion Models with Transformers...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DiT Settings", on_click=DiT_help)]),
         prompt,
         #Row([prompt, mask_image, invert_mask]),
         num_inference_row,
@@ -5004,9 +4961,7 @@ def buildDallE2(page):
     page.dall_e_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("👺  OpenAI Dall-E 2", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-            Text ("Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
-            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+            Header("👺  OpenAI Dall-E 2", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
             prompt,
             param_rows,
             img_block, page.ESRGAN_block_dalle,
@@ -5188,9 +5143,7 @@ def buildKandinsky(page):
     page.kandinsky_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("🎎  Kandinsky 2.0", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-            Text ("A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia."),
-            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+            Header("🎎  Kandinsky 2.0", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia."),
             prompt,
             param_rows, dropdown_row, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
             img_block, page.ESRGAN_block_kandinsky,
@@ -5342,9 +5295,7 @@ def buildCLIPstyler(page):
     page.CLIPstyler_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Text ("😎   CLIP-Styler", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-            Text ("Transfers a Text Guided Style onto your Image From Prompt Description..."),
-            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+            Header("😎   CLIP-Styler", "Transfers a Text Guided Style onto your Image From Prompt Description..."),
             image_picker, prompt_text,
             param_rows, iterations, width_slider, height_slider, #Divider(height=9, thickness=2), 
             page.ESRGAN_block_styler,
@@ -5575,9 +5526,7 @@ def buildDreamBooth(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Create Custom DreamBooth Concept Model", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with DreamBooth Settings", on_click=db_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Provide a collection of images to conceptualize. Warning: May take over an hour to run the training..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("😶‍🌫️  Create Custom DreamBooth Concept Model", "Provide a collection of images to conceptualize. Warning: May take over an hour to run the training...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DreamBooth Settings", on_click=db_help)]),
         Row([instance_prompt, name_of_your_concept]),
         Row([num_class_images, sample_batch_size, prior_loss_weight]),
         Row([max_train_steps, learning_rate, seed]),
@@ -5781,9 +5730,7 @@ def buildTextualInversion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Provide a collection of images to conceptualize. Warning: May take over an hour to run the training..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", "Provide a collection of images to conceptualize. Warning: May take over an hour to run the training...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)]),
         Row([what_to_teach, initializer_token]),
         Row([placeholder_token, name_of_your_concept]),
         scale_lr,
@@ -6056,9 +6003,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA DreamBooth)", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_dreambooth_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Provide a collection of images to train. Adds on to the currently loaded Model Checkpoint..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA DreamBooth)", "Provide a collection of images to train. Adds on to the currently loaded Model Checkpoint...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_dreambooth_help)]),
         ResponsiveRow([instance_prompt, name_of_your_model]),
         Row([num_class_images, sample_batch_size, train_batch_size, prior_loss_weight]),
         Row([prior_preservation, gradient_checkpointing, lr_scheduler]),
@@ -6274,9 +6219,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🌫️  Training text-to-image Low-Rank Adaptation of Large Language Models (LoRA)", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🌫️  Training text-to-image Low-Rank Adaptation of Large Language Models (LoRA)", "Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)]),
         ResponsiveRow([validation_prompt, name_of_your_model]),
         Row([num_validation_images, validation_epochs, train_batch_size]),
         Row([prior_preservation, gradient_checkpointing]),
@@ -6393,9 +6336,7 @@ def buildConverter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🔀  Model Converter Tool", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Model Converters Settings", on_click=converter_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Lets you Convert Format of Model Checkpoints to work with Diffusers..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🔀  Model Converter Tool", "Lets you Convert Format of Model Checkpoints to work with Diffusers...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Model Converters Settings", on_click=converter_help)]),
         ResponsiveRow([from_format, to_format]),
         ResponsiveRow([from_model_path, from_model_name]),
         ResponsiveRow([model_type, scheduler_type]),
@@ -6555,9 +6496,7 @@ def buildCheckpointMerger(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("👥  Checkpoint Merger Tool", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Checkpoint Merger Settings", on_click=checkpoint_merger_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Combine together two or more custom models to create a mixture of weights..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("👥  Checkpoint Merger Tool", "Combine together two or more custom models to create a mixture of weights...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Checkpoint Merger Settings", on_click=checkpoint_merger_help)]),
         Row([model_ckpt, add_selected_model_button]),
         Row([pretrained_model, add_model_button]),
         page.checkpoint_merger_file_list,
@@ -6747,9 +6686,7 @@ def buildTortoiseTTS(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🐢  Tortoise Text-to-Speech Voice Modeling", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Tortoise-TTS Settings", on_click=tortoise_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Reads your text in a realistic AI voice, train your own to mimic vocal performances..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🐢  Tortoise Text-to-Speech Voice Modeling", "Reads your text in a realistic AI voice, train your own to mimic vocal performances...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Tortoise-TTS Settings", on_click=tortoise_help)]),
         text,
         preset,
         Row([batch_folder_name, file_prefix]),
@@ -6837,9 +6774,7 @@ def buildAudioLDM(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🦻  Audio LDM Modeling", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("Text-to-Audio Generation with Latent Diffusion Model..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🦻  Audio LDM Modeling", "Text-to-Audio Generation with Latent Diffusion Model...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM_help)]),
         text,
         duration_row,
         guidance,
@@ -6918,9 +6853,7 @@ def buildMubert(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Row([Text("🎼  Mubert Music Generator", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.HELP, tooltip="Help with Mubert Settings", on_click=mubert_help)], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        Text("AI music is generated by Mubert API. Pretty good grooves..."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
+        Header("🎼  Mubert Music Generator", "AI music is generated by Mubert API. Pretty good grooves...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Mubert Settings", on_click=mubert_help)]),
         prompt,
         duration_row,
         is_loop,
@@ -6992,10 +6925,7 @@ def buildCachedModelManager(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Text("🗂️   Manage your Cache Directory Saved Models", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
-        Text("If you're cacheing your model files, it can fill up your drive space quickly, so you can trim the fat as needed... Redownloads when used."),
-        Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT),
-        
+        Header("🗂️   Manage your Cache Directory Saved Models", "If you're cacheing your model files, it can fill up your drive space quickly, so you can trim the fat as needed... Redownloads when used."),
         page.cached_folders,
         ElevatedButton(content=Text("🔍  Scan Cache Dirctory", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=scan_cache),
       ]
@@ -15559,6 +15489,23 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     #page.add(ElevatedButton("Show Banner", on_click=show_banner_click))
     #page.add (Text ("Enhanced Stable Diffusion Deluxe by Skquark, Inc."))
 
+class Header(UserControl):
+    def __init__(self, title="", subtitle="", actions=[], divider=True):
+        super().__init__()
+        self.title = title
+        self.subtitle = subtitle
+        self.actions = actions
+        self.divider = divider
+        self.build()
+    def build(self):
+        self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN)])
+        if bool(self.subtitle):
+            self.column.controls.append(Text(self.subtitle, style="titleSmall"))
+        if self.divider:
+            self.column.controls.append(Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT))
+            self.column.controls.append(Container(content=None, height=3))
+        return self.column
+        
 class NumberPicker(UserControl):
     def __init__(self, label="", value=1, min=0, max=20, step=1, height=50, on_change=None):
         super().__init__()
