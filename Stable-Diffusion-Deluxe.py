@@ -66,6 +66,15 @@ def ng():
   _ng = rnd.choice(ng_list).partition('_')
   return _ng[2]+_ng[1]+_ng[0]
 
+def download_file(url, to=None):
+    local_filename = url.split(slash)[-1]
+    if '?' in local_filename:
+        local_filename = local_filename.rpartition('?')[0]
+    local_filename = os.path.join(to if to != None else root_dir, local_filename)
+    with requests.get(url, stream=True) as r:
+        with open(local_filename, 'wb') as f:
+            shutil.copyfileobj(r.raw, f)
+    return local_filename
 env = os.environ.copy()
 def run_sp(cmd_str, cwd=None, realtime=True):
   cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
@@ -161,7 +170,10 @@ if not is_Colab:
         slash = '\\'
 else:
     image_output = '/content/drive/MyDrive/AI/Stable_Diffusion/images_out'
-    
+
+favicon = os.path.join(root_dir, "favicon.png")
+if not os.path.exists(favicon):
+  download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/favicon.png?raw=true")
 clear_output()
 
 import json
@@ -590,6 +602,7 @@ def buildAudioAIs(page):
 def buildExtras(page):
     page.ESRGAN_upscaler = buildESRGANupscaler(page)
     page.CachedModelManager = buildCachedModelManager(page)
+    page.BLIP2Image2Text = buildBLIP2Image2Text(page)
     page.Image2Text = buildImage2Text(page)
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
@@ -599,6 +612,7 @@ def buildExtras(page):
         tabs=[
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
             Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
+            Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
             Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
@@ -633,15 +647,6 @@ def get_color(color):
     elif color == "teal": return colors.TEAL
     elif color == "yellow": return colors.YELLOW
 
-def download_file(url, to=None):
-    local_filename = url.split(slash)[-1]
-    if '?' in local_filename:
-        local_filename = local_filename.rpartition('?')[0]
-    local_filename = os.path.join(to if to != None else root_dir, local_filename)
-    with requests.get(url, stream=True) as r:
-        with open(local_filename, 'wb') as f:
-            shutil.copyfileobj(r.raw, f)
-    return local_filename
 
 # Delete these after everyone's updated
 if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
@@ -691,6 +696,7 @@ def initState(page):
     if os.path.isdir(os.path.join(root_dir, 'Real-ESRGAN')):
       status['installed_ESRGAN'] = True
     page.load_prompts()
+    
     # TODO: Try to load from assets folder
     page.snd_alert = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-alert.mp3?raw=true", autoplay=False)
     page.snd_delete = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-delete.mp3?raw=true", autoplay=False)
@@ -3089,6 +3095,195 @@ def buildImage2Text(page):
       ],
     ))], scroll=ScrollMode.AUTO)
     return c
+
+BLIP2_image2text_prefs = {
+    'folder_path': '',
+    'image_path': '',
+    'max_size': 768,
+    'num_captions': 1,
+    'question_prompt': '',
+    #'model_name': 'blip2_t5',
+    'model_type': 'pretrain_flant5xxl', #pretrain_opt2.7b, pretrain_opt6.7b, caption_coco_opt2.7b, caption_coco_opt6.7b, pretrain_flant5xl, caption_coco_flant5xl
+    'images': [],
+}
+
+def buildBLIP2Image2Text(page):
+    global prefs, BLIP2_image2text_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            BLIP2_image2text_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            BLIP2_image2text_prefs[pref] = float(e.control.value)
+          else:
+            BLIP2_image2text_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_BLIP2_image2text_output(o):
+      page.BLIP2_image2text_output.controls.append(o)
+      page.BLIP2_image2text_output.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.BLIP2_image2text_output.controls = []
+      page.BLIP2_image2text_output.update()
+      save_dir = os.path.join(root_dir, 'BLIP2_image2text')
+      if os.path.exists(save_dir):
+        for f in os.listdir(save_dir):
+            os.remove(os.path.join(save_dir, f))
+        os.rmdir(save_dir)
+      page.BLIP2_image2text_file_list.controls = []
+      page.BLIP2_image2text_file_list.update()
+      BLIP2_image2text_list_buttons.visible = False
+      BLIP2_image2text_list_buttons.update()
+    def BLIP2_i2t_help(e):
+      def close_BLIP2_i2t_dlg(e):
+        nonlocal BLIP2_i2t_help_dlg
+        BLIP2_i2t_help_dlg.open = False
+        page.update()
+      BLIP2_i2t_help_dlg = AlertDialog(title=Text("💁   Help with BLIP2 Image2Text Interrogator"), content=Column([
+          Text("Bootstrapping Language-Image Pre-training with Frozen Image Encoders and Large Language Model", weight=FontWeight.BOLD),
+          Text("BLIP-2 is a generic and efficient pre-training strategy that bootstraps vision-language pre-training from off-the-shelf frozen pre-trained image encoders and frozen large language models. BLIP-2 bridges the modality gap with a lightweight Querying Transformer, which is pre-trained in two stages. The first stage bootstraps vision-language representation learning from a frozen image encoder. The second stage bootstraps vision-to-language generative learning from a frozen language model. BLIP-2 achieves state-of-the-art performance on various vision-language tasks, despite having significantly fewer trainable parameters than existing methods. For example, our model outperforms Flamingo80B by 8.7% on zero-shot VQAv2 with 54x fewer trainable parameters. We also demonstrate the model's emerging capabilities of zero-shot image-to-text generation that can follow natural language instructions."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😑  Alright, got it... ", on_click=close_BLIP2_i2t_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = BLIP2_i2t_help_dlg
+      BLIP2_i2t_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        save_dir = os.path.join(root_dir, 'BLIP2_image2text')
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        BLIP2_image2text_prefs['folder_path'] = save_dir
+        fname = os.path.join(root_dir, e.file_name)
+        fpath = os.path.join(save_dir, e.file_name)
+        original_img = PILImage.open(fname)
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
+        original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+        original_img.save(fpath)
+        shutil.move(fname, fpath)
+        page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
+        page.BLIP2_image2text_file_list.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def pick_path(e):
+        file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def add_image(e):
+        save_dir = os.path.join(root_dir, 'BLIP2_image2text')
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        BLIP2_image2text_prefs['folder_path'] = save_dir
+        if image_path.value.startswith('http'):
+          import requests
+          from io import BytesIO
+          response = requests.get(image_path.value)
+          fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
+          original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
+          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img.save(fpath)
+          page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
+          page.BLIP2_image2text_file_list.update()
+        elif os.path.isfile(image_path.value):
+          fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
+          original_img = PILImage.open(image_path.value)
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
+          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img.save(fpath)
+          #shutil.copy(image_path.value, fpath)
+          page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
+          page.BLIP2_image2text_file_list.update()
+        elif os.path.isdir(image_path.value):
+          for f in os.listdir(image_path.value):
+            file_path = os.path.join(image_path.value, f)
+            if os.path.isdir(file_path): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+              fpath = os.path.join(save_dir, f)
+              original_img = PILImage.open(file_path)
+              width, height = original_img.size
+              width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
+              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img.save(fpath)
+              #shutil.copy(file_path, fpath)
+              page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
+              page.BLIP2_image2text_file_list.update()
+        else:
+          if bool(image_path.value):
+            alert_msg(page, "Couldn't find a valid File, Path or URL...")
+          else:
+            pick_path(e)
+          return
+        image_path.value = ""
+        image_path.update()
+    page.BLIP2_image2text_list = Column([], spacing=0)
+    def add_to_prompt_list(p):
+      page.add_to_prompts(p)
+      if prefs['enable_sounds']: page.snd_drop.play()
+    def add_to_BLIP2_image2text(p):
+      page.BLIP2_image2text_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.BLIP2_image2text_list.update()
+      BLIP2_image2text_list_buttons.visible = True
+      BLIP2_image2text_list_buttons.update()
+    page.add_to_BLIP2_image2text = add_to_BLIP2_image2text
+    def add_to_list(e):
+      if prefs['enable_sounds']: page.snd_drop.play()
+      for p in page.BLIP2_image2text_list.controls:
+        page.add_to_prompts(p.title.value)
+    def clear_prompts(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.BLIP2_image2text_list.controls = []
+      page.BLIP2_image2text_list.update()
+      prompts = []
+      BLIP2_image2text_list_buttons.visible = False
+      BLIP2_image2text_list_buttons.update()
+    BLIP2_image2text_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_list),
+        ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
+    ], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    if len(page.BLIP2_image2text_list.controls) < 1:
+      BLIP2_image2text_list_buttons.visible = False
+    #'pretrain_flant5xxl', pretrain_opt2.7b, pretrain_opt6.7b, caption_coco_opt2.7b, caption_coco_opt6.7b, pretrain_flant5xl, caption_coco_flant5xl
+    #model_name = Dropdown(label="Model Nane", width=250, options=[dropdown.Option("blip2_t5"), dropdown.Option("blip2_opt"), dropdown.Option("img2prompt_vqa")], value=BLIP2_image2text_prefs['model_name'], on_change=lambda e: changed(e, 'model_name'))
+    model_type = Dropdown(label="Model Type", width=250, options=[dropdown.Option("pretrain_flant5xxl"), dropdown.Option("pretrain_opt2.7b"), dropdown.Option("pretrain_opt6.7b"), dropdown.Option("caption_coco_opt6.7b"), dropdown.Option("caption_coco_flant5xl"), dropdown.Option("base")], value=BLIP2_image2text_prefs['model_type'], on_change=lambda e: changed(e, 'model_type'))
+    num_captions = Container(NumberPicker(label="Number of Captions: ", min=1, max=10, value=BLIP2_image2text_prefs['num_captions'], on_change=lambda e: changed(e, 'num_captions')))
+    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(BLIP2_image2text_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
+    #save_csv = Checkbox(label="Save CSV file of Prompts", tooltip="", value=BLIP2_image2text_prefs['save_csv'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_csv'))
+    max_row = Row([Text("Max Resolution Size: "), max_size])
+    question_prompt = TextField(label="Ask Question about Image (optional)", value=BLIP2_image2text_prefs['question_prompt'], on_change=lambda e:changed(e,'question_prompt'))
+    image_path = TextField(label="Image File or Folder Path or URL to Examine", value=BLIP2_image2text_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=True)
+    add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
+    page.BLIP2_image2text_file_list = Column([], tight=True, spacing=0)
+    page.BLIP2_image2text_output = Column([])
+    #clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    #clear_button.visible = len(page.BLIP2_image2text_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🤳  BLIP2 Image2Text Examiner", subtitle="Create prompts by describing input images... Warning: Uses A LOT of VRAM, may crash session.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=BLIP2_i2t_help)]),
+        Row([model_type, num_captions]),
+        max_row,
+        question_prompt,
+        Row([image_path, add_image_button]),
+        page.BLIP2_image2text_file_list,
+        page.BLIP2_image2text_list,
+        BLIP2_image2text_list_buttons,
+        ElevatedButton(content=Text("📸  Get Prompts from Images", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_BLIP2_image2text(page)),
+        page.BLIP2_image2text_output,
+      ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 dance_prefs = {
     'dance_model': 'maestro-150k',
@@ -7133,7 +7328,7 @@ def get_diffusers(page):
           import xformers
         except Exception:
           #page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
-          run_process("pip install triton", page=page)
+          run_process("pip install --pre -U triton", page=page)
           run_process("pip install -U xformers", page=page)
           import xformers
           pass
@@ -11131,6 +11326,88 @@ def run_image2text(page):
     run_process("pip uninstall -y clip-interrogator", realtime=False)
     run_process("pip uninstall -y transformers", realtime=False)
     run_process("pip install --upgrade transformers", realtime=False)
+    clear_last()
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_BLIP2_image2text(page):
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.BLIP2_image2text_output.controls.append(line)
+      page.BLIP2_image2text_output.update()
+    def clear_last():
+      if len(page.BLIP2_image2text_output.controls) < 1: return
+      del page.BLIP2_image2text_output.controls[-1]
+      page.BLIP2_image2text_output.update()
+    progress = ProgressBar(bar_height=8)
+    #if not status['installed_diffusers']:
+    #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+    #  return
+    prt(Row([ProgressRing(), Text(" Installing BLIP2 Image2Text from Salesforce LAVIS...", weight=FontWeight.BOLD)]))
+
+    try:
+        import lavis
+        #from lavis.models import load_model_and_preprocess
+    except Exception:
+        try:
+            #run_process("pip install clip-salesforce-lavis", page=page, show=True)
+            run_sp("pip install -q salesforce-lavis", realtime=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "ERROR Installing salesforce-lavis. Try running before installing Diffusers...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+            return
+        pass
+    finally:
+        from lavis.models import load_model_and_preprocess
+    import requests
+    device = torch.device(torch_device)
+    clear_last()
+    prt(Row([ProgressRing(), Text(" Downloading BLIP2 Image2Text from Salesforce LAVIS... It's huge, see console for progress.", weight=FontWeight.BOLD)]))
+    model_name = "blip2_t5"
+    if '.' in BLIP2_image2text_prefs['model_type']:
+      model_name = "blip2_opt"
+    if BLIP2_image2text_prefs['model_type'] == "base":
+      model_name = "img2prompt_vqa"
+    try:
+        model, vis_processors, _ = load_model_and_preprocess(
+            name=model_name, model_type=BLIP2_image2text_prefs['model_type'], is_eval=True, device=device)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "ERROR: Problem running Interrogator. Try running before installing Diffusers...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+        return
+    vis_keys = vis_processors.keys()
+    print(str(vis_keys))
+    prt("  Examining Images to Describe Prompt... Check console output for progress, first run is slow.")
+    prt(progress)
+    folder_path = BLIP2_image2text_prefs['folder_path']
+    files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
+    clear_last()
+    BLIP2_i2t_prompts = []
+    try:
+        for file in files:
+            img = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
+            image = vis_processors["eval"](img).unsqueeze(0).to(device)
+            if BLIP2_image2text_prefs['num_captions'] == 1:
+                prompt = model.generate({"image": image})
+            else:
+                prompt = model.generate({"image": image}, use_nucleus_sampling=True, num_captions=BLIP2_image2text_prefs['num_captions'])
+            print(prompt)
+            if isinstance(prompt, str):
+                BLIP2_i2t_prompts.append(prompt)
+                page.add_to_BLIP2_image2text(prompt)
+            else:
+                for p in prompt:
+                    BLIP2_i2t_prompts.append(p)
+                    page.add_to_BLIP2_image2text(p)
+            if bool(BLIP2_image2text_prefs['question_prompt']):
+                question = f"Question: {BLIP2_image2text_prefs['question_prompt']} Answer:"
+                answer = model.generate({"image": image, "prompt": question})
+                a = answer.rpartition(':')[2].strip()
+                prt(f"Answer: {a}")
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "ERROR: Problem Generating from Model. Probably out of memory...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+        return
     clear_last()
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -15498,12 +15775,17 @@ class Header(UserControl):
         self.divider = divider
         self.build()
     def build(self):
-        self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN)])
-        if bool(self.subtitle):
-            self.column.controls.append(Text(self.subtitle, style="titleSmall"))
-        if self.divider:
-            self.column.controls.append(Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT))
-            self.column.controls.append(Container(content=None, height=3))
+        #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
+        self.column = Column([
+            Row([
+                Column([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD),
+                        Text(self.subtitle, style="titleSmall", color=colors.TERTIARY) if bool(self.subtitle) else Container(content=None),
+                        ], spacing=4),
+                Row(self.actions) if bool(self.actions) else Container(content=None),
+            ], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=1, vertical_alignment=CrossAxisAlignment.CENTER),
+            Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT) if self.divider else Container(content=None),
+            Container(content=None, height=3),
+        ])
         return self.column
         
 class NumberPicker(UserControl):
