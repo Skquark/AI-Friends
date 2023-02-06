@@ -67,7 +67,7 @@ def ng():
   return _ng[2]+_ng[1]+_ng[0]
 
 def download_file(url, to=None):
-    local_filename = url.split(slash)[-1]
+    local_filename = url.split('/')[-1]
     if '?' in local_filename:
         local_filename = local_filename.rpartition('?')[0]
     local_filename = os.path.join(to if to != None else root_dir, local_filename)
@@ -172,8 +172,17 @@ else:
     image_output = '/content/drive/MyDrive/AI/Stable_Diffusion/images_out'
 
 favicon = os.path.join(root_dir, "favicon.png")
-if not os.path.exists(favicon):
-  download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/favicon.png?raw=true")
+assets = os.path.join(root_dir, "assets")
+if not os.path.isfile(favicon):
+    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/favicon.png?raw=true")
+if not os.path.exists(assets):
+    os.makedirs(assets)
+    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-alert.mp3?raw=true", to=assets)
+    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-delete.mp3?raw=true", to=assets)
+    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-error.mp3?raw=true", to=assets)
+    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-done.mp3?raw=true", to=assets)
+    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-drop.mp3?raw=true", to=assets)
+
 clear_output()
 
 import json
@@ -215,7 +224,7 @@ def load_settings_file():
       'scheduler_mode': "DDIM",
       'higher_vram_mode': False,
       'enable_attention_slicing': True,
-      'memory_optimization': 'Attention Slicing',
+      'memory_optimization': 'Xformers Mem Efficient Attention',
       'sequential_cpu_offload': False,
       'vae_slicing': False,
       'cache_dir': '',
@@ -583,6 +592,7 @@ def buildTrainers(page):
 def buildAudioAIs(page):
     page.TortoiseTTS = buildTortoiseTTS(page)
     page.DanceDiffusion = buildDanceDiffusion(page)
+    page.AudioDiffusion = buildAudioDiffusion(page)
     page.AudioLDM = buildAudioLDM(page)
     page.Mubert = buildMubert(page)
     audioAIsTabs = Tabs(
@@ -591,6 +601,7 @@ def buildAudioAIs(page):
         tabs=[
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
             Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
+            Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
             Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
         ],
@@ -612,8 +623,8 @@ def buildExtras(page):
         tabs=[
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
             Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
-            Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
             Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
+            Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
         ],
@@ -698,19 +709,25 @@ def initState(page):
     page.load_prompts()
     
     # TODO: Try to load from assets folder
-    page.snd_alert = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-alert.mp3?raw=true", autoplay=False)
-    page.snd_delete = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-delete.mp3?raw=true", autoplay=False)
-    page.snd_error = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-error.mp3?raw=true", autoplay=False)
-    page.snd_done = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-done.mp3?raw=true", autoplay=False)
-    page.snd_drop = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-drop.mp3?raw=true", autoplay=False)
+    page.snd_alert = Audio(src=os.path.join(assets, "snd-alert.mp3"), autoplay=False)
+    page.snd_delete = Audio(src=os.path.join(assets, "snd-delete.mp3"), autoplay=False)
+    page.snd_error = Audio(src=os.path.join(assets, "snd-error.mp3"), autoplay=False)
+    page.snd_done = Audio(src=os.path.join(assets, "snd-done.mp3"), autoplay=False)
+    page.snd_drop = Audio(src=os.path.join(assets, "snd-drop.mp3"), autoplay=False)
     #page.snd_notification = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-notification.mp3?raw=true", autoplay=False)
     page.overlay.append(page.snd_alert)
     page.overlay.append(page.snd_delete)
     page.overlay.append(page.snd_error)
     page.overlay.append(page.snd_done)
-    #page.overlay.append(page.snd_notification)
     page.overlay.append(page.snd_drop)
+    #page.overlay.append(page.snd_notification)
     #print("Running Init State")
+    import importlib
+    if '_PYIBoot_SPLASH' in os.environ and importlib.util.find_spec("pyi_splash"):
+      import pyi_splash
+      pyi_splash.update_text('Ready to get creative...')
+      pyi_splash.close()
+      #log.info('Splash screen closed.')
     if prefs['start_in_installation']:
       page.tabs.selected_index = 1
       page.tabs.update()
@@ -3525,6 +3542,134 @@ def buildDanceDiffusion(page):
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
+
+audio_diffusion_prefs = {
+    'audio_file': '',
+    'file_name': '',
+    'audio_model': 'teticio/audio-diffusion-ddim-256',
+    'scheduler': 'DDIM', #DDPM
+    'steps': 50, #number of de-noising steps (defaults to 50 for DDIM, 1000 for DDPM)
+    'start_step': 0, #step to start from
+    'slice': 0, #slice number of audio to convert
+    'eta': 0.2, #parameter between 0 and 1 used with DDIM scheduler
+    'mask_start_secs': 0.0, #number of seconds of audio to mask (not generate) at start
+    'mask_end_secs': 0.0, #number of seconds of audio to mask (not generate) at end
+    'seed': 0,
+    'audio_name': '',
+    'wav_path': '',
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'file_prefix': 'ad-',
+    'loaded_model': '',
+}
+
+def buildAudioDiffusion(page):
+    global prefs, audio_diffusion_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              audio_diffusion_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              audio_diffusion_prefs[pref] = float(e.control.value)
+            else:
+              audio_diffusion_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_audio_diffusion_output(o):
+        page.audio_diffusion_output.controls.append(o)
+        page.audio_diffusion_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.audio_diffusion_output.controls = []
+        page.audio_diffusion_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def audio_diffusion_help(e):
+        def close_audio_diffusion_dlg(e):
+          nonlocal audio_diffusion_help_dlg
+          audio_diffusion_help_dlg.open = False
+          page.update()
+        audio_diffusion_help_dlg = AlertDialog(title=Text("💁   Help with Audio-Diffusion"), content=Column([
+            Text("Audio Diffusion leverages the recent advances in image generation using diffusion models by converting audio samples to and from mel spectrogram images."),
+            Markdown("The original codebase of this implementation can be found [here](https://github.com/teticio/audio-diffusion), including training scripts and example notebooks.\n[Audio Diffusion](https://github.com/teticio/audio-diffusion) by Robert Dargavel Smith.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🔊  Sounds Groovie... ", on_click=close_audio_diffusion_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = audio_diffusion_help_dlg
+        audio_diffusion_help_dlg.open = True
+        page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+        if e.progress == 1:
+            audio_diffusion_prefs['file_name'] = e.file_name.rpartition('.')[0]
+            fname = os.path.join(root_dir, e.file_name)
+            audio_file.value = fname
+            audio_file.update()
+            audio_diffusion_prefs['audio_file'] = fname
+            page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_audio(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp3", "wav"], dialog_title="Pick Init Audio File")
+    audio_file = TextField(label="Input Audio File (optional)", value=audio_diffusion_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
+
+    def change_steps(e):
+        changed(e, 'steps', ptype="int")
+        steps_value.value = f" {audio_diffusion_prefs['steps']}"
+        steps_value.update()
+        steps_row.update()
+    def change_eta(e):
+        changed(e, 'eta', ptype="float")
+        eta_value.value = f" {audio_diffusion_prefs['eta']}"
+        eta_value.update()
+        eta_row.update()
+    steps = Slider(min=1, max=100, divisions=99, label="{value}", value=float(audio_diffusion_prefs['steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_steps)
+    steps_value = Text(f" {audio_diffusion_prefs['steps']}", weight=FontWeight.BOLD)
+    steps_row = Row([Text("Number of Inference Steps: "), steps_value, steps])
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(audio_diffusion_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta_value = Text(f" {audio_diffusion_prefs['eta']}", weight=FontWeight.BOLD)
+    eta_row = Row([Text("DDIM ETA:"), eta_value, eta,])
+    audio_model = Dropdown(label="Audio Model", options=[dropdown.Option("teticio/audio-diffusion-ddim-256"), dropdown.Option("teticio/audio-diffusion-breaks-256"), dropdown.Option("teticio/audio-diffusion-instrumental-hiphop-256"), dropdown.Option("teticio/latent-audio-diffusion-256"), dropdown.Option("teticio/latent-audio-diffusion-ddim-256"), dropdown.Option("teticio/conditional-latent-audio-diffusion-512")], value=audio_diffusion_prefs['audio_model'], on_change=lambda e: changed(e, 'audio_model'))
+    scheduler = Dropdown(label="De-noise Scheduler", width=250, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM")], value=audio_diffusion_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
+    slice = TextField(label="Slice of Audio", value=audio_diffusion_prefs['slice'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'slice', ptype='int'), width = 130)
+    start_step = TextField(label="Starting Step", value=audio_diffusion_prefs['start_step'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'start_step', ptype='int'), width = 130)
+    mask_start_secs = TextField(label="Mask Start (s)", value=audio_diffusion_prefs['mask_start_secs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'mask_start_secs', ptype='float'), width = 130)
+    mask_end_secs = TextField(label="Mask End (s)", value=audio_diffusion_prefs['mask_end_secs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'mask_end_secs', ptype='float'), width = 130)
+    audio_name = TextField(label="Audio File Name", value=audio_diffusion_prefs['audio_name'], on_change=lambda e:changed(e,'audio_name'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=audio_diffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=audio_diffusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    batch_size = NumberPicker(label="Batch Size:  ", min=1, max=5, value=audio_diffusion_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    seed = TextField(label="Seed", value=audio_diffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.audio_diffusion_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.audio_diffusion_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎶  Audio Diffusion Modeling", "Converts Audio Samples to and from Mel Spectrogram Images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio Diffusion-TTS Settings", on_click=audio_diffusion_help)]),
+        audio_file,
+        audio_model,
+        #scheduler,
+        steps_row,
+        eta_row,
+        Row([slice, start_step, mask_start_secs, mask_end_secs]),
+        Row([batch_size, seed, file_prefix]),
+        Row([audio_name, batch_folder_name]),
+        ElevatedButton(content=Text("🪗  Run Audio Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_audio_diffusion(page)),
+        page.audio_diffusion_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 dreamfusion_prefs = {
     'prompt_text': '', 
@@ -7158,6 +7303,7 @@ pipe_dance = None
 pipe_kandinsky = None
 pipe_tortoise_tts = None
 pipe_audio_ldm = None
+pipe_audio_diffusion = None
 stability_api = None
 
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -7765,9 +7911,10 @@ def get_txt2img_pipe():
   #if status['finetuned_model']:
   #  vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
   #  unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16)
-  pipe = optimize_pipe(pipe, vae=True)
-  pipe.set_progress_bar_config(disable=True)
+  #pipe = optimize_pipe(pipe, vae=True)
+  #pipe.set_progress_bar_config(disable=True)
   #pipe = pipe.to(torch_device)
+  pipe = get_lpw_pipe()
   return pipe
 
 def get_unet_pipe():
@@ -8679,6 +8826,13 @@ def clear_dance_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_dance = None
+def clear_audio_diffusion_pipe():
+  global pipe_audio_diffusion
+  if pipe_audio_diffusion is not None:
+    del pipe_audio_diffusion
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_audio_diffusion = None
 def clear_DiT_pipe():
   global pipe_DiT
   if pipe_DiT is not None:
@@ -8727,6 +8881,7 @@ def clear_pipes(allbut=None):
     if not 'instruct_pix2pix' in but: clear_instruct_pix2pix_pipe()
     if not 'DiT' in but: clear_DiT_pipe()
     if not 'dance' in but: clear_dance_pipe()
+    if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
 
@@ -11592,6 +11747,151 @@ def run_dance_diffusion(page):
       i += 1
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_audio_diffusion(page):
+    global audio_diffusion_prefs, pipe_audio_diffusion, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.audio_diffusion_output.controls.append(line)
+      page.audio_diffusion_output.update()
+    def clear_last():
+      if len(page.audio_diffusion_output.controls) < 1: return
+      del page.audio_diffusion_output.controls[-1]
+      page.audio_diffusion_output.update()
+    def play_audio(e):
+      e.control.data.play()
+    #if not bool(audio_diffusion_prefs['text']):
+    #  alert_msg(page, "Provide Text for the AI to create the sound of...")
+    #  return
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    total_steps = audio_diffusion_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    progress = ProgressBar(bar_height=8)
+    state_text = Text(" Downloading Audio Diffusion Pipeline...", weight=FontWeight.BOLD)
+    prt(Row([ProgressRing(), state_text]))
+    audio_diffusion_dir = os.path.join(root_dir, "audio_diffusion")
+
+    try:
+        import mel
+    except Exception:
+        try:
+            run_process("pip install -q mel", page=page, show=True, print=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing AudioDiffusion requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+            return
+        pass
+    finally:
+        import mel
+    import scipy.io.wavfile
+    from diffusers import DiffusionPipeline, DDIMScheduler
+    model_id = audio_diffusion_prefs['audio_model']
+    clear_pipes('audio_diffusion')
+    # This will download all the models used by Audio Diffusion from the HuggingFace hub.
+    if pipe_audio_diffusion == None or audio_diffusion_prefs['loaded_model'] != model_id:
+      try:
+          # TODO: Switch DDPM
+        scheduler = DDIMScheduler()
+        pipe_audio_diffusion = DiffusionPipeline.from_pretrained(model_id, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_audio_diffusion = pipe_audio_diffusion.to(torch_device)
+        pipe_audio_diffusion.set_progress_bar_config(disable=True)
+        audio_diffusion_prefs['loaded_model'] = model_id
+      except Exception as e:
+        clear_last()
+        alert_msg(page, "Error setting up Audio Diffusion Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    init = audio_diffusion_prefs['audio_file']
+    if init.startswith('http'):
+        init_audio = download_file(init)
+    else:
+        if os.path.isfile(init):
+            init_audio = init
+        else:
+            init_audio = None
+            #alert_msg(page, f"ERROR: Couldn't find your init audio {init}")
+            #return
+    clear_last()
+    prt(Text("  Generating Audio Diffusion Sounds...", weight=FontWeight.BOLD))
+    prt(progress)
+    random_seed = int(audio_diffusion_prefs['seed']) if int(audio_diffusion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+    try:
+        output = pipe_audio_diffusion(audio_file=init_audio, slice=audio_diffusion_prefs['slice'], steps=audio_diffusion_prefs['steps'], start_step=audio_diffusion_prefs['start_step'], mask_start_secs=audio_diffusion_prefs['mask_start_secs'], mask_end_secs=audio_diffusion_prefs['mask_end_secs'], eta=audio_diffusion_prefs['eta'], batch_size=int(audio_diffusion_prefs['batch_size']), generator=generator)#, callback=callback_fnc)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error Generating Audio Diffusion Output", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    images = output.images
+    audios = output.audios
+    sample_rate = pipe_audio_diffusion.mel.get_sample_rate()
+    save_dir = os.path.join(root_dir, 'audio_out', audio_diffusion_prefs['batch_folder_name'])
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir, exist_ok=True)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(audio_diffusion_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, audio_diffusion_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    #voice_dirs = os.listdir(os.path.join(root_dir, "audio_diffusion-tts", 'audio_diffusion', 'voices'))
+    #print(str(voice_dirs))
+    clear_last()
+    clear_last()
+    a_name = audio_diffusion_prefs['audio_name']
+    if not bool(a_name):
+        if bool(init_audio):
+            a_name = init_audio.rpartition(slash)[2].rpartition('.')[0]
+        else:
+            a_name = f"audio_diffusion-{model_id.rpartition('/')[2]}"
+    fname = format_filename(a_name, force_underscore=True)
+    if fname[-1] == '.': fname = fname[:-1]
+    file_prefix = audio_diffusion_prefs['file_prefix']
+    audio_name = f'{file_prefix}{fname}'
+    audio_name = audio_name[:int(prefs['file_max_length'])]
+    for image in images:
+        iname = available_file(save_dir, audio_name, 0)
+        image.save(iname)
+        out_path = iname
+        prt(Row([Img(src=iname, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(prefs['image_output'], fname, 0)
+            out_path = new_file
+            shutil.copy(iname, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(prefs['image_output'], fname, 0)
+            out_path = new_file
+            shutil.copy(iname, new_file)
+        #prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    for a in audios:
+        aname = available_file(save_dir, audio_name, 0, ext="wav")
+        #for i in range(waveform.shape[0]):
+        #    sf.write(aname, waveform[i, 0], samplerate=sample_rate)
+        #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
+        #IPython.display.Audio('generated.wav')
+        scipy.io.wavfile.write(aname, sample_rate, a.transpose())
+        a_out = Audio(src=aname, autoplay=False)
+        page.overlay.append(a_out)
+        page.update()
+        display_name = aname
+        #a.tofile(f"/content/dance-{i}.wav")
+        if storage_type == "Colab Google Drive":
+            audio_save = available_file(audio_out, audio_name, 0, ext='wav')
+            shutil.copy(aname, audio_save)
+        elif bool(prefs['image_output']):
+            audio_save = available_file(audio_out, audio_name, 0, ext='wav')
+            shutil.copy(aname, audio_save)
+        else: audio_save = aname
+        display_name = audio_save
+        prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    if prefs['enable_sounds']: page.snd_alert.play()
+    
 
 # https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb
 def run_dreambooth(page):
@@ -13771,13 +14071,13 @@ def run_audio_ldm(page):
         from audioldm import text_to_audio, build_model
     except Exception:
         try:
-            run_process("pip install -q pyyaml", page=page, show=True, print=True)
-            run_process("pip install -q einops", page=page, show=True, print=True)
-            run_process("pip install -q soundfile", page=page, show=True, print=True)
-            run_process("pip install -q librosa", page=page, show=True, print=True)
-            run_process("pip install -q pandas", page=page, show=True, print=True)
+            run_process("pip install einops", page=page)
+            run_process("pip install -q pyyaml", page=page)
+            run_process("pip install -q soundfile", page=page)
+            run_process("pip install -q librosa", page=page)
+            run_process("pip install -q pandas", page=page)
             run_process("pip install -q gradio", page=page)
-            run_process("pip install -q torchlibrosa", page=page, show=True, print=True)
+            run_process("pip install -q torchlibrosa", page=page)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing AudioLDM requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
@@ -13800,7 +14100,12 @@ def run_audio_ldm(page):
     prt(Text("  Generating AudioLDM Sounds...", weight=FontWeight.BOLD))
     prt(progress)
     random_seed = int(audioLDM_prefs['seed']) if int(audioLDM_prefs['seed']) > 0 else rnd.randint(0,4294967295)
-    waveform = text_to_audio(pipe_audio_ldm, audioLDM_prefs['text'], random_seed, duration=audioLDM_prefs['duration'], guidance_scale=audioLDM_prefs['guidance_scale'], n_candidate_gen_per_text=int(audioLDM_prefs['n_candidates']))
+    try:
+      waveform = text_to_audio(pipe_audio_ldm, audioLDM_prefs['text'], random_seed, duration=audioLDM_prefs['duration'], guidance_scale=audioLDM_prefs['guidance_scale'], n_candidate_gen_per_text=int(audioLDM_prefs['n_candidates']))
+    except Exception as e:
+      clear_last()
+      alert_msg(page, "Error generating text_to_audio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+      return
     save_dir = os.path.join(root_dir, 'audio_out', audioLDM_prefs['batch_folder_name'])
     if not os.path.exists(save_dir):
       os.makedirs(save_dir, exist_ok=True)
@@ -15785,7 +16090,7 @@ class Header(UserControl):
             ], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=1, vertical_alignment=CrossAxisAlignment.END),
             Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT) if self.divider else Container(content=None),
             Container(content=None, height=3),
-        ])
+        ], spacing=2)
         return self.column
         
 class NumberPicker(UserControl):
@@ -15871,6 +16176,7 @@ elif tunnel_type == "localtunnel":
     public_url = url
   else:
     import re
+    #print(run_sp('lt -p 80', realtime=False))
     localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
     public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
