@@ -8,7 +8,7 @@ storage_type = "Local Drive" #@param ["Colab Google Drive", "PyDrive Google Driv
 Google_OAuth_client_secret_json = "/content/client_secrets.json" #param {'type': 'string'}
 save_to_GDrive = False #param {'type': 'boolean'}
 saved_settings_json = '.\sdd-settings.json' #@param {'type': 'string'}
-tunnel_type = "desktop" #@param ["localtunnel", "ngrok"] 
+tunnel_type = "huggingface" #@param ["localtunnel", "ngrok"] 
 #, "cloudflared"
 auto_launch_website = False #@param {'type': 'boolean'}
 version = "v1.7.0"
@@ -46,11 +46,6 @@ if os.path.exists(sample_data):
     os.remove(os.path.join(sample_data, f))
   os.rmdir(sample_data)
 os.chdir(stable_dir)
-try:
-  from IPython.display import clear_output
-except Exception:
-  run_sp("pip install -q ipython")
-  pass
 #loaded_Stability_api = False
 #loaded_img2img = False
 #use_Stability_api = False
@@ -99,6 +94,12 @@ def run_sp(cmd_str, cwd=None, realtime=True):
       return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env).stdout.decode('utf-8')
     else:
       return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env, cwd=cwd).stdout.decode('utf-8')
+try:
+  from IPython.display import clear_output
+except Exception:
+  run_sp("pip install -q ipython")
+  from IPython.display import clear_output
+  pass
 try:
   import flet
 except ImportError as e:
@@ -548,7 +549,6 @@ def buildStableDiffusers(page):
     page.MaskMaker = buildDreamMask(page)
     page.DiT = buildDiT(page)
     page.DreamFusion = buildDreamFusion(page)
-    page.Point_E = buildPoint_E(page)
     diffusersTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -564,7 +564,6 @@ def buildStableDiffusers(page):
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
-            Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
         ],
         expand=1,
@@ -791,7 +790,7 @@ def buildSettings(page):
     optional_cache_dir.value = default_dir
     optional_cache_dir.update()
   image_output = TextField(label="Image Output Path", value=prefs['image_output'], on_change=lambda e:changed(e, 'image_output'), col={"md":12, "lg":6}, suffix=IconButton(icon=icons.FOLDER_OUTLINED))
-  optional_cache_dir = TextField(label="Optional Cache Directory (saves large models to drive)", hint_text="(button on right inserts recommended folder)", value=prefs['cache_dir'], on_change=lambda e:changed(e, 'cache_dir'), suffix=IconButton(icon=icons.ARCHIVE, tooltip="Insert recommended models cache path", on_click=default_cache_dir), col={"md":12, "lg":6})
+  optional_cache_dir = TextField(label="Optional Cache Directory (saves large models to GDrive)", hint_text="(button on right inserts recommended folder)", value=prefs['cache_dir'], on_change=lambda e:changed(e, 'cache_dir'), suffix=IconButton(icon=icons.ARCHIVE, tooltip="Insert recommended models cache path", on_click=default_cache_dir), col={"md":12, "lg":6})
   file_prefix = TextField(label="Filename Prefix",  value=prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
   file_suffix_seed = Checkbox(label="Filename Suffix Seed   ", tooltip="Appends -seed# to the end of the image name", value=prefs['file_suffix_seed'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_suffix_seed'))
   file_allowSpace = Checkbox(label="Filename Allow Space", tooltip="Otherwise will replace spaces with _ underscores", value=prefs['file_allowSpace'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_allowSpace'))
@@ -1762,16 +1761,14 @@ def format_filename(s, force_underscore=False):
     if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
     return filename[:int(prefs['file_max_length'])]
 
-'''
-def merge_dict(*dicts):
-    all_keys  = set(k for d in dicts for k in d.keys())
-    chain_map = ChainMap(*reversed(dicts))
-    return {k: chain_map[k] for k in all_keys}
+#def merge_dict(*dicts):
+#    all_keys  = set(k for d in dicts for k in d.keys())
+#    chain_map = ChainMap(*reversed(dicts))
+#    return {k: chain_map[k] for k in all_keys}
+#def merge_dict(dict1, dict2): 
+#    merged_dict = {**dict1, **dict2}
+#    return merged_dict
 
-def merge_dict(dict1, dict2): 
-    merged_dict = {**dict1, **dict2}
-    return merged_dict
-'''
 def merge_dict(dict1, dict2):
     new_dict = {}
     for key in dict1:
@@ -2531,7 +2528,7 @@ def buildPromptWriter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", "Construct your Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom."),
+        Header("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", "Construct your Stable Diffusion Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom."),
         ResponsiveRow([
           TextField(label="Prompt Art Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects'), multiline=True, max_lines=4, col={'lg':9}),
           TextField(label="Negative Prompt (optional)", value=prefs['prompt_writer']['negative_prompt'], on_change=lambda e: changed(e, 'negative_prompt'), multiline=True, max_lines=4, col={'lg':3}),
@@ -3643,7 +3640,7 @@ def buildAudioDiffusion(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(audio_diffusion_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {audio_diffusion_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("DDIM ETA:"), eta_value, eta,])
-    audio_model = Dropdown(label="Audio Model", width=400, options=[dropdown.Option("teticio/audio-diffusion-ddim-256"), dropdown.Option("teticio/audio-diffusion-breaks-256"), dropdown.Option("teticio/audio-diffusion-instrumental-hiphop-256"), dropdown.Option("teticio/latent-audio-diffusion-256"), dropdown.Option("teticio/latent-audio-diffusion-ddim-256"), dropdown.Option("teticio/conditional-latent-audio-diffusion-512")], value=audio_diffusion_prefs['audio_model'], on_change=lambda e: changed(e, 'audio_model'))
+    audio_model = Dropdown(label="Audio Model", options=[dropdown.Option("teticio/audio-diffusion-ddim-256"), dropdown.Option("teticio/audio-diffusion-breaks-256"), dropdown.Option("teticio/audio-diffusion-instrumental-hiphop-256"), dropdown.Option("teticio/latent-audio-diffusion-256"), dropdown.Option("teticio/latent-audio-diffusion-ddim-256"), dropdown.Option("teticio/conditional-latent-audio-diffusion-512")], value=audio_diffusion_prefs['audio_model'], on_change=lambda e: changed(e, 'audio_model'))
     scheduler = Dropdown(label="De-noise Scheduler", width=250, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM")], value=audio_diffusion_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     slice = TextField(label="Slice of Audio", value=audio_diffusion_prefs['slice'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'slice', ptype='int'), width = 130)
     start_step = TextField(label="Starting Step", value=audio_diffusion_prefs['start_step'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'start_step', ptype='int'), width = 130)
@@ -3747,109 +3744,6 @@ def buildDreamFusion(page):
         Row([workspace]),
         ElevatedButton(content=Text("🔨  Run DreamFusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dreamfusion(page)),
         page.dreamfusion_output,
-        clear_button,
-      ]
-    ))], scroll=ScrollMode.AUTO)
-    return c
-
-point_e_prefs = {
-    'prompt_text': '',
-    'init_image': '',
-    'guidance_scale': 3.0,
-    'base_model': 'base40M-textvec', #'base40M', 'base300M' or 'base1B'
-    'upsample': False,
-    'batch_size': 1,
-    'batch_folder_name': '',
-    'seed': 0,
-    'max_steps': 512,
-}
-
-def buildPoint_E(page):
-    global prefs, point_e_prefs
-    def changed(e, pref=None, ptype="str"):
-      if pref is not None:
-        try:
-          if ptype == "int":
-            point_e_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            point_e_prefs[pref] = float(e.control.value)
-          else:
-            point_e_prefs[pref] = e.control.value
-        except Exception:
-          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
-          pass
-    def add_to_point_e_output(o):
-      page.point_e_output.controls.append(o)
-      page.point_e_output.update()
-    def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
-      page.point_e_output.controls = []
-      page.point_e_output.update()
-      clear_button.visible = False
-      clear_button.update()
-    def df_help(e):
-      def close_df_dlg(e):
-        nonlocal df_help_dlg
-        df_help_dlg.open = False
-        page.update()
-      df_help_dlg = AlertDialog(title=Text("💁   Help with OpenAI Point-E"), content=Column([
-          Markdown("This is an interface for running the [official codebase](https://github.com/openai/point-e) for point cloud diffusion models and SDF regression models described in [Point-E: A System for Generating 3D Point Clouds from Complex Prompts](https://arxiv.org/abs/2212.08751). These models were trained and released by OpenAI. Following [Model Cards for Model Reporting (Mitchell et al.)](https://arxiv.org/abs/1810.03993), we're providing some information about how the models were trained and evaluated.", on_tap_link=lambda e: e.page.launch_url(e.data)),
-          Text("The Point-E models are trained for use as point cloud diffusion models and SDF regression models. Our image-conditional models are often capable of producing coherent 3D point clouds, given a single rendering of a 3D object. However, the models sometimes fail to do so, either producing incorrect geometry where the rendering is occluded, or producing geometry that is inconsistent with visible parts of the rendering. The resulting point clouds are relatively low-resolution, and are often noisy and contain defects such as outliers or cracks. Our text-conditional model is sometimes capable of producing 3D point clouds which can be recognized as the provided text description, especially when the text description is simple. However, we find that this model fails to generalize to complex prompts or unusual objects."),
-          Text("While recent work on text-conditional 3D object generation has shown promising results, the state-of-the-art methods typically require multiple GPU-hours to produce a single sample. This is in stark contrast to state-of-the-art generative image models, which produce samples in a number of seconds or minutes. In this paper, we explore an alternative method for 3D object generation which produces 3D models in only 1-2 minutes on a single GPU. Our method first generates a single synthetic view using a text-to-image diffusion model, and then produces a 3D point cloud using a second diffusion model which conditions on the generated image. While our method still falls short of the state-of-the-art in terms of sample quality, it is one to two orders of magnitude faster to sample from, offering a practical trade-off for some use cases. We release our pre-trained point cloud diffusion models, as well as evaluation code and models for you to use."),
-        ], scroll=ScrollMode.AUTO), actions=[TextButton("☝️  Good Points... ", on_click=close_df_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = df_help_dlg
-      df_help_dlg.open = True
-      page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-      if e.progress == 1:
-        point_e_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
-        init_image.value = fname
-        init_image.update()
-        point_e_prefs['init_image'] = fname
-        page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    #page.overlay.append(pick_files_dialog)
-    def pick_original(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
-    def change_guidance(e):
-      guidance_value.value = f" {e.control.value}"
-      guidance_value.update()
-      guidance.update()
-    prompt_text = TextField(label="Prompt Text", value=point_e_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
-    init_image = TextField(label="Sample Image (instead of prompt)", value=point_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
-    base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=point_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
-    batch_folder_name = TextField(label="3D Model Folder Name", value=point_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    #batch_size = TextField(label="Batch Size", value=point_e_prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
-    batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=point_e_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
-    guidance_scale = Slider(min=0, max=10, divisions=20, label="{value}", value=point_e_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {point_e_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
-    #seed = TextField(label="Seed", value=point_e_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
-    page.point_e_output = Column([])
-    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
-    clear_button.visible = len(page.point_e_output.controls) > 0
-    c = Column([Container(
-      padding=padding.only(18, 14, 20, 10),
-      content=Column([
-        Header("👆  Point-E 3D Point Clouds", "Provide a Prompt or Image to render from a CLIP ViT-L/14 diffusion model...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Point-E Settings", on_click=df_help)]),
-        prompt_text,
-        init_image,
-        base_model,
-        Row([batch_folder_name, batch_size]),
-        guidance,
-        ElevatedButton(content=Text("🐞  Run Point-E", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_point_e(page)),
-        page.point_e_output,
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO)
@@ -7215,7 +7109,7 @@ def buildAudioLDM(page):
     text = TextField(label="Text Prompt to Auditorialize", value=audioLDM_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
     batch_folder_name = TextField(label="Batch Folder Name", value=audioLDM_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=audioLDM_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:   ", min=1, max=5, value=audioLDM_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
+    n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:  ", min=1, max=5, value=audioLDM_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
     seed = TextField(label="Seed", value=audioLDM_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
     page.audioLDM_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -8603,17 +8497,6 @@ def get_stability(page):
     #print(str(payload))
     status['installed_stability'] = True
 
-'''
-def update_stability():
-    global SD_sampler, stability_api
-    from stability_sdk import client
-    stability_api = client.StabilityInference(
-        key=prefs['Stability_api_key'], 
-        verbose=True,
-        engine=prefs['model_checkpoint']
-    )
-    SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'].lower())
-'''
 def get_ESRGAN(page):
     os.chdir(dist_dir)
     run_process(f"git clone https://github.com/xinntao/Real-ESRGAN.git -q", page=page, cwd=dist_dir)
@@ -8698,6 +8581,73 @@ def get_conceptualizer(page):
     pipe_conceptualizer.set_progress_bar_config(disable=True)
     #pipe_conceptualizer = pipe_conceptualizer.to(torch_device)
     return pipe_conceptualizer
+
+def get_dreamfusion(page):
+    os.chdir(root_dir)
+    run_process("git clone https://github.com/ashawkey/stable-dreamfusion.git -q", page=page)
+    os.chdir(os.path.join(root_dir, "stable-dreamfusion"))
+    run_process("pip install -r requirements.txt -q", page=page)
+    run_process("pip install git+https://github.com/NVlabs/nvdiffrast/ -q", page=page)
+    os.chdir(root_dir)
+    
+def run_dreamfusion(page):
+    global dreamfusion_prefs, status
+    def add_to_dreamfusion_output(o):
+      page.dreamfusion_output.controls.append(o)
+      page.dreamfusion_output.update()
+    def clear_last():
+      #page.dreamfusion_output.controls = []
+      del page.dreamfusion_output.controls[-1]
+      page.dreamfusion_output.update()
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install HuggingFace Diffusers Pipeline before running...")
+      return
+    if not bool(dreamfusion_prefs["prompt_text"].strip()):
+      alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
+      return
+    page.dreamfusion_output.controls = []
+    page.dreamfusion_output.update()
+    if not status['installed_dreamfusion']:
+      add_to_dreamfusion_output(Row([ProgressRing(), Text("Installing Stable DreamFusion 3D Pipeline...", weight=FontWeight.BOLD)]))
+      get_dreamfusion(page)
+      status['installed_dreamfusion'] = True
+      clear_last()
+    def convert(seconds):
+      seconds = seconds % (24 * 3600)
+      hour = seconds // 3600
+      seconds %= 3600
+      minutes = seconds // 60
+      seconds %= 60
+      return "%d:%02d" % (hour, minutes)
+    estimate = convert(int(dreamfusion_prefs["training_iters"] * 0.7))
+    add_to_dreamfusion_output(Text("Generating your 3D model, this'll take a while...  Estimating " + estimate))
+    add_to_dreamfusion_output(ProgressBar())
+    df_path = os.path.join(root_dir, "stable-dreamfusion")
+    os.chdir(df_path)
+    run_str = f'python main.py -O --text "{dreamfusion_prefs["prompt_text"]}" --workspace {dreamfusion_prefs["workspace"]} --iters {dreamfusion_prefs["training_iters"]} --lr {dreamfusion_prefs["learning_rate"]} --w {dreamfusion_prefs["training_nerf_resolution"]} --h {dreamfusion_prefs["training_nerf_resolution"]} --seed {dreamfusion_prefs["seed"]} --lambda_entropy {dreamfusion_prefs["lambda_entropy"]} --ckpt {dreamfusion_prefs["checkpoint"]} --save_mesh --max_steps {dreamfusion_prefs["max_steps"]}'
+    print(run_str)
+    torch.cuda.empty_cache()
+    try:
+      run_process(run_str, page=page)
+    except:
+      clear_last()
+      alert_msg(page, "Error running DreamFusion, probably Out of Memory. Adjust settings & try again.")
+      return
+    clear_last()
+    add_to_dreamfusion_output(Text("Finished generating obj model, texture and video... Hope it's good."))
+    df_out = os.path.join(df_path, dreamfusion_prefs["workspace"])
+    if storage_type == "Colab Google Drive":
+      dreamfusion_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'dreamfusion_out', dreamfusion_prefs["workspace"])
+      #os.makedirs(dreamfusion_out, exist_ok=True)
+      if os.path.exists(dreamfusion_out):
+        dreamfusion_out = available_folder(os.path.join(prefs['image_output'].rpartition(slash)[0], 'dreamfusion_out'), dreamfusion_prefs["workspace"], 1)
+      shutil.copytree(df_out, dreamfusion_out)
+      add_to_dreamfusion_output(Text(f"Saved to {dreamfusion_out}"))
+    else:
+      add_to_dreamfusion_output(Text(f"Saved to {df_out}"))
+    # TODO: PyDrive2
+    if prefs['enable_sounds']: page.snd_alert.play()
+    os.chdir(root_dir)
 
 
 def clear_img2img_pipe():
@@ -10184,7 +10134,7 @@ def run_prompt_generator(page):
 remixer_request_modes = [
       "visually detailed wording, flowing sentences, extra long descriptions",
       "that is similar but with more details, themes, imagination, interest, subjects, artistic style, poetry, tone, settings, adjectives, visualizations",
-      "that is completely rewritten, inspired by, paints a complete picture of an artistic scene",
+      "that is completely rewritten, inspired by, paints a complete picture of an artistic seen",
       "with detailed colorful interesting artistic scenic visual descriptions, described to a blind person",
       "that is highly detailed, artistically interesting, describes a scene, colorful poetic language, with intricate visual descriptions",
       "that replaces every noun, adjective, verb, pronoun, with related words",
@@ -15626,249 +15576,6 @@ def run_DiT(page, from_list=False):
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
-def get_dreamfusion(page):
-    os.chdir(root_dir)
-    run_process("git clone https://github.com/ashawkey/stable-dreamfusion.git -q", page=page)
-    os.chdir(os.path.join(root_dir, "stable-dreamfusion"))
-    run_process("pip install -r requirements.txt -q", page=page)
-    run_process("pip install git+https://github.com/NVlabs/nvdiffrast/ -q", page=page)
-    os.chdir(root_dir)
-    
-def run_dreamfusion(page):
-    global dreamfusion_prefs, status
-    def add_to_dreamfusion_output(o):
-      page.dreamfusion_output.controls.append(o)
-      page.dreamfusion_output.update()
-    def clear_last():
-      #page.dreamfusion_output.controls = []
-      del page.dreamfusion_output.controls[-1]
-      page.dreamfusion_output.update()
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install HuggingFace Diffusers Pipeline before running...")
-      return
-    if not bool(dreamfusion_prefs["prompt_text"].strip()):
-      alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
-      return
-    page.dreamfusion_output.controls = []
-    page.dreamfusion_output.update()
-    if not status['installed_dreamfusion']:
-      add_to_dreamfusion_output(Row([ProgressRing(), Text("Installing Stable DreamFusion 3D Pipeline...", weight=FontWeight.BOLD)]))
-      get_dreamfusion(page)
-      status['installed_dreamfusion'] = True
-      clear_last()
-    def convert(seconds):
-      seconds = seconds % (24 * 3600)
-      hour = seconds // 3600
-      seconds %= 3600
-      minutes = seconds // 60
-      seconds %= 60
-      return "%d:%02d" % (hour, minutes)
-    estimate = convert(int(dreamfusion_prefs["training_iters"] * 0.7))
-    add_to_dreamfusion_output(Text("Generating your 3D model, this'll take a while...  Estimating " + estimate))
-    add_to_dreamfusion_output(ProgressBar())
-    df_path = os.path.join(root_dir, "stable-dreamfusion")
-    os.chdir(df_path)
-    run_str = f'python main.py -O --text "{dreamfusion_prefs["prompt_text"]}" --workspace {dreamfusion_prefs["workspace"]} --iters {dreamfusion_prefs["training_iters"]} --lr {dreamfusion_prefs["learning_rate"]} --w {dreamfusion_prefs["training_nerf_resolution"]} --h {dreamfusion_prefs["training_nerf_resolution"]} --seed {dreamfusion_prefs["seed"]} --lambda_entropy {dreamfusion_prefs["lambda_entropy"]} --ckpt {dreamfusion_prefs["checkpoint"]} --save_mesh --max_steps {dreamfusion_prefs["max_steps"]}'
-    print(run_str)
-    torch.cuda.empty_cache()
-    try:
-      run_process(run_str, page=page)
-    except:
-      clear_last()
-      alert_msg(page, "Error running DreamFusion, probably Out of Memory. Adjust settings & try again.")
-      return
-    clear_last()
-    add_to_dreamfusion_output(Text("Finished generating obj model, texture and video... Hope it's good."))
-    df_out = os.path.join(df_path, dreamfusion_prefs["workspace"])
-    if storage_type == "Colab Google Drive":
-      dreamfusion_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'dreamfusion_out', dreamfusion_prefs["workspace"])
-      #os.makedirs(dreamfusion_out, exist_ok=True)
-      if os.path.exists(dreamfusion_out):
-        dreamfusion_out = available_folder(os.path.join(prefs['image_output'].rpartition(slash)[0], 'dreamfusion_out'), dreamfusion_prefs["workspace"], 1)
-      shutil.copytree(df_out, dreamfusion_out)
-      add_to_dreamfusion_output(Text(f"Saved to {dreamfusion_out}"))
-    else:
-      add_to_dreamfusion_output(Text(f"Saved to {df_out}"))
-    # TODO: PyDrive2
-    if prefs['enable_sounds']: page.snd_alert.play()
-    os.chdir(root_dir)
-
-
-def run_point_e(page):
-    global point_e_prefs, status
-    def add_to_point_e_output(o):
-      page.point_e_output.controls.append(o)
-      page.point_e_output.update()
-    def prt(line):
-      if type(line) == str:
-        line = Text(line)
-      page.point_e_output.controls.append(line)
-      page.point_e_output.update()
-    def prt_status(text):
-        nonlocal status_txt
-        status_txt.value = text
-        status_txt.update()
-    def clear_last():
-      #page.point_e_output.controls = []
-      del page.point_e_output.controls[-1]
-      page.point_e_output.update()
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install HuggingFace Diffusers Pipeline before running...")
-      return
-    if not bool(point_e_prefs["prompt_text"].strip()):
-      alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
-      return
-    page.point_e_output.controls = []
-    page.point_e_output.update()
-    point_e_dir = os.path.join(root_dir, "point-e")
-    if not os.path.exists(point_e_dir):
-        add_to_point_e_output(Row([ProgressRing(), Text("Installing OpenAI Point-E 3D Library...", weight=FontWeight.BOLD)]))
-        try:
-            run_process("git clone https://github.com/openai/point-e.git", cwd=root_dir)
-            run_process("pip install .", cwd=point_e_dir)
-        except Exception as e:
-            clear_last()
-            alert_msg(page, "Error Installing Point-E Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
-            return
-        clear_last()
-    from tqdm.auto import tqdm
-    from point_e.diffusion.configs import DIFFUSION_CONFIGS, diffusion_from_config
-    from point_e.util.pc_to_mesh import marching_cubes_mesh
-    from point_e.diffusion.sampler import PointCloudSampler
-    from point_e.models.download import load_checkpoint
-    from point_e.models.configs import MODEL_CONFIGS, model_from_config
-    from point_e.util.plotting import plot_point_cloud
-    from point_e.util.point_cloud import PointCloud
-    from PIL import ImageOps
-    
-    if bool(point_e_prefs['batch_folder_name']):
-        fname = format_filename(point_e_prefs['batch_folder_name'], force_uderscore=True)
-    else:
-        if bool(point_e_prefs['prompt_text']):
-            fname = format_filename(point_e_prefs['prompt_text'])
-        else:
-            alert_msg(page, "If you're not using Prompt Text, provide a name for your 3D Model.")
-            return
-    #fname = f"{point_e_prefs['file_prefix']}{fname}"
-    if bool(point_e_prefs['batch_folder_name']):
-        point_e_out = os.path.join(point_e_dir, point_e_prefs['batch_folder_name'])
-    else:
-        point_e_out = point_e_dir
-    #point_e_out = os.path.join(point_e_out, fname)
-    #estimate = convert(int(point_e_prefs["training_iters"] * 0.7))
-    init_img = None
-    if bool(point_e_prefs['init_image']):
-        if point_e_prefs['init_image'].startswith('http'):
-            init_img = PILImage.open(requests.get(point_e_prefs['init_image'], stream=True).raw)
-        else:
-            if os.path.isfile(point_e_prefs['init_image']):
-                init_img = PILImage.open(point_e_prefs['init_image'])
-            else:
-                alert_msg(page, f"ERROR: Couldn't find your init_image {point_e_prefs['init_image']}")
-                if not bool(point_e_prefs['prompt_text']):
-                    return
-        if init_img != None:
-            width, height = init_img.size
-            width, height = scale_dimensions(width, height, 960)
-            init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
-            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
-    
-    status_txt = Text("Generating your 3D model, may take a while...")
-    progress = ProgressBar(bar_height=8)
-    add_to_point_e_output(status_txt)
-    add_to_point_e_output(progress)
-    base_name = point_e_prefs['base_model']
-    base_model = model_from_config(MODEL_CONFIGS[base_name], torch_device)
-    base_model.eval()
-    base_diffusion = diffusion_from_config(DIFFUSION_CONFIGS[base_name])
-
-    prt_status('Creating Upsample model...')
-    upsampler_model = model_from_config(MODEL_CONFIGS['upsample'], torch_device)
-    upsampler_model.eval()
-    upsampler_diffusion = diffusion_from_config(DIFFUSION_CONFIGS['upsample'])
-
-    prt_status('Downloading Base Checkpoint...')
-    base_model.load_state_dict(load_checkpoint(base_name, torch_device))
-
-    prt_status('Downloading Upsampler Checkpoint...')
-    upsampler_model.load_state_dict(load_checkpoint('upsample', torch_device))
-    sampler = PointCloudSampler(
-        device=torch_device,
-        models=[base_model, upsampler_model],
-        diffusions=[base_diffusion, upsampler_diffusion],
-        num_points=[1024, 4096 - 1024],
-        aux_channels=['R', 'G', 'B'],
-        guidance_scale=[point_e_prefs['guidance_scale'], 0.0],
-        model_kwargs_key_filter=('texts', ''), # Do not condition the upsampler at all
-    )
-    samples = None
-    prt_status("Generating Point-E Samples...") #images=[img]
-    step = 0
-    if init_img != None:
-        for x in tqdm(sampler.sample_batch_progressive(batch_size=point_e_prefs['batch_size'], model_kwargs=dict(images=[init_img]))):
-            samples = x
-            step += 1
-    else:
-        for x in tqdm(sampler.sample_batch_progressive(batch_size=point_e_prefs['batch_size'], model_kwargs=dict(texts=[point_e_prefs['prompt_text']]))):
-            samples = x
-            step += 1
-    print(f"Total steps: {step}")
-    pc = sampler.output_to_point_clouds(samples)[0]
-    fig = plot_point_cloud(pc, grid_size=3, fixed_bounds=((-0.75, -0.75, -0.75),(0.75, 0.75, 0.75)))
-    
-    prt_status('Saving PointCloud NPZ file...')
-    pc_file = os.path.join(point_e_out,'pointcloud.npz')
-    PointCloud.save(pc, pc_file)
-    sdf = 'sdf'
-    model = model_from_config(MODEL_CONFIGS[sdf], torch_device)
-    model.eval()
-
-    prt_status('Loading SDF model...')
-    model.load_state_dict(load_checkpoint(sdf, torch_device))
-    torch.cuda.empty_cache()
-    #pc = PointCloud.load('example_data/pc_corgi.npz')
-    # Plot the point cloud as a sanity check.
-    #fig = plot_point_cloud(pc, grid_size=2)
-    #fig = plot_point_cloud(pc, grid_size=3, fixed_bounds=((-0.75, -0.75, -0.75),(0.75, 0.75, 0.75)))
-    # Produce a mesh (with vertex colors)
-    try:
-        mesh = marching_cubes_mesh(
-            pc=pc,
-            model=model,
-            batch_size=4096,
-            grid_size=32, # increase to 128 for resolution used in evals
-            progress=True,
-        )
-    except Exception as e:
-      clear_last()
-      alert_msg(page, "Error running Point-E marching_cubes_mesh.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
-      return
-    # Write the mesh to a PLY file to import into some other program.
-    ply_file = os.path.join(point_e_out,'mesh.ply')
-    with open(ply_file, 'wb') as f:
-        mesh.write_ply(f)
-    
-    #with open("mesh.ply", 'r') as file:
-    #    print(file.name)
-    #https://colab.research.google.com/drive/1Ok3ye2xWsuYOcmbAU3INN7AHy5gvvq5m
-
-    clear_last()
-    clear_last()
-    prt("Finished generating Point Cloud and Mesh... Hope it's good.")
-    if storage_type == "Colab Google Drive":
-      point_e_save = os.path.join(prefs['image_output'].rpartition(slash)[0], 'point_e', fname)
-      #os.makedirs(point_e_out, exist_ok=True)
-      if os.path.exists(point_e_save):
-        point_e_save = available_folder(os.path.join(prefs['image_output'].rpartition(slash)[0], 'point_e'), fname, 1)
-      shutil.copytree(point_e_out, point_e_save)
-      prt(Text(f"Saved pointcloud.npz & mesh.ply to {point_e_save}"))
-    else:
-      prt(Text(f"Saved pointcloud.npz & mesh.ply to {point_e_out}"))
-    # TODO: PyDrive2
-    if prefs['enable_sounds']: page.snd_alert.play()
-    os.chdir(root_dir)
-
-
 def run_dall_e(page, from_list=False):
     global dall_e_prefs, prefs, prompts
     if (not bool(dall_e_prefs['prompt']) and not from_list) or (from_list and (len(prompts) == 0)):
@@ -16453,7 +16160,7 @@ class Main:
         self.page.update()
 main = Main()'''
 
-port = 8502
+port = 7860
 if tunnel_type == "ngrok":
   #if bool(url):
   #  public_url = url
@@ -16470,6 +16177,8 @@ elif tunnel_type == "localtunnel":
     localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
     public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
+elif tunnel_type == "huggingface":
+    public_url = "https://alanb-stable-diffusion-deluxe.hf.space/"
 else: public_url=""
 from IPython.display import Javascript
 if bool(public_url):
