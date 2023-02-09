@@ -600,15 +600,17 @@ def buildAudioAIs(page):
     page.DanceDiffusion = buildDanceDiffusion(page)
     page.AudioDiffusion = buildAudioDiffusion(page)
     page.AudioLDM = buildAudioLDM(page)
+    page.Riffusion = buildRiffusion(page)
     page.Mubert = buildMubert(page)
     audioAIsTabs = Tabs(
         selected_index=0,
         animation_duration=300,
         tabs=[
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
-            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
-            Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
+            Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
+            Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
+            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
             Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
         ],
         expand=1,
@@ -881,7 +883,7 @@ def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False,
 def close_alert_dlg(e):
       e.page.alert_dlg.open = False
       e.page.update()
-def alert_msg(page, msg, content=None, okay="", sound=True):
+def alert_msg(page, msg, content=None, okay="", sound=True, width=None):
       try:
         if page.alert_dlg.open == True: return
       except Exception: pass
@@ -5197,7 +5199,20 @@ def buildDiT(page):
       page.dialog = DiT_help_dlg
       DiT_help_dlg.open = True
       page.update()
-    
+    def copy_class(e):
+      page.set_clipboard(e.control.text)
+      page.snack_bar = SnackBar(content=Text(f"📋   Class {e.control.text} copied to clipboard..."))
+      page.snack_bar.open = True
+      page.update()
+    def show_classes(e):
+      classes = []
+      for c in ImageNet_classes.keys():
+        #TODO Copy to clipboard on click
+        classes.append(TextButton(c, col={'sm':4, 'md':3, 'lg':2,}, on_click=copy_class))
+      alert_msg(page, "ImageNET Class List", content=Container(Column([ResponsiveRow(
+        controls=classes,
+        expand=True,
+      )], scroll="auto", spacing=0), width=page.width - 150), okay="That's a lot...", sound=False)
     def change_num_inference(e):
       changed(e, 'num_inference_steps', ptype="int")
       num_inference_value.value = f" {DiT_prefs['num_inference_steps']}"
@@ -5253,7 +5268,7 @@ def buildDiT(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("⚧️  DiT Models with Transformers Class-to-Image Generator", "Scalable Diffusion Models with Transformers...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DiT Settings", on_click=DiT_help)]),
+        Header("⚧️  DiT Models with Transformers Class-to-Image Generator", "Scalable Diffusion Models with Transformers...", actions=[ft.OutlinedButton("Class List", on_click=show_classes), IconButton(icon=icons.HELP, tooltip="Help with DiT Settings", on_click=DiT_help)]),
         prompt,
         #Row([prompt, mask_image, invert_mask]),
         num_inference_row,
@@ -7236,6 +7251,135 @@ def buildAudioLDM(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+riffusion_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'audio_file': '',
+    'duration': 5.0,
+    'steps': 50,
+    'strength': 0.5,
+    'guidance_scale': 7.0,
+    'batch_size': 1,
+    'max_size': 768,
+    'seed': 0,
+    'wav_path': '',
+    'batch_folder_name': '',
+    'file_prefix': 'riff-',
+    'loaded_pipe': '',
+}
+
+def buildRiffusion(page):
+    global prefs, riffusion_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              riffusion_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              riffusion_prefs[pref] = float(e.control.value)
+            else:
+              riffusion_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_riffusion_output(o):
+        page.riffusion_output.controls.append(o)
+        page.riffusion_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.riffusion_output.controls = []
+        page.riffusion_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def riffusion_help(e):
+        def close_riffusion_dlg(e):
+          nonlocal riffusion_help_dlg
+          riffusion_help_dlg.open = False
+          page.update()
+        riffusion_help_dlg = AlertDialog(title=Text("💁   Help with Audio-LDM"), content=Column([
+            Text("This is the v1.5 stable diffusion model with no modifications, just fine-tuned on images of spectrograms paired with text. Audio processing happens downstream of the model. It can generate infinite variations of a prompt by varying the seed. All the same web UIs and techniques like img2img, inpainting, negative prompts, and interpolation work out of the box."),
+            Markdown("[Project Page](https://www.riffusion.com/about), [Codebase](https://github.com/riffusion/riffusion), [Discord](https://discord.gg/yu6SRwvX4v)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🎺  Let's Jam... ", on_click=close_riffusion_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = riffusion_help_dlg
+        riffusion_help_dlg.open = True
+        page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+            upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+        if e.progress == 1:
+            riffusion_prefs['file_name'] = e.file_name.rpartition('.')[0]
+            fname = os.path.join(root_dir, e.file_name)
+            audio_file.value = fname
+            audio_file.update()
+            riffusion_prefs['audio_file'] = fname
+            page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_audio(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp3", "wav"], dialog_title="Pick Init Audio File")
+    audio_file = TextField(label="Input Audio File (optional)", value=riffusion_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
+
+    def change_duration(e):
+        changed(e, 'duration', ptype="float")
+        duration_value.value = f" {riffusion_prefs['duration']}s"
+        duration_value.update()
+    duration = Slider(min=1, max=20, divisions=38, label="{value}s", value=float(riffusion_prefs['duration']), expand=True, on_change=change_duration)
+    duration_value = Text(f" {float(riffusion_prefs['duration'])}s", weight=FontWeight.BOLD)
+    duration_row = Row([Text("Duration: "), duration_value, duration])
+    def change_steps(e):
+        changed(e, 'steps', ptype="int")
+        steps_value.value = f" {riffusion_prefs['steps']}"
+        steps_value.update()
+        steps_row.update()
+    steps = Slider(min=1, max=100, divisions=99, label="{value}", value=float(riffusion_prefs['steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_steps)
+    steps_value = Text(f" {riffusion_prefs['steps']}", weight=FontWeight.BOLD)
+    steps_row = Row([Text("Number of Steps: "), steps_value, steps])
+
+    def change_guidance(e):
+      guidance_value.value = f" {e.control.value}"
+      guidance_value.update()
+      guidance.update()
+      changed(e, 'guidance_scale', ptype="float")
+    guidance_scale = Slider(min=0, max=10, divisions=20, label="{value}", value=riffusion_prefs['guidance_scale'], tooltip="Large => better quality and relavancy to text; Small => better diversity", on_change=change_guidance, expand=True)
+    guidance_value = Text(f" {riffusion_prefs['guidance_scale']}", weight=FontWeight.BOLD)
+    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    prompt = TextField(label="Text Prompt", value=riffusion_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=riffusion_prefs['negative_prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(riffusion_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
+    max_size_row = Row([Text("Max Size: "), max_size])
+    batch_folder_name = TextField(label="Batch Folder Name", value=riffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=riffusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    batch_size = NumberPicker(label="Batch Size:   ", min=1, max=5, value=riffusion_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    seed = TextField(label="Seed", value=riffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.riffusion_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.riffusion_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("💽  Riffusion Spectrogram Sound Modeling", "Stable Diffusion for real-time music generation...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=riffusion_help)]),
+        ResponsiveRow([prompt, negative_prompt]),
+        audio_file,
+        #duration_row,
+        guidance,
+        steps_row,
+        max_size_row,
+        Row([batch_size, seed]),
+        Row([batch_folder_name, file_prefix]),
+        ElevatedButton(content=Text("👨‍🎤️  Run Riffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_riffusion(page)),
+        page.riffusion_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 mubert_prefs = {
     'prompt': '',
     'duration': 30,
@@ -7412,6 +7556,7 @@ pipe_dance = None
 pipe_kandinsky = None
 pipe_tortoise_tts = None
 pipe_audio_ldm = None
+pipe_riffusion = None
 pipe_audio_diffusion = None
 stability_api = None
 
@@ -7905,6 +8050,7 @@ def optimize_pipe(p, vae=False):
     return p
 
 def install_xformers(page):
+    ''' No longer needed, they finally updated to make it easier'''
     run_process("pip install -U --pre trito", page=page)
     from subprocess import getoutput
 
@@ -8880,6 +9026,13 @@ def clear_audio_diffusion_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_audio_diffusion = None
+def clear_riffusion_pipe():
+  global pipe_riffusion
+  if pipe_riffusion is not None:
+    del pipe_riffusion
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_riffusion = None
 def clear_DiT_pipe():
   global pipe_DiT
   if pipe_DiT is not None:
@@ -8928,6 +9081,7 @@ def clear_pipes(allbut=None):
     if not 'instruct_pix2pix' in but: clear_instruct_pix2pix_pipe()
     if not 'DiT' in but: clear_DiT_pipe()
     if not 'dance' in but: clear_dance_pipe()
+    if not 'riffusion' in but: clear_riffusion_pipe()
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
@@ -14186,6 +14340,175 @@ def run_audio_ldm(page):
     prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_riffusion(page):
+    global riffusion_prefs, pipe_riffusion, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.riffusion_output.controls.append(line)
+      page.riffusion_output.update()
+    def clear_last():
+      if len(page.riffusion_output.controls) < 1: return
+      del page.riffusion_output.controls[-1]
+      page.riffusion_output.update()
+    def play_audio(e):
+      e.control.data.play()
+    if not bool(riffusion_prefs['prompt']):
+      alert_msg(page, "Provide Text for the AI to create the sound of...")
+      return
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    progress = ProgressBar(bar_height=8)
+    state_text = Text(" Downloading Riffusion Packages...", weight=FontWeight.BOLD)
+    prt(Row([ProgressRing(), state_text]))
+    riffusion_dir = os.path.join(root_dir, "riffusion-inference")
+    #voice_dir = os.path.join(riffusion_dir, 'audioldm', 'voices')
+    if not os.path.isdir(riffusion_dir):
+      os.chdir(root_dir) # -b v0.3.0 
+      run_process("git clone https://github.com/hmartiro/riffusion-inference", page=page)
+    os.chdir(riffusion_dir)
+    import sys
+    sys.path.append(os.path.join(riffusion_dir, 'riffusion'))
+    try:
+        from riffusion.spectrogram_image_converter import SpectrogramImageConverter
+    except Exception:
+        try:
+            run_process("pip install -r requirements.txt", page=page, cwd=riffusion_dir)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Riffusion requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+            return
+        pass
+    finally:
+        from riffusion.spectrogram_image_converter import SpectrogramImageConverter
+        from riffusion.spectrogram_params import SpectrogramParams
+        try:
+            from riffusion.audio import spectrogram_from_waveform
+        except Exception:
+            print("Still can't find riffusion.audio import spectrogram_from_waveform")
+            pass
+        #from IPython.display import Audio
+        from scipy.io import wavfile
+    def image_from_spectrogram(spectrogram: np.ndarray, max_volume: float = 50, power_for_image: float = 0.25) -> PILImage.Image:
+        data = np.power(spectrogram, power_for_image)
+        data = data * 255 / max_volume
+        data = 255 - data
+        image = PILImage.fromarray(data.astype(np.uint8))
+        image = image.transpose(PILImage.FLIP_TOP_BOTTOM)
+        image = image.convert("RGB")
+        return image
+    model_id="riffusion/riffusion-model-v1"
+    save_dir = os.path.join(root_dir, 'audio_out', riffusion_prefs['batch_folder_name'])
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir, exist_ok=True)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(riffusion_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, riffusion_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm-tts", 'audioldm', 'voices'))
+    #print(str(voice_dirs))
+    fname = format_filename(riffusion_prefs['prompt'])
+    if fname[-1] == '.': fname = fname[:-1]
+    file_prefix = riffusion_prefs['file_prefix']
+    audio_name = f'{file_prefix}-{fname}'
+    audio_name = audio_name[:int(prefs['file_max_length'])]
+    
+    init = riffusion_prefs['audio_file']
+    if bool(init):
+        if init.startswith('http'):
+            init_audio = download_file(init)
+        else:
+            if os.path.isfile(init):
+                init_audio = init
+            else:
+                init_audio = None
+    else:
+        init_audio = None
+
+    if pipe_riffusion == None or (init_audio == None and riffusion_prefs['loaded_pipe'] == "image") or (init_audio != None and riffusion_prefs['loaded_pipe'] == "text"):
+      clear_pipes()
+      try:
+        if init_audio == None:
+            from diffusers import DiffusionPipeline #, custom_pipeline="AlanB/lpw_stable_diffusion_mod"
+            pipe_riffusion = DiffusionPipeline.from_pretrained(model_id, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_riffusion = optimize_pipe(pipe_riffusion)
+            riffusion_prefs['loaded_pipe'] = "text"
+        else:
+            from diffusers import StableDiffusionImg2ImgPipeline
+            pipe_riffusion = StableDiffusionImg2ImgPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_riffusion = pipe_riffusion.to(torch_device)
+            riffusion_prefs['loaded_pipe'] = "image"
+      except Exception as e:
+        clear_last()
+        alert_msg(page, "Error downloading Riffusion package", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    else:
+        clear_pipes('riffusion')
+    clear_last()
+    prt(Text("  Generating Riffusion Sounds...", weight=FontWeight.BOLD))
+    prt(progress)
+    random_seed = int(riffusion_prefs['seed']) if int(riffusion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+    try:
+        if init_audio == None:
+            params = SpectrogramParams()
+            converter = SpectrogramImageConverter(params)
+            specs = pipe_riffusion(
+                riffusion_prefs['prompt'],
+                negative_prompt=riffusion_prefs['negative_prompt'],
+                guidance_scale=riffusion_prefs['guidance_scale'],
+                steps=riffusion_prefs['steps'],
+                width=riffusion_prefs['max_size'],
+                height=riffusion_prefs['max_size'],
+                batch_size=riffusion_prefs['batch_size'],
+                generator=generator,
+            ).images
+        else:
+            rate, data = wavfile.read(init_audio)
+            data = np.mean(data, axis=1)
+            data = data.astype(np.float32)
+            data = data[rate*7:rate*14]
+            spectrogram = spectrogram_from_waveform(waveform=data, sample_rate=rate, n_fft=8192, hop_length=512, win_length=8192)
+            spec = image_from_spectrogram(spectrogram)
+            specs = pipe_riffusion(
+                prompt=riffusion_prefs['prompt'],
+                negative_prompt=riffusion_prefs['negative_prompt'],
+                image=spec,
+                strength=riffusion_prefs['strength'],
+                guidance_scale=riffusion_prefs['guidance_scale'],
+                steps=riffusion_prefs['steps'],
+                width=riffusion_prefs['max_size'],
+                height=riffusion_prefs['max_size'],
+                batch_size=riffusion_prefs['batch_size'],
+                generator=generator,
+            ).images
+    except Exception as e:
+      clear_last()
+      alert_msg(page, "Error generating Spectrogram Image Converter from Diffusion...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+      return
+
+    clear_last()
+    clear_last()
+    for spec in specs:
+        audio_file = available_file(save_dir, audio_name, 0, ext="wav")
+        image_file = available_file(save_dir, audio_name, 0)
+        wav = converter.audio_from_spectrogram_image(image=spec)
+        wav.export(audio_file, format='wav')
+        spec.save(image_file)
+        a_out = Audio(src=audio_file, autoplay=False)
+        page.overlay.append(a_out)
+        page.update()
+        display_name = audio_file
+        if storage_type == "Colab Google Drive":
+          audio_save = available_file(audio_out, fname, 0, ext='wav')
+          image_save = available_file(audio_out, fname, 0)
+          shutil.copy(audio_file, audio_save)
+          shutil.copy(image_file, image_save)
+          display_name = audio_save
+        prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_mubert(page):
     def prt(line):
@@ -15693,9 +16016,10 @@ def run_dreamfusion(page):
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
 
+base_diffusion = upsampler_diffusion = point_sampler = None
 
 def run_point_e(page):
-    global point_e_prefs, status
+    global point_e_prefs, status, base_diffusion, upsampler_diffusion, point_sampler
     def add_to_point_e_output(o):
       page.point_e_output.controls.append(o)
       page.point_e_output.update()
@@ -15724,6 +16048,7 @@ def run_point_e(page):
     if not os.path.exists(point_e_dir):
         add_to_point_e_output(Row([ProgressRing(), Text("Installing OpenAI Point-E 3D Library...", weight=FontWeight.BOLD)]))
         try:
+            run_process("pip install -U scikit-image")
             run_process("git clone https://github.com/openai/point-e.git", cwd=root_dir)
             run_process("pip install .", cwd=point_e_dir)
         except Exception as e:
@@ -15731,6 +16056,7 @@ def run_point_e(page):
             alert_msg(page, "Error Installing Point-E Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
             return
         clear_last()
+    clear_pipes()
     from tqdm.auto import tqdm
     from point_e.diffusion.configs import DIFFUSION_CONFIGS, diffusion_from_config
     from point_e.util.pc_to_mesh import marching_cubes_mesh
@@ -15739,10 +16065,11 @@ def run_point_e(page):
     from point_e.models.configs import MODEL_CONFIGS, model_from_config
     from point_e.util.plotting import plot_point_cloud
     from point_e.util.point_cloud import PointCloud
+    import skimage.measure
     from PIL import ImageOps
     
     if bool(point_e_prefs['batch_folder_name']):
-        fname = format_filename(point_e_prefs['batch_folder_name'], force_uderscore=True)
+        fname = format_filename(point_e_prefs['batch_folder_name'], force_underscore=True)
     else:
         if bool(point_e_prefs['prompt_text']):
             fname = format_filename(point_e_prefs['prompt_text'])
@@ -15754,6 +16081,8 @@ def run_point_e(page):
         point_e_out = os.path.join(point_e_dir, point_e_prefs['batch_folder_name'])
     else:
         point_e_out = point_e_dir
+    if not os.path.exists(point_e_out):
+        os.makedirs(point_e_out)
     #point_e_out = os.path.join(point_e_out, fname)
     #estimate = convert(int(point_e_prefs["training_iters"] * 0.7))
     init_img = None
@@ -15775,6 +16104,15 @@ def run_point_e(page):
     
     status_txt = Text("Generating your 3D model, may take a while...")
     progress = ProgressBar(bar_height=8)
+    total_steps = 130
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
     add_to_point_e_output(status_txt)
     add_to_point_e_output(progress)
     base_name = point_e_prefs['base_model']
@@ -15792,7 +16130,7 @@ def run_point_e(page):
 
     prt_status('Downloading Upsampler Checkpoint...')
     upsampler_model.load_state_dict(load_checkpoint('upsample', torch_device))
-    sampler = PointCloudSampler(
+    point_sampler = PointCloudSampler(
         device=torch_device,
         models=[base_model, upsampler_model],
         diffusions=[base_diffusion, upsampler_diffusion],
@@ -15805,15 +16143,17 @@ def run_point_e(page):
     prt_status("Generating Point-E Samples...") #images=[img]
     step = 0
     if init_img != None:
-        for x in tqdm(sampler.sample_batch_progressive(batch_size=point_e_prefs['batch_size'], model_kwargs=dict(images=[init_img]))):
+        for x in tqdm(point_sampler.sample_batch_progressive(batch_size=point_e_prefs['batch_size'], model_kwargs=dict(images=[init_img]))):
             samples = x
             step += 1
+            callback_fnc(step)
     else:
-        for x in tqdm(sampler.sample_batch_progressive(batch_size=point_e_prefs['batch_size'], model_kwargs=dict(texts=[point_e_prefs['prompt_text']]))):
+        for x in tqdm(point_sampler.sample_batch_progressive(batch_size=point_e_prefs['batch_size'], model_kwargs=dict(texts=[point_e_prefs['prompt_text']]))):
             samples = x
             step += 1
+            callback_fnc(step)
     print(f"Total steps: {step}")
-    pc = sampler.output_to_point_clouds(samples)[0]
+    pc = point_sampler.output_to_point_clouds(samples)[0]
     fig = plot_point_cloud(pc, grid_size=3, fixed_bounds=((-0.75, -0.75, -0.75),(0.75, 0.75, 0.75)))
     
     prt_status('Saving PointCloud NPZ file...')
