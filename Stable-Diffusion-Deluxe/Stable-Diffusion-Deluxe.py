@@ -46,11 +46,6 @@ if os.path.exists(sample_data):
     os.remove(os.path.join(sample_data, f))
   os.rmdir(sample_data)
 os.chdir(stable_dir)
-try:
-  from IPython.display import clear_output
-except Exception:
-  run_sp("pip install -q ipython")
-  pass
 #loaded_Stability_api = False
 #loaded_img2img = False
 #use_Stability_api = False
@@ -106,7 +101,12 @@ except ImportError as e:
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
-
+try:
+  from IPython.display import clear_output
+except Exception:
+  run_sp("pip install -q ipython")
+  from IPython.display import clear_output
+  pass
 try:
   from emoji import emojize
 except ImportError as e:
@@ -538,7 +538,8 @@ def buildPromptHelpers(page):
 def buildStableDiffusers(page):
     page.RePainter = buildRepainter(page)
     page.unCLIP = buildUnCLIP(page)
-    page.unCLIPImageVariation = buildUnCLIPImageVariation(page)
+    page.unCLIP_Interpolation = buildUnCLIP_Interpolation(page)
+    page.UnCLIP_ImageVariation = buildUnCLIP_ImageVariation(page)
     page.ImageVariation = buildImageVariation(page)
     page.CLIPstyler = buildCLIPstyler(page)
     page.MagicMix = buildMagicMix(page)
@@ -549,12 +550,14 @@ def buildStableDiffusers(page):
     page.DiT = buildDiT(page)
     page.DreamFusion = buildDreamFusion(page)
     page.Point_E = buildPoint_E(page)
+    page.InstantNGP = buildInstantNGP(page)
     diffusersTabs = Tabs(
         selected_index=0,
         animation_duration=300,
         tabs=[
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
-            Tab(text="unCLIP Image Variation", content=page.unCLIPImageVariation, icon=icons.AIRLINE_STOPS),
+            Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
+            Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
@@ -565,6 +568,7 @@ def buildStableDiffusers(page):
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
             Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
+            Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
         ],
         expand=1,
@@ -1397,6 +1401,7 @@ if is_Colab:
     from google.colab import files
 
 #LoRA_models = [{'name': 'Von Platen LoRA', 'path': 'patrickvonplaten/lora'}, {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'Trauter LoRAs', 'path': 'YoungMasterFromSect/Trauter_LoRAs'}, {'name': 'Capitalize T5', 'path': 'ShengdingHu/Capitalize_T5-LoRA'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}]
+#[{'name': 'sample-dog', 'path': 'lora-library/lora-dreambooth-sample-dog', 'prefix': 'sksdog'}, {'name': 'kdekuni', 'path': 'lora-library/kdekuni', 'prefix': 'a kdekuni golden funkopop'}, {'name': 'yarosnnv', 'path': 'lora-library/yarosnnv', 'prefix': 'yarosnnv'}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, ]
 LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}]
 
 def buildParameters(page):
@@ -1758,11 +1763,12 @@ class Dream:
 #print(str(args))
 import string
 from collections import ChainMap
-def format_filename(s, force_underscore=False):
+def format_filename(s, force_underscore=False, max_length=None):
+    file_max_length = int(prefs['file_max_length']) if max_length == None else int(max_length)
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
     filename = ''.join(c for c in s if c in valid_chars)
     if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
-    return filename[:int(prefs['file_max_length'])]
+    return filename[:file_max_length]
 
 '''
 def merge_dict(*dicts):
@@ -3857,6 +3863,212 @@ def buildPoint_E(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+
+instant_ngp_prefs = {
+    'train_steps': 2000, #Total number of training steps to perform.  If provided, overrides num_train_epochs.
+    'sharpen': 0.0,
+    'exposure': 0.0,
+    'vr_mode': False,
+    'name_of_your_model': '',
+    'save_model': True,
+    'where_to_save_model': 'Public HuggingFace',
+    'resolution': 768,
+    'image_path': '',
+    'readme_description': '',
+    'urls': [],
+}
+
+def buildInstantNGP(page):
+    global prefs, instant_ngp_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              instant_ngp_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              instant_ngp_prefs[pref] = float(e.control.value)
+            else:
+              instant_ngp_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_instant_ngp_output(o):
+        page.instant_ngp_output.controls.append(o)
+        page.instant_ngp_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.instant_ngp_output.controls = []
+        page.instant_ngp_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def instant_ngp_help(e):
+        def close_instant_ngp_dlg(e):
+          nonlocal instant_ngp_help_dlg
+          instant_ngp_help_dlg.open = False
+          page.update()
+        instant_ngp_help_dlg = AlertDialog(title=Text("💁   Help with Instant-NGP"), content=Column([
+            Text("Ever wanted to train a NeRF model of a fox in under 5 seconds? Or fly around a scene captured from photos of a factory robot? Of course you have! Here you will find an implementation of four neural graphics primitives, being neural radiance fields (NeRF), signed distance functions (SDFs), neural images, and neural volumes. In each case, we train and render a MLP with multiresolution hash input encoding using the tiny-cuda-nn framework."),
+            Text("We demonstrate near-instant training of neural graphics primitives on a single GPU for multiple tasks. In gigapixel image we represent an image by a neural network. SDF learns a signed distance function in 3D space whose zero level-set represents a 2D surface. NeRF [Mildenhall et al. 2020] uses 2D images and their camera poses to reconstruct a volumetric radiance-and-density field that is visualized using ray marching. Lastly, neural volume learns a denoised radiance and density field directly from a volumetric path tracer. In all tasks, our encoding and its efficient implementation provide clear benefits: instant training, high quality, and simplicity. Our encoding is task-agnostic: we use the same implementation and hyperparameters across all tasks and only vary the hash table size which trades off quality and performance."),
+            Text("Neural graphics primitives, parameterized by fully connected neural networks, can be costly to train and evaluate. We reduce this cost with a versatile new input encoding that permits the use of a smaller network without sacrificing quality, thus significantly reducing the number of floating point and memory access operations. A small neural network is augmented by a multiresolution hash table of trainable feature vectors whose values are optimized through stochastic gradient descent. The multiresolution structure allows the network to disambiguate hash collisions, making for a simple architecture that is trivial to parallelize on modern GPUs. We leverage this parallelism by implementing the whole system using fully-fused CUDA kernels with a focus on minimizing wasted bandwidth and compute operations. We achieve a combined speedup of several orders of magnitude, enabling training of high-quality neural graphics primitives in a matter of seconds, and rendering in tens of milliseconds at a resolution of 1920x1080."),
+            Markdown("[Project page](https://nvlabs.github.io/instant-ngp) / [Paper](https://nvlabs.github.io/instant-ngp/assets/mueller2022instant.pdf) / [Video](https://nvlabs.github.io/instant-ngp/assets/mueller2022instant.mp4) / [Presentation](https://tom94.net/data/publications/mueller22instant/mueller22instant-gtc.mp4) / [Real-Time Live](https://tom94.net/data/publications/mueller22instant/mueller22instant-rtl.mp4) / [BibTeX](https://nvlabs.github.io/instant-ngp/assets/mueller2022instant.bib)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🌠  Like Magic... ", on_click=close_instant_ngp_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = instant_ngp_help_dlg
+        instant_ngp_help_dlg.open = True
+        page.update()
+    def delete_image(e):
+        f = e.control.data
+        if os.path.isfile(f):
+          os.remove(f)
+          for i, fl in enumerate(page.instant_ngp_file_list.controls):
+            if fl.title.value == f:
+              del page.instant_ngp_file_list.controls[i]
+              page.instant_ngp_file_list.update()
+              continue
+    def delete_all_images(e):
+        for fl in page.instant_ngp_file_list.controls:
+          f = fl.title.value
+          if os.path.isfile(f):
+            os.remove(f)
+        page.instant_ngp_file_list.controls.clear()
+        page.instant_ngp_file_list.update()
+    def image_details(e):
+        img = e.control.data
+        alert_msg(e.page, "Image Details", content=Image(src=img), sound=False)
+    def add_file(fpath, update=True):
+        page.instant_ngp_file_list.controls.append(ListTile(title=Text(fpath), dense=False, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.INFO, text="Image Details", on_click=image_details, data=fpath),
+              PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
+          ]), data=fpath, on_click=image_details))
+        if update: page.instant_ngp_file_list.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    save_dir = os.path.join(root_dir, 'my_ngp')
+    def on_upload_progress(e: FilePickerUploadEvent):
+        if e.progress == 1:
+          if not os.path.exists(save_dir):
+            os.mkdir(save_dir)
+          fname = os.path.join(root_dir, e.file_name)
+          fpath = os.path.join(save_dir, e.file_name)
+          original_img = PILImage.open(fname)
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
+          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img.save(fpath)
+          os.remove(fname)
+          #shutil.move(fname, fpath)
+          add_file(fpath)
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def pick_path(e):
+        file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg", 'obj', 'stl', 'nvdb'], dialog_title="Pick Image File to Enlarge")
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def add_image(e):
+        save_dir = os.path.join(root_dir, 'my_ngp')
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if image_path.value.startswith('http'):
+          import requests
+          from io import BytesIO
+          response = requests.get(image_path.value)
+          fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
+          model_image = PILImage.open(BytesIO(response.content)).convert("RGB")
+          width, height = model_image.size
+          width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
+          model_image = model_image.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          model_image.save(fpath)
+          add_file(fpath)
+        elif os.path.isfile(image_path.value):
+          fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
+          original_img = PILImage.open(image_path.value)
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
+          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img.save(fpath)
+          #shutil.copy(image_path.value, fpath)
+          add_file(fpath)
+        elif os.path.isdir(image_path.value):
+          for f in os.listdir(image_path.value):
+            file_path = os.path.join(image_path.value, f)
+            if os.path.isdir(file_path): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg', 'obj', 'stl', 'nvdb')):
+              fpath = os.path.join(save_dir, f)
+              original_img = PILImage.open(file_path)
+              width, height = original_img.size
+              width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
+              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img.save(fpath)
+              #shutil.copy(file_path, fpath)
+              add_file(fpath)
+        else:
+          if bool(image_path.value):
+            alert_msg(page, "Couldn't find a valid File, Path or URL...")
+          else:
+            pick_path(e)
+          return
+        image_path.value = ""
+        image_path.update()
+    def load_images():
+        if os.path.exists(save_dir):
+          for f in os.listdir(save_dir):
+            existing = os.path.join(save_dir, f)
+            if os.path.isdir(existing): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg', 'obj', 'stl', 'nvdb')):
+              add_file(existing, update=False)
+    #instance_prompt = Container(content=Tooltip(message="The prompt with identifier specifying the instance", content=TextField(label="Instance Prompt Token Text", value=instant_ngp_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'))), col={'md':9})
+    name_of_your_model = TextField(label="Name of your Model", value=instant_ngp_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'))
+    train_steps = Tooltip(message="Total number of training steps to perform.  More the better, even around 35000..", content=TextField(label="Max Training Steps", value=instant_ngp_prefs['train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'train_steps', ptype='int'), width = 160))
+    #save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=instant_ngp_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
+    #save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=instant_ngp_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    #where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=instant_ngp_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
+    #class_data_dir = TextField(label="Prior Preservation Class Folder", value=instant_ngp_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
+    #readme_description = TextField(label="Extra README Description", value=instant_ngp_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
+    resolution = Slider(min=256, max=1024, divisions=6, label="{value}px", value=float(instant_ngp_prefs['resolution']), expand=True, on_change=lambda e:changed(e,'resolution', ptype='int'))
+    max_row = Row([Text("Max Resolution Size: "), resolution])
+    sharpen = Row([Text(" Shapen Images:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['sharpen'], on_change=lambda e: changed(e, 'sharpen'))])
+    exposure = Row([Text(" Image Exposure:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['exposure'], on_change=lambda e: changed(e, 'exposure'))])
+    vr_mode = Checkbox(label="Output VR Mode", tooltip="Render to a VR headset", value=instant_ngp_prefs['vr_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'vr_mode'))
+    image_path = TextField(label="Image Files or Folder Path or URL to Train", value=instant_ngp_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
+    add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
+    page.instant_ngp_file_list = Column([], tight=True, spacing=0)
+    load_images()
+    #where_to_save_model.visible = instant_ngp_prefs['save_model']
+    #readme_description.visible = instant_ngp_prefs['save_model']
+    #lambda_entropy = TextField(label="Lambda Entropy", value=dreamfusinstant_ngp_prefsion_prefs['lambda_entropy'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lambda_entropy', ptype='float'), width = 160)
+    #max_steps = TextField(label="Max Steps", value=instant_ngp_prefs['max_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_steps', ptype='int'), width = 160)
+    page.instant_ngp_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.instant_ngp_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎑  Instant Neural Graphics Primitives by NVidia", "Convert series of images into 3D Models with Multiresolution Hash Encoding...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instant NGP Settings", on_click=instant_ngp_help)]),
+        Row([name_of_your_model]),
+        Row([train_steps, vr_mode]),
+        sharpen,
+        exposure,
+        #Row([save_model, where_to_save_model]),
+        #readme_description,
+        #Row([class_data_dir]),
+        max_row,
+        Text("The scene to load. Can be full path to the training data, multiple image angles, NeRF dataset, a *.obj/*.stl mesh for training a SDF, images, or a *.nvdb volume."),
+        Row([image_path, add_image_button]),
+        page.instant_ngp_file_list,
+        Row([ElevatedButton(content=Text("🎇  Run Instant-NGP", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instant_ngp(page))]),
+        page.instant_ngp_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+
 repaint_prefs = {
     'original_image': '',
     'mask_image': '',
@@ -4289,7 +4501,7 @@ unCLIP_image_variation_prefs = {
     "enlarge_scale": 4.0,
     "display_upscaled_image": True,
 }
-def buildUnCLIPImageVariation(page):
+def buildUnCLIP_ImageVariation(page):
     global unCLIP_image_variation_prefs, prefs, pipe_unCLIP_image_variation
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
@@ -4435,6 +4647,169 @@ def buildUnCLIPImageVariation(page):
         clear_button,
     ], scroll=ScrollMode.AUTO, auto_scroll=True)
     return c
+
+unCLIP_interpolation_prefs = {
+    'prompt': '',
+    'end_prompt': '',
+    'steps': 5,
+    'batch_folder_name': '',
+    'prior_guidance_scale': 4.0,
+    'decoder_guidance_scale': 8.0,
+    'prior_num_inference_steps': 25,
+    'decoder_num_inference_steps': 25,
+    'super_res_num_inference_steps': 7,
+    'seed': 0,
+    'num_images': 1,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 4.0,
+    "display_upscaled_image": True,
+}
+def buildUnCLIP_Interpolation(page):
+    global unCLIP_interpolation_prefs, prefs, pipe_unCLIP_interpolation
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            unCLIP_interpolation_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            unCLIP_interpolation_prefs[pref] = float(e.control.value)
+          else:
+            unCLIP_interpolation_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_unCLIP_interpolation_output(o):
+      page.unCLIP_interpolation_output.controls.append(o)
+      page.unCLIP_interpolation_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_unCLIP_interpolation_output = add_to_unCLIP_interpolation_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.unCLIP_interpolation_output.controls = []
+      page.unCLIP_interpolation_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def unCLIP_interpolation_help(e):
+      def close_unCLIP_interpolation_dlg(e):
+        nonlocal unCLIP_interpolation_help_dlg
+        unCLIP_interpolation_help_dlg.open = False
+        page.update()
+      unCLIP_interpolation_help_dlg = AlertDialog(title=Text("🙅   Help with unCLIP Text Interpolation Pipeline"), content=Column([
+          Text("This Diffusion Pipeline takes two prompts and interpolates between the two input prompts using spherical interpolation ( slerp ). The input prompts are converted to text embeddings by the pipeline's text_encoder and the interpolation is done on the resulting text_embeddings over the number of steps specified. Defaults to 5 steps."),
+          Text("Contrastive models like CLIP have been shown to learn robust representations of images that capture both semantics and style. To leverage these representations for image generation, we implemented a two-stage model: a prior that generates a CLIP image embedding given a text caption, and a decoder that generates an image conditioned on the image embedding. We show that explicitly generating image representations improves image diversity with minimal loss in photorealism and caption similarity. Our decoders conditioned on image representations can also produce variations of an image that preserve both its semantics and style, while varying the non-essential details absent from the image representation. Moreover, the joint embedding space of CLIP enables language-guided image manipulations in a zero-shot fashion. We use diffusion models for the decoder and experiment with both autoregressive and diffusion models for the prior, finding that the latter are computationally more efficient and produce higher-quality samples."),
+          Text("The scheduler is a modified DDPM that has some minor variations in how it calculates the learned range variance and dynamically re-calculates betas based off the timesteps it is skipping. The scheduler also uses a slightly different step ratio when computing timesteps to use for inference."),
+          Markdown("The unCLIP model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Transformative... ", on_click=close_unCLIP_interpolation_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = unCLIP_interpolation_help_dlg
+      unCLIP_interpolation_help_dlg.open = True
+      page.update()
+    def change_prior_guidance(e):
+      prior_guidance_value.value = f" {e.control.value}"
+      prior_guidance_value.update()
+      #guidance.controls[1].value = f" {e.control.value}"
+      prior_guidance.update()
+      changed(e, 'prior_guidance_scale', ptype="float")
+    prior_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_interpolation_prefs['prior_guidance_scale'], on_change=change_prior_guidance, expand=True)
+    prior_guidance_value = Text(f" {unCLIP_interpolation_prefs['prior_guidance_scale']}", weight=FontWeight.BOLD)
+    prior_guidance = Row([Text("Prior Guidance Scale: "), prior_guidance_value, prior_guidance_scale])
+    def change_decoder_guidance(e):
+      decoder_guidance_value.value = f" {e.control.value}"
+      decoder_guidance_value.update()
+      #guidance.controls[1].value = f" {e.control.value}"
+      decoder_guidance.update()
+      changed(e, 'decoder_guidance_scale', ptype="float")
+    decoder_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_interpolation_prefs['decoder_guidance_scale'], on_change=change_decoder_guidance, expand=True)
+    decoder_guidance_value = Text(f" {unCLIP_interpolation_prefs['decoder_guidance_scale']}", weight=FontWeight.BOLD)
+    decoder_guidance = Row([Text("Decoder Guidance Scale: "), decoder_guidance_value, decoder_guidance_scale])
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    prompt = TextField(label="Start Prompt Text", value=unCLIP_interpolation_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    end_prompt = TextField(label="End Prompt Text", value=unCLIP_interpolation_prefs['end_prompt'], on_change=lambda e:changed(e,'end_prompt'))
+    seed = TextField(label="Seed", width=90, value=str(unCLIP_interpolation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    def change_interpolation_steps(e):
+      changed(e, 'steps', ptype="int")
+      interpolation_steps_value.value = f" {unCLIP_interpolation_prefs['steps']}"
+      interpolation_steps_value.update()
+      interpolation_steps_value.update()
+    def change_prior_num_inference(e):
+      changed(e, 'prior_num_inference_steps', ptype="int")
+      prior_num_inference_value.value = f" {unCLIP_interpolation_prefs['prior_num_inference_steps']}"
+      prior_num_inference_value.update()
+      prior_num_inference_row.update()
+    def change_decoder_num_inference(e):
+      changed(e, 'decoder_num_inference_steps', ptype="int")
+      decoder_num_inference_value.value = f" {unCLIP_interpolation_prefs['decoder_num_inference_steps']}"
+      decoder_num_inference_value.update()
+      decoder_num_inference_row.update()
+    def change_super_res_num_inference(e):
+      changed(e, 'super_res_num_inference_steps', ptype="int")
+      super_res_num_inference_value.value = f" {unCLIP_interpolation_prefs['super_res_num_inference_steps']}"
+      super_res_num_inference_value.update()
+      super_res_num_inference_row.update()
+    #prior_num_inference_steps = TextField(label="Inference Steps", value=str(unCLIP_interpolation_prefs['prior_num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'prior_num_inference_steps', ptype='int'))
+    interpolation_steps = Slider(min=1, max=50, divisions=49, label="{value}", value=int(unCLIP_interpolation_prefs['steps']), tooltip="The number of steps over which to interpolate from start_prompt to end_prompt.", expand=True, on_change=change_interpolation_steps)
+    interpolation_steps_value = Text(f" {unCLIP_interpolation_prefs['steps']}", weight=FontWeight.BOLD)
+    interpolation_steps_row = Row([Text("Number of Interpolation Steps: "), interpolation_steps_value, interpolation_steps])
+    prior_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_interpolation_prefs['prior_num_inference_steps']), tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_prior_num_inference)
+    decoder_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_interpolation_prefs['decoder_num_inference_steps']), tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_decoder_num_inference)
+    super_res_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_interpolation_prefs['super_res_num_inference_steps']), tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_super_res_num_inference)
+    prior_num_inference_value = Text(f" {unCLIP_interpolation_prefs['prior_num_inference_steps']}", weight=FontWeight.BOLD)
+    decoder_num_inference_value = Text(f" {unCLIP_interpolation_prefs['decoder_num_inference_steps']}", weight=FontWeight.BOLD)
+    super_res_num_inference_value = Text(f" {unCLIP_interpolation_prefs['super_res_num_inference_steps']}", weight=FontWeight.BOLD)
+    prior_num_inference_row = Row([Text("Number of Prior Inference Steps: "), prior_num_inference_value, prior_num_inference_steps])
+    decoder_num_inference_row = Row([Text("Number of Decoder Inference Steps: "), decoder_num_inference_value, decoder_num_inference_steps])
+    super_res_num_inference_row = Row([Text("Number of Super-Res Inference Steps: "), super_res_num_inference_value, super_res_num_inference_steps])
+    batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_interpolation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    #use_StableunCLIP_interpolation_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switch(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_interpolation_prefs['use_StableunCLIP_interpolation_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_StableunCLIP_interpolation_pipeline')))
+    #eta = TextField(label="ETA", value=str(unCLIP_interpolation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_interpolation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta_row = Row([Text("DDIM ETA: "), eta])
+    #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(unCLIP_interpolation_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
+    #max_row = Row([Text("Max Resolution Size: "), max_size])
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(unCLIP_interpolation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_interpolation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_interpolation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP.height = None if status['installed_ESRGAN'] else 0
+    if not unCLIP_interpolation_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    page.unCLIP_interpolation_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.unCLIP_interpolation_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🌌  unCLIP Text Interpolation Generator", "Takes two prompts and interpolates between the two input prompts using spherical interpolation...", actions=[IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_interpolation_help)]),
+        prompt,
+        end_prompt,
+        #Row([prompt, mask_image, invert_mask]),
+        interpolation_steps_row,
+        prior_num_inference_row, decoder_num_inference_row, super_res_num_inference_row,
+        prior_guidance, decoder_guidance,
+        #eta_row, max_row,
+        #use_StableunCLIP_interpolation_pipeline,
+        #NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_interpolation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), 
+        Row([seed, batch_folder_name]),
+        page.ESRGAN_block_unCLIP,
+        Row([ElevatedButton(content=Text("🎆   Get unCLIP Interpolations", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_interpolation(page))]),
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_interpolation(page, from_list=True))]),
+      ]
+    )), page.unCLIP_interpolation_output,
+        clear_button,
+    ], scroll=ScrollMode.AUTO, auto_scroll=True)
+    return c
+
 
 magic_mix_prefs = {
     'init_image': '',
@@ -7366,7 +7741,7 @@ def buildRiffusion(page):
       content=Column([
         Header("💽  Riffusion Spectrogram Sound Modeling", "Stable Diffusion for real-time music generation...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=riffusion_help)]),
         ResponsiveRow([prompt, negative_prompt]),
-        audio_file,
+        #audio_file,
         #duration_row,
         guidance,
         steps_row,
@@ -7546,6 +7921,7 @@ pipe_depth = None
 pipe_image_variation = None
 pipe_unCLIP = None
 pipe_unCLIP_image_variation = None
+pipe_unCLIP_interpolation = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
 pipe_instruct_pix2pix = None
@@ -7635,6 +8011,7 @@ finetuned_models = [
     {"name": "effeffIX Man", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 man "},
     {"name": "effeffIX Creature", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 creature "},
     {"name": "effeffIX Architecture", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 architecture "},
+    {"name": "Rodent Diffusion 1.5", "path": "NerdyRodent/rodent-diffusion-1-5", "prefix": ""},
     #{"name": "", "path": "", "prefix": ""},
     #{"name": "Laxpeint", "path": "EldritchAdam/laxpeint", "prefix": ""},
     #{"name": "HeartArt", "path": "spaablauw/HeartArt", "prefix": ""},
@@ -8977,6 +9354,13 @@ def clear_unCLIP_image_variation_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_unCLIP_image_variation = None
+def clear_unCLIP_interpolation_pipe():
+  global pipe_unCLIP_interpolation
+  if pipe_unCLIP_interpolation is not None:
+    del pipe_unCLIP_interpolation
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_unCLIP_interpolation = None
 def clear_magic_mix_pipe():
   global pipe_magic_mix
   if pipe_magic_mix is not None:
@@ -9073,6 +9457,7 @@ def clear_pipes(allbut=None):
     if not 'upscale' in but: clear_upscale_pipe()
     if not 'unCLIP' in but: clear_unCLIP_pipe()
     if not 'unCLIP_image_variation' in but: clear_unCLIP_image_variation_pipe()
+    if not 'unCLIP_interpolation' in but: clear_unCLIP_interpolation_pipe()
     if not 'image_variation' in but: clear_image_variation_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
@@ -13815,7 +14200,7 @@ def run_converter(page):
     elif os.path.isdir(model_path):
       if os.path.exists(custom_path):
         shutil.rmtree(custom_path)
-      shutil.copytree(model_path, custom_path)
+      shutil.copytree(model_path, custom_path, dirs_exist_ok=True)
       checkpoint_file = custom_path
     elif '/' in model_path and not model_path.startswith('/'):
       checkpoint_file = model_path # hopefully Huggingface
@@ -14909,10 +15294,10 @@ def run_unCLIP_image_variation(page, from_list=False):
     torch.cuda.reset_max_memory_allocated()
     torch.cuda.reset_peak_memory_stats()
     if pipe_unCLIP_image_variation == None:
-        from diffusers import UnCLIPImageVariationPipeline
+        from diffusers import UnCLIP_ImageVariationPipeline
         prt(Row([ProgressRing(), Text("  Downloading unCLIP Image Variation Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
         try:
-            pipe_unCLIP_image_variation = UnCLIPImageVariationPipeline.from_pretrained("fusing/karlo-image-variations-diffusers", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_unCLIP_image_variation = UnCLIP_ImageVariationPipeline.from_pretrained("kakaobrain/karlo-v1-alpha-image-variations", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             pipe_unCLIP_image_variation.to(torch_device)
         except Exception as e:
             clear_last()
@@ -15024,6 +15409,182 @@ def run_unCLIP_image_variation(page, from_list=False):
                 time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_unCLIP_interpolation(page, from_list=False):
+    global unCLIP_interpolation_prefs, pipe_unCLIP_interpolation, loaded_StableUnCLIP
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.unCLIP_interpolation_output.controls.append(line)
+        if update:
+          page.unCLIP_interpolation_output.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.unCLIP_interpolation_output.controls[-1]
+        page.unCLIP_interpolation_output.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.unCLIP_interpolation_output.auto_scroll = scroll
+        page.unCLIP_interpolation_output.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = unCLIP_interpolation_prefs['prior_num_inference_steps'] + unCLIP_interpolation_prefs['decoder_num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    unCLIP_interpolation_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        unCLIP_interpolation_prompts.append({'start_prompt': p.prompt, 'end_prompt':p['prompt2']})
+    else:
+      if not bool(unCLIP_interpolation_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      unCLIP_interpolation_prompts.append({'start_prompt': unCLIP_interpolation_prefs['prompt'], 'end_prompt':unCLIP_interpolation_prefs['end_prompt']})
+    page.unCLIP_interpolation_output.controls.clear()
+    from PIL.PngImagePlugin import PngInfo
+    clear_pipes()#'unCLIP_interpolation')
+    torch.cuda.empty_cache()
+    torch.cuda.reset_max_memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    model_id = "kakaobrain/karlo-v1-alpha"
+    stable = "Stable "
+    if pipe_unCLIP_interpolation != None and loaded_StableUnCLIP == False:
+        del pipe_unCLIP_interpolation
+        gc.collect()
+        torch.cuda.empty_cache()
+        pipe_unCLIP_interpolation = None
+    if pipe_unCLIP_interpolation == None:
+        prt(Row([Container(content=None, width=8), ProgressRing(), Text(f"  Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
+        try:
+            from diffusers import DiffusionPipeline
+            pipe_unCLIP_interpolation = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="unclip_text_interpolation", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, enable_sequential_cpu_offload=False, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, decoder_pipe_kwargs=dict(image_encoder=None))
+            pipe_unCLIP_interpolation.to(torch_device)
+            loaded_StableUnCLIP = True
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"Error Downloading {stable}unCLIP Pipeline", content=Text(str(e)))
+            return
+        #pipe_unCLIP_interpolation.set_progress_bar_config(disable=True)
+        clear_last()
+    s = "s" if unCLIP_interpolation_prefs['num_images'] > 1 else ""
+    prt(f" Generating {stable}unCLIP{s} of your Image...")
+    batch_output = os.path.join(stable_dir, unCLIP_interpolation_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], unCLIP_interpolation_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in unCLIP_interpolation_prompts:
+        for num in range(unCLIP_interpolation_prefs['num_images']):
+            autoscroll(False)
+            prt(progress)
+            autoscroll(True)
+            random_seed = (int(unCLIP_interpolation_prefs['seed']) + num) if int(unCLIP_interpolation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            try:
+                images = pipe_unCLIP_interpolation(start_prompt=pr['start_prompt'], end_prompt=pr['end_prompt'], steps=unCLIP_interpolation_prefs['steps'], prior_num_inference_steps=unCLIP_interpolation_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_interpolation_prefs['decoder_num_inference_steps'], prior_guidance_scale=unCLIP_interpolation_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_interpolation_prefs['decoder_guidance_scale'], generator=generator).images
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"Error running {stable}unCLIP Interpolation Pipeline", content=Text(str(e)))
+                return
+            clear_last()
+            file_max_length = int(prefs['file_max_length']) / 2
+            fname = f"{format_filename(pr['start_prompt'], max_length=file_max_length)}-to-{format_filename(pr['end_prompt'], max_length=file_max_length)}"
+
+            if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+            for image in images:
+                image_path = available_file(os.path.join(stable_dir, unCLIP_interpolation_prefs['batch_folder_name']), fname, num)
+                unscaled_path = image_path
+                output_file = image_path.rpartition(slash)[2]
+                image.save(image_path)
+                out_path = image_path.rpartition(slash)[0]
+                if not unCLIP_interpolation_prefs['display_upscaled_image'] or not unCLIP_interpolation_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                    upload_folder = 'upload'
+                    result_folder = 'results'     
+                    if os.path.isdir(upload_folder):
+                        shutil.rmtree(upload_folder)
+                    if os.path.isdir(result_folder):
+                        shutil.rmtree(result_folder)
+                    os.mkdir(upload_folder)
+                    os.mkdir(result_folder)
+                    short_name = f'{fname[:80]}-{num}.png'
+                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                    #print(f'Moving {fpath} to {dst_path}')
+                    #shutil.move(fpath, dst_path)
+                    shutil.copy(image_path, dst_path)
+                    #faceenhance = ' --face_enhance' if unCLIP_interpolation_prefs["face_enhance"] else ''
+                    faceenhance = ''
+                    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    out_file = short_name.rpartition('.')[0] + '_out.png'
+                    upscaled_path = os.path.join(out_path, output_file)
+                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    image_path = upscaled_path
+                    os.chdir(stable_dir)
+                    
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {unCLIP_interpolation_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", f"{stable}unCLIP Text Interpolation")
+                    if prefs['save_config_in_metadata']:
+                      metadata.add_text("title", f"{pr['start_prompt']}-to-{pr['end_prompt']}")
+                      config_json = unCLIP_interpolation_prefs.copy()
+                      config_json['model_path'] = model_id
+                      config_json['seed'] = random_seed
+                      del config_json['num_images']
+                      del config_json['display_upscaled_image']
+                      del config_json['batch_folder_name']
+                      if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                #TODO: PyDrive
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], unCLIP_interpolation_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], unCLIP_interpolation_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                time.sleep(0.2)
+                if unCLIP_interpolation_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_magic_mix(page, from_list=False):
     global magic_mix_prefs, pipe_magic_mix
@@ -16076,6 +16637,7 @@ def run_point_e(page):
         else:
             alert_msg(page, "If you're not using Prompt Text, provide a name for your 3D Model.")
             return
+    filename = format_filename(point_e_prefs['prompt_text'])
     #fname = f"{point_e_prefs['file_prefix']}{fname}"
     if bool(point_e_prefs['batch_folder_name']):
         point_e_out = os.path.join(point_e_dir, point_e_prefs['batch_folder_name'])
@@ -16152,12 +16714,12 @@ def run_point_e(page):
             samples = x
             step += 1
             callback_fnc(step)
-    print(f"Total steps: {step}")
+    #print(f"Total steps: {step}")
     pc = point_sampler.output_to_point_clouds(samples)[0]
     fig = plot_point_cloud(pc, grid_size=3, fixed_bounds=((-0.75, -0.75, -0.75),(0.75, 0.75, 0.75)))
     
     prt_status('Saving PointCloud NPZ file...')
-    pc_file = os.path.join(point_e_out,'pointcloud.npz')
+    pc_file = os.path.join(point_e_out, f'{filename}.npz')
     PointCloud.save(pc, pc_file)
     sdf = 'sdf'
     model = model_from_config(MODEL_CONFIGS[sdf], torch_device)
@@ -16184,30 +16746,163 @@ def run_point_e(page):
       alert_msg(page, "Error running Point-E marching_cubes_mesh.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
       return
     # Write the mesh to a PLY file to import into some other program.
-    ply_file = os.path.join(point_e_out,'mesh.ply')
+    ply_file = os.path.join(point_e_out, f'{filename}.ply')
     with open(ply_file, 'wb') as f:
         mesh.write_ply(f)
     
     #with open("mesh.ply", 'r') as file:
     #    print(file.name)
     #https://colab.research.google.com/drive/1Ok3ye2xWsuYOcmbAU3INN7AHy5gvvq5m
-
+    del point_sampler
+    gc.collect()
+    torch.cuda.empty_cache()
+    point_sampler = None
     clear_last()
     clear_last()
     prt("Finished generating Point Cloud and Mesh... Hope it's good.")
     if storage_type == "Colab Google Drive":
-      point_e_save = os.path.join(prefs['image_output'].rpartition(slash)[0], 'point_e', fname)
+      point_e_save = os.path.join(prefs['image_output'].rpartition(slash)[0], 'point_e', point_e_prefs['batch_folder_name'])
       #os.makedirs(point_e_out, exist_ok=True)
-      if os.path.exists(point_e_save):
-        point_e_save = available_folder(os.path.join(prefs['image_output'].rpartition(slash)[0], 'point_e'), fname, 1)
+      #if os.path.exists(point_e_save):
+      #  point_e_save = available_folder(os.path.join(prefs['image_output'].rpartition(slash)[0], 'point_e'), fname, 1)
       shutil.copytree(point_e_out, point_e_save)
-      prt(Text(f"Saved pointcloud.npz & mesh.ply to {point_e_save}"))
+      prt(Text(f"Saved npz & ply files to {point_e_save}"))
     else:
-      prt(Text(f"Saved pointcloud.npz & mesh.ply to {point_e_out}"))
+      prt(Text(f"Saved npz & ply files to {point_e_out}"))
     # TODO: PyDrive2
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
 
+def run_instant_ngp(page):
+    global instant_ngp_prefs, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.instant_ngp_output.controls.append(line)
+      page.instant_ngp_output.update()
+    def clear_last():
+      del page.instant_ngp_output.controls[-1]
+      page.instant_ngp_output.update()
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    save_path = os.path.join(root_dir, "my_ngp")
+    error = False
+    if not os.path.exists(save_path):
+      error = True
+    elif len(os.listdir(save_path)) == 0:
+      error = True
+    if len(page.instant_ngp_file_list.controls) == 0:
+      error = True
+    if error:
+      alert_msg(page, "Couldn't find a list of images to train model. Add image files to the list...")
+      return
+    page.instant_ngp_output.controls.clear()
+    page.instant_ngp_output.update()
+    prt(Row([ProgressRing(), Text(" Downloading Instant-NGP Packages...", weight=FontWeight.BOLD)]))
+    instant_ngp_dir = os.path.join(root_dir, 'instant-ngp')
+    '''if not os.path.exists(diffusers_dir):
+      os.chdir(root_dir)
+      run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
+    run_process('pip install git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]', cwd=root_dir, realtime=False)
+    os.chdir(diffusers_dir)
+    run_sp('pip install -e ".[training]"', cwd=diffusers_dir, realtime=False)
+    '''
+    try:
+        run_sp("apt-get install \
+            cmake \
+            libgoogle-glog-dev \
+            libgflags-dev \
+            libatlas-base-dev \
+            libeigen3-dev \
+            libsuitesparse-dev \
+            libboost-program-options-dev \
+            libboost-filesystem-dev \
+            libboost-graph-dev \
+            libboost-system-dev \
+            libboost-test-dev \
+            libfreeimage-dev \
+            libmetis-dev \
+            libglew-dev \
+            qtbase5-dev \
+            libqt5opengl5-dev \
+            libcgal-dev")
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR Installing Instant-NGP Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+        return
+    if not os.path.exists(root_dir, 'ceres-solver'):
+      run_sp("wget https://github.com/camenduru/instant-ngp-colab/releases/download/v1.0/ceres-solver.zip", realtime=False)
+      run_sp(f"unzip {os.path.join(root_dir, 'ceres-solver.zip')} -d ceres-solver", realtime=False)
+      os.remove(os.path.join(root_dir, 'ceres-solver.zip'))
+    run_sp(f"yes | cp -r {os.path.join(root_dir, 'ceres-solver', 'lib', '.')} {os.path.join('/usr', 'local', 'lib')}", realtime=False)
+    run_sp(f"chmod 755 {os.path.join(root_dir, 'ceres-solver', 'bin', 'colmap')}", realtime=False)
+    run_sp(f"yes | cp -r {os.path.join(root_dir, 'ceres-solver', 'bin', '.')} {os.path.join('/usr', 'local', 'bin')}", realtime=False)
+    #run_sp(f"cp -r /content/ceres-solver/bin/. /usr/local/bin")
+    if not os.path.exists(root_dir, 'instant-ngp'):
+      run_sp("wget https://github.com/camenduru/instant-ngp-colab/releases/download/v1.0/instant-ngp.zip", realtime=False)
+      #run_sp("unzip /content/instant-ngp.zip -d instant-ngp")
+      run_sp(f"unzip {os.path.join(root_dir, 'instant-ngp.zip')} -d instant-ngp", realtime=False)
+      os.remove(os.path.join(root_dir, 'instant-ngp.zip'))
+    #run_sp("pip install commentjson huggingface-hub", realtime=False)
+    os.chdir(instant_ngp_dir)
+    #from huggingface_hub import create_repo, upload_folder
+    #scene_path = "/content/drive/MyDrive/fox"
+    train_path = os.path.join(root_dir, 'my_ngp')
+    #train_path = "/content/train"
+    #if not os.path.isdir(scene_path):
+    #    raise NotADirectoryError(scene_path)
+    '''
+    rm -rf {train_path}
+    mkdir {train_path}
+    cp -r {scene_path}/. /content/train
+    '''
+    clear_pipes()
+    clear_last()
+    prt(Text("Running training on Images... This'll take a while, see console...", weight=FontWeight.BOLD))
+    progress = ProgressBar(bar_height=8)
+    prt(progress)
+    name_of_your_model = instant_ngp_prefs['name_of_your_model']
+    transforms_path = os.path.join(train_path, f"transforms.json")
+    train_steps = instant_ngp_prefs['train_steps']
+    snapshot_path = os.path.join(train_path, f"{train_steps}.msgpack")
+    mesh_path = os.path.join(train_path, f"{name_of_your_model or train_steps}.ply")
+    os.chdir(instant_ngp_dir)
+    run_args = f"--scene {train_path} --mode nerf --n_steps {train_steps} --save_snapshot {snapshot_path} --save_mesh {mesh_path} --screenshot_dir {train_path}"
+    if instant_ngp_prefs["vr_mode"]: run_args += " --vr"
+    if instant_ngp_prefs["sharpen"] != 0.0: run_args += f" --sharpen {instant_ngp_prefs['sharpen']}"
+    if instant_ngp_prefs["exposure"] != 0.0: run_args += f" --exposure {instant_ngp_prefs['exposure']}"
+    try:
+        run_sp(f"python ./scripts/colmap2nerf.py --colmap_matcher exhaustive --run_colmap --aabb_scale 4 --images {train_path} --out {transforms_path}", cwd=instant_ngp_dir)
+        run_sp(f"python ./scripts/run.py {run_args}", cwd=instant_ngp_dir)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR Running InstantNGP Training...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+        return
+    #instant_ngp_dir = os.path.join(diffusers_dir, "examples", "dreambooth")
+    #instant_ngp_dir = os.path.join(diffusers_dir, "examples", "text_to_image")
+    #save_path = "./my_model"
+    #if not os.path.exists(save_path):
+    #  os.mkdir(save_path)
+    output_dir = prefs['image_output'].rpartition(slash)[0] + slash + '3D_out'
+    if bool(name_of_your_model):
+      output_dir = os.path.join(output_dir, name_of_your_model)
+    if not os.path.exists(output_dir): os.makedirs(output_dir)
+    shutil.copytree(train_path, output_dir, dirs_exist_ok=True)
+    '''video_camera_path = os.path.join(scene_path, "base_cam.json")
+    if not os.path.isfile(video_camera_path):
+      raise FileNotFoundError(video_camera_path)
+    video_n_seconds = 5
+    video_fps = 25
+    width = 720
+    height = 720
+    output_video_path = os.path.join(scene_path, "output_video.mp4")
+    python scripts/run.py {snapshot_path} --video_camera_path {video_camera_path} --video_n_seconds 2 --video_fps 25 --width 720 --height 720 --video_output {output_video_path}
+    print(f"Generated video saved to:\n{output_video_path}")'''
+    clear_last()
+    clear_last()
+    prt(Markdown(f"## Your model was saved successfully to _{output_dir}_.\nNow take those files and load then locally on Windows following [instant-ngp gui instructions](https://github.com/NVlabs/instant-ngp#testbed-controls) to export videos and meshes or try MeshLab... (wish we can do that for ya here)", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_dall_e(page, from_list=False):
     global dall_e_prefs, prefs, prompts
