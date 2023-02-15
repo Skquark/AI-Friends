@@ -4325,7 +4325,7 @@ def buildImageVariation(page):
         page.image_variation_output,
         clear_button,
       ]
-    ))], scroll=ScrollMode.AUTO, auto_scroll=True)
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 unCLIP_prefs = {
@@ -4480,7 +4480,7 @@ def buildUnCLIP(page):
       ]
     )), page.unCLIP_output,
         clear_button,
-    ], scroll=ScrollMode.AUTO, auto_scroll=True)
+    ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 unCLIP_image_variation_prefs = {
@@ -4645,7 +4645,7 @@ def buildUnCLIP_ImageVariation(page):
       ]
     )), page.unCLIP_image_variation_output,
         clear_button,
-    ], scroll=ScrollMode.AUTO, auto_scroll=True)
+    ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 unCLIP_interpolation_prefs = {
@@ -4807,7 +4807,7 @@ def buildUnCLIP_Interpolation(page):
       ]
     )), page.unCLIP_interpolation_output,
         clear_button,
-    ], scroll=ScrollMode.AUTO, auto_scroll=True)
+    ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 
@@ -5657,7 +5657,7 @@ def buildDiT(page):
       ]
     )), page.DiT_output,
         clear_button,
-    ], scroll=ScrollMode.AUTO, auto_scroll=True)
+    ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 dall_e_prefs = {
@@ -7950,6 +7950,8 @@ finetuned_models = [
     #{"name": "Stable Diffusion v1.4", "path": "CompVis/stable-diffusion-v1-4", "prefix": "", "revision": "fp16"},
     {"name": "Midjourney v4 style", "path": "prompthero/midjourney-v4-diffusion", "prefix": "mdjrny-v4 style "},
     {"name": "Openjourney", "path": "prompthero/openjourney", "prefix": "mdjrny-v4 style "},
+    {"name": "Openjourney LoRA", "path": "prompthero/openjourney-lora", "prefix": ""},
+    {"name": "Openjourney v2", "path": "prompthero/openjourney-v2", "prefix": ""},
     {"name": "Future Diffusion", "path": "nitrosocke/Future-Diffusion", "prefix": "future style "},
     {"name": "Anything v3.0", "path": "Linaqruf/anything-v3.0", "prefix": ""},
     {"name": "Analog Diffusion", "path": "wavymulder/Analog-Diffusion", "prefix": "analog style "},
@@ -8011,8 +8013,28 @@ finetuned_models = [
     {"name": "effeffIX Man", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 man "},
     {"name": "effeffIX Creature", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 creature "},
     {"name": "effeffIX Architecture", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 architecture "},
-    {"name": "Rodent Diffusion 1.5", "path": "NerdyRodent/rodent-diffusion-1-5", "prefix": ""},
+    {"name": "Double-Exposure-Diffusion", "path": "joachimsallstrom/Double-Exposure-Diffusion", "prefix": "dublex style "},
+    #{"name": "Illuminati Diffusion", "path": "IlluminatiAI/Illuminati_Diffusion_v1.0", "prefix": ""},
+    {"name": "Colorful-v4.5", "path": "Manseo/Colorful-v4.5", "prefix": ""},
+    {"name": "Cool Japan Diffusion", "path": "aipicasso/cool-japan-diffusion-2-1-2-beta", "prefix": ""},
+    {"name": "Fantasy Mix", "path": "theintuitiveye/FantasyMix-v1", "prefix": ""},
+    {"name": "Roughness Painter", "path": "AIARTCHAN/roughnessPainter_v1.0", "prefix": ""},
+    {"name": "Isometric Dreams", "path": "Duskfallcrew/isometric-dreams-sd-1-5", "prefix": ""},
+    {"name": "Photography & Landscapes", "path": "Duskfallcrew/photography-and-landscapes", "prefix": "phtdzk1 "},
+    {"name": "Sygil Diffusion", "path": "Sygil/Sygil-Diffusion", "prefix": ""},
+    {"name": "Flat Icons", "path": "viba98/flat-icons", "prefix": ""},
+    {"name": "No Branch Repo", "path": "huggingface/the-no-branch-repo", "prefix": ""},
+    {"name": "Isometric Floating Icons", "path": "viba98/isometric-floating-icons", "prefix": ""},
+    {"name": "Dilbert Diffusion", "path": "CSAle/DilbertDiffusion2", "prefix": "dilbert "},
+    {"name": "Sketchstyle", "path": "Cosk/sketchstyle-cutesexyrobutts", "prefix": "sketchstyle "},
+    {"name": "Midjourney Shatter", "path": "ShadoWxShinigamI/Midjourney-Shatter", "prefix": "mdjrny-shttr "},
+    {"name": "Midjourney PaperCut", "path": "ShadoWxShinigamI/MidJourney-PaperCut", "prefix": "mdjrny-pprct eagle "},
+    {"name": "Midjourney Graffiti", "path": "ShadoWxShinigamI/midjourney-graffiti", "prefix": "in the style of mdjrny-grfft "},
+    {"name": "MJStyle", "path": "ShadoWxShinigamI/mjstyle", "prefix": "mjstyle"},
+    {"name": "Xpero End1ess", "path": "sakistriker/XperoEnd1essModel", "prefix": ""},
+    {"name": "Pepe Diffuser", "path": "Dipl0/pepe-diffuser", "prefix": ""},
     #{"name": "", "path": "", "prefix": ""},
+    #{"name": "Rodent Diffusion 1.5", "path": "NerdyRodent/rodent-diffusion-1-5", "prefix": ""},
     #{"name": "Laxpeint", "path": "EldritchAdam/laxpeint", "prefix": ""},
     #{"name": "HeartArt", "path": "spaablauw/HeartArt", "prefix": ""},
     #{"name": "ConceptArt", "path": "SatyamSSJ10/ConceptArt", "prefix": ""},
@@ -8152,7 +8174,7 @@ def get_diffusers(page):
     try:
       import scipy, ftfy
     except Exception:
-      run_process("pip install -qq --upgrade scipy ftfy", page=page)
+      run_process("pip install -qq --upgrade scipy ftfy safetensors", page=page)
       pass
     run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
     run_process("git config --global credential.helper store", page=page)
@@ -11652,6 +11674,8 @@ def run_image_variation(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     page.image_variation_output.controls.clear()
+    page.ImageVariation.auto_scroll = True
+    page.ImageVariation.update()
     from io import BytesIO
     from PIL import ImageOps
     if image_variation_prefs['init_image'].startswith('http'):
@@ -11721,6 +11745,8 @@ def run_image_variation(page):
             out_path = new_file
             shutil.copy(image_path, new_file)
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    page.ImageVariation.auto_scroll = False
+    page.ImageVariation.update()
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_CLIPstyler(page):
@@ -15070,6 +15096,8 @@ def run_unCLIP(page, from_list=False):
       if from_list:
         page.imageColumn.auto_scroll = scroll
         page.imageColumn.update()
+        page.unCLIP.auto_scroll = scroll
+        page.unCLIP.update()
       else:
         page.unCLIP_output.auto_scroll = scroll
         page.unCLIP_output.update()
@@ -15256,6 +15284,8 @@ def run_unCLIP_image_variation(page, from_list=False):
       if from_list:
         page.imageColumn.auto_scroll = scroll
         page.imageColumn.update()
+        page.UnCLIP_ImageVariation.auto_scroll = scroll
+        page.UnCLIP_ImageVariation.update()
       else:
         page.unCLIP_image_variation_output.auto_scroll = scroll
         page.unCLIP_image_variation_output.update()
@@ -15437,11 +15467,13 @@ def run_unCLIP_interpolation(page, from_list=False):
       if from_list:
         page.imageColumn.auto_scroll = scroll
         page.imageColumn.update()
+        page.unCLIP_Interpolation.auto_scroll = scroll
+        page.unCLIP_Interpolation.update()
       else:
         page.unCLIP_interpolation_output.auto_scroll = scroll
         page.unCLIP_interpolation_output.update()
     progress = ProgressBar(bar_height=8)
-    total_steps = unCLIP_interpolation_prefs['prior_num_inference_steps'] + unCLIP_interpolation_prefs['decoder_num_inference_steps']
+    total_steps = unCLIP_interpolation_prefs['prior_num_inference_steps'] + unCLIP_interpolation_prefs['decoder_num_inference_steps'] + unCLIP_interpolation_prefs['super_res_num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
@@ -15482,8 +15514,10 @@ def run_unCLIP_interpolation(page, from_list=False):
         prt(Row([Container(content=None, width=8), ProgressRing(), Text(f"  Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
         try:
             from diffusers import DiffusionPipeline
-            pipe_unCLIP_interpolation = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="unclip_text_interpolation", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, enable_sequential_cpu_offload=False, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, decoder_pipe_kwargs=dict(image_encoder=None))
+            pipe_unCLIP_interpolation = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="AlanB/unclip_text_interpolation_mod", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, enable_sequential_cpu_offload=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None) #, decoder_pipe_kwargs=dict(image_encoder=None)
             pipe_unCLIP_interpolation.to(torch_device)
+            pipe_unCLIP_interpolation.enable_attention_slicing()
+            #pipe_unCLIP_interpolation.enable_sequential_cpu_offload()
             loaded_StableUnCLIP = True
         except Exception as e:
             clear_last()
@@ -15507,7 +15541,7 @@ def run_unCLIP_interpolation(page, from_list=False):
             random_seed = (int(unCLIP_interpolation_prefs['seed']) + num) if int(unCLIP_interpolation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
-                images = pipe_unCLIP_interpolation(start_prompt=pr['start_prompt'], end_prompt=pr['end_prompt'], steps=unCLIP_interpolation_prefs['steps'], prior_num_inference_steps=unCLIP_interpolation_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_interpolation_prefs['decoder_num_inference_steps'], prior_guidance_scale=unCLIP_interpolation_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_interpolation_prefs['decoder_guidance_scale'], generator=generator).images
+                images = pipe_unCLIP_interpolation(start_prompt=pr['start_prompt'], end_prompt=pr['end_prompt'], steps=unCLIP_interpolation_prefs['steps'], prior_num_inference_steps=unCLIP_interpolation_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_interpolation_prefs['decoder_num_inference_steps'], super_res_inference_steps=unCLIP_interpolation_prefs['super_res_inference_steps'], prior_guidance_scale=unCLIP_interpolation_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_interpolation_prefs['decoder_guidance_scale'], callback=callback_fnc, generator=generator).images
             except Exception as e:
                 clear_last()
                 alert_msg(page, f"Error running {stable}unCLIP Interpolation Pipeline", content=Text(str(e)))
@@ -16367,6 +16401,8 @@ def run_DiT(page, from_list=False):
     def autoscroll(scroll=True):
       page.DiT_output.auto_scroll = scroll
       page.DiT_output.update()
+      page.DiT.auto_scroll = scroll
+      page.DiT.update()
     progress = ProgressBar(bar_height=8)
     total_steps = DiT_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
