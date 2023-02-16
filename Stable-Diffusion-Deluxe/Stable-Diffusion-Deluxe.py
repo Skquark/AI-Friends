@@ -1762,15 +1762,29 @@ class Dream:
     #arg = args
 #print(str(args))
 import string
-from collections import ChainMap
-def format_filename(s, force_underscore=False, max_length=None):
+
+def format_filename(s, force_underscore=False, use_dash=False, max_length=None):
     file_max_length = int(prefs['file_max_length']) if max_length == None else int(max_length)
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
     filename = ''.join(c for c in s if c in valid_chars)
-    if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
+    if use_dash:
+      filename = filename.replace(' ','-')
+    else:
+      if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
     return filename[:file_max_length]
 
-'''
+def to_title(s, sentence=False):
+    s = s.replace('_',' ')
+    s = s.replace('-',' ')
+    if sentence:
+        sentences = s.split(". ")
+        sentences2 = [sentence[0].capitalize() + sentence[1:] for sentence in sentences]
+        s2 = '. '.join(sentences2)
+        return s2
+    else:
+        return s.capwords()
+    
+'''from collections import ChainMap
 def merge_dict(*dicts):
     all_keys  = set(k for d in dicts for k in d.keys())
     chain_map = ChainMap(*reversed(dicts))
@@ -4992,7 +5006,7 @@ def buildMagicMix(page):
         page.magic_mix_output,
         clear_button,
       ]
-    ))], scroll=ScrollMode.AUTO, auto_scroll=True)
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 paint_by_example_prefs = {
@@ -9492,6 +9506,7 @@ def clear_pipes(allbut=None):
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
+    torch.cuda.reset_peak_memory_stats()
 
 import base64
 def get_base64(image_path):
@@ -9576,7 +9591,8 @@ def start_diffusion(page):
   #page.Images.content.controls = []
   clear_image_output()
   pb.width=page.width - 50
-  prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
+  #prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
+  prt(Header("▶️   Running Stable Diffusion on Batch Prompts List", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)]))
   import string, shutil, random, gc, io, json
   from collections import ChainMap
   from PIL.PngImagePlugin import PngInfo
@@ -15505,7 +15521,7 @@ def run_unCLIP_interpolation(page, from_list=False):
       page.tabs.update()
     model_id = "kakaobrain/karlo-v1-alpha"
     stable = "Stable "
-    if pipe_unCLIP_interpolation != None and loaded_StableUnCLIP == False:
+    if pipe_unCLIP_interpolation != None:
         del pipe_unCLIP_interpolation
         gc.collect()
         torch.cuda.empty_cache()
@@ -15517,7 +15533,7 @@ def run_unCLIP_interpolation(page, from_list=False):
             pipe_unCLIP_interpolation = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="AlanB/unclip_text_interpolation_mod", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, enable_sequential_cpu_offload=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None) #, decoder_pipe_kwargs=dict(image_encoder=None)
             pipe_unCLIP_interpolation.to(torch_device)
             pipe_unCLIP_interpolation.enable_attention_slicing()
-            #pipe_unCLIP_interpolation.enable_sequential_cpu_offload()
+            pipe_unCLIP_interpolation.enable_sequential_cpu_offload()
             loaded_StableUnCLIP = True
         except Exception as e:
             clear_last()
@@ -15647,6 +15663,8 @@ def run_magic_mix(page, from_list=False):
       if from_list:
         page.imageColumn.auto_scroll = scroll
         page.imageColumn.update()
+        page.MagicMix.auto_scroll = scroll
+        page.MagicMix.update()
       else:
         page.magic_mix_output.auto_scroll = scroll
         page.magic_mix_output.update()
