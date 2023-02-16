@@ -371,12 +371,11 @@ import random as rnd
 import io, shutil, traceback
 from contextlib import redirect_stdout
 try:
-  from slugify import slugify
+  import numpy as np
 except Exception:
-  run_sp("pip install python-slugify", realtime=False)
-  from slugify import slugify
+  run_sp("pip install numpy", realtime=False)
+  import numpy as np
   pass
-import numpy as np
 
 if 'prefs' not in locals():
     raise ValueError("Setup not initialized. Run the previous code block first and authenticate your Drive storage.")
@@ -655,7 +654,7 @@ def arg_diffs(dict1, dict2):
     if len(diff) > 0:
       dif = []
       for k, v in diff.items():
-        dif.append(f'{k}: {v}')
+        dif.append(f'{to_title(k)}: {v}')
       return ', '.join(dif)
     else: return None
 def get_color(color):
@@ -1782,7 +1781,7 @@ def to_title(s, sentence=False):
         s2 = '. '.join(sentences2)
         return s2
     else:
-        return s.capwords()
+        return string.capwords(s)
     
 '''from collections import ChainMap
 def merge_dict(*dicts):
@@ -12204,7 +12203,6 @@ def run_dance_diffusion(page):
       return
     from diffusers import DanceDiffusionPipeline
     import scipy.io.wavfile, random
-    from slugify import slugify
     try:
       import gdown
     except ImportError:
@@ -12237,7 +12235,7 @@ def run_dance_diffusion(page):
       for c in community_models:
         if c['name'] == dance_prefs['community_model']:
           community = c
-      model_out = os.path.join(models_path, slugify(community['name']))
+      model_out = os.path.join(models_path, format_filename(community['name'], use_dash=True))
       if not os.path.exists(model_out):
         prt("Converting Checkpoint to Diffusers...")
         os.makedirs(model_out, exist_ok=True)
@@ -12284,7 +12282,6 @@ def run_dance_diffusion(page):
         else:
           dance_model_file = dance_prefs['custom_model']
     if dance_prefs['train_custom']:
-      from slugify import slugify
       dance_audio = os.path.join(root_dir, 'dance-audio')
       sample_generator = os.path.join(root_dir, 'sample-generator')
       if not os.path.exists(sample_generator):
@@ -12295,7 +12292,7 @@ def run_dance_diffusion(page):
         run_sp("git clone --recursive https://github.com/crowsonkb/v-diffusion-pytorch", cwd=root_dir, realtime=False)
       run_sp(f"pip install {v_diffusion_pytorch}", cwd=v_diffusion_pytorch, realtime=False)
       run_cmd = "python3 " + os.path.join(sample_generator, 'train_uncond.py')
-      custom_name = slugify(dance_prefs['custom_name'])
+      custom_name = format_filename(dance_prefs['custom_name'], use_dash=True)
       output_dir = os.path.join(dance_audio, custom_name)
       output_dir = output_dir.replace(f" ", f"\ ")
       random_crop_str = f"--random-crop True" if dance_prefs['random_crop'] else ""
@@ -12818,7 +12815,6 @@ def run_dreambooth(page):
         torch.cuda.empty_cache()
     name_of_your_concept = dreambooth_prefs['name_of_your_concept']
     if(dreambooth_prefs['save_concept']):
-      from slugify import slugify
       from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
       from huggingface_hub import create_repo
       from IPython.display import display_markdown
@@ -12833,12 +12829,12 @@ def run_dreambooth(page):
       del dreambooth_pipe
       hf_token = prefs['HuggingFace_api_key']
       if(dreambooth_prefs['where_to_save_concept'] == "Public Library"):
-        repo_id = f"sd-dreambooth-library/{slugify(name_of_your_concept)}"
+        repo_id = f"sd-dreambooth-library/{format_filename(name_of_your_concept, use_dash=True)}"
         #Join the Concepts Library organization if you aren't part of it already
         run_sp(f"curl -X POST -H 'Authorization: Bearer '{hf_token} -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-dreambooth-library/share/SSeOwppVCscfTEzFGQaqpfcjukVeNrKNHX", realtime=False)
         #!curl -X POST -H 'Authorization: Bearer '$hf_token -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-dreambooth-library/share/SSeOwppVCscfTEzFGQaqpfcjukVeNrKNHX
       else:
-        repo_id = f"{your_username}/{slugify(name_of_your_concept)}"
+        repo_id = f"{your_username}/{format_filename(name_of_your_concept, use_dash=True)}"
       output_dir = dreambooth_args.output_dir
       if(not prefs['HuggingFace_api_key']):
         with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
@@ -13098,7 +13094,6 @@ def run_dreambooth2(page):
     clear_last()
     name_of_your_concept = dreambooth_prefs['name_of_your_concept']
     if(dreambooth_prefs['save_concept']):
-      from slugify import slugify
       from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
       from huggingface_hub import create_repo
       from diffusers import StableDiffusionPipeline
@@ -13112,12 +13107,12 @@ def run_dreambooth2(page):
       dreambooth_pipe.save_pretrained("fp16_model")
       hf_token = prefs['HuggingFace_api_key']
       if(dreambooth_prefs['where_to_save_concept'] == "Public Library"):
-        repo_id = f"sd-dreambooth-library/{slugify(name_of_your_concept)}"
+        repo_id = f"sd-dreambooth-library/{format_filename(name_of_your_concept, use_dash=True)}"
         #Join the Concepts Library organization if you aren't part of it already
         run_sp(f"curl -X POST -H 'Authorization: Bearer '{hf_token} -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-dreambooth-library/share/SSeOwppVCscfTEzFGQaqpfcjukVeNrKNHX", realtime=False)
         #!curl -X POST -H 'Authorization: Bearer '$hf_token -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-dreambooth-library/share/SSeOwppVCscfTEzFGQaqpfcjukVeNrKNHX
       else:
-        repo_id = f"{your_username}/{slugify(name_of_your_concept)}"
+        repo_id = f"{your_username}/{format_filename(name_of_your_concept, use_dash=True)}"
       output_dir = dreambooth_args.output_dir
       if(not prefs['HuggingFace_api_key']):
         with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
@@ -13472,12 +13467,11 @@ def run_textualinversion(page):
     hf_token_write = prefs['HuggingFace_api_key']
 
     if(save_concept_to_public_library):
-        from slugify import slugify
         from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
         from huggingface_hub import create_repo
         api = HfApi()
         your_username = api.whoami()["name"]
-        repo_id = f"sd-concepts-library/{slugify(name_of_your_concept)}"
+        repo_id = f"sd-concepts-library/{format_filename(name_of_your_concept, use_dash=True)}"
         output_dir = textualinversion_prefs["output_dir"]
         if(not hf_token_write):
             with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
@@ -13488,10 +13482,10 @@ def run_textualinversion(page):
             run_sp(f"curl -X POST -H 'Authorization: Bearer '{hf_token} -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-concepts-library/share/VcLXJtzwwxnHYCkNMLpSJCdnNFZHQwWywv", realtime=False)
             # curl -X POST -H 'Authorization: Bearer '$hf_token -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-concepts-library/share/VcLXJtzwwxnHYCkNMLpSJCdnNFZHQwWywv
         else:
-            repo_id = f"{your_username}/{slugify(name_of_your_concept)}"
+            repo_id = f"{your_username}/{format_filename(name_of_your_concept, use_dash=True)}"
         images_upload = os.listdir(save_path)
         image_string = ""
-        repo_id = f"sd-concepts-library/{slugify(name_of_your_concept)}"
+        repo_id = f"sd-concepts-library/{format_filename(name_of_your_concept, use_dash=True)}"
         for i, image in enumerate(images_upload):
             image_string = f'''{image_string}![{placeholder_token} {i}](https://huggingface.co/{repo_id}/resolve/main/concept_images/{image})
         '''
@@ -13702,7 +13696,6 @@ def run_LoRA_dreambooth(page):
     if error:
       alert_msg(page, "Couldn't find a list of images to train model. Add image files to the list...")
       return
-    from slugify import slugify
     page.LoRA_dreambooth_output.controls.clear()
     page.LoRA_dreambooth_output.update()
     prt(Row([ProgressRing(), Text(" Downloading LoRA DreamBooth Conceptualizers", weight=FontWeight.BOLD)]))
@@ -13763,7 +13756,7 @@ def run_LoRA_dreambooth(page):
         #class_data_dir=LoRA_dreambooth_prefs['class_data_dir'], 
         #class_prompt=LoRA_dreambooth_prefs['class_prompt'],
         num_class_images=LoRA_dreambooth_prefs['num_class_images'],
-        output_dir=os.path.join(root_dir, "LoRA-model", slugify(LoRA_dreambooth_prefs['name_of_your_model'])),
+        output_dir=os.path.join(root_dir, "LoRA-model", format_filename(LoRA_dreambooth_prefs['name_of_your_model'], use_dash=True)),
     )
     output_dir = LoRA_dreambooth_args.output_dir
     if not os.path.exists(os.path.join(root_dir, "LoRA-model")): os.makedirs(os.path.join(root_dir, "LoRA-model"))
@@ -13801,7 +13794,7 @@ def run_LoRA_dreambooth(page):
       #LoRA_dreambooth_pipe.save_pretrained("fp16_model")
       hf_token = prefs['HuggingFace_api_key']
       private = False if LoRA_dreambooth_prefs['where_to_save_model'] == "Public HuggingFace" else True
-      repo_id = f"{your_username}/{slugify(name_of_your_model)}"
+      repo_id = f"{your_username}/{format_filename(name_of_your_model, use_dash=True)}"
       output_dir = LoRA_dreambooth_args.output_dir
       if(not prefs['HuggingFace_api_key']):
         with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
@@ -13954,7 +13947,6 @@ def run_LoRA(page):
     if error:
       alert_msg(page, "Couldn't find a list of images to train model. Add image files to the list...")
       return
-    from slugify import slugify
     page.LoRA_output.controls.clear()
     page.LoRA_output.update()
     prt(Row([ProgressRing(), Text(" Downloading LoRA Conceptualizers", weight=FontWeight.BOLD)]))
@@ -13996,7 +13988,7 @@ def run_LoRA(page):
     #num_new_images = None
     random_seed = int(LoRA_prefs['seed']) if int(LoRA_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     name_of_your_model = LoRA_prefs['name_of_your_model']
-    repo_id = f"{your_username}/{slugify(name_of_your_model)}"
+    repo_id = f"{your_username}/{format_filename(name_of_your_model, use_dash=True)}"
     from argparse import Namespace
     #--lr_num_cycles=1 --lr_power=1 --prior_loss_weight=1.0 --sample_batch_size=4 --num_class_images=100
     LoRA_args = Namespace(
@@ -14036,7 +14028,7 @@ def run_LoRA(page):
         #num_class_images=LoRA_prefs['num_class_images'],
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         hub_model_id=repo_id,
-        output_dir=os.path.join(root_dir, "LoRA-model", slugify(LoRA_prefs['name_of_your_model'])),
+        output_dir=os.path.join(root_dir, "LoRA-model", format_filename(LoRA_prefs['name_of_your_model'], use_dash=True)),
     )
     output_dir = LoRA_args.output_dir
     if not os.path.exists(os.path.join(root_dir, "LoRA-model")): os.makedirs(os.path.join(root_dir, "LoRA-model"))
@@ -14213,14 +14205,13 @@ def run_converter(page):
     if not bool(model_path):
       alert(page, "Provide the path to the custom model to convert")
       return
-    from slugify import slugify
     model_name = converter_prefs['model_name']
     model_path = converter_prefs['model_path']
-    model_file = slugify(model_name)
+    model_file = format_filename(model_name, use_dash=True)
     if converter_prefs['from_format'] == 'ckpt':
       model_file += '.ckpt'
     custom_models = os.path.join(root_dir, 'custom_models',)
-    custom_path = os.path.join(custom_models, slugify(model_name))
+    custom_path = os.path.join(custom_models, format_filename(model_name, use_dash=True))
     checkpoint_file = os.path.join(custom_models, model_file)
     if not os.path.exists(custom_path):
       os.makedirs(custom_path, exist_ok=True)
@@ -14290,7 +14281,7 @@ def run_converter(page):
       if '/' in model_path and not model_path.startswith('/'):
         repo_id = model_path
       else:
-        repo_id = f"{your_username}/{slugify(model_name)}"
+        repo_id = f"{your_username}/{format_filename(model_name, use_dash=True)}"
       #output_dir = dreambooth_args.output_dir
       if(not bool(prefs['HuggingFace_api_key'])):
         with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
