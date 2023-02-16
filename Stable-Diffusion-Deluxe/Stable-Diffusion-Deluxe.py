@@ -355,7 +355,7 @@ version_checker()
 #@title ## **▶️ Run Stable Diffusion Deluxe** - Flet/Flutter WebUI App
 import flet as ft
 #from flet import *
-from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
+from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, FilledButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
 from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, KeyboardType, TextThemeStyle, AnimationCurve
 from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
 from flet import Image as Img
@@ -2269,7 +2269,7 @@ def buildPromptsList(page):
   page.prompts_list = prompts_list
   prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt, col={'lg':9})
   negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
-  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if page.width > 720 else ""), size=17, weight=FontWeight.BOLD), on_click=add_prompt)
+  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if page.width > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
   prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True), add_prompt_button])
@@ -2348,8 +2348,9 @@ def buildPromptGenerator(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
-    generator_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list),
+    generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
+        FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_generator_list.controls) < 1:
       generator_list_buttons.visible = False
@@ -2411,8 +2412,9 @@ def buildPromptRemixer(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
-    remixer_list_buttons = Row([ElevatedButton(content=Text("Add All Prompts to List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_list),
+    remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
+        FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_remixer_list.controls) < 1:
       remixer_list_buttons.visible = False
@@ -2543,8 +2545,9 @@ def buildPromptWriter(page):
       page.prompt_writer_list.update()
       writer_list_buttons.visible = False
       writer_list_buttons.update()
-    writer_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list),
+    writer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
+        FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.prompt_writer_list.controls) < 1:
       writer_list_buttons.visible = False
@@ -3108,8 +3111,9 @@ def buildImage2Text(page):
       prompts = []
       image2text_list_buttons.visible = False
       image2text_list_buttons.update()
-    image2text_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_list),
+    image2text_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
+        FilledButton(content=Text("➕  Add All Prompts to List", size=20), height=45, on_click=add_to_list),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
@@ -3292,8 +3296,9 @@ def buildBLIP2Image2Text(page):
       prompts = []
       BLIP2_image2text_list_buttons.visible = False
       BLIP2_image2text_list_buttons.update()
-    BLIP2_image2text_list_buttons = Row([ElevatedButton(content=Text("➕  Add All Prompts to List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_list),
+    BLIP2_image2text_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts"), on_click=clear_prompts),
+        FilledButton(content=Text("➕  Add All Prompts to List", size=20), height=45, on_click=add_to_list),
     ], alignment=MainAxisAlignment.SPACE_BETWEEN)
     if len(page.BLIP2_image2text_list.controls) < 1:
       BLIP2_image2text_list_buttons.visible = False
@@ -9589,7 +9594,8 @@ def start_diffusion(page):
 # Why getting Exception: control with ID '_3607' not found when re-running after error
   #page.Images.content.controls = []
   clear_image_output()
-  pb.width=page.width - 50
+  pb = ProgressBar(bar_height=8)
+  pb.width=page.window_width - 50
   #prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
   prt(Header("▶️   Running Stable Diffusion on Batch Prompts List", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)]))
   import string, shutil, random, gc, io, json
@@ -9713,7 +9719,7 @@ def start_diffusion(page):
       #if p_idx % 30 == 0 and p_idx > 1:
       #  clear_output()
       #  print(f"{Color.BEIGE2}Cleared console display due to memory limit in console logging.  Images still saving.{Color.END}")
-      prt(Divider(height=6, thickness=2), update=False)
+      #prt(Divider(height=6, thickness=2), update=False)
       prt(Row([Text(p_count), Text(pr[0] if type(pr) == list else pr, expand=True, weight=FontWeight.BOLD), Text(f'seed: {arg["seed"]}     ')]))
       time.sleep(0.1)
       page.auto_scrolling(False)
@@ -9726,7 +9732,7 @@ def start_diffusion(page):
           alert_msg(page, f"ERROR: To use Stability-API, you must run the install it first and have proper API key")
           return
         else:
-          prt('Stablity API Diffusion ')# + ('─' * 100))
+          prt('Stability API Diffusion ')# + ('─' * 100))
           #print(f'"{SD_prompt}", height={SD_height}, width={SD_width}, steps={SD_steps}, cfg_scale={SD_guidance_scale}, seed={SD_seed}, sampler={generation_sampler}')
           #strikes = 0
           images = []
@@ -10339,10 +10345,12 @@ def start_diffusion(page):
         if not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']:
           #print(f"Image path:{image_path}")
           upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
-          time.sleep(0.2)
+          #time.sleep(0.2)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(fpath), width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
-          prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
-          time.sleep(0.3)
+          #prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([ImageButton(src=fpath, width=arg['width'], height=arg['height'], data=new_file, subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          #prt(ImageButton(src=fpath, width=arg['width'], height=arg['height'], data=new_file, subtitle=pr[0] if type(pr) == list else pr, center=True, page=page))
+          #time.sleep(0.3)
           #display(image)
         if prefs['use_upscale'] and status['installed_upscale']:
           clear_pipes(['upscale'])
@@ -10473,7 +10481,8 @@ def start_diffusion(page):
           upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           time.sleep(0.4)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(upscaled_path), width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
-          prt(Row([GestureDetector(content=Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([GestureDetector(content=Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([ImageButton(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, data=upscaled_path, subtitle=pr[0] if type(pr) == list else pr, page=page)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
           #prt(Img(src=upscaled_path))
           #upscaled = PILImage.open(os.path.join(batch_output, new_file))
@@ -11653,7 +11662,8 @@ def run_repainter(page):
     out_path = image_path
     clear_last()
     clear_last()
-    prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, fit=ImageFit.FILL, page=page)], alignment=MainAxisAlignment.CENTER))
+    #prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     #TODO: ESRGAN, Metadata & PyDrive
     if storage_type == "Colab Google Drive":
       new_file = available_file(prefs['image_output'], fname, 1)
@@ -11749,7 +11759,8 @@ def run_image_variation(page):
         image_path = available_file(stable_dir, fname, 1)
         image.save(image_path)
         out_path = image_path
-        prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        #prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, fit=ImageFit.FILL, page=page)], alignment=MainAxisAlignment.CENTER))
         #TODO: ESRGAN, Metadata & PyDrive
         if storage_type == "Colab Google Drive":
             new_file = available_file(prefs['image_output'], fname, 1)
@@ -11995,8 +12006,9 @@ def run_CLIPstyler(page):
             img = utils.im_convert2(output_image)
             save_file = available_file(save_dir, new_file, 1)
             img.save(save_file)
-            prt(Row([Img(src=save_file, width=CLIPstyler_prefs['width'], height=CLIPstyler_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            prt(Row([Text(save_file)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=save_file, width=CLIPstyler_prefs['width'], height=CLIPstyler_prefs['height'], fit=ImageFit.FILL, subtitle=save_file, show_subtitle=True, page=page)], alignment=MainAxisAlignment.CENTER))
+            #prt(Row([Img(src=save_file, width=CLIPstyler_prefs['width'], height=CLIPstyler_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            #prt(Row([Text(save_file)], alignment=MainAxisAlignment.CENTER))
             images.append(save_file)
             #plt.imshow(utils.im_convert2(output_image))
             #plt.show()
@@ -15202,8 +15214,10 @@ def run_unCLIP(page, from_list=False):
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
                 out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_prefs['display_upscaled_image'] or not unCLIP_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                     upload_folder = 'upload'
@@ -15260,7 +15274,8 @@ def run_unCLIP(page, from_list=False):
                 time.sleep(0.2)
                 if unCLIP_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -15385,8 +15400,10 @@ def run_unCLIP_image_variation(page, from_list=False):
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
                 out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_image_variation_prefs['display_upscaled_image'] or not unCLIP_image_variation_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                     upload_folder = 'upload'
@@ -15406,13 +15423,13 @@ def run_unCLIP_image_variation(page, from_list=False):
                     faceenhance = ''
                     run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_image_variation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                     out_file = short_name.rpartition('.')[0] + '_out.png'
-                    upscaled_path = os.path.join(out_path, output_file)
                     shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                     image_path = upscaled_path
                     os.chdir(stable_dir)
                     if unCLIP_image_variation_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                        #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
                     metadata = PngInfo()
@@ -15564,8 +15581,10 @@ def run_unCLIP_interpolation(page, from_list=False):
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
                 out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_interpolation_prefs['display_upscaled_image'] or not unCLIP_interpolation_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                     upload_folder = 'upload'
@@ -15585,7 +15604,6 @@ def run_unCLIP_interpolation(page, from_list=False):
                     faceenhance = ''
                     run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                     out_file = short_name.rpartition('.')[0] + '_out.png'
-                    upscaled_path = os.path.join(out_path, output_file)
                     shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                     image_path = upscaled_path
                     os.chdir(stable_dir)
@@ -15622,7 +15640,8 @@ def run_unCLIP_interpolation(page, from_list=False):
                 time.sleep(0.2)
                 if unCLIP_interpolation_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -15773,8 +15792,10 @@ def run_magic_mix(page, from_list=False):
             output_file = image_path.rpartition(slash)[2]
             image.save(image_path)
             out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
             if not magic_mix_prefs['display_upscaled_image'] or not magic_mix_prefs['apply_ESRGAN_upscale']:
-                prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if magic_mix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                 upload_folder = 'upload'
@@ -15794,13 +15815,13 @@ def run_magic_mix(page, from_list=False):
                 faceenhance = ''
                 run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {magic_mix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                 out_file = short_name.rpartition('.')[0] + '_out.png'
-                upscaled_path = os.path.join(out_path, output_file)
                 shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 if magic_mix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if prefs['save_image_metadata']:
                 img = PILImage.open(image_path)
                 metadata = PngInfo()
@@ -15960,8 +15981,10 @@ def run_paint_by_example(page):
         output_file = image_path.rpartition(slash)[2]
         image.save(image_path)
         out_path = image_path.rpartition(slash)[0]
+        upscaled_path = os.path.join(out_path, output_file)
         if not paint_by_example_prefs['display_upscaled_image'] or not paint_by_example_prefs['apply_ESRGAN_upscale']:
-            prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+            #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if paint_by_example_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
             upload_folder = 'upload'
@@ -15981,13 +16004,13 @@ def run_paint_by_example(page):
             faceenhance = ''
             run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {paint_by_example_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
-            upscaled_path = os.path.join(out_path, output_file)
             shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             image_path = upscaled_path
             os.chdir(stable_dir)
             if paint_by_example_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if prefs['save_image_metadata']:
             img = PILImage.open(image_path)
             metadata = PngInfo()
@@ -16167,8 +16190,10 @@ def run_instruct_pix2pix(page, from_list=False):
             output_file = image_path.rpartition(slash)[2]
             image.save(image_path)
             out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
             if not instruct_pix2pix_prefs['display_upscaled_image'] or not instruct_pix2pix_prefs['apply_ESRGAN_upscale']:
-                prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                 upload_folder = 'upload'
@@ -16188,13 +16213,13 @@ def run_instruct_pix2pix(page, from_list=False):
                 faceenhance = ''
                 run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {instruct_pix2pix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                 out_file = short_name.rpartition('.')[0] + '_out.png'
-                upscaled_path = os.path.join(out_path, output_file)
                 shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 if instruct_pix2pix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if prefs['save_image_metadata']:
                 img = PILImage.open(image_path)
                 metadata = PngInfo()
@@ -16347,6 +16372,7 @@ def run_materialdiffusion(page):
         new_file = image_path.rpartition(slash)[2]
         if not materialdiffusion_prefs['display_upscaled_image'] or not materialdiffusion_prefs['apply_ESRGAN_upscale']:
             prt(Row([Img(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
 
         if save_to_GDrive:
             batch_output = os.path.join(prefs['image_output'], materialdiffusion_prefs['batch_folder_name'])
@@ -16494,8 +16520,10 @@ def run_DiT(page, from_list=False):
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
                 out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
                 if not DiT_prefs['display_upscaled_image'] or not DiT_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if DiT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                     upload_folder = 'upload'
@@ -16515,13 +16543,13 @@ def run_DiT(page, from_list=False):
                     faceenhance = ''
                     run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {DiT_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                     out_file = short_name.rpartition('.')[0] + '_out.png'
-                    upscaled_path = os.path.join(out_path, output_file)
                     shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                     image_path = upscaled_path
                     os.chdir(stable_dir)
                     if DiT_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                        #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
                     metadata = PngInfo()
@@ -17078,8 +17106,11 @@ def run_dall_e(page, from_list=False):
             #img = i['url']
             new_file = image_path.rpartition(slash)[2].rpartition('-')[0]
             size = int(dall_e_prefs['size'].rpartition('x')[0])
+            out_path = batch_output if save_to_GDrive else txt2img_output
+            new_path = available_file(out_path, new_file, idx)
             if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
-                prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=image_path, data=new_file, fit=ImageFit.FILL, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
 
             if save_to_GDrive:
                 batch_output = os.path.join(prefs['image_output'], dall_e_prefs['batch_folder_name'])
@@ -17089,8 +17120,7 @@ def run_dall_e(page, from_list=False):
                 newFolder = gdrive.CreateFile({'title': dall_e_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = batch_output if save_to_GDrive else txt2img_output
-            new_path = available_file(out_path, new_file, idx)
+            
             if dall_e_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                 upload_folder = 'upload'
@@ -17109,13 +17139,14 @@ def run_dall_e(page, from_list=False):
                 faceenhance = ' --face_enhance' if dall_e_prefs["face_enhance"] else ''
                 run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                 out_file = short_name.rpartition('.')[0] + '_out.png'
-                upscaled_path = new_path #os.path.join(out_path, new_file)
+                upscaled_path = new_path
                 shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                 # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
                 os.chdir(stable_dir)
                 if dall_e_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([Img(src=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), fit=ImageFit.FILL, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
             # TODO: Add Metadata
@@ -17463,6 +17494,74 @@ class Header(UserControl):
         ], spacing=2)
         return self.column
         
+class ImageButton(UserControl):
+    def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, fit=ImageFit.FILL, show_subtitle=False, page=None):
+        super().__init__()
+        self.src = src
+        self.subtitle = subtitle
+        self.actions = actions
+        self.center = center
+        self.width = width
+        self.height = height
+        self.data = data or src
+        self.fit = fit
+        self.show_subtitle = show_subtitle
+        self.page = page
+        self.build()
+    def build(self):
+        #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
+        #Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True),
+        def download_image(e):
+          if is_Colab:
+            print(f"{type(self.data)} {self.data}")
+            from google.colab import files
+            if os.path.isfile(self.data):
+              files.download(self.data)
+            else:
+              time.sleep(5)
+              files.download(self.data)
+          self.page.snack_bar = SnackBar(content=Text(f"📲  Downloading {self.data}... May have to Stop Script for Downloads to start in Colab."))
+          self.page.snack_bar.open = True
+          self.page.update()
+        def copy_path(e):
+            self.page.set_clipboard(self.data)
+            self.page.snack_bar = SnackBar(content=Text(f"📋  {self.data} copied to clipboard... Paste as Init Image."))
+            self.page.snack_bar.open = True
+            self.page.update()
+        def image_details(e):
+          #TODO: Get size & meta
+            alert_msg(self.page, "Image Details", content=Column([Text(self.subtitle or self.data, selectable=True), Img(src=self.data, gapless_playback=True)]), sound=False)
+        def delete_image(e):
+            if os.path.exists(self.src):
+              os.remove(self.src)
+            if self.data != self.src:
+              os.remove(self.data)
+            self.image = Container(content=None)
+            self.image.update()
+            self.page.snack_bar = SnackBar(content=Text(f"🗑️  Deleted {self.data}..."))
+            self.page.snack_bar.open = True
+            self.page.update()
+        
+        #self.image = Row([Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)], alignment=MainAxisAlignment.CENTER)
+        self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
+        self.column = Column([
+          Row([PopupMenuButton(
+            items = [
+              PopupMenuItem(text="View Image", icon=icons.FULLSCREEN, on_click=image_details),
+              PopupMenuItem(text="Copy Path", icon=icons.CONTENT_PASTE, on_click=copy_path),
+              PopupMenuItem(text="Download Locally", icon=icons.DOWNLOAD, on_click=download_image),
+              PopupMenuItem(text="Delete Image", icon=icons.DELETE, on_click=delete_image),
+            ], tooltip="👁️", expand=True,
+            content=self.image,
+            #content=Row([Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START),
+            data=self.src if self.data==None else self.data, width=self.width, height=self.height)],
+            alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START)
+          ], horizontal_alignment=CrossAxisAlignment.CENTER if self.center else CrossAxisAlignment.START)
+        if self.show_subtitle:
+            self.column.controls.append(Row([Text(self.subtitle)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START))
+        return self.column
+    
+
 class NumberPicker(UserControl):
     def __init__(self, label="", value=1, min=0, max=20, step=1, height=50, on_change=None):
         super().__init__()
