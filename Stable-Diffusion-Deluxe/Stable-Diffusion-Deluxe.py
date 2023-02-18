@@ -248,6 +248,8 @@ def load_settings_file():
       'install_versatile': False,
       'install_depth2img': False,
       'install_alt_diffusion': False,
+      'install_attend_and_excite': False,
+      'install_SAG': False,
       'install_upscale': False,
       'safety_config': 'Strong',
       'use_imagic': False,
@@ -255,6 +257,10 @@ def load_settings_file():
       'use_safe': False,
       'use_versatile': False,
       'use_alt_diffusion': False,
+      'use_attend_and_excite': False,
+      'max_iter_to_alter': 25,
+      'use_SAG': False,
+      'sag_scale': 0.75,
       'use_upscale': False,
       'upscale_noise_level': 20,
       'install_conceptualizer': False,
@@ -398,6 +404,8 @@ status = {
     'installed_safe': False,
     'installed_versatile': False,
     'installed_depth2img': False,
+    'installed_attend_and_excite': False,
+    'installed_SAG': False,
     'installed_alt_diffusion': False,
     'installed_upscale': False,
     'installed_xformers': False,
@@ -712,6 +720,12 @@ if 'LoRA_model' not in prefs: prefs['LoRA_model'] = "Von Platen LoRA"
 if 'custom_LoRA_models' not in prefs: prefs['custom_LoRA_models'] = []
 if 'custom_dance_diffusion_models' not in prefs: prefs['custom_dance_diffusion_models'] = []
 if 'negative_prompt' not in prefs['prompt_writer']: prefs['prompt_writer']['negative_prompt'] = ''
+if 'install_attend_and_excite' not in prefs: prefs['install_attend_and_excite'] = False
+if 'use_attend_and_excite' not in prefs: prefs['use_attend_and_excite'] = False
+if 'max_iter_to_alter' not in prefs: prefs['max_iter_to_alter'] = 25
+if 'install_SAG' not in prefs: prefs['install_SAG'] = False
+if 'use_SAG' not in prefs: prefs['use_SAG'] = False
+if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
 
 def initState(page):
     global status, current_tab
@@ -828,14 +842,14 @@ def buildSettings(page):
         #save_to_GDrive,
         ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
         #VerticalDivider(thickness=2),
-        Row([file_prefix, file_suffix_seed]) if page.width > 500 else Column([file_prefix, file_suffix_seed]),
+        Row([file_prefix, file_suffix_seed]) if (page.window_width or page.width) > 500 else Column([file_prefix, file_suffix_seed]),
         Row([file_max_length, file_allowSpace]),
         #file_allowSpace,
         #file_max_length,
         #Row([disable_nsfw_filter, retry_attempts]),
         #VerticalDivider(thickness=2, width=1),
         save_image_metadata,
-        Row([meta_ArtistName, meta_Copyright]) if page.width > 712 else Column([meta_ArtistName, meta_Copyright]),
+        Row([meta_ArtistName, meta_Copyright]) if (page.window_width or page.width) > 712 else Column([meta_ArtistName, meta_Copyright]),
         Row([save_config_in_metadata, save_config_json,]),
         Row([theme_mode, theme_color]),
         Row([enable_sounds, start_in_installation]),
@@ -950,6 +964,7 @@ def buildInstallers(page):
                 dropdown.Option("K-Euler Discrete"),
                 dropdown.Option("K-Euler Ancestral"),
                 dropdown.Option("DEIS Multistep"),
+                dropdown.Option("UniPC Multistep"),
                 dropdown.Option("Heun Discrete"),
                 dropdown.Option("K-DPM2 Ancestral"),
                 dropdown.Option("K-DPM2 Discrete"),
@@ -1026,6 +1041,8 @@ def buildInstallers(page):
   install_interpolation = Tooltip(message="Create multiple tween images between prompts latent space. Almost animation.", content=Switch(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation')))
   #install_dreamfusion = Tooltip(message="Generate interesting mesh .obj, texture and preview video from a prompt.", content=Switch(label="Install Stable Diffusion DreamFusion 3D Pipeline", value=prefs['install_dreamfusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_dreamfusion'], on_change=lambda e:changed(e, 'install_dreamfusion')))
   install_alt_diffusion = Tooltip(message="Multilingual Stable Diffusion supporting English, Chinese, Spanish, French, Russian, Japanese, Korean, Arabic and Italian.", content=Switch(label="Install AltDiffusion text2image & image2image Multilingual Pipeline", value=prefs['install_alt_diffusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_alt_diffusion'], on_change=lambda e:changed(e, 'install_alt_diffusion')))
+  install_attend_and_excite = Tooltip(message="Provides textual Attention-Based Semantic Guidance control over the image generation.", content=Switch(label="Install Attend and Excite text2image Pipeline", value=prefs['install_attend_and_excite'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_attend_and_excite'], on_change=lambda e:changed(e, 'install_attend_and_excite')))
+  install_SAG = Tooltip(message="Intelligent guidance that can plugged into any diffusion model using their self-attention map, improving sample quality.", content=Switch(label="Install Self-Attention Guidance (SAG) text2image Pipeline", value=prefs['install_SAG'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_SAG'], on_change=lambda e:changed(e, 'install_SAG')))
   install_imagic = Tooltip(message="Edit your image according to the prompted instructions like magic.", content=Switch(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic')))
   install_depth2img = Tooltip(message="Uses Depth-map of init image for text-guided image to image generation.", content=Switch(label="Install Stable Diffusion Depth2Image Pipeline", value=prefs['install_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_depth2img'], on_change=lambda e:changed(e, 'install_depth2img')))
   install_composable = Tooltip(message="Craft your prompts with | precise | weights AND composed together components | with AND NOT negatives.", content=Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable')))
@@ -1091,7 +1108,7 @@ def buildInstallers(page):
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion, 
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, 
-                                         install_versatile, install_imagic, install_depth2img, install_composable, install_upscale]))
+                                         install_versatile, install_SAG, install_attend_and_excite, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
       prefs['install_Stability_api'] = install_Stability_api.content.value
       has_changed=True
@@ -1129,7 +1146,7 @@ def buildInstallers(page):
           page.banner.content.controls = []
         if show_progress:
           page.banner.content.controls.append(Row([Stack([Icon(icons.DOWNLOADING, color=colors.AMBER, size=48), Container(content=ProgressRing(), padding=padding.only(top=6, left=6), alignment=alignment.center)]), Container(content=Text("  " + msg.strip() , weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)) ]))
-          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center if page.width > 768 else alignment.center_right)]))
+          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center if (page.window_width or page.width) > 768 else alignment.center_right)]))
           #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center)]))
           #page.banner.content.controls.append(Row([Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.GREEN_600), ProgressRing()]))
         else:
@@ -1232,6 +1249,18 @@ def buildInstallers(page):
           page.img_block.update()
         page.use_depth2img.visible = True
         page.use_depth2img.update()
+      if prefs['install_SAG'] and prefs['install_diffusers']:
+        console_msg("Installing Stable Diffusion Self-Attention Guidance text2image Pipeline...")
+        get_SAG(page)
+        status['installed_SAG'] = True
+        page.use_SAG.visible = True
+        page.use_SAG.update()
+      if prefs['install_attend_and_excite'] and prefs['install_diffusers']:
+        console_msg("Installing Stable Diffusion Attend and Excite text2image Pipeline...")
+        get_attend_and_excite(page)
+        status['installed_attend_and_excite'] = True
+        page.use_attend_and_excite.visible = True
+        page.use_attend_and_excite.update()
       if prefs['install_imagic'] and prefs['install_diffusers']:
         console_msg("Installing Stable Diffusion iMagic image2image Pipeline...")
         get_imagic(page)
@@ -1540,6 +1569,23 @@ def buildParameters(page):
       interpolation_steps_value.value = f" {int(e.control.value)} steps"
       interpolation_steps_value.update()
       changed(e, 'num_interpolation_steps', asInt=True)
+  def toggle_SAG(e):
+      sag_scale_slider.height = None if e.control.value else 0
+      sag_scale_slider.update()
+      changed(e, 'use_SAG')
+  def change_sag_scale(e):
+      sag_scale_value.value = f" {float(e.control.value)}"
+      sag_scale_value.update()
+      changed(e, 'sag_scale', asInt=True)
+  
+  def toggle_attend_and_excite(e):
+      max_iter_to_alter_slider.height = None if e.control.value else 0
+      max_iter_to_alter_slider.update()
+      changed(e, 'use_attend_and_excite')
+  def change_max_iter_to_alter(e):
+      max_iter_to_alter_value.value = f" {int(e.control.value)} Iterations"
+      max_iter_to_alter_value.update()
+      changed(e, 'max_iter_to_alter', asInt=True)
   def change_enlarge_scale(e):
       enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
       enlarge_scale_slider.update()
@@ -1620,6 +1666,24 @@ def buildParameters(page):
     page.interpolation_block.visible = False
   elif bool(prefs['use_interpolation']):
     page.img_block.height = 0
+  use_SAG = Tooltip(message="Can drastically boost the performance and quality. Extracts the intermediate attention map from a diffusion model at every iteration and selects tokens above a certain attention score for masking and blurring to obtain a partially blurred input.", content=Switch(label="Use Self-Attention Guidance (SAG) Text-to-Image", value=prefs['use_SAG'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_SAG))
+  sag_scale = Slider(min=0, max=1, divisions=20, label="{value}", value=prefs['sag_scale'], tooltip="How much Self-Attention Guidance to apply.", on_change=change_sag_scale, expand=True)
+  sag_scale_value = Text(f" {float(prefs['sag_scale'])}", weight=FontWeight.BOLD)
+  sag_scale_slider = Container(Row([Text(f"SAG Scale: "),sag_scale_value, sag_scale]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  page.use_SAG = Column([use_SAG, sag_scale_slider])
+  if not bool(prefs['use_SAG']):
+    sag_scale_slider.height = 0
+  if not status['installed_SAG']:
+    page.use_SAG.visible = False
+  use_attend_and_excite = Tooltip(message="To use, include plus signs before subject words in prompt to indicate token indices, like 'a +cat and a +frog'.", content=Switch(label="Use Attend and Excite", value=prefs['use_attend_and_excite'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_attend_and_excite))
+  max_iter_to_alter = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['max_iter_to_alter'], tooltip="The first denoising steps are where the attend-and-excite is applied. I.e. if `max_iter_to_alter` is 25 and there are a total of `30` denoising steps, the first 25 denoising steps will apply attend-and-excite and the last 5 will not apply attend-and-excite.", on_change=change_max_iter_to_alter, expand=True)
+  max_iter_to_alter_value = Text(f" {int(prefs['max_iter_to_alter'])} iterations", weight=FontWeight.BOLD)
+  max_iter_to_alter_slider = Container(Row([Text(f"Max Iterations to Alter: "), max_iter_to_alter_value, max_iter_to_alter]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  page.use_attend_and_excite = Column([use_attend_and_excite, max_iter_to_alter_slider])
+  if not bool(prefs['use_attend_and_excite']):
+    max_iter_to_alter_slider.height = 0
+  if not status['installed_attend_and_excite']:
+    page.use_attend_and_excite.visible = False
   page.use_clip_guided_model = Tooltip(message="Uses more VRAM, so you'll probably need to make image size smaller", content=Switch(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=prefs['use_clip_guided_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
   clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=prefs['clip_guidance_scale'], on_change=lambda e:changed(e,'clip_guidance_scale'), expand=True)
   clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
@@ -1681,7 +1745,7 @@ def buildParameters(page):
       padding=padding.only(18, 14, 20, 10), content=Column([
         Header("📝  Stable Diffusion Image Parameters"),
         param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
-        page.interpolation_block, page.use_safe, page.img_block, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_conceptualizer_model,
+        page.interpolation_block, page.use_safe, page.img_block, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_conceptualizer_model,
         Row([use_LoRA_model, LoRA_block]), page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
         #parameters_row,
@@ -1986,7 +2050,7 @@ def editPrompt(e):
           width_slider, height_slider, img_block,
           use_clip_guided_model, clip_block,
           #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
-        ], alignment=MainAxisAlignment.START, width=e.page.width - 200, height=e.page.height - 100, scroll=ScrollMode.AUTO), width=e.page.width - 200, height=e.page.height - 100), 
+        ], alignment=MainAxisAlignment.START, width=(e.page.window_width or e.page.width) - 200, height=(e.page.window_height or e.page.height) - 100, scroll=ScrollMode.AUTO), width=(e.page.window_width or e.page.width) - 200, height=(e.page.window_height or e.page.height) - 100), 
         actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
     open_dlg()
     #e.page.dialog = edit_dlg
@@ -2033,7 +2097,7 @@ def buildPromptsList(page):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, multiline=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=page.width - 180, height=page.height - 100, scroll="none"), width=page.width - 180, height=page.height - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_paste
       dlg_paste.open = True
       page.update()
@@ -2269,7 +2333,7 @@ def buildPromptsList(page):
   page.prompts_list = prompts_list
   prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt, col={'lg':9})
   negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
-  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if page.width > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
+  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.window_width or page.width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
   prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True), add_prompt_button])
@@ -5605,7 +5669,7 @@ def buildDiT(page):
       alert_msg(page, "ImageNET Class List", content=Container(Column([ResponsiveRow(
         controls=classes,
         expand=True,
-      )], scroll="auto", spacing=0), width=page.width - 150), okay="That's a lot...", sound=False)
+      )], scroll="auto", spacing=0), width=(page.window_width or page.width) - 150), okay="That's a lot...", sound=False)
     def change_num_inference(e):
       changed(e, 'num_inference_steps', ptype="int")
       num_inference_value.value = f" {DiT_prefs['num_inference_steps']}"
@@ -7945,6 +8009,8 @@ pipe_paint_by_example = None
 pipe_instruct_pix2pix = None
 pipe_alt_diffusion = None
 pipe_alt_diffusion_img2img = None
+pipe_SAG = None
+pipe_attend_and_excite = None
 pipe_DiT = None
 pipe_dance = None
 pipe_kandinsky = None
@@ -8283,6 +8349,9 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "DEIS Multistep":
       from diffusers import DEISMultistepScheduler
       s = DEISMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "UniPC Multistep":
+      from diffusers import UniPCMultistepScheduler
+      s = UniPCMultistepScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "Score-SDE-Vp":
       from diffusers import ScoreSdeVpScheduler
       s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -8369,6 +8438,9 @@ def pipeline_scheduler(p, big3=False):
     elif scheduler_mode == "DEIS Multistep":
       from diffusers import DEISMultistepScheduler
       s = DEISMultistepScheduler.from_config(p.scheduler.config)
+    elif scheduler_mode == "UniPC Multistep":
+      from diffusers import UniPCMultistepScheduler
+      s = UniPCMultistepScheduler.from_config(p.scheduler.config)
     elif scheduler_mode == "Score-SDE-Vp":
       from diffusers import ScoreSdeVpScheduler
       s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -8404,8 +8476,9 @@ torch_device = "cuda"
 try:
     import torch
 except Exception:
-    page.console_msg("Installing PyTorch with CUDA 1.17")
-    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117", realtime=False)
+    page.console_msg("Installing PyTorch with CUDA 1.17 Prerelease")
+    #run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117", realtime=False)
+    run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
       import torch
     except Exception:
@@ -8444,7 +8517,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=False):
+def optimize_pipe(p, vae=False, unet=False):
     if prefs['memory_optimization'] == 'Attention Slicing':
       #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
       if prefs['sequential_cpu_offload']:
@@ -8458,6 +8531,8 @@ def optimize_pipe(p, vae=False):
       p.enable_attention_slicing()
     if prefs['vae_slicing'] and vae:
       p.enable_vae_slicing()
+    if unet:
+      p.unet = torch.compile(p.unet)
     if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
       p.unet.load_attn_procs(lora['path'])
@@ -8921,6 +8996,62 @@ def get_safe_pipe():
   pipe_safe = optimize_pipe(pipe_safe)
   pipe_safe.set_progress_bar_config(disable=True)
   return pipe_safe
+
+def get_SAG(page):
+  global pipe_SAG
+  clear_SAG_pipe()
+  pipe_SAG = get_SAG_pipe()
+
+def get_SAG_pipe():
+  global pipe_SAG, scheduler, model_path, prefs
+  from diffusers import StableDiffusionSAGPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  
+  if prefs['higher_vram_mode']:
+    pipe_SAG = StableDiffusionSAGPipeline.from_pretrained(
+        model_path,
+        scheduler=model_scheduler(model_path),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+    )
+  else:
+      pipe_SAG = StableDiffusionSAGPipeline.from_pretrained(
+      model_path,
+      scheduler=model_scheduler(model_path),
+      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+      torch_dtype=torch.float16,
+      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+  pipe_SAG = optimize_pipe(pipe_SAG, vae=False)
+  pipe_SAG.set_progress_bar_config(disable=True)
+  return pipe_SAG
+
+def get_attend_and_excite(page):
+  global pipe_attend_and_excite
+  clear_attend_and_excite_pipe()
+  pipe_attend_and_excite = get_attend_and_excite_pipe()
+
+def get_attend_and_excite_pipe():
+  global pipe_attend_and_excite, scheduler, model_path, prefs
+  from diffusers import StableDiffusionAttendAndExcitePipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  
+  if prefs['higher_vram_mode']:
+    pipe_attend_and_excite = StableDiffusionAttendAndExcitePipeline.from_pretrained(
+        model_path,
+        scheduler=model_scheduler(model_path),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+    )
+  else:
+      pipe_attend_and_excite = StableDiffusionAttendAndExcitePipeline.from_pretrained(
+      model_path,
+      scheduler=model_scheduler(model_path),
+      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+      torch_dtype=torch.float16,
+      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+  pipe_attend_and_excite = optimize_pipe(pipe_attend_and_excite, vae=True)
+  pipe_attend_and_excite.set_progress_bar_config(disable=True)
+  return pipe_attend_and_excite
 
 def get_upscale(page):
     import torch, gc
@@ -9436,6 +9567,20 @@ def clear_alt_diffusion_img2img_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_alt_diffusion_img2img = None
+def clear_SAG_pipe():
+  global pipe_SAG
+  if pipe_SAG is not None:
+    del pipe_SAG
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_SAG = None
+def clear_attend_and_excite_pipe():
+  global pipe_attend_and_excite
+  if pipe_attend_and_excite is not None:
+    del pipe_attend_and_excite
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_attend_and_excite = None
 def clear_dance_pipe():
   global pipe_dance
   if pipe_dance is not None:
@@ -9504,6 +9649,8 @@ def clear_pipes(allbut=None):
     if not 'alt_diffusion_img2img' in but: clear_alt_diffusion_img2img_pipe()
     if not 'paint_by_example' in but: clear_paint_by_example_pipe()
     if not 'instruct_pix2pix' in but: clear_instruct_pix2pix_pipe()
+    if not 'SAG' in but: clear_SAG_pipe()
+    if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'DiT' in but: clear_DiT_pipe()
     if not 'dance' in but: clear_dance_pipe()
     if not 'riffusion' in but: clear_riffusion_pipe()
@@ -9538,7 +9685,7 @@ def available_folder(folder, name, idx):
 #import asyncio
 #async 
 def start_diffusion(page):
-  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_safe, pipe_upscale
+  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_safe, pipe_upscale
   global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
   def prt(line, update=True):
     if type(line) == str:
@@ -9594,8 +9741,8 @@ def start_diffusion(page):
 # Why getting Exception: control with ID '_3607' not found when re-running after error
   #page.Images.content.controls = []
   clear_image_output()
-  pb = ProgressBar(bar_height=8)
-  pb.width=page.window_width - 50
+  #pb = ProgressBar(bar_height=8)
+  pb.width=(page.window_width or page.width) - 50
   #prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
   prt(Header("▶️   Running Stable Diffusion on Batch Prompts List", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)]))
   import string, shutil, random, gc, io, json
@@ -10190,6 +10337,18 @@ def start_diffusion(page):
                   prt(Row([ProgressRing(), Text("Initializing AltDiffusion Text2Image Pipeline...", weight=FontWeight.BOLD)]))
                   pipe_alt_diffusion = get_alt_diffusion_pipe()
                   clear_last()
+              elif prefs['use_SAG'] and status['installed_SAG']:
+                clear_pipes("SAG")
+                if pipe_SAG is None:
+                  prt(Row([ProgressRing(), Text("Initializing Self-Attention Guidance Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  pipe_SAG = get_SAG_pipe()
+                  clear_last()
+              elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
+                clear_pipes("attend_and_excite")
+                if pipe_attend_and_excite is None:
+                  prt(Row([ProgressRing(), Text("Initializing Attend and Excite Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  pipe_attend_and_excite = get_attend_and_excite_pipe()
+                  clear_last()
               elif prefs['use_versatile'] and status['installed_versatile']:
                 clear_pipes("versatile_text2img")
                 if pipe_versatile_text2img is None:
@@ -10228,6 +10387,28 @@ def start_diffusion(page):
                 pipe_used = "AltDiffusion Text-to-Image"
                 with torch.autocast("cuda"):
                   images = pipe_alt_diffusion(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_SAG'] and status['installed_SAG']:
+                pipe_used = "Self-Attention Guidance Text-to-Image"
+                images = pipe_SAG(prompt=pr, negative_prompt=arg['negative_prompt'], sag_scale=prefs['sag_scale'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
+                pipe_used = "Attend and Excite Text-to-Image"
+                token_indices = words = []
+                ptext = pr[0] if type(pr) == list else pr
+                ntext = arg['negative_prompt'][0] if type(arg['negative_prompt']) == list else arg['negative_prompt']
+                for ti, w in enumerate(ptext.split()):
+                  if w[:1] == '+':
+                    token_indices.append(ti + 1)
+                    words.append(w[1:])
+                    #print(f'indices: {ti + 1} - {w[1:]}')
+                  else:
+                    words.append(w)
+                ptext = ' '.join(words)
+                pr = [ptext * arg['batch_size']] if type(pr) == list else ptext
+                if token_indices < 1:
+                  token_indices = pipe_attend_and_excite.get_indices(ptext)
+                #, negative_prompt=arg['negative_prompt'], num_images_per_prompt=int(arg['batch_size'])
+                #images = pipe_attend_and_excite(prompt=ptext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_attend_and_excite(prompt=ptext, negative_prompt=ntext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), num_images_per_prompt=int(arg['batch_size']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_versatile'] and status['installed_versatile']:
                 pipe_used = "Versatile Text-to-Image"
                 images = pipe_versatile_text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -10255,10 +10436,10 @@ def start_diffusion(page):
             alert_msg(page, f"CRITICAL ERROR: GPU ran out of memory! Flushing memory to save session... Try reducing image size.", content=Text(str(e).strip()))
             pass
           else:
-            alert_msg(page, f"RUNTIME ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+            alert_msg(page, f"RUNTIME ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
             pass
         except Exception as e:
-          alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+          alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
           pass
         finally:
           gc.collect()
@@ -12347,7 +12528,7 @@ def run_dance_diffusion(page):
     random_seed = int(dance_prefs['seed']) if int(dance_prefs['seed']) > 0 else random.randint(0,4294967295)
     dance_generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     clear_last()
-    pb.width=page.width - 50
+    pb.width=(page.window_width or page.width) - 50
     prt(pb)
     if prefs['higher_vram_mode']:
       output = dance_pipe(generator=dance_generator, batch_size=int(dance_prefs['batch_size']), num_inference_steps=int(dance_prefs['inference_steps']), audio_length_in_s=float(dance_prefs['audio_length_in_s']))
@@ -17416,7 +17597,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
       page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
     app_icon_color = colors.AMBER_800
     
-    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text("👨‍🎨️  Stable Diffusion - Deluxe Edition  🧰" if page.width >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
+    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text("👨‍🎨️  Stable Diffusion - Deluxe Edition  🧰" if (page.window_width or page.width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
       center_title=True,
       bgcolor=colors.SURFACE,
       leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
