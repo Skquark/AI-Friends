@@ -300,6 +300,7 @@ def load_settings_file():
       'use_LoRA_model': False,
       'LoRA_model': 'Von Platen LoRA',
       'custom_LoRA_models': [],
+      'custom_LoRA_model': "",
       'use_interpolation': False,
       'num_interpolation_steps': 22,
       'use_clip_guided_model': False,
@@ -552,6 +553,7 @@ def buildStableDiffusers(page):
     page.MagicMix = buildMagicMix(page)
     page.PaintByExample = buildPaintByExample(page)
     page.InstructPix2Pix = buildInstructPix2Pix(page)
+    page.ControlNet = buildControlNet(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.MaskMaker = buildDreamMask(page)
     page.DiT = buildDiT(page)
@@ -567,6 +569,7 @@ def buildStableDiffusers(page):
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
+            Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
             Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
             Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
@@ -718,6 +721,7 @@ if 'tortoise_custom_voices' not in prefs: prefs['tortoise_custom_voices'] = []
 if 'use_LoRA_model' not in prefs: prefs['use_LoRA_model'] = False
 if 'LoRA_model' not in prefs: prefs['LoRA_model'] = "Von Platen LoRA"
 if 'custom_LoRA_models' not in prefs: prefs['custom_LoRA_models'] = []
+if 'custom_LoRA_model' not in prefs: prefs['custom_LoRA_model'] = ''
 if 'custom_dance_diffusion_models' not in prefs: prefs['custom_dance_diffusion_models'] = []
 if 'negative_prompt' not in prefs['prompt_writer']: prefs['prompt_writer']['negative_prompt'] = ''
 if 'install_attend_and_excite' not in prefs: prefs['install_attend_and_excite'] = False
@@ -1576,8 +1580,7 @@ def buildParameters(page):
   def change_sag_scale(e):
       sag_scale_value.value = f" {float(e.control.value)}"
       sag_scale_value.update()
-      changed(e, 'sag_scale', asInt=True)
-  
+      changed(e, 'sag_scale')
   def toggle_attend_and_excite(e):
       max_iter_to_alter_slider.height = None if e.control.value else 0
       max_iter_to_alter_slider.update()
@@ -1610,7 +1613,11 @@ def buildParameters(page):
       changed(e,'use_LoRA_model')
       LoRA_block.width = None if e.control.value else 0
       LoRA_block.update()
-  has_changed = False
+  def changed_LoRA(e):
+      changed(e, 'LoRA_model')
+      custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
+      custom_LoRA_model.update()
+      
   batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
   batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'batch_size'))
   n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
@@ -1644,13 +1651,17 @@ def buildParameters(page):
   page.use_versatile = Tooltip(message="Dual Guided between prompt & image, or create Image Variation", content=Switch(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile')))
   page.use_versatile.visible = status['installed_versatile']
   use_LoRA_model = Tooltip(message="Applies custom trained weighted attention model on top of loaded model", content=Switch(label="Use LoRA Model Adapter Layer ", value=prefs['use_LoRA_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_LoRA))
-  page.LoRA_model = Dropdown(label="LoRA Model Weights", width=200, options=[], value=prefs['LoRA_model'], on_change=lambda e:changed(e,'LoRA_model'))
+  page.LoRA_model = Dropdown(label="LoRA Model Weights", width=200, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
   if len(prefs['custom_LoRA_models']) > 0:
     for l in prefs['custom_LoRA_models']:
       page.LoRA_model.options.append(dropdown.Option(l['name']))
   for m in LoRA_models:
       page.LoRA_model.options.append(dropdown.Option(m['name']))
-  LoRA_block = Container(Row([page.LoRA_model]), padding=padding.only(top=3), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  page.LoRA_model.options.append(dropdown.Option("Custom LoRA Path"))
+  
+  custom_LoRA_model = TextField(label="Custom LoRA Model Path", value=prefs['custom_LoRA_model'], width=370, on_change=lambda e:changed(e, 'custom_LoRA_model'))
+  custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
+  LoRA_block = Container(Row([page.LoRA_model, custom_LoRA_model]), padding=padding.only(top=3), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   LoRA_block.width = None if prefs['use_LoRA_model'] else 0
   centipede_prompts_as_init_images = Tooltip(message="Feeds each image to the next prompt sequentially down the line", content=Switch(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_centipede))
   use_interpolation = Tooltip(message="Creates animation frames transitioning, but it's not always perfect.", content=Switch(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_interpolation))
@@ -2096,7 +2107,7 @@ def buildPromptsList(page):
       def close_dlg(e):
           dlg_paste.open = False
           page.update()
-      enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, multiline=True)
+      enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, multiline=True, autofocus=True)
       dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_paste
       dlg_paste.open = True
@@ -2619,7 +2630,7 @@ def buildPromptWriter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", "Construct your Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom."),
+        Header("📜 Advanced Prompt Writer with Noodle Soup Prompt random variables ", "Construct your Art descriptions easier, with all the extras you need to engineer perfect prompts faster. Note, you don't have to use any randoms if you rather do all custom.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
         ResponsiveRow([
           TextField(label="Prompt Art Subjects", value=prefs['prompt_writer']['art_Subjects'], on_change=lambda e: changed(e, 'art_Subjects'), multiline=True, max_lines=4, col={'lg':9}),
           TextField(label="Negative Prompt (optional)", value=prefs['prompt_writer']['negative_prompt'], on_change=lambda e: changed(e, 'negative_prompt'), multiline=True, max_lines=4, col={'lg':3}),
@@ -5422,6 +5433,186 @@ def buildInstructPix2Pix(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+controlnet_prefs = {
+    'original_image': '',
+    'prompt': '',
+    'negative_prompt': 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality',
+    'a_prompt': 'best quality, extremely detailed', #added_
+    'control_task': 'Scribble', #Canny Map Edge, Pose
+    'batch_size': 1,
+    'max_size': 768,
+    'low_threshold': 100, #1-255
+    'high_threshold': 200, #1-255
+    'steps': 20, #100
+    'guidance_scale': 9, #30
+    'seed': 0,
+    'eta': 0,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildControlNet(page):
+    global controlnet_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            controlnet_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            controlnet_prefs[pref] = float(e.control.value)
+          else:
+            controlnet_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_controlnet_output(o):
+      page.controlnet_output.controls.append(o)
+      page.controlnet_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.controlnet_output.controls = []
+      page.controlnet_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def controlnet_help(e):
+      def close_controlnet_dlg(e):
+        nonlocal controlnet_help_dlg
+        controlnet_help_dlg.open = False
+        page.update()
+      controlnet_help_dlg = AlertDialog(title=Text("💁   Help with ControlNet"), content=Column([
+          Text('ControlNet is a neural network structure to control diffusion models by adding extra conditions. It copys the weights of neural network blocks into a "locked" copy and a "trainable" copy. The "trainable" one learns your condition. The "locked" one preserves your model. Thanks to this, training with small dataset of image pairs will not destroy the production-ready diffusion models. The "zero convolution" is 1×1 convolution with both weight and bias initialized as zeros. Before training, all zero convolutions output zeros, and ControlNet will not cause any distortion.  No layer is trained from scratch. You are still fine-tuning. Your original model is safe.  This allows training on small-scale or even personal devices. This is also friendly to merge/replacement/offsetting of models/weights/blocks/layers.'),
+          Markdown("This is an interface for running the [official codebase](https://github.com/lllyasviel/ControlNet#readme) for models described in [Adding Conditional Control to Text-to-Image Diffusion Models](https://arxiv.org/abs/2302.05543). Credit also goes to Ram Ananth for original [ControlNet HuggingFace Space](https://huggingface.co/spaces/RamAnanth1/ControlNet) we borrowed from..", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Too much control... ", on_click=close_controlnet_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = controlnet_help_dlg
+      controlnet_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        controlnet_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        fname = os.path.join(root_dir, e.file_name)
+        original_image.value = fname
+        original_image.update()
+        controlnet_prefs['original_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_original(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        controlnet_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    def change_task(e):
+        changed(e,'control_task')
+        threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" else 0
+        threshold.update()
+    def change_num_inference_steps(e):
+        changed(e, 'steps', ptype="int")
+        num_inference_steps_value.value = f" {controlnet_prefs['steps']}"
+        num_inference_steps_value.update()
+        num_inference_row.update()
+    def change_guidance(e):
+        guidance_value.value = f" {e.control.value}"
+        guidance_value.update()
+        guidance.update()
+        changed(e, 'guidance_scale', ptype="float")
+    def change_low_threshold(e):
+        low_threshold_value.value = f" {e.control.value}"
+        low_threshold_value.update()
+        low_threshold_row.update()
+        changed(e, 'low_threshold', ptype="int")
+    def change_high_threshold(e):
+        high_threshold_value.value = f" {e.control.value}"
+        high_threshold_value.update()
+        high_threshold_row.update()
+        changed(e, 'high_threshold', ptype="int")
+    def change_eta(e):
+        changed(e, 'eta', ptype="float")
+        eta_value.value = f" {controlnet_prefs['eta']}"
+        eta_value.update()
+        eta_row.update()
+    def change_max_size(e):
+        changed(e, 'max_size', ptype="int")
+        max_size_value.value = f" {controlnet_prefs['max_size']}px"
+        max_size_value.update()
+        max_row.update()
+    original_image = TextField(label="Original Drawing", value=controlnet_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 6}, on_change=lambda e:changed(e,'prompt'))
+    a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("Pose")], value=controlnet_prefs['control_task'], on_change=change_task)
+    seed = TextField(label="Seed", width=90, value=str(controlnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=float(controlnet_prefs['steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
+    num_inference_steps_value = Text(f" {controlnet_prefs['steps']}", weight=FontWeight.BOLD)
+    num_inference_row = Row([Text("Number of Steps: "), num_inference_steps_value, num_inference_steps])
+    guidance_scale = Slider(min=0, max=30, divisions=60, label="{value}", value=controlnet_prefs['guidance_scale'], on_change=change_guidance, expand=True)
+    guidance_value = Text(f" {controlnet_prefs['guidance_scale']}", weight=FontWeight.BOLD)
+    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])    
+    low_threshold = Slider(min=1, max=255, divisions=254, label="{value}", tooltip="", value=controlnet_prefs['low_threshold'], on_change=change_low_threshold, expand=True)
+    low_threshold_value = Text(f" {controlnet_prefs['low_threshold']}", weight=FontWeight.BOLD)
+    low_threshold_row = Row([Text("Canny Low Threshold: "), low_threshold_value, low_threshold])
+    high_threshold = Slider(min=1, max=255, divisions=254, label="{value}", tooltip="", value=controlnet_prefs['high_threshold'], on_change=change_high_threshold, expand=True)
+    high_threshold_value = Text(f" {controlnet_prefs['high_threshold']}", weight=FontWeight.BOLD)
+    high_threshold_row = Row([Text("Canny High Threshold: "), high_threshold_value, high_threshold])
+    threshold = Container(Column([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" else 0
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta_value = Text(f" {controlnet_prefs['eta']}", weight=FontWeight.BOLD)
+    eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
+    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(controlnet_prefs['max_size']), expand=True, on_change=change_max_size)
+    max_size_value = Text(f" {controlnet_prefs['max_size']}px", weight=FontWeight.BOLD)
+    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=controlnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(controlnet_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=controlnet_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    page.controlnet_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.controlnet_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🕸️  ControlNet Image+Text2Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
+        Row([control_task, original_image]),
+        ResponsiveRow([prompt, a_prompt, negative_prompt]),
+        threshold,
+        num_inference_row,
+        guidance,
+        eta_row,
+        max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=controlnet_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name]),
+        page.ESRGAN_block_controlnet,
+        Row([ElevatedButton(content=Text("🏸  Run ControlNet", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet(page)),
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet(page, from_list=True))]),
+        page.controlnet_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 materialdiffusion_prefs = {
     "material_prompt": '',
     "batch_folder_name": '',
@@ -5649,7 +5840,7 @@ def buildDiT(page):
         DiT_help_dlg.open = False
         page.update()
       DiT_help_dlg = AlertDialog(title=Text("🙅   Help with DiT Pipeline"), content=Column([
-          Text("Provide a comma separated list of general ImageNet Classes to create images."),
+          Text("Provide a comma separated list of general ImageNet Classes to create images. Press Class List to see availble classes, click to copy a token to clipboard then paste in textfield."),
           Text("We explore a new class of diffusion models based on the transformer architecture. We train latent diffusion models of images, replacing the commonly-used U-Net backbone with a transformer that operates on latent patches. We analyze the scalability of our Diffusion Transformers (DiTs) through the lens of forward pass complexity as measured by Gflops. We find that DiTs with higher Gflops -- through increased transformer depth/width or increased number of input tokens -- consistently have lower FID. In addition to possessing good scalability properties, our largest DiT-XL/2 models outperform all prior diffusion models on the class-conditional ImageNet 512x512 and 256x256 benchmarks, achieving a state-of-the-art FID of 2.27 on the latter."),
           Markdown("The DiT model in diffusers comes from  can be found here: [Scalable Diffusion Models with Transformers](https://www.wpeebles.com/DiT) (DiT) and [facebookresearch/dit](https://github.com/facebookresearch/dit)..", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Interesting... ", on_click=close_DiT_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -8193,14 +8384,15 @@ def get_dreambooth_model(name):
         return {'name':mod['name'], 'path':f'sd-dreambooth-library/{mod["name"]}', 'prefix':mod['token']}
   return {'name':'', 'path':'', 'prefix':''}
 def get_LoRA_model(name):
-
+  if name == "Custom LoRA Path":
+      return {'name':"Custom LoRA Model", 'path':prefs['custom_LoRA_model']}
   for mod in LoRA_models:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod["path"]}
+        return {'name':mod['name'], 'path':mod['path']}
   if len(prefs['custom_LoRA_models']) > 0:
     for mod in prefs['custom_LoRA_models']:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod["path"]}
+        return {'name':mod['name'], 'path':mod['path']}
   return {'name':'', 'path':''}
 
 def get_diffusers(page):
@@ -10663,7 +10855,7 @@ def start_diffusion(page):
           time.sleep(0.4)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(upscaled_path), width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([GestureDetector(content=Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
-          prt(Row([ImageButton(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, data=upscaled_path, subtitle=pr[0] if type(pr) == list else pr, page=page)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([ImageButton(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), data=upscaled_path, subtitle=pr[0] if type(pr) == list else pr, page=page)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
           #prt(Img(src=upscaled_path))
           #upscaled = PILImage.open(os.path.join(batch_output, new_file))
@@ -11843,7 +12035,7 @@ def run_repainter(page):
     out_path = image_path
     clear_last()
     clear_last()
-    prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, fit=ImageFit.FILL, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
     #prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     #TODO: ESRGAN, Metadata & PyDrive
     if storage_type == "Colab Google Drive":
@@ -11941,7 +12133,7 @@ def run_image_variation(page):
         image.save(image_path)
         out_path = image_path
         #prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, fit=ImageFit.FILL, page=page)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
         #TODO: ESRGAN, Metadata & PyDrive
         if storage_type == "Colab Google Drive":
             new_file = available_file(prefs['image_output'], fname, 1)
@@ -12187,7 +12379,7 @@ def run_CLIPstyler(page):
             img = utils.im_convert2(output_image)
             save_file = available_file(save_dir, new_file, 1)
             img.save(save_file)
-            prt(Row([ImageButton(src=save_file, width=CLIPstyler_prefs['width'], height=CLIPstyler_prefs['height'], fit=ImageFit.FILL, subtitle=save_file, show_subtitle=True, page=page)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=save_file, width=CLIPstyler_prefs['width'], height=CLIPstyler_prefs['height'], subtitle=save_file, show_subtitle=True, page=page)], alignment=MainAxisAlignment.CENTER))
             #prt(Row([Img(src=save_file, width=CLIPstyler_prefs['width'], height=CLIPstyler_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             #prt(Row([Text(save_file)], alignment=MainAxisAlignment.CENTER))
             images.append(save_file)
@@ -15349,11 +15541,13 @@ def run_unCLIP(page, from_list=False):
               from diffusers import DiffusionPipeline
               pipe_unCLIP = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="stable_unclip", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, decoder_pipe_kwargs=dict(image_encoder=None))
               pipe_unCLIP.to(torch_device)
+              pipe_unCLIP = optimize_pipe(pipe_unCLIP)
               loaded_StableUnCLIP = True
             else:
               from diffusers import UnCLIPPipeline
               pipe_unCLIP = UnCLIPPipeline.from_pretrained(model_id, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-              pipe_unCLIP.to(torch_device)
+              #pipe_unCLIP.to(torch_device)
+              pipe_unCLIP = optimize_pipe(pipe_unCLIP)
               loaded_StableUnCLIP = False
         except Exception as e:
             clear_last()
@@ -15397,7 +15591,7 @@ def run_unCLIP(page, from_list=False):
                 out_path = image_path.rpartition(slash)[0]
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_prefs['display_upscaled_image'] or not unCLIP_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -15455,7 +15649,7 @@ def run_unCLIP(page, from_list=False):
                 time.sleep(0.2)
                 if unCLIP_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -15531,7 +15725,8 @@ def run_unCLIP_image_variation(page, from_list=False):
         prt(Row([ProgressRing(), Text("  Downloading unCLIP Image Variation Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
         try:
             pipe_unCLIP_image_variation = UnCLIP_ImageVariationPipeline.from_pretrained("kakaobrain/karlo-v1-alpha-image-variations", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            pipe_unCLIP_image_variation.to(torch_device)
+            #pipe_unCLIP_image_variation.to(torch_device)
+            pipe_unCLIP_image_variation = optimize_pipe(pipe_unCLIP_image_variation)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Downloading unCLIP Image Variation Pipeline", content=Text(str(e)))
@@ -15583,7 +15778,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                 out_path = image_path.rpartition(slash)[0]
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_image_variation_prefs['display_upscaled_image'] or not unCLIP_image_variation_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -15609,7 +15804,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                     os.chdir(stable_dir)
                     if unCLIP_image_variation_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
@@ -15764,7 +15959,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                 out_path = image_path.rpartition(slash)[0]
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_interpolation_prefs['display_upscaled_image'] or not unCLIP_interpolation_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -15821,7 +16016,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                 time.sleep(0.2)
                 if unCLIP_interpolation_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -15975,7 +16170,7 @@ def run_magic_mix(page, from_list=False):
             out_path = image_path.rpartition(slash)[0]
             upscaled_path = os.path.join(out_path, output_file)
             if not magic_mix_prefs['display_upscaled_image'] or not magic_mix_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if magic_mix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -16001,7 +16196,7 @@ def run_magic_mix(page, from_list=False):
                 os.chdir(stable_dir)
                 if magic_mix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if prefs['save_image_metadata']:
                 img = PILImage.open(image_path)
@@ -16164,7 +16359,7 @@ def run_paint_by_example(page):
         out_path = image_path.rpartition(slash)[0]
         upscaled_path = os.path.join(out_path, output_file)
         if not paint_by_example_prefs['display_upscaled_image'] or not paint_by_example_prefs['apply_ESRGAN_upscale']:
-            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
             #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if paint_by_example_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -16190,7 +16385,7 @@ def run_paint_by_example(page):
             os.chdir(stable_dir)
             if paint_by_example_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if prefs['save_image_metadata']:
             img = PILImage.open(image_path)
@@ -16240,15 +16435,6 @@ def run_instruct_pix2pix(page, from_list=False):
     if not bool(instruct_pix2pix_prefs['prompt']):
       alert_msg(page, "You must provide a Instructional Image Editing Prompt...")
       return
-    def prt(line):
-      if type(line) == str:
-        line = Text(line, size=17)
-      page.instruct_pix2pix_output.controls.append(line)
-      page.instruct_pix2pix_output.update()
-    def clear_last():
-      del page.instruct_pix2pix_output.controls[-1]
-      page.instruct_pix2pix_output.update()
-      
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -16373,7 +16559,7 @@ def run_instruct_pix2pix(page, from_list=False):
             out_path = image_path.rpartition(slash)[0]
             upscaled_path = os.path.join(out_path, output_file)
             if not instruct_pix2pix_prefs['display_upscaled_image'] or not instruct_pix2pix_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -16399,7 +16585,7 @@ def run_instruct_pix2pix(page, from_list=False):
                 os.chdir(stable_dir)
                 if instruct_pix2pix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if prefs['save_image_metadata']:
                 img = PILImage.open(image_path)
@@ -16412,6 +16598,8 @@ def run_instruct_pix2pix(page, from_list=False):
                   config_json = instruct_pix2pix_prefs.copy()
                   config_json['model_path'] = model_id
                   config_json['seed'] = random_seed
+                  config_json['pronpt'] = pr['prompt']
+                  config_json['negative_pronpt'] = pr['negative_prompt']
                   del config_json['num_images']
                   del config_json['max_size']
                   del config_json['display_upscaled_image']
@@ -16433,6 +16621,318 @@ def run_instruct_pix2pix(page, from_list=False):
             time.sleep(0.2)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
             #num += 1
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_controlnet(page):
+    global controlnet_prefs, prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if not bool(controlnet_prefs['original_image']):
+      alert_msg(page, "You must provide the Original Image to process...")
+      return
+    if not bool(controlnet_prefs['prompt']):
+      alert_msg(page, "You must provide a Prompt to paint in your image...")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.controlnet_output.controls.append(line)
+        if update:
+          page.controlnet_output.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.controlnet_output.controls[-1]
+        page.controlnet_output.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.controlnet_output.auto_scroll = scroll
+        page.controlnet_output.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = controlnet_prefs['steps']
+    controlnet_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_prefs['original_image'], 'seed': p['seed']}
+        controlnet_prompts.append(control)
+      page.tabs.selected_index = 4
+      page.tabs.update()
+      page.controlnet_output.controls.clear()
+    else:
+      if not bool(controlnet_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      control = {'prompt':controlnet_prefs['prompt'], 'negative_prompt': controlnet_prefs['negative_prompt'], 'original_image': controlnet_prefs['original_image'], 'seed': controlnet_prefs['seed']}
+      controlnet_prompts.append(control)
+      page.controlnet_output.controls.clear()
+    prt(Row([ProgressRing(), Text("Installing ControlNet Packages...", weight=FontWeight.BOLD)]))
+    # Better version: https://huggingface.co/spaces/hysts/ControlNet
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    from PIL.PngImagePlugin import PngInfo
+    try:
+        run_sp("pip install opencv-contrib-python==4.3.0.36", realtime=False)
+        run_sp("pip install pytorch-lightning==1.5.0", realtime=False)
+        run_sp("pip install einops", realtime=False)
+        run_sp("pip install open_clip_torch==2.0.2", realtime=False)
+        run_sp("pip install omegaconf==2.1.1", realtime=False)
+        run_sp("pip install timm", realtime=False)
+        run_sp("pip install addict==2.4.0", realtime=False)
+        run_sp("pip install yapf==0.32.0", realtime=False)
+        run_sp("pip install scikit-image", realtime=False)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR Installing Required Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        gc.collect()
+        torch.cuda.empty_cache()
+        return
+    controlnet_dir = os.path.join(root_dir, 'ControlNet')
+    if not os.path.exists(controlnet_dir):
+        run_sp("git clone https://huggingface.co/spaces/RamAnanth1/ControlNet", cwd=root_dir)
+    sys.path.append(controlnet_dir)
+    import numpy as np
+    import cv2
+    import einops
+    from pytorch_lightning import seed_everything
+    from ldm.models.diffusion.ddim import DDIMSampler
+    from annotator.openpose import apply_openpose
+    from cldm.model import create_model, load_state_dict
+    from huggingface_hub import hf_hub_url, cached_download
+
+    def HWC3(x):
+        assert x.dtype == np.uint8
+        if x.ndim == 2:
+            x = x[:, :, None]
+        assert x.ndim == 3
+        H, W, C = x.shape
+        assert C == 1 or C == 3 or C == 4
+        if C == 3:
+            return x
+        if C == 1:
+            return np.concatenate([x, x, x], axis=2)
+        if C == 4:
+            color = x[:, :, 0:3].astype(np.float32)
+            alpha = x[:, :, 3:4].astype(np.float32) / 255.0
+            y = color * alpha + 255.0 * (1.0 - alpha)
+            y = y.clip(0, 255).astype(np.uint8)
+            return y
+    def resize_image(input_image, resolution):
+        H, W, C = input_image.shape
+        H = float(H)
+        W = float(W)
+        k = float(resolution) / min(H, W)
+        H *= k
+        W *= k
+        H = int(np.round(H / 64.0)) * 64
+        W = int(np.round(W / 64.0)) * 64
+        img = cv2.resize(input_image, (W, H), interpolation=cv2.INTER_LANCZOS4 if k > 1 else cv2.INTER_AREA)
+        return img
+    REPO_ID = "lllyasviel/ControlNet"
+    canny_checkpoint = "models/control_sd15_canny.pth"
+    scribble_checkpoint = "models/control_sd15_scribble.pth"
+    pose_checkpoint = "models/control_sd15_openpose.pth"
+    if controlnet_prefs["control_task"] == "Canny Map Edge":
+        canny_model = create_model(os.path.join(controlnet_dir, "models", "cldm_v15.yaml")).cpu()
+        canny_model.load_state_dict(load_state_dict(cached_download(
+            hf_hub_url(REPO_ID, canny_checkpoint)
+        ), location='cpu'))
+        canny_model = canny_model.cuda()
+        ddim_sampler = DDIMSampler(canny_model)
+        model_id = canny_checkpoint
+    elif controlnet_prefs["control_task"] == "Pose":
+        pose_model = create_model(os.path.join(controlnet_dir, "models", "cldm_v15.yaml")).cpu()
+        pose_model.load_state_dict(load_state_dict(cached_download(
+            hf_hub_url(REPO_ID, pose_checkpoint)
+        ), location='cuda'))
+        pose_model = pose_model.cuda()
+        ddim_sampler_pose = DDIMSampler(pose_model)
+        model_id = pose_checkpoint
+    elif controlnet_prefs["control_task"] == "Scribble":
+        scribble_model = create_model(os.path.join(controlnet_dir, "models", "cldm_v15.yaml")).cpu()
+        scribble_model.load_state_dict(load_state_dict(cached_download(
+            hf_hub_url(REPO_ID, scribble_checkpoint)
+        ), location='cpu'))
+        scribble_model = canny_model.cuda()
+        ddim_sampler_scribble = DDIMSampler(scribble_model)
+        model_id = scribble_checkpoint
+    clear_last()
+    prt("Generating ControlNet of your Image...")
+    prt(progress)
+    batch_output = os.path.join(stable_dir, controlnet_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in controlnet_prompts:
+        if pr['original_image'].startswith('http'):
+            #response = requests.get(controlnet_prefs['original_image'])
+            #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+            original_img = PILImage.open(requests.get(pr['original_image'], stream=True).raw)
+        else:
+            if os.path.isfile(pr['original_image']):
+                original_img = PILImage.open(pr['original_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your original_image {pr['original_image']}")
+                return
+        input_image = np.array(original_img)
+        with torch.no_grad():
+            try:
+                if controlnet_prefs["control_task"] == "Pose":
+                    input_image = HWC3(input_image)
+                    detected_map, _ = apply_openpose(resize_image(input_image, controlnet_prefs['max_size']))
+                    detected_map = HWC3(detected_map)
+                    img = resize_image(input_image, controlnet_prefs['max_size'])
+                else:
+                    img = resize_image(HWC3(input_image), controlnet_prefs['max_size'])
+                H, W, C = img.shape
+                if controlnet_prefs["control_task"] == "Canny Map Edge":
+                    detected_map = cv2.Canny(img, controlnet_prefs['low_threshold'], controlnet_prefs['high_threshold'])
+                    detected_map = HWC3(detected_map)
+                elif controlnet_prefs["control_task"] == "Pose":
+                    input_image = HWC3(input_image)
+                    detected_map, _ = apply_openpose(resize_image(input_image, controlnet_prefs['max_size']))
+                    detected_map = HWC3(detected_map)
+                    img = resize_image(input_image, controlnet_prefs['max_size'])
+                elif controlnet_prefs["control_task"] == "Scribble":
+                    detected_map = np.zeros_like(img, dtype=np.uint8)
+                    detected_map[np.min(img, axis=2) < 127] = 255
+                    
+                control = torch.from_numpy(detected_map.copy()).float().cuda() / 255.0
+                control = torch.stack([control for _ in range(controlnet_prefs['batch_size'])], dim=0)
+                control = einops.rearrange(control, 'b h w c -> b c h w').clone()
+                random_seed = rnd.randint(0, 65535) if pr['seed'] < 1 else pr['seed']
+                seed_everything(random_seed)
+                if controlnet_prefs["control_task"] == "Canny Map Edge":
+                    cond = {"c_concat": [control], "c_crossattn": [canny_model.get_learned_conditioning([pr['prompt'] + ', ' + controlnet_prefs['a_prompt']] * controlnet_prefs['batch_size'])]}
+                    un_cond = {"c_concat": [control], "c_crossattn": [canny_model.get_learned_conditioning([pr['negative_prompt']] * controlnet_prefs['batch_size'])]}
+                    shape = (4, H // 8, W // 8)
+                    samples, intermediates = ddim_sampler.sample(controlnet_prefs['steps'], controlnet_prefs['batch_size'],
+                                                                shape, cond, verbose=False, eta=controlnet_prefs['eta'],
+                                                                unconditional_guidance_scale=controlnet_prefs['guidance_scale'],
+                                                                unconditional_conditioning=un_cond)
+                    x_samples = canny_model.decode_first_stage(samples)
+                elif controlnet_prefs["control_task"] == "Pose":
+                    cond = {"c_concat": [control], "c_crossattn": [pose_model.get_learned_conditioning([pr['prompt'] + ', ' + controlnet_prefs['a_prompt']] * controlnet_prefs['batch_size'])]}
+                    un_cond = {"c_concat": [control], "c_crossattn": [pose_model.get_learned_conditioning([pr['negative_prompt']] * controlnet_prefs['batch_size'])]}
+                    shape = (4, H // 8, W // 8)
+                    samples, intermediates = ddim_sampler_pose.sample(controlnet_prefs['steps'], controlnet_prefs['batch_size'],
+                                                                shape, cond, verbose=False, eta=controlnet_prefs['eta'],
+                                                                unconditional_guidance_scale=controlnet_prefs['guidance_scale'],
+                                                                unconditional_conditioning=un_cond)
+                    x_samples = pose_model.decode_first_stage(samples)
+                elif controlnet_prefs["control_task"] == "Scribble":
+                    cond = {"c_concat": [control], "c_crossattn": [scribble_model.get_learned_conditioning([pr['prompt'] + ', ' + controlnet_prefs['a_prompt']] * controlnet_prefs['batch_size'])]}
+                    un_cond = {"c_concat": [control], "c_crossattn": [scribble_model.get_learned_conditioning([pr['negative_prompt']] * controlnet_prefs['batch_size'])]}
+                    shape = (4, H // 8, W // 8)
+                    samples, intermediates = ddim_sampler_scribble.sample(controlnet_prefs['steps'], controlnet_prefs['batch_size'],
+                                                                shape, cond, verbose=False, eta=controlnet_prefs['eta'],
+                                                                unconditional_guidance_scale=controlnet_prefs['guidance_scale'],
+                                                                unconditional_conditioning=un_cond)
+                    x_samples = scribble_model.decode_first_stage(samples)
+
+                x_samples = (einops.rearrange(x_samples, 'b c h w -> b h w c') * 127.5 + 127.5).cpu().numpy().clip(0, 255).astype(np.uint8)
+                results = [x_samples[i] for i in range(controlnet_prefs['batch_size'])]
+            except Exception as e:
+                clear_last()
+                clear_last()
+                alert_msg(page, f"ERROR Generating ControlNet {controlnet_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                gc.collect()
+                torch.cuda.empty_cache()
+                return
+        images = [255 - detected_map] + results
+        clear_last()
+        clear_last()
+        #filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
+        filename = f"-{format_filename(pr['prompt'])}"
+        filename = filename[:int(prefs['file_max_length'])]
+        #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+        num = 0
+        for image in images:
+            random_seed += num
+            fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+            image_path = available_file(os.path.join(stable_dir, controlnet_prefs['batch_folder_name']), fname, num)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            PILImage.fromarray(image).save(image_path)
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+            if not controlnet_prefs['display_upscaled_image'] or not controlnet_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'     
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{num}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                #print(f'Moving {fpath} to {dst_path}')
+                #shutil.move(fpath, dst_path)
+                shutil.copy(image_path, dst_path)
+                #faceenhance = ' --face_enhance' if controlnet_prefs["face_enhance"] else ''
+                faceenhance = ''
+                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {controlnet_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if controlnet_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {controlnet_prefs['enlarge_scale']}x with ESRGAN" if controlnet_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", "ControlNet " + controlnet_prefs['control_task'])
+                if prefs['save_config_in_metadata']:
+                  config_json = controlnet_prefs.copy()
+                  config_json['model_path'] = model_id
+                  config_json['seed'] = random_seed
+                  config_json['pronpt'] = pr['prompt']
+                  config_json['negative_pronpt'] = pr['negative_prompt']
+                  del config_json['batch_size']
+                  del config_json['max_size']
+                  del config_json['display_upscaled_image']
+                  del config_json['batch_folder_name']
+                  if not config_json['apply_ESRGAN_upscale']:
+                    del config_json['enlarge_scale']
+                    del config_json['apply_ESRGAN_upscale']
+                  metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            #TODO: PyDrive
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+            num += 1
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_materialdiffusion(page):
@@ -16552,8 +17052,8 @@ def run_materialdiffusion(page):
           f.write(response.content)
         new_file = image_path.rpartition(slash)[2]
         if not materialdiffusion_prefs['display_upscaled_image'] or not materialdiffusion_prefs['apply_ESRGAN_upscale']:
-            prt(Row([Img(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            prt(Row([ImageButton(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+            #prt(Row([Img(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], page=page)], alignment=MainAxisAlignment.CENTER))
 
         if save_to_GDrive:
             batch_output = os.path.join(prefs['image_output'], materialdiffusion_prefs['batch_folder_name'])
@@ -16703,7 +17203,7 @@ def run_DiT(page, from_list=False):
                 out_path = image_path.rpartition(slash)[0]
                 upscaled_path = os.path.join(out_path, output_file)
                 if not DiT_prefs['display_upscaled_image'] or not DiT_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if DiT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -16729,7 +17229,7 @@ def run_DiT(page, from_list=False):
                     os.chdir(stable_dir)
                     if DiT_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, fit=ImageFit.CONTAIN, page=page)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
@@ -16868,7 +17368,7 @@ def run_point_e(page):
             run_process("pip install .", cwd=point_e_dir)
         except Exception as e:
             clear_last()
-            alert_msg(page, "Error Installing Point-E Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            alert_msg(page, "Error Installing Point-E Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
         clear_last()
     clear_pipes()
@@ -17290,7 +17790,7 @@ def run_dall_e(page, from_list=False):
             out_path = batch_output if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
             if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, data=new_file, fit=ImageFit.FILL, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=image_path, data=new_file, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
 
             if save_to_GDrive:
@@ -17326,7 +17826,7 @@ def run_dall_e(page, from_list=False):
                 os.chdir(stable_dir)
                 if dall_e_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), fit=ImageFit.FILL, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
@@ -17574,6 +18074,21 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("👊   Good Stuff... ", on_click=close_credits_dlg)], actions_alignment=MainAxisAlignment.END,
     )
+    def open_contact_dlg(e):
+        page.dialog = contact_dlg
+        contact_dlg.open = True
+        page.update()
+    def close_contact_dlg(e):
+        contact_dlg.open = False
+        page.update()
+    contact_dlg = AlertDialog(
+        title=Text("📨  Contact Us"), content=Column([
+          Text("If you want to reach Alan Bedian/Skquark, Inc. for any reason, feel free to send me a message (as long as it's not spam) by Email or on Discord @Skquark#0394 where I'm usually available."),
+          Text("If you're a developer and want to help with this project (or one of my other almost done apps) then you can Join my Discord Channel and get involved. It's fairly quiet in there though..."),
+          Row([ft.FilledButton("Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")), ft.FilledButton("Skquark Discord", on_click=lambda _:page.launch_url("https://discord.gg/fTraJ96Z"))], alignment=MainAxisAlignment.CENTER),
+        ], scroll=ScrollMode.AUTO),
+        actions=[TextButton("👁️‍🗨️  Maybe...", on_click=close_contact_dlg)], actions_alignment=MainAxisAlignment.END,
+    )
     def open_donate_dlg(e):
         page.dialog = donate_dlg
         donate_dlg.open = True
@@ -17608,7 +18123,8 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
                   PopupMenuItem(text="🤔  Help/Info", on_click=open_help_dlg),
                   PopupMenuItem(text="👏  Credits", on_click=open_credits_dlg),
                   PopupMenuItem(text="🤧  Issues/Suggestions", on_click=lambda _:page.launch_url("https://github.com/Skquark/AI-Friends/issues")),
-                  PopupMenuItem(text="📨  Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")),
+                  PopupMenuItem(text="😋  Contact Skquark", on_click=open_contact_dlg),
+                  #PopupMenuItem(text="📨  Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")),
                   PopupMenuItem(text="🤑  Offer Donation", on_click=open_donate_dlg),
                   #PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect) if is_Colab else PopupMenuItem(),
               ]
@@ -17676,7 +18192,7 @@ class Header(UserControl):
         return self.column
         
 class ImageButton(UserControl):
-    def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, fit=ImageFit.FILL, show_subtitle=False, page=None):
+    def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, fit=ImageFit.SCALE_DOWN, show_subtitle=False, page=None):
         super().__init__()
         self.src = src
         self.subtitle = subtitle
