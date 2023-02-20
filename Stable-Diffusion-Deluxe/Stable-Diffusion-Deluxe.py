@@ -250,6 +250,7 @@ def load_settings_file():
       'install_alt_diffusion': False,
       'install_attend_and_excite': False,
       'install_SAG': False,
+      'install_panorama': False,
       'install_upscale': False,
       'safety_config': 'Strong',
       'use_imagic': False,
@@ -261,6 +262,7 @@ def load_settings_file():
       'max_iter_to_alter': 25,
       'use_SAG': False,
       'sag_scale': 0.75,
+      'use_panorama': False,
       'use_upscale': False,
       'upscale_noise_level': 20,
       'install_conceptualizer': False,
@@ -407,6 +409,7 @@ status = {
     'installed_depth2img': False,
     'installed_attend_and_excite': False,
     'installed_SAG': False,
+    'installed_panorama': False,
     'installed_alt_diffusion': False,
     'installed_upscale': False,
     'installed_xformers': False,
@@ -730,6 +733,8 @@ if 'max_iter_to_alter' not in prefs: prefs['max_iter_to_alter'] = 25
 if 'install_SAG' not in prefs: prefs['install_SAG'] = False
 if 'use_SAG' not in prefs: prefs['use_SAG'] = False
 if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
+if 'install_panorama' not in prefs: prefs['install_panorama'] = False
+if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 
 def initState(page):
     global status, current_tab
@@ -1047,6 +1052,7 @@ def buildInstallers(page):
   install_alt_diffusion = Tooltip(message="Multilingual Stable Diffusion supporting English, Chinese, Spanish, French, Russian, Japanese, Korean, Arabic and Italian.", content=Switch(label="Install AltDiffusion text2image & image2image Multilingual Pipeline", value=prefs['install_alt_diffusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_alt_diffusion'], on_change=lambda e:changed(e, 'install_alt_diffusion')))
   install_attend_and_excite = Tooltip(message="Provides textual Attention-Based Semantic Guidance control over the image generation.", content=Switch(label="Install Attend and Excite text2image Pipeline", value=prefs['install_attend_and_excite'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_attend_and_excite'], on_change=lambda e:changed(e, 'install_attend_and_excite')))
   install_SAG = Tooltip(message="Intelligent guidance that can plugged into any diffusion model using their self-attention map, improving sample quality.", content=Switch(label="Install Self-Attention Guidance (SAG) text2image Pipeline", value=prefs['install_SAG'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_SAG'], on_change=lambda e:changed(e, 'install_SAG')))
+  install_panorama = Tooltip(message="Generate panorama-like wide images, Fusing Diffusion Paths for Controlled Image Generation", content=Switch(label="Install MultiDiffusion Panorama text2image Pipeline", value=prefs['install_panorama'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_panorama'], on_change=lambda e:changed(e, 'install_panorama')))
   install_imagic = Tooltip(message="Edit your image according to the prompted instructions like magic.", content=Switch(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic')))
   install_depth2img = Tooltip(message="Uses Depth-map of init image for text-guided image to image generation.", content=Switch(label="Install Stable Diffusion Depth2Image Pipeline", value=prefs['install_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_depth2img'], on_change=lambda e:changed(e, 'install_depth2img')))
   install_composable = Tooltip(message="Craft your prompts with | precise | weights AND composed together components | with AND NOT negatives.", content=Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable')))
@@ -1112,7 +1118,7 @@ def buildInstallers(page):
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion, 
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, 
-                                         install_versatile, install_SAG, install_attend_and_excite, install_imagic, install_depth2img, install_composable, install_upscale]))
+                                         install_versatile, install_SAG, install_attend_and_excite, install_panorama, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
       prefs['install_Stability_api'] = install_Stability_api.content.value
       has_changed=True
@@ -1295,6 +1301,12 @@ def buildInstallers(page):
         status['installed_safe'] = True
         page.use_safe.visible = True
         page.use_safe.update()
+      if prefs['install_panorama'] and prefs['install_diffusers']:
+        console_msg("Installing MultiDiffusion Panorama text2image Pipeline...")
+        get_panorama(page)
+        status['installed_panorama'] = True
+        page.use_panorama.visible = True
+        page.use_panorama.update()
       if prefs['install_upscale'] and prefs['install_diffusers']:
         console_msg("Installing Stable Diffusion 4X Upscale Pipeline...")
         get_upscale(page)
@@ -1713,6 +1725,8 @@ def buildParameters(page):
   page.use_imagic.visible = bool(status['installed_imagic'])
   page.use_composable = Tooltip(message="Allows conjunction and negation operators for compositional generation with conditional diffusion models", content=Switch(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_composable')))
   page.use_composable.visible = bool(status['installed_composable'])
+  page.use_panorama = Tooltip(message="Fuses together images to make extra-wide 2048x512", content=Switch(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_panorama')))
+  page.use_panorama.visible = status['installed_panorama']
   page.use_safe = Tooltip(message="Models trained only on Safe images", content=Switch(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_safe')))
   page.use_safe.visible = bool(status['installed_safe'])
   page.use_upscale = Tooltip(message="Enlarges your Image Generations guided by the same Prompt.", content=Switch(label="Upscale 4X with Stable Diffusion 2", value=prefs['use_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_upscale')))
@@ -1756,7 +1770,7 @@ def buildParameters(page):
       padding=padding.only(18, 14, 20, 10), content=Column([
         Header("📝  Stable Diffusion Image Parameters"),
         param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
-        page.interpolation_block, page.use_safe, page.img_block, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_conceptualizer_model,
+        page.interpolation_block, page.use_safe, page.img_block, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
         Row([use_LoRA_model, LoRA_block]), page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
         #parameters_row,
@@ -7355,10 +7369,10 @@ converter_prefs = {
     'to_format': 'pytorch',
     'model_path': '',
     'model_name': '',
-    'model_type': 'text2image',
+    'model_type': 'SD v1.x text2image',
     'scheduler_type': 'pndm',
     'save_model': False,
-    'where_to_save_model': "Public Library",
+    'where_to_save_model': "Public HuggingFace",
     'readme_description': '',
     'load_custom_model': True,
 }
@@ -7404,26 +7418,21 @@ def buildConverter(page):
         readme_description.visible = converter_prefs['save_model']
         readme_description.update()
     from_format = Dropdown(label="From Format", width=250, options=[dropdown.Option("ckpt"), dropdown.Option("safetensors"), dropdown.Option("KerasCV")], value=converter_prefs['from_format'], on_change=lambda e: changed(e, 'from_format'), col={'lg':6})
-    to_format = Dropdown(label="To Format", width=250, options=[dropdown.Option("pytorch"), dropdown.Option("dance_diffusion")], value=converter_prefs['to_format'], on_change=lambda e: changed(e, 'to_format'), col={'lg':6})
+    to_format = Dropdown(label="To Format", width=250, options=[dropdown.Option("pytorch"), dropdown.Option("safetensors"), dropdown.Option("dance_diffusion")], value=converter_prefs['to_format'], on_change=lambda e: changed(e, 'to_format'), col={'lg':6})
     #instance_prompt = Container(content=Tooltip(message="The prompt with identifier specifying the instance", content=TextField(label="Instance Prompt Token Text", value=converter_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'))), col={'md':9})
-    from_model_path = TextField(label="Model Path", value=converter_prefs['model_path'], on_change=lambda e:changed(e,'model_path'), col={'md':6})
+    from_model_path = TextField(label="Model Path to HuggingFace or .ckpt or .safetensors file", value=converter_prefs['model_path'], on_change=lambda e:changed(e,'model_path'), col={'md':6})
     from_model_name = TextField(label="Name of your Model", value=converter_prefs['model_name'], on_change=lambda e:changed(e,'model_name'), col={'md':6})
-    model_type = Dropdown(label="Model Type", width=250, options=[dropdown.Option("text2image")], value=converter_prefs['model_type'], on_change=lambda e: changed(e, 'model_type'), col={'lg':6})
+    model_type = Dropdown(label="Model Type", width=250, options=[dropdown.Option("SD v1.x text2image"), dropdown.Option("SD v2.x text2image")], value=converter_prefs['model_type'], on_change=lambda e: changed(e, 'model_type'), col={'lg':6})
+    #sd_version = Dropdown(label="Stable Diffusion Version", width=250, options=[dropdown.Option("text2image")], value=converter_prefs['model_type'], on_change=lambda e: changed(e, 'model_type'), col={'lg':6})
     #class_prompt = TextField(label="Class Prompt", value=converter_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
     scheduler_type = Dropdown(label="Original Scheduler Mode", hint_text="Hopefuly you know what Scheduler/Sampler they used in training", width=200,
             options=[
-                dropdown.Option("DDIM"),
-                dropdown.Option("K-LMS"),
-                dropdown.Option("PNDM"),
-                #dropdown.Option("DDPM"),
-                dropdown.Option("DPM Solver"),
-                dropdown.Option("DPM Solver++"),
-                dropdown.Option("K-Euler Discrete"),
-                dropdown.Option("K-Euler Ancestral"),
-                #dropdown.Option("DEIS Multistep"),
-                #dropdown.Option("Heun Discrete"),
-                #dropdown.Option("K-DPM2 Ancestral"),
-                #dropdown.Option("K-DPM2 Discrete"),
+                dropdown.Option("pndm"),
+                dropdown.Option("lms"),
+                dropdown.Option("ddim"),
+                dropdown.Option("euler"),
+                dropdown.Option("euler-ancestral"),
+                dropdown.Option("dpm"),
             ], value=converter_prefs['scheduler_type'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_type'), col={'lg':6},
         )
     save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=converter_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
@@ -8202,6 +8211,8 @@ pipe_alt_diffusion = None
 pipe_alt_diffusion_img2img = None
 pipe_SAG = None
 pipe_attend_and_excite = None
+pipe_controlnet = None
+pipe_panorama = None
 pipe_DiT = None
 pipe_dance = None
 pipe_kandinsky = None
@@ -8308,6 +8319,7 @@ finetuned_models = [
     {"name": "MJStyle", "path": "ShadoWxShinigamI/mjstyle", "prefix": "mjstyle"},
     {"name": "Xpero End1ess", "path": "sakistriker/XperoEnd1essModel", "prefix": ""},
     {"name": "Pepe Diffuser", "path": "Dipl0/pepe-diffuser", "prefix": ""},
+    #{"name": "Latent Labs 360", "path": "AlanB/LatentLabs360", "prefix": ""},
     #{"name": "", "path": "", "prefix": ""},
     #{"name": "Rodent Diffusion 1.5", "path": "NerdyRodent/rodent-diffusion-1-5", "prefix": ""},
     #{"name": "Laxpeint", "path": "EldritchAdam/laxpeint", "prefix": ""},
@@ -8404,7 +8416,7 @@ def get_diffusers(page):
         except Exception:
           #page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
           run_process("pip install --pre -U triton", page=page)
-          run_process("pip install -U xformers", page=page)
+          run_process("pip install -U xformers==0.0.17.dev461", page=page)
           import xformers
           pass
         #run_process("pip install pyre-extensions==0.0.23", page=page)
@@ -8668,9 +8680,9 @@ torch_device = "cuda"
 try:
     import torch
 except Exception:
-    page.console_msg("Installing PyTorch with CUDA 1.17 Prerelease")
-    #run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117", realtime=False)
-    run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
+    page.console_msg("Installing PyTorch with CUDA 1.17")
+    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117", realtime=False)
+    #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
       import torch
     except Exception:
@@ -9245,6 +9257,34 @@ def get_attend_and_excite_pipe():
   pipe_attend_and_excite.set_progress_bar_config(disable=True)
   return pipe_attend_and_excite
 
+def get_panorama(page):
+  global pipe_panorama
+  clear_panorama_pipe()
+  pipe_panorama = get_panorama_pipe()
+
+def get_panorama_pipe():
+  global pipe_panorama, scheduler, model_path, prefs
+  from diffusers import StableDiffusionPanoramaPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  
+  if prefs['higher_vram_mode']:
+    pipe_panorama = StableDiffusionPanoramaPipeline.from_pretrained(
+        model_path,
+        scheduler=model_scheduler(model_path, big3=True),
+        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+    )
+  else:
+      pipe_panorama = StableDiffusionPanoramaPipeline.from_pretrained(
+      model_path,
+      scheduler=model_scheduler(model_path, big3=True),
+      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+      torch_dtype=torch.float16,
+      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+  pipe_panorama = optimize_pipe(pipe_panorama, vae=True)
+  pipe_panorama.set_progress_bar_config(disable=True)
+  return pipe_panorama
+
 def get_upscale(page):
     import torch, gc
     global pipe_upscale
@@ -9773,6 +9813,20 @@ def clear_attend_and_excite_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_attend_and_excite = None
+def clear_controlnet_pipe():
+  global pipe_controlnet
+  if pipe_controlnet is not None:
+    del pipe_controlnet
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_controlnet = None
+def clear_panorama_pipe():
+  global pipe_panorama
+  if pipe_panorama is not None:
+    del pipe_panorama
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_panorama = None
 def clear_dance_pipe():
   global pipe_dance
   if pipe_dance is not None:
@@ -9844,6 +9898,8 @@ def clear_pipes(allbut=None):
     if not 'SAG' in but: clear_SAG_pipe()
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'DiT' in but: clear_DiT_pipe()
+    if not 'controlnet' in but: clear_controlnet_pipe()
+    if not 'panorama' in but: clear_panorama_pipe()
     if not 'dance' in but: clear_dance_pipe()
     if not 'riffusion' in but: clear_riffusion_pipe()
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
@@ -9877,7 +9933,7 @@ def available_folder(folder, name, idx):
 #import asyncio
 #async 
 def start_diffusion(page):
-  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_safe, pipe_upscale
+  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale
   global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
   def prt(line, update=True):
     if type(line) == str:
@@ -10553,6 +10609,12 @@ def start_diffusion(page):
                   prt(Row([ProgressRing(), Text("Initializing Safe Stable Diffusion Pipeline...", weight=FontWeight.BOLD)]))
                   pipe_safe = get_safe_pipe()
                   clear_last()
+              elif prefs['use_panorama'] and status['installed_panorama']:
+                clear_pipes("panorama")
+                if pipe_panorama is None:
+                  prt(Row([ProgressRing(), Text("Initializing Panorama MultiDiffusion Pipeline...", weight=FontWeight.BOLD)]))
+                  pipe_panorama = get_panorama_pipe()
+                  clear_last()
               elif pipe is None:
                 clear_pipes("txt2img")
                 prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Text2Image Pipeline...", weight=FontWeight.BOLD)]))
@@ -10584,6 +10646,8 @@ def start_diffusion(page):
                 images = pipe_SAG(prompt=pr, negative_prompt=arg['negative_prompt'], sag_scale=prefs['sag_scale'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
                 pipe_used = "Attend and Excite Text-to-Image"
+                arg['width'] = 512
+                arg['height'] = 512
                 token_indices = words = []
                 ptext = pr[0] if type(pr) == list else pr
                 ntext = arg['negative_prompt'][0] if type(arg['negative_prompt']) == list else arg['negative_prompt']
@@ -10604,6 +10668,11 @@ def start_diffusion(page):
               elif prefs['use_versatile'] and status['installed_versatile']:
                 pipe_used = "Versatile Text-to-Image"
                 images = pipe_versatile_text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_panorama'] and status['installed_panorama']:
+                pipe_used = "MultiDiffusion Panorama Text-to-Image"
+                arg['width'] = 2048
+                arg['height'] = 512
+                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_safe'] and status['installed_safe']:
                 from diffusers.pipelines.stable_diffusion_safe import SafetyConfig
                 s = prefs['safety_config']
@@ -10721,7 +10790,7 @@ def start_diffusion(page):
           #time.sleep(0.2)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(fpath), width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
-          prt(Row([ImageButton(src=fpath, width=arg['width'], height=arg['height'], data=new_file, subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([ImageButton(src=fpath, data=new_file, width=arg['width'], height=arg['height'], subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           #prt(ImageButton(src=fpath, width=arg['width'], height=arg['height'], data=new_file, subtitle=pr[0] if type(pr) == list else pr, center=True, page=page))
           #time.sleep(0.3)
           #display(image)
@@ -13274,7 +13343,9 @@ Here are the images used for training this concept:
       prefs['custom_model'] = repo_id
       prefs['custom_models'].append({'name': name_of_your_concept, 'path':repo_id})
       page.custom_model.value = repo_id
-      page.custom_model.update()
+      try:
+        page.custom_model.update()
+      except Exception: pass
       prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token in prompts.", on_tap_link=lambda e: e.page.launch_url(e.data)))
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -13552,7 +13623,9 @@ Here are the images used for training this concept:
       prefs['custom_model'] = repo_id
       prefs['custom_models'].append({'name': name_of_your_concept, 'path':repo_id})
       page.custom_model.value = repo_id
-      page.custom_model.update()
+      try:
+        page.custom_model.update()
+      except Exception: pass
       prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token in prompts.", on_tap_link=lambda e: e.page.launch_url(e.data)))
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -13929,7 +14002,9 @@ This is the `{placeholder_token}` concept taught to Stable Diffusion via Textual
         prefs['custom_model'] = repo_id
         prefs['custom_models'].append({'name': name_of_your_concept, 'path':repo_id})
         page.custom_model.value = repo_id
-        page.custom_model.update()
+        try:
+          page.custom_model.update()
+        except Exception: pass
         prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token to your Prompt text.", on_tap_link=lambda e: e.page.launch_url(e.data)))
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -14573,33 +14648,41 @@ Images used for training this model:
 
 def run_converter(page):
     global converter_prefs, prefs
+    #https://colab.research.google.com/github/camenduru/converter-colab/blob/main/converter_colab.ipynb
     def prt(line):
       if type(line) == str:
         line = Text(line)
       page.converter_output.controls.append(line)
       page.converter_output.update()
     def clear_last():
+      if len(page.converter_output.controls) == 0: return
       del page.converter_output.controls[-1]
       page.converter_output.update()
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
+    model_name = converter_prefs['model_name']
+    model_path = converter_prefs['model_path']
     if not bool(converter_prefs['model_name']):
       alert(page, "Provide a name to call the converted custom model")
       return
     if not bool(model_path):
       alert(page, "Provide the path to the custom model to convert")
       return
-    model_name = converter_prefs['model_name']
-    model_path = converter_prefs['model_path']
     model_file = format_filename(model_name, use_dash=True)
     if converter_prefs['from_format'] == 'ckpt':
       model_file += '.ckpt'
+    page.converter_output.controls.clear()
     custom_models = os.path.join(root_dir, 'custom_models',)
     custom_path = os.path.join(custom_models, format_filename(model_name, use_dash=True))
     checkpoint_file = os.path.join(custom_models, model_file)
     if not os.path.exists(custom_path):
       os.makedirs(custom_path, exist_ok=True)
+    try:
+      import omegaconf
+    except Exception:
+      run_sp("pip install omegaconf", realtime=False)
+      pass
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
@@ -14627,25 +14710,42 @@ def run_converter(page):
       return
     prt(Text(f'Converting {model_file} to {converter_prefs["to_format"]}...', weight=FontWeight.BOLD))
     prt(progress)
-    run_cmd = "python3 {os.path.join(scripts_dir, 'convert_original_stable_diffusion_to_diffusers.py'}"
-    if converter_prefs['from_format'] == "ckpt":
-      run_cmd += f' --checkpoint_path {checkpoint_file}'
+    run_cmd = f"python3 {os.path.join(scripts_dir, 'convert_original_stable_diffusion_to_diffusers.py')}"
     if converter_prefs['from_format'] == "safetensors":
       run_cmd += f' --from_safetensors'
+    if converter_prefs['from_format'] == "ckpt" or converter_prefs['from_format'] == "safetensors":
+      run_cmd += f' --checkpoint_path {checkpoint_file}'
+    if converter_prefs['to_format'] == "safetensors":
+      run_cmd += f' --to_safetensors'
+    #if status['installed_xformers']:
+    if converter_prefs['model_type'] == "SD v1.x text2image":
+      run_cmd += f' --image_size 512'
+    elif converter_prefs['model_type'] == "SD v2.x text2image":
+      run_cmd += f' --image_size 768'
+      run_cmd += f' --upcast_attention'
+      run_cmd += f' --prediction_type v_prediction'
+    run_cmd += f' --scheduler_type {converter_prefs["scheduler_type"]}'
     run_cmd += f' --dump_path {custom_path}'
+    prt(f"Running {run_cmd}")
     try:
-      run_process(run_cmd, page=page, cwd=scripts_dir, show=True)
+      run_sp(run_cmd, cwd=scripts_dir, realtime=True)
+      #run_process(run_cmd, page=page, cwd=scripts_dir, show=True)
     except Exception as e:
       clear_last()
       alert_msg(page, "Error Running convert_original_stable_diffusion_to_diffusers", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
       return
+    if len(os.listdir(custom_path)) == 0:
+      prt(f"Problem converting your model. Check console and source checkpoint and try again...")
+      os.rmdir(custom_path)
+      return
+    clear_last()
     clear_last()
     clear_last()
     prt(f"Done Converting... Saved locally at {custom_path}")
     if converter_prefs['load_custom_model']:
       prefs['custom_model'] = custom_path
       prefs['custom_models'].append({'name': model_name, 'path':custom_path})
-    if(converter_prefs['save_concept']):
+    if(converter_prefs['save_model']):
       from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
       from huggingface_hub import model_info, create_repo, create_branch, upload_folder
       from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
@@ -14731,7 +14831,9 @@ And you can run your new concept via `diffusers`: [Colab Notebook for Inference]
       prefs['custom_model'] = repo_id
       prefs['custom_models'].append({'name': model_name, 'path':repo_id})
       page.custom_model.value = repo_id
-      page.custom_model.update()
+      try:
+        page.custom_model.update()
+      except Exception: pass
       prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token in prompts.", on_tap_link=lambda e: e.page.launch_url(e.data)))
     
     def push_ckpt(model_to, token, branch):
