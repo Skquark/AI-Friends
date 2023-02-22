@@ -11,14 +11,14 @@ saved_settings_json = '.\sdd-settings.json' #@param {'type': 'string'}
 tunnel_type = "desktop" #@param ["localtunnel", "ngrok"] 
 #, "cloudflared"
 auto_launch_website = False #@param {'type': 'boolean'}
-version = "v1.7.0"
+version = "v1.8.0"
 import os, subprocess, sys, shutil
 root_dir = '/content/'
-dist_dir = root_dir
 is_Colab = True
 try:
   import google.colab
   root_dir = '/content/'
+  dist_dir = root_dir
 except:
   root_dir = os.getcwd()
   dist_dir = os.path.join(root_dir, 'dist', 'Stable-Diffusion-Deluxe')
@@ -642,6 +642,7 @@ def buildExtras(page):
     page.Image2Text = buildImage2Text(page)
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
+    page.DeepDaze = buildDeepDaze(page)
     extrasTabs = Tabs(
         selected_index=0,
         animation_duration=300,
@@ -652,6 +653,7 @@ def buildExtras(page):
             Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="Kandinsky 2", content=page.Kandinsky, icon=icons.AC_UNIT),
+            Tab(text="DeepDaze", content=page.DeepDaze, icon=icons.FACE),
         ],
         expand=1,
         #on_change=tab_on_change
@@ -836,7 +838,7 @@ def buildSettings(page):
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters", value=prefs['disable_nsfw_filter'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
   retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
-  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens and accept the cards for [1.5 model](https://huggingface.co/runwayml/stable-diffusion-v1-5), [1.4 model](https://huggingface.co/CompVis/stable-diffusion-v1-4) & [Inpainting model](https://huggingface.co/runwayml/stable-diffusion-inpainting).\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
@@ -1333,9 +1335,13 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky.height = None
         page.ESRGAN_block_unCLIP.height = None
         page.ESRGAN_block_unCLIP_image_variation.height = None
+        page.ESRGAN_block_unCLIP_interpolation.height = None
         page.ESRGAN_block_magic_mix.height = None
         page.ESRGAN_block_paint_by_example.height = None
         page.ESRGAN_block_instruct_pix2pix.height = None
+        page.ESRGAN_block_controlnet.height = None
+        page.ESRGAN_block_styler.height = None
+        page.ESRGAN_block_deep_daze.height = None
         page.ESRGAN_block_DiT.height = None
         page.ESRGAN_block.update()
         page.ESRGAN_block_material.update()
@@ -1343,9 +1349,13 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky.update()
         page.ESRGAN_block_unCLIP.update()
         page.ESRGAN_block_unCLIP_image_variation.update()
+        page.ESRGAN_block_unCLIP_interpolation.update()
         page.ESRGAN_block_magic_mix.update()
         page.ESRGAN_block_paint_by_example.update()
         page.ESRGAN_block_instruct_pix2pix.update()
+        page.ESRGAN_block_controlnet.update()
+        page.ESRGAN_block_styler.update()
+        page.ESRGAN_block_deep_daze.update()
         page.ESRGAN_block_DiT.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
@@ -4887,8 +4897,8 @@ def buildUnCLIP_Interpolation(page):
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_interpolation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_unCLIP = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_unCLIP.height = None if status['installed_ESRGAN'] else 0
+    page.ESRGAN_block_unCLIP_interpolation = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP_interpolation.height = None if status['installed_ESRGAN'] else 0
     if not unCLIP_interpolation_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     page.unCLIP_interpolation_output = Column([], auto_scroll=True)
@@ -4908,7 +4918,7 @@ def buildUnCLIP_Interpolation(page):
         #use_StableunCLIP_interpolation_pipeline,
         #NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_interpolation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), 
         Row([seed, batch_folder_name]),
-        page.ESRGAN_block_unCLIP,
+        page.ESRGAN_block_unCLIP_interpolation,
         Row([ElevatedButton(content=Text("🎆   Get unCLIP Interpolations", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_interpolation(page))]),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_interpolation(page, from_list=True))]),
       ]
@@ -6280,6 +6290,142 @@ def buildKandinsky(page):
     ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, ddim_eta, seed, 
     return c
 
+deep_daze_prefs = {
+    'prompt': '',
+    'num_layers': 32,
+    'save_every': 20,
+    'max_size': 512,
+    'save_progress': False,
+    'learning_rate': 1e-5,
+    'iterations': 1050,
+    'num_images': 1,
+    'batch_folder_name': '',
+    'file_prefix': 'daze-',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildDeepDaze(page):
+    global deep_daze_prefs, prefs, pipe_deep_daze
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            deep_daze_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            deep_daze_prefs[pref] = float(e.control.value)
+          else:
+            deep_daze_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_deep_daze_output(o):
+      page.deep_daze_output.controls.append(o)
+      page.deep_daze_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_deep_daze_output = add_to_deep_daze_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.deep_daze_output.controls = []
+      page.deep_daze_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def deep_daze_help(e):
+      def close_deep_daze_dlg(e):
+        nonlocal deep_daze_help_dlg
+        deep_daze_help_dlg.open = False
+        page.update()
+      deep_daze_help_dlg = AlertDialog(title=Text("🙅   Help with DeepDaze Pipeline"), content=Column([
+          Text("Text to image generation using OpenAI's CLIP and Siren. Credit goes to Ryan Murdock for the discovery of this technique (and for coming up with the great name)!"),
+          Text("Heavily influenced by Alexander Mordvintsev's Deep Dream, this work uses CLIP to match an image learned by a SIREN network with a given textual description."),
+          #Markdown(""),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😵‍💫  Why not... ", on_click=close_deep_daze_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = deep_daze_help_dlg
+      deep_daze_help_dlg.open = True
+      page.update()
+    
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        deep_daze_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    prompt = TextField(label="Prompt Text", value=deep_daze_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    def change_num_layers(e):
+      changed(e, 'num_layers', ptype="int")
+      num_layers_value.value = f" {deep_daze_prefs['num_layers']}"
+      num_layers_value.update()
+      num_layers_row.update()
+    def change_save_every(e):
+      changed(e, 'save_every', ptype="int")
+      save_every_value.value = f" {deep_daze_prefs['save_every']}"
+      save_every_value.update()
+      save_every_row.update()
+    def change_iterations(e):
+      changed(e, 'iterations', ptype="int")
+      iterations_value.value = f" {deep_daze_prefs['iterations']}"
+      iterations_value.update()
+      iterations_row.update()
+    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(textualinversion_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
+    max_row = Row([Text("Max Resolution Size: "), max_size])
+    #num_layers = TextField(label="Inference Steps", value=str(deep_daze_prefs['num_layers']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_layers', ptype='int'))
+    num_layers = Slider(min=1, max=100, divisions=99, label="{value}", value=int(deep_daze_prefs['num_layers']), tooltip="The number of hidden layers to use in the Siren neural net.", expand=True, on_change=change_num_layers)
+    save_every = Slider(min=1, max=100, divisions=99, label="{value}", value=int(deep_daze_prefs['save_every']), tooltip="Generate an image every time iterations is a multiple of this number.", expand=True, on_change=change_save_every)
+    iterations = Slider(min=1, max=2000, divisions=1999, label="{value}", value=int(deep_daze_prefs['iterations']), tooltip="The number of times to calculate and backpropagate loss in a given epoch.", expand=True, on_change=change_iterations)
+    num_layers_value = Text(f" {deep_daze_prefs['num_layers']}", weight=FontWeight.BOLD)
+    save_every_value = Text(f" {deep_daze_prefs['save_every']}", weight=FontWeight.BOLD)
+    iterations_value = Text(f" {deep_daze_prefs['iterations']}", weight=FontWeight.BOLD)
+    learning_rate = TextField(label="Learning Rate", width=130, value=float(deep_daze_prefs['learning_rate']), keyboard_type=KeyboardType.NUMBER, tooltip="The learning rate of the neural net.", on_change=lambda e:changed(e,'learning_rate', ptype='float'))
+    num_layers_row = Row([Text("Number of Layers: "), num_layers_value, num_layers])
+    iterations_row = Row([Text("Number of Iterations: "), iterations_value, iterations])
+    save_every_row = Row([Text("Save/Show Every x Steps: "), save_every_value, save_every])
+    batch_folder_name = TextField(label="Batch Folder Name", value=deep_daze_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=deep_daze_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    save_progress = Tooltip(message="Whether or not to save images generated before training Siren is complete.", content=Switch(label="Save Progress Steps", value=deep_daze_prefs['save_progress'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_progress')))
+    #eta = TextField(label="ETA", value=str(deep_daze_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(deep_daze_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta_row = Row([Text("DDIM ETA: "), eta])
+    #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(deep_daze_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
+    #max_row = Row([Text("Max Resolution Size: "), max_size])
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=deep_daze_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(deep_daze_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=deep_daze_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=deep_daze_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_deep_daze = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_deep_daze.height = None if status['installed_ESRGAN'] else 0
+    if not deep_daze_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    page.deep_daze_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.deep_daze_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("👀  DeepDaze Text-to-Image Generator", "An older method using OpenAI's CLIP and Siren. Made a few years ago but still facinating results....", actions=[IconButton(icon=icons.HELP, tooltip="Help with DeepDaze Settings", on_click=deep_daze_help)]),
+        prompt,
+        num_layers_row,
+        iterations_row,
+        Row([learning_rate, save_progress]),
+        save_every_row,
+        max_row,
+        #NumberPicker(label="Number of Images: ", min=1, max=20, value=deep_daze_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), 
+        Row([batch_folder_name, file_prefix]),
+        page.ESRGAN_block_deep_daze,
+        Row([ElevatedButton(content=Text("😶   Get DeepDaze Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deep_daze(page)), 
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deep_daze(page, from_list=True))
+        ]),
+      ]
+    )), page.deep_daze_output,
+        clear_button,
+    ], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 CLIPstyler_prefs = {
     'source':'a photo',
@@ -7369,6 +7515,7 @@ converter_prefs = {
     'to_format': 'pytorch',
     'model_path': '',
     'model_name': '',
+    'base_model': '',
     'model_type': 'SD v1.x text2image',
     'scheduler_type': 'pndm',
     'save_model': False,
@@ -7417,12 +7564,20 @@ def buildConverter(page):
         where_to_save_model.update()
         readme_description.visible = converter_prefs['save_model']
         readme_description.update()
-    from_format = Dropdown(label="From Format", width=250, options=[dropdown.Option("ckpt"), dropdown.Option("safetensors"), dropdown.Option("KerasCV")], value=converter_prefs['from_format'], on_change=lambda e: changed(e, 'from_format'), col={'lg':6})
+    def change_from_format(e):
+        changed(e, 'from_format')
+        base_model_row.visible = converter_prefs['from_format'] == "lora_safetensors"
+        base_model_row.update()
+        
+    from_format = Dropdown(label="From Format", width=250, options=[dropdown.Option("ckpt"), dropdown.Option("safetensors"), dropdown.Option("lora_safetensors"), dropdown.Option("KerasCV")], value=converter_prefs['from_format'], on_change=change_from_format, col={'lg':6})
     to_format = Dropdown(label="To Format", width=250, options=[dropdown.Option("pytorch"), dropdown.Option("safetensors"), dropdown.Option("dance_diffusion")], value=converter_prefs['to_format'], on_change=lambda e: changed(e, 'to_format'), col={'lg':6})
     #instance_prompt = Container(content=Tooltip(message="The prompt with identifier specifying the instance", content=TextField(label="Instance Prompt Token Text", value=converter_prefs['instance_prompt'], on_change=lambda e:changed(e,'instance_prompt'))), col={'md':9})
     from_model_path = TextField(label="Model Path to HuggingFace or .ckpt or .safetensors file", value=converter_prefs['model_path'], on_change=lambda e:changed(e,'model_path'), col={'md':6})
     from_model_name = TextField(label="Name of your Model", value=converter_prefs['model_name'], on_change=lambda e:changed(e,'model_name'), col={'md':6})
     model_type = Dropdown(label="Model Type", width=250, options=[dropdown.Option("SD v1.x text2image"), dropdown.Option("SD v2.x text2image")], value=converter_prefs['model_type'], on_change=lambda e: changed(e, 'model_type'), col={'lg':6})
+    base_model = TextField(label="Base Model Path to HuggingFace Diffusers", value=converter_prefs['base_model'], on_change=lambda e:changed(e,'base_model'), col={'md':6})
+    base_model_row = ResponsiveRow([base_model])
+    base_model_row.visible = converter_prefs['from_format'] == "lora_safetensors"
     #sd_version = Dropdown(label="Stable Diffusion Version", width=250, options=[dropdown.Option("text2image")], value=converter_prefs['model_type'], on_change=lambda e: changed(e, 'model_type'), col={'lg':6})
     #class_prompt = TextField(label="Class Prompt", value=converter_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
     scheduler_type = Dropdown(label="Original Scheduler Mode", hint_text="Hopefuly you know what Scheduler/Sampler they used in training", width=200,
@@ -7460,6 +7615,7 @@ def buildConverter(page):
         Header("🔀  Model Converter Tool", "Lets you Convert Format of Model Checkpoints to work with Diffusers...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Model Converters Settings", on_click=converter_help)]),
         ResponsiveRow([from_format, to_format]),
         ResponsiveRow([from_model_path, from_model_name]),
+        base_model_row,
         ResponsiveRow([model_type, scheduler_type]),
         Row([save_model, where_to_save_model]),
         readme_description,
@@ -8007,7 +8163,7 @@ def buildRiffusion(page):
     guidance_scale = Slider(min=0, max=10, divisions=20, label="{value}", value=riffusion_prefs['guidance_scale'], tooltip="Large => better quality and relavancy to text; Small => better diversity", on_change=change_guidance, expand=True)
     guidance_value = Text(f" {riffusion_prefs['guidance_scale']}", weight=FontWeight.BOLD)
     guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
-    prompt = TextField(label="Text Prompt", value=riffusion_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'), col={'md':9})
+    prompt = TextField(label="Musical Text Prompt", value=riffusion_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'), col={'md':9})
     negative_prompt = TextField(label="Negative Prompt", value=riffusion_prefs['negative_prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
     max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(riffusion_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     max_size_row = Row([Text("Max Size: "), max_size])
@@ -8319,7 +8475,7 @@ finetuned_models = [
     {"name": "MJStyle", "path": "ShadoWxShinigamI/mjstyle", "prefix": "mjstyle"},
     {"name": "Xpero End1ess", "path": "sakistriker/XperoEnd1essModel", "prefix": ""},
     {"name": "Pepe Diffuser", "path": "Dipl0/pepe-diffuser", "prefix": ""},
-    #{"name": "Latent Labs 360", "path": "AlanB/LatentLabs360", "prefix": ""},
+    {"name": "Latent Labs 360", "path": "AlanB/LatentLabs360", "prefix": ""},
     #{"name": "", "path": "", "prefix": ""},
     #{"name": "Rodent Diffusion 1.5", "path": "NerdyRodent/rodent-diffusion-1-5", "prefix": ""},
     #{"name": "Laxpeint", "path": "EldritchAdam/laxpeint", "prefix": ""},
@@ -14710,17 +14866,23 @@ def run_converter(page):
       return
     prt(Text(f'Converting {model_file} to {converter_prefs["to_format"]}...', weight=FontWeight.BOLD))
     prt(progress)
-    run_cmd = f"python3 {os.path.join(scripts_dir, 'convert_original_stable_diffusion_to_diffusers.py')}"
+    
+    if converter_prefs['from_format'] == "lora_safetensors":
+      run_cmd = f"python3 {os.path.join(scripts_dir, 'convert_lora_safetensor_to_diffusers.py')}"
+    else:
+      run_cmd = f"python3 {os.path.join(scripts_dir, 'convert_original_stable_diffusion_to_diffusers.py')}"
     if converter_prefs['from_format'] == "safetensors":
       run_cmd += f' --from_safetensors'
-    if converter_prefs['from_format'] == "ckpt" or converter_prefs['from_format'] == "safetensors":
+    if converter_prefs['from_format'] == "lora_safetensors" and bool(converter_prefs['base_model']):
+      run_cmd += f' --base_model {converter_prefs["base_model"]}'
+    if converter_prefs['from_format'] == "ckpt" or converter_prefs['from_format'] == "safetensors" or converter_prefs['from_format'] == "lora_safetensors":
       run_cmd += f' --checkpoint_path {checkpoint_file}'
     if converter_prefs['to_format'] == "safetensors":
       run_cmd += f' --to_safetensors'
     #if status['installed_xformers']:
-    if converter_prefs['model_type'] == "SD v1.x text2image":
+    if converter_prefs['model_type'] == "SD v1.x text2image" and converter_prefs['from_format'] != "lora_safetensors":
       run_cmd += f' --image_size 512'
-    elif converter_prefs['model_type'] == "SD v2.x text2image":
+    elif converter_prefs['model_type'] == "SD v2.x text2image" and converter_prefs['from_format'] != "lora_safetensors":
       run_cmd += f' --image_size 768'
       run_cmd += f' --upcast_attention'
       run_cmd += f' --prediction_type v_prediction'
@@ -18104,6 +18266,179 @@ def run_kandinsky(page):
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_deep_daze(page):
+    global deep_daze_prefs, status
+    #https://colab.research.google.com/drive/1_YOHdORb0Fg1Q7vWZ_KlrtFe9Ur3pmVj?usp=sharing#scrollTo=6IPQ_rdA2Sa7
+    def add_to_deep_daze_output(o):
+      page.deep_daze_output.controls.append(o)
+      page.deep_daze_output.update()
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.deep_daze_output.controls.append(line)
+      page.deep_daze_output.update()
+    def clear_last():
+      #page.deep_daze_output.controls = []
+      del page.deep_daze_output.controls[-1]
+      page.deep_daze_output.update()
+    page.deep_daze_output.controls = []
+    page.deep_daze_output.update()
+    progress = ProgressBar(bar_height=8, expand=True)
+    total_steps = deep_daze_prefs['iterations']
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
+    prt(Row([Container(content=None, width=8), ProgressRing(), Text("  Initializing Deep Daze Pipeline...", weight=FontWeight.BOLD)]))
+    from PIL.PngImagePlugin import PngInfo
+    from tqdm.notebook import trange
+    try:
+        from deep_daze import Imagine
+    except Exception:
+        run_process("pip install deep-daze --upgrade", page=page)
+        from deep_daze import Imagine
+    
+    output_dir = os.path.join(root_dir, "deep_daze")
+    if bool(deep_daze_prefs['batch_folder_name']):
+        output_dir = os.path.join(output_dir, deep_daze_prefs['batch_folder_name'])
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    os.chdir(output_dir)
+    abort_run = False
+    def abort_daze(e):
+        nonlocal abort_run
+        abort_run = True
+        page.snd_error.play()
+        page.snd_delete.play()
+    pipe_deep_daze = Imagine(
+        text = deep_daze_prefs['prompt'],
+        num_layers = deep_daze_prefs['num_layers'],
+        save_every = deep_daze_prefs['save_every'],
+        image_width = deep_daze_prefs['max_size'],
+        lr = deep_daze_prefs['learning_rate'],
+        iterations = deep_daze_prefs['iterations'],
+        save_progress = True,#deep_daze_prefs['save_progress']
+    )
+    clear_last()
+    prt("    Dreaming up your DeepDaze Image...")
+    prt(Row([progress, IconButton(icon=icons.CANCEL, tooltip="Abort Daze & Save Progress", on_click=abort_daze)], alignment=MainAxisAlignment.SPACE_BETWEEN))
+    #filename = format_filename(deep_daze_prefs['prompt'])
+    filename = deep_daze_prefs['prompt'].replace(' ', '_')
+    img = None
+    image_files = []
+    s = 0
+    for epoch in trange(20, desc = 'epochs'):
+        for i in trange(deep_daze_prefs['iterations'], desc = 'iteration'):
+            pipe_deep_daze.train_step(epoch, i)
+            callback_fnc(i)
+            if abort_run: break
+            if i % pipe_deep_daze.save_every != 0:
+                continue
+            num_str = '' if s==0 else f'.{str(s).zfill(6)}'
+            fname = f"{filename}{num_str}.jpg"
+            output_file = os.path.join(output_dir, fname)
+            image_files.append(output_file)
+            if s == 0:
+                img = Img(src=output_file, fit=ImageFit.FIT_WIDTH, gapless_playback=True)
+                prt(Row([img], alignment=MainAxisAlignment.CENTER))
+            else:
+                img.src=output_file
+                img.update()
+            s += 1
+        if abort_run: break
+            #image = Image(f'./{filename}.jpg')
+            #display(image)
+    output_filename = deep_daze_prefs['file_prefix'] + format_filename(deep_daze_prefs['prompt'])
+    unscaled_path = fname
+    image_path = available_file(output_dir, output_filename, 0)
+    unscaled_path = image_path
+    output_file = image_path.rpartition(slash)[2]
+    out_path = image_path.rpartition(slash)[0]
+    upscaled_path = os.path.join(out_path, output_file)
+    input = PILImage.open(fname)
+    input.save(image_path)
+    #shutil.copy(fname, image_path)
+    clear_last()
+    clear_last()
+    clear_last()
+    page.DeepDaze.auto_scroll = True
+    page.DeepDaze.update()
+    if not deep_daze_prefs['display_upscaled_image'] or not deep_daze_prefs['apply_ESRGAN_upscale']:
+        prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+    if deep_daze_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+        os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+        upload_folder = 'upload'
+        result_folder = 'results'     
+        if os.path.isdir(upload_folder):
+            shutil.rmtree(upload_folder)
+        if os.path.isdir(result_folder):
+            shutil.rmtree(result_folder)
+        os.mkdir(upload_folder)
+        os.mkdir(result_folder)
+        short_name = f'{fname[:80]}.png'
+        dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+        #print(f'Moving {fpath} to {dst_path}')
+        #shutil.move(fpath, dst_path)
+        shutil.copy(image_path, dst_path)
+        #faceenhance = ' --face_enhance' if deep_daze_prefs["face_enhance"] else ''
+        faceenhance = ''
+        run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {deep_daze_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+        out_file = short_name.rpartition('.')[0] + '_out.png'
+        upscaled_path = os.path.join(out_path, output_file)
+        shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+        image_path = upscaled_path
+        os.chdir(stable_dir)
+    if prefs['save_image_metadata']:
+        img = PILImage.open(image_path)
+        metadata = PngInfo()
+        metadata.add_text("artist", prefs['meta_ArtistName'])
+        metadata.add_text("copyright", prefs['meta_Copyright'])
+        metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {deep_daze_prefs['enlarge_scale']}x with ESRGAN" if deep_daze_prefs['apply_ESRGAN_upscale'] else "")
+        metadata.add_text("pipeline", f"Deep Daze")
+        if prefs['save_config_in_metadata']:
+            metadata.add_text("title", deep_daze_prefs['prompt'])
+            config_json = deep_daze_prefs.copy()
+            #config_json['model_path'] = model_id
+            del config_json['num_images']
+            del config_json['display_upscaled_image']
+            del config_json['batch_folder_name']
+            if not config_json['apply_ESRGAN_upscale']:
+                del config_json['enlarge_scale']
+            del config_json['apply_ESRGAN_upscale']
+            metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+        img.save(image_path, pnginfo=metadata)
+    #TODO: PyDrive
+    if storage_type == "Colab Google Drive":
+        new_file = available_file(os.path.join(prefs['image_output'], deep_daze_prefs['batch_folder_name']), output_filename, 0)
+        out_path = new_file
+        shutil.copy(image_path, new_file)
+    elif bool(prefs['image_output']):
+        new_file = available_file(os.path.join(prefs['image_output'], deep_daze_prefs['batch_folder_name']), output_filename, 0)
+        out_path = new_file
+        shutil.copy(image_path, new_file)
+    if deep_daze_prefs['save_progress']:
+        for f in image_files:
+            if os.path.exists(f):
+                shutil.copy(f, os.path.join(prefs['image_output'], deep_daze_prefs['batch_folder_name'], f.rpartition(slash)[2]))
+    else:
+        for f in image_files[:-1]:
+            if os.path.exists(f):
+                os.remove(f)
+    if deep_daze_prefs['display_upscaled_image']:
+        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    
+    del pipe_deep_daze
+    gc.collect()
+    torch.cuda.empty_cache()
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def main(page: Page):
     page.title = "Stable Diffusion Deluxe - FletUI"
@@ -18151,7 +18486,7 @@ def main(page: Page):
               Text("Each time you open the app, you should start in the Installers section, turn on all the components you plan on using in you session, then Run the Installers and let them download. You can multitask and work in other tabs while it's installing."),
               Text("In the Prompts List, add as many text prompts as you can think of, and edit any prompt to override any default Image Parameter.  Once you're ready, Run Diffusion on your Prompts List and watch it fill your Drive with beauty.."),
               Text("Try out any and all of our Prompt Helpers to use practical text AIs to make unique descriptive prompts fast, with our Prompt Generator, Remixer, Brainstormer and Advanced Writer.  You'll never run out of inspiration again..."),
-              Text("Use the other Stable Diffusers to get unique results with advanced AI tools to refine your art to the next level with powerful surpises.. Have fun, and go crazy with it..."),
+              Text("Use the other Stable Diffusers to get unique results with advanced AI tools to refine your art to the next level with powerful surpises.. There's a lot of specialized Diffusers that are pure magic when you challenge it. Have fun, and get creative..."),
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("👍  Thanks! ", on_click=close_help_dlg)], actions_alignment=MainAxisAlignment.END,
     )
@@ -18342,7 +18677,10 @@ class ImageButton(UserControl):
             self.page.update()
         
         #self.image = Row([Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)], alignment=MainAxisAlignment.CENTER)
-        self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
+        if self.width == None:
+            self.image = Img(src=self.src, fit=self.fit, gapless_playback=True)
+        else:
+            self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
         self.column = Column([
           Row([PopupMenuButton(
             items = [
@@ -18351,11 +18689,11 @@ class ImageButton(UserControl):
               PopupMenuItem(text="Download Locally", icon=icons.DOWNLOAD, on_click=download_image),
               PopupMenuItem(text="Delete Image", icon=icons.DELETE, on_click=delete_image),
             ], tooltip="👁️", expand=True,
-            content=self.image,
+            content=Row([self.image], expand=True),
             #content=Row([Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START),
             data=self.src if self.data==None else self.data, width=self.width, height=self.height)],
             alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START)
-          ], horizontal_alignment=CrossAxisAlignment.CENTER if self.center else CrossAxisAlignment.START)
+          ], horizontal_alignment=CrossAxisAlignment.STRETCH if self.center else CrossAxisAlignment.START)
         if self.show_subtitle:
             self.column.controls.append(Row([Text(self.subtitle)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START))
         return self.column
