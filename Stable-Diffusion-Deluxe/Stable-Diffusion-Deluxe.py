@@ -14,11 +14,11 @@ auto_launch_website = False #@param {'type': 'boolean'}
 version = "v1.8.0"
 import os, subprocess, sys, shutil
 root_dir = '/content/'
+dist_dir = root_dir
 is_Colab = True
 try:
   import google.colab
   root_dir = '/content/'
-  dist_dir = root_dir
 except:
   root_dir = os.getcwd()
   dist_dir = os.path.join(root_dir, 'dist', 'Stable-Diffusion-Deluxe')
@@ -526,6 +526,7 @@ def buildPromptHelpers(page):
     page.remixer = buildPromptRemixer(page)
     page.brainstormer = buildPromptBrainstormer(page)
     page.writer = buildPromptWriter(page)
+    page.MagicPrompt = buildMagicPrompt(page)
     page.RetrievePrompts = buildRetrievePrompts(page)
     page.InitFolder = buildInitFolder(page)
     page.InitVideo = buildInitVideo(page)
@@ -537,6 +538,7 @@ def buildPromptHelpers(page):
             Tab(text="Prompt Generator", content=page.generator, icon=icons.CLOUD),
             Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
             Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
+            Tab(text="Magic Prompt", content=page.MagicPrompt, icon=icons.AUTO_FIX_HIGH),
             Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
             Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
             Tab(text="Init Images from Video", content=page.InitVideo, icon=icons.SWITCH_VIDEO),
@@ -917,7 +919,7 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None):
       except Exception: pass
       if prefs['enable_sounds'] and sound: page.snd_error.play()
       okay = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
-      page.alert_dlg = AlertDialog(title=Text(msg), content=content, actions=[okay], actions_alignment=MainAxisAlignment.END)
+      page.alert_dlg = AlertDialog(title=Text(msg), content=Column([content], scroll=ScrollMode.AUTO), actions=[okay], actions_alignment=MainAxisAlignment.END)
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
       page.update()
@@ -1641,12 +1643,14 @@ def buildParameters(page):
       custom_LoRA_model.update()
       
   batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-  batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'batch_size'))
-  n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
+  #batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'batch_size'))
+  #n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
+  batch_size = NumberPicker(label="Batch Size: ", min=1, max=10, value=prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+  n_iterations = NumberPicker(label="Number of Iterations: ", min=1, max=30, value=prefs['n_iterations'], on_change=lambda e: changed(e, 'n_iterations'))
   steps = TextField(label="Steps", value=prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', asInt=True))
   eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta'))
   seed = TextField(label="Seed", value=prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed'))
-  param_rows = Row([Column([batch_folder_name, batch_size, n_iterations]), Column([steps, eta, seed])])
+  param_rows = Row([Column([batch_folder_name, seed, batch_size]), Column([steps, eta, n_iterations])])
   guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=prefs['guidance_scale'], on_change=change_guidance, expand=True)
   guidance_value = Text(f" {prefs['guidance_scale']}", weight=FontWeight.BOLD)
   guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
@@ -2673,6 +2677,78 @@ def buildPromptWriter(page):
       ],
     ))], scroll=ScrollMode.AUTO)
     return c
+
+magic_prompt_prefs = {
+    'seed_prompt': '',
+    'seed': 0,
+    'amount': 6,
+    'random_artists': 0,
+    'random_styles': 0,
+    'permutate_artists': True,
+}
+
+def buildMagicPrompt(page):
+    global magic_prompt_prefs, prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            magic_prompt_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            magic_prompt_prefs[pref] = float(e.control.value)
+          else:
+            magic_prompt_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    page.magic_prompt_list = Column([], spacing=0)
+    page.magic_prompt_output = Column([])
+    def add_to_prompt_list(p):
+      page.add_to_prompts(p)
+      if prefs['enable_sounds']: page.snd_drop.play()
+    def add_to_magic_prompt(p):
+      page.magic_prompt_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.magic_prompt_list.update()
+      magic_list_buttons.visible = True
+      magic_list_buttons.update()
+    page.add_to_magic_prompt = add_to_magic_prompt
+    def add_to_list(e):
+      if prefs['enable_sounds']: page.snd_drop.play()
+      for p in page.magic_prompt_list.controls:
+        page.add_to_prompts(p.title.value)
+    def clear_prompts(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.magic_prompt_list.controls = []
+      page.magic_prompt_list.update()
+      magic_list_buttons.visible = False
+      magic_list_buttons.update()
+    seed = TextField(label="Seed", value=magic_prompt_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width = 90, on_change=lambda e:changed(e,'seed', ptype="int"))
+    magic_list_buttons = Row([
+        ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
+        FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
+    ], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    if len(page.magic_prompt_list.controls) < 1:
+      magic_list_buttons.visible = False
+    
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎩  Magic Prompt Generator - GPT-2 AI Helper", "Generates new Image Prompts made for Stable Diffusion with a specially trained GPT-2 Text AI by Gustavosta...", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
+        Row([TextField(label="Starter Prompt Text", expand=True, value=magic_prompt_prefs['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt'))]),
+        ResponsiveRow([
+          Row([NumberPicker(label="Amount: ", min=1, max=40, value=magic_prompt_prefs['amount'], on_change=lambda e: changed(e, 'amount')), seed,
+              NumberPicker(label="Random Artists: ", min=0, max=10, value=magic_prompt_prefs['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+          Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=magic_prompt_prefs['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
+              Checkbox(label="Permutate Artists", value=magic_prompt_prefs['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+        ]),
+        ElevatedButton(content=Text("🧙   Make Magic Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_magic_prompt(page)),
+        page.magic_prompt_output,
+        page.magic_prompt_list,
+        magic_list_buttons,
+      ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 def NSP_instructions(page):
     def open_url(e):
@@ -8376,6 +8452,7 @@ pipe_tortoise_tts = None
 pipe_audio_ldm = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
+pipe_gpt2 = None
 stability_api = None
 
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -8436,6 +8513,7 @@ finetuned_models = [
     {"name": "Anon v1", "path": "TheMindExpansionNetwork/anonv1", "prefix": "AnonV1 "},
     {"name": "Avatar", "path": "Jersonm89/Avatar", "prefix": "avatar style "},
     {"name": "Dreamlike Diffusion v1", "path": "dreamlike-art/dreamlike-diffusion-1.0", "prefix": "dreamlikeart "},
+    {"name": "Dreamlike Photoreal 2", "path": "dreamlike-art/dreamlike-photoreal-2.0", "prefix": ""},
     {"name": "Glitch", "path": "BakkerHenk/glitch", "prefix": "a photo in sks glitched style "},
     {"name": "Knollingcase", "path": "Aybeeceedee/knollingcase", "prefix": "knollingcase "},
     {"name": "Wavy Diffusion", "path": "wavymulder/wavyfusion", "prefix": "wa-vy style "},
@@ -8445,7 +8523,6 @@ finetuned_models = [
     {"name": "Rick-Roll Style", "path": "TheLastBen/rick-roll-style", "prefix": "rckrll "},
     {"name": "Filmation MOTU", "path": "zuleo/filmation-motu", "prefix": ""},
     {"name": "Char Helper", "path": "ManglerFTW/CharHelper", "prefix": ""},
-    {"name": "Dreamlike Photoreal 2", "path": "dreamlike-art/dreamlike-photoreal-2.0", "prefix": ""},
     {"name": "Maxwell the Cat", "path": "kabachuha/maxwell-the-cat-diffusion", "prefix": ""},
     {"name": "Glitch Embedding", "path": "joachimsallstrom/Glitch-Embedding", "prefix": "glitch "},
     {"name": "Pokemon 3D", "path": "Timmahw/SD2.1_Pokemon3D", "prefix": ""},
@@ -8472,11 +8549,25 @@ finetuned_models = [
     {"name": "Midjourney Shatter", "path": "ShadoWxShinigamI/Midjourney-Shatter", "prefix": "mdjrny-shttr "},
     {"name": "Midjourney PaperCut", "path": "ShadoWxShinigamI/MidJourney-PaperCut", "prefix": "mdjrny-pprct eagle "},
     {"name": "Midjourney Graffiti", "path": "ShadoWxShinigamI/midjourney-graffiti", "prefix": "in the style of mdjrny-grfft "},
-    {"name": "MJStyle", "path": "ShadoWxShinigamI/mjstyle", "prefix": "mjstyle"},
+    {"name": "MJStyle", "path": "ShadoWxShinigamI/mjstyle", "prefix": "mjstyle "},
     {"name": "Xpero End1ess", "path": "sakistriker/XperoEnd1essModel", "prefix": ""},
     {"name": "Pepe Diffuser", "path": "Dipl0/pepe-diffuser", "prefix": ""},
-    {"name": "Latent Labs 360", "path": "AlanB/LatentLabs360", "prefix": ""},
+    {"name": "Pastel Mix", "path": "andite/pastel-mix", "prefix": ""},
+    {"name": "Counterfeit v2.5", "path": "gsdf/Counterfeit-V2.5", "prefix": ""},
+    {"name": "Basil Mix", "path": "nuigurumi/basil_mix", "prefix": ""},
+    {"name": "Inkpunk Diffusion", "path": "Envvi/Inkpunk-Diffusion", "prefix": "nvinkpunk "},
+    {"name": "Ghibli Diffusion", "path": "nitrosocke/Ghibli-Diffusion", "prefix": "ghibli style "},
+    {"name": "7th Layer", "path": "syaimu/7th_Layer", "prefix": ""},
+    {"name": "Comic-Diffusion", "path": "ogkalu/Comic-Diffusion", "prefix": ""},
+    {"name": "Vintedois Diffusion", "path": "22h/vintedois-diffusion-v0-1", "prefix": ""},
+    {"name": "PaperCut", "path": "Fictiverse/Stable_Diffusion_PaperCut_Model", "prefix": "PaperCut "},
+    {"name": "Complex Lineart", "path": "Conflictx/Complex-Lineart", "prefix": "ComplexLA style "},
+    {"name": "GuoFeng3", "path": "xiaolxl/GuoFeng3", "prefix": ""},
+    {"name": "Portrait+", "path": "wavymulder/portraitplus", "prefix": "portrait+ style"},
+    {"name": "ACertainThing", "path": "JosephusCheung/ACertainThing", "prefix": ""},
+    {"name": "Hassan Blend", "path": "hassanblend/HassanBlend1.5.1.2", "prefix": ""},
     #{"name": "", "path": "", "prefix": ""},
+    #{"name": "Latent Labs 360", "path": "AlanB/LatentLabs360", "prefix": ""},
     #{"name": "Rodent Diffusion 1.5", "path": "NerdyRodent/rodent-diffusion-1-5", "prefix": ""},
     #{"name": "Laxpeint", "path": "EldritchAdam/laxpeint", "prefix": ""},
     #{"name": "HeartArt", "path": "spaablauw/HeartArt", "prefix": ""},
@@ -8570,10 +8661,11 @@ def get_diffusers(page):
         try:
           import xformers
         except Exception:
-          #page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
+          page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
           run_process("pip install --pre -U triton", page=page)
-          run_process("pip install -U xformers==0.0.17.dev461", page=page)
+          run_process("pip install -U xformers==0.0.17.dev464", page=page)
           import xformers
+          page.console_msg("Installing Hugging Face Diffusers Pipeline...")
           pass
         #run_process("pip install pyre-extensions==0.0.23", page=page)
         #run_process("pip install -i https://test.pypi.org/simple/ formers==0.0.15.dev376", page=page)
@@ -8625,9 +8717,8 @@ def get_diffusers(page):
     
     from huggingface_hub import notebook_login, HfApi, HfFolder, login
     #from diffusers import StableDiffusionPipeline, logging
-    from diffusers import logging
-      #pass
-    logging.set_verbosity_error()
+    #from diffusers import logging
+    #logging.set_verbosity_error()
     if not os.path.exists(HfFolder.path_token):
         #from huggingface_hub.commands.user import _login
         #_login(HfApi(), token=prefs['HuggingFace_api_key'])
@@ -9370,14 +9461,14 @@ def get_SAG_pipe():
   if prefs['higher_vram_mode']:
     pipe_SAG = StableDiffusionSAGPipeline.from_pretrained(
         model_path,
-        scheduler=model_scheduler(model_path),
+        scheduler=model_scheduler(model_path, big3=True),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   else:
       pipe_SAG = StableDiffusionSAGPipeline.from_pretrained(
       model_path,
-      scheduler=model_scheduler(model_path),
+      scheduler=model_scheduler(model_path, big3=True),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       torch_dtype=torch.float16,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
@@ -10025,7 +10116,14 @@ def clear_audio_ldm_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_audio_ldm = None
-
+def clear_gpt2_pipe():
+  global pipe_gpt2
+  if pipe_gpt2 is not None:
+    del pipe_gpt2
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_gpt2 = None
+    
 def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
     if not 'txt2img' in but: clear_txt2img_pipe()
@@ -10061,6 +10159,7 @@ def clear_pipes(allbut=None):
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
+    if not 'gpt2' in but: clear_gpt2_pipe()
     torch.cuda.reset_peak_memory_stats()
 
 import base64
@@ -10799,11 +10898,16 @@ def start_diffusion(page):
                   images = pipe_alt_diffusion(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_SAG'] and status['installed_SAG']:
                 pipe_used = "Self-Attention Guidance Text-to-Image"
-                images = pipe_SAG(prompt=pr, negative_prompt=arg['negative_prompt'], sag_scale=prefs['sag_scale'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                size = pipe_SAG.unet.config.sample_size * pipe_SAG.vae_scale_factor
+                arg['width'] = size
+                arg['height'] = size
+                with torch.autocast("cuda"): #, height=arg['height'], width=arg['width']
+                  images = pipe_SAG(prompt=pr, negative_prompt=arg['negative_prompt'], sag_scale=prefs['sag_scale'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
                 pipe_used = "Attend and Excite Text-to-Image"
-                arg['width'] = 512
-                arg['height'] = 512
+                size = pipe_attend_and_excite.unet.config.sample_size * pipe_attend_and_excite.vae_scale_factor
+                arg['width'] = size
+                arg['height'] = size
                 token_indices = words = []
                 ptext = pr[0] if type(pr) == list else pr
                 ntext = arg['negative_prompt'][0] if type(arg['negative_prompt']) == list else arg['negative_prompt']
@@ -11649,6 +11753,119 @@ def run_prompt_writer(page):
         for i in item:
           page.add_to_prompt_writer(i)
 
+def run_magic_prompt(page):
+    #import random as rnd
+    global artists, styles, magic_prompt_prefs, pipe_gpt2
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.magic_prompt_output.controls.append(line)
+      page.magic_prompt_output.update()
+    def clear_last():
+      del page.magic_prompt_output.controls[-1]
+      page.magic_prompt_output.update()
+    progress = ProgressBar(bar_height=8)
+    prt(Row([ProgressRing(), Text("Installing Magic Prompt GPT-2 Pipeline...", weight=FontWeight.BOLD)]))
+    try:
+        import jinja2
+    except:
+        run_sp("pip install -q jinja2==3.0.3")
+        pass
+    try:
+        from transformers import pipeline, set_seed
+    except:
+        run_sp("pip install -qq --upgrade git+https://github.com/huggingface/transformers")
+        #run_sp("pip install torch")
+        from transformers import pipeline, set_seed
+        pass
+    try:
+        import sentencepiece
+    except:
+        run_sp("pip install -q sentencepiece")
+        pass
+    import re
+    ideas = os.path.join(root_dir, "ideas.txt")
+    if not os.path.exists(ideas):
+        download_file("https://huggingface.co/spaces/Gustavosta/MagicPrompt-Stable-Diffusion/raw/main/ideas.txt")
+    prompts_magic = []
+    prompt_results = []
+    if '_' in magic_prompt_prefs['seed_prompt']:
+        seed_prompt = nsp_parse(magic_prompt_prefs['seed_prompt'])
+    else:
+        seed_prompt = magic_prompt_prefs['seed_prompt']
+    clear_pipes("gpt2")
+    if pipe_gpt2 == None:
+        try:
+            pipe_gpt2 = pipeline('text-generation', model='Gustavosta/MagicPrompt-Stable-Diffusion', tokenizer='gpt2')
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Initializing GPT-2 Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+    with open(ideas, "r") as f:
+        line = f.readlines()
+    clear_last()
+    prt("Generating Magic Prompts from your Text Input...")
+    prt(progress)
+
+    def generate(starting_text):
+        random_seed = int(magic_prompt_prefs['seed']) if int(magic_prompt_prefs['seed']) > 0 else rnd.randint(100, 1000000)
+        set_seed(random_seed)
+        if starting_text == "":
+            starting_text: str = line[rnd.randrange(0, len(line))].replace("\n", "").lower().capitalize()
+            starting_text: str = re.sub(r"[,:\-–.!;?_]", '', starting_text)
+        response = pipe_gpt2(starting_text, max_length=(len(starting_text) + rnd.randint(60, 90)), num_return_sequences=int(magic_prompt_prefs['amount']))
+        response_list = []
+        for x in response:
+            resp = x['generated_text'].strip()
+            if resp != starting_text and len(resp) > (len(starting_text) + 4) and resp.endswith((":", "-", "—")) is False:
+                response_list.append(resp)
+        response_end = "\n".join(response_list)
+        response_end = re.sub('[^ ]+\.[^ ]+','', response_end)
+        response_end = response_end.replace("<", "").replace(">", "")
+        if response_end != "":
+            return response_end.split("\n")
+        else:
+            prt("Error Generating Magic Prompt Responses...")
+            return []
+
+    #txt = grad.Textbox(lines=1, label="Initial Text", placeholder="English Text here")
+    #out = grad.Textbox(lines=4, label="Generated Prompts")
+    #examples = []
+    #for x in range(8):
+    #    examples.append(line[rnd.randrange(0, len(line))].replace("\n", "").lower().capitalize())
+    #title = "Stable Diffusion Prompt Generator"
+    #description = 'This is a demo of the model series: "MagicPrompt", in this case, aimed at: "Stable Diffusion". To use it, simply submit your text or click on one of the examples. To learn more about the model, [click here](https://huggingface.co/Gustavosta/MagicPrompt-Stable-Diffusion).<br>'
+    prompt_results = generate(seed_prompt)
+    clear_last()
+    clear_last()
+    for p in prompt_results:
+        random_artist=[]
+        for a in range(magic_prompt_prefs['random_artists']):
+            random_artist.append(rnd.choice(artists))
+        #print(list_variations(random_artist))
+        artist = " and ".join([", ".join(random_artist[:-1]),random_artist[-1]] if len(random_artist) > 2 else random_artist)
+        random_style = []
+        for s in range(magic_prompt_prefs['random_styles']):
+            random_style.append(rnd.choice(styles))
+        style = ", ".join(random_style)
+        text_prompt = p
+        prompts_magic.append(text_prompt)
+        if magic_prompt_prefs['random_artists'] > 0: text_prompt += f", by {artist}"
+        if magic_prompt_prefs['random_styles'] > 0: text_prompt += f", style of {style}"
+        #if magic_prompt_prefs['random_styles'] == 0 and magic_prompt_prefs['permutate_artists']:
+        #    prompts_magic.append(text_prompt)
+        if magic_prompt_prefs['permutate_artists']:
+            for a in list_variations(random_artist):
+                prompt_variation = p + f", by {and_list(a)}"
+                prompts_magic.append(prompt_variation)
+            if magic_prompt_prefs['random_styles'] > 0:
+                prompts_magic.append(p + f", style of {style}")
+        else: prompts_magic.append(text_prompt)
+    for item in prompts_magic:
+        page.add_to_magic_prompt(item)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+
 def run_upscaling(page):
     #print(str(ESRGAN_prefs))
     if not status['installed_ESRGAN']:
@@ -11865,7 +12082,7 @@ def run_retrieve(page):
       if not os.path.isfile(filename):
         #print("Skipping subfolder " + filename)
         continue
-      print(filename)
+      #print(filename)
       if filename.rpartition('.')[2] == 'json':
         meta = json.load(filename)
         meta_dream(meta)
