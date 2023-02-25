@@ -527,6 +527,7 @@ def buildPromptHelpers(page):
     page.brainstormer = buildPromptBrainstormer(page)
     page.writer = buildPromptWriter(page)
     page.MagicPrompt = buildMagicPrompt(page)
+    page.DistilGPT2 = buildDistilGPT2(page)
     page.RetrievePrompts = buildRetrievePrompts(page)
     page.InitFolder = buildInitFolder(page)
     page.InitVideo = buildInitVideo(page)
@@ -539,6 +540,7 @@ def buildPromptHelpers(page):
             Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
             Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
             Tab(text="Magic Prompt", content=page.MagicPrompt, icon=icons.AUTO_FIX_HIGH),
+            Tab(text="Distil GPT-2", content=page.DistilGPT2, icon=icons.FILTER_ALT),
             Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
             Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
             Tab(text="Init Images from Video", content=page.InitVideo, icon=icons.SWITCH_VIDEO),
@@ -2136,9 +2138,28 @@ def buildPromptsList(page):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, multiline=True, autofocus=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Add to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_paste
       dlg_paste.open = True
+      page.update()
+  def copy_prompts(e):
+      def copy_prompts_list(pl):
+        nonlocal text_list, enter_text
+        page.set_clipboard(enter_text.value)
+        page.snack_bar = SnackBar(content=Text(f"📋   Prompt Text copied to clipboard..."))
+        page.snack_bar.open = True
+        close_dlg(e)
+      def close_dlg(e):
+          dlg_copy.open = False
+          page.update()
+      text_list = ""
+      for d in prompts:
+          p = d.prompt[0] if type(d.prompt) == list else d.prompt if bool(d.prompt) else d['prompt'] if 'prompt' in d else d.arg['prompt'] if 'prompt' in d.arg else ''
+          text_list += f"{p}\n"
+      enter_text = TextField(label="Prompts on multiple lines", value=text_list.strip(), expand=True, filled=True, multiline=True, autofocus=True)
+      dlg_copy = AlertDialog(modal=False, title=Text("📝  Prompts List as Plain Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Prompts List to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_prompts_list(text_list))], actions_alignment=MainAxisAlignment.END)
+      page.dialog = dlg_copy
+      dlg_copy.open = True
       page.update()
   def delete_prompt(e):
       if prefs['enable_sounds']: page.snd_delete.play()
@@ -2374,6 +2395,7 @@ def buildPromptsList(page):
   negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
   add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.window_width or page.width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
+  copy_prompts_button = IconButton(icons.COPY_ALL, tooltip="Save Prompts as Plain-Text List", on_click=copy_prompts)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
   prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True), add_prompt_button])
   #diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
@@ -2395,7 +2417,7 @@ def buildPromptsList(page):
     prompts_buttons.visible=False
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
-        Header("🗒️   List of Prompts to Diffuse", actions=[prompt_help_button, paste_prompts_button]),
+        Header("🗒️   List of Prompts to Diffuse", actions=[prompt_help_button, copy_prompts_button, paste_prompts_button]),
         #add_prompt_button,
         prompt_row,
         prompts_list,
@@ -2745,6 +2767,93 @@ def buildMagicPrompt(page):
         page.magic_prompt_output,
         page.magic_prompt_list,
         magic_list_buttons,
+      ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+distil_gpt2_prefs = {
+    'seed_prompt': '',
+    'seed': 0,
+    'amount': 6,
+    'AI_temperature': 0.9,
+    'top_k': 8,
+    'max_length': 80,
+    'repetition_penalty': 1.2,
+    'penalty_alpha': 0.6,
+    'no_repeat_ngram_size': 1,
+    'random_artists': 0,
+    'random_styles': 0,
+    'permutate_artists': True,
+}
+
+def buildDistilGPT2(page):
+    global distil_gpt2_prefs, prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            distil_gpt2_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            distil_gpt2_prefs[pref] = float(e.control.value)
+          else:
+            distil_gpt2_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    page.distil_gpt2_list = Column([], spacing=0)
+    page.distil_gpt2_output = Column([])
+    def add_to_prompt_list(p):
+      page.add_to_prompts(p)
+      if prefs['enable_sounds']: page.snd_drop.play()
+    def add_to_distil_gpt2(p):
+      page.distil_gpt2_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.distil_gpt2_list.update()
+      distil_list_buttons.visible = True
+      distil_list_buttons.update()
+    page.add_to_distil_gpt2 = add_to_distil_gpt2
+    def add_to_list(e):
+      if prefs['enable_sounds']: page.snd_drop.play()
+      for p in page.distil_gpt2_list.controls:
+        page.add_to_prompts(p.title.value)
+    def clear_prompts(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.distil_gpt2_list.controls = []
+      page.distil_gpt2_list.update()
+      distil_list_buttons.visible = False
+      distil_list_buttons.update()
+    AI_temperature = Row([Text("AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, tooltip="The value used to module the next token probabilities", value=distil_gpt2_prefs['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6})
+    top_k = Row([Text("Top-K Samples:"), Slider(label="{value}", min=0, max=50, divisions=50, expand=True, tooltip="Number of highest probability vocabulary tokens to keep for top-k-filtering", value=distil_gpt2_prefs['top_k'], on_change=lambda e: changed(e, 'top_k'))], col={'lg':6})
+    max_length = Row([Text("Max Length:"), Slider(label="{value}", min=0, max=1024, divisions=1024, expand=True, value=distil_gpt2_prefs['max_length'], on_change=lambda e: changed(e, 'max_length', ptype="int"))], col={'lg':6})
+    repetition_penalty = Row([Text("Repetition Penalty:"), Slider(label="{value}", min=1.0, max=3.0, divisions=20, expand=True, value=distil_gpt2_prefs['repetition_penalty'], on_change=lambda e: changed(e, 'repetition_penalty'))], col={'lg':6})
+    penalty_alpha = Row([Text("Penalty Alpha:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=distil_gpt2_prefs['penalty_alpha'], on_change=lambda e: changed(e, 'penalty_alpha', ptype="float"))], col={'lg':6})
+    no_repeat_ngram_size = Row([Text("No Repeat NGRAM Size:"), Slider(label="{value}", min=0, max=50, expand=True, divisions=50, value=distil_gpt2_prefs['no_repeat_ngram_size'], on_change=lambda e: changed(e, 'no_repeat_ngram_size', ptype="int"))], col={'lg':6})
+    seed = TextField(label="Seed", value=distil_gpt2_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width = 90, on_change=lambda e:changed(e,'seed', ptype="int"))
+    distil_list_buttons = Row([
+        ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
+        FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
+    ], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    if len(page.distil_gpt2_list.controls) < 1:
+      distil_list_buttons.visible = False
+    
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("⚗️  Distilled GPT-2 Generator - GPT-2 AI Helper", "Generates new Image Prompts with a model trained on 2,470,000 descriptive Stable Diffusion prompts...", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
+        Row([TextField(label="Starter Prompt Text", expand=True, value=distil_gpt2_prefs['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt'))]),
+        AI_temperature,
+        ResponsiveRow([top_k, no_repeat_ngram_size]),
+        ResponsiveRow([repetition_penalty, penalty_alpha]),
+        max_length,
+        ResponsiveRow([
+          Row([NumberPicker(label="Amount: ", min=1, max=40, value=distil_gpt2_prefs['amount'], on_change=lambda e: changed(e, 'amount')), seed,
+              NumberPicker(label="Random Artists: ", min=0, max=10, value=distil_gpt2_prefs['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+          Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=distil_gpt2_prefs['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
+              Checkbox(label="Permutate Artists", value=distil_gpt2_prefs['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+        ]),
+        ElevatedButton(content=Text("📝   Make Distil GPT-2 Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_distil_gpt2(page)),
+        page.distil_gpt2_output,
+        page.distil_gpt2_list,
+        distil_list_buttons,
       ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -8453,6 +8562,7 @@ pipe_audio_ldm = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_gpt2 = None
+pipe_distil_gpt2 = None
 stability_api = None
 
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -10123,6 +10233,13 @@ def clear_gpt2_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_gpt2 = None
+def clear_distil_gpt2_pipe():
+  global pipe_distil_gpt2
+  if pipe_distil_gpt2 is not None:
+    del pipe_distil_gpt2
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_distil_gpt2 = None
     
 def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
@@ -10160,6 +10277,7 @@ def clear_pipes(allbut=None):
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
+    if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     torch.cuda.reset_peak_memory_stats()
 
 import base64
@@ -11863,6 +11981,88 @@ def run_magic_prompt(page):
         else: prompts_magic.append(text_prompt)
     for item in prompts_magic:
         page.add_to_magic_prompt(item)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_distil_gpt2(page):
+    #import random as rnd
+    global artists, styles, distil_gpt2_prefs, pipe_distil_gpt2
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.distil_gpt2_output.controls.append(line)
+      page.distil_gpt2_output.update()
+    def clear_last():
+      del page.distil_gpt2_output.controls[-1]
+      page.distil_gpt2_output.update()
+    progress = ProgressBar(bar_height=8)
+    prt(Row([ProgressRing(), Text("Installing Distil GPT-2 Pipeline...", weight=FontWeight.BOLD)]))
+
+    try:
+        from transformers import GPT2Tokenizer, GPT2LMHeadModel, set_seed
+    except:
+        run_sp("pip install -qq --upgrade git+https://github.com/huggingface/transformers")
+        #run_sp("pip install torch")
+        from transformers import GPT2Tokenizer, GPT2LMHeadModel, set_seed
+        pass
+
+    prompts_distil = []
+    prompt_results = []
+    if '_' in distil_gpt2_prefs['seed_prompt']:
+        seed_prompt = nsp_parse(distil_gpt2_prefs['seed_prompt'])
+    else:
+        seed_prompt = distil_gpt2_prefs['seed_prompt']
+    clear_pipes("distil_gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained('distilgpt2')
+    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    if pipe_distil_gpt2 == None:
+        try:
+            pipe_distil_gpt2 = GPT2LMHeadModel.from_pretrained('FredZhang7/distilgpt2-stable-diffusion-v2')
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Initializing Distil GPT-2 Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+    
+    clear_last()
+    prt("Generating Distil GPT-2 Results from your Text Input...")
+    prt(progress)
+
+    def generate(starting_text):
+        random_seed = int(distil_gpt2_prefs['seed']) if int(distil_gpt2_prefs['seed']) > 0 else rnd.randint(100, 1000000)
+        set_seed(random_seed)
+        input_ids = tokenizer(starting_text, return_tensors='pt').input_ids
+        output = pipe_distil_gpt2.generate(input_ids, do_sample=True, temperature=distil_gpt2_prefs['AI_temperature'], top_k=distil_gpt2_prefs['top_k'], max_length=distil_gpt2_prefs['max_length'], num_return_sequences=distil_gpt2_prefs['amount'], repetition_penalty=distil_gpt2_prefs['repetition_penalty'], penalty_alpha=distil_gpt2_prefs['penalty_alpha'], no_repeat_ngram_size=distil_gpt2_prefs['no_repeat_ngram_size'], early_stopping=True)
+        results = []
+        for i in range(len(output)):
+            results.append(tokenizer.decode(output[i], skip_special_tokens=True))
+        return results
+    prompt_results = generate(seed_prompt)
+    clear_last()
+    clear_last()
+    for p in prompt_results:
+        random_artist=[]
+        for a in range(distil_gpt2_prefs['random_artists']):
+            random_artist.append(rnd.choice(artists))
+        #print(list_variations(random_artist))
+        artist = " and ".join([", ".join(random_artist[:-1]),random_artist[-1]] if len(random_artist) > 2 else random_artist)
+        random_style = []
+        for s in range(distil_gpt2_prefs['random_styles']):
+            random_style.append(rnd.choice(styles))
+        style = ", ".join(random_style)
+        text_prompt = p
+        prompts_distil.append(text_prompt)
+        if distil_gpt2_prefs['random_artists'] > 0: text_prompt += f", by {artist}"
+        if distil_gpt2_prefs['random_styles'] > 0: text_prompt += f", style of {style}"
+        #if distil_gpt2_prefs['random_styles'] == 0 and distil_gpt2_prefs['permutate_artists']:
+        #    prompts_distil.append(text_prompt)
+        if distil_gpt2_prefs['permutate_artists']:
+            for a in list_variations(random_artist):
+                prompt_variation = p + f", by {and_list(a)}"
+                prompts_distil.append(prompt_variation)
+            if distil_gpt2_prefs['random_styles'] > 0:
+                prompts_distil.append(p + f", style of {style}")
+        else: prompts_distil.append(text_prompt)
+    for item in prompts_distil:
+        page.add_to_distil_gpt2(item)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -18883,12 +19083,12 @@ class ImageButton(UserControl):
           #TODO: Get size & meta
             alert_msg(self.page, "Image Details", content=Column([Text(self.subtitle or self.data, selectable=True), Img(src=self.data, gapless_playback=True)]), sound=False)
         def delete_image(e):
+            self.image = Container(content=None)
             if os.path.exists(self.src):
               os.remove(self.src)
             if self.data != self.src:
               os.remove(self.data)
-            self.image = Container(content=None)
-            self.image.update()
+            #self.image.update()
             self.page.snack_bar = SnackBar(content=Text(f"🗑️  Deleted {self.data}..."))
             self.page.snack_bar.open = True
             self.page.update()
