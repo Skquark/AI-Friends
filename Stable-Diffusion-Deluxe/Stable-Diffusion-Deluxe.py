@@ -263,6 +263,7 @@ def load_settings_file():
       'use_SAG': False,
       'sag_scale': 0.75,
       'use_panorama': False,
+      'panorama_width': 2048,
       'use_upscale': False,
       'upscale_noise_level': 20,
       'install_conceptualizer': False,
@@ -467,7 +468,7 @@ def tab_on_change (e):
         e.page.save_prompts()
         save_settings_file(e.page)
         status['changed_prompts'] = False
-      e.page.show_run_diffusion_fab(False)
+      e.page.show_run_diffusion_fab(False, p=e.page)
     if current_tab == 5:
       if status['changed_prompt_generator']:
         save_settings_file(e.page)
@@ -485,7 +486,7 @@ def tab_on_change (e):
       e.page.Parameters.update()
       e.page.show_apply_fab(len(prompts) > 0 and status['changed_parameters'])
     if current_tab == 3:
-      e.page.show_run_diffusion_fab(len(prompts) > 0)
+      e.page.show_run_diffusion_fab(len(prompts) > 0, p=e.page)
     e.page.update()
 
 def buildTabs(page):
@@ -741,6 +742,7 @@ if 'use_SAG' not in prefs: prefs['use_SAG'] = False
 if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
+if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
 
 def initState(page):
     global status, current_tab
@@ -919,7 +921,11 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None):
       try:
         if page.alert_dlg.open == True: return
       except Exception: pass
-      if prefs['enable_sounds'] and sound: page.snd_error.play()
+      try:
+        if prefs['enable_sounds'] and sound: page.snd_error.play()
+      except Exception:
+        msg += " May have to restart runtime."
+        pass
       okay = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
       page.alert_dlg = AlertDialog(title=Text(msg), content=Column([content], scroll=ScrollMode.AUTO), actions=[okay], actions_alignment=MainAxisAlignment.END)
       page.dialog = page.alert_dlg
@@ -1741,7 +1747,8 @@ def buildParameters(page):
   page.use_imagic.visible = bool(status['installed_imagic'])
   page.use_composable = Tooltip(message="Allows conjunction and negation operators for compositional generation with conditional diffusion models", content=Switch(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_composable')))
   page.use_composable.visible = bool(status['installed_composable'])
-  page.use_panorama = Tooltip(message="Fuses together images to make extra-wide 2048x512", content=Switch(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_panorama')))
+  page.use_panorama = Column([Tooltip(message="Fuses together images to make extra-wide 2048x512", content=Switch(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_panorama'))),
+                              Row([Text("Panoramic Width x 512:"), Slider(min=1024, max=4608, divisions=28, label="{value}px", expand=True, value=prefs['panorama_width'], on_change=lambda e:changed(e, 'panorama_width', asInt=True))])])
   page.use_panorama.visible = status['installed_panorama']
   page.use_safe = Tooltip(message="Models trained only on Safe images", content=Switch(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_safe')))
   page.use_safe.visible = bool(status['installed_safe'])
@@ -2381,7 +2388,7 @@ def buildPromptsList(page):
         return
       page.tabs.selected_index = 4
       page.tabs.update()
-      page.show_run_diffusion_fab(False)
+      show_run_diffusion_fab(False)
       if status['changed_prompts']:
         page.save_prompts()
         save_settings_file(page)
@@ -2401,15 +2408,22 @@ def buildPromptsList(page):
   #diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
   clear_prompts_button = ElevatedButton(content=Text("❌   Clear Prompts List", size=18), on_click=clear_list)
   prompts_buttons = Row([clear_prompts_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
-  def show_run_diffusion_fab(show = True):
+  def show_run_diffusion_fab(show = True, p = None):
+    if p is None:
+      p = page
     if show:
-      page.floating_action_button = FloatingActionButton(content=Row([Icon(icons.PLAY_ARROW), Text("Run Diffusion on Prompts", size=18)], alignment="center", spacing=5), width=270, shape=ft.RoundedRectangleBorder(radius=22), on_click=run_diffusion)
+      p.floating_action_button = FloatingActionButton(content=Row([Icon(icons.PLAY_ARROW), Text("Run Diffusion on Prompts", size=18)], alignment="center", spacing=5), width=270, shape=ft.RoundedRectangleBorder(radius=22), on_click=run_diffusion)
       #page.floating_action_button = FloatingActionButton(icon=icons.PLAY_ARROW, text="Run Diffusion on Prompts", on_click=run_diffusion)
-      page.update()
+      p.update()
     else:
-      if page.floating_action_button is not None:
-        page.floating_action_button = None
-        page.update()
+      if p.floating_action_button is not None:
+        p.floating_action_button = None
+        try:
+          p.update()
+        except Exception:
+          print("Problem updating page while showing Run Diffusion FAB")
+          pass
+        
   page.show_run_diffusion_fab = show_run_diffusion_fab
   show_run_diffusion_fab(len(prompts_list.controls) > 0)
   #page.load_prompts()
@@ -2823,10 +2837,10 @@ def buildDistilGPT2(page):
       distil_list_buttons.update()
     AI_temperature = Row([Text("AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, tooltip="The value used to module the next token probabilities", value=distil_gpt2_prefs['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6})
     top_k = Row([Text("Top-K Samples:"), Slider(label="{value}", min=0, max=50, divisions=50, expand=True, tooltip="Number of highest probability vocabulary tokens to keep for top-k-filtering", value=distil_gpt2_prefs['top_k'], on_change=lambda e: changed(e, 'top_k'))], col={'lg':6})
-    max_length = Row([Text("Max Length:"), Slider(label="{value}", min=0, max=1024, divisions=1024, expand=True, value=distil_gpt2_prefs['max_length'], on_change=lambda e: changed(e, 'max_length', ptype="int"))], col={'lg':6})
-    repetition_penalty = Row([Text("Repetition Penalty:"), Slider(label="{value}", min=1.0, max=3.0, divisions=20, expand=True, value=distil_gpt2_prefs['repetition_penalty'], on_change=lambda e: changed(e, 'repetition_penalty'))], col={'lg':6})
-    penalty_alpha = Row([Text("Penalty Alpha:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=distil_gpt2_prefs['penalty_alpha'], on_change=lambda e: changed(e, 'penalty_alpha', ptype="float"))], col={'lg':6})
-    no_repeat_ngram_size = Row([Text("No Repeat NGRAM Size:"), Slider(label="{value}", min=0, max=50, expand=True, divisions=50, value=distil_gpt2_prefs['no_repeat_ngram_size'], on_change=lambda e: changed(e, 'no_repeat_ngram_size', ptype="int"))], col={'lg':6})
+    max_length = Row([Text("Max Length:"), Slider(label="{value}", min=0, max=1024, divisions=1024, expand=True, tooltip="The maximum length the generated tokens can have. Corresponds to the length of the input prompt + max_new_tokens.", value=distil_gpt2_prefs['max_length'], on_change=lambda e: changed(e, 'max_length', ptype="int"))], col={'lg':6})
+    repetition_penalty = Row([Text("Repetition Penalty:"), Slider(label="{value}", min=1.0, max=3.0, divisions=20, expand=True, tooltip="Penalizes repetition by discounting the scores of previously generated tokens", value=distil_gpt2_prefs['repetition_penalty'], on_change=lambda e: changed(e, 'repetition_penalty'))], col={'lg':6})
+    penalty_alpha = Row([Text("Penalty Alpha:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, tooltip="The degeneration penalty for contrastive search; activate when it is larger than 0", value=distil_gpt2_prefs['penalty_alpha'], on_change=lambda e: changed(e, 'penalty_alpha', ptype="float"))], col={'lg':6})
+    no_repeat_ngram_size = Row([Text("No Repeat NGRAM Size:"), Slider(label="{value}", min=0, max=50, expand=True, divisions=50, tooltip="If set > 0, all ngrams of that size can only occur once. 0 adds more commas.", value=distil_gpt2_prefs['no_repeat_ngram_size'], on_change=lambda e: changed(e, 'no_repeat_ngram_size', ptype="int"))], col={'lg':6})
     seed = TextField(label="Seed", value=distil_gpt2_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width = 90, on_change=lambda e:changed(e,'seed', ptype="int"))
     distil_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
@@ -8582,7 +8596,8 @@ finetuned_models = [
     {"name": "Openjourney LoRA", "path": "prompthero/openjourney-lora", "prefix": ""},
     {"name": "Openjourney v2", "path": "prompthero/openjourney-v2", "prefix": ""},
     {"name": "Future Diffusion", "path": "nitrosocke/Future-Diffusion", "prefix": "future style "},
-    {"name": "Anything v3.0", "path": "Linaqruf/anything-v3.0", "prefix": ""},
+    #{"name": "Anything v3.0", "path": "Linaqruf/anything-v3.0", "prefix": ""},
+    {"name": "Anything v4.0", "path": "andite/anything-v4.0", "prefix": ""},
     {"name": "Analog Diffusion", "path": "wavymulder/Analog-Diffusion", "prefix": "analog style "},
     {"name": "Architecture Diffusers", "path": "rrustom/stable-architecture-diffusers", "prefix": ""},
     {"name": "Arcane", "path":"nitrosocke/Arcane-Diffusion", "prefix":"arcane style "},
@@ -8598,9 +8613,10 @@ finetuned_models = [
     {"name": "Modern Disney", "path": "nitrosocke/mo-di-diffusion", "prefix": "modern disney style "},
     {"name": "Classic Disney", "path": "nitrosocke/classic-anim-diffusion", "prefix": "classic disney style "},
     {"name": "Loving Vincent (Van Gogh)", "path": "dallinmackay/Van-Gogh-diffusion", "prefix": "lvngvncnt "},
-    {"name": "Redshift renderer (Cinema4D)", "path": "nitrosocke/redshift-diffusion", "prefix": "redshift style "},
-    {"name": "Waifu", "path": "hakurei/waifu-diffusion", "prefix": "", "revision": "fp16"},
-    {"name": "TrinArt Waifu 50-50", "path": "doohickey/trinart-waifu-diffusion-50-50", "prefix": ""},
+    {"name": "Redshift Renderer (Cinema4D)", "path": "nitrosocke/redshift-diffusion", "prefix": "redshift style "},
+    {"name": "Waifu Diffusion", "path": "hakurei/waifu-diffusion", "prefix": "", "revision": "fp16"},
+    {"name": "Ultima Waifu Diffusion", "path": "AdamOswald1/Ultima-Waifu-Diffusion", "prefix": ""},
+    #{"name": "TrinArt Waifu 50-50", "path": "doohickey/trinart-waifu-diffusion-50-50", "prefix": ""},
     {"name": "WikiArt v2", "path": "valhalla/sd-wikiart-v2", "prefix": ""},
     {"name": "Jak's Woolitize", "path": "plasmo/woolitize", "prefix": "woolitize "},
     {"name": "Inkpunk Diffusion", "path": "Envvi/Inkpunk-Diffusion", "prefix": "nvinkpunk "},
@@ -11048,9 +11064,9 @@ def start_diffusion(page):
                 images = pipe_versatile_text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_panorama'] and status['installed_panorama']:
                 pipe_used = "MultiDiffusion Panorama Text-to-Image"
-                arg['width'] = 2048
+                arg['width'] = prefs['panorama_width']
                 arg['height'] = 512
-                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_safe'] and status['installed_safe']:
                 from diffusers.pipelines.stable_diffusion_safe import SafetyConfig
                 s = prefs['safety_config']
