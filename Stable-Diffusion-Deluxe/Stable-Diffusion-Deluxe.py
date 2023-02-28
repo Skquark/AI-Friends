@@ -224,13 +224,12 @@ def load_settings_file():
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
       'HuggingFace_username': "",
-      'api_key_file': '/content/drive/MyDrive/AI/Stable_Diffusion/sd_api_keys.txt',
       'scheduler_mode': "DDIM",
       'higher_vram_mode': False,
       'enable_attention_slicing': True,
-      'memory_optimization': 'Xformers Mem Efficient Attention',
+      'memory_optimization': "Attention Slicing",
       'sequential_cpu_offload': False,
-      'vae_slicing': False,
+      'vae_slicing': True,
       'cache_dir': '',
       'install_diffusers': True,
       'install_interpolation': False,
@@ -643,6 +642,7 @@ def buildAudioAIs(page):
 def buildExtras(page):
     page.ESRGAN_upscaler = buildESRGANupscaler(page)
     page.CachedModelManager = buildCachedModelManager(page)
+    page.CustomModelManager = buildCustomModelManager(page)
     page.BLIP2Image2Text = buildBLIP2Image2Text(page)
     page.Image2Text = buildImage2Text(page)
     page.DallE2 = buildDallE2(page)
@@ -654,6 +654,7 @@ def buildExtras(page):
         tabs=[
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
             Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
+            Tab(text="Model Manager", content=page.CustomModelManager, icon=icons.DIFFERENCE),
             Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
@@ -1034,6 +1035,7 @@ def buildInstallers(page):
   model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
       finetuned_model.options.append(dropdown.Option(mod["name"]))
+  page.finetuned_model = finetuned_model
   dreambooth_library = Dropdown(label="DreamBooth Library", hint_text="", width=370, options=[], value=prefs['dreambooth_model'], autofocus=False, on_change=changed_dreambooth_library, col={'xs':10, 'md':4})
   for db in dreambooth_models:
       dreambooth_library.options.append(dropdown.Option(db["name"]))
@@ -2717,7 +2719,7 @@ def buildPromptWriter(page):
 magic_prompt_prefs = {
     'seed_prompt': '',
     'seed': 0,
-    'amount': 6,
+    'amount': 8,
     'random_artists': 0,
     'random_styles': 0,
     'permutate_artists': True,
@@ -2788,7 +2790,7 @@ def buildMagicPrompt(page):
 distil_gpt2_prefs = {
     'seed_prompt': '',
     'seed': 0,
-    'amount': 6,
+    'amount': 8,
     'AI_temperature': 0.9,
     'top_k': 8,
     'max_length': 80,
@@ -3655,7 +3657,7 @@ dance_prefs = {
     'where_to_save_model': "Public Library",
     'readme_description': '',
 }
-community_models = [
+community_dance_diffusion_models = [
     #{'name': 'LCD Soundsystem', 'download': 'https://drive.google.com/uc?id=1WX8nL4_x49h0OJE5iGrjXJnIJ0yvsTxI', 'ckpt':'lcd-soundsystem-200k.ckpt'}, #https://huggingface.co/Gecktendo/lcd-soundsystem/
     {'name': 'Daft Punk', 'download': 'https://drive.google.com/uc?id=1CZjWIcL528zbZa6GrS_triob0hUy6KEs', 'ckpt':'daft-punk-241.5k.ckpt'}, #https://huggingface.co/Gecktendo/daft-punk
     {'name': 'Vague Phrases', 'download': 'https://drive.google.com/uc?id=1nUn2qydqU7hlDUT-Skq_Ionte_8-Vdjr', 'ckpt': 'SingingInFepoch=1028-step=195500-pruned.ckpt'}, 
@@ -3794,12 +3796,12 @@ def buildDanceDiffusion(page):
     def changed_model(e):
       dance_prefs['dance_model'] = e.control.value
       if e.control.value == 'Community':
-        community_model.visible = True
-        community_model.update()
+        community_dance_diffusion_model.visible = True
+        community_dance_diffusion_model.update()
       else:
-        if community_model.visible:
-          community_model.visible = False
-          community_model.update()
+        if community_dance_diffusion_model.visible:
+          community_dance_diffusion_model.visible = False
+          community_dance_diffusion_model.update()
       if e.control.value == 'Custom':
         custom_model.visible = True
         custom_model.update()
@@ -3808,12 +3810,15 @@ def buildDanceDiffusion(page):
           custom_model.visible = False
           custom_model.update()
     dance_model = Dropdown(label="Dance Diffusion Model", width=250, options=[dropdown.Option("maestro-150k"), dropdown.Option("glitch-440k"), dropdown.Option("jmann-small-190k"), dropdown.Option("jmann-large-580k"), dropdown.Option("unlocked-250k"), dropdown.Option("honk-140k"), dropdown.Option("gwf-440k"), dropdown.Option("Community"), dropdown.Option("Custom")], value=dance_prefs['dance_model'], on_change=changed_model)
-    community_model = Dropdown(label="Community Model", width=250, options=[], value=dance_prefs['community_model'], on_change=lambda e: changed(e, 'community_model'))
+    community_dance_diffusion_model = Dropdown(label="Community Model", width=250, options=[], value=dance_prefs['community_model'], on_change=lambda e: changed(e, 'community_model'))
+    page.community_dance_diffusion_model = community_dance_diffusion_model
     custom_model = TextField(label="Custom Model Path", value=dance_prefs['custom_model'], on_change=lambda e:changed(e,'custom_model'))
-    for c in community_models:
-      community_model.options.append(dropdown.Option(c['name']))
+    for c in prefs['custom_dance_diffusion_models']:
+      community_dance_diffusion_model.options.append(dropdown.Option(c['name']))
+    for c in community_dance_diffusion_models:
+      community_dance_diffusion_model.options.append(dropdown.Option(c['name']))
     if not dance_prefs['dance_model'] == 'Community':
-      community_model.visible = False
+      community_dance_diffusion_model.visible = False
     if not dance_prefs['dance_model'] == 'Custom':
       custom_model.visible = False
     inference_steps = Slider(min=10, max=200, divisions=190, label="{value}", value=float(dance_prefs['inference_steps']), expand=True)
@@ -3862,7 +3867,7 @@ def buildDanceDiffusion(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("👯 Create experimental music or sounds with HarmonAI trained audio models", "Tools to train a generative model on arbitrary audio samples...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)]),
-        Row([dance_model, community_model, custom_model]),
+        Row([dance_model, community_dance_diffusion_model, custom_model]),
         inference_row,
         number_row,
         Row([train_custom, custom_audio_name], vertical_alignment=CrossAxisAlignment.START),
@@ -6607,7 +6612,7 @@ def buildDeepDaze(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👀  DeepDaze Text-to-Image Generator", "An older method using OpenAI's CLIP and Siren. Made a few years ago but still facinating results....", actions=[IconButton(icon=icons.HELP, tooltip="Help with DeepDaze Settings", on_click=deep_daze_help)]),
+        Header("👀  DeepDaze Text-to-Image Generator", "An alternative method using OpenAI's CLIP and Siren. Made a few years ago but still facinating results....", actions=[IconButton(icon=icons.HELP, tooltip="Help with DeepDaze Settings", on_click=deep_daze_help)]),
         prompt,
         num_layers_row,
         iterations_row,
@@ -8473,6 +8478,211 @@ def buildMubert(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+def buildCustomModelManager(page):
+    global prefs
+    def title_header(title, type):
+        return Row([Text(title, style=TextThemeStyle.BODY_LARGE), 
+                    ft.FilledButton(f"Add {type} Model", on_click=lambda e: add_model(type))], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    def model_tile(name, path, token, type):
+        return ListTile(title=Row([Text(name, weight=FontWeight.BOLD), Text(path), Text(token)], alignment=MainAxisAlignment.SPACE_BETWEEN), data=type, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[PopupMenuItem(icon=icons.EDIT, text="Edit Custom Model", on_click=lambda e: edit_model(e, name), data=type),
+                 PopupMenuItem(icon=icons.DELETE, text="Delete Custom Model", on_click=lambda e: del_model(e, name), data=type)]), on_click=lambda e: edit_model(e, name))
+    def load_customs():
+        #custom_models.controls.append(title_header("Stable Diffusion Finetuned Models", type="Finetuned"))
+        for mod in prefs['custom_models']:
+            token = mod['prefix'] if 'prefix' in mod else ""
+            custom_models.controls.append(model_tile(mod['name'], mod['path'], token, "Finetuned"))
+            #page.custom_models.controls.append(ListTile(title=Row([Text(f".{slash}{dir.rpartition(slash)[2]}", weight=FontWeight.BOLD), Text("")], alignment=MainAxisAlignment.SPACE_BETWEEN), data=dir, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+            #  items=[PopupMenuItem(icon=icons.DELETE, text="Delete Custom Model", on_click=del_model, data=dir)])))
+        #custom_models.update()
+        for mod in prefs['custom_LoRA_models']:
+            token = mod['prefix'] if 'prefix' in mod else ""
+            custom_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], token, "LoRA"))
+        #custom_LoRA_models.update()
+        for mod in prefs['custom_dance_diffusion_models']:
+            token = mod['prefix'] if 'prefix' in mod else ""
+            custom_dance_diffusion_models.controls.append(model_tile(mod['name'], mod['path'], token, "DanceDiffusion"))
+        #custom_dance_diffusion_models.update()
+        for mod in prefs['tortoise_custom_voices']:
+            token = mod['prefix'] if 'prefix' in mod else ""
+            tortoise_custom_voices.controls.append(model_tile(mod['name'], mod['folder'], token, "Tortoise"))
+        #tortoise_custom_voices.update()
+    def model_list(type):
+        if type == "Finetuned":
+            return prefs["custom_models"]
+        elif type == "LoRA":
+            return prefs["custom_LoRA_models"]
+        elif type == "DanceDiffusion":
+            return prefs["custom_dance_diffusion_models"]
+        elif type == "Tortoise":
+            return prefs["tortoise_custom_voices"]
+    def edit_model(e, name):
+        #name = e.control.title.controls[0].value
+        #path = e.control.title.controls[1].value
+        type = e.control.data
+        mod = None
+        for sub in model_list(type):
+            if sub['name'] == name:
+                mod = sub
+                break
+        if mod is None: return
+        path = mod['path' if type != "Tortoise" else 'folder']
+        #print(str(mod))
+        def close_dlg(e):
+            dlg_edit.open = False
+            page.update()
+        def save_model(e):
+            if type == "Finetuned":
+                for m in custom_models.controls:
+                    if m.title.controls[0].value == name:
+                        m.title.controls[0].value = model_name.value
+                        m.title.controls[1].value = model_path.value
+                        m.update()
+            elif type == "LoRA":
+                for m in custom_LoRA_models.controls:
+                    if m.title.controls[0].value == name:
+                        m.title.controls[0].value = model_name.value
+                        m.title.controls[1].value = model_path.value
+                        m.update()
+            elif type == "DanceDiffusion":
+                for m in custom_dance_diffusion_models.controls:
+                    if m.title.controls[0].value == name:
+                        m.title.controls[0].value = model_name.value
+                        m.title.controls[1].value = model_path.value
+                        m.update()
+            elif type == "Tortoise":
+                for m in tortoise_custom_voices.controls:
+                    if m.title.controls[0].value == name:
+                        m.title.controls[0].value = model_name.value
+                        m.title.controls[1].value = model_path.value
+                        m.update()
+            mod['name'] = model_name.value
+            mod['path' if type != "Tortoise" else 'folder'] = model_path.value
+            dlg_edit.open = False
+            e.control.update()
+            page.update()
+        model_name = TextField(label="Custom Model Name", value=name)
+        model_path = TextField(label="Model Path", value=path)
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit {type} Model Info"), content=Container(Column([model_name, model_path], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = dlg_edit
+        dlg_edit.open = True
+        page.update()
+    def add_model(type):
+        mod_list = model_list(type)
+        def close_dlg(e):
+            dlg_edit.open = False
+            page.update()
+        def save_model(e):
+            mod = {'name': model_name.value, 'path': model_path.value}
+            mod_list.append(mod)
+            if type == "Finetuned":
+                custom_models.controls.append(model_tile(mod['name'], mod['path'], "", "Finetuned"))
+                custom_models.update()
+            elif type == "LoRA":
+                custom_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], "", "LoRA"))
+                custom_LoRA_models.update()
+            elif type == "DanceDiffusion":
+                custom_dance_diffusion_models.controls.append(model_tile(mod['name'], mod['path'], "", "DanceDiffusion"))
+                custom_dance_diffusion_models.update()
+            elif type == "Tortoise":
+                tortoise_custom_voices.controls.append(model_tile(mod['name'], mod['folder'], "", "Tortoise"))
+                tortoise_custom_voices.update()
+            dlg_edit.open = False
+            e.control.update()
+            page.update()
+        model_name = TextField(label="Custom Model Name")
+        model_path = TextField(label="Model Path")
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Add Custom {type} Model"), content=Container(Column([model_name, model_path], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = dlg_edit
+        dlg_edit.open = True
+        page.update()
+    def del_model(e, name):
+        type = e.control.data
+        mod_list = model_list(type)
+        for i, sub in enumerate(mod_list):
+            if sub['name'] == name:
+                mod = sub
+                del mod_list[i]
+                break
+        if type == "Finetuned":
+            for i, l in enumerate(custom_models.controls):
+                if l.title.controls[0].value == name:
+                    del custom_models.controls[i]
+                    custom_models.update()
+                    break
+        elif type == "LoRA":
+            for i, l in enumerate(custom_LoRA_models.controls):
+                if l.title.controls[0].value == name:
+                    del custom_LoRA_models.controls[i]
+                    custom_LoRA_models.update()
+                    break
+        elif type == "DanceDiffusion":
+            for i, l in enumerate(custom_dance_diffusion_models.controls):
+                if l.title.controls[0].value == name:
+                    del custom_dance_diffusion_models.controls[i]
+                    custom_dance_diffusion_models.update()
+                    break
+        elif type == "Tortoise":
+            for i, l in enumerate(tortoise_custom_voices.controls):
+                if l.title.controls[0].value == name:
+                    del tortoise_custom_voices.controls[i]
+                    tortoise_custom_voices.update()
+                    break
+        if prefs['enable_sounds']: e.page.snd_delete.play()
+    def update_list(e):
+        page.finetuned_model.options.clear()
+        for cust in model_list("Finetuned"):
+            page.finetuned_model.options.append(dropdown.Option(cust["name"]))
+        for mod in finetuned_models:
+            page.finetuned_model.options.append(dropdown.Option(mod["name"]))
+        try: page.finetuned_model.update()
+        except: pass
+        page.LoRA_model.options.clear()
+        for cust in model_list("LoRA"):
+            page.LoRA_model.options.append(dropdown.Option(cust["name"]))
+        for mod in LoRA_models:
+            page.LoRA_model.options.append(dropdown.Option(mod["name"]))
+        page.LoRA_model.options.append(dropdown.Option("Custom LoRA Path"))
+        try: page.LoRA_model.update()
+        except: pass
+        page.community_dance_diffusion_model.options.clear()
+        for cust in model_list("DanceDiffusion"):
+            page.community_dance_diffusion_model.options.append(dropdown.Option(cust["name"]))
+        for mod in community_dance_diffusion_models:
+            page.community_dance_diffusion_model.options.append(dropdown.Option(mod["name"]))
+        try: page.community_dance_diffusion_model.update()
+        except: pass
+        page.tortoise_voices.controls.clear()
+        for v in tortoise_prefs['voices']:
+            page.tortoise_voices.controls.append(Checkbox(label=v, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+        if len(prefs['tortoise_custom_voices']) > 0:
+            for custom in prefs['tortoise_custom_voices']:
+                page.tortoise_voices.controls.append(Checkbox(label=custom['name'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+        try: page.tortoise_voices.update()
+        except: pass
+        save_settings_file(e.page)
+        if prefs['enable_sounds']: page.snd_drop.play()
+    custom_models = Column([], spacing=0)
+    custom_LoRA_models = Column([], spacing=0)
+    custom_dance_diffusion_models = Column([], spacing=0)
+    tortoise_custom_voices = Column([], spacing=0)
+    load_customs()
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🧧   Manage your Saved Custom Models", "Add or Edit your favorite models from HuggingFace, URL or Local Path"),
+        title_header("Custom Finetuned Models", "Finetuned"),
+        custom_models,
+        title_header("Custom LoRA Models", "LoRA"),
+        custom_LoRA_models,
+        title_header("Custom Tortoise Voice Models", "Tortoise"),
+        tortoise_custom_voices,
+        title_header("Custom Dance Diffusion Models", "DanceDiffusion"),
+        custom_dance_diffusion_models,
+        ElevatedButton(content=Text("🛄  Update Custom Dropdowns", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=update_list),
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
 
 def get_directory_size(directory):
     total = 0
@@ -8758,8 +8968,12 @@ def get_model(name):
     return {'name':'Custom Model', 'path':prefs['custom_model'], 'prefix':''}
   else:
     return {'name':'', 'path':'', 'prefix':''}
+
 def get_finetuned_model(name):
   for mod in finetuned_models:
+      if mod['name'] == name:
+        return mod
+  for mod in prefs['custom_models']:
       if mod['name'] == name:
         return mod
   return {'name':'', 'path':'', 'prefix':''}
@@ -13275,7 +13489,7 @@ def run_dance_diffusion(page):
     if dance_prefs['dance_model'] == 'Community':
       models_path = os.path.join(root_dir, 'dancediffusion_models')
       os.makedirs(models_path, exist_ok=True)
-      for c in community_models:
+      for c in community_dance_diffusion_models:
         if c['name'] == dance_prefs['community_model']:
           community = c
       model_out = os.path.join(models_path, format_filename(community['name'], use_dash=True))
