@@ -414,6 +414,8 @@ status = {
     'installed_upscale': False,
     'installed_xformers': False,
     'finetuned_model': False,
+    'loaded_scheduler': '',
+    'loaded_model': '',
     'changed_settings': False,
     'changed_installers': False,
     'changed_parameters': False,
@@ -847,10 +849,10 @@ def buildSettings(page):
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
   api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
-  Stability_api = TextField(label="Stability.ai API Key", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
-  OpenAI_api = TextField(label="OpenAI API Key", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
-  TextSynth_api = TextField(label="TextSynth API Key", value=prefs['TextSynth_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'TextSynth_api_key'))
-  Replicate_api = TextField(label="Replicate API Key", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Replicate_api_key'))
+  Stability_api = TextField(label="Stability.ai API Key (optional)", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
+  OpenAI_api = TextField(label="OpenAI API Key (optional)", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
+  TextSynth_api = TextField(label="TextSynth API Key (optional)", value=prefs['TextSynth_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'TextSynth_api_key'))
+  Replicate_api = TextField(label="Replicate API Key (optional)", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Replicate_api_key'))
   #save_button = ElevatedButton(content=Text(value="💾  Save Settings", size=20), on_click=save_settings, style=b_style())
   
   c = Column([Container(
@@ -2400,8 +2402,8 @@ def buildPromptsList(page):
   has_changed = False
   prompts_list = Column([],spacing=1)
   page.prompts_list = prompts_list
-  prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, on_submit=add_prompt, col={'lg':9})
-  negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
+  prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, multiline=True, max_lines=5, on_submit=add_prompt, col={'lg':9})
+  negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", multiline=True, max_lines=4, suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
   add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.window_width or page.width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   copy_prompts_button = IconButton(icons.COPY_ALL, tooltip="Save Prompts as Plain-Text List", on_click=copy_prompts)
@@ -4353,8 +4355,8 @@ def buildInstantNGP(page):
     #readme_description = TextField(label="Extra README Description", value=instant_ngp_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
     resolution = Slider(min=256, max=1024, divisions=6, label="{value}px", value=float(instant_ngp_prefs['resolution']), expand=True, on_change=lambda e:changed(e,'resolution', ptype='int'))
     max_row = Row([Text("Max Resolution Size: "), resolution])
-    sharpen = Row([Text(" Shapen Images:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['sharpen'], on_change=lambda e: changed(e, 'sharpen'))])
-    exposure = Row([Text(" Image Exposure:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['exposure'], on_change=lambda e: changed(e, 'exposure'))])
+    sharpen = Row([Text(" Shapen Images:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['sharpen'], on_change=lambda e: changed(e, 'sharpen'))], col={'lg':6})
+    exposure = Row([Text(" Image Exposure:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['exposure'], on_change=lambda e: changed(e, 'exposure'))], col={'lg':6})
     vr_mode = Checkbox(label="Output VR Mode", tooltip="Render to a VR headset", value=instant_ngp_prefs['vr_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'vr_mode'))
     image_path = TextField(label="Image Files or Folder Path or URL to Train", value=instant_ngp_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
@@ -4373,8 +4375,7 @@ def buildInstantNGP(page):
         Header("🎑  Instant Neural Graphics Primitives by NVidia", "Convert series of images into 3D Models with Multiresolution Hash Encoding...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instant NGP Settings", on_click=instant_ngp_help)]),
         Row([name_of_your_model]),
         Row([train_steps, vr_mode]),
-        sharpen,
-        exposure,
+        ResponsiveRow([sharpen, exposure]),
         #Row([save_model, where_to_save_model]),
         #readme_description,
         #Row([class_data_dir]),
@@ -5272,10 +5273,10 @@ def buildMagicMix(page):
     mix_factor_row = Row([Text("Mix Factor: "), mix_factor_value, mix_factor])
     kmin = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['kmin']), tooltip="A higher value of kmin results in more steps for content generation process. Determine the range for the layout and content generation process.", expand=True, on_change=change_kmin)
     kmin_value = Text(f" {magic_mix_prefs['kmin']}", weight=FontWeight.BOLD)
-    kmin_row = Row([Text("k-Min: "), kmin_value, kmin])
+    kmin_row = Row([Text("k-Min: "), kmin_value, kmin], col={'lg':6})
     kmax = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['kmax']), tooltip="A higher value of kmax results in loss of more information about the layout of the original image. Determine the range for the layout and content generation process.", expand=True, on_change=change_kmax)
     kmax_value = Text(f" {magic_mix_prefs['kmax']}", weight=FontWeight.BOLD)
-    kmax_row = Row([Text("k-Max: "), kmax_value, kmax])
+    kmax_row = Row([Text("k-Max: "), kmax_value, kmax], col={'lg':6})
     max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(magic_mix_prefs['max_size']), expand=True, on_change=change_max_size)
     max_size_value = Text(f" {magic_mix_prefs['max_size']}px", weight=FontWeight.BOLD)
     max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
@@ -5304,7 +5305,7 @@ def buildMagicMix(page):
         num_inference_row,
         guidance,
         mix_factor_row,
-        kmin_row, kmax_row,
+        ResponsiveRow([kmin_row, kmax_row]),
         max_row,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=magic_mix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_magic_mix,
@@ -6088,7 +6089,7 @@ def buildDiT(page):
       alert_msg(page, "ImageNET Class List", content=Container(Column([ResponsiveRow(
         controls=classes,
         expand=True,
-      )], scroll="auto", spacing=0), width=(page.window_width or page.width) - 150), okay="That's a lot...", sound=False)
+      )], spacing=0), width=(page.window_width or page.width) - 150), okay="That's a lot...", sound=False)
     def change_num_inference(e):
       changed(e, 'num_inference_steps', ptype="int")
       num_inference_value.value = f" {DiT_prefs['num_inference_steps']}"
@@ -8807,7 +8808,9 @@ finetuned_models = [
     {"name": "Openjourney v2", "path": "prompthero/openjourney-v2", "prefix": ""},
     {"name": "Future Diffusion", "path": "nitrosocke/Future-Diffusion", "prefix": "future style "},
     #{"name": "Anything v3.0", "path": "Linaqruf/anything-v3.0", "prefix": ""},
+    {"name": "Anything v3.0", "path": "ckpt/anything-v3.0", "prefix": ""},
     {"name": "Anything v4.0", "path": "andite/anything-v4.0", "prefix": ""},
+    {"name": "Anything v4.5", "path": "ckpt/anything-v4.5", "prefix": ""},
     {"name": "Analog Diffusion", "path": "wavymulder/Analog-Diffusion", "prefix": "analog style "},
     {"name": "Architecture Diffusers", "path": "rrustom/stable-architecture-diffusers", "prefix": ""},
     {"name": "Arcane", "path":"nitrosocke/Arcane-Diffusion", "prefix":"arcane style "},
@@ -8819,10 +8822,13 @@ finetuned_models = [
     #{"name": "Protogen Infinity", "path": "darkstorm2150/Protogen_Infinity_Official_Release", "prefix": ""},
     #{"name": "Protogen Nova", "path": "darkstorm2150/Protogen_Nova_Official_Release", "prefix": ""},
     {"name": "Protogen Dragon", "path": "darkstorm2150/Protogen_Dragon_Official_Release", "prefix": ""},
+    {"name": "Deliberate", "path": "XpucT/Deliberate", "prefix":""},
+    {"name": "Deliberate 2", "path": "SdValar/deliberate2", "prefix":""},
     {"name": "Elden Ring", "path": "nitrosocke/elden-ring-diffusion", "prefix":"elden ring style "},
     {"name": "Modern Disney", "path": "nitrosocke/mo-di-diffusion", "prefix": "modern disney style "},
     {"name": "Classic Disney", "path": "nitrosocke/classic-anim-diffusion", "prefix": "classic disney style "},
     {"name": "Loving Vincent (Van Gogh)", "path": "dallinmackay/Van-Gogh-diffusion", "prefix": "lvngvncnt "},
+    {"name": "Realistic Vision v1.4", "path": "SG161222/Realistic_Vision_V1.4", "prefix": ""},
     {"name": "Redshift Renderer (Cinema4D)", "path": "nitrosocke/redshift-diffusion", "prefix": "redshift style "},
     {"name": "Waifu Diffusion", "path": "hakurei/waifu-diffusion", "prefix": "", "revision": "fp16"},
     {"name": "Ultima Waifu Diffusion", "path": "AdamOswald1/Ultima-Waifu-Diffusion", "prefix": ""},
@@ -8870,6 +8876,7 @@ finetuned_models = [
     {"name": "effeffIX Architecture", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 architecture "},
     {"name": "Double-Exposure-Diffusion", "path": "joachimsallstrom/Double-Exposure-Diffusion", "prefix": "dublex style "},
     #{"name": "Illuminati Diffusion", "path": "IlluminatiAI/Illuminati_Diffusion_v1.0", "prefix": ""},
+    {"name": "ChillOutMix", "path": "windwhinny/chilloutmix", "prefix": ""},
     {"name": "Colorful-v4.5", "path": "Manseo/Colorful-v4.5", "prefix": ""},
     {"name": "Cool Japan Diffusion", "path": "aipicasso/cool-japan-diffusion-2-1-2-beta", "prefix": ""},
     {"name": "Fantasy Mix", "path": "theintuitiveye/FantasyMix-v1", "prefix": ""},
@@ -9034,7 +9041,12 @@ def get_diffusers(page):
     try:
       import accelerate
     except Exception:
+      page.console_msg("Installing Hugging Face Accelerate Package...")
       run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
+      #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
+      from accelerate.utils import write_basic_config
+      write_basic_config(mixed_precision='fp16')
+      page.console_msg("Installing Hugging Face Diffusers Pipeline...")
       pass
     try:
       import diffusers
@@ -9052,7 +9064,11 @@ def get_diffusers(page):
     except Exception:
       run_process("pip install -qq --upgrade scipy ftfy safetensors", page=page)
       pass
-    run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
+    try:
+      import ipywidgets
+    except Exception:
+      run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
+      pass
     run_process("git config --global credential.helper store", page=page)
     
     from huggingface_hub import notebook_login, HfApi, HfFolder, login
@@ -9309,6 +9325,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
     pb.update()
 
 def optimize_pipe(p, vae=False, unet=False):
+    global prefs, status
     if prefs['memory_optimization'] == 'Attention Slicing':
       #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
       if prefs['sequential_cpu_offload']:
@@ -9330,6 +9347,8 @@ def optimize_pipe(p, vae=False, unet=False):
     if prefs['sequential_cpu_offload']:
       p.enable_sequential_cpu_offload()
     else: p.to(torch_device)
+    status['loaded_scheduler'] = prefs['scheduler_mode']
+    status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
 
 def install_xformers(page):
@@ -9426,6 +9445,14 @@ def get_lpw_pipe():
   #if not os.path.isfile(os.path.join(root_dir, 'lpw_stable_diffusion.py')):
   #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/lpw_stable_diffusion.py")
   #from lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
+  if pipe is not None:
+    if model['path'] != status['loaded_model']:
+      clear_txt2img_pipe()
+    elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+      pipe = pipeline_scheduler(pipe)
+      return pipe
+    else:
+      return pipe
   if prefs['higher_vram_mode']:# or model['name'] == "Stable Diffusion v2.1 x768": #, revision="fp32"
     pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
   else:
@@ -9444,6 +9471,7 @@ def get_lpw_pipe():
   #pipe = pipe.to(torch_device)
   pipe = optimize_pipe(pipe, vae=True)
   pipe.set_progress_bar_config(disable=True)
+  print(f"Pipeline Model: {pipe.config}")
   return pipe
 
 def get_txt2img_pipe():
@@ -9506,6 +9534,14 @@ def get_interpolation_pipe():
       run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/interpolate_stable_diffusion.py")
     from interpolate_stable_diffusion import StableDiffusionWalkPipeline
     model = get_model(prefs['model_ckpt'])
+    if pipe_interpolation is not None:
+      if model['path'] != status['loaded_model']:
+        clear_interpolation_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_interpolation = pipeline_scheduler(pipe_interpolation)
+        return pipe_interpolation
+      else:
+        return pipe_interpolation
     if prefs['higher_vram_mode']:
       pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
@@ -9528,11 +9564,13 @@ def get_image2image(page):
       page.launch_url(e.data)
     torch_device = "cuda" if torch.cuda.is_available() else "cpu"
     if pipe_img2img is not None:
-      #print("Clearing the ol' pipe first...")
-      del pipe_img2img
-      gc.collect()
-      torch.cuda.empty_cache()
-      pipe_img2img = None
+      if model['path'] != status['loaded_model']:
+        clear_img2img_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_img2img = pipeline_scheduler(pipe_img2img)
+        return pipe_img2img
+      else:
+        return pipe_img2img
     try:
       pipe_img2img = get_img2img_pipe()
     except EnvironmentError:
@@ -9545,7 +9583,12 @@ def get_img2img_pipe():
   global pipe_img2img, scheduler, model_path, inpaint_model, prefs, callback_fn
   from diffusers import DiffusionPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-  
+  if pipe_img2img is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_img2img = pipeline_scheduler(pipe_img2img)
+        return pipe_img2img
+      else:
+        return pipe_img2img
   if prefs['higher_vram_mode']:
     pipe_img2img = DiffusionPipeline.from_pretrained(
         inpaint_model,
@@ -9573,10 +9616,6 @@ def get_img2img_pipe():
 
 def get_imagic(page):
     global pipe_imagic
-    if pipe_imagic is not None:
-        del pipe_imagic
-        gc.collect()
-        torch.cuda.empty_cache()
     pipe_imagic = get_imagic_pipe()
 
 def get_imagic_pipe():
@@ -9585,6 +9624,14 @@ def get_imagic_pipe():
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   #ddim = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
   #if prefs['higher_vram_mode']:
+  if pipe_imagic is not None:
+      if model_path != status['loaded_model']:
+        clear_imagic_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_imagic = pipeline_scheduler(pipe_imagic)
+        return pipe_imagic
+      else:
+        return pipe_imagic
   if True:
     pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   else:
@@ -9600,17 +9647,20 @@ def get_imagic_pipe():
 
 def get_composable(page):
     global pipe_composable
-    if pipe_composable is not None:
-        del pipe_composable
-        gc.collect()
-        torch.cuda.empty_cache()
     pipe_composable = get_composable_pipe()
 
 def get_composable_pipe():
   global pipe_composable, scheduler, model_path, prefs
   from diffusers import DiffusionPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-  
+  if pipe_composable is not None:
+      if model_path != status['loaded_model']:
+        clear_composable_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_composable = pipeline_scheduler(pipe_composable)
+        return pipe_composable
+      else:
+        return pipe_composable
   #if prefs['higher_vram_mode']:
   if True:
     pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, feature_extractor=None, safety_checker=None)
@@ -9642,6 +9692,12 @@ def get_versatile_pipe(): # Mega was taking up too much vram and crashing the sy
   from diffusers import VersatileDiffusionPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   model_id = "shi-labs/versatile-diffusion"
+  if pipe_composable is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_composable = pipeline_scheduler(pipe_composable)
+        return pipe_composable
+      else:
+        return pipe_composable
   if prefs['higher_vram_mode']:
     pipe_versatile = VersatileDiffusionPipeline.from_pretrained(
         model_id,
@@ -9668,6 +9724,12 @@ def get_versatile_text2img_pipe():
   from diffusers import VersatileDiffusionTextToImagePipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   model_id = "shi-labs/versatile-diffusion"
+  if pipe_versatile_text2img is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_versatile_text2img = pipeline_scheduler(pipe_versatile_text2img)
+        return pipe_versatile_text2img
+      else:
+        return pipe_versatile_text2img
   if prefs['higher_vram_mode']:
     pipe_versatile_text2img = VersatileDiffusionTextToImagePipeline.from_pretrained(
         model_id,
@@ -9694,6 +9756,12 @@ def get_versatile_variation_pipe():
   from diffusers import VersatileDiffusionImageVariationPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   model_id = "shi-labs/versatile-diffusion"
+  if pipe_versatile_variation is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_versatile_variation = pipeline_scheduler(pipe_versatile_variation)
+        return pipe_versatile_variation
+      else:
+        return pipe_versatile_variation
   if prefs['higher_vram_mode']:
     pipe_versatile_variation = VersatileDiffusionImageVariationPipeline.from_pretrained(
         model_id,
@@ -9720,6 +9788,12 @@ def get_versatile_dualguided_pipe():
   from diffusers import VersatileDiffusionDualGuidedPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   model_id = "shi-labs/versatile-diffusion"
+  if pipe_versatile_dualguided is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_versatile_dualguided = pipeline_scheduler(pipe_versatile_dualguided)
+        return pipe_versatile_dualguided
+      else:
+        return pipe_versatile_dualguided
   if prefs['higher_vram_mode']:
     pipe_versatile_dualguided = VersatileDiffusionDualGuidedPipeline.from_pretrained(
         model_id,
@@ -9746,12 +9820,6 @@ def get_safe(page):
     global pipe_safe
     def open_url(e):
       page.launch_url(e.data)
-    if pipe_safe is not None:
-      #print("Clearing the ol' pipe first...")
-      del pipe_safe
-      gc.collect()
-      torch.cuda.empty_cache()
-      pipe_safe = None
     try:
       pipe_safe = get_safe_pipe()
     except Exception as er:
@@ -9766,6 +9834,12 @@ def get_safe_pipe():
   #from diffusers.pipelines.safety_checker import SafeStableDiffusionPipelineSafe
   #from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   model_id = "AIML-TUDA/stable-diffusion-safe"
+  if pipe_safe is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_safe = pipeline_scheduler(pipe_safe)
+        return pipe_safe
+      else:
+        return pipe_safe
   #if prefs['higher_vram_mode']:
   if True:
     pipe_safe = StableDiffusionPipelineSafe.from_pretrained(
@@ -9790,14 +9864,21 @@ def get_safe_pipe():
 
 def get_SAG(page):
   global pipe_SAG
-  clear_SAG_pipe()
+  #clear_SAG_pipe()
   pipe_SAG = get_SAG_pipe()
 
 def get_SAG_pipe():
   global pipe_SAG, scheduler, model_path, prefs
   from diffusers import StableDiffusionSAGPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-  
+  if pipe_SAG is not None:
+      if model_path != status['loaded_model']:
+        clear_SAG_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_SAG = pipeline_scheduler(pipe_SAG, big3=True)
+        return pipe_SAG
+      else:
+        return pipe_SAG
   if prefs['higher_vram_mode']:
     pipe_SAG = StableDiffusionSAGPipeline.from_pretrained(
         model_path,
@@ -9818,14 +9899,21 @@ def get_SAG_pipe():
 
 def get_attend_and_excite(page):
   global pipe_attend_and_excite
-  clear_attend_and_excite_pipe()
+  #clear_attend_and_excite_pipe()
   pipe_attend_and_excite = get_attend_and_excite_pipe()
 
 def get_attend_and_excite_pipe():
   global pipe_attend_and_excite, scheduler, model_path, prefs
   from diffusers import StableDiffusionAttendAndExcitePipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-  
+  if pipe_attend_and_excite is not None:
+      if model_path != status['loaded_model']:
+        clear_attend_and_excite_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_attend_and_excite = pipeline_scheduler(pipe_attend_and_excite)
+        return pipe_attend_and_excite
+      else:
+        return pipe_attend_and_excite
   if prefs['higher_vram_mode']:
     pipe_attend_and_excite = StableDiffusionAttendAndExcitePipeline.from_pretrained(
         model_path,
@@ -9846,14 +9934,21 @@ def get_attend_and_excite_pipe():
 
 def get_panorama(page):
   global pipe_panorama
-  clear_panorama_pipe()
+  #clear_panorama_pipe()
   pipe_panorama = get_panorama_pipe()
 
 def get_panorama_pipe():
   global pipe_panorama, scheduler, model_path, prefs
   from diffusers import StableDiffusionPanoramaPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-  
+  if pipe_panorama is not None:
+      if model_path != status['loaded_model']:
+        clear_panorama_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_panorama = pipeline_scheduler(pipe_panorama)
+        return pipe_panorama
+      else:
+        return pipe_panorama
   if prefs['higher_vram_mode']:
     pipe_panorama = StableDiffusionPanoramaPipeline.from_pretrained(
         model_path,
@@ -9889,6 +9984,12 @@ def get_upscale_pipe():
   global pipe_upscale, scheduler, prefs
   from diffusers import StableDiffusionUpscalePipeline
   model_id = "stabilityai/stable-diffusion-x4-upscaler"
+  if pipe_upscale is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_upscale = pipeline_scheduler(pipe_upscale, big3=True)
+        return pipe_upscale
+      else:
+        return pipe_upscale
   if prefs['higher_vram_mode']:
     pipe_upscale = StableDiffusionUpscalePipeline.from_pretrained(
         model_id,
@@ -9912,28 +10013,21 @@ def get_upscale_pipe():
 
 def get_clip(page):
     global pipe_clip_guided, model_path
-    #os.chdir(root_dir)
-    #if not os.path.isfile(os.path.join(root_dir, 'clip_guided_stable_diffusion.py')):
-    #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/c16761e9d94a3374710110ba5e3087cb9f8ba906/examples/community/clip_guided_stable_diffusion.py")
-    #from clip_guided_stable_diffusion import *
-
-    if pipe_clip_guided is not None:
-        #print("Clearing out old CLIP Guided pipeline before reloading.")
-        del pipe_clip_guided
-        gc.collect()
-        torch.cuda.empty_cache()
     pipe_clip_guided = get_clip_guided_pipe()
 
 def get_clip_guided_pipe():
-    global pipe_clip_guided, scheduler_clip, prefs
+    global pipe_clip_guided, scheduler_clip, prefs, model_path
     from diffusers import DiffusionPipeline
     from diffusers import LMSDiscreteScheduler, PNDMScheduler, StableDiffusionPipeline
     from transformers import CLIPModel, CLIPFeatureExtractor #, CLIPGuidedStableDiffusion
-    '''pipeline = StableDiffusionPipeline.from_pretrained(
-        model_path,
-        torch_dtype=torch.float16,
-        revision="fp16",
-    )'''
+    if pipe_clip_guided is not None:
+      if model_path != status['loaded_model']:
+        clear_clip_guided_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_clip_guided = pipeline_scheduler(pipe_clip_guided, big3=True)
+        return pipe_clip_guided
+      else:
+        return pipe_clip_guided
     if isinstance(scheduler, LMSDiscreteScheduler) or isinstance(scheduler, PNDMScheduler):
       scheduler_clip = scheduler
     else:
@@ -9974,11 +10068,6 @@ def get_clip_guided_pipe():
 
 def get_repaint(page):
     global pipe_repaint
-    if pipe_repaint is not None:
-        #print("Clearing out old CLIP Guided pipeline before reloading.")
-        del pipe_repaint
-        gc.collect()
-        torch.cuda.empty_cache()
     pipe_repaint = get_repaint_pipe()
 
 def get_repaint_pipe():
@@ -10000,6 +10089,12 @@ def get_depth_pipe():
   global pipe_depth, prefs
   from diffusers import StableDiffusionDepth2ImgPipeline
   model_id = "stabilityai/stable-diffusion-2-depth"
+  if pipe_depth is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_depth = pipeline_scheduler(pipe_depth)
+        return pipe_depth
+      else:
+        return pipe_depth
   if prefs['higher_vram_mode']:
     pipe_depth = StableDiffusionDepth2ImgPipeline.from_pretrained(
         model_id,
@@ -10030,6 +10125,12 @@ def get_alt_diffusion_pipe():
     from diffusers import AltDiffusionPipeline, StableDiffusionPipeline
     #from diffusers.pipelines.alt_diffusion.modeling_roberta_series import (RobertaSeriesConfig, RobertaSeriesModelWithTransformation)
     model_id = "BAAI/AltDiffusion-m9"
+    if pipe_alt_diffusion is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_alt_diffusion = pipeline_scheduler(pipe_alt_diffusion)
+        return pipe_alt_diffusion
+      else:
+        return pipe_alt_diffusion
     if prefs['higher_vram_mode']:
       pipe_alt_diffusion = StableDiffusionPipeline.from_pretrained(
           model_id,
@@ -10054,10 +10155,6 @@ def get_alt_diffusion_pipe():
 
 def get_alt_diffusion_img2img(page):
     global pipe_alt_diffusion_img2img
-    if pipe_alt_diffusion_img2img is not None:
-        del pipe_alt_diffusion_img2img
-        gc.collect()
-        torch.cuda.empty_cache()
     pipe_alt_diffusion_img2img = get_alt_diffusion_img2img_pipe()
 
 def get_alt_diffusion_img2img_pipe():
@@ -10065,6 +10162,12 @@ def get_alt_diffusion_img2img_pipe():
     from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
     from diffusers import AltDiffusionImg2ImgPipeline, StableDiffusionImg2ImgPipeline
     model_id = "BAAI/AltDiffusion-m9"
+    if pipe_alt_diffusion_img2img is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_alt_diffusion_img2img = pipeline_scheduler(pipe_alt_diffusion_img2img)
+        return pipe_alt_diffusion_img2img
+      else:
+        return pipe_alt_diffusion_img2img
     if prefs['higher_vram_mode']:
       pipe_alt_diffusion_img2img = StableDiffusionImg2ImgPipeline.from_pretrained(
           model_id,
@@ -10309,6 +10412,13 @@ def clear_depth_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_depth = None
+def clear_interpolation_pipe():
+  global pipe_interpolation
+  if pipe_interpolation is not None:
+    del pipe_interpolation
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_interpolation = None
 def clear_safe_pipe():
   global pipe_safe
   if pipe_safe is not None:
@@ -10485,6 +10595,7 @@ def clear_pipes(allbut=None):
     if not 'versatile_variation' in but: clear_versatile_variation_pipe()
     if not 'versatile_dualguided' in but: clear_versatile_dualguided_pipe()
     if not 'depth' in but: clear_depth_pipe()
+    if not 'interpolation' in but: clear_interpolation_pipe()
     if not 'safe' in but: clear_safe_pipe()
     if not 'upscale' in but: clear_upscale_pipe()
     if not 'unCLIP' in but: clear_unCLIP_pipe()
@@ -10508,6 +10619,7 @@ def clear_pipes(allbut=None):
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
+    torch.cuda.ipc_collect()
     torch.cuda.reset_peak_memory_stats()
 
 import base64
@@ -17534,7 +17646,7 @@ def run_instruct_pix2pix(page, from_list=False):
             #num += 1
     if prefs['enable_sounds']: page.snd_alert.play()
 
-def run_controlnet(page):
+def run_controlnet(page, from_list=False):
     global controlnet_prefs, prefs, status
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
@@ -19102,6 +19214,7 @@ def main(page: Page):
           #import keyboard
           #keyboard.press_and_release('ctrl+w')
           #time.sleep(1.5)
+          close_tab()
           from google.colab import runtime
           runtime.unassign()
           #import time
@@ -19441,7 +19554,8 @@ if bool(public_url):
         time.sleep(0.7)
         clear_output()
     print("\nOpen URL in browser to launch app in tab: " + str(public_url))
-
+def close_tab():
+  display(Javascript("window.close('', '_parent', '');"))
 #await google.colab.kernel.proxyPort(%s)
 # Still not working to display app in Colab console, but tried.
 def show_port(adr, height=500):
