@@ -1054,7 +1054,7 @@ def buildInstallers(page):
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
   model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
-  memory_optimization = Dropdown(label="Enable Memory Optimization", width=350, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
+  memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
   sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
@@ -1127,8 +1127,9 @@ def buildInstallers(page):
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
                                  Column([Container(Column([Container(None, height=3), model_row, Container(content=None, height=4), scheduler_mode,
-                                 memory_optimization,#  enable_vae_slicing
-                                 higher_vram_mode, 
+                                 Row([memory_optimization,
+                                 higher_vram_mode]), 
+                                 #  enable_vae_slicing
                                  #enable_attention_slicing,
                                  #sequential_cpu_offload,
                                  ]), padding=padding.only(left=32, top=4)),
@@ -2048,14 +2049,15 @@ def editPrompt(e):
     tweening_params = Container(Row([Container(content=None, width=8), prompt2, tweens]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     tweening_params.height = None if prompt_tweening else 0
     #tweening_row = Row([use_prompt_tweening, ])#tweening_params
-
-    batch_size = TextField(label="Batch Size", value=str(arg['batch_size']), keyboard_type=KeyboardType.NUMBER)
-    n_iterations = TextField(label="Number of Iterations", value=str(arg['n_iterations']), keyboard_type=KeyboardType.NUMBER)
+    batch_size = NumberPicker(label="Batch Size: ", min=1, max=10, value=arg['batch_size'])
+    n_iterations = NumberPicker(label="Number of Iterations: ", min=1, max=30, value=arg['n_iterations'])
+    #batch_size = TextField(label="Batch Size", value=str(arg['batch_size']), keyboard_type=KeyboardType.NUMBER)
+    #n_iterations = TextField(label="Number of Iterations", value=str(arg['n_iterations']), keyboard_type=KeyboardType.NUMBER)
     steps = TextField(label="Steps", value=str(arg['steps']), keyboard_type=KeyboardType.NUMBER)
     eta = TextField(label="DDIM ETA", value=str(arg['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise (only with DDIM sampler)")
     seed = TextField(label="Seed", value=str(arg['seed']), keyboard_type=KeyboardType.NUMBER, hint_text="0 or -1 picks a Random seed")
     guidance_scale = TextField(label="Guidance Scale", value=str(arg['guidance_scale']), keyboard_type=KeyboardType.NUMBER)
-    param_columns = Row([Column([batch_size, n_iterations, steps]), Column([guidance_scale, seed, eta])])
+    param_columns = Row([Column([steps, seed, batch_size]), Column([guidance_scale, eta, n_iterations])])
     #guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=arg['guidance_scale'], expand=True)
     #guidance = Row([Text("Guidance Scale: "), guidance_scale])
     width = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['width']), expand=True, on_change=change_width)
@@ -17710,11 +17712,12 @@ def run_controlnet(page, from_list=False):
     from PIL.PngImagePlugin import PngInfo
     try:
         run_sp("pip install opencv-contrib-python==4.3.0.36", realtime=False)
-        run_sp("pip install pytorch-lightning==1.5.0", realtime=False)
+        run_sp("pip install torchtext", realtime=False)
+        run_sp("pip install pytorch-lightning==1.9.0", realtime=False)
         run_sp("pip install einops", realtime=False)
         run_sp("pip install open_clip_torch==2.0.2", realtime=False)
         run_sp("pip install omegaconf==2.1.1", realtime=False)
-        run_sp("pip install timm", realtime=False)
+        run_sp("pip install timm==0.6.12", realtime=False)
         run_sp("pip install addict==2.4.0", realtime=False)
         run_sp("pip install yapf==0.32.0", realtime=False)
         run_sp("pip install scikit-image", realtime=False)
@@ -19214,7 +19217,8 @@ def main(page: Page):
           #import keyboard
           #keyboard.press_and_release('ctrl+w')
           #time.sleep(1.5)
-          close_tab()
+          #close_tab()
+          page.window_close()
           from google.colab import runtime
           runtime.unassign()
           #import time
