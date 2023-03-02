@@ -323,9 +323,10 @@ def load_settings_file():
           'amount': 10,
           'random_artists': 2,
           'random_styles': 1,
-          'permutate_artists': False,
+          'permutate_artists': True,
           'request_mode': 3,
           'AI_temperature': 0.9,
+          'AI_engine': "OpenAI GPT-3",
           'economy_mode': True,
       },
       'prompt_remixer': {
@@ -334,9 +335,10 @@ def load_settings_file():
           'amount': 10,
           'random_artists': 2,
           'random_styles': 1,
-          'permutate_artists': False,
+          'permutate_artists': True,
           'request_mode': 3,
           'AI_temperature': 0.9,
+          'AI_engine': "OpenAI GPT-3",
       },
       'prompt_brainstormer': {
           'AI_engine': 'OpenAI GPT-3',
@@ -352,7 +354,7 @@ def load_settings_file():
           'amount': 10,
           'random_artists': 2,
           'random_styles': 1,
-          'permutate_artists': False,
+          'permutate_artists': True,
       },
     }
 if prefs == {}:
@@ -746,6 +748,8 @@ if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
+if 'AI_engine' not in prefs['prompt_generator']: prefs['prompt_generator']['AI_engine'] = 'OpenAI GPT-3'
+if 'AI_engine' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AI_engine'] = 'OpenAI GPT-3'
 
 def initState(page):
     global status, current_tab
@@ -933,7 +937,9 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None):
       page.alert_dlg = AlertDialog(title=Text(msg), content=Column([content], scroll=ScrollMode.AUTO), actions=[okay], actions_alignment=MainAxisAlignment.END)
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
-      page.update()
+      try:
+        page.update()
+      except Exception: pass
 
 def save_installers(controls):
   for c in controls:
@@ -2485,7 +2491,7 @@ def buildPromptGenerator(page):
       if prefs['enable_sounds']: page.snd_delete.play()
       page.prompt_generator_list.controls = []
       page.prompt_generator_list.update()
-      prompts = []
+      #prompts = []
       generator_list_buttons.visible = False
       generator_list_buttons.update()
     def changed_request(e):
@@ -2493,6 +2499,7 @@ def buildPromptGenerator(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -2511,11 +2518,12 @@ def buildPromptGenerator(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_generator']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
+        AI_engine,
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
         ]),
-        ElevatedButton(content=Text("💭   Generate Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=click_prompt_generator),
+        ElevatedButton(content=Text("💭   Generate Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda e: run_prompt_generator(page)),
         page.prompt_generator_list,
         generator_list_buttons,
       ],
@@ -2537,7 +2545,7 @@ def buildPromptRemixer(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_prompt_remixer(p):
-      page.prompt_remixer_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.prompt_remixer_list.controls.append(ListTile(title=Text(p, max_lines=4, style=TextThemeStyle.BODY_LARGE), dense=True, data=p, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_remixer_list.update()
       remixer_list_buttons.visible = True
       remixer_list_buttons.update()
@@ -2545,7 +2553,7 @@ def buildPromptRemixer(page):
     def add_to_list(e):
       if prefs['enable_sounds']: page.snd_drop.play()
       for p in page.prompt_remixer_list.controls:
-        page.add_to_prompts(p.title.value)
+        page.add_to_prompts(p.data)#(p.title.value)
     def clear_prompts(e):
       if prefs['enable_sounds']: page.snd_delete.play()
       page.prompt_remixer_list.controls = []
@@ -2557,6 +2565,7 @@ def buildPromptRemixer(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -2575,11 +2584,12 @@ def buildPromptRemixer(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
+        AI_engine,
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
         ]),
-        ElevatedButton(content=Text("🍹   Remix Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=click_prompt_remixer),
+        ElevatedButton(content=Text("🍹   Remix Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda e: run_prompt_remixer(page)),
         page.prompt_remixer_list,
         remixer_list_buttons,
       ],
@@ -2640,7 +2650,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", 
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -2843,7 +2853,8 @@ def buildDistilGPT2(page):
       distil_list_buttons.update()
     AI_temperature = Row([Text("AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, tooltip="The value used to module the next token probabilities", value=distil_gpt2_prefs['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6})
     top_k = Row([Text("Top-K Samples:"), Slider(label="{value}", min=0, max=50, divisions=50, expand=True, tooltip="Number of highest probability vocabulary tokens to keep for top-k-filtering", value=distil_gpt2_prefs['top_k'], on_change=lambda e: changed(e, 'top_k'))], col={'lg':6})
-    max_length = Row([Text("Max Length:"), Slider(label="{value}", min=0, max=1024, divisions=1024, expand=True, tooltip="The maximum length the generated tokens can have. Corresponds to the length of the input prompt + max_new_tokens.", value=distil_gpt2_prefs['max_length'], on_change=lambda e: changed(e, 'max_length', ptype="int"))], col={'lg':6})
+    #max_length = Row([Text("Max Length:"), Slider(label="{value}", min=0, max=1024, divisions=1024, expand=True, tooltip="The maximum length the generated tokens can have. Corresponds to the length of the input prompt + max_new_tokens.", value=distil_gpt2_prefs['max_length'], on_change=lambda e: changed(e, 'max_length', ptype="int"))], col={'lg':6})
+    max_length = SliderRow(label="Max Length", min=0, max=1024, divisions=1024, pref=distil_gpt2_prefs, key='max_length')
     repetition_penalty = Row([Text("Repetition Penalty:"), Slider(label="{value}", min=1.0, max=3.0, divisions=20, expand=True, tooltip="Penalizes repetition by discounting the scores of previously generated tokens", value=distil_gpt2_prefs['repetition_penalty'], on_change=lambda e: changed(e, 'repetition_penalty'))], col={'lg':6})
     penalty_alpha = Row([Text("Penalty Alpha:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, tooltip="The degeneration penalty for contrastive search; activate when it is larger than 0", value=distil_gpt2_prefs['penalty_alpha'], on_change=lambda e: changed(e, 'penalty_alpha', ptype="float"))], col={'lg':6})
     no_repeat_ngram_size = Row([Text("No Repeat NGRAM Size:"), Slider(label="{value}", min=0, max=50, expand=True, divisions=50, tooltip="If set > 0, all ngrams of that size can only occur once. 0 adds more commas.", value=distil_gpt2_prefs['no_repeat_ngram_size'], on_change=lambda e: changed(e, 'no_repeat_ngram_size', ptype="int"))], col={'lg':6})
@@ -9092,11 +9103,11 @@ def get_diffusers(page):
     #elif prefs['model_ckpt'] == "Stable Diffusion v1.4": model_path =  "CompVis/stable-diffusion-v1-4"
     model = get_model(prefs['model_ckpt'])
     model_path = model['path']
-    try:
-      scheduler = model_scheduler(model_path)
-    except Exception as e:
-      alert_msg(page, f"ERROR: {prefs['scheduler_mode']} Scheduler couldn't load for {model_path}", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
-      pass
+    #try:
+    #  scheduler = model_scheduler(model_path)
+    #except Exception as e:
+    #  alert_msg(page, f"ERROR: {prefs['scheduler_mode']} Scheduler couldn't load for {model_path}", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+    #  pass
     status['finetuned_model'] = False if model['name'].startswith("Stable") else True
     
 
@@ -9277,7 +9288,7 @@ def pipeline_scheduler(p, big3=False):
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_config(p.scheduler.config)
     p.scheduler = s
-    return s
+    return p
 #if is_Colab:
 #    os.remove("/usr/local/lib/python3.8/dist-packages/torch/lib/libcudnn.so.8")
 #    download_file("https://github.com/Skquark/diffusers/blob/main/utils/libcudnn.so.8?raw=true", to="/usr/local/lib/python3.8/dist-packages/torch/lib/")
@@ -9427,12 +9438,13 @@ def get_mega_pipe():
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   
   if prefs['higher_vram_mode']:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="stable_diffusion_mega", scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="stable_diffusion_mega", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   else:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="stable_diffusion_mega", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="stable_diffusion_mega", revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #pipe = pipe.to(torch_device)
+  pipe = pipeline_scheduler(pipe)
   pipe = optimize_pipe(pipe)
   pipe.set_progress_bar_config(disable=True)
   return pipe
@@ -9456,24 +9468,24 @@ def get_lpw_pipe():
     else:
       return pipe
   if prefs['higher_vram_mode']:# or model['name'] == "Stable Diffusion v2.1 x768": #, revision="fp32"
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
   else:
     if 'revision' in model:
-      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
     else:
       if 'vae' in model:
         from diffusers import AutoencoderKL, UNet2DConditionModel
         vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
         unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16)
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
       else:
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
+  pipe = pipeline_scheduler(pipe)
   pipe = optimize_pipe(pipe, vae=True)
   pipe.set_progress_bar_config(disable=True)
-  print(f"Pipeline Model: {pipe.config}")
   return pipe
 
 def get_txt2img_pipe():
@@ -9545,15 +9557,16 @@ def get_interpolation_pipe():
       else:
         return pipe_interpolation
     if prefs['higher_vram_mode']:
-      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     else:
       if 'revision' in model:
-        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       else:
-        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe_interpolation = pipe_interpolation.to(torch_device)
+    pipe_interpolation = pipeline_scheduler(pipe_interpolation)
     pipe_interpolation = optimize_pipe(pipe_interpolation)
     pipe_interpolation.set_progress_bar_config(disable=True)
     return pipe_interpolation
@@ -9595,7 +9608,7 @@ def get_img2img_pipe():
     pipe_img2img = DiffusionPipeline.from_pretrained(
         inpaint_model,
         custom_pipeline="img2img_inpainting",
-        scheduler=model_scheduler(inpaint_model),
+        #scheduler=model_scheduler(inpaint_model),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
@@ -9603,13 +9616,14 @@ def get_img2img_pipe():
       pipe_img2img = DiffusionPipeline.from_pretrained(
       inpaint_model,
       custom_pipeline="img2img_inpainting",
-      scheduler=model_scheduler(inpaint_model),
+      #scheduler=model_scheduler(inpaint_model),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       revision="fp16", 
       torch_dtype=torch.float16,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   #pipe_img2img.to(torch_device)
   #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
+  pipe_img2img = pipeline_scheduler(pipe_img2img)
   pipe_img2img = optimize_pipe(pipe_img2img, vae=True)
   pipe_img2img.set_progress_bar_config(disable=True)
   #def dummy(images, **kwargs): return images, False
@@ -9635,14 +9649,15 @@ def get_imagic_pipe():
       else:
         return pipe_imagic
   if True:
-    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", use_auth_token=True, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   else:
-    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   #pipe_imagic = pipe_imagic.to(torch_device)
   def dummy(images, **kwargs):
     return images, False
   if prefs['disable_nsfw_filter']:
     pipe_imagic.safety_checker = dummy
+  pipe_imagic = pipeline_scheduler(pipe_imagic, big3=True)
   pipe_imagic = optimize_pipe(pipe_imagic)
   #pipe_imagic.set_progress_bar_config(disable=True)
   return pipe_imagic
@@ -9659,20 +9674,21 @@ def get_composable_pipe():
       if model_path != status['loaded_model']:
         clear_composable_pipe()
       elif prefs['scheduler_mode'] != status['loaded_scheduler']:
-        pipe_composable = pipeline_scheduler(pipe_composable)
+        pipe_composable = pipeline_scheduler(pipe_composable, big3=True)
         return pipe_composable
       else:
         return pipe_composable
   #if prefs['higher_vram_mode']:
   if True:
-    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), use_auth_token=True, feature_extractor=None, safety_checker=None)
+    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", use_auth_token=True, feature_extractor=None, safety_checker=None)
   else:
-    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", scheduler=model_scheduler(model_path, big3=True), revision="fp16", torch_dtype=torch.float16, feature_extractor=None, safety_checker=None)
+    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", revision="fp16", torch_dtype=torch.float16, feature_extractor=None, safety_checker=None)
   #pipe_composable = pipe_composable.to(torch_device)
   def dummy(images, **kwargs):
     return images, False
   if prefs['disable_nsfw_filter']:
     pipe_composable.safety_checker = dummy
+  pipe_composable = pipeline_scheduler(pipe_composable, big3=True)
   pipe_composable = optimize_pipe(pipe_composable)
   #pipe_composable.set_progress_bar_config(disable=True)
   return pipe_composable
@@ -9703,20 +9719,21 @@ def get_versatile_pipe(): # Mega was taking up too much vram and crashing the sy
   if prefs['higher_vram_mode']:
     pipe_versatile = VersatileDiffusionPipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   else:
     pipe_versatile = VersatileDiffusionPipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         #revision="fp16", 
         torch_dtype=torch.float16,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   #pipe_versatile.to(torch_device)
+  pipe_versatile = pipeline_scheduler(pipe_versatile)
   pipe_versatile = optimize_pipe(pipe_versatile)
   pipe_versatile.set_progress_bar_config(disable=True)
   return pipe_versatile
@@ -9735,20 +9752,21 @@ def get_versatile_text2img_pipe():
   if prefs['higher_vram_mode']:
     pipe_versatile_text2img = VersatileDiffusionTextToImagePipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   else:
     pipe_versatile_text2img = VersatileDiffusionTextToImagePipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         #revision="fp16", 
         torch_dtype=torch.float16,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   #pipe_versatile_text2img.to(torch_device)
+  pipe_versatile_text2img = pipeline_scheduler(pipe_versatile_text2img)
   pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img)
   pipe_versatile_text2img.set_progress_bar_config(disable=True)
   return pipe_versatile_text2img
@@ -9767,20 +9785,21 @@ def get_versatile_variation_pipe():
   if prefs['higher_vram_mode']:
     pipe_versatile_variation = VersatileDiffusionImageVariationPipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   else:
     pipe_versatile_variation = VersatileDiffusionImageVariationPipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         #revision="fp16", 
         torch_dtype=torch.float16,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   #pipe_versatile_variation.to(torch_device)
+  pipe_versatile_variation = pipeline_scheduler(pipe_versatile_variation)
   pipe_versatile_variation = optimize_pipe(pipe_versatile_variation)
   pipe_versatile_variation.set_progress_bar_config(disable=True)
   return pipe_versatile_variation
@@ -9799,20 +9818,21 @@ def get_versatile_dualguided_pipe():
   if prefs['higher_vram_mode']:
     pipe_versatile_dualguided = VersatileDiffusionDualGuidedPipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   else:
     pipe_versatile_dualguided = VersatileDiffusionDualGuidedPipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         #revision="fp16", 
         torch_dtype=torch.float16,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   #pipe_versatile_dualguided.to(torch_device)
+  pipe_versatile_dualguided = pipeline_scheduler(pipe_versatile_dualguided)
   pipe_versatile_dualguided = optimize_pipe(pipe_versatile_dualguided)
   pipe_versatile_dualguided.set_progress_bar_config(disable=True)
   return pipe_versatile_dualguided
@@ -9846,20 +9866,21 @@ def get_safe_pipe():
   if True:
     pipe_safe = StableDiffusionPipelineSafe.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None# if prefs['disable_nsfw_filter'] else SafeStableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
     )
   else:
       pipe_safe = StableDiffusionPipelineSafe.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         revision="fp16", 
         torch_dtype=torch.float16,
         safety_checker=None# if prefs['disable_nsfw_filter'] else SafeStableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
       )
   #pipe_safe.to(torch_device)
+  pipe_safe = pipeline_scheduler(pipe_safe)
   pipe_safe = optimize_pipe(pipe_safe)
   pipe_safe.set_progress_bar_config(disable=True)
   return pipe_safe
@@ -9884,17 +9905,18 @@ def get_SAG_pipe():
   if prefs['higher_vram_mode']:
     pipe_SAG = StableDiffusionSAGPipeline.from_pretrained(
         model_path,
-        scheduler=model_scheduler(model_path, big3=True),
+        #scheduler=model_scheduler(model_path, big3=True),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   else:
       pipe_SAG = StableDiffusionSAGPipeline.from_pretrained(
       model_path,
-      scheduler=model_scheduler(model_path, big3=True),
+      #scheduler=model_scheduler(model_path, big3=True),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       torch_dtype=torch.float16,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+  pipe_SAG = pipeline_scheduler(pipe_SAG, big3=True)
   pipe_SAG = optimize_pipe(pipe_SAG, vae=False)
   pipe_SAG.set_progress_bar_config(disable=True)
   return pipe_SAG
@@ -9919,17 +9941,18 @@ def get_attend_and_excite_pipe():
   if prefs['higher_vram_mode']:
     pipe_attend_and_excite = StableDiffusionAttendAndExcitePipeline.from_pretrained(
         model_path,
-        scheduler=model_scheduler(model_path),
+        #scheduler=model_scheduler(model_path),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
     )
   else:
       pipe_attend_and_excite = StableDiffusionAttendAndExcitePipeline.from_pretrained(
       model_path,
-      scheduler=model_scheduler(model_path),
+      #scheduler=model_scheduler(model_path),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       torch_dtype=torch.float16,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+  pipe_attend_and_excite = pipeline_scheduler(pipe_attend_and_excite)
   pipe_attend_and_excite = optimize_pipe(pipe_attend_and_excite, vae=True)
   pipe_attend_and_excite.set_progress_bar_config(disable=True)
   return pipe_attend_and_excite
@@ -9954,17 +9977,18 @@ def get_panorama_pipe():
   if prefs['higher_vram_mode']:
     pipe_panorama = StableDiffusionPanoramaPipeline.from_pretrained(
         model_path,
-        scheduler=model_scheduler(model_path, big3=True),
+        #scheduler=model_scheduler(model_path, big3=True),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
     )
   else:
       pipe_panorama = StableDiffusionPanoramaPipeline.from_pretrained(
       model_path,
-      scheduler=model_scheduler(model_path, big3=True),
+      #scheduler=model_scheduler(model_path, big3=True),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       torch_dtype=torch.float16,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+  pipe_panorama = pipeline_scheduler(pipe_panorama, big3=True)
   pipe_panorama = optimize_pipe(pipe_panorama, vae=True)
   pipe_panorama.set_progress_bar_config(disable=True)
   return pipe_panorama
@@ -9995,20 +10019,21 @@ def get_upscale_pipe():
   if prefs['higher_vram_mode']:
     pipe_upscale = StableDiffusionUpscalePipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id, big3=True),
+        #scheduler=model_scheduler(model_id, big3=True),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         #safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
     )
   else:
     pipe_upscale = StableDiffusionUpscalePipeline.from_pretrained(
       model_id,
-      scheduler=model_scheduler(model_id, big3=True),
+      #scheduler=model_scheduler(model_id, big3=True),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       revision="fp16", 
       torch_dtype=torch.float16,
       #safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
     )
   #pipe_upscale.to(torch_device)
+  pipe_upscale = pipeline_scheduler(pipe_upscale, big3=True)
   pipe_upscale = optimize_pipe(pipe_upscale)
   pipe_upscale.set_progress_bar_config(disable=True)
   return pipe_upscale
@@ -10030,10 +10055,10 @@ def get_clip_guided_pipe():
         return pipe_clip_guided
       else:
         return pipe_clip_guided
-    if isinstance(scheduler, LMSDiscreteScheduler) or isinstance(scheduler, PNDMScheduler):
-      scheduler_clip = scheduler
-    else:
-      scheduler_clip = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
+    #if isinstance(scheduler, LMSDiscreteScheduler) or isinstance(scheduler, PNDMScheduler):
+    #  scheduler_clip = scheduler
+    #else:
+    #  scheduler_clip = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
     model = get_model(prefs['model_ckpt'])
 
     clip_model = CLIPModel.from_pretrained(prefs['clip_model_id'], torch_dtype=torch.float16)
@@ -10045,7 +10070,7 @@ def get_clip_guided_pipe():
               custom_pipeline="AlanB/clip_guided_stable_diffusion_mod",
               clip_model=clip_model,
               feature_extractor=feature_extractor,
-              scheduler=model_scheduler(model_path, big3=True),
+              #scheduler=model_scheduler(model_path, big3=True),
               cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
               safety_checker=None,
               torch_dtype=torch.float16,
@@ -10053,7 +10078,7 @@ def get_clip_guided_pipe():
               #device_map="auto",
           )
     else:
-      pipe_clip_guided = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/clip_guided_stable_diffusion_mod", clip_model=clip_model, feature_extractor=feature_extractor, scheduler=model_scheduler(model_path, big3=True), safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16)
+      pipe_clip_guided = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/clip_guided_stable_diffusion_mod", clip_model=clip_model, feature_extractor=feature_extractor, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16)
     #pipe_clip_guided = pipe_clip_guided.to(torch_device)
     '''
     pipe_clip_guided = CLIPGuidedStableDiffusion(
@@ -10065,6 +10090,7 @@ def get_clip_guided_pipe():
         clip_model=clip_model,
         feature_extractor=feature_extractor,
     )'''
+    pipe_clip_guided = pipeline_scheduler(pipe_clip_guided, big3=True)
     pipe_clip_guided = optimize_pipe(pipe_clip_guided)
     return pipe_clip_guided
 
@@ -10100,18 +10126,19 @@ def get_depth_pipe():
   if prefs['higher_vram_mode']:
     pipe_depth = StableDiffusionDepth2ImgPipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
     )
   else:
     pipe_depth = StableDiffusionDepth2ImgPipeline.from_pretrained(
         model_id,
-        scheduler=model_scheduler(model_id),
+        #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         revision="fp16", 
         torch_dtype=torch.float16,
     )
   #pipe_depth.to(torch_device)
+  pipe_depth = pipeline_scheduler(pipe_depth)
   pipe_depth = optimize_pipe(pipe_depth)
   pipe_depth.set_progress_bar_config(disable=True)
   return pipe_depth
@@ -10136,7 +10163,7 @@ def get_alt_diffusion_pipe():
     if prefs['higher_vram_mode']:
       pipe_alt_diffusion = StableDiffusionPipeline.from_pretrained(
           model_id,
-          scheduler=model_scheduler(model_id),
+          #scheduler=model_scheduler(model_id),
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           requires_safety_checker = not prefs['disable_nsfw_filter'],
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
@@ -10144,13 +10171,14 @@ def get_alt_diffusion_pipe():
     else:
       pipe_alt_diffusion = StableDiffusionPipeline.from_pretrained(
           model_id,
-          scheduler=model_scheduler(model_id),
+          #scheduler=model_scheduler(model_id),
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, 
           torch_dtype=torch.float16,
           requires_safety_checker = not prefs['disable_nsfw_filter'],
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
       )
     #pipe_alt_diffusion.to(torch_device)
+    pipe_alt_diffusion = pipeline_scheduler(pipe_alt_diffusion)
     pipe_alt_diffusion = optimize_pipe(pipe_alt_diffusion)
     pipe_alt_diffusion.set_progress_bar_config(disable=True)
     return pipe_alt_diffusion
@@ -10173,7 +10201,7 @@ def get_alt_diffusion_img2img_pipe():
     if prefs['higher_vram_mode']:
       pipe_alt_diffusion_img2img = StableDiffusionImg2ImgPipeline.from_pretrained(
           model_id,
-          scheduler=model_scheduler(model_id),
+          #scheduler=model_scheduler(model_id),
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           requires_safety_checker = not prefs['disable_nsfw_filter'],
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
@@ -10181,13 +10209,14 @@ def get_alt_diffusion_img2img_pipe():
     else:
       pipe_alt_diffusion_img2img = StableDiffusionImg2ImgPipeline.from_pretrained(
           model_id,
-          scheduler=model_scheduler(model_id),
+          #scheduler=model_scheduler(model_id),
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, 
           torch_dtype=torch.float16,
           requires_safety_checker = not prefs['disable_nsfw_filter'],
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
       )
     #pipe_alt_diffusion_img2img.to(torch_device)
+    pipe_alt_diffusion_img2im = pipeline_scheduler(pipe_alt_diffusion_img2im)
     pipe_alt_diffusion_img2img = optimize_pipe(pipe_alt_diffusion_img2img)
     pipe_alt_diffusion_img2img.set_progress_bar_config(disable=True)
     return pipe_alt_diffusion_img2img
@@ -10312,6 +10341,7 @@ def get_conceptualizer(page):
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
     )
+    pipe_conceptualizer = pipeline_scheduler(pipe_conceptualizer)
     pipe_conceptualizer = optimize_pipe(pipe_conceptualizer)
     pipe_conceptualizer.set_progress_bar_config(disable=True)
     #pipe_conceptualizer = pipe_conceptualizer.to(torch_device)
@@ -11852,12 +11882,19 @@ generator_request_modes = ["visually detailed",
 
 def run_prompt_generator(page):
   import random as rnd
-  global artists, styles
+  global artists, styles, status
   try:
     import openai
+  except:
+    run_sp("pip install --upgrade openai")
+    import openai
+    pass
+  try:
     openai.api_key = prefs['OpenAI_api_key']
   except:
-    pass
+    alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
+    return
+  status['installed_OpenAI'] = True
   prompts_gen = []
   prompt_results = []
   subject = ""
@@ -11877,9 +11914,17 @@ def run_prompt_generator(page):
 * The Fabric of spacetime continuum over a large cosmological vista, pieces of dark matter, space dust and nebula doted with small dots that seem to form fractal patterns and glowing bright lanterns in distances, also with an stardust effect towards the plane of the galaxy
 * Midnight landscape painting of a city under a starry sky, owl in the shaman forest knowing the ways of magic, warm glow over the buildings
 * {prefs['prompt_generator']['phrase']}"""
-    response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs['prompt_generator']['AI_temperature'], presence_penalty=1)
-    #print(response)
-    result = response["choices"][0]["text"].strip()
+    if prefs['prompt_generator']['AI_engine'] == "OpenAI GPT-3":
+      response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs['prompt_generator']['AI_temperature'], presence_penalty=1)
+      #print(response)
+      result = response["choices"][0]["text"].strip()
+    elif prefs['prompt_generator']['AI_engine'] == "ChatGPT-3.5 Turbo":
+      response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo", 
+        messages=[{"role": "user", "content": prompt}]
+      )
+      #print(str(response))
+      result = response["choices"][0]["message"]["content"].strip()
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -11919,6 +11964,7 @@ def run_prompt_generator(page):
     if prefs['prompt_generator']['random_styles'] != 0 and prefs['prompt_generator']['permutate_artists']:
       prompts_gen.append(text_prompt)
     if prefs['prompt_generator']['permutate_artists']:
+      
       for a in list_variations(random_artist):
         prompt_variation = p + f", by {and_list(a)}"
         prompts_gen.append(prompt_variation)
@@ -11945,12 +11991,19 @@ remixer_request_modes = [
 
 def run_prompt_remixer(page):
   import random as rnd
-  global artists, styles
+  global artists, styles, status
   try:
     import openai
+  except:
+    run_sp("pip install --upgrade openai")
+    import openai
+    pass
+  try:
     openai.api_key = prefs['OpenAI_api_key']
   except:
-    pass
+    alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
+    return
+  status['installed_OpenAI'] = True
   prompts_remix = []
   prompt_results = []
   
@@ -11967,9 +12020,15 @@ def run_prompt_remixer(page):
   prompt_results = []
   
   def prompt_remix():
-    response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs["prompt_remixer"]['AI_temperature'], presence_penalty=1)
-    #print(response)
-    result = response["choices"][0]["text"].strip()
+    if prefs['prompt_remixer']['AI_engine'] == "OpenAI GPT-3":
+      response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs["prompt_remixer"]['AI_temperature'], presence_penalty=1)
+      #print(response)
+      result = response["choices"][0]["text"].strip()
+    elif prefs['prompt_remixer']['AI_engine'] == "ChatGPT-3.5 Turbo":
+      response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}])
+      #print(str(response))
+      result = response["choices"][0]["message"]["content"].strip()
+    
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -11988,6 +12047,7 @@ def run_prompt_remixer(page):
   page.prompt_remixer_list.controls.append(Row([ProgressRing(), Text("Requesting Prompt Remixes...", weight=FontWeight.BOLD)]))
   page.prompt_remixer_list.update()
   prompt_remix()
+  del page.prompt_remixer_list.controls[-1]
   del page.prompt_remixer_list.controls[-1]
   page.prompt_remixer_list.update()
 
@@ -12052,7 +12112,7 @@ def run_prompt_brainstormer(page):
         finally:
           from textsynthpy import TextSynth, Complete
         textsynth = TextSynth(prefs['TextSynth_api_key'], engine=textsynth_engine) # Insert your API key in the previous cell
-    if prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-3":
+    if prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-3" or  prefs['prompt_brainstormer']['AI_engine'] == "ChatGPT-3.5 Turbo":
       try:
         if not bool(prefs['OpenAI_api_key']): good_key = False
       except NameError: good_key = False
@@ -12062,11 +12122,15 @@ def run_prompt_brainstormer(page):
         try:
           import openai
         except ImportError:
-          run_sp("pip install openai -qq")
+          run_sp("pip install --upgrade openai -qq")
           #clear_output()
         finally:
           import openai
-        openai.api_key = prefs['OpenAI_api_key']
+        try:
+          openai.api_key = prefs['OpenAI_api_key']
+        except:
+          alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
+          return
     if prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B" or prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5 XXL":
       try:
         if not bool(prefs['HuggingFace_api_key']): good_key = False
@@ -12148,6 +12212,9 @@ def run_prompt_brainstormer(page):
       elif prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-3":
         response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
         result = response["choices"][0]["text"].strip()
+      elif prefs['prompt_brainstormer']['AI_engine'] == "ChatGPT-3.5 Turbo":
+        response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": request}])
+        result = response["choices"][0]["message"]["content"].strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
         result = bloom_request(request)
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5":
@@ -12171,6 +12238,7 @@ def run_prompt_writer(page):
         import nsp_pantry
         from nsp_pantry import nsp_parse'''
     import random as rnd
+    global artists, styles
     def generate_prompt():
       text_prompts = []
       global art_Subjects, by_Artists, art_Styles
@@ -13091,8 +13159,9 @@ def run_image_variation(page):
         from diffusers import StableDiffusionImageVariationPipeline
         prt(Row([ProgressRing(), Text(" Downloading Image Variation Pipeline", weight=FontWeight.BOLD)]))
         model_id = "fusing/sd-image-variations-diffusers"
-        pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, scheduler=model_scheduler(model_id), safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_image_variation.to(torch_device)
+        pipe_image_variation = pipeline_scheduler(pipe_image_variation)
         pipe_image_variation = optimize_pipe(pipe_image_variation)
         #pipe_image_variation.set_progress_bar_config(disable=True)
         clear_last()
@@ -13796,8 +13865,8 @@ def run_audio_diffusion(page):
     if pipe_audio_diffusion == None or audio_diffusion_prefs['loaded_model'] != model_id:
       try:
           # TODO: Switch DDPM
-        scheduler = DDIMScheduler()
-        pipe_audio_diffusion = DiffusionPipeline.from_pretrained(model_id, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        a_scheduler = DDIMScheduler()
+        pipe_audio_diffusion = DiffusionPipeline.from_pretrained(model_id, scheduler=a_scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         pipe_audio_diffusion = pipe_audio_diffusion.to(torch_device)
         pipe_audio_diffusion.set_progress_bar_config(disable=True)
         audio_diffusion_prefs['loaded_model'] = model_id
@@ -19508,6 +19577,52 @@ class NumberPicker(UserControl):
                 self.on_change(e)
         self.txt_number = TextField(value=str(self.value), text_align=TextAlign.CENTER, width=55, height=self.height, content_padding=padding.only(top=4), keyboard_type=KeyboardType.NUMBER, on_change=changed)
         return Row([Text(self.label), IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
+
+class SliderRow(UserControl):
+    def __init__(self, label="", value=1, min=0, max=20, divisions=20, step=1, round=0, suffix="", tooltip="", pref=None, key=None, on_change=None):
+        super().__init__()
+        self.value = value
+        self.min = min
+        self.max = max
+        self.divisions = divisions
+        self.label = label
+        self.round = round
+        self.suffix = suffix
+        self.tooltip = tooltip
+        self.pref = pref
+        self.key = key
+        self.on_change = on_change
+        self.build()
+    def build(self):
+        def change_slider(e):
+            self.value = e.control.value
+            v = int(self.value) if self.round == 0 else float(self.value)
+            slider.label = f"{v}{self.suffix}"
+            slider.update()
+            slider_value.value = f"{v}{self.suffix}"
+            slider_value.update()
+            if self.on_change is not None:
+              e.control = self
+              self.on_change(e)
+            self.pref[self.key] = self.value
+        def changed(e):
+            self.value = e.control.value
+            if self.value < self.min:
+              self.value = self.min
+              slider_value.value = self.value
+              slider_value.update()
+            if self.value > self.max:
+              self.value = self.max
+              slider_value.value = self.value
+              slider_value.update()
+            if self.on_change is not None:
+              e.control = self
+              self.on_change(e)
+            self.pref[self.key] = self.value
+        slider = Slider(min=self.min, max=self.max, divisions=self.divisions, label="{value}" + self.suffix, value=self.pref[self.key], tooltip=self.tooltip, expand=True, on_change=change_slider)
+        slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
+        slider_row = Row([Text(f"{self.label}: "), slider_value, slider])
+        return slider_row
 
 ''' Sample alt Object format
 class Component(UserControl):
