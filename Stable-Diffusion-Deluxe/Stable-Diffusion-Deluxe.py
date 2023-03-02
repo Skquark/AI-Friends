@@ -1591,20 +1591,6 @@ def buildParameters(page):
       num_cutouts.visible = e.control.value
       num_cutouts.update()
       changed(e, 'use_cutouts')
-  def change_guidance(e):
-      guidance_value.value = f" {e.control.value}"
-      guidance_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      guidance.update()
-      changed(e, 'guidance_scale')
-  def change_width(e):
-      width_slider.controls[1].value = f" {int(e.control.value)}px"
-      width_slider.update()
-      changed(e, 'width', asInt=True)
-  def change_height(e):
-      height_slider.controls[1].value = f" {int(e.control.value)}px"
-      height_slider.update()
-      changed(e, 'height', asInt=True)
   def toggle_interpolation(e):
       interpolation_steps_slider.height = None if e.control.value else 0
       interpolation_steps_slider.update()
@@ -1670,15 +1656,9 @@ def buildParameters(page):
   eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta'))
   seed = TextField(label="Seed", value=prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed'))
   param_rows = Row([Column([batch_folder_name, seed, batch_size]), Column([steps, eta, n_iterations])])
-  guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=prefs['guidance_scale'], on_change=change_guidance, expand=True)
-  guidance_value = Text(f" {prefs['guidance_scale']}", weight=FontWeight.BOLD)
-  guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
-  width = Slider(min=256, max=1280, divisions=64, label="{value}px", value=prefs['width'], on_change=change_width, expand=True)
-  width_value = Text(f" {int(prefs['width'])}px", weight=FontWeight.BOLD)
-  width_slider = Row([Text(f"Width: "), width_value, width])
-  height = Slider(min=256, max=1280, divisions=64, label="{value}px", value=prefs['height'], on_change=change_height, expand=True)
-  height_value = Text(f" {int(prefs['height'])}px", weight=FontWeight.BOLD)
-  height_slider = Row([Text(f"Height: "), height_value, height])
+  guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=prefs, key='guidance_scale')
+  width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='width')
+  height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='height')
 
   init_image = TextField(label="Init Image", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
   mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
@@ -2022,12 +2002,6 @@ def editPrompt(e):
         nonlocal pick_type
         pick_type = "mask"
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
-    def change_width(e):
-        width_slider.controls[1].value = f" {int(e.control.value)}px"
-        width_slider.update()
-    def change_height(e):
-        height_slider.controls[1].value = f" {int(e.control.value)}px"
-        height_slider.update()
     def toggle_clip(e):
         if e.control.value:
           img_block.height = 0
@@ -2066,12 +2040,8 @@ def editPrompt(e):
     param_columns = Row([Column([steps, seed, batch_size]), Column([guidance_scale, eta, n_iterations])])
     #guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=arg['guidance_scale'], expand=True)
     #guidance = Row([Text("Guidance Scale: "), guidance_scale])
-    width = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['width']), expand=True, on_change=change_width)
-    width_value = Text(f" {int(arg['width'])}px", weight=FontWeight.BOLD)
-    width_slider = Row([Text("Width: "), width_value, width])
-    height = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(arg['height']), expand=True, on_change=change_height)
-    height_value = Text(f" {int(arg['height'])}px", weight=FontWeight.BOLD)
-    height_slider = Row([Text("Height: "), height_value, height])
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=arg, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=arg, key='height')
     init_image = TextField(label="Init Image", value=arg['init_image'], expand=1, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     mask_image = TextField(label="Mask Image", value=arg['mask_image'], expand=1, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
     alpha_mask = Checkbox(label="Alpha Mask", value=arg['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
@@ -2459,7 +2429,7 @@ def buildImages(page):
       page.imageColumn.update()
       c.update()
     page.auto_scrolling = auto_scrolling
-    page.imageColumn = Column([Text("▶️   Get ready to make your Images, run from Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT)], scroll=ScrollMode.AUTO, auto_scroll=True)
+    page.imageColumn = Column([Text("▶️   Start Run from Prompts List.  Get ready...", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT)], scroll=ScrollMode.AUTO, auto_scroll=True)
     c = Container(padding=padding.only(18, 12, 0, 0), content=page.imageColumn)
     return c
 
@@ -3226,11 +3196,6 @@ def buildInitVideo(page):
     #page.overlay.append(pick_files_dialog)
     def pick_video(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["avi", "mp4", "mov"], dialog_title="Pick Video File")
-    def change_max_size(e):
-        changed(e, 'max_size', ptype="int")
-        max_size_value.value = f" {init_video_prefs['max_size']}px"
-        max_size_value.update()
-        max_row.update()
     def toggle_strength(e):
       changed(e,'include_strength')
       strength_row.visible = e.control.value
@@ -3246,10 +3211,7 @@ def buildInitVideo(page):
     fps = TextField(label="Frames Per Seccond", value=init_video_prefs['fps'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'fps', ptype="int"))
     start_time = TextField(label="Start Time (s)", value=init_video_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=init_video_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
-    
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(init_video_prefs['max_size']), expand=True, on_change=change_max_size)
-    max_size_value = Text(f" {init_video_prefs['max_size']}px", weight=FontWeight.BOLD)
-    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=init_video_prefs, key='max_size')
     show_images = Checkbox(label="Show Extracted Images", value=init_video_prefs['show_images'], tooltip="Fills up screen with all frames, you probably don't need to.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_images'))
     include_strength = Checkbox(label="Include Strength   ", value=init_video_prefs['include_strength'], tooltip="Otherwise defaults to setting in Image Parameters", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_strength)
     image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(init_video_prefs['image_strength']), expand=True)
@@ -3434,9 +3396,8 @@ def buildImage2Text(page):
       image2text_list_buttons.visible = False
 
     mode = Dropdown(label="Interrogation Mode", width=250, options=[dropdown.Option("best"), dropdown.Option("classic"), dropdown.Option("fast")], value=image2text_prefs['mode'], on_change=lambda e: changed(e, 'mode'))
-    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(image2text_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     save_csv = Checkbox(label="Save CSV file of Prompts", tooltip="", value=image2text_prefs['save_csv'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_csv'))
-    max_row = Row([Text("Max Resolution Size: "), max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=32, multiple=16, suffix="px", pref=image2text_prefs, key='max_size')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=image2text_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
     page.image2text_file_list = Column([], tight=True, spacing=0)
@@ -3621,9 +3582,7 @@ def buildBLIP2Image2Text(page):
     #model_name = Dropdown(label="Model Nane", width=250, options=[dropdown.Option("blip2_t5"), dropdown.Option("blip2_opt"), dropdown.Option("img2prompt_vqa")], value=BLIP2_image2text_prefs['model_name'], on_change=lambda e: changed(e, 'model_name'))
     model_type = Dropdown(label="Model Type", width=250, options=[dropdown.Option("pretrain_flant5xxl"), dropdown.Option("pretrain_opt2.7b"), dropdown.Option("pretrain_opt6.7b"), dropdown.Option("caption_coco_opt6.7b"), dropdown.Option("caption_coco_flant5xl"), dropdown.Option("base")], value=BLIP2_image2text_prefs['model_type'], on_change=lambda e: changed(e, 'model_type'))
     num_captions = Container(NumberPicker(label="Number of Captions: ", min=1, max=10, value=BLIP2_image2text_prefs['num_captions'], on_change=lambda e: changed(e, 'num_captions')))
-    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(BLIP2_image2text_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
-    #save_csv = Checkbox(label="Save CSV file of Prompts", tooltip="", value=BLIP2_image2text_prefs['save_csv'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_csv'))
-    max_row = Row([Text("Max Resolution Size: "), max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=BLIP2_image2text_prefs, key='max_size')
     question_prompt = TextField(label="Ask Question about Image (optional)", value=BLIP2_image2text_prefs['question_prompt'], on_change=lambda e:changed(e,'question_prompt'))
     image_path = TextField(label="Image File or Folder Path or URL to Examine", value=BLIP2_image2text_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=True)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
@@ -4366,8 +4325,8 @@ def buildInstantNGP(page):
     #where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=instant_ngp_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=instant_ngp_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     #readme_description = TextField(label="Extra README Description", value=instant_ngp_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
-    resolution = Slider(min=256, max=1024, divisions=6, label="{value}px", value=float(instant_ngp_prefs['resolution']), expand=True, on_change=lambda e:changed(e,'resolution', ptype='int'))
-    max_row = Row([Text("Max Resolution Size: "), resolution])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=6, multiple=64, suffix="px", pref=instant_ngp_prefs, key='resolution')
+    
     sharpen = Row([Text(" Shapen Images:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['sharpen'], on_change=lambda e: changed(e, 'sharpen'))], col={'lg':6})
     exposure = Row([Text(" Image Exposure:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['exposure'], on_change=lambda e: changed(e, 'exposure'))], col={'lg':6})
     vr_mode = Checkbox(label="Output VR Mode", tooltip="Render to a VR headset", value=instant_ngp_prefs['vr_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'vr_mode'))
@@ -4498,11 +4457,6 @@ def buildRepainter(page):
         eta_value.value = f" {repaint_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-    def change_max_size(e):
-        changed(e, 'max_size', ptype="int")
-        max_size_value.value = f" {repaint_prefs['max_size']}px"
-        max_size_value.update()
-        max_row.update()
     original_image = TextField(label="Original Image", value=repaint_prefs['original_image'], expand=1, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     mask_image = TextField(label="Mask Image", value=repaint_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=repaint_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
@@ -4517,9 +4471,7 @@ def buildRepainter(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(repaint_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {repaint_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(repaint_prefs['max_size']), expand=True, on_change=change_max_size)
-    max_size_value = Text(f" {repaint_prefs['max_size']}px", weight=FontWeight.BOLD)
-    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=repaint_prefs, key='max_size')
     page.repaint_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.repaint_output.controls) > 0
@@ -4615,11 +4567,6 @@ def buildImageVariation(page):
       num_inference_steps_value.value = f" {image_variation_prefs['num_inference_steps']}"
       num_inference_steps_value.update()
       num_inference_row.update()
-    def change_max_size(e):
-      changed(e, 'max_size', ptype="int")
-      max_size_value.value = f" {image_variation_prefs['max_size']}px"
-      max_size_value.update()
-      max_row.update()
     def change_guidance(e):
       guidance_value.value = f" {e.control.value}"
       guidance_value.update()
@@ -4639,9 +4586,7 @@ def buildImageVariation(page):
     #eta = TextField(label="ETA", value=str(image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     eta_row = Row([Text("DDIM ETA: "), eta])
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(image_variation_prefs['max_size']), expand=True, on_change=change_max_size)
-    max_size_value = Text(f" {image_variation_prefs['max_size']}px", weight=FontWeight.BOLD)
-    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=image_variation_prefs, key='max_size')
     page.image_variation_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.image_variation_output.controls) > 0
@@ -4916,11 +4861,6 @@ def buildUnCLIP_ImageVariation(page):
         enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
         enlarge_scale_slider.update()
         changed(e, 'enlarge_scale', ptype="float")
-    def change_max_size(e):
-      changed(e, 'max_size', ptype="int")
-      max_size_value.value = f" {unCLIP_image_variation_prefs['max_size']}px"
-      max_size_value.update()
-      max_row.update()
     #prompt = TextField(label="Prompt Text", value=unCLIP_image_variation_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(unCLIP_image_variation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
 
@@ -4944,11 +4884,7 @@ def buildUnCLIP_ImageVariation(page):
     #eta = TextField(label="ETA", value=str(unCLIP_image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
-    #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(unCLIP_image_variation_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
-    #max_row = Row([Text("Max Resolution Size: "), max_size])
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(unCLIP_image_variation_prefs['max_size']), expand=True, on_change=change_max_size)
-    max_size_value = Text(f" {unCLIP_image_variation_prefs['max_size']}px", weight=FontWeight.BOLD)
-    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=unCLIP_image_variation_prefs, key='max_size')
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_image_variation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(unCLIP_image_variation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_image_variation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
@@ -5253,11 +5189,6 @@ def buildMagicMix(page):
       kmax_value.value = f" {magic_mix_prefs['kmax']}"
       kmax_value.update()
       kmax_row.update()
-    def change_max_size(e):
-      changed(e, 'max_size', ptype="int")
-      max_size_value.value = f" {magic_mix_prefs['max_size']}px"
-      max_size_value.update()
-      max_row.update()
     def change_guidance(e):
       guidance_value.value = f" {e.control.value}"
       guidance_value.update()
@@ -5290,9 +5221,7 @@ def buildMagicMix(page):
     kmax = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['kmax']), tooltip="A higher value of kmax results in loss of more information about the layout of the original image. Determine the range for the layout and content generation process.", expand=True, on_change=change_kmax)
     kmax_value = Text(f" {magic_mix_prefs['kmax']}", weight=FontWeight.BOLD)
     kmax_row = Row([Text("k-Max: "), kmax_value, kmax], col={'lg':6})
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(magic_mix_prefs['max_size']), expand=True, on_change=change_max_size)
-    max_size_value = Text(f" {magic_mix_prefs['max_size']}px", weight=FontWeight.BOLD)
-    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=magic_mix_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=magic_mix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=magic_mix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(magic_mix_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
@@ -5451,11 +5380,6 @@ def buildPaintByExample(page):
         eta_value.value = f" {paint_by_example_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-    def change_max_size(e):
-        changed(e, 'max_size', ptype="int")
-        max_size_value.value = f" {paint_by_example_prefs['max_size']}px"
-        max_size_value.update()
-        max_row.update()
     original_image = TextField(label="Original Image", value=paint_by_example_prefs['original_image'], expand=1, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     mask_image = TextField(label="Mask Image", value=paint_by_example_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
     alpha_mask = Checkbox(label="Alpha Mask", value=paint_by_example_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
@@ -5473,9 +5397,7 @@ def buildPaintByExample(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(paint_by_example_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {paint_by_example_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(paint_by_example_prefs['max_size']), expand=True, on_change=change_max_size)
-    max_size_value = Text(f" {paint_by_example_prefs['max_size']}px", weight=FontWeight.BOLD)
-    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=paint_by_example_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=paint_by_example_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=paint_by_example_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(paint_by_example_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
@@ -5613,11 +5535,6 @@ def buildInstructPix2Pix(page):
         eta_value.value = f" {instruct_pix2pix_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-    def change_max_size(e):
-        changed(e, 'max_size', ptype="int")
-        max_size_value.value = f" {instruct_pix2pix_prefs['max_size']}px"
-        max_size_value.update()
-        max_row.update()
     original_image = TextField(label="Original Image", value=instruct_pix2pix_prefs['original_image'], on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
@@ -5636,9 +5553,7 @@ def buildInstructPix2Pix(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(instruct_pix2pix_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {instruct_pix2pix_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(instruct_pix2pix_prefs['max_size']), expand=True, on_change=change_max_size)
-    max_size_value = Text(f" {instruct_pix2pix_prefs['max_size']}px", weight=FontWeight.BOLD)
-    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=instruct_pix2pix_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=instruct_pix2pix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=instruct_pix2pix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(instruct_pix2pix_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
@@ -5791,11 +5706,6 @@ def buildControlNet(page):
         eta_value.value = f" {controlnet_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-    def change_max_size(e):
-        changed(e, 'max_size', ptype="int")
-        max_size_value.value = f" {controlnet_prefs['max_size']}px"
-        max_size_value.update()
-        max_row.update()
     original_image = TextField(label="Original Drawing", value=controlnet_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 6}, on_change=lambda e:changed(e,'prompt'))
     a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
@@ -5819,9 +5729,7 @@ def buildControlNet(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
-    max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=float(controlnet_prefs['max_size']), expand=True, on_change=change_max_size)
-    max_size_value = Text(f" {controlnet_prefs['max_size']}px", weight=FontWeight.BOLD)
-    max_row = Row([Text("Max Resolution Size: "), max_size_value, max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=controlnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(controlnet_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
@@ -5958,14 +5866,6 @@ def buildMaterialDiffusion(page):
         #guidance.controls[1].value = f" {e.control.value}"
         guidance.update()
         changed(e, 'guidance_scale')
-    def change_width(e):
-        width_slider.controls[1].value = f" {int(e.control.value)}px"
-        width_slider.update()
-        changed(e, 'width', ptype="int")
-    def change_height(e):
-        height_slider.controls[1].value = f" {int(e.control.value)}px"
-        height_slider.update()
-        changed(e, 'height', ptype="int")
     def change_enlarge_scale(e):
         enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
         enlarge_scale_slider.update()
@@ -5990,13 +5890,8 @@ def buildMaterialDiffusion(page):
     guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=materialdiffusion_prefs['guidance_scale'], on_change=change_guidance, expand=True)
     guidance_value = Text(f" {materialdiffusion_prefs['guidance_scale']}", weight=FontWeight.BOLD)
     guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
-    width = Slider(min=128, max=1024, divisions=14, label="{value}px", value=materialdiffusion_prefs['width'], on_change=change_width, expand=True)
-    width_value = Text(f" {int(materialdiffusion_prefs['width'])}px", weight=FontWeight.BOLD)
-    width_slider = Row([Text(f"Width: "), width_value, width])
-    height = Slider(min=128, max=1024, divisions=14, label="{value}px", value=materialdiffusion_prefs['height'], on_change=change_height, expand=True)
-    height_value = Text(f" {int(materialdiffusion_prefs['height'])}px", weight=FontWeight.BOLD)
-    height_slider = Row([Text(f"Height: "), height_value, height])
-
+    width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='height')
     init_image = TextField(label="Init Image", value=materialdiffusion_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
     mask_image = TextField(label="Mask Image", value=materialdiffusion_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=materialdiffusion_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
@@ -6430,14 +6325,6 @@ def buildKandinsky(page):
         #guidance.controls[1].value = f" {e.control.value}"
         guidance.update()
         changed(e, 'guidance_scale', ptype="int")
-    def change_width(e):
-        width_slider.controls[1].value = f" {int(e.control.value)}px"
-        width_slider.update()
-        changed(e, 'width', ptype="int")
-    def change_height(e):
-        height_slider.controls[1].value = f" {int(e.control.value)}px"
-        height_slider.update()
-        changed(e, 'height', ptype="int")
     def change_enlarge_scale(e):
         enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
         enlarge_scale_slider.update()
@@ -6465,13 +6352,8 @@ def buildKandinsky(page):
     guidance_scale = Slider(min=0, max=50, divisions=50, label="{value}", value=kandinsky_prefs['guidance_scale'], on_change=change_guidance, expand=True)
     guidance_value = Text(f" {kandinsky_prefs['guidance_scale']}", weight=FontWeight.BOLD)
     guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
-    width = Slider(min=128, max=1024, divisions=14, label="{value}px", value=kandinsky_prefs['width'], on_change=change_width, expand=True)
-    width_value = Text(f" {int(kandinsky_prefs['width'])}px", weight=FontWeight.BOLD)
-    width_slider = Row([Text(f"Width: "), width_value, width])
-    height = Slider(min=128, max=1024, divisions=14, label="{value}px", value=kandinsky_prefs['height'], on_change=change_height, expand=True)
-    height_value = Text(f" {int(kandinsky_prefs['height'])}px", weight=FontWeight.BOLD)
-    height_slider = Row([Text(f"Height: "), height_value, height])
-
+    width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_prefs, key='height')
     init_image = TextField(label="Init Image", value=kandinsky_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
     mask_image = TextField(label="Mask Image", value=kandinsky_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
@@ -6589,8 +6471,7 @@ def buildDeepDaze(page):
       iterations_value.value = f" {deep_daze_prefs['iterations']}"
       iterations_value.update()
       iterations_row.update()
-    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(textualinversion_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
-    max_row = Row([Text("Max Resolution Size: "), max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=deep_daze_prefs, key='max_size')
     #num_layers = TextField(label="Inference Steps", value=str(deep_daze_prefs['num_layers']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_layers', ptype='int'))
     num_layers = Slider(min=1, max=100, divisions=99, label="{value}", value=int(deep_daze_prefs['num_layers']), tooltip="The number of hidden layers to use in the Siren neural net.", expand=True, on_change=change_num_layers)
     save_every = Slider(min=1, max=100, divisions=99, label="{value}", value=int(deep_daze_prefs['save_every']), tooltip="Generate an image every time iterations is a multiple of this number.", expand=True, on_change=change_save_every)
@@ -6730,14 +6611,6 @@ def buildCLIPstyler(page):
         iterations_value.update()
         #iterations.controls[1].value = f" {e.control.value}"
         iterations.update()
-    def change_width(e):
-        width_slider.controls[1].value = f" {int(e.control.value)}px"
-        width_slider.update()
-        changed(e, 'width', ptype="int")
-    def change_height(e):
-        height_slider.controls[1].value = f" {int(e.control.value)}px"
-        height_slider.update()
-        changed(e, 'height', ptype="int")
     def change_enlarge_scale(e):
         enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
         enlarge_scale_slider.update()
@@ -6753,13 +6626,8 @@ def buildCLIPstyler(page):
     training_iterations = Slider(min=50, max=500, divisions=90, label="{value}", value=CLIPstyler_prefs['training_iterations'], on_change=change_iterations, expand=True)
     iterations_value = Text(f" {CLIPstyler_prefs['training_iterations']}", weight=FontWeight.BOLD)
     iterations = Row([Text("Training Iterations: "), iterations_value, training_iterations])
-    width = Slider(min=128, max=1024, divisions=14, label="{value}px", value=CLIPstyler_prefs['width'], on_change=change_width, expand=True)
-    width_value = Text(f" {int(CLIPstyler_prefs['width'])}px", weight=FontWeight.BOLD)
-    width_slider = Row([Text(f"Width: "), width_value, width])
-    height = Slider(min=128, max=1024, divisions=14, label="{value}px", value=CLIPstyler_prefs['height'], on_change=change_height, expand=True)
-    height_value = Text(f" {int(CLIPstyler_prefs['height'])}px", weight=FontWeight.BOLD)
-    height_slider = Row([Text(f"Height: "), height_value, height])
-
+    width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=CLIPstyler_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=CLIPstyler_prefs, key='height')
     original_image = TextField(label="Original Image", value=CLIPstyler_prefs['original_image'], on_change=lambda e:changed(e,'original_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original, col={"*":1, "md":3}))
     #mask_image = TextField(label="Mask Image", value=CLIPstyler_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
     #invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=CLIPstyler_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
@@ -7001,8 +6869,7 @@ def buildDreamBooth(page):
     prior_preservation_class_folder = TextField(label="Prior Preservation Class Folder", value=dreambooth_prefs['prior_preservation_class_folder'], on_change=lambda e:changed(e,'prior_preservation_class_folder'))
     name_of_your_concept = TextField(label="Name of your Concept", value=dreambooth_prefs['name_of_your_concept'], on_change=lambda e:changed(e,'name_of_your_concept'))
     readme_description = TextField(label="Extra README Description", value=dreambooth_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
-    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(dreambooth_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
-    max_row = Row([Text("Max Resolution Size: "), max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=dreambooth_prefs, key='max_size')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=dreambooth_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
     page.db_file_list = Column([], tight=True, spacing=0)
@@ -7205,8 +7072,7 @@ def buildTextualInversion(page):
     output_dir = TextField(label="Prior Preservation Class Folder", value=textualinversion_prefs['output_dir'], on_change=lambda e:changed(e,'output_dir'))
     name_of_your_concept = TextField(label="Name of your Concept", value=textualinversion_prefs['name_of_your_concept'], on_change=lambda e:changed(e,'name_of_your_concept'))
     readme_description = TextField(label="Extra README Description", value=textualinversion_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
-    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(textualinversion_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
-    max_row = Row([Text("Max Resolution Size: "), max_size])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=textualinversion_prefs, key='max_size')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=textualinversion_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
     page.ti_file_list = Column([], tight=True, spacing=0)
@@ -7477,8 +7343,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_dreambooth_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_dreambooth_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     readme_description = TextField(label="Extra README Description", value=LoRA_dreambooth_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
-    resolution = Slider(min=256, max=1024, divisions=6, label="{value}px", value=float(LoRA_dreambooth_prefs['resolution']), expand=True, on_change=lambda e:changed(e,'resolution', ptype='int'))
-    max_row = Row([Text("Max Resolution Size: "), resolution])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=6, multiple=64, suffix="px", pref=LoRA_dreambooth_prefs, key='resolution')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=LoRA_dreambooth_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
     page.lora_dreambooth_file_list = Column([], tight=True, spacing=0)
@@ -7693,8 +7558,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     readme_description = TextField(label="Extra README Description", value=LoRA_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
-    resolution = Slider(min=256, max=1024, divisions=6, label="{value}px", value=float(LoRA_prefs['resolution']), expand=True, on_change=lambda e:changed(e,'resolution', ptype='int'))
-    max_row = Row([Text("Max Resolution Size: "), resolution])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=6, multiple=64, suffix="px", pref=LoRA_prefs, key='resolution')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=LoRA_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
     page.lora_file_list = Column([], tight=True, spacing=0)
@@ -17775,6 +17639,7 @@ def run_controlnet(page, from_list=False):
       page.controlnet_output.controls.clear()
     prt(Row([ProgressRing(), Text("Installing ControlNet Packages...", weight=FontWeight.BOLD)]))
     # Better version: https://huggingface.co/spaces/hysts/ControlNet
+    clear_pipes()
     import requests
     from io import BytesIO
     from PIL import ImageOps
@@ -19381,8 +19246,8 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     else:
       page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
     app_icon_color = colors.AMBER_800
-    
-    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text("👨‍🎨️  Stable Diffusion - Deluxe Edition  🧰" if (page.window_width or page.width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
+    space = " "  if (page.window_width or page.width) >= 1024 else ""
+    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if (page.window_width or page.width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
       center_title=True,
       bgcolor=colors.SURFACE,
       leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
@@ -19579,12 +19444,13 @@ class NumberPicker(UserControl):
         return Row([Text(self.label), IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 class SliderRow(UserControl):
-    def __init__(self, label="", value=1, min=0, max=20, divisions=20, step=1, round=0, suffix="", tooltip="", pref=None, key=None, on_change=None):
+    def __init__(self, label="", value=None, min=0, max=20, divisions=20, multiple=1, step=1, round=0, suffix="", tooltip="", pref=None, key=None, on_change=None):
         super().__init__()
-        self.value = value
+        self.value = value or pref[key]
         self.min = min
         self.max = max
         self.divisions = divisions
+        self.multiple = multiple
         self.label = label
         self.round = round
         self.suffix = suffix
@@ -19595,33 +19461,76 @@ class SliderRow(UserControl):
         self.build()
     def build(self):
         def change_slider(e):
-            self.value = e.control.value
+            self.value = round(e.control.value, self.round)
             v = int(self.value) if self.round == 0 else float(self.value)
             slider.label = f"{v}{self.suffix}"
             slider.update()
             slider_value.value = f"{v}{self.suffix}"
             slider_value.update()
+            slider_edit.value = f"{v}"
+            slider_edit.update()
             if self.on_change is not None:
               e.control = self
               self.on_change(e)
             self.pref[self.key] = self.value
         def changed(e):
-            self.value = e.control.value
+            try:
+              self.value = int(e.control.value) if self.round == 0 else round(float(e.control.value), self.round)
+            except ValueError:
+              e.control.value = str(self.value)
+              e.control.update()
+              return
             if self.value < self.min:
               self.value = self.min
+              slider_edit.value = self.value
               slider_value.value = self.value
               slider_value.update()
             if self.value > self.max:
               self.value = self.max
+              slider_edit.value = self.value
               slider_value.value = self.value
               slider_value.update()
+            if self.multiple != 1:
+              v = int(self.multiple * round(self.value / self.multiple))
+              if v != self.value:
+                slider_edit.value = v
+                slider_edit.update()
+                self.value = v
             if self.on_change is not None:
               e.control = self
               self.on_change(e)
             self.pref[self.key] = self.value
+            slider.value = self.value
+            slider.label = f"{self.value}{self.suffix}"
+            slider.update()
+            slider_value.value = f"{self.value}{self.suffix}"
+            slider_value.update()
+        def blur(e):
+            slider_edit.visible = False
+            slider_text.visible = True
+            slider_edit.update()
+            slider_text.update()
+            slider_label.value = f"{self.label}: "
+            slider_label.update()
+        def edit(e):
+            slider_edit.visible = True
+            slider_text.visible = False
+            slider_text.update()
+            slider_edit.update()
+            slider_label.value = f"{self.label}"
+            slider_label.update()
+            #self.slider_number = TextField(value=str(self.value), on_blur=blur, text_align=TextAlign.CENTER, width=55, height=50, content_padding=padding.only(top=4), keyboard_type=KeyboardType.NUMBER, on_change=changed)
+            #self.update()
+            #
+            #e.control.update()
+            #e.page.update()
+        slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
         slider = Slider(min=self.min, max=self.max, divisions=self.divisions, label="{value}" + self.suffix, value=self.pref[self.key], tooltip=self.tooltip, expand=True, on_change=change_slider)
         slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
-        slider_row = Row([Text(f"{self.label}: "), slider_value, slider])
+        slider_text = GestureDetector(slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
+        slider_label = Text(f"{self.label}: ")
+        self.slider_number = slider_text
+        slider_row = Row([slider_label, slider_text, slider_edit, slider])
         return slider_row
 
 ''' Sample alt Object format
