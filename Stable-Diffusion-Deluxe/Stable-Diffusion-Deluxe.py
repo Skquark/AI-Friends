@@ -5594,7 +5594,7 @@ def buildInstructPix2Pix(page):
 controlnet_prefs = {
     'original_image': '',
     'prompt': '',
-    'negative_prompt': 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality',
+    'negative_prompt': 'lowres, text, watermark, cropped, worst quality, low quality',
     'control_task': 'Scribble',
     'batch_size': 1,
     'max_size': 768,
@@ -17734,9 +17734,9 @@ def run_controlnet(page, from_list=False):
     batch_output = os.path.join(stable_dir, controlnet_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
-    output_path = os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name'])
-    if not os.path.isdir(output_path):
-      os.makedirs(output_path)
+    batch_output = os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
     for pr in controlnet_prompts:
         autoscroll(False)
         prt(progress)
@@ -17825,14 +17825,14 @@ def run_controlnet(page, from_list=False):
         for image in images:
             random_seed += num
             fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
-            image_path = available_file(batch_output, fname, num)
+            image_path = available_file(os.path.join(stable_dir, controlnet_prefs['batch_folder_name']), fname, num)
             unscaled_path = image_path
             output_file = image_path.rpartition(slash)[2]
             #PILImage.fromarray(image).save(image_path)
             image.save(image_path)
             out_path = image_path.rpartition(slash)[0]
             upscaled_path = os.path.join(out_path, output_file)
-            new_file = available_file(output_path, fname, num)
+            new_file = available_file(batch_output, fname, num)
             if not controlnet_prefs['display_upscaled_image'] or not controlnet_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
