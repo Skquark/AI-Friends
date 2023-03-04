@@ -576,12 +576,12 @@ def buildStableDiffusers(page):
         selected_index=0,
         animation_duration=300,
         tabs=[
+            Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
+            Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
-            Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
-            Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
             Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
             Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
@@ -703,7 +703,8 @@ if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
 if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
 if 'memory_optimization' not in prefs: prefs['memory_optimization'] = 'Attention Slicing'
 if 'sequential_cpu_offload' not in prefs: prefs['sequential_cpu_offload'] = False
-if 'vae_slicing' not in prefs: prefs['vae_slicing'] = False
+if 'vae_slicing' not in prefs: prefs['vae_slicing'] = True
+if 'vae_tiling' not in prefs: prefs['vae_tiling'] = False
 if 'use_inpaint_model' not in prefs: prefs['use_inpaint_model'] = False
 if 'cache_dir' not in prefs: prefs['cache_dir'] = ''
 if 'Replicate_api_key' not in prefs: prefs['Replicate_api_key'] = ''
@@ -1065,6 +1066,7 @@ def buildInstallers(page):
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
   sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
+  enable_vae_tiling = Checkbox(label="Enable VAE Tiling", tooltip="The VAE will split the input tensor into tiles to compute decoding and encoding in several steps. This is useful to save a large amount of memory and to allow the processing of larger images.", value=prefs['vae_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_tiling'))
   enable_vae_slicing = Checkbox(label="Enable VAE Slicing", tooltip="Sliced VAE decode latents for larger batches of images with limited VRAM. Splits the input tensor in slices to compute decoding in several steps", value=prefs['vae_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_slicing'))
   #install_megapipe = Switch(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Tooltip(message="The best general purpose component. Create images with long prompts, weights & models", content=Switch(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_text2img')))
@@ -1138,7 +1140,7 @@ def buildInstallers(page):
                                  higher_vram_mode]), 
                                  #  enable_vae_slicing
                                  #enable_attention_slicing,
-                                 #sequential_cpu_offload,
+                                 Row([sequential_cpu_offload, enable_vae_tiling]),
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion, 
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, 
@@ -1478,7 +1480,7 @@ if is_Colab:
 
 #LoRA_models = [{'name': 'Von Platen LoRA', 'path': 'patrickvonplaten/lora'}, {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'Trauter LoRAs', 'path': 'YoungMasterFromSect/Trauter_LoRAs'}, {'name': 'Capitalize T5', 'path': 'ShengdingHu/Capitalize_T5-LoRA'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}]
 #[{'name': 'sample-dog', 'path': 'lora-library/lora-dreambooth-sample-dog', 'prefix': 'sksdog'}, {'name': 'kdekuni', 'path': 'lora-library/kdekuni', 'prefix': 'a kdekuni golden funkopop'}, {'name': 'yarosnnv', 'path': 'lora-library/yarosnnv', 'prefix': 'yarosnnv'}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, ]
-LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}]
+LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}, {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''}, {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '}]
 
 def buildParameters(page):
   global prefs, status, args
@@ -2217,7 +2219,7 @@ def buildPromptsList(page):
         arg = merge_dict(args, arg)
         dream.arg = arg
       prompts.append(dream)
-      prompts_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=editPrompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+      prompts_list.controls.append(ListTile(title=Text(p, max_lines=6, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=editPrompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[
               PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=editPrompt, data=dream),
               PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=dream),
@@ -5428,7 +5430,7 @@ def buildPaintByExample(page):
         page.paint_by_example_output,
         clear_button,
       ]
-    ))], scroll=ScrollMode.AUTO)
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 instruct_pix2pix_prefs = {
@@ -5588,7 +5590,7 @@ def buildInstructPix2Pix(page):
         page.instruct_pix2pix_output,
         clear_button,
       ]
-    ))], scroll=ScrollMode.AUTO)
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 controlnet_prefs = {
@@ -5600,7 +5602,7 @@ controlnet_prefs = {
     'max_size': 768,
     'low_threshold': 100, #1-255
     'high_threshold': 200, #1-255
-    'steps': 20, #100
+    'steps': 50, #100
     'guidance_scale': 9, #30
     'seed': 0,
     'eta': 0,
@@ -5736,7 +5738,7 @@ def buildControlNet(page):
         page.controlnet_output,
         clear_button,
       ]
-    ))], scroll=ScrollMode.AUTO)
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 materialdiffusion_prefs = {
@@ -5861,7 +5863,7 @@ def buildMaterialDiffusion(page):
     steps = TextField(label="Inference Steps", value=materialdiffusion_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
     eta = TextField(label="DDIM ETA", value=materialdiffusion_prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta', ptype="float"))
     seed = TextField(label="Seed", value=materialdiffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
-    param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=4, step=3, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}), 
+    param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=8, step=1, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}), 
                       Column([steps, eta, seed], col={'xs':12, 'md':6})], vertical_alignment=CrossAxisAlignment.START)
     guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=materialdiffusion_prefs['guidance_scale'], on_change=change_guidance, expand=True)
     guidance_value = Text(f" {materialdiffusion_prefs['guidance_scale']}", weight=FontWeight.BOLD)
@@ -9179,11 +9181,11 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=False, unet=False):
+def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False):
     global prefs, status
     if prefs['memory_optimization'] == 'Attention Slicing':
       #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
-      if prefs['sequential_cpu_offload']:
+      if prefs['sequential_cpu_offload'] and not no_cpu:
         p.enable_attention_slicing(1)
       else:
         p.enable_attention_slicing()
@@ -9194,12 +9196,14 @@ def optimize_pipe(p, vae=False, unet=False):
       p.enable_attention_slicing()
     if prefs['vae_slicing'] and vae:
       p.enable_vae_slicing()
+    if prefs['vae_tiling'] and vae_tiling:
+      p.enable_vae_tiling()
     if unet:
       p.unet = torch.compile(p.unet)
     if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
       p.unet.load_attn_procs(lora['path'])
-    if prefs['sequential_cpu_offload']:
+    if prefs['sequential_cpu_offload'] and not no_cpu:
       p.enable_sequential_cpu_offload()
     else: p.to(torch_device)
     status['loaded_scheduler'] = prefs['scheduler_mode']
@@ -16540,7 +16544,7 @@ def run_unCLIP(page, from_list=False):
                 out_path = image_path.rpartition(slash)[0]
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_prefs['display_upscaled_image'] or not unCLIP_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, width=512, height=512, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -16598,7 +16602,7 @@ def run_unCLIP(page, from_list=False):
                 time.sleep(0.2)
                 if unCLIP_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_prefs["enlarge_scale"]), height=512 * float(unCLIP_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -16727,7 +16731,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                 out_path = image_path.rpartition(slash)[0]
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_image_variation_prefs['display_upscaled_image'] or not unCLIP_image_variation_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -16753,7 +16757,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                     os.chdir(stable_dir)
                     if unCLIP_image_variation_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_image_variation_prefs["enlarge_scale"]), height=512 * float(unCLIP_image_variation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
@@ -16908,7 +16912,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                 out_path = image_path.rpartition(slash)[0]
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_interpolation_prefs['display_upscaled_image'] or not unCLIP_interpolation_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -16965,7 +16969,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                 time.sleep(0.2)
                 if unCLIP_interpolation_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_interpolation_prefs["enlarge_scale"]), height=512 * float(unCLIP_interpolation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -17119,7 +17123,7 @@ def run_magic_mix(page, from_list=False):
             out_path = image_path.rpartition(slash)[0]
             upscaled_path = os.path.join(out_path, output_file)
             if not magic_mix_prefs['display_upscaled_image'] or not magic_mix_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if magic_mix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -17145,7 +17149,7 @@ def run_magic_mix(page, from_list=False):
                 os.chdir(stable_dir)
                 if magic_mix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(magic_mix_prefs["enlarge_scale"]), height=height * float(magic_mix_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if prefs['save_image_metadata']:
                 img = PILImage.open(image_path)
@@ -17308,7 +17312,7 @@ def run_paint_by_example(page):
         out_path = image_path.rpartition(slash)[0]
         upscaled_path = os.path.join(out_path, output_file)
         if not paint_by_example_prefs['display_upscaled_image'] or not paint_by_example_prefs['apply_ESRGAN_upscale']:
-            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
             #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if paint_by_example_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -17334,7 +17338,7 @@ def run_paint_by_example(page):
             os.chdir(stable_dir)
             if paint_by_example_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(paint_by_example_prefs["enlarge_scale"]), height=height * float(paint_by_example_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if prefs['save_image_metadata']:
             img = PILImage.open(image_path)
@@ -17509,7 +17513,7 @@ def run_instruct_pix2pix(page, from_list=False):
             out_path = image_path.rpartition(slash)[0]
             upscaled_path = os.path.join(out_path, output_file)
             if not instruct_pix2pix_prefs['display_upscaled_image'] or not instruct_pix2pix_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -17535,7 +17539,7 @@ def run_instruct_pix2pix(page, from_list=False):
                 os.chdir(stable_dir)
                 if instruct_pix2pix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(instruct_pix2pix_prefs["enlarge_scale"]), height=height * float(instruct_pix2pix_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if prefs['save_image_metadata']:
                 img = PILImage.open(image_path)
@@ -17609,8 +17613,8 @@ def run_controlnet(page, from_list=False):
         page.imageColumn.auto_scroll = scroll
         page.imageColumn.update()
       else:
-        page.controlnet_output.auto_scroll = scroll
-        page.controlnet_output.update()
+        page.ControlNet.auto_scroll = scroll
+        page.ControlNet.update()
     progress = ProgressBar(bar_height=8)
     total_steps = controlnet_prefs['steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -17752,6 +17756,7 @@ def run_controlnet(page, from_list=False):
                 return
         width, height = original_img.size
         width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
+        print(f"Size: {width}x{height}")
         original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
         input_image = np.array(original_img)
         try:
@@ -17891,7 +17896,7 @@ def run_controlnet(page, from_list=False):
                 #out_path = new_file
                 shutil.copy(image_path, new_file)
             if controlnet_prefs['display_upscaled_image']:
-                prt(Row([ImageButton(src=new_file, data=new_file, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=new_file, data=new_file, width=width * float(controlnet_prefs["enlarge_scale"]), height=height * float(controlnet_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             num += 1
@@ -18166,7 +18171,7 @@ def run_DiT(page, from_list=False):
                 out_path = image_path.rpartition(slash)[0]
                 upscaled_path = os.path.join(out_path, output_file)
                 if not DiT_prefs['display_upscaled_image'] or not DiT_prefs['apply_ESRGAN_upscale']:
-                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if DiT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -18192,7 +18197,7 @@ def run_DiT(page, from_list=False):
                     os.chdir(stable_dir)
                     if DiT_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(DiT_prefs["enlarge_scale"]), height=512 * float(DiT_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
@@ -18753,7 +18758,7 @@ def run_dall_e(page, from_list=False):
             out_path = batch_output if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
             if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, data=new_file, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=image_path, data=new_file, width=size, height=size, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
 
             if save_to_GDrive:
@@ -19067,7 +19072,7 @@ def run_deep_daze(page):
     page.DeepDaze.auto_scroll = True
     page.DeepDaze.update()
     if not deep_daze_prefs['display_upscaled_image'] or not deep_daze_prefs['apply_ESRGAN_upscale']:
-        prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
         #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     if deep_daze_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
         os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -19129,7 +19134,7 @@ def run_deep_daze(page):
             if os.path.exists(f):
                 os.remove(f)
     if deep_daze_prefs['display_upscaled_image']:
-        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(deep_daze_prefs["enlarge_scale"]), height=512 * float(deep_daze_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
         #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     
@@ -19365,22 +19370,27 @@ class ImageButton(UserControl):
             self.page.update()
         def image_details(e):
           #TODO: Get size & meta
-            alert_msg(self.page, "Image Details", content=Column([Text(self.subtitle or self.data, selectable=True), Img(src=self.data, gapless_playback=True)]), sound=False)
+            alert_msg(self.page, "Image Details", content=Column([Text(self.subtitle or self.data, selectable=True), Img(src=self.data, gapless_playback=True)], horizontal_alignment=CrossAxisAlignment.CENTER), sound=False)
         def delete_image(e):
-            self.image = Container(content=None)
+            #self.image = Container(content=None)
             if os.path.exists(self.src):
               os.remove(self.src)
             if self.data != self.src:
-              os.remove(self.data)
-            #self.image.update()
+              if os.path.exists(self.data):
+                os.remove(self.data)
+            self.image.visible = False
+            self.image.update()
             self.page.snack_bar = SnackBar(content=Text(f"🗑️  Deleted {self.data}..."))
             self.page.snack_bar.open = True
             self.page.update()
-        
+        def scale_width(width, height, max_width):
+            if width > max_width: return max_width, int(height / (width / max_width))
+            else: return width, height
         #self.image = Row([Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)], alignment=MainAxisAlignment.CENTER)
         if self.width == None:
             self.image = Img(src=self.src, fit=self.fit, gapless_playback=True)
         else:
+            self.width, self.height = scale_width(self.width, self.height, (self.page.width or self.page.window_width) - 28)
             self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
         self.column = Column([
           Row([PopupMenuButton(
@@ -19394,7 +19404,7 @@ class ImageButton(UserControl):
             #content=Row([Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START),
             data=self.src if self.data==None else self.data, width=self.width, height=self.height)],
             alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START)
-          ], horizontal_alignment=CrossAxisAlignment.STRETCH if self.center else CrossAxisAlignment.START)
+          ], horizontal_alignment=CrossAxisAlignment.CENTER if self.center else CrossAxisAlignment.START)
         if self.show_subtitle:
             self.column.controls.append(Row([Text(self.subtitle)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START))
         return self.column
@@ -19503,12 +19513,12 @@ class SliderRow(UserControl):
             if self.on_change is not None:
               e.control = self
               self.on_change(e)
-            self.pref[self.key] = int(self.value) if self.round == 0 else float(self.value)
             slider.value = self.value
             slider.label = f"{self.value}{self.suffix}"
             slider.update()
             slider_value.value = f"{self.value}{self.suffix}"
             slider_value.update()
+            self.pref[self.key] = int(self.value) if self.round == 0 else float(self.value)
         def blur(e):
             slider_edit.visible = False
             slider_text.visible = True
