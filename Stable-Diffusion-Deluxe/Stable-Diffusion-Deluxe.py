@@ -4450,11 +4450,6 @@ def buildRepainter(page):
         nonlocal pick_type
         pick_type = "mask"
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Black & White Mask Image")
-    def change_num_inference_steps(e):
-        changed(e, 'num_inference_steps', ptype="int")
-        num_inference_steps_value.value = f" {repaint_prefs['num_inference_steps']}"
-        num_inference_steps_value.update()
-        num_inference_row.update()
     def change_eta(e):
         changed(e, 'eta', ptype="float")
         eta_value.value = f" {repaint_prefs['eta']}"
@@ -4467,9 +4462,7 @@ def buildRepainter(page):
     jump_n_sample = TextField(label="Jump # of Sample", width=130, tooltip="The number of times we will make forward time jump for a given chosen time sample.", value=repaint_prefs['jump_n_sample'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'jump_n_sample', ptype='int'))
     seed = TextField(label="Seed", width=90, value=str(repaint_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     #num_inference_steps = TextField(label="Inference Steps", value=str(repaint_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_steps = Slider(min=10, max=3000, divisions=2990, label="{value}", value=float(repaint_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
-    num_inference_steps_value = Text(f" {repaint_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
-    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=10, max=3000, divisions=2990, pref=repaint_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     #eta = TextField(label="ETA", value=str(repaint_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(repaint_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {repaint_prefs['eta']}", weight=FontWeight.BOLD)
@@ -4565,27 +4558,10 @@ def buildImageVariation(page):
     page.overlay.append(file_picker)
     def pick_init(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
-    def change_num_inference_steps(e):
-      changed(e, 'num_inference_steps', ptype="int")
-      num_inference_steps_value.value = f" {image_variation_prefs['num_inference_steps']}"
-      num_inference_steps_value.update()
-      num_inference_row.update()
-    def change_guidance(e):
-      guidance_value.value = f" {e.control.value}"
-      guidance_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      guidance.update()
-      changed(e, 'guidance_scale', ptype="float")
-    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=image_variation_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {image_variation_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
     init_image = TextField(label="Initial Image", value=image_variation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     seed = TextField(label="Seed", width=90, value=str(image_variation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    
-    #num_inference_steps = TextField(label="Inference Steps", value=str(image_variation_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(image_variation_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
-    num_inference_steps_value = Text(f" {magic_mix_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
-    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=image_variation_prefs, key='guidance_scale')
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=image_variation_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     #eta = TextField(label="ETA", value=str(image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     eta_row = Row([Text("DDIM ETA: "), eta])
@@ -4670,61 +4646,17 @@ def buildUnCLIP(page):
       page.dialog = unCLIP_help_dlg
       unCLIP_help_dlg.open = True
       page.update()
-    
-    def change_prior_guidance(e):
-      prior_guidance_value.value = f" {e.control.value}"
-      prior_guidance_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      prior_guidance.update()
-      changed(e, 'prior_guidance_scale', ptype="float")
-    prior_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_prefs['prior_guidance_scale'], on_change=change_prior_guidance, expand=True)
-    prior_guidance_value = Text(f" {unCLIP_prefs['prior_guidance_scale']}", weight=FontWeight.BOLD)
-    prior_guidance = Row([Text("Prior Guidance Scale: "), prior_guidance_value, prior_guidance_scale])
-
-    def change_decoder_guidance(e):
-      decoder_guidance_value.value = f" {e.control.value}"
-      decoder_guidance_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      decoder_guidance.update()
-      changed(e, 'decoder_guidance_scale', ptype="float")
-    decoder_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_prefs['decoder_guidance_scale'], on_change=change_decoder_guidance, expand=True)
-    decoder_guidance_value = Text(f" {unCLIP_prefs['decoder_guidance_scale']}", weight=FontWeight.BOLD)
-    decoder_guidance = Row([Text("Decoder Guidance Scale: "), decoder_guidance_value, decoder_guidance_scale])
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         unCLIP_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
     prompt = TextField(label="Prompt Text", value=unCLIP_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(unCLIP_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    def change_prior_num_inference(e):
-      changed(e, 'prior_num_inference_steps', ptype="int")
-      prior_num_inference_value.value = f" {unCLIP_prefs['prior_num_inference_steps']}"
-      prior_num_inference_value.update()
-      prior_num_inference_row.update()
-    def change_decoder_num_inference(e):
-      changed(e, 'decoder_num_inference_steps', ptype="int")
-      decoder_num_inference_value.value = f" {unCLIP_prefs['decoder_num_inference_steps']}"
-      decoder_num_inference_value.update()
-      decoder_num_inference_row.update()
-    def change_super_res_num_inference(e):
-      changed(e, 'super_res_num_inference_steps', ptype="int")
-      super_res_num_inference_value.value = f" {unCLIP_prefs['super_res_num_inference_steps']}"
-      super_res_num_inference_value.update()
-      super_res_num_inference_row.update()
-    #prior_num_inference_steps = TextField(label="Inference Steps", value=str(unCLIP_prefs['prior_num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'prior_num_inference_steps', ptype='int'))
-    prior_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_prefs['prior_num_inference_steps']), tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_prior_num_inference)
-    decoder_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_prefs['decoder_num_inference_steps']), tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_decoder_num_inference)
-    super_res_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_prefs['super_res_num_inference_steps']), tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_super_res_num_inference)
-    prior_num_inference_value = Text(f" {unCLIP_prefs['prior_num_inference_steps']}", weight=FontWeight.BOLD)
-    decoder_num_inference_value = Text(f" {unCLIP_prefs['decoder_num_inference_steps']}", weight=FontWeight.BOLD)
-    super_res_num_inference_value = Text(f" {unCLIP_prefs['super_res_num_inference_steps']}", weight=FontWeight.BOLD)
-    prior_num_inference_row = Row([Text("Number of Prior Inference Steps: "), prior_num_inference_value, prior_num_inference_steps])
-    decoder_num_inference_row = Row([Text("Number of Decoder Inference Steps: "), decoder_num_inference_value, decoder_num_inference_steps])
-    super_res_num_inference_row = Row([Text("Number of Super-Res Inference Steps: "), super_res_num_inference_value, super_res_num_inference_steps])
+    prior_num_inference_row = SliderRow(label="Number of Prior Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_prefs, key='prior_num_inference_steps', tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    decoder_num_inference_row = SliderRow(label="Number of Decoder Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_prefs, key='decoder_num_inference_steps', tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    super_res_num_inference_row = SliderRow(label="Number of Super-Res Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_prefs, key='decoder_num_inference_steps', tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    prior_guidance = SliderRow(label="Prior Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_prefs, key='prior_guidance_scale')
+    decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_prefs, key='decoder_guidance_scale')
     batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     use_StableUnCLIP_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switch(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_prefs['use_StableUnCLIP_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_StableUnCLIP_pipeline')))
     #eta = TextField(label="ETA", value=str(unCLIP_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
@@ -4733,9 +4665,7 @@ def buildUnCLIP(page):
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(unCLIP_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(unCLIP_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=unCLIP_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_unCLIP = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -4846,16 +4776,6 @@ def buildUnCLIP_ImageVariation(page):
     def pick_init(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
     init_image = TextField(label="Initial Image", value=unCLIP_image_variation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
-
-    def change_decoder_guidance(e):
-      decoder_guidance_value.value = f" {e.control.value}"
-      decoder_guidance_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      decoder_guidance.update()
-      changed(e, 'decoder_guidance_scale', ptype="float")
-    decoder_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_image_variation_prefs['decoder_guidance_scale'], on_change=change_decoder_guidance, expand=True)
-    decoder_guidance_value = Text(f" {unCLIP_image_variation_prefs['decoder_guidance_scale']}", weight=FontWeight.BOLD)
-    decoder_guidance = Row([Text("Decoder Guidance Scale: "), decoder_guidance_value, decoder_guidance_scale])
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -4866,23 +4786,9 @@ def buildUnCLIP_ImageVariation(page):
         changed(e, 'enlarge_scale', ptype="float")
     #prompt = TextField(label="Prompt Text", value=unCLIP_image_variation_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(unCLIP_image_variation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-
-    def change_decoder_num_inference(e):
-      changed(e, 'decoder_num_inference_steps', ptype="int")
-      decoder_num_inference_value.value = f" {unCLIP_image_variation_prefs['decoder_num_inference_steps']}"
-      decoder_num_inference_value.update()
-      decoder_num_inference_row.update()
-    def change_super_res_num_inference(e):
-      changed(e, 'super_res_num_inference_steps', ptype="int")
-      super_res_num_inference_value.value = f" {unCLIP_image_variation_prefs['super_res_num_inference_steps']}"
-      super_res_num_inference_value.update()
-      super_res_num_inference_row.update()
-    decoder_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_image_variation_prefs['decoder_num_inference_steps']), tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_decoder_num_inference)
-    super_res_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_image_variation_prefs['super_res_num_inference_steps']), tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_super_res_num_inference)
-    decoder_num_inference_value = Text(f" {unCLIP_image_variation_prefs['decoder_num_inference_steps']}", weight=FontWeight.BOLD)
-    super_res_num_inference_value = Text(f" {unCLIP_image_variation_prefs['super_res_num_inference_steps']}", weight=FontWeight.BOLD)
-    decoder_num_inference_row = Row([Text("Number of Decoder Inference Steps: "), decoder_num_inference_value, decoder_num_inference_steps])
-    super_res_num_inference_row = Row([Text("Number of Super-Res Inference Steps: "), super_res_num_inference_value, super_res_num_inference_steps])
+    decoder_num_inference_row = SliderRow(label="Number of Decoder Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_image_variation_prefs, key='decoder_num_inference_steps', tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    super_res_num_inference_row = SliderRow(label="Number of Super-Res Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_image_variation_prefs, key='decoder_num_inference_steps', tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_image_variation_prefs, key='decoder_guidance_scale')
     batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_image_variation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     #eta = TextField(label="ETA", value=str(unCLIP_image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
@@ -4979,24 +4885,6 @@ def buildUnCLIP_Interpolation(page):
       page.dialog = unCLIP_interpolation_help_dlg
       unCLIP_interpolation_help_dlg.open = True
       page.update()
-    def change_prior_guidance(e):
-      prior_guidance_value.value = f" {e.control.value}"
-      prior_guidance_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      prior_guidance.update()
-      changed(e, 'prior_guidance_scale', ptype="float")
-    prior_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_interpolation_prefs['prior_guidance_scale'], on_change=change_prior_guidance, expand=True)
-    prior_guidance_value = Text(f" {unCLIP_interpolation_prefs['prior_guidance_scale']}", weight=FontWeight.BOLD)
-    prior_guidance = Row([Text("Prior Guidance Scale: "), prior_guidance_value, prior_guidance_scale])
-    def change_decoder_guidance(e):
-      decoder_guidance_value.value = f" {e.control.value}"
-      decoder_guidance_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      decoder_guidance.update()
-      changed(e, 'decoder_guidance_scale', ptype="float")
-    decoder_guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=unCLIP_interpolation_prefs['decoder_guidance_scale'], on_change=change_decoder_guidance, expand=True)
-    decoder_guidance_value = Text(f" {unCLIP_interpolation_prefs['decoder_guidance_scale']}", weight=FontWeight.BOLD)
-    decoder_guidance = Row([Text("Decoder Guidance Scale: "), decoder_guidance_value, decoder_guidance_scale])
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -5008,39 +4896,12 @@ def buildUnCLIP_Interpolation(page):
     prompt = TextField(label="Start Prompt Text", value=unCLIP_interpolation_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     end_prompt = TextField(label="End Prompt Text", value=unCLIP_interpolation_prefs['end_prompt'], on_change=lambda e:changed(e,'end_prompt'))
     seed = TextField(label="Seed", width=90, value=str(unCLIP_interpolation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    def change_interpolation_steps(e):
-      changed(e, 'steps', ptype="int")
-      interpolation_steps_value.value = f" {unCLIP_interpolation_prefs['steps']}"
-      interpolation_steps_value.update()
-      interpolation_steps_value.update()
-    def change_prior_num_inference(e):
-      changed(e, 'prior_num_inference_steps', ptype="int")
-      prior_num_inference_value.value = f" {unCLIP_interpolation_prefs['prior_num_inference_steps']}"
-      prior_num_inference_value.update()
-      prior_num_inference_row.update()
-    def change_decoder_num_inference(e):
-      changed(e, 'decoder_num_inference_steps', ptype="int")
-      decoder_num_inference_value.value = f" {unCLIP_interpolation_prefs['decoder_num_inference_steps']}"
-      decoder_num_inference_value.update()
-      decoder_num_inference_row.update()
-    def change_super_res_num_inference(e):
-      changed(e, 'super_res_num_inference_steps', ptype="int")
-      super_res_num_inference_value.value = f" {unCLIP_interpolation_prefs['super_res_num_inference_steps']}"
-      super_res_num_inference_value.update()
-      super_res_num_inference_row.update()
-    #prior_num_inference_steps = TextField(label="Inference Steps", value=str(unCLIP_interpolation_prefs['prior_num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'prior_num_inference_steps', ptype='int'))
-    interpolation_steps = Slider(min=1, max=50, divisions=49, label="{value}", value=int(unCLIP_interpolation_prefs['steps']), tooltip="The number of steps over which to interpolate from start_prompt to end_prompt.", expand=True, on_change=change_interpolation_steps)
-    interpolation_steps_value = Text(f" {unCLIP_interpolation_prefs['steps']}", weight=FontWeight.BOLD)
-    interpolation_steps_row = Row([Text("Number of Interpolation Steps: "), interpolation_steps_value, interpolation_steps])
-    prior_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_interpolation_prefs['prior_num_inference_steps']), tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_prior_num_inference)
-    decoder_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_interpolation_prefs['decoder_num_inference_steps']), tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_decoder_num_inference)
-    super_res_num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(unCLIP_interpolation_prefs['super_res_num_inference_steps']), tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_super_res_num_inference)
-    prior_num_inference_value = Text(f" {unCLIP_interpolation_prefs['prior_num_inference_steps']}", weight=FontWeight.BOLD)
-    decoder_num_inference_value = Text(f" {unCLIP_interpolation_prefs['decoder_num_inference_steps']}", weight=FontWeight.BOLD)
-    super_res_num_inference_value = Text(f" {unCLIP_interpolation_prefs['super_res_num_inference_steps']}", weight=FontWeight.BOLD)
-    prior_num_inference_row = Row([Text("Number of Prior Inference Steps: "), prior_num_inference_value, prior_num_inference_steps])
-    decoder_num_inference_row = Row([Text("Number of Decoder Inference Steps: "), decoder_num_inference_value, decoder_num_inference_steps])
-    super_res_num_inference_row = Row([Text("Number of Super-Res Inference Steps: "), super_res_num_inference_value, super_res_num_inference_steps])
+    interpolation_steps_row = SliderRow(label="Number of Interpolation Step", min=1, max=50, divisions=49, pref=unCLIP_interpolation_prefs, key='steps', tooltip="The number of steps over which to interpolate from start_prompt to end_prompt.")
+    prior_num_inference_row = SliderRow(label="Number of Prior Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_interpolation_prefs, key='prior_num_inference_steps', tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    decoder_num_inference_row = SliderRow(label="Number of Decoder Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_interpolation_prefs, key='decoder_num_inference_steps', tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    super_res_num_inference_row = SliderRow(label="Number of Super-Res Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_interpolation_prefs, key='decoder_num_inference_steps', tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    prior_guidance = SliderRow(label="Prior Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_interpolation_prefs, key='prior_guidance_scale')
+    decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_interpolation_prefs, key='decoder_guidance_scale')
     batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_interpolation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     #use_StableunCLIP_interpolation_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switch(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_interpolation_prefs['use_StableunCLIP_interpolation_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_StableunCLIP_interpolation_pipeline')))
     #eta = TextField(label="ETA", value=str(unCLIP_interpolation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
@@ -5168,39 +5029,6 @@ def buildMagicMix(page):
         ESRGAN_settings.height = None if e.control.value else 0
         magic_mix_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
-    def change_num_inference_steps(e):
-      changed(e, 'num_inference_steps', ptype="int")
-      num_inference_steps_value.value = f" {magic_mix_prefs['num_inference_steps']}"
-      num_inference_steps_value.update()
-      num_inference_row.update()
-    def change_mix_factor(e):
-      changed(e, 'mix_factor', ptype="float")
-      mix_factor_value.value = f" {magic_mix_prefs['mix_factor']}"
-      mix_factor_value.update()
-      mix_factor_row.update()
-    def change_kmin(e):
-      changed(e, 'kmin', ptype="float")
-      kmin_value.value = f" {magic_mix_prefs['kmin']}"
-      kmin_value.update()
-      kmin_row.update()
-    def change_kmax(e):
-      changed(e, 'kmax', ptype="float")
-      kmax_value.value = f" {magic_mix_prefs['kmax']}"
-      kmax_value.update()
-      kmax_row.update()
-    def change_guidance(e):
-      guidance_value.value = f" {e.control.value}"
-      guidance_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      guidance.update()
-      changed(e, 'guidance_scale', ptype="float")
-    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=magic_mix_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {magic_mix_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
     init_image = TextField(label="Initial Image", value=magic_mix_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     seed = TextField(label="Seed", width=90, value=str(magic_mix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the noise", width=200,
@@ -5210,26 +5038,15 @@ def buildMagicMix(page):
                 dropdown.Option("PNDM"),
             ], value=magic_mix_prefs['scheduler_mode'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_mode'),
         )
-    #num_inference_steps = TextField(label="Inference Steps", value=str(magic_mix_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(magic_mix_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
-    num_inference_steps_value = Text(f" {magic_mix_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
-    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
-    #mix_factor = TextField(label="ETA", value=str(magic_mix_prefs['mix_factor']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'mix_factor', ptype='float'))
-    mix_factor = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['mix_factor']), tooltip="Interpolation constant used in the layout generation phase. The greater the value of `mix_factor`, the greater the influence of the prompt on the layout generation process.", expand=True, on_change=change_mix_factor)
-    mix_factor_value = Text(f" {magic_mix_prefs['mix_factor']}", weight=FontWeight.BOLD)
-    mix_factor_row = Row([Text("Mix Factor: "), mix_factor_value, mix_factor])
-    kmin = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['kmin']), tooltip="A higher value of kmin results in more steps for content generation process. Determine the range for the layout and content generation process.", expand=True, on_change=change_kmin)
-    kmin_value = Text(f" {magic_mix_prefs['kmin']}", weight=FontWeight.BOLD)
-    kmin_row = Row([Text("k-Min: "), kmin_value, kmin], col={'lg':6})
-    kmax = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(magic_mix_prefs['kmax']), tooltip="A higher value of kmax results in loss of more information about the layout of the original image. Determine the range for the layout and content generation process.", expand=True, on_change=change_kmax)
-    kmax_value = Text(f" {magic_mix_prefs['kmax']}", weight=FontWeight.BOLD)
-    kmax_row = Row([Text("k-Max: "), kmax_value, kmax], col={'lg':6})
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=magic_mix_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=magic_mix_prefs, key='guidance_scale')
+    mix_factor_row = SliderRow(label="Mix Factor", min=0.0, max=1.0, divisions=20, round=2, pref=magic_mix_prefs, key='mix_factor', tooltip="Interpolation constant used in the layout generation phase. The greater the value of `mix_factor`, the greater the influence of the prompt on the layout generation process.")
+    kmin_row = SliderRow(label="k-Min", min=0.0, max=1.0, divisions=20, round=2, pref=magic_mix_prefs, key='kmin', tooltip="A higher value of kmin results in more steps for content generation process. Determine the range for the layout and content generation process.")
+    kmax_row = SliderRow(label="k-Max", min=0.0, max=1.0, divisions=20, round=2, pref=magic_mix_prefs, key='kmax', tooltip="A higher value of kmax results in loss of more information about the layout of the original image. Determine the range for the layout and content generation process.")
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=magic_mix_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=magic_mix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=magic_mix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(magic_mix_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=magic_mix_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=magic_mix_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=magic_mix_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_magic_mix = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -5363,21 +5180,6 @@ def buildPaintByExample(page):
         ESRGAN_settings.height = None if e.control.value else 0
         paint_by_example_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
-    def change_num_inference_steps(e):
-        changed(e, 'num_inference_steps', ptype="int")
-        num_inference_steps_value.value = f" {paint_by_example_prefs['num_inference_steps']}"
-        num_inference_steps_value.update()
-        num_inference_row.update()
-    def change_guidance(e):
-        guidance_value.value = f" {e.control.value}"
-        guidance_value.update()
-        #guidance.controls[1].value = f" {e.control.value}"
-        guidance.update()
-        changed(e, 'guidance_scale', ptype="float")
     def change_eta(e):
         changed(e, 'eta', ptype="float")
         eta_value.value = f" {paint_by_example_prefs['eta']}"
@@ -5389,13 +5191,8 @@ def buildPaintByExample(page):
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=paint_by_example_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     example_image = TextField(label="Example Style Image", value=paint_by_example_prefs['example_image'], on_change=lambda e:changed(e,'example_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_example))
     seed = TextField(label="Seed", width=90, value=str(paint_by_example_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    #num_inference_steps = TextField(label="Inference Steps", value=str(paint_by_example_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=float(paint_by_example_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
-    num_inference_steps_value = Text(f" {paint_by_example_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
-    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
-    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=paint_by_example_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {paint_by_example_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=paint_by_example_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=paint_by_example_prefs, key='guidance_scale')
     #eta = TextField(label="ETA", value=str(paint_by_example_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(paint_by_example_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {paint_by_example_prefs['eta']}", weight=FontWeight.BOLD)
@@ -5403,9 +5200,7 @@ def buildPaintByExample(page):
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=paint_by_example_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=paint_by_example_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=paint_by_example_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(paint_by_example_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=paint_by_example_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=paint_by_example_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=paint_by_example_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_paint_by_example = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -5513,26 +5308,6 @@ def buildInstructPix2Pix(page):
         ESRGAN_settings.height = None if e.control.value else 0
         instruct_pix2pix_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
-    def change_num_inference_steps(e):
-        changed(e, 'num_inference_steps', ptype="int")
-        num_inference_steps_value.value = f" {instruct_pix2pix_prefs['num_inference_steps']}"
-        num_inference_steps_value.update()
-        num_inference_row.update()
-    def change_guidance(e):
-        guidance_value.value = f" {e.control.value}"
-        guidance_value.update()
-        #guidance.controls[1].value = f" {e.control.value}"
-        guidance.update()
-        changed(e, 'guidance_scale', ptype="float")
-    def change_image_guidance(e):
-        image_guidance_value.value = f" {e.control.value}"
-        image_guidance_value.update()
-        image_guidance.update()
-        changed(e, 'image_guidance_scale', ptype="float")
     def change_eta(e):
         changed(e, 'eta', ptype="float")
         eta_value.value = f" {instruct_pix2pix_prefs['eta']}"
@@ -5542,16 +5317,9 @@ def buildInstructPix2Pix(page):
     prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(instruct_pix2pix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    #num_inference_steps = TextField(label="Inference Steps", value=str(instruct_pix2pix_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=float(instruct_pix2pix_prefs['num_inference_steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference_steps)
-    num_inference_steps_value = Text(f" {instruct_pix2pix_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
-    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_steps_value, num_inference_steps])
-    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=instruct_pix2pix_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {instruct_pix2pix_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
-    image_guidance_scale = Slider(min=0, max=200, divisions=400, label="{value}", tooltip="Image guidance scale is to push the generated image towards the inital image `image`. Higher image guidance scale encourages to generate images that are closely linked to the source image `image`, usually at the expense of lower image quality.", value=instruct_pix2pix_prefs['image_guidance_scale'], on_change=change_image_guidance, expand=True)
-    image_guidance_value = Text(f" {instruct_pix2pix_prefs['image_guidance_scale']}", weight=FontWeight.BOLD)
-    image_guidance = Row([Text("Image Guidance Scale: "), image_guidance_value, image_guidance_scale])
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=instruct_pix2pix_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=instruct_pix2pix_prefs, key='guidance_scale')
+    image_guidance = SliderRow(label="Image Guidance Scale", min=0, max=200, divisions=400, round=1, pref=instruct_pix2pix_prefs, key='image_guidance_scale', tooltip="Image guidance scale is to push the generated image towards the inital image `image`. Higher image guidance scale encourages to generate images that are closely linked to the source image `image`, usually at the expense of lower image quality.")
     #eta = TextField(label="ETA", value=str(instruct_pix2pix_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(instruct_pix2pix_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {instruct_pix2pix_prefs['eta']}", weight=FontWeight.BOLD)
@@ -5559,9 +5327,7 @@ def buildInstructPix2Pix(page):
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=instruct_pix2pix_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=instruct_pix2pix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=instruct_pix2pix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(instruct_pix2pix_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=instruct_pix2pix_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=instruct_pix2pix_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=instruct_pix2pix_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_instruct_pix2pix = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -6583,17 +6349,6 @@ def buildCLIPstyler(page):
         CLIPstyler_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
         has_changed = True
-    def change_iterations(e):
-        changed(e, 'training_iterations', ptype="int")
-        iterations_value.value = f" {int(e.control.value)}"
-        iterations_value.update()
-        #iterations.controls[1].value = f" {e.control.value}"
-        iterations.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
-
     prompt_text = TextField(label="Stylized Prompt Text", value=CLIPstyler_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
     batch_folder_name = TextField(label="Batch Folder Name", value=CLIPstyler_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     source = TextField(label="Source Type", value=CLIPstyler_prefs['source'], on_change=lambda e:changed(e,'source'))
@@ -6601,9 +6356,8 @@ def buildCLIPstyler(page):
     crop_size = TextField(label="Crop Size", value=CLIPstyler_prefs['crop_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'crop_size', ptype="int"))
     num_crops = TextField(label="Number of Crops", value=CLIPstyler_prefs['num_crops'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_crops', ptype="int"))
     param_rows = Column([Row([batch_folder_name, source]), Row([crop_size, num_crops])])
-    training_iterations = Slider(min=50, max=500, divisions=90, label="{value}", value=CLIPstyler_prefs['training_iterations'], on_change=change_iterations, expand=True)
-    iterations_value = Text(f" {CLIPstyler_prefs['training_iterations']}", weight=FontWeight.BOLD)
-    iterations = Row([Text("Training Iterations: "), iterations_value, training_iterations])
+    iterations = SliderRow(label="Training Iterations", min=50, max=500, divisions=90, pref=CLIPstyler_prefs, key='training_iterations')   
+    
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=CLIPstyler_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=CLIPstyler_prefs, key='height')
     original_image = TextField(label="Original Image", value=CLIPstyler_prefs['original_image'], on_change=lambda e:changed(e,'original_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original, col={"*":1, "md":3}))
@@ -6615,9 +6369,7 @@ def buildCLIPstyler(page):
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     #img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=CLIPstyler_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(CLIPstyler_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=CLIPstyler_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=CLIPstyler_prefs, key='enlarge_scale')
     #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=CLIPstyler_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=CLIPstyler_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
