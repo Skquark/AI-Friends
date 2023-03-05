@@ -835,7 +835,17 @@ def buildSettings(page):
     prefs['cache_dir'] = default_dir
     optional_cache_dir.value = default_dir
     optional_cache_dir.update()
-  image_output = TextField(label="Image Output Path", value=prefs['image_output'], on_change=lambda e:changed(e, 'image_output'), col={"md":12, "lg":6}, suffix=IconButton(icon=icons.FOLDER_OUTLINED))
+  def folder_picker_result(e):
+    folder = folder_picker.result
+    if folder != None and folder.path != None:
+      image_output.value = folder.path
+      image_output.update()
+  folder_picker = FilePicker(on_result=folder_picker_result)
+  page.overlay.append(folder_picker)
+  def pick_output_dir(e):
+    if not is_Colab:
+      folder_picker.get_directory_path(dialog_title="Pick Directory to Save Outputs")
+  image_output = TextField(label="Image Output Path", value=prefs['image_output'], on_change=lambda e:changed(e, 'image_output'), col={"md":12, "lg":6}, suffix=IconButton(icon=icons.FOLDER_OUTLINED, on_click=pick_output_dir))
   optional_cache_dir = TextField(label="Optional Cache Directory (saves large models to drive)", hint_text="(button on right inserts recommended folder)", value=prefs['cache_dir'], on_change=lambda e:changed(e, 'cache_dir'), suffix=IconButton(icon=icons.ARCHIVE, tooltip="Insert recommended models cache path", on_click=default_cache_dir), col={"md":12, "lg":6})
   file_prefix = TextField(label="Filename Prefix",  value=prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
   file_suffix_seed = Checkbox(label="Filename Suffix Seed   ", tooltip="Appends -seed# to the end of the image name", value=prefs['file_suffix_seed'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_suffix_seed'))
@@ -1140,7 +1150,7 @@ def buildInstallers(page):
                                  higher_vram_mode]), 
                                  #  enable_vae_slicing
                                  #enable_attention_slicing,
-                                 Row([sequential_cpu_offload, enable_vae_tiling]),
+                                 #Row([sequential_cpu_offload, enable_vae_tiling]),
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion, 
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, 
@@ -2966,11 +2976,6 @@ def buildESRGANupscaler(page):
       #generator_list_buttons.visible = True
       #generator_list_buttons.update()
     page.add_to_ESRGAN_output = add_to_ESRGAN_output
-    enlarge_scale_value = Text(f" {float(ESRGAN_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    def change_enlarge_scale(e):
-        enlarge_scale_value.value = f" {int(e.control.value) if e.control.value.is_integer() else float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale')
     def toggle_split(e):
       split_container.height = None if e.control.value else 0
       changed(e, 'split_image_grid')
@@ -3004,8 +3009,7 @@ def buildESRGANupscaler(page):
     def pick_destination(e):
         alert_msg(page, "Switch to Colab tab and press Files button on the Left & Find the Path you want to Save Images into, Right Click and Copy Path, then Paste here")
     page.overlay.append(file_picker)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=ESRGAN_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=ESRGAN_prefs, key='enlarge_scale')
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ESRGAN_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     image_path = TextField(label="Image File or Folder Path", value=ESRGAN_prefs['image_path'], col={'md':6}, on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path))
     dst_image_path = TextField(label="Destination Image Path", value=ESRGAN_prefs['dst_image_path'], col={'md':6}, on_change=lambda e:changed(e,'dst_image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_destination))
@@ -3798,8 +3802,7 @@ def buildDanceDiffusion(page):
       community_dance_diffusion_model.visible = False
     if not dance_prefs['dance_model'] == 'Custom':
       custom_model.visible = False
-    inference_steps = Slider(min=10, max=200, divisions=190, label="{value}", value=float(dance_prefs['inference_steps']), expand=True)
-    inference_row = Row([Text("Number of Inference Steps: "), inference_steps])
+    inference_row = SliderRow(label="Number of Inference Steps", min=10, max=200, divisions=190, pref=dance_prefs, key='inference_steps')   
     batch_size = TextField(label="Batch Size", value=dance_prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
     seed = TextField(label="Random Seed", value=dance_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', isInt=True), width = 110)
     audio_length_in_s = TextField(label="Audio Length in Seconds", value=dance_prefs['audio_length_in_s'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'audio_length_in_s'), width = 190)
@@ -3932,20 +3935,12 @@ def buildAudioDiffusion(page):
     def pick_audio(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp3", "wav"], dialog_title="Pick Init Audio File")
     audio_file = TextField(label="Input Audio File (optional)", value=audio_diffusion_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
-
-    def change_steps(e):
-        changed(e, 'steps', ptype="int")
-        steps_value.value = f" {audio_diffusion_prefs['steps']}"
-        steps_value.update()
-        steps_row.update()
     def change_eta(e):
         changed(e, 'eta', ptype="float")
         eta_value.value = f" {audio_diffusion_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-    steps = Slider(min=1, max=100, divisions=99, label="{value}", value=float(audio_diffusion_prefs['steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_steps)
-    steps_value = Text(f" {audio_diffusion_prefs['steps']}", weight=FontWeight.BOLD)
-    steps_row = Row([Text("Number of Inference Steps: "), steps_value, steps])
+    steps_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=audio_diffusion_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(audio_diffusion_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {audio_diffusion_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("DDIM ETA:"), eta_value, eta,])
@@ -4128,19 +4123,13 @@ def buildPoint_E(page):
     #page.overlay.append(pick_files_dialog)
     def pick_original(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
-    def change_guidance(e):
-      guidance_value.value = f" {e.control.value}"
-      guidance_value.update()
-      guidance.update()
     prompt_text = TextField(label="Prompt Text", value=point_e_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
     init_image = TextField(label="Sample Image (instead of prompt)", value=point_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=point_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
     batch_folder_name = TextField(label="3D Model Folder Name", value=point_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     #batch_size = TextField(label="Batch Size", value=point_e_prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=point_e_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
-    guidance_scale = Slider(min=0, max=10, divisions=20, label="{value}", value=point_e_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {point_e_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=point_e_prefs, key='guidance_scale')
     #seed = TextField(label="Seed", value=point_e_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
     page.point_e_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -5604,18 +5593,8 @@ def buildMaterialDiffusion(page):
         materialdiffusion_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
         has_changed = True
-    def change_guidance(e):
-        guidance_value.value = f" {e.control.value}"
-        guidance_value.update()
-        #guidance.controls[1].value = f" {e.control.value}"
-        guidance.update()
-        changed(e, 'guidance_scale')
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
     def change_strength(e):
-        strength_value.value = f" {int(e.control.value * 100)}"
+        strength_value.value = f" {int(e.control.value * 100)}%"
         strength_value.update()
         guidance.update()
         changed(e, 'prompt_strength', ptype="float")
@@ -5631,9 +5610,7 @@ def buildMaterialDiffusion(page):
     seed = TextField(label="Seed", value=materialdiffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
     param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=8, step=1, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}), 
                       Column([steps, eta, seed], col={'xs':12, 'md':6})], vertical_alignment=CrossAxisAlignment.START)
-    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=materialdiffusion_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {materialdiffusion_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=materialdiffusion_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='height')
     init_image = TextField(label="Init Image", value=materialdiffusion_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
@@ -5643,11 +5620,10 @@ def buildMaterialDiffusion(page):
     prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=materialdiffusion_prefs['prompt_strength'], on_change=change_strength, expand=True)
     strength_value = Text(f" {int(materialdiffusion_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
+    #strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=0.9, divisions=16, suffix="%", pref=materialdiffusion_prefs, key='prompt_strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=materialdiffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(materialdiffusion_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=materialdiffusion_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=materialdiffusion_prefs, key='enlarge_scale')
     #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=materialdiffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=materialdiffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -5742,39 +5718,14 @@ def buildDiT(page):
         controls=classes,
         expand=True,
       )], spacing=0), width=(page.window_width or page.width) - 150), okay="That's a lot...", sound=False)
-    def change_num_inference(e):
-      changed(e, 'num_inference_steps', ptype="int")
-      num_inference_value.value = f" {DiT_prefs['num_inference_steps']}"
-      num_inference_value.update()
-      num_inference_row.update()
-    def change_guidance_scale(e):
-      guidance_scale_value.value = f" {e.control.value}"
-      guidance_scale_value.update()
-      #guidance.controls[1].value = f" {e.control.value}"
-      guidance_scale.update()
-      changed(e, 'guidance_scale', ptype="float")
-    guidance_scale = Slider(min=0, max=50, divisions=100, label="{value}", value=DiT_prefs['guidance_scale'], on_change=change_guidance_scale, expand=True)
-    guidance_scale_value = Text(f" {DiT_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance_scale = Row([Text("Guidance Scale: "), guidance_scale_value, guidance_scale])
+    guidance_scale = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=DiT_prefs, key='guidance_scale')
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         DiT_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
     prompt = TextField(label="ImageNet Class Names (separated by commas)", value=DiT_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(DiT_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    def change_num_inference(e):
-      changed(e, 'num_inference_steps', ptype="int")
-      num_inference_value.value = f" {DiT_prefs['num_inference_steps']}"
-      num_inference_value.update()
-      num_inference_row.update()
-    #num_inference_steps = TextField(label="Inference Steps", value=str(DiT_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
-    num_inference_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=int(DiT_prefs['num_inference_steps']), tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_num_inference)
-    num_inference_value = Text(f" {DiT_prefs['num_inference_steps']}", weight=FontWeight.BOLD)
-    num_inference_row = Row([Text("Number of Inference Steps: "), num_inference_value, num_inference_steps])
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=DiT_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     batch_folder_name = TextField(label="Batch Folder Name", value=DiT_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     #eta = TextField(label="ETA", value=str(DiT_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(DiT_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
@@ -5782,9 +5733,7 @@ def buildDiT(page):
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(DiT_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=DiT_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(DiT_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=DiT_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=DiT_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=DiT_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_DiT = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -5990,7 +5939,6 @@ kandinsky_prefs = {
 
 def buildKandinsky(page):
     global prefs, kandinsky_prefs, status
-
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
@@ -6020,11 +5968,9 @@ def buildKandinsky(page):
             #shutil.copy(src_path, dst_path)
             # TODO: is init or mask?
             init_image.value = dst_path
-
     pick_files_dialog = FilePicker(on_result=pick_files_result)
     page.overlay.append(pick_files_dialog)
     #selected_files = Text()
-
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
             upload_files(e)
@@ -6063,22 +6009,6 @@ def buildKandinsky(page):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def change_guidance(e):
-        guidance_value.value = f" {int(e.control.value)}"
-        guidance_value.update()
-        #guidance.controls[1].value = f" {e.control.value}"
-        guidance.update()
-        changed(e, 'guidance_scale', ptype="int")
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
-    def change_strength(e):
-        strength_value.value = f" {e.control.value}"
-        strength_value.update()
-        guidance.update()
-        changed(e, 'strength', ptype="float")
-
     prompt = TextField(label="Prompt Text", value=kandinsky_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=kandinsky_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
@@ -6093,23 +6023,17 @@ def buildKandinsky(page):
     sampler = Dropdown(label="Sampler", width=180, options=[dropdown.Option("ddim_sampler"), dropdown.Option("p_sampler")], value=kandinsky_prefs['sampler'], on_change=lambda e:changed(e,'sampler'), col={'xs':12, 'md':6})
     denoised_type = Dropdown(label="Denoised Type", width=180, options=[dropdown.Option("dynamic_threshold"), dropdown.Option("clip_denoised")], value=kandinsky_prefs['denoised_type'], on_change=lambda e:changed(e,'denoised_type'), col={'xs':12, 'md':6})
     dropdown_row = ResponsiveRow([sampler, denoised_type])
-    guidance_scale = Slider(min=0, max=50, divisions=50, label="{value}", value=kandinsky_prefs['guidance_scale'], on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {kandinsky_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kandinsky_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_prefs, key='height')
     init_image = TextField(label="Init Image", value=kandinsky_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
     mask_image = TextField(label="Mask Image", value=kandinsky_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", value=kandinsky_prefs['strength'], on_change=change_strength, expand=True)
-    strength_value = Text(f" {kandinsky_prefs['strength']}", weight=FontWeight.BOLD)
-    strength_slider = Row([Text("Init Image Strength: "), strength_value, strength])
+    strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_prefs, key='strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=kandinsky_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(kandinsky_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=kandinsky_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_prefs, key='enlarge_scale')
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -6190,43 +6114,17 @@ def buildDeepDaze(page):
       page.dialog = deep_daze_help_dlg
       deep_daze_help_dlg.open = True
       page.update()
-    
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         deep_daze_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    def change_enlarge_scale(e):
-        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
-        enlarge_scale_slider.update()
-        changed(e, 'enlarge_scale', ptype="float")
     prompt = TextField(label="Prompt Text", value=deep_daze_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
-    def change_num_layers(e):
-      changed(e, 'num_layers', ptype="int")
-      num_layers_value.value = f" {deep_daze_prefs['num_layers']}"
-      num_layers_value.update()
-      num_layers_row.update()
-    def change_save_every(e):
-      changed(e, 'save_every', ptype="int")
-      save_every_value.value = f" {deep_daze_prefs['save_every']}"
-      save_every_value.update()
-      save_every_row.update()
-    def change_iterations(e):
-      changed(e, 'iterations', ptype="int")
-      iterations_value.value = f" {deep_daze_prefs['iterations']}"
-      iterations_value.update()
-      iterations_row.update()
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=deep_daze_prefs, key='max_size')
     #num_layers = TextField(label="Inference Steps", value=str(deep_daze_prefs['num_layers']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_layers', ptype='int'))
-    num_layers = Slider(min=1, max=100, divisions=99, label="{value}", value=int(deep_daze_prefs['num_layers']), tooltip="The number of hidden layers to use in the Siren neural net.", expand=True, on_change=change_num_layers)
-    save_every = Slider(min=1, max=100, divisions=99, label="{value}", value=int(deep_daze_prefs['save_every']), tooltip="Generate an image every time iterations is a multiple of this number.", expand=True, on_change=change_save_every)
-    iterations = Slider(min=1, max=2000, divisions=1999, label="{value}", value=int(deep_daze_prefs['iterations']), tooltip="The number of times to calculate and backpropagate loss in a given epoch.", expand=True, on_change=change_iterations)
-    num_layers_value = Text(f" {deep_daze_prefs['num_layers']}", weight=FontWeight.BOLD)
-    save_every_value = Text(f" {deep_daze_prefs['save_every']}", weight=FontWeight.BOLD)
-    iterations_value = Text(f" {deep_daze_prefs['iterations']}", weight=FontWeight.BOLD)
     learning_rate = TextField(label="Learning Rate", width=130, value=float(deep_daze_prefs['learning_rate']), keyboard_type=KeyboardType.NUMBER, tooltip="The learning rate of the neural net.", on_change=lambda e:changed(e,'learning_rate', ptype='float'))
-    num_layers_row = Row([Text("Number of Layers: "), num_layers_value, num_layers])
-    iterations_row = Row([Text("Number of Iterations: "), iterations_value, iterations])
-    save_every_row = Row([Text("Save/Show Every x Steps: "), save_every_value, save_every])
+    num_layers_row = SliderRow(label="Number of Layers", min=1, max=100, divisions=99, pref=deep_daze_prefs, key='num_layers', tooltip="The number of hidden layers to use with Siren neural network")
+    save_every_row = SliderRow(label="Save/Show Every x Steps", min=1, max=100, divisions=99, pref=deep_daze_prefs, key='save_every', tooltip="Generate an image every time iterations is a multiple of this number.")
+    iterations_row = SliderRow(label="Number of Iterations", min=1, max=2000, divisions=1999, pref=deep_daze_prefs, key='iterations', tooltip="The number of times to calculate and backpropogate loss in a given epoch.")
     batch_folder_name = TextField(label="Batch Folder Name", value=deep_daze_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=deep_daze_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     save_progress = Tooltip(message="Whether or not to save images generated before training Siren is complete.", content=Switch(label="Save Progress Steps", value=deep_daze_prefs['save_progress'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_progress')))
@@ -6236,9 +6134,7 @@ def buildDeepDaze(page):
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(deep_daze_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=deep_daze_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(deep_daze_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=deep_daze_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
-    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=deep_daze_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=deep_daze_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_deep_daze = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7481,11 +7377,6 @@ def buildCheckpointMerger(page):
         page.dialog = checkpoint_merger_help_dlg
         checkpoint_merger_help_dlg.open = True
         page.update()
-    def change_alpha(e):
-        changed(e, 'alpha', ptype="float")
-        alpha_value.value = f" {checkpoint_merger_prefs['alpha']}"
-        alpha_value.update()
-        alpha_row.update()
     def toggle_save(e):
         changed(e, 'save_model')
         where_to_save_model.visible = checkpoint_merger_prefs['save_model']
@@ -7561,9 +7452,7 @@ def buildCheckpointMerger(page):
     validation_prompt = Container(content=Tooltip(message="Optional prompt to test after the merger is finished.", content=TextField(label="Validation Test Prompt", value=checkpoint_merger_prefs['validation_prompt'], on_change=lambda e:changed(e,'validation_prompt'))), col={'md':9})
     name_of_your_model = TextField(label="Name of New Model", value=checkpoint_merger_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'), col={'md':3})
     force = Checkbox(label="Force if Mismatch", tooltip="Whether to ignore mismatch in model_config.json for the current models.", value=checkpoint_merger_prefs['force'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'force'))
-    alpha = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(checkpoint_merger_prefs['alpha']), tooltip="The interpolation parameter. Ranges from 0 to 1.  It affects the ratio in which the checkpoints are merged. A 0.8 alpha would mean that the first model checkpoints would affect the final result far less than an alpha of 0.2", expand=True, on_change=change_alpha)
-    alpha_value = Text(f" {checkpoint_merger_prefs['alpha']}", weight=FontWeight.BOLD)
-    alpha_row = Row([Text("Alpha Interpolation:"), alpha_value, alpha])
+    alpha_row = SliderRow(label="Alpha Interpolation", min=0.0, max=1.0, divisions=20, round=2, pref=checkpoint_merger_prefs, key='alpha', tooltip="The interpolation parameter. Ranges from 0 to 1.  It affects the ratio in which the checkpoints are merged. A 0.8 alpha would mean that the first model checkpoints would affect the final result far less than an alpha of 0.2")
     interp = Dropdown(label="Interpolation Method", width=250, options=[dropdown.Option("weighted_sum"), dropdown.Option("sigmoid"), dropdown.Option("inv_sigmoid"), dropdown.Option("add_difference")], value=checkpoint_merger_prefs['interp'], on_change=lambda e: changed(e, 'interp'))
     #The interpolation method to use for the merging. Supports "sigmoid", "inv_sigmoid", "add_difference" and None. For merging three checkpoints, only "add_difference" is supported.
     model_ckpt = Dropdown(label="Model Checkpoint", options=[
@@ -7837,21 +7726,8 @@ def buildAudioLDM(page):
         page.dialog = audioLDM_help_dlg
         audioLDM_help_dlg.open = True
         page.update()
-    def change_duration(e):
-        changed(e, 'duration', ptype="float")
-        duration_value.value = f" {audioLDM_prefs['duration']}s"
-        duration_value.update()
-    duration = Slider(min=1, max=20, divisions=38, label="{value}s", value=float(audioLDM_prefs['duration']), expand=True, on_change=change_duration)
-    duration_value = Text(f" {float(audioLDM_prefs['duration'])}s", weight=FontWeight.BOLD)
-    duration_row = Row([Text("Duration: "), duration_value, duration])
-    def change_guidance(e):
-      guidance_value.value = f" {e.control.value}"
-      guidance_value.update()
-      guidance.update()
-      changed(e, 'guidance_scale', ptype="float")
-    guidance_scale = Slider(min=0, max=5, divisions=10, label="{value}", value=audioLDM_prefs['guidance_scale'], tooltip="Large => better quality and relavancy to text; Small => better diversity", on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {audioLDM_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    duration_row = SliderRow(label="Duration", min=1, max=20, divisions=38, round=1, suffix="s", pref=audioLDM_prefs, key='duration')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=5, divisions=10, round=1, pref=audioLDM_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
     text = TextField(label="Text Prompt to Auditorialize", value=audioLDM_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
     batch_folder_name = TextField(label="Batch Folder Name", value=audioLDM_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=audioLDM_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
@@ -7958,27 +7834,11 @@ def buildRiffusion(page):
     duration = Slider(min=1, max=20, divisions=38, label="{value}s", value=float(riffusion_prefs['duration']), expand=True, on_change=change_duration)
     duration_value = Text(f" {float(riffusion_prefs['duration'])}s", weight=FontWeight.BOLD)
     duration_row = Row([Text("Duration: "), duration_value, duration])
-    def change_steps(e):
-        changed(e, 'steps', ptype="int")
-        steps_value.value = f" {riffusion_prefs['steps']}"
-        steps_value.update()
-        steps_row.update()
-    steps = Slider(min=1, max=100, divisions=99, label="{value}", value=float(riffusion_prefs['steps']), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.", expand=True, on_change=change_steps)
-    steps_value = Text(f" {riffusion_prefs['steps']}", weight=FontWeight.BOLD)
-    steps_row = Row([Text("Number of Steps: "), steps_value, steps])
-
-    def change_guidance(e):
-      guidance_value.value = f" {e.control.value}"
-      guidance_value.update()
-      guidance.update()
-      changed(e, 'guidance_scale', ptype="float")
-    guidance_scale = Slider(min=0, max=10, divisions=20, label="{value}", value=riffusion_prefs['guidance_scale'], tooltip="Large => better quality and relavancy to text; Small => better diversity", on_change=change_guidance, expand=True)
-    guidance_value = Text(f" {riffusion_prefs['guidance_scale']}", weight=FontWeight.BOLD)
-    guidance = Row([Text("Guidance Scale: "), guidance_value, guidance_scale])
+    steps_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=riffusion_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=riffusion_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
     prompt = TextField(label="Musical Text Prompt", value=riffusion_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'), col={'md':9})
     negative_prompt = TextField(label="Negative Prompt", value=riffusion_prefs['negative_prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
-    max_size = Slider(min=256, max=1024, divisions=12, label="{value}px", value=float(riffusion_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
-    max_size_row = Row([Text("Max Size: "), max_size])
+    max_size_row = SliderRow(label="Max Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=riffusion_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=riffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=riffusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     batch_size = NumberPicker(label="Batch Size:   ", min=1, max=5, value=riffusion_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
@@ -8050,14 +7910,8 @@ def buildMubert(page):
         page.dialog = mubert_help_dlg
         mubert_help_dlg.open = True
         page.update()
-    def change_duration(e):
-        changed(e, 'duration', ptype="int")
-        duration_value.value = f" {mubert_prefs['duration']}s"
-        duration_value.update()
     prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=mubert_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
-    duration = Slider(min=1, max=250, divisions=249, label="{value}s", value=float(mubert_prefs['duration']), expand=True, on_change=change_duration)
-    duration_value = Text(f" {float(mubert_prefs['duration'])}s", weight=FontWeight.BOLD)
-    duration_row = Row([Text("Duration: "), duration_value, duration])
+    duration_row = SliderRow(label="Duration", min=1, max=250, divisions=249, suffix="s", pref=mubert_prefs, key='duration')
     is_loop = Checkbox(label="Is Audio Loop   ", value=mubert_prefs['is_loop'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'is_loop'))
     email = TextField(label="Email Address (for API use)", keyboard_type=KeyboardType.EMAIL, value=mubert_prefs['email'], on_change=lambda e:changed(e,'email'))
     batch_folder_name = TextField(label="Batch Folder Name", value=mubert_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -8619,7 +8473,7 @@ def get_diffusers(page):
         except Exception:
           page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
           run_process("pip install --pre -U triton", page=page)
-          run_process("pip install -U xformers==0.0.17.dev464", page=page)
+          run_process("pip install -U xformers==0.0.17.dev466", page=page)
           import xformers
           page.console_msg("Installing Hugging Face Diffusers Pipeline...")
           pass
@@ -16196,8 +16050,8 @@ def run_unCLIP(page, from_list=False):
         page.unCLIP.auto_scroll = scroll
         page.unCLIP.update()
       else:
-        page.unCLIP_output.auto_scroll = scroll
-        page.unCLIP_output.update()
+        page.unCLIP.auto_scroll = scroll
+        page.unCLIP.update()
     progress = ProgressBar(bar_height=8)
     if unCLIP_prefs['use_StableUnCLIP_pipeline']:
       total_steps = unCLIP_prefs['prior_num_inference_steps'] + unCLIP_prefs['decoder_num_inference_steps']
@@ -16389,8 +16243,8 @@ def run_unCLIP_image_variation(page, from_list=False):
         page.UnCLIP_ImageVariation.auto_scroll = scroll
         page.UnCLIP_ImageVariation.update()
       else:
-        page.unCLIP_image_variation_output.auto_scroll = scroll
-        page.unCLIP_image_variation_output.update()
+        page.UnCLIP_ImageVariation.auto_scroll = scroll
+        page.UnCLIP_ImageVariation.update()
     progress = ProgressBar(bar_height=8)
     total_steps = unCLIP_image_variation_prefs['decoder_num_inference_steps'] + unCLIP_image_variation_prefs['super_res_num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -16575,8 +16429,8 @@ def run_unCLIP_interpolation(page, from_list=False):
         page.unCLIP_Interpolation.auto_scroll = scroll
         page.unCLIP_Interpolation.update()
       else:
-        page.unCLIP_interpolation_output.auto_scroll = scroll
-        page.unCLIP_interpolation_output.update()
+        page.unCLIP_Interpolation.auto_scroll = scroll
+        page.unCLIP_Interpolation.update()
     progress = ProgressBar(bar_height=8)
     total_steps = unCLIP_interpolation_prefs['prior_num_inference_steps'] + unCLIP_interpolation_prefs['decoder_num_inference_steps'] + unCLIP_interpolation_prefs['super_res_num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -16757,8 +16611,8 @@ def run_magic_mix(page, from_list=False):
         page.MagicMix.auto_scroll = scroll
         page.MagicMix.update()
       else:
-        page.magic_mix_output.auto_scroll = scroll
-        page.magic_mix_output.update()
+        page.MagicMix.auto_scroll = scroll
+        page.MagicMix.update()
     progress = ProgressBar(bar_height=8)
     total_steps = magic_mix_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -17163,8 +17017,8 @@ def run_instruct_pix2pix(page, from_list=False):
         page.imageColumn.auto_scroll = scroll
         page.imageColumn.update()
       else:
-        page.instruct_pix2pix_output.auto_scroll = scroll
-        page.instruct_pix2pix_output.update()
+        page.InstructPix2Pix.auto_scroll = scroll
+        page.InstructPix2Pix.update()
     progress = ProgressBar(bar_height=8)
     total_steps = instruct_pix2pix_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
