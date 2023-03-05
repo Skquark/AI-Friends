@@ -8787,7 +8787,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False):
+def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True):
     global prefs, status
     if prefs['memory_optimization'] == 'Attention Slicing':
       #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
@@ -8811,7 +8811,9 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False):
       p.unet.load_attn_procs(lora['path'])
     if prefs['sequential_cpu_offload'] and not no_cpu:
       p.enable_sequential_cpu_offload()
-    else: p.to(torch_device)
+    else:
+      if to_gpu:
+        p.to(torch_device)
     status['loaded_scheduler'] = prefs['scheduler_mode']
     status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
@@ -8936,7 +8938,7 @@ def get_lpw_pipe():
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
   pipe = pipeline_scheduler(pipe)
-  pipe = optimize_pipe(pipe, vae=True)
+  pipe = optimize_pipe(pipe, vae=True, to_gpu=False)
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
@@ -10896,7 +10898,7 @@ def start_diffusion(page):
                 images = pipe_safe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **safety).images
               else:
                 pipe_used = "Long Prompt Weight Text-to-Image"
-                images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe.text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               '''if prefs['precision'] == "autocast":
                 with autocast("cuda"):
                   images = pipe(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], seed = arg['seed'], generator=generator, callback=callback_fn, callback_steps=1)["sample"]
@@ -16473,7 +16475,7 @@ def run_unCLIP_interpolation(page, from_list=False):
         prt(Row([Container(content=None, width=8), ProgressRing(), Text(f"  Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
         try:
             from diffusers import DiffusionPipeline
-            pipe_unCLIP_interpolation = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="AlanB/unclip_text_interpolation_mod", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, enable_sequential_cpu_offload=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None) #, decoder_pipe_kwargs=dict(image_encoder=None)
+            pipe_unCLIP_interpolation = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="AlanB/unclip_text_interpolation_mod", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None) #, decoder_pipe_kwargs=dict(image_encoder=None)
             pipe_unCLIP_interpolation.to(torch_device)
             pipe_unCLIP_interpolation.enable_attention_slicing()
             pipe_unCLIP_interpolation.enable_sequential_cpu_offload()
