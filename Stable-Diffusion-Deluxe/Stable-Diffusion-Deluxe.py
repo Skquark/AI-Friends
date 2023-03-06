@@ -563,6 +563,7 @@ def buildStableDiffusers(page):
     page.ImageVariation = buildImageVariation(page)
     page.CLIPstyler = buildCLIPstyler(page)
     page.MagicMix = buildMagicMix(page)
+    page.SemanticGuidance = buildSemanticGuidance(page)
     page.PaintByExample = buildPaintByExample(page)
     page.InstructPix2Pix = buildInstructPix2Pix(page)
     page.ControlNet = buildControlNet(page)
@@ -586,6 +587,7 @@ def buildStableDiffusers(page):
             Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
             Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
+            Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
@@ -2135,6 +2137,7 @@ def buildPromptsList(page):
             if '_' in pr:
               pr = nsp_parse(pr)
             add_to_prompts(pr.strip(), negative)
+        status['changed_prompts'] = True
         close_dlg(e)
       def close_dlg(e):
           dlg_paste.open = False
@@ -2261,7 +2264,7 @@ def buildPromptsList(page):
           for d in prompts:
             a = d.arg.copy()
             #a['prompt'] = d.prompt if bool(d.prompt) else d['prompt']
-            a['prompt'] = d.prompt[0] if type(d.prompt) == list else d.prompt if bool(d.prompt) else d['prompt'] if 'prompt' in d else d.arg['prompt'] if 'prompt' in d.arg else ''
+            a['prompt'] = d.prompt[0] if type(d.prompt) == list else d.prompt if bool(d.prompt) else d.arg['prompt'] if 'prompt' in d.arg else ''
             if 'batch_size' in a: del a['batch_size']
             if 'n_iterations' in a: del a['n_iterations']
             if 'precision' in a: del a['precision']
@@ -2308,7 +2311,7 @@ def buildPromptsList(page):
   page.save_prompts = save_prompts
   def load_prompts():
       saved_prompts = prefs['prompt_list']
-      if len(saved_prompts) > 1:
+      if len(saved_prompts) > 0:
           for d in saved_prompts:
             #print(f'Loading {d}')
             if 'prompt' not in d: continue
@@ -6290,6 +6293,199 @@ def buildCLIPstyler(page):
     ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, crop_size, num_crops, 
     return c
 
+semantic_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'num_inference_steps': 100,
+    'guidance_scale': 7.5,
+    'edit_momentum_scale': 0.1,
+    'edit_mom_beta': 0.4,
+    'editing_prompts': [],
+    'eta': 0.0,
+    'seed': 0,
+    'width': 960,
+    'height': 768,
+    'num_images': 1,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildSemanticGuidance(page):
+    global semantic_prefs, prefs, pipe_semantic, editing_prompt
+    editing_prompt = {'editing_prompt':'', 'edit_warmup_steps':10, 'edit_guidance_scale':5, 'edit_threshold':0.9, 'edit_weights':1, 'reverse_editing_direction': False}
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            semantic_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            semantic_prefs[pref] = float(e.control.value)
+          else:
+            semantic_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_semantic_output(o):
+      page.semantic_output.controls.append(o)
+      page.semantic_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.semantic_output.controls = []
+      page.semantic_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def semantic_help(e):
+      def close_semantic_dlg(e):
+        nonlocal semantic_help_dlg
+        semantic_help_dlg.open = False
+        page.update()
+      semantic_help_dlg = AlertDialog(title=Text("💁   Help with Semantic Guidance"), content=Column([
+          Text("SEGA allows applying or removing one or more concepts from an image. The strength of the concept can also be controlled. I.e. the smile concept can be used to incrementally increase or decrease the smile of a portrait. Similar to how classifier free guidance provides guidance via empty prompt inputs, SEGA provides guidance on conceptual prompts. Multiple of these conceptual prompts can be applied simultaneously. Each conceptual prompt can either add or remove their concept depending on if the guidance is applied positively or negatively."),
+          Text("Unlike Pix2Pix Zero or Attend and Excite, SEGA directly interacts with the diffusion process instead of performing any explicit gradient-based optimization."),
+          Text("Semantic Guidance for Diffusion Models was proposed in SEGA: Instructing Diffusion using Semantic Dimensions and provides strong semantic control over the image generation. Small changes to the text prompt usually result in entirely different output images. However, with SEGA a variety of changes to the image are enabled that can be controlled easily and intuitively, and stay true to the original image composition."),
+          Text("Text-to-image diffusion models have recently received a lot of interest for their astonishing ability to produce high-fidelity images from text only. However, achieving one-shot generation that aligns with the user's intent is nearly impossible, yet small changes to the input prompt often result in very different images. This leaves the user with little semantic control. To put the user in control, we show how to interact with the diffusion process to flexibly steer it along semantic directions. This semantic guidance (SEGA) allows for subtle and extensive edits, changes in composition and style, as well as optimizing the overall artistic conception. We demonstrate SEGA's effectiveness on a variety of tasks and provide evidence for its versatility and flexibility."),
+          Markdown("[HuggingFace Documentation](https://huggingface.co/docs/diffusers/main/en/api/pipelines/semantic_stable_diffusion) - [Paper](https://arxiv.org/abs/2301.12247)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😖  More Control Please... ", on_click=close_semantic_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = semantic_help_dlg
+      semantic_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        semantic_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_eta(e):
+        changed(e, 'eta', ptype="float")
+        eta_value.value = f" {semantic_prefs['eta']}"
+        eta_value.update()
+        eta_row.update()
+    def semantic_tile(semantic_prompt):
+        params = []
+        for k, v in semantic_prompt.items():
+            if k == 'editing_prompt': continue
+            params.append(f'{to_title(k)}: {v}')
+        sub = ', '.join(params)
+        return ListTile(title=Text(semantic_prompt['editing_prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=semantic_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[PopupMenuItem(icon=icons.EDIT, text="Edit Semantic Prompt", on_click=lambda e: edit_semantic(semantic_prompt), data=semantic_prompt),
+                 PopupMenuItem(icon=icons.DELETE, text="Delete Semantic Prompt", on_click=lambda e: del_semantic(semantic_prompt), data=semantic_prompt)]), on_click=lambda e: edit_semantic(semantic_prompt))
+    def edit_semantic(edit=None):
+        semantic_prompt = edit if bool(edit) else editing_prompt.copy()
+        edit_prompt = edit['editing_prompt'] if bool(edit) else ""
+        def close_dlg(e):
+            dlg_edit.open = False
+            page.update()
+        def changed_p(e, pref=None):
+            if pref is not None:
+                semantic_prompt[pref] = e.control.value
+        def save_semantic_prompt(e):
+            if edit == None:
+                semantic_prefs['editing_prompts'].append(semantic_prompt)
+                page.semantic_prompts.controls.append(semantic_tile(semantic_prompt))
+                page.semantic_prompts.update()
+            else:
+                for s in semantic_prefs['editing_prompts']:
+                    if s['editing_prompt'] == edit_prompt:
+                        s = semantic_prompt
+                        break
+                for t in page.semantic_prompts.controls:
+                    if t.data['editing_prompt'] == edit_prompt:
+                        params = []
+                        for k, v in semantic_prompt.items():
+                            if k == 'editing_prompt': continue
+                            params.append(f'{to_title(k)}: {v}')
+                        sub = ', '.join(params)
+                        t.title = Text(semantic_prompt['editing_prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE)
+                        t.subtitle = Text(sub)
+                        t.data = semantic_prompt
+                        t.update()
+                        break
+            dlg_edit.open = False
+            e.control.update()
+            page.update()
+        semantic_editing_prompt = TextField(label="Semantic Editing Prompt Modifier", value=semantic_prompt['editing_prompt'], autofocus=True, on_change=lambda e:changed_p(e,'editing_prompt'))
+        edit_warmup_steps = SliderRow(label="Edit Warmup Steps", min=0, max=50, divisions=50, pref=semantic_prompt, key='edit_warmup_steps', tooltip="Number of diffusion steps (for each prompt) for which semantic guidance will not be applied. Momentum will still be calculated for those steps and applied once all warmup periods are over.")
+        edit_guidance_scale = SliderRow(label="Edit Guidance Scale", min=0, max=20, divisions=40, round=1, pref=semantic_prompt, key='edit_guidance_scale', tooltip="Guidance scale for semantic guidance. If provided as list values should correspond to `editing_prompt`.")
+        edit_threshold = SliderRow(label="Edit Threshold", min=0, max=1, divisions=40, round=3, pref=semantic_prompt, key='edit_threshold', tooltip="Threshold of semantic guidance.")
+        edit_weights = SliderRow(label="Edit Weights", min=0, max=10, divisions=20, round=1, pref=semantic_prompt, key='edit_weights', tooltip="Indicates how much each individual concept should influence the overall guidance. If no weights are provided all concepts are applied equally.")
+        reverse_editing_direction = Checkbox(label="Reverse Editing Direction", value=semantic_prompt['reverse_editing_direction'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed_p(e,'reverse_editing_direction'), tooltip="Whether the corresponding prompt in `editing_prompt` should be increased or decreased.")
+        dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Semantic Prompt"), content=Container(Column([
+            semantic_editing_prompt, edit_warmup_steps, edit_guidance_scale, edit_threshold, edit_weights, reverse_editing_direction,
+        ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width or page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_semantic_prompt)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = dlg_edit
+        dlg_edit.open = True
+        page.update()
+    def del_semantic(edit=None):
+        for s in semantic_prefs['editing_prompts']:
+            if s['editing_prompt'] == edit['editing_prompt']:
+                semantic_prefs['editing_prompts'].remove(s)
+                break
+        for t in page.semantic_prompts.controls:
+            if t.data['editing_prompt'] == edit['editing_prompt']:
+                page.semantic_prompts.controls.remove(t)
+                break
+        page.semantic_prompts.update()
+        if prefs['enable_sounds']: page.snd_delete.play()
+    def clear_semantic_prompts(e):
+        semantic_prefs['editing_prompts'].clear()
+        page.semantic_prompts.controls.clear()
+        page.semantic_prompts.update()
+        if prefs['enable_sounds']: page.snd_delete.play()
+    prompt = TextField(label="Base Prompt Text", value=semantic_prefs['prompt'], col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=semantic_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    seed = TextField(label="Seed", width=90, value=str(semantic_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=semantic_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=semantic_prefs, key='guidance_scale')
+    edit_momentum_scale = SliderRow(label="Edit Momentum Scale", min=0, max=1, divisions=20, round=1, pref=semantic_prefs, key='edit_momentum_scale', tooltip="Scale of the momentum to be added to the semantic guidance at each diffusion step. Momentum is already built up during warmup, i.e. for diffusion steps smaller than `sld_warmup_steps`. Momentum will only be added to latent guidance once all warmup periods are finished.")
+    edit_mom_beta = SliderRow(label="Edit Momentum Beta", min=0, max=1, divisions=20, round=1, pref=semantic_prefs, key='edit_mom_beta', tooltip="Defines how semantic guidance momentum builds up. `edit_mom_beta` indicates how much of the previous momentum will be kept. Momentum is already built up during warmup, i.e. for diffusion steps smaller than `edit_warmup_steps`.")
+    #eta = TextField(label="ETA", value=str(semantic_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(semantic_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta_value = Text(f" {semantic_prefs['eta']}", weight=FontWeight.BOLD)
+    eta_row = Row([Text("ETA:"), eta_value, eta])
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=semantic_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=semantic_prefs, key='height')
+    batch_folder_name = TextField(label="Batch Folder Name", value=semantic_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=semantic_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=semantic_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=semantic_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_semantic = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_semantic.height = None if status['installed_ESRGAN'] else 0
+    page.semantic_prompts = Column([], spacing=0)
+    page.semantic_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.semantic_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🧩  Semantic Guidance for Diffusion Models - SEGA", "Text-to-Image Generation with Latent Editing to apply or remove multiple concepts from an image with advanced controls....", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=semantic_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        ResponsiveRow([prompt, negative_prompt]),
+        Row([Text("Editing Semantic Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD), 
+                    Row([ft.FilledTonalButton("Clear Prompts", on_click=clear_semantic_prompts), ft.FilledButton("Add Editing Prompt", on_click=lambda e: edit_semantic(None))])], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        page.semantic_prompts,
+        Divider(thickness=2, height=4),
+        num_inference_row,
+        guidance,
+        edit_momentum_scale, edit_mom_beta,
+        eta_row,
+        width_slider, height_slider,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=semantic_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
+        page.ESRGAN_block_semantic,
+        #Row([jump_length, jump_n_sample, seed]),
+        Row([
+            ElevatedButton(content=Text("🎳  Run Semantic Guidance", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_semantic(page)),
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_semantic(page, from_list=True))
+        ]),
+        page.semantic_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 def buildDreamMask(page):
     #prog_bars: Dict[str, ProgressRing] = {}
     files = Ref[Column]()
@@ -8228,6 +8424,7 @@ pipe_versatile_dualguided = None
 pipe_upscale = None
 pipe_depth = None
 pipe_image_variation = None
+pipe_semantic = None
 pipe_unCLIP = None
 pipe_unCLIP_image_variation = None
 pipe_unCLIP_interpolation = None
@@ -9926,6 +10123,13 @@ def clear_image_variation_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_image_variation = None
+def clear_semantic_pipe():
+  global pipe_semantic
+  if pipe_semantic is not None:
+    del pipe_semantic
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_semantic = None
 def clear_unCLIP_pipe():
   global pipe_unCLIP
   if pipe_unCLIP is not None:
@@ -10098,6 +10302,7 @@ def clear_pipes(allbut=None):
     if not 'unCLIP_image_variation' in but: clear_unCLIP_image_variation_pipe()
     if not 'unCLIP_interpolation' in but: clear_unCLIP_interpolation_pipe()
     if not 'image_variation' in but: clear_image_variation_pipe()
+    if not 'semantic' in but: clear_semantic_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
     if not 'alt_diffusion_img2img' in but: clear_alt_diffusion_img2img_pipe()
@@ -11203,12 +11408,14 @@ def start_diffusion(page):
           #prt(Divider(height=6, thickness=2))
           #prt(Row([Text(p_count), Text(walk_prompts[img_idx], expand=True, weight=FontWeight.BOLD), Text(f'seed: {walk_seeds[img_idx]}')]))
           prt(Row([Img(src=event.src_path, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([ImageButton(src=event.src_path, data=event.src_path, width=arg['width'], height=arg['height'], subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
           page.update()
           time.sleep(0.2)
           page.auto_scrolling(False)
           prt(pb)
           img_idx += 1
+    # TODO: Rename files with to-from prompt text between each
     image_handler = Handler()
     observer = Observer()
     observer.schedule(image_handler, txt2img_output, recursive = True)
@@ -12910,6 +13117,160 @@ def run_CLIPstyler(page):
         progress.update()
     #clear_last()
     # TODO: ESRGAN and copy to GDrive and Metadata
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_semantic(page):
+    global semantic_prefs, prefs, status, pipe_semantic, model_path
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.semantic_output.controls.append(line)
+      page.semantic_output.update()
+    def clear_last():
+      del page.semantic_output.controls[-1]
+      page.semantic_output.update()
+    def autoscroll(scroll=True):
+      page.SemanticGuidance.auto_scroll = scroll
+      page.SemanticGuidance.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = semantic_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    autoscroll(True)
+    prt(Row([ProgressRing(), Text("Installing Semantic Guidance Pipeline...", weight=FontWeight.BOLD)]))
+    
+    clear_pipes('semantic')
+    if pipe_semantic is None:
+        from diffusers import SemanticStableDiffusionPipeline
+        pipe_semantic = SemanticStableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+        pipe_semantic = pipeline_scheduler(pipe_semantic)
+        pipe_semantic = optimize_pipe(pipe_semantic, vae=False)
+        pipe_semantic.set_progress_bar_config(disable=True)
+    else:
+        pipe_semantic = pipeline_scheduler(pipe_semantic)
+    clear_last()
+    prt("Generating Semantic Guidance of your Image...")
+    autoscroll(False)
+    prt(progress)
+    batch_output = os.path.join(stable_dir, semantic_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], semantic_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = int(semantic_prefs['seed']) if int(semantic_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+    #generator = torch.manual_seed(random_seed)
+    width = semantic_prefs['width']
+    height = semantic_prefs['height']
+    editing_prompt = []
+    edit_warmup_steps = []
+    edit_guidance_scale = []
+    edit_threshold = []
+    edit_weights = []
+    reverse_editing_direction = []
+    for ep in semantic_prefs['editing_prompts']:
+        editing_prompt.append(ep['editing_prompt'])
+        edit_warmup_steps.append(int(ep['edit_warmup_steps']))
+        edit_guidance_scale.append(ep['edit_guidance_scale'])
+        edit_threshold.append(ep['edit_threshold'])
+        edit_weights.append(ep['edit_weights'])
+        reverse_editing_direction.append(ep['reverse_editing_direction'])
+    try:
+      #print(f"prompt={semantic_prefs['prompt']}, negative_prompt={semantic_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={semantic_prefs['edit_momentum_scale']}, edit_mom_beta={semantic_prefs['edit_mom_beta']}, num_inference_steps={semantic_prefs['num_inference_steps']}, eta={semantic_prefs['eta']}, guidance_scale={semantic_prefs['guidance_scale']}")
+      images = pipe_semantic(prompt=semantic_prefs['prompt'], negative_prompt=semantic_prefs['negative_prompt'], editing_prompt=editing_prompt, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=semantic_prefs['edit_momentum_scale'], edit_mom_beta=semantic_prefs['edit_mom_beta'], num_inference_steps=semantic_prefs['num_inference_steps'], eta=semantic_prefs['eta'], guidance_scale=semantic_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=semantic_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+    except Exception as e:
+      clear_last()
+      alert_msg(page, f"ERROR: Couldn't Semantic Guidance your image for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    clear_last()
+    clear_last()
+    filename = f"{prefs['file_prefix']}{format_filename(semantic_prefs['prompt'])}"
+    filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    num = 0
+    for image in images:
+        random_seed += num
+        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+        image_path = available_file(os.path.join(stable_dir, semantic_prefs['batch_folder_name']), fname, num)
+        unscaled_path = image_path
+        output_file = image_path.rpartition(slash)[2]
+        image.save(image_path)
+        out_path = image_path.rpartition(slash)[0]
+        upscaled_path = os.path.join(out_path, output_file)
+        if not semantic_prefs['display_upscaled_image'] or not semantic_prefs['apply_ESRGAN_upscale']:
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+        if semantic_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'     
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{num}.png'
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+            #print(f'Moving {fpath} to {dst_path}')
+            #shutil.move(fpath, dst_path)
+            shutil.copy(image_path, dst_path)
+            #faceenhance = ' --face_enhance' if semantic_prefs["face_enhance"] else ''
+            faceenhance = ''
+            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {semantic_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            image_path = upscaled_path
+            os.chdir(stable_dir)
+            if semantic_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(semantic_prefs["enlarge_scale"]), height=height * float(semantic_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if prefs['save_image_metadata']:
+            img = PILImage.open(image_path)
+            metadata = PngInfo()
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+            metadata.add_text("copyright", prefs['meta_Copyright'])
+            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {semantic_prefs['enlarge_scale']}x with ESRGAN" if semantic_prefs['apply_ESRGAN_upscale'] else "")
+            metadata.add_text("pipeline", "Semantic Guidance")
+            if prefs['save_config_in_metadata']:
+              config_json = semantic_prefs.copy()
+              config_json['model_path'] = model_path
+              config_json['scheduler_mode'] = prefs['scheduler_mode']
+              config_json['seed'] = random_seed
+              del config_json['num_images']
+              del config_json['width']
+              del config_json['height']
+              del config_json['display_upscaled_image']
+              del config_json['batch_folder_name']
+              if not config_json['apply_ESRGAN_upscale']:
+                del config_json['enlarge_scale']
+                del config_json['apply_ESRGAN_upscale']
+              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+            img.save(image_path, pnginfo=metadata)
+        #TODO: PyDrive
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(os.path.join(prefs['image_output'], semantic_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(os.path.join(prefs['image_output'], semantic_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        num += 1
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_image2text(page):
