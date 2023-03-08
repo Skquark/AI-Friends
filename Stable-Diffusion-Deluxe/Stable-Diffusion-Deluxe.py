@@ -559,6 +559,7 @@ def buildStableDiffusers(page):
     page.RePainter = buildRepainter(page)
     page.unCLIP = buildUnCLIP(page)
     page.unCLIP_Interpolation = buildUnCLIP_Interpolation(page)
+    page.unCLIP_ImageInterpolation = buildUnCLIP_ImageInterpolation(page)
     page.UnCLIP_ImageVariation = buildUnCLIP_ImageVariation(page)
     page.ImageVariation = buildImageVariation(page)
     page.CLIPstyler = buildCLIPstyler(page)
@@ -581,6 +582,7 @@ def buildStableDiffusers(page):
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
+            Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
@@ -1372,6 +1374,8 @@ def buildInstallers(page):
         page.ESRGAN_block_unCLIP.height = None
         page.ESRGAN_block_unCLIP_image_variation.height = None
         page.ESRGAN_block_unCLIP_interpolation.height = None
+        page.ESRGAN_block_unCLIP_image_interpolation.height = None
+        page.ESRGAN_block_semantic.height = None
         page.ESRGAN_block_magic_mix.height = None
         page.ESRGAN_block_paint_by_example.height = None
         page.ESRGAN_block_instruct_pix2pix.height = None
@@ -1386,6 +1390,8 @@ def buildInstallers(page):
         page.ESRGAN_block_unCLIP.update()
         page.ESRGAN_block_unCLIP_image_variation.update()
         page.ESRGAN_block_unCLIP_interpolation.update()
+        page.ESRGAN_block_unCLIP_image_interpolation.update()
+        page.ESRGAN_block_semantic.update()
         page.ESRGAN_block_magic_mix.update()
         page.ESRGAN_block_paint_by_example.update()
         page.ESRGAN_block_instruct_pix2pix.update()
@@ -4937,6 +4943,157 @@ def buildUnCLIP_Interpolation(page):
     ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+unCLIP_image_interpolation_prefs = {
+    'init_image': '',
+    'end_image': '',
+    'file_name': '',
+    'batch_folder_name': '',
+    'interpolation_steps': 6,
+    'decoder_guidance_scale': 8.0,
+    'decoder_num_inference_steps': 25,
+    'super_res_num_inference_steps': 7,
+    'seed': 0,
+    'num_images': 1,
+    'max_size': 768,
+    #'variance_type': 'learned_range',#fixed_small_log
+    #'num_train_timesteps': 1000,
+    #'prediction_type': 'epsilon',#sample
+    #'clip_sample': True,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 4.0,
+    "display_upscaled_image": True,
+}
+def buildUnCLIP_ImageInterpolation(page):
+    global unCLIP_image_interpolation_prefs, prefs, pipe_unCLIP_image_interpolation
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            unCLIP_image_interpolation_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            unCLIP_image_interpolation_prefs[pref] = float(e.control.value)
+          else:
+            unCLIP_image_interpolation_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_unCLIP_image_interpolation_output(o):
+      page.unCLIP_image_interpolation_output.controls.append(o)
+      page.unCLIP_image_interpolation_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_unCLIP_image_interpolation_output = add_to_unCLIP_image_interpolation_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.unCLIP_image_interpolation_output.controls = []
+      page.unCLIP_image_interpolation_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def unCLIP_image_interpolation_help(e):
+      def close_unCLIP_image_interpolation_dlg(e):
+        nonlocal unCLIP_image_interpolation_help_dlg
+        unCLIP_image_interpolation_help_dlg.open = False
+        page.update()
+      unCLIP_image_interpolation_help_dlg = AlertDialog(title=Text("🙅   Help with unCLIP Image Interpolation Pipeline"), content=Column([
+          Text("This Diffusion Pipeline takes two images or an image_embeddings tensor of size 2 and interpolates between their embeddings using spherical interpolation ( slerp ). The input images/image_embeddings are converted to image embeddings by the pipeline's image_encoder and the interpolation is done on the resulting image_embeddings over the number of steps specified."),
+          #Text(""),
+          #Markdown("The unCLIP Image Interpolation model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🦿  Transformers Activate... ", on_click=close_unCLIP_image_interpolation_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = unCLIP_image_interpolation_help_dlg
+      unCLIP_image_interpolation_help_dlg.open = True
+      page.update()
+    pick_type = ""
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      nonlocal pick_type
+      if e.progress == 1:
+        unCLIP_image_interpolation_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        fname = os.path.join(root_dir, e.file_name)
+        if pick_type == "init":
+            init_image.value = fname
+            init_image.update()
+            unCLIP_image_interpolation_prefs['init_image'] = fname
+        elif pick_type == "end":
+            end_image.value = fname
+            end_image.update()
+            unCLIP_image_interpolation_prefs['end_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_init(e):
+        nonlocal pick_type
+        pick_type = "init"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
+    def pick_end(e):
+        nonlocal pick_type
+        pick_type = "end"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Ending Image File")
+    init_image = TextField(label="Initial Image", value=unCLIP_image_interpolation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    end_image = TextField(label="Ending Image", value=unCLIP_image_interpolation_prefs['end_image'], on_change=lambda e:changed(e,'end_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_end))
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+    #prompt = TextField(label="Prompt Text", value=unCLIP_image_interpolation_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    seed = TextField(label="Seed", width=90, value=str(unCLIP_image_interpolation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    interpolation_steps = SliderRow(label="Interpolation Steps", min=1, max=100, divisions=99, pref=unCLIP_image_interpolation_prefs, key='interpolation_steps', tooltip="The number of interpolation images to generate.")
+    decoder_num_inference_row = SliderRow(label="Number of Decoder Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_image_interpolation_prefs, key='decoder_num_inference_steps', tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    super_res_num_inference_row = SliderRow(label="Number of Super-Res Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_image_interpolation_prefs, key='decoder_num_inference_steps', tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_image_interpolation_prefs, key='decoder_guidance_scale')
+    batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_image_interpolation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    #eta = TextField(label="ETA", value=str(unCLIP_image_interpolation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_image_interpolation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
+    #eta_row = Row([Text("DDIM ETA: "), eta])
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=unCLIP_image_interpolation_prefs, key='max_size')
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(unCLIP_image_interpolation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_image_interpolation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_image_interpolation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP_image_interpolation = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_unCLIP_image_interpolation.height = None if status['installed_ESRGAN'] else 0
+    if not unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    page.unCLIP_image_interpolation_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.unCLIP_image_interpolation_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🤖  unCLIP Image Interpolation Generator", "Pass two images and produces in-betweens while interpolating between their image-embeddings...", actions=[IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Interpolation Settings", on_click=unCLIP_image_interpolation_help)]),
+        init_image, end_image,
+        interpolation_steps,
+        #Row([prompt, mask_image, invert_mask]),
+        decoder_num_inference_row, super_res_num_inference_row,
+        decoder_guidance,
+        #eta_row, 
+        max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=20, value=unCLIP_image_interpolation_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
+        page.ESRGAN_block_unCLIP_image_interpolation,
+        Row([ElevatedButton(content=Text("🦾   Get unCLIP Image Interpolation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_interpolation(page)), 
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_interpolation(page, from_list=True))
+             ]),
+        
+      ]
+    )), page.unCLIP_image_interpolation_output,
+        clear_button,
+    ], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 magic_mix_prefs = {
     'init_image': '',
@@ -8428,6 +8585,7 @@ pipe_semantic = None
 pipe_unCLIP = None
 pipe_unCLIP_image_variation = None
 pipe_unCLIP_interpolation = None
+pipe_unCLIP_image_interpolation = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
 pipe_instruct_pix2pix = None
@@ -10151,6 +10309,13 @@ def clear_unCLIP_interpolation_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_unCLIP_interpolation = None
+def clear_unCLIP_image_interpolation_pipe():
+  global pipe_unCLIP_image_interpolation
+  if pipe_unCLIP_image_interpolation is not None:
+    del pipe_unCLIP_image_interpolation
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_unCLIP_image_interpolation = None
 def clear_magic_mix_pipe():
   global pipe_magic_mix
   if pipe_magic_mix is not None:
@@ -16941,6 +17106,209 @@ def run_unCLIP_interpolation(page, from_list=False):
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_interpolation_prefs["enlarge_scale"]), height=512 * float(unCLIP_interpolation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_unCLIP_image_interpolation(page, from_list=False):
+    global unCLIP_image_interpolation_prefs, pipe_unCLIP_image_interpolation
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return 
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.unCLIP_image_interpolation_output.controls.append(line)
+        if update:
+          page.unCLIP_image_interpolation_output.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.unCLIP_image_interpolation_output.controls[-1]
+        page.unCLIP_image_interpolation_output.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.UnCLIP_ImageInterpolation.auto_scroll = scroll
+        page.UnCLIP_ImageInterpolation.update()
+      else:
+        page.UnCLIP_ImageInterpolation.auto_scroll = scroll
+        page.UnCLIP_ImageInterpolation.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = unCLIP_image_interpolation_prefs['decoder_num_inference_steps'] + unCLIP_image_interpolation_prefs['super_res_num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    unCLIP_image_interpolation_inits = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if bool(p['init_image']) and bool(p['mask_image']):
+          unCLIP_image_interpolation_inits.append({'init_image':p['init_image'], 'end_image':p['mask_image']})
+    else:
+      if not bool(unCLIP_image_interpolation_prefs['init_image']) or not bool(unCLIP_image_interpolation_prefs['end_image']):
+        alert_msg(page, "You need to add a Initial and Ending Image first... ")
+        return
+      unCLIP_image_interpolation_inits.append({'init_image':unCLIP_image_interpolation_prefs['init_image'], 'end_image':unCLIP_image_interpolation_prefs['end_image']})
+    page.unCLIP_image_interpolation_output.controls.clear()
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_pipes('unCLIP_image_interpolation')
+    torch.cuda.empty_cache()
+    torch.cuda.reset_max_memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+    dtype = torch.float16 if not prefs['higher_vram_mode'] else torch.float32 if torch.cuda.is_available() else torch.bfloat16
+    if pipe_unCLIP_image_interpolation == None:
+        from diffusers import DiffusionPipeline
+        prt(Row([ProgressRing(), Text("  Downloading unCLIP Image Interpolation Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
+        try:
+            pipe_unCLIP_image_interpolation = DiffusionPipeline.from_pretrained("kakaobrain/karlo-v1-alpha-image-variations", custom_pipeline="unclip_image_interpolation", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_unCLIP_image_interpolation.to(torch_device)
+            pipe_unCLIP_image_interpolation = optimize_pipe(pipe_unCLIP_image_interpolation)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Downloading unCLIP Image Interpolation Pipeline", content=Text(str(e)))
+            return
+        pipe_unCLIP_image_interpolation.set_progress_bar_config(disable=True)
+        clear_last()
+    s = "s" if unCLIP_image_interpolation_prefs['num_images'] > 1 else ""
+    prt(f"Generating unCLIP Image Interpolation{s} of your Image...")
+    batch_output = os.path.join(stable_dir, unCLIP_image_interpolation_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], unCLIP_image_interpolation_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for interpolation_images in unCLIP_image_interpolation_inits:
+        if interpolation_images['init_image'].startswith('http'):
+          init_img = PILImage.open(requests.get(interpolation_images['init_image'], stream=True).raw)
+        else:
+          if os.path.isfile(interpolation_images['init_image']):
+            init_img = PILImage.open(interpolation_images['init_image'])
+          else:
+            alert_msg(page, f"ERROR: Couldn't find your init_image {interpolation_images['init_image']}")
+            return
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, unCLIP_image_interpolation_prefs['max_size'])
+        init_img = init_img.resize((width, height), resample=PILImage.BICUBIC)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        
+        if interpolation_images['end_image'].startswith('http'):
+          end_img = PILImage.open(requests.get(interpolation_images['end_image'], stream=True).raw)
+        else:
+          if os.path.isfile(interpolation_images['end_image']):
+            end_img = PILImage.open(interpolation_images['end_image'])
+          else:
+            alert_msg(page, f"ERROR: Couldn't find your init_end_imageimage {interpolation_images['end_image']}")
+            return
+        width, height = end_img.size
+        width, height = scale_dimensions(width, height, unCLIP_image_interpolation_prefs['max_size'])
+        end_img = end_img.resize((width, height), resample=PILImage.BICUBIC)
+        end_img = ImageOps.exif_transpose(end_img).convert("RGB")
+        autoscroll(False)
+        prt(progress)
+        autoscroll(True)
+        num = 0
+        random_seed = (int(unCLIP_image_interpolation_prefs['seed']) + num) if int(unCLIP_image_interpolation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+        try:
+            images = pipe_unCLIP_image_interpolation(image=[init_img, end_img], steps=unCLIP_image_interpolation_prefs['interpolation_steps'], decoder_num_inference_steps=unCLIP_image_interpolation_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_image_interpolation_prefs['super_res_num_inference_steps'], decoder_guidance_scale=unCLIP_image_interpolation_prefs['decoder_guidance_scale'], num_images_per_prompt=unCLIP_image_interpolation_prefs['num_images'], generator=generator).images #, callback=callback_fnc, callback_steps=1
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error running unCLIP Image Interpolation Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+            return
+        clear_last()
+        #fname = format_filename(unCLIP_image_interpolation_prefs['file_name'])
+        fname_init = interpolation_images['init_image'].rpartition(slash)[2].rpartition('.')[0]
+        fname_end = interpolation_images['end_image'].rpartition(slash)[2].rpartition('.')[0]
+        fname = f"{fname_init[:int(prefs['file_max_length']/2)]}-to-{fname_end[:int(prefs['file_max_length']/2)]}"
+        if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+        for image in images:
+            random_seed += num
+            image_path = available_file(os.path.join(stable_dir, unCLIP_image_interpolation_prefs['batch_folder_name']), fname, num)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            image.save(image_path)
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+            if not unCLIP_image_interpolation_prefs['display_upscaled_image'] or not unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'     
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{num}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                #print(f'Moving {fpath} to {dst_path}')
+                #shutil.move(fpath, dst_path)
+                shutil.copy(image_path, dst_path)
+                #faceenhance = ' --face_enhance' if unCLIP_image_interpolation_prefs["face_enhance"] else ''
+                faceenhance = ''
+                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_image_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if unCLIP_image_interpolation_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_image_interpolation_prefs["enlarge_scale"]), height=512 * float(unCLIP_image_interpolation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {unCLIP_image_interpolation_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", "unCLIP Image Interpolation")
+                if prefs['save_config_in_metadata']:
+                    #metadata.add_text("title", unCLIP_image_interpolation_prefs['file_name'])
+                    config_json = unCLIP_image_interpolation_prefs.copy()
+                    config_json['model_path'] = "kakaobrain/karlo-v1-alpha-image-variations"
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    del config_json['file_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            #TODO: PyDrive
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], unCLIP_image_interpolation_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], unCLIP_image_interpolation_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+            num +=1
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
