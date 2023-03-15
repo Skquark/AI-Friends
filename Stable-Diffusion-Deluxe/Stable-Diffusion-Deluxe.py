@@ -5513,6 +5513,8 @@ controlnet_prefs = {
     'prompt': '',
     'negative_prompt': 'lowres, text, watermark, cropped, worst quality, low quality',
     'control_task': 'Scribble',
+    'conditioning_scale': 1.0,
+    'multi_controlnets': [],
     'batch_size': 1,
     'max_size': 768,
     'low_threshold': 100, #1-255
@@ -5590,7 +5592,7 @@ def buildControlNet(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+                uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def pick_original(e):
@@ -5608,11 +5610,38 @@ def buildControlNet(page):
         eta_value.value = f" {controlnet_prefs['eta']}"
         eta_value.update()
         eta_row.update()
+    def add_layer(e):
+        layer = {'control_task': controlnet_prefs['control_task'], 'original_image': controlnet_prefs['original_image'], 'conditioning_scale': controlnet_prefs['conditioning_scale']}
+        controlnet_prefs['multi_controlnets'].append(layer)
+        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+          ]), data=layer))
+        multi_layers.update()
+        controlnet_prefs['original_image'] = ""
+        original_image.value = ""
+        original_image.update()
+    def delete_layer(e):
+        controlnet_prefs['multi_controlnets'].remove(e.control.data)
+        for c in multi_layers.controls:
+          if c.data['original_image'] == e.control.data['original_image']:
+             multi_layers.controls.remove(c)
+             break
+        multi_layers.update()
+        
+    def delete_all_layers(e):
+        controlnet_prefs['multi_controlnets'].clear()
+        multi_layers.controls.clear()
+        multi_layers.update()
     original_image = TextField(label="Original Drawing", value=controlnet_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 8}, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':4}, on_change=lambda e:changed(e,'negative_prompt'))
     control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation")], value=controlnet_prefs['control_task'], on_change=change_task)
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
+    add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNet Layer", on_click=add_layer)
+    multi_layers = Column([], spacing=0)
     seed = TextField(label="Seed", width=90, value=str(controlnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_prefs, key='guidance_scale')
@@ -5622,7 +5651,7 @@ def buildControlNet(page):
     threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" else 0
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_prefs['eta']}", weight=FontWeight.BOLD)
-    eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
+    eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_prefs, key='max_size')
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -5639,7 +5668,10 @@ def buildControlNet(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🕸️  ControlNet Image+Text2Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
-        Row([control_task, original_image]),
+        Row([control_task, original_image, add_layer_btn]),
+        conditioning_scale,
+        multi_layers,
+        Divider(thickness=2, height=4),
         ResponsiveRow([prompt, negative_prompt]),
         threshold,
         num_inference_row,
@@ -8593,7 +8625,6 @@ pipe_alt_diffusion = None
 pipe_alt_diffusion_img2img = None
 pipe_SAG = None
 pipe_attend_and_excite = None
-pipe_controlnet = None
 pipe_panorama = None
 pipe_DiT = None
 pipe_dance = None
@@ -8606,6 +8637,7 @@ pipe_gpt2 = None
 pipe_distil_gpt2 = None
 pipe_controlnet = None
 controlnet = None
+controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None}
 stability_api = None
 
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -10365,13 +10397,6 @@ def clear_attend_and_excite_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_attend_and_excite = None
-def clear_controlnet_pipe():
-  global pipe_controlnet
-  if pipe_controlnet is not None:
-    del pipe_controlnet
-    gc.collect()
-    torch.cuda.empty_cache()
-    pipe_controlnet = None
 def clear_panorama_pipe():
   global pipe_panorama
   if pipe_panorama is not None:
@@ -10436,15 +10461,19 @@ def clear_distil_gpt2_pipe():
     torch.cuda.empty_cache()
     pipe_distil_gpt2 = None
 def clear_controlnet_pipe():
-  global pipe_controlnet, controlnet, status
+  global pipe_controlnet, controlnet, controlnet_models, status
   if pipe_controlnet is not None:
     del pipe_controlnet
     del controlnet
+    for k, v in controlnet_models.items():
+      if v != None:
+        del v
+        controlnet_models[k] = None
     gc.collect()
     torch.cuda.empty_cache()
     pipe_controlnet = None
     controlnet = None
-    status['loaded_controlnet'] = ""
+    status['loaded_controlnet'] = None
     
 def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
@@ -11225,11 +11254,11 @@ def start_diffusion(page):
                   images = pipe_alt_diffusion(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_SAG'] and status['installed_SAG']:
                 pipe_used = "Self-Attention Guidance Text-to-Image"
-                size = pipe_SAG.unet.config.sample_size * pipe_SAG.vae_scale_factor
-                arg['width'] = size
-                arg['height'] = size
+                #size = pipe_SAG.unet.config.sample_size * pipe_SAG.vae_scale_factor
+                #arg['width'] = size
+                #arg['height'] = size
                 with torch.autocast("cuda"): #, height=arg['height'], width=arg['width']
-                  images = pipe_SAG(prompt=pr, negative_prompt=arg['negative_prompt'], sag_scale=prefs['sag_scale'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SAG(prompt=pr, negative_prompt=arg['negative_prompt'], sag_scale=prefs['sag_scale'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
                 pipe_used = "Attend and Excite Text-to-Image"
                 size = pipe_attend_and_excite.unet.config.sample_size * pipe_attend_and_excite.vae_scale_factor
@@ -17915,14 +17944,14 @@ def run_instruct_pix2pix(page, from_list=False):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_controlnet(page, from_list=False):
-    global controlnet_prefs, prefs, status, pipe_controlnet, controlnet
+    global controlnet_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_models
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
-    if not bool(controlnet_prefs['original_image']):
+    if not bool(controlnet_prefs['original_image']) and len(controlnet_prefs['multi_controlnets']) == 0:
       alert_msg(page, "You must provide the Original Image to process...")
       return
-    if not bool(controlnet_prefs['prompt']):
+    if not bool(controlnet_prefs['prompt']) and not from_list:
       alert_msg(page, "You must provide a Prompt to paint in your image...")
       return
     def prt(line, update=True):
@@ -17967,7 +17996,7 @@ def run_controlnet(page, from_list=False):
         alert_msg(page, "You need to add Prompts to your List first... ")
         return
       for p in prompts:
-        control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_prefs['original_image'], 'seed': p['seed']}
+        control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_prefs['original_image'], 'conditioning_scale': controlnet_prefs['conditioning_scale'], 'seed': p['seed']}
         controlnet_prompts.append(control)
       page.tabs.selected_index = 4
       page.tabs.update()
@@ -17976,7 +18005,15 @@ def run_controlnet(page, from_list=False):
       if not bool(controlnet_prefs['prompt']):
         alert_msg(page, "You need to add a Text Prompt first... ")
         return
-      control = {'prompt':controlnet_prefs['prompt'], 'negative_prompt': controlnet_prefs['negative_prompt'], 'original_image': controlnet_prefs['original_image'], 'seed': controlnet_prefs['seed']}
+      original = controlnet_prefs['original_image']
+      conditioning_scale = controlnet_prefs['conditioning_scale']
+      if len(controlnet_prefs['multi_controlnets']) > 0:
+        original = []
+        conditioning_scale = []
+        for c in controlnet_prefs['multi_controlnets']:
+          original.append(c['original_image'])
+          conditioning_scale.append(c['conditioning_scale'])
+      control = {'prompt':controlnet_prefs['prompt'], 'negative_prompt': controlnet_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'seed': controlnet_prefs['seed']}
       controlnet_prompts.append(control)
       page.controlnet_output.controls.clear()
     autoscroll(True)
@@ -18021,103 +18058,83 @@ def run_controlnet(page, from_list=False):
     mlsd_checkpoint = "lllyasviel/sd-controlnet-mlsd"
     normal_checkpoint = "lllyasviel/sd-controlnet-normal"
     seg_checkpoint = "lllyasviel/sd-controlnet-seg"
-    
-    if controlnet_prefs["control_task"] == "Canny Map Edge":
-        if controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-          controlnet = ControlNetModel.from_pretrained(canny_checkpoint, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-    elif controlnet_prefs["control_task"] == "Scribble":
-        from controlnet_aux import HEDdetector
-        hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
-        if controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-          controlnet = ControlNetModel.from_pretrained(scribble_checkpoint, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-    elif controlnet_prefs["control_task"] == "OpenPose":
-        from controlnet_aux import OpenposeDetector
-        openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
-        if controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-          controlnet = ControlNetModel.from_pretrained(openpose_checkpoint, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-    elif controlnet_prefs["control_task"] == "Depth":
-        from transformers import pipeline
-        depth_estimator = pipeline('depth-estimation')
-        if controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-          controlnet = ControlNetModel.from_pretrained(depth_checkpoint, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-    elif controlnet_prefs["control_task"] == "HED":
-        from controlnet_aux import HEDdetector
-        hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
-        if controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-          controlnet = ControlNetModel.from_pretrained(HED_checkpoint, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-    elif controlnet_prefs["control_task"] == "M-LSD":
-        from controlnet_aux import MLSDdetector
-        mlsd = MLSDdetector.from_pretrained('lllyasviel/ControlNet', cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-        if controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-          controlnet = ControlNetModel.from_pretrained(mlsd_checkpoint, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-    elif controlnet_prefs["control_task"] == "Normal Map":
-        from transformers import pipeline
-        depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas")
-        if controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-          controlnet = ControlNetModel.from_pretrained(normal_checkpoint)
-    elif controlnet_prefs["control_task"] == "Segmented":
-        from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
-        from controlnet_utils import ade_palette
-        image_processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-small")
-        image_segmentor = UperNetForSemanticSegmentation.from_pretrained("openmmlab/upernet-convnext-small")
-        if controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-          controlnet = ControlNetModel.from_pretrained(seg_checkpoint)
-    model = get_model(prefs['model_ckpt'])
-    model_path = model['path']
-    if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-        pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None)
-        #pipe_controlnet.enable_model_cpu_offload()
-        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True)
-        status['loaded_controlnet'] = controlnet_prefs["control_task"]
-    pipe_controlnet = pipeline_scheduler(pipe_controlnet)
-    clear_last()
-    prt(f"Generating ControlNet {controlnet_prefs['control_task']} of your Image...")
-    batch_output = os.path.join(stable_dir, controlnet_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
-    batch_output = os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
-    for pr in controlnet_prompts:
-        autoscroll(False)
-        prt(progress)
-        if pr['original_image'].startswith('http'):
+    def get_controlnet(task):
+        if controlnet_models[task] != None:
+            return controlnet_models[task]
+        if task == "Canny Map Edge":
+            controlnet_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Scribble":
+            from controlnet_aux import HEDdetector
+            hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
+            controlnet_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "OpenPose":
+            from controlnet_aux import OpenposeDetector
+            openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
+            controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Depth":
+            from transformers import pipeline
+            depth_estimator = pipeline('depth-estimation')
+            controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "HED":
+            from controlnet_aux import HEDdetector
+            hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
+            controlnet_models[task] = ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "M-LSD":
+            from controlnet_aux import MLSDdetector
+            mlsd = MLSDdetector.from_pretrained('lllyasviel/ControlNet')
+            controlnet_models[task] = ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Normal Map":
+            from transformers import pipeline
+            depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas")
+            controlnet_models[task] = ControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Segmented":
+            from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
+            from controlnet_utils import ade_palette
+            image_processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-small")
+            image_segmentor = UperNetForSemanticSegmentation.from_pretrained("openmmlab/upernet-convnext-small")
+            controlnet_models[task] = ControlNetModel.from_pretrained(seg_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        return controlnet_models[task]
+    width, height = 0, 0
+    def prep_image(task, img):
+        nonlocal width, height
+        if img.startswith('http'):
             #response = requests.get(controlnet_prefs['original_image'])
             #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
-            original_img = PILImage.open(requests.get(pr['original_image'], stream=True).raw)
+            original_img = PILImage.open(requests.get(img, stream=True).raw)
         else:
-            if os.path.isfile(pr['original_image']):
-                original_img = PILImage.open(pr['original_image'])
+            if os.path.isfile(img):
+                original_img = PILImage.open(img)
             else:
-                alert_msg(page, f"ERROR: Couldn't find your original_image {pr['original_image']}")
+                alert_msg(page, f"ERROR: Couldn't find your original_image {img}")
                 return
         width, height = original_img.size
         width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
-        print(f"Size: {width}x{height}")
+        #print(f"Size: {width}x{height}")
         original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
-        input_image = np.array(original_img)
+        return original_img
+        '''input_image = np.array(original_img)
         try:
-            if controlnet_prefs["control_task"] == "Canny Map Edge":
+            if task == "Canny Map Edge":
                 input_image = cv2.Canny(input_image, controlnet_prefs['low_threshold'], controlnet_prefs['high_threshold'])
                 input_image = input_image[:, :, None]
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
                 original_img = PILImage.fromarray(input_image)
-            elif controlnet_prefs["control_task"] == "Scribble":
+            elif task == "Scribble":
                 original_img = hed(original_img, scribble=True)
-            elif controlnet_prefs["control_task"] == "OpenPose":
+            elif task == "OpenPose":
                 original_img = openpose(original_img)
-            elif controlnet_prefs["control_task"] == "Depth":
+            elif task == "Depth":
                 original_img = depth_estimator(original_img)['depth']
                 input_image = np.array(original_img)
                 input_image = input_image[:, :, None]
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
                 original_img = PILImage.fromarray(input_image)
-            elif controlnet_prefs["control_task"] == "HED":
+            elif task == "HED":
                 original_img = hed(original_img)
-            elif controlnet_prefs["control_task"] == "M-LSD":
+            elif task == "M-LSD":
                 original_img = mlsd(original_img)
-            elif controlnet_prefs["control_task"] == "Normal Map":
-                depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas" )
+            elif task == "Normal Map":
+                depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas" )
                 original_img = depth_estimator(original_img)['predicted_depth'][0]
                 input_image = original_img.numpy()
                 image_depth = input_image.copy()
@@ -18133,7 +18150,7 @@ def run_controlnet(page, from_list=False):
                 input_image /= np.sum(input_image ** 2.0, axis=2, keepdims=True) ** 0.5
                 input_image = (input_image * 127.5 + 127.5).clip(0, 255).astype(np.uint8)
                 original_img = PILImage.fromarray(input_image)
-            elif controlnet_prefs["control_task"] == "Segmented":
+            elif task == "Segmented":
                 pixel_values = image_processor(original_img, return_tensors="pt").pixel_values
                 with torch.no_grad():
                   outputs = image_segmentor(pixel_values)
@@ -18144,10 +18161,60 @@ def run_controlnet(page, from_list=False):
                     color_seg[seg == label, :] = color
                 color_seg = color_seg.astype(np.uint8)
                 original_img = PILImage.fromarray(color_seg)
-            
+            return original_img
+        except Exception as e:
+            #clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR Preparing ControlNet {controlnet_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            gc.collect()
+            torch.cuda.empty_cache()
+            return'''
+    loaded_controlnet = None
+    if len(controlnet_prefs['multi_controlnets']) > 0 and not from_list:
+        controlnet = []
+        loaded_controlnet = []
+        for c in controlnet_prefs['multi_controlnets']:
+            controlnet.append(get_controlnet(c['control_task']))
+            loaded_controlnet.append(c['control_task'])
+    else:
+        controlnet = get_controlnet(controlnet_prefs['control_task'])
+        loaded_controlnet = controlnet_prefs['control_task']
+    for k, v in controlnet_models.items():
+      if v != None and k in loaded_controlnet:
+        del v
+        controlnet_models[k] = None
+    model = get_model(prefs['model_ckpt'])
+    model_path = model['path']
+    if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
+        pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        #pipe_controlnet.enable_model_cpu_offload()
+        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True)
+        status['loaded_controlnet'] = loaded_controlnet #controlnet_prefs["control_task"]
+    #else:
+        #pipe_controlnet.controlnet=controlnet
+    pipe_controlnet = pipeline_scheduler(pipe_controlnet)
+    clear_last()
+    prt(f"Generating ControlNet {controlnet_prefs['control_task']} of your Image...")
+    batch_output = os.path.join(stable_dir, controlnet_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in controlnet_prompts:
+        autoscroll(False)
+        prt(progress)
+        if len(controlnet_prefs['multi_controlnets']) > 0 and not from_list:
+            original_img = []
+            for c in controlnet_prefs['multi_controlnets']:
+                original_img.append(prep_image(c['control_task'], c['original_image']))
+        else:
+            original_img = prep_image(controlnet_prefs['control_task'], pr['original_image'])
+        try:
             random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
-            images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, image=original_img, callback=callback_fnc, callback_steps=1).images
+            
+            images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
         except Exception as e:
             #clear_last()
             clear_last()
@@ -18202,12 +18269,13 @@ def run_controlnet(page, from_list=False):
                 os.chdir(stable_dir)
                 
             if prefs['save_image_metadata']:
+                task = and_list(controlnet_prefs['control_task']) if isinstance(controlnet_prefs['control_task'], list) else controlnet_prefs['control_task']
                 img = PILImage.open(image_path)
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
                 metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {controlnet_prefs['enlarge_scale']}x with ESRGAN" if controlnet_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", "ControlNet " + controlnet_prefs['control_task'])
+                metadata.add_text("pipeline", "ControlNet " + task)
                 if prefs['save_config_in_metadata']:
                   config_json = controlnet_prefs.copy()
                   config_json['model_path'] = model_path
@@ -19717,6 +19785,8 @@ class ImageButton(UserControl):
                 os.remove(self.data)
             self.image.visible = False
             self.image.update()
+            self.visible = False
+            self.update()
             self.page.snack_bar = SnackBar(content=Text(f"🗑️  Deleted {self.data}..."))
             self.page.snack_bar.open = True
             self.page.update()
