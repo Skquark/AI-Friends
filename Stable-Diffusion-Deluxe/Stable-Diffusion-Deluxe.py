@@ -783,7 +783,7 @@ def initState(page):
       pyi_splash.update_text('Ready to get creative...')
       pyi_splash.close()
       #log.info('Splash screen closed.')
-    if prefs['start_in_installation']:
+    if prefs['start_in_installation'] and current_tab == 0:
       page.tabs.selected_index = 1
       page.tabs.update()
       page.show_install_fab(True)
@@ -1671,8 +1671,8 @@ def buildParameters(page):
   batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
   #batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'batch_size'))
   #n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
-  batch_size = NumberPicker(label="Batch Size: ", min=1, max=10, value=prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
-  n_iterations = NumberPicker(label="Number of Iterations: ", min=1, max=30, value=prefs['n_iterations'], on_change=lambda e: changed(e, 'n_iterations'))
+  batch_size = NumberPicker(label="Batch Size: ", min=1, max=10, value=prefs['batch_size'], tooltip="Generates multiple images at the same time. Uses more memory...", on_change=lambda e: changed(e, 'batch_size'))
+  n_iterations = NumberPicker(label="Number of Iterations: ", min=1, max=30, value=prefs['n_iterations'], tooltip="Creates multiple images in batch seperately", on_change=lambda e: changed(e, 'n_iterations'))
   steps = TextField(label="Steps", value=prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', asInt=True))
   eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta'))
   seed = TextField(label="Seed", value=prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed'))
@@ -8659,7 +8659,7 @@ finetuned_models = [
     {"name": "Future Diffusion", "path": "nitrosocke/Future-Diffusion", "prefix": "future style "},
     #{"name": "Anything v3.0", "path": "Linaqruf/anything-v3.0", "prefix": ""},
     {"name": "Anything v3.0", "path": "ckpt/anything-v3.0", "prefix": ""},
-    {"name": "Anything v4.0", "path": "andite/anything-v4.0", "prefix": ""},
+    #{"name": "Anything v4.0", "path": "andite/anything-v4.0", "prefix": ""},
     {"name": "Anything v4.5", "path": "ckpt/anything-v4.5", "prefix": ""},
     {"name": "Analog Diffusion", "path": "wavymulder/Analog-Diffusion", "prefix": "analog style "},
     {"name": "Architecture Diffusers", "path": "rrustom/stable-architecture-diffusers", "prefix": ""},
@@ -8853,6 +8853,16 @@ def get_LoRA_model(name):
 
 def get_diffusers(page):
     global scheduler, model_path, prefs, status
+    try:
+      import accelerate
+    except Exception:
+      page.console_msg("Installing Hugging Face Accelerate Package...")
+      run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
+      #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
+      from accelerate.utils import write_basic_config
+      write_basic_config(mixed_precision='fp16')
+      page.console_msg("Installing Hugging Face Diffusers Pipeline...")
+      pass
     if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
         # Still not the best way.  TODO: Fix importing, try ninja or other wheels?
         try:
@@ -8888,16 +8898,7 @@ def get_diffusers(page):
       from diffusers import StableDiffusionPipeline, logging
       import transformers
     except ModuleNotFoundError as e:#ModuleNotFoundError as e:'''
-    try:
-      import accelerate
-    except Exception:
-      page.console_msg("Installing Hugging Face Accelerate Package...")
-      run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
-      #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
-      from accelerate.utils import write_basic_config
-      write_basic_config(mixed_precision='fp16')
-      page.console_msg("Installing Hugging Face Diffusers Pipeline...")
-      pass
+    
     try:
       import diffusers
     except Exception:
@@ -8912,7 +8913,14 @@ def get_diffusers(page):
     try:
       import scipy, ftfy
     except Exception:
-      run_process("pip install -qq --upgrade scipy ftfy safetensors", page=page)
+      run_process("pip install -qq --upgrade scipy ftfy", page=page)
+      pass
+    try:
+      import safetensors
+    except Exception:
+      run_process("pip install -qq --upgrade safetensors", page=page)
+      import safetensors
+      from safetensors import safe_open
       pass
     try:
       import ipywidgets
@@ -9270,7 +9278,7 @@ def get_text2image(page):
       model = get_model(prefs['model_ckpt'])
       model_url = f"https://huggingface.co/{model['path']}"
       alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace {model["name"]} Model Cards to use Checkpoint',
-                content=Markdown(f'[{model_url}]({model_url})<br>{e}', on_tap_link=open_url))
+                content=Column([Markdown(f'[{model_url}]({model_url})', on_tap_link=open_url), Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
 
 # I thought it's what I wanted, but current implementation does same as mine but doesn't clear memory between
 def get_mega_pipe():
@@ -9312,20 +9320,20 @@ def get_lpw_pipe():
     pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
   else:
     if 'revision' in model:
-      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
     else:
       if 'vae' in model:
         from diffusers import AutoencoderKL, UNet2DConditionModel
         vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
         unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16)
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
       else:
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), device_map="auto", feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
   pipe = pipeline_scheduler(pipe)
-  pipe = optimize_pipe(pipe, vae=True, to_gpu=False)
+  pipe = optimize_pipe(pipe, vae=True)
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
@@ -15762,7 +15770,7 @@ def run_converter(page):
     if(converter_prefs['save_model']):
       from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
       from huggingface_hub import model_info, create_repo, create_branch, upload_folder
-      from huggingface_hub.utils import RepositoryNotFoundError, RevisionNotFoundError
+      from huggingface_hub.utils import RepositoryNotFoundError, revisionNotFoundError
       from diffusers import StableDiffusionPipeline
       api = HfApi()
       your_username = api.whoami()["name"]
@@ -15831,7 +15839,7 @@ And you can run your new concept via `diffusers`: [Colab Notebook for Inference]
       try:
           branch_exists = True
           b_info = model_info(repo_id, revision=branch, token=hf_token)
-      except RevisionNotFoundError:
+      except revisionNotFoundError:
           branch_exists = False
       finally:
           if branch_exists:
@@ -15864,7 +15872,7 @@ And you can run your new concept via `diffusers`: [Colab Notebook for Inference]
       try:
           branch_exists = True
           b_info = model_info(model_to, revision=branch, token=token)
-      except RevisionNotFoundError:
+      except revisionNotFoundError:
           branch_exists = False
       finally:
           if branch_exists:
@@ -19818,7 +19826,7 @@ class ImageButton(UserControl):
     
 
 class NumberPicker(UserControl):
-    def __init__(self, label="", value=1, min=0, max=20, step=1, height=50, on_change=None):
+    def __init__(self, label="", value=1, min=0, max=20, step=1, height=50, tooltip=None, on_change=None):
         super().__init__()
         self.value = value
         self.min = min
@@ -19826,6 +19834,7 @@ class NumberPicker(UserControl):
         self.step = step
         self.label = label
         self.height = height
+        self.tooltip = tooltip
         self.on_change = on_change
         self.build()
     def build(self):
@@ -19861,7 +19870,8 @@ class NumberPicker(UserControl):
               if self.on_change is not None:
                 self.on_change(e)
         self.txt_number = TextField(value=str(self.value), text_align=TextAlign.CENTER, width=55, height=self.height, content_padding=padding.only(top=4), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-        return Row([Text(self.label), IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
+        label_text = Text(self.label) if not self.tooltip else Tooltip(message=self.tooltip, content=Text(self.label))
+        return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 class SliderRow(UserControl):
     def __init__(self, label="", value=None, min=0, max=20, divisions=20, multiple=1, step=1, round=0, suffix="", tooltip="", pref=None, key=None, on_change=None):
