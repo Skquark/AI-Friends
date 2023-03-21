@@ -8911,9 +8911,14 @@ def get_diffusers(page):
       pass
     #run_process("pip install -q transformers==4.23.1", page=page)
     try:
-      import scipy, ftfy
+      import scipy
     except Exception:
-      run_process("pip install -qq --upgrade scipy ftfy", page=page)
+      run_process("pip install -qq --upgrade scipy", page=page)
+      pass
+    try:
+      import ftfy
+    except Exception:
+      run_process("pip install -qq --upgrade ftfy", page=page)
       pass
     try:
       import safetensors
@@ -9310,25 +9315,26 @@ def get_lpw_pipe():
   #from lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
   if pipe is not None:
     if model['path'] != status['loaded_model']:
-      clear_txt2img_pipe()
+      #clear_txt2img_pipe()
+      clear_pipes()
     elif prefs['scheduler_mode'] != status['loaded_scheduler']:
       pipe = pipeline_scheduler(pipe)
       return pipe
     else:
       return pipe
-  if prefs['higher_vram_mode']:# or model['name'] == "Stable Diffusion v2.1 x768": #, revision="fp32"
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), feature_extractor=None, requires_safety_checker=not prefs['disable_nsfw_filter'])
+  if 'revision' in model:
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
   else:
-    if 'revision' in model:
-      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+    if 'vae' in model:
+      from diffusers import AutoencoderKL, UNet2DConditionModel
+      vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
+      unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
     else:
-      if 'vae' in model:
-        from diffusers import AutoencoderKL, UNet2DConditionModel
-        vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
-        unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16)
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+      if prefs['disable_nsfw_filter']:
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
       else:
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
@@ -9405,15 +9411,11 @@ def get_interpolation_pipe():
         return pipe_interpolation
       else:
         return pipe_interpolation
-    if prefs['higher_vram_mode']:
-      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
-      #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+    if 'revision' in model:
+      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
     else:
-      if 'revision' in model:
-        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
-      else:
-        pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
-      #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+    #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe_interpolation = pipe_interpolation.to(torch_device)
     pipe_interpolation = pipeline_scheduler(pipe_interpolation)
     pipe_interpolation = optimize_pipe(pipe_interpolation)
@@ -9565,22 +9567,14 @@ def get_versatile_pipe(): # Mega was taking up too much vram and crashing the sy
         return pipe_composable
       else:
         return pipe_composable
-  if prefs['higher_vram_mode']:
-    pipe_versatile = VersatileDiffusionPipeline.from_pretrained(
-        model_id,
-        #scheduler=model_scheduler(model_id),
-        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
-    )
-  else:
-    pipe_versatile = VersatileDiffusionPipeline.from_pretrained(
-        model_id,
-        #scheduler=model_scheduler(model_id),
-        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        #revision="fp16", 
-        torch_dtype=torch.float16,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
-    )
+  pipe_versatile = VersatileDiffusionPipeline.from_pretrained(
+      model_id,
+      #scheduler=model_scheduler(model_id),
+      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+      #revision="fp16", 
+      torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
+      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+  )
   #pipe_versatile.to(torch_device)
   pipe_versatile = pipeline_scheduler(pipe_versatile)
   pipe_versatile = optimize_pipe(pipe_versatile)
@@ -9598,22 +9592,14 @@ def get_versatile_text2img_pipe():
         return pipe_versatile_text2img
       else:
         return pipe_versatile_text2img
-  if prefs['higher_vram_mode']:
-    pipe_versatile_text2img = VersatileDiffusionTextToImagePipeline.from_pretrained(
-        model_id,
-        #scheduler=model_scheduler(model_id),
-        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
-    )
-  else:
-    pipe_versatile_text2img = VersatileDiffusionTextToImagePipeline.from_pretrained(
-        model_id,
-        #scheduler=model_scheduler(model_id),
-        cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        #revision="fp16", 
-        torch_dtype=torch.float16,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
-    )
+  pipe_versatile_text2img = VersatileDiffusionTextToImagePipeline.from_pretrained(
+      model_id,
+      #scheduler=model_scheduler(model_id),
+      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+      #revision="fp16", 
+      torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
+      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+  )
   #pipe_versatile_text2img.to(torch_device)
   pipe_versatile_text2img = pipeline_scheduler(pipe_versatile_text2img)
   pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img)
@@ -9644,7 +9630,7 @@ def get_versatile_variation_pipe():
         #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         #revision="fp16", 
-        torch_dtype=torch.float16,
+        torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
         safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
     )
   #pipe_versatile_variation.to(torch_device)
@@ -9763,7 +9749,7 @@ def get_SAG_pipe():
       model_path,
       #scheduler=model_scheduler(model_path, big3=True),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-      torch_dtype=torch.float16,
+      torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
   pipe_SAG = pipeline_scheduler(pipe_SAG, big3=True)
   pipe_SAG = optimize_pipe(pipe_SAG, vae=False)
@@ -9799,7 +9785,7 @@ def get_attend_and_excite_pipe():
       model_path,
       #scheduler=model_scheduler(model_path),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-      torch_dtype=torch.float16,
+      torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   pipe_attend_and_excite = pipeline_scheduler(pipe_attend_and_excite)
   pipe_attend_and_excite = optimize_pipe(pipe_attend_and_excite, vae=True)
@@ -9835,7 +9821,7 @@ def get_panorama_pipe():
       model_path,
       #scheduler=model_scheduler(model_path, big3=True),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-      torch_dtype=torch.float16,
+      torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   pipe_panorama = pipeline_scheduler(pipe_panorama, big3=True)
   pipe_panorama = optimize_pipe(pipe_panorama, vae=True)
