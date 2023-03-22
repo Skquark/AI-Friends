@@ -50,7 +50,6 @@ os.chdir(stable_dir)
 #loaded_img2img = False
 #use_Stability_api = False
 
-import requests
 import random as rnd
 def version_checker():
   try:
@@ -101,6 +100,11 @@ except ImportError as e:
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
+try:
+  import requests
+except Exception:
+  run_sp("pip install -q requests", realtime=False)
+  import requests
 try:
   from IPython.display import clear_output
 except Exception:
@@ -230,6 +234,7 @@ def load_settings_file():
       'memory_optimization': "Attention Slicing",
       'sequential_cpu_offload': False,
       'vae_slicing': True,
+      'vae_tiling': False,
       'cache_dir': '',
       'install_diffusers': True,
       'install_interpolation': False,
@@ -384,7 +389,7 @@ from contextlib import redirect_stdout
 try:
   import numpy as np
 except Exception:
-  run_sp("pip install numpy", realtime=False)
+  run_sp("pip install --update numpy", realtime=False)
   import numpy as np
   pass
 
@@ -9146,7 +9151,8 @@ torch_device = "cuda"
 try:
     import torch
 except Exception:
-    page.console_msg("Installing PyTorch with CUDA 1.17")
+    #page.console_msg("Installing PyTorch with CUDA 1.17")
+    print("Installing PyTorch with CUDA 1.17")
     run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117", realtime=False)
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
@@ -9878,6 +9884,58 @@ def get_clip(page):
     pipe_clip_guided = get_clip_guided_pipe()
 
 def get_clip_guided_pipe():
+    global pipe_clip_guided, scheduler_clip, prefs, model_path
+    from diffusers import DiffusionPipeline
+    from diffusers import LMSDiscreteScheduler, PNDMScheduler, StableDiffusionPipeline
+    from transformers import CLIPModel, CLIPFeatureExtractor #, CLIPGuidedStableDiffusion
+    if pipe_clip_guided is not None:
+      if model_path != status['loaded_model']:
+        clear_clip_guided_pipe()
+      elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_clip_guided = pipeline_scheduler(pipe_clip_guided, big3=True)
+        return pipe_clip_guided
+      else:
+        return pipe_clip_guided
+    #if isinstance(scheduler, LMSDiscreteScheduler) or isinstance(scheduler, PNDMScheduler):
+    #  scheduler_clip = scheduler
+    #else:
+    #  scheduler_clip = LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
+    model = get_model(prefs['model_ckpt'])
+
+    clip_model = CLIPModel.from_pretrained(prefs['clip_model_id'], torch_dtype=torch.float16)
+    feature_extractor = CLIPFeatureExtractor.from_pretrained(prefs['clip_model_id'])
+
+    if 'revision' in model:
+      pipe_clip_guided = DiffusionPipeline.from_pretrained(
+              model_path,
+              custom_pipeline="AlanB/clip_guided_stable_diffusion_mod",
+              clip_model=clip_model,
+              feature_extractor=feature_extractor,
+              #scheduler=model_scheduler(model_path, big3=True),
+              cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+              safety_checker=None,
+              torch_dtype=torch.float16,
+              revision=model['revision'],
+              #device_map="auto",
+          )
+    else:
+      pipe_clip_guided = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/clip_guided_stable_diffusion_mod", clip_model=clip_model, feature_extractor=feature_extractor, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16)
+    #pipe_clip_guided = pipe_clip_guided.to(torch_device)
+    '''
+    pipe_clip_guided = CLIPGuidedStableDiffusion(
+        unet=pipeline.unet,
+        vae=pipeline.vae,
+        tokenizer=pipeline.tokenizer,
+        text_encoder=pipeline.text_encoder,
+        scheduler=scheduler_clip,
+        clip_model=clip_model,
+        feature_extractor=feature_extractor,
+    )'''
+    pipe_clip_guided = pipeline_scheduler(pipe_clip_guided, big3=True)
+    pipe_clip_guided = optimize_pipe(pipe_clip_guided)
+    return pipe_clip_guided
+
+def get_clip_guided_img2img_pipe():
     global pipe_clip_guided, scheduler_clip, prefs, model_path
     from diffusers import DiffusionPipeline
     from diffusers import LMSDiscreteScheduler, PNDMScheduler, StableDiffusionPipeline
