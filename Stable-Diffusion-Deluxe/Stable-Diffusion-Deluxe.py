@@ -573,6 +573,7 @@ def buildStableDiffusers(page):
     page.PaintByExample = buildPaintByExample(page)
     page.InstructPix2Pix = buildInstructPix2Pix(page)
     page.ControlNet = buildControlNet(page)
+    page.TextToVideo = buildTextToVideo(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.MaskMaker = buildDreamMask(page)
     page.DiT = buildDiT(page)
@@ -595,6 +596,7 @@ def buildStableDiffusers(page):
             Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
+            Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
@@ -1388,6 +1390,7 @@ def buildInstallers(page):
         page.ESRGAN_block_styler.height = None
         page.ESRGAN_block_deep_daze.height = None
         page.ESRGAN_block_DiT.height = None
+        page.ESRGAN_block_text_to_video.height = None
         page.ESRGAN_block.update()
         page.ESRGAN_block_material.update()
         page.ESRGAN_block_dalle.update()
@@ -1404,6 +1407,7 @@ def buildInstallers(page):
         page.ESRGAN_block_styler.update()
         page.ESRGAN_block_deep_daze.update()
         page.ESRGAN_block_DiT.update()
+        page.ESRGAN_block_text_to_video.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
           import openai
@@ -5693,6 +5697,112 @@ def buildControlNet(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+text_to_video_prefs = {
+    'prompt': '',
+    'negative_prompt': 'text, words, watermark, shutterstock',
+    'num_inference_steps': 50,
+    'guidance_scale': 9.0,
+    'export_to_video': True,
+    'eta': 0.0,
+    'seed': 0,
+    'width': 256,
+    'height': 256,
+    'num_frames': 16,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+    "lower_memory": True,
+}
+
+def buildTextToVideo(page):
+    global text_to_video_prefs, prefs, pipe_text_to_video, editing_prompt
+    editing_prompt = {'editing_prompt':'', 'edit_warmup_steps':10, 'edit_guidance_scale':5, 'edit_threshold':0.9, 'edit_weights':1, 'reverse_editing_direction': False}
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            text_to_video_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            text_to_video_prefs[pref] = float(e.control.value)
+          else:
+            text_to_video_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.text_to_video_output.controls = []
+      page.text_to_video_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def text_to_video_help(e):
+      def close_text_to_video_dlg(e):
+        nonlocal text_to_video_help_dlg
+        text_to_video_help_dlg.open = False
+        page.update()
+      text_to_video_help_dlg = AlertDialog(title=Text("💁   Help with Text-To-Video"), content=Column([
+          Text("Text-to-video synthesis from [ModelScope](https://modelscope.cn/) can be considered the same as Stable Diffusion structure-wise but it is extended to videos instead of static images. More specifically, this system allows us to generate videos from a natural language text prompt."),
+          Markdown("""From the [model summary](https://huggingface.co/damo-vilab/modelscope-damo-text-to-video-synthesis):
+*This model is based on a multi-stage text-to-video generation diffusion model, which inputs a description text and returns a video that matches the text description. Only English input is supported.*
+Resources:
+* [Website](https://modelscope.cn/models/damo/text-to-video-synthesis/summary)
+* [GitHub repository](https://github.com/modelscope/modelscope/)""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🎞  What'll be next... ", on_click=close_text_to_video_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = text_to_video_help_dlg
+      text_to_video_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        text_to_video_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Animation Prompt Text", value=text_to_video_prefs['prompt'], col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=text_to_video_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=text_to_video_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")   
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=text_to_video_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=text_to_video_prefs, key='guidance_scale')
+    eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=text_to_video_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_prefs, key='height')
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switch(label="Export to Video", value=text_to_video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switch(label="Lower Memory Mode", value=text_to_video_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(text_to_video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=text_to_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=text_to_video_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=text_to_video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_text_to_video = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_text_to_video.height = None if status['installed_ESRGAN'] else 0
+    page.text_to_video_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.text_to_video_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎥  Text-To-Video Synthesis", "Modelscope's Text-to-video-synthesis Model to Animate Diffusion", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=text_to_video_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        ResponsiveRow([prompt, negative_prompt]),
+        #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
+        Row([export_to_video, lower_memory]),
+        num_frames,
+        num_inference_row,
+        guidance,
+        eta_slider,
+        #width_slider, height_slider,
+        page.ESRGAN_block_text_to_video,
+        Row([seed, batch_folder_name]),
+        #Row([jump_length, jump_n_sample, seed]),
+        Row([
+            ElevatedButton(content=Text("📹  Run Text-To-Video", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_text_to_video(page)),
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_text_to_video(page, from_list=True))
+        ]),
+        page.text_to_video_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 materialdiffusion_prefs = {
     "material_prompt": '',
     "batch_folder_name": '',
@@ -8638,6 +8748,7 @@ pipe_tortoise_tts = None
 pipe_audio_ldm = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
+pipe_text_to_video = None
 pipe_gpt2 = None
 pipe_distil_gpt2 = None
 pipe_controlnet = None
@@ -8859,26 +8970,25 @@ def get_LoRA_model(name):
 def get_diffusers(page):
     global scheduler, model_path, prefs, status
     try:
-      import accelerate
+        import accelerate
     except Exception:
-      page.console_msg("Installing Hugging Face Accelerate Package...")
-      run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
-      #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
-      from accelerate.utils import write_basic_config
-      write_basic_config(mixed_precision='fp16')
-      page.console_msg("Installing Hugging Face Diffusers Pipeline...")
-      pass
+        page.console_msg("Installing Hugging Face Accelerate Package...")
+        run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
+        #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
+        from accelerate.utils import write_basic_config
+        write_basic_config(mixed_precision='fp16')
+        page.console_msg("Installing Hugging Face Diffusers Pipeline...")
+        pass
     if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-        # Still not the best way.  TODO: Fix importing, try ninja or other wheels?
         try:
-          import xformers
+            import xformers
         except Exception:
-          page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
-          run_process("pip install --pre -U triton", page=page)
-          run_process("pip install -U xformers==0.0.17.dev466", page=page)
-          import xformers
-          page.console_msg("Installing Hugging Face Diffusers Pipeline...")
-          pass
+            page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
+            run_process("pip install --pre -U triton", page=page)
+            run_process("pip install -U xformers==0.0.18.dev489", page=page)
+            import xformers
+            page.console_msg("Installing Hugging Face Diffusers Pipeline...")
+            pass
         #run_process("pip install pyre-extensions==0.0.23", page=page)
         #run_process("pip install -i https://test.pypi.org/simple/ formers==0.0.15.dev376", page=page)
         #run_process("pip install -q https://github.com/TheLastBen/fast-stable-diffusion/raw/main/precompiled/T4/xformers-0.0.13.dev0-py3-none-any.whl", page=page)
@@ -8886,57 +8996,56 @@ def get_diffusers(page):
         #if install_xformers(page):
         status['installed_xformers'] = True
     try:
-      import transformers
-      #print(f"transformers=={transformers.__version__}")
-      if transformers.__version__ == "4.21.3": #Workaround because CLIP-Interrogator required other version
-        run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
-        run_process("pip uninstall -y clip-interrogator", realtime=False)
-        run_process("pip uninstall -y transformers", realtime=False)
-        #run_process("pip uninstall -q transformers==4.21.3", page=page, realtime=False)
-      if transformers.__version__ == "4.23.1": # Kandinsky conflict
-        run_process("pip uninstall -y transformers", realtime=False)
+        import transformers
+        #print(f"transformers=={transformers.__version__}")
+        if transformers.__version__ == "4.21.3": #Workaround because CLIP-Interrogator required other version
+          run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
+          run_process("pip uninstall -y clip-interrogator", realtime=False)
+          run_process("pip uninstall -y transformers", realtime=False)
+          #run_process("pip uninstall -q transformers==4.21.3", page=page, realtime=False)
+        if transformers.__version__ == "4.23.1": # Kandinsky conflict
+          run_process("pip uninstall -y transformers", realtime=False)
     except Exception:
-      pass
+        pass
     #run_process("pip install -q huggingface_hub", page=page)
     '''try:
       from huggingface_hub import notebook_login, HfApi, HfFolder, login
       from diffusers import StableDiffusionPipeline, logging
       import transformers
     except ModuleNotFoundError as e:#ModuleNotFoundError as e:'''
-    
     try:
-      import diffusers
+        import diffusers
     except Exception:
-      run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
-      pass
+        run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+        pass
     try:
-      import transformers
+        import transformers
     except Exception:
-      run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
-      pass
+        run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
+        pass
     #run_process("pip install -q transformers==4.23.1", page=page)
     try:
-      import scipy
+        import scipy
     except Exception:
-      run_process("pip install -qq --upgrade scipy", page=page)
-      pass
+        run_process("pip install -qq --upgrade scipy", page=page)
+        pass
     try:
-      import ftfy
+        import ftfy
     except Exception:
-      run_process("pip install -qq --upgrade ftfy", page=page)
-      pass
+        run_process("pip install -qq --upgrade ftfy", page=page)
+        pass
     try:
-      import safetensors
+        import safetensors
     except Exception:
-      run_process("pip install -qq --upgrade safetensors", page=page)
-      import safetensors
-      from safetensors import safe_open
-      pass
+        run_process("pip install -qq --upgrade safetensors", page=page)
+        import safetensors
+        from safetensors import safe_open
+        pass
     try:
-      import ipywidgets
+        import ipywidgets
     except Exception:
-      run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
-      pass
+        run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
+        pass
     run_process("git config --global credential.helper store", page=page)
     
     from huggingface_hub import notebook_login, HfApi, HfFolder, login
@@ -10477,6 +10586,13 @@ def clear_riffusion_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_riffusion = None
+def clear_text_to_video_pipe():
+  global pipe_text_to_video
+  if pipe_text_to_video is not None:
+    del pipe_text_to_video
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_text_to_video = None
 def clear_DiT_pipe():
   global pipe_DiT
   if pipe_DiT is not None:
@@ -10562,6 +10678,7 @@ def clear_pipes(allbut=None):
     if not 'dance' in but: clear_dance_pipe()
     if not 'riffusion' in but: clear_riffusion_pipe()
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
+    if not 'text_to_video' in but: clear_text_to_video_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
@@ -10576,10 +10693,13 @@ def get_base64(image_path):
         my_string = base64.b64encode(img_file.read()).decode('utf-8')
         return my_string
 
-def available_file(folder, name, idx, ext='png'):
+def available_file(folder, name, idx, ext='png', no_num=False):
   available = False
   while not available:
     # Todo, check if using PyDrive2
+    if no_num:
+      if os.path.isfile(os.path.join(folder, f'{name}.{ext}')):
+        return os.path.join(folder, f'{name}.{ext}')
     if os.path.isfile(os.path.join(folder, f'{name}-{idx}.{ext}')):
       idx += 1
     else: available = True
@@ -18357,6 +18477,180 @@ def run_controlnet(page, from_list=False):
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             num += 1
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_text_to_video(page):
+    global text_to_video_prefs, prefs, status, pipe_text_to_video, model_path
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.text_to_video_output.controls.append(line)
+      page.text_to_video_output.update()
+    def clear_last():
+      del page.text_to_video_output.controls[-1]
+      page.text_to_video_output.update()
+    def autoscroll(scroll=True):
+      page.TextToVideo.auto_scroll = scroll
+      page.TextToVideo.update()
+      page.text_to_video_output = scroll
+      page.text_to_video_output.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = text_to_video_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    page.text_to_video_output.controls.clear()
+    autoscroll(True)
+    prt(Row([ProgressRing(), Text("Installing Text-To-Video Pipeline...", weight=FontWeight.BOLD)]))
+    model_id = "damo-vilab/text-to-video-ms-1.7b"
+    clear_pipes()
+    #clear_pipes('text_to_video')
+    if pipe_text_to_video is None:
+        from diffusers import TextToVideoSDPipeline, DPMSolverMultistepScheduler
+        pipe_text_to_video = TextToVideoSDPipeline.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        #pipe_text_to_video = pipeline_scheduler(pipe_text_to_video)
+        pipe_text_to_video.scheduler = DPMSolverMultistepScheduler.from_config(pipe_text_to_video.scheduler.config)
+        if text_to_video_prefs['lower_memory']:
+            pipe_text_to_video.enable_sequential_cpu_offload()
+            #pipe_text_to_video.enable_model_cpu_offload()
+            pipe_text_to_video.enable_vae_tiling()
+            #pipe_text_to_video.enable_vae_slicing()
+        else:
+            pipe_text_to_video = pipe_text_to_video.to(torch_device)
+        #pipe_text_to_video = optimize_pipe(pipe_text_to_video, vae_tiling=True, vae=True, to_gpu=False)
+        pipe_text_to_video.set_progress_bar_config(disable=True)
+    else:
+        pipe_text_to_video = pipeline_scheduler(pipe_text_to_video)
+    clear_last()
+    prt("Generating Text-To-Video of your Prompt...")
+    autoscroll(False)
+    prt(progress)
+    batch_output = os.path.join(stable_dir, text_to_video_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    local_output = batch_output
+    batch_output = os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = int(text_to_video_prefs['seed']) if int(text_to_video_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator(device="cpu").manual_seed(random_seed)
+    #generator = torch.manual_seed(random_seed)
+    width = text_to_video_prefs['width']
+    height = text_to_video_prefs['height']
+    try:
+      #print(f"prompt={text_to_video_prefs['prompt']}, negative_prompt={text_to_video_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={text_to_video_prefs['edit_momentum_scale']}, edit_mom_beta={text_to_video_prefs['edit_mom_beta']}, num_inference_steps={text_to_video_prefs['num_inference_steps']}, eta={text_to_video_prefs['eta']}, guidance_scale={text_to_video_prefs['guidance_scale']}")
+      #, output_type = "pt", width=width, height=height
+      frames = pipe_text_to_video(prompt=text_to_video_prefs['prompt'], negative_prompt=text_to_video_prefs['negative_prompt'], num_frames=text_to_video_prefs['num_frames'], num_inference_steps=text_to_video_prefs['num_inference_steps'], eta=text_to_video_prefs['eta'], guidance_scale=text_to_video_prefs['guidance_scale'], generator=generator, callback=callback_fnc, callback_steps=1).frames
+    except Exception as e:
+      clear_last()
+      clear_last()
+      alert_msg(page, f"ERROR: Couldn't Text-To-Video your image for some reason. Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    clear_last()
+    clear_last()
+    save_path = os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name'])
+    filename = f"{prefs['file_prefix']}{format_filename(text_to_video_prefs['prompt'])}"
+    filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    video_path = ""
+    if text_to_video_prefs['export_to_video']:
+        from diffusers.utils import export_to_video
+        video_path = export_to_video(frames)
+        shutil.copy(video_path, available_file(local_output, filename, 0, ext="mp4", no_num=True))
+        shutil.copy(video_path, available_file(batch_output, filename, 0, ext="mp4", no_num=True))
+        #print(f"video_path: {video_path}")
+    #video = frames.cpu().numpy()
+    #print(f"video: {video}")
+    import cv2
+    from PIL.PngImagePlugin import PngInfo
+    num = 0
+    for image in frames:
+        random_seed += num
+        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+        image_path = available_file(batch_output, fname, num)
+        unscaled_path = image_path
+        output_file = image_path.rpartition(slash)[2]
+        #uint8_image = (image * 255).round().astype("uint8")
+        #np_image = image.cpu().numpy()
+        #print(f"image: {type(image)}, np_image: {type(np_image)}")
+        #print(f"image: {type(image)} to {image_path}")
+        cv2.imwrite(image_path, image)
+        #PILImage.fromarray(np_image).save(image_path)
+        out_path = image_path.rpartition(slash)[0]
+        upscaled_path = os.path.join(out_path, output_file)
+        if not text_to_video_prefs['display_upscaled_image'] or not text_to_video_prefs['apply_ESRGAN_upscale']:
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+        if text_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'     
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{num}.png'
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+            #print(f'Moving {fpath} to {dst_path}')
+            #shutil.move(fpath, dst_path)
+            shutil.copy(image_path, dst_path)
+            #faceenhance = ' --face_enhance' if text_to_video_prefs["face_enhance"] else ''
+            faceenhance = ''
+            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {text_to_video_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            image_path = upscaled_path
+            os.chdir(stable_dir)
+            if text_to_video_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_prefs["enlarge_scale"]), height=height * float(text_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if prefs['save_image_metadata']:
+            img = PILImage.open(image_path)
+            metadata = PngInfo()
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+            metadata.add_text("copyright", prefs['meta_Copyright'])
+            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {text_to_video_prefs['enlarge_scale']}x with ESRGAN" if text_to_video_prefs['apply_ESRGAN_upscale'] else "")
+            metadata.add_text("pipeline", "Text-To-Video")
+            if prefs['save_config_in_metadata']:
+              config_json = text_to_video_prefs.copy()
+              config_json['model_path'] = model_id
+              config_json['scheduler_mode'] = prefs['scheduler_mode']
+              config_json['seed'] = random_seed
+              del config_json['num_frames']
+              del config_json['width']
+              del config_json['height']
+              del config_json['display_upscaled_image']
+              del config_json['batch_folder_name']
+              del config_json['lower_memory']
+              if not config_json['apply_ESRGAN_upscale']:
+                del config_json['enlarge_scale']
+                del config_json['apply_ESRGAN_upscale']
+              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+            img.save(image_path, pnginfo=metadata)
+        #TODO: PyDrive
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        num += 1
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
