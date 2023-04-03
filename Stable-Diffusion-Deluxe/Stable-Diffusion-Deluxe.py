@@ -11,8 +11,12 @@ saved_settings_json = '.\sdd-settings.json' #@param {'type': 'string'}
 tunnel_type = "desktop" #@param ["localtunnel", "ngrok"] 
 #, "cloudflared"
 auto_launch_website = False #@param {'type': 'boolean'}
-version = "v1.8.0"
+upgrade_to_Torch_2 = False #@param {'type': 'boolean'}
+#@markdown Upgrading Colab to PyTorch 2.0 speeds up Diffusion times, but it takes extra time to install. It's optional but if you do want it, after it uninstalls/reinstalls it'll Restart Runtime and looks like a crash, then when Colab is reinitiallized you'll rerun this cell then run the next. In the Diffusers Installer, set Mem Optimization to 'Torch 2.0 + Xformers' then enjoy...
+force_reinstall = False
+SDD_version = "v1.8.0"
 import os, subprocess, sys, shutil
+import random as rnd
 root_dir = '/content/'
 dist_dir = root_dir
 is_Colab = True
@@ -28,6 +32,47 @@ except:
   is_Colab = False
   pass
 stable_dir = root_dir
+env = os.environ.copy()
+def run_sp(cmd_str, cwd=None, realtime=True):
+  cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
+  if realtime:
+    if cwd is None:
+      process = subprocess.Popen(cmd_str, shell = True, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' ) 
+    else:
+      process = subprocess.Popen(cmd_str, shell = True, cwd=cwd, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' ) 
+    while True:
+      realtime_output = process.stdout.readline()
+      if realtime_output == '' and process.poll() is not None:
+        break
+      if realtime_output:
+        print(realtime_output.strip(), flush=False)
+        sys.stdout.flush()
+  else:
+    if cwd is None:
+      return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env).stdout.decode('utf-8')
+    else:
+      return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env, cwd=cwd).stdout.decode('utf-8')
+if upgrade_to_Torch_2:
+  torch_installed = False
+  try:
+      import torch
+      torch_installed = True
+  except:
+      pass
+  if torch_installed:
+      from packaging import version
+      if version.parse(torch.__version__) < version.parse("2.0.0"):
+          torch_installed = False
+  if not torch_installed:
+      run_sp("pip uninstall -q --yes torch torchaudio torchvision torchtext torchdata")
+      if is_Colab:
+          run_sp("pip install -q torch torchaudio torchvision torchtext torchdata")
+      else: #TODO: Check OS and run platform specific
+          run_sp("pip install -q torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu118")
+      clear_output()
+      print("Upgraded to Torch 2.0 packages. Restarting Runtime, then run all again. In app's Installers, set Memory Optimization to 'Torch 2.0 + Xformers'.")
+      if is_Colab: os.kill(os.getpid(), 9)
+
 save_to_GDrive = storage_type == "Colab Google Drive"
 if save_to_GDrive:
   if not os.path.isdir(os.path.join(root_dir, 'drive')):
@@ -49,14 +94,12 @@ os.chdir(stable_dir)
 #loaded_Stability_api = False
 #loaded_img2img = False
 #use_Stability_api = False
-
-import random as rnd
 def version_checker():
   try:
     response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/DSD_version.txt")
     current_v = response.text.strip()
-    if current_v != version:
-      print(f'A new update is available. You are running {version} and {current_v} is up. We recommended refreshing Stable Diffusion Deluxe for the latest cool features or fixes.\nhttps://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb\nChangelog if interested: https://github.com/Skquark/AI-Friends/commits/main/Stable_Diffusion_Deluxe.ipynb')
+    if current_v != SDD_version:
+      print(f'A new update is available. You are running {SDD_version} and {current_v} is up. We recommended refreshing Stable Diffusion Deluxe for the latest cool features or fixes.\nhttps://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb\nChangelog if interested: https://github.com/Skquark/AI-Friends/commits/main/Stable_Diffusion_Deluxe.ipynb')
   except: pass #Probably offline
 def ng():
   response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/_ng")
@@ -73,26 +116,6 @@ def download_file(url, to=None):
         with open(local_filename, 'wb') as f:
             shutil.copyfileobj(r.raw, f)
     return local_filename
-env = os.environ.copy()
-def run_sp(cmd_str, cwd=None, realtime=True):
-  cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
-  if realtime:
-    if cwd is None:
-      process = subprocess.Popen(cmd_str, shell = True, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' ) 
-    else:
-      process = subprocess.Popen(cmd_str, shell = True, cwd=cwd, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' ) 
-    while True:
-      realtime_output = process.stdout.readline()
-      if realtime_output == '' and process.poll() is not None:
-        break
-      if realtime_output:
-        print(realtime_output.strip(), flush=False)
-        sys.stdout.flush()
-  else:
-    if cwd is None:
-      return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env).stdout.decode('utf-8')
-    else:
-      return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env, cwd=cwd).stdout.decode('utf-8')
 try:
   import flet
 except ImportError as e:
@@ -1083,7 +1106,7 @@ def buildInstallers(page):
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
   model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
-  memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
+  memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention"), dropdown.Option("Torch 2.0 + Xformers")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
   sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
@@ -1521,6 +1544,8 @@ def buildParameters(page):
       #  apply_changes_button.update()
       status['changed_parameters'] = True
       #page.update()
+  def change(e):
+      status['changed_parameters'] = True
   def run_parameters(e):
       save_parameters()
       #page.tabs.current_tab = 3
@@ -1686,9 +1711,9 @@ def buildParameters(page):
   eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta'))
   seed = TextField(label="Seed", value=prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed'))
   param_rows = Row([Column([batch_folder_name, seed, batch_size]), Column([steps, eta, n_iterations])])
-  guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=prefs, key='guidance_scale')
-  width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='width')
-  height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='height')
+  guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=prefs, key='guidance_scale', on_change=change)
+  width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='width', on_change=change)
+  height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='height', on_change=change)
 
   init_image = TextField(label="Init Image", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
   mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
@@ -1972,8 +1997,8 @@ def editPrompt(e):
         arg['eta'] = float(eta.value)
         arg['seed'] = int(seed.value)
         arg['guidance_scale'] = float(guidance_scale.value)
-        arg['width'] = int(width.value)
-        arg['height'] = int(height.value)
+        arg['width'] = int(width_slider.value)
+        arg['height'] = int(height_slider.value)
         arg['init_image'] = init_image.value
         arg['mask_image'] = mask_image.value
         arg['init_image_strength'] = float(init_image_strength.value)
@@ -2182,12 +2207,12 @@ def buildPromptsList(page):
       dlg_copy.open = True
       page.update()
   def delete_prompt(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
       idx = prompts.index(e.control.data)
       prompts.pop(idx)
       prompts_list.controls.pop(idx)
       prompts_list.update()
       status['changed_prompts'] = True
+      if prefs['enable_sounds']: page.snd_delete.play()
   def duplicate_prompt(e):
       open_dream = e.control.data
       add_to_prompts(open_dream.prompt, open_dream.arg)
@@ -2375,7 +2400,6 @@ def buildPromptsList(page):
       negative_prompt_text.update()
   def clear_list(e):
       global prompts
-      if prefs['enable_sounds']: page.snd_delete.play()
       prompts_list.controls = []
       prompts_list.update()
       prompts = []
@@ -2386,6 +2410,7 @@ def buildPromptsList(page):
       e.page.save_prompts()
       save_settings_file(e.page)
       #status['changed_prompts'] = True
+      if prefs['enable_sounds']: page.snd_delete.play()
   page.clear_prompts_list = clear_list
   def on_keyboard (e: KeyboardEvent):
       if e.key == "Escape":
@@ -2485,16 +2510,16 @@ def buildPromptGenerator(page):
       else:
         alert_msg(page, "You must Install OpenAI GPT-3 Library first before using...")
     def add_to_list(e):
-      if prefs['enable_sounds']: page.snd_drop.play()
       for p in page.prompt_generator_list.controls:
         page.add_to_prompts(p.title.value)
+      if prefs['enable_sounds']: page.snd_drop.play()
     def clear_prompts(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
       page.prompt_generator_list.controls = []
       page.prompt_generator_list.update()
       #prompts = []
       generator_list_buttons.visible = False
       generator_list_buttons.update()
+      if prefs['enable_sounds']: page.snd_delete.play()
     def changed_request(e):
       request_slider.label = generator_request_modes[int(request_slider.value)]
       request_slider.update()
@@ -4657,6 +4682,22 @@ def buildUnCLIP(page):
         ESRGAN_settings.height = None if e.control.value else 0
         unCLIP_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
+    def toggle_unCLIP(e):
+        unCLIP_prefs['use_StableUnCLIP_pipeline'] = e.control.value
+        if unCLIP_prefs['use_StableUnCLIP_pipeline']:
+            decoder_num_inference_row.visible = False
+            super_res_num_inference_row.visible = False
+            decoder_guidance.visible = False
+            decoder_num_inference_row.update()
+            super_res_num_inference_row.update()
+            decoder_guidance.update()
+        else:
+            decoder_num_inference_row.visible = True
+            super_res_num_inference_row.visible = True
+            decoder_guidance.visible = True
+            decoder_num_inference_row.update()
+            super_res_num_inference_row.update()
+            decoder_guidance.update()
     prompt = TextField(label="Prompt Text", value=unCLIP_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(unCLIP_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     prior_num_inference_row = SliderRow(label="Number of Prior Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_prefs, key='prior_num_inference_steps', tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -4665,7 +4706,7 @@ def buildUnCLIP(page):
     prior_guidance = SliderRow(label="Prior Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_prefs, key='prior_guidance_scale')
     decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_prefs, key='decoder_guidance_scale')
     batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    use_StableUnCLIP_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switch(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_prefs['use_StableUnCLIP_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_StableUnCLIP_pipeline')))
+    use_StableUnCLIP_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switch(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_prefs['use_StableUnCLIP_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_unCLIP))
     #eta = TextField(label="ETA", value=str(unCLIP_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
@@ -7726,6 +7767,7 @@ converter_prefs = {
     'base_model': '',
     'model_type': 'SD v1.x text2image',
     'scheduler_type': 'pndm',
+    'half_percision': True,
     'save_model': False,
     'where_to_save_model': "Public HuggingFace",
     'readme_description': '',
@@ -7798,8 +7840,9 @@ def buildConverter(page):
                 dropdown.Option("dpm"),
             ], value=converter_prefs['scheduler_type'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_type'), col={'lg':6},
         )
-    save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=converter_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
+    #save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=converter_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
     save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=converter_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    half_percision = Tooltip(message="Save weights in half precision.", content=Switch(label="Save Half Percision Float16    ", value=converter_prefs['half_percision'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'half_percision')))
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=converter_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=converter_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     readme_description = TextField(label="Extra README Description", value=converter_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
@@ -7825,6 +7868,7 @@ def buildConverter(page):
         ResponsiveRow([from_model_path, from_model_name]),
         base_model_row,
         ResponsiveRow([model_type, scheduler_type]),
+        half_percision,
         Row([save_model, where_to_save_model]),
         readme_description,
         load_custom_model,
@@ -8676,7 +8720,7 @@ def buildCachedModelManager(page):
       if len(page.cached_folders.controls) > 1:
         page.cached_folders.controls.clear()
         page.cached_folders.update()
-      page.cached_folders.controls.append(Row([ProgressRing(), Text(f"Scanning {prefs['cache_dir']}")]))
+      page.cached_folders.controls.append(Installing(f"Scanning {prefs['cache_dir']}"))
       dirs = [f.path for f in os.scandir(prefs['cache_dir']) if f.is_dir()]
       del page.cached_folders.controls[-1]
       page.cached_folders.update()
@@ -8708,7 +8752,8 @@ def buildCachedModelManager(page):
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
-
+if 'pipe' in locals():
+  clear_pipes()
 use_custom_scheduler = False
 retry_attempts_if_NSFW = 3
 unet = None
@@ -8969,23 +9014,34 @@ def get_LoRA_model(name):
 
 def get_diffusers(page):
     global scheduler, model_path, prefs, status
-    try:
-        import accelerate
-    except Exception:
-        page.console_msg("Installing Hugging Face Accelerate Package...")
-        run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
-        #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
-        from accelerate.utils import write_basic_config
-        write_basic_config(mixed_precision='fp16')
-        page.console_msg("Installing Hugging Face Diffusers Pipeline...")
-        pass
-    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    if prefs['memory_optimization'] == 'Torch 2.0 + Xformers':
+        torch_installed = False
+        try:
+            import torch
+            torch_installed = True
+        except:
+            pass
+        if torch_installed:
+            from packaging import version
+            if version.parse(torch.__version__) < version.parse("2.0.0"):
+                torch_installed = False
+        if not torch_installed:
+            page.console_msg("Upgrading Torch 2.0 Packages...")
+            run_process("pip uninstall --yes torch torchaudio torchvision torchtext torchdata", page=page)
+            if is_Colab:
+                run_process("pip install torch torchaudio torchvision torchtext torchdata", page=page)
+            else: #TODO: Check OS and run platform specific
+                run_process("pip install torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu118", page=page)
+    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention' or prefs['memory_optimization'] == 'Torch 2 + Xformers':
         try:
             import xformers
-        except Exception:
+        except ModuleNotFoundError:
             page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
             run_process("pip install --pre -U triton", page=page)
-            run_process("pip install -U xformers==0.0.18.dev489", page=page)
+            if prefs['memory_optimization'] == 'Torch 2.0 + Xformers':
+                run_process("pip install -U xformers==0.0.18", page=page)
+            else:
+                run_process("pip install -U xformers==0.0.16", page=page)
             import xformers
             page.console_msg("Installing Hugging Face Diffusers Pipeline...")
             pass
@@ -8995,6 +9051,16 @@ def get_diffusers(page):
         #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
         #if install_xformers(page):
         status['installed_xformers'] = True
+    try:
+        import accelerate
+    except Exception:
+        page.console_msg("Installing Hugging Face Accelerate Package...")
+        run_process("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", page=page)
+        #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
+        from accelerate.utils import write_basic_config
+        write_basic_config(mixed_precision='fp16')
+        pass
+    page.console_msg("Installing Hugging Face Diffusers Pipeline...")
     try:
         import transformers
         #print(f"transformers=={transformers.__version__}")
@@ -9164,35 +9230,35 @@ def model_scheduler(model, big3=False):
       s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     return s
 
-def pipeline_scheduler(p, big3=False):
+def pipeline_scheduler(p, big3=False, from_scheduler = True):
     scheduler_mode = prefs['scheduler_mode']
     if scheduler_mode == "K-LMS":
       from diffusers import LMSDiscreteScheduler
-      s = LMSDiscreteScheduler.from_config(p.scheduler.config)
+      s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "PNDM":
       from diffusers import PNDMScheduler
-      s = PNDMScheduler.from_config(p.scheduler.config)
+      s = PNDMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "DDIM":
       from diffusers import DDIMScheduler
-      s = DDIMScheduler.from_config(p.scheduler.config)
+      s = DDIMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif big3:
       from diffusers import DDIMScheduler
-      s = DDIMScheduler.from_config(p.scheduler.config)
+      s = DDIMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "DPM Solver":
       from diffusers import DPMSolverMultistepScheduler #"hf-internal-testing/tiny-stable-diffusion-torch"
-      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config)
+      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "DPM Solver Singlestep":
       from diffusers import DPMSolverSinglestepScheduler
-      s = DPMSolverSinglestepScheduler.from_config(p.scheduler.config)
+      s = DPMSolverSinglestepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "K-Euler Discrete":
       from diffusers import EulerDiscreteScheduler
-      s = EulerDiscreteScheduler.from_config(p.scheduler.config)
+      s = EulerDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
-      s = EulerAncestralDiscreteScheduler.from_config(p.scheduler.config)
+      s = EulerAncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
-      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config,
+      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config,
         beta_start=0.00085,
         beta_end=0.012,
         beta_schedule="scaled_linear",
@@ -9209,22 +9275,22 @@ def pipeline_scheduler(p, big3=False):
       )
     elif scheduler_mode == "Heun Discrete":
       from diffusers import HeunDiscreteScheduler
-      s = HeunDiscreteScheduler.from_config(p.scheduler.config)
+      s = HeunDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "K-DPM2 Ancestral":
       from diffusers import KDPM2AncestralDiscreteScheduler
-      s = KDPM2AncestralDiscreteScheduler.from_config(p.scheduler.config)
+      s = KDPM2AncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "K-DPM2 Discrete":
       from diffusers import KDPM2DiscreteScheduler
-      s = KDPM2DiscreteScheduler.from_config(p.scheduler.config)
+      s = KDPM2DiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "IPNDM":
       from diffusers import IPNDMScheduler
-      s = IPNDMScheduler.from_config(p.scheduler.config)
+      s = IPNDMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "DEIS Multistep":
       from diffusers import DEISMultistepScheduler
-      s = DEISMultistepScheduler.from_config(p.scheduler.config)
+      s = DEISMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "UniPC Multistep":
       from diffusers import UniPCMultistepScheduler
-      s = UniPCMultistepScheduler.from_config(p.scheduler.config)
+      s = UniPCMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "Score-SDE-Vp":
       from diffusers import ScoreSdeVpScheduler
       s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -11130,7 +11196,7 @@ def start_diffusion(page):
                 return
               clear_pipes("clip_guided")
               if pipe_clip_guided is None:
-                prt(Row([ProgressRing(), Text("Initializing CLIP-Guided Pipeline...", weight=FontWeight.BOLD)]))
+                prt(Installing("Initializing CLIP-Guided Pipeline..."))
                 pipe_clip_guided = get_clip_guided_pipe()
                 clear_last()
               clip_prompt = arg["clip_prompt"] if arg["clip_prompt"].strip() != "" else None
@@ -11153,7 +11219,7 @@ def start_diffusion(page):
             elif bool(prefs['use_conceptualizer']) and status['installed_conceptualizer']:
               clear_pipes("conceptualizer")
               if pipe_conceptualizer is None:
-                prt(Row([ProgressRing(), Text("Initializing Conceptualizer Pipeline...", weight=FontWeight.BOLD)]))
+                prt(Installing("Initializing Conceptualizer Pipeline..."))
                 pipe_conceptualizer = get_conceptualizer(page)
                 clear_last()
               total_steps = arg['steps']
@@ -11172,13 +11238,13 @@ def start_diffusion(page):
               if prefs['use_inpaint_model'] and status['installed_img2img']:
                 clear_pipes("img2img")
                 if pipe_img2img is None:
-                  prt(Row([ProgressRing(), Text("Initializing Inpaint Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Inpaint Pipeline..."))
                   pipe_img2img = get_img2img_pipe()
                   clear_last()
               else:
                 clear_pipes("txt2img")
                 if pipe is None:
-                  prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Inpaint Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Long Prompt Weighting Inpaint Pipeline..."))
                   pipe = get_txt2img_pipe()
                   clear_last()
               '''if pipe_img2img is None:
@@ -11246,43 +11312,43 @@ def start_diffusion(page):
                 if len(pr.strip()) > 2: # Find another way to know the difference
                   clear_pipes("versatile_dualguided")
                   if pipe_versatile_dualguided is None:
-                    prt(Row([ProgressRing(), Text("Initializing Versatile Dual-Guided Pipeline...", weight=FontWeight.BOLD)]))
+                    prt(Installing("Initializing Versatile Dual-Guided Pipeline..."))
                     pipe_versatile_dualguided = get_versatile_dualguided_pipe()
                     clear_last()
                 else:
                   clear_pipes("versatile_variation")
                   if pipe_versatile_variation is None:
-                    prt(Row([ProgressRing(), Text("Initializing Versatile Image Variation Pipeline...", weight=FontWeight.BOLD)]))
+                    prt(Installing("Initializing Versatile Image Variation Pipeline..."))
                     pipe_versatile_variation = get_versatile_variation_pipe()
                     clear_last()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion_img2img")
                 if pipe_alt_diffusion_img2img is None:
-                  prt(Row([ProgressRing(), Text("Initializing AltDiffusion Image2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing AltDiffusion Image2Image Pipeline..."))
                   pipe_alt_diffusion_img2img = get_alt_diffusion_img2img_pipe()
                   clear_last()
               elif prefs['use_depth2img'] and status['installed_depth2img']:
                 clear_pipes("depth")
                 if pipe_depth is None:
-                  prt(Row([ProgressRing(), Text("Initializing SD2 Depth2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing SD2 Depth2Image Pipeline..."))
                   pipe_depth = get_depth_pipe()
                   clear_last()
               elif prefs['use_inpaint_model'] and status['installed_img2img']:
                 clear_pipes("img2img")
                 if pipe_img2img is None:
-                  prt(Row([ProgressRing(), Text("Initializing Inpaint Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Inpaint Pipeline..."))
                   pipe_img2img = get_img2img_pipe()
                   clear_last()
               elif prefs['use_imagic'] and status['installed_imagic']:
                 clear_pipes("imagic")
                 if pipe_imagic is None:
-                  prt(Row([ProgressRing(), Text("Initializing iMagic Image2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing iMagic Image2Image Pipeline..."))
                   pipe_imagic = get_imagic_pipe()
                   clear_last()
               else:
                 clear_pipes("txt2img")
                 if pipe is None:
-                  prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Image2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Long Prompt Weighting Image2Image Pipeline..."))
                   pipe = get_txt2img_pipe()
                   clear_last()
               '''if pipe_img2img is None:
@@ -11359,48 +11425,48 @@ def start_diffusion(page):
               if prefs['use_composable'] and status['installed_composable']:
                 clear_pipes("composable")
                 if pipe_composable is None:
-                  prt(Row([ProgressRing(), Text("Initializing Composable Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Composable Text2Image Pipeline..."))
                   pipe_composable = get_composable_pipe()
                   clear_last()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion")
                 if pipe_alt_diffusion is None:
-                  prt(Row([ProgressRing(), Text("Initializing AltDiffusion Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing AltDiffusion Text2Image Pipeline..."))
                   pipe_alt_diffusion = get_alt_diffusion_pipe()
                   clear_last()
               elif prefs['use_SAG'] and status['installed_SAG']:
                 clear_pipes("SAG")
                 if pipe_SAG is None:
-                  prt(Row([ProgressRing(), Text("Initializing Self-Attention Guidance Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Self-Attention Guidance Text2Image Pipeline..."))
                   pipe_SAG = get_SAG_pipe()
                   clear_last()
               elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
                 clear_pipes("attend_and_excite")
                 if pipe_attend_and_excite is None:
-                  prt(Row([ProgressRing(), Text("Initializing Attend and Excite Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Attend and Excite Text2Image Pipeline..."))
                   pipe_attend_and_excite = get_attend_and_excite_pipe()
                   clear_last()
               elif prefs['use_versatile'] and status['installed_versatile']:
                 clear_pipes("versatile_text2img")
                 if pipe_versatile_text2img is None:
-                  prt(Row([ProgressRing(), Text("Initializing Versatile Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Versatile Text2Image Pipeline..."))
                   pipe_versatile_text2img = get_versatile_text2img_pipe()
                   clear_last()
               elif prefs['use_safe'] and status['installed_safe']:
                 clear_pipes("safe")
                 if pipe_safe is None:
-                  prt(Row([ProgressRing(), Text("Initializing Safe Stable Diffusion Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Safe Stable Diffusion Pipeline..."))
                   pipe_safe = get_safe_pipe()
                   clear_last()
               elif prefs['use_panorama'] and status['installed_panorama']:
                 clear_pipes("panorama")
                 if pipe_panorama is None:
-                  prt(Row([ProgressRing(), Text("Initializing Panorama MultiDiffusion Pipeline...", weight=FontWeight.BOLD)]))
+                  prt(Installing("Initializing Panorama MultiDiffusion Pipeline..."))
                   pipe_panorama = get_panorama_pipe()
                   clear_last()
               elif pipe is None:
                 clear_pipes("txt2img")
-                prt(Row([ProgressRing(), Text("Initializing Long Prompt Weighting Text2Image Pipeline...", weight=FontWeight.BOLD)]))
+                prt(Installing("Initializing Long Prompt Weighting Text2Image Pipeline..."))
                 pipe = get_txt2img_pipe()
                 clear_last()
               '''with io.StringIO() as buf, redirect_stdout(buf):
@@ -11585,7 +11651,7 @@ def start_diffusion(page):
         if prefs['use_upscale'] and status['installed_upscale']:
           clear_pipes(['upscale'])
           if pipe_upscale == None:
-            prt(Row([ProgressRing(), Text("Initializing Stable Diffusion 2 Upscale Pipeline...", weight=FontWeight.BOLD)]))
+            prt(Installing("Initializing Stable Diffusion 2 Upscale Pipeline..."))
             pipe_upscale = get_upscale_pipe()
             clear_last()
           prt(Row([Text("Upscaling 4X"), pb]))
@@ -11975,7 +12041,7 @@ def run_prompt_generator(page):
       if '"' in pr: pr = pr.replace('"', '')
       prompt_results.append(pr)
   #print(f"Request mode influence: {request_modes[prefs['prompt_generator']['request_mode']]}\n")
-  page.prompt_generator_list.controls.append(Row([ProgressRing(), Text("Requesting Prompts from the AI...", weight=FontWeight.BOLD)]))
+  page.prompt_generator_list.controls.append(Installing("Requesting Prompts from the AI..."))
   page.prompt_generator_list.update()
   prompt_gen()
   del page.prompt_generator_list.controls[-1]
@@ -12082,7 +12148,7 @@ def run_prompt_remixer(page):
   #page.add_to_prompt_remixer(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else "") + f"\nRequest mode influence: {remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]}\n")
   #print(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else ""))
   #print(f"Request mode influence: {remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]}\n")
-  page.prompt_remixer_list.controls.append(Row([ProgressRing(), Text("Requesting Prompt Remixes...", weight=FontWeight.BOLD)]))
+  page.prompt_remixer_list.controls.append(Installing("Requesting Prompt Remixes..."))
   page.prompt_remixer_list.update()
   prompt_remix()
   del page.prompt_remixer_list.controls[-1]
@@ -12240,7 +12306,7 @@ def run_prompt_brainstormer(page):
 
     def prompt_brainstormer():
       #(prompt=prompt, temperature=AI_temperature, presence_penalty=1, stop= "\n")
-      page.prompt_brainstormer_list.controls.append(Row([ProgressRing(), Text("Storming the AI's Brain...", weight=FontWeight.BOLD)]))
+      page.prompt_brainstormer_list.controls.append(Installing("Storming the AI's Brain..."))
       page.prompt_brainstormer_list.update()
 
       if prefs['prompt_brainstormer']['AI_engine'] == "TextSynth GPT-J":
@@ -12333,7 +12399,7 @@ def run_magic_prompt(page):
       del page.magic_prompt_output.controls[-1]
       page.magic_prompt_output.update()
     progress = ProgressBar(bar_height=8)
-    prt(Row([ProgressRing(), Text("Installing Magic Prompt GPT-2 Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing Magic Prompt GPT-2 Pipeline..."))
     try:
         import jinja2
     except:
@@ -12445,7 +12511,7 @@ def run_distil_gpt2(page):
       del page.distil_gpt2_output.controls[-1]
       page.distil_gpt2_output.update()
     progress = ProgressBar(bar_height=8)
-    prt(Row([ProgressRing(), Text("Installing Distil GPT-2 Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing Distil GPT-2 Pipeline..."))
 
     try:
         from transformers import GPT2Tokenizer, GPT2LMHeadModel, set_seed
@@ -12893,7 +12959,7 @@ def run_init_video(page):
             imageio.imwrite("frame_{}.png".format(frame), frame_img)  
         reader.close()'''
     progress = ProgressBar(bar_height=8)
-    page.add_to_init_video_output(Row([ProgressRing(), Text(" Processing Video File...", weight=FontWeight.BOLD)]))
+    page.add_to_init_video_output(Installing("Processing Video File..."))
     page.add_to_init_video_output(progress)
     try:
         import cv2
@@ -13062,7 +13128,7 @@ def run_repainter(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
-    prt(Row([ProgressRing(), Text("Installing RePaint Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing RePaint Pipeline..."))
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
@@ -13195,7 +13261,7 @@ def run_image_variation(page):
     clear_pipes('image_variation')
     if pipe_image_variation == None:
         from diffusers import StableDiffusionImageVariationPipeline
-        prt(Row([ProgressRing(), Text(" Downloading Image Variation Pipeline", weight=FontWeight.BOLD)]))
+        prt(Installing("Downloading Image Variation Pipeline"))
         model_id = "fusing/sd-image-variations-diffusers"
         pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_image_variation.to(torch_device)
@@ -13276,7 +13342,7 @@ def run_CLIPstyler(page):
         alert_msg(page, "Couldn't find a valid File, Path or URL...")
         return
     progress = ProgressBar(bar_height=8)
-    prt(Row([ProgressRing(), Text(" Downloading CLIP-Styler Packages...", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading CLIP-Styler Packages..."))
     run_process("pip install ftfy regex tqdm", realtime=False, page=page)
     run_sp("pip install git+https://github.com/openai/CLIP.git", realtime=False)
     #os.chdir(clipstyler_dir)
@@ -13513,7 +13579,7 @@ def run_semantic(page):
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     autoscroll(True)
-    prt(Row([ProgressRing(), Text("Installing Semantic Guidance Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing Semantic Guidance Pipeline..."))
     
     clear_pipes('semantic')
     if pipe_semantic is None:
@@ -13652,7 +13718,7 @@ def run_image2text(page):
     #if not status['installed_diffusers']:
     #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
     #  return
-    prt(Row([ProgressRing(), Text(" Downloading Image2Text CLIP-Interrogator Blips...", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading Image2Text CLIP-Interrogator Blips..."))
     #try:
     #    import clip
     #except ModuleNotFoundError:
@@ -13757,7 +13823,7 @@ def run_BLIP2_image2text(page):
     #if not status['installed_diffusers']:
     #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
     #  return
-    prt(Row([ProgressRing(), Text(" Installing BLIP2 Image2Text from Salesforce LAVIS...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing BLIP2 Image2Text from Salesforce LAVIS..."))
 
     try:
         import lavis
@@ -13776,7 +13842,7 @@ def run_BLIP2_image2text(page):
     import requests
     device = torch.device(torch_device)
     clear_last()
-    prt(Row([ProgressRing(), Text(" Downloading BLIP2 Image2Text from Salesforce LAVIS... It's huge, see console for progress.", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading BLIP2 Image2Text from Salesforce LAVIS... It's huge, see console for progress."))
     model_name = "blip2_t5"
     if '.' in BLIP2_image2text_prefs['model_type']:
       model_name = "blip2_opt"
@@ -13856,7 +13922,7 @@ def run_dance_diffusion(page):
     def play_audio(e):
       e.control.data.play()
     progress = ProgressBar(bar_height=8)
-    prt(Row([ProgressRing(), Text(" Downloading Dance Diffusion Models", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading Dance Diffusion Models"))
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
@@ -14175,7 +14241,7 @@ def run_dreambooth(page):
     if error:
       alert_msg(page, "Couldn't find a list of images to train concept. Add image files to the list...")
       return
-    prt(Row([ProgressRing(), Text(" Downloading DreamBooth Conceptualizers", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading DreamBooth Conceptualizers"))
     #os.chdir(root_dir)
     #run_process("pip clone https://github.com/Skquark/diffusers.git", realtime=False)
     #run_process("pip install -e .", realtime=False)
@@ -14647,7 +14713,7 @@ def run_dreambooth2(page):
     if error:
       alert_msg(page, "Couldn't find a list of images to train concept. Add image files to the list...")
       return
-    prt(Row([ProgressRing(), Text(" Downloading DreamBooth Conceptualizers", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading DreamBooth Conceptualizers"))
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       os.chdir(root_dir)
@@ -14832,7 +14898,7 @@ def run_textualinversion(page):
     if error:
       alert_msg(page, "Couldn't find a list of images to train concept. Add image files to the list...")
       return
-    prt(Row([ProgressRing(), Text(" Downloading Textual-Inversion Training Models", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading Textual-Inversion Training Models"))
     #run_process("pip install -qq bitsandbytes")
     import argparse
     import itertools
@@ -15336,7 +15402,7 @@ def run_LoRA_dreambooth(page):
       return
     page.LoRA_dreambooth_output.controls.clear()
     page.LoRA_dreambooth_output.update()
-    prt(Row([ProgressRing(), Text(" Downloading LoRA DreamBooth Conceptualizers", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading LoRA DreamBooth Conceptualizers"))
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       os.chdir(root_dir)
@@ -15587,7 +15653,7 @@ def run_LoRA(page):
       return
     page.LoRA_output.controls.clear()
     page.LoRA_output.update()
-    prt(Row([ProgressRing(), Text(" Downloading LoRA Conceptualizers", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading LoRA Conceptualizers"))
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       os.chdir(root_dir)
@@ -15911,6 +15977,8 @@ def run_converter(page):
       run_cmd += f' --upcast_attention'
       run_cmd += f' --prediction_type v_prediction'
     run_cmd += f' --scheduler_type {converter_prefs["scheduler_type"]}'
+    if converter_prefs['half_percision']:
+      run_cmd += f' --half'
     run_cmd += f' --dump_path {custom_path}'
     prt(f"Running {run_cmd}")
     try:
@@ -16063,7 +16131,7 @@ def run_checkpoint_merger(page):
     if len(checkpoint_merger_prefs['pretrained_models']) < 2:
         alert_msg(page, "Select 2 or more compatible checkpoint models to the list before running...")
         return
-    prt(Row([ProgressRing(), Text(" Downloading Required Models and Merging...", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading Required Models and Merging..."))
     try:
         from diffusers import DiffusionPipeline
         model_path = checkpoint_merger_prefs['pretrained_models'][0]
@@ -16783,7 +16851,7 @@ def run_unCLIP(page, from_list=False):
         page.unCLIP.update()
     progress = ProgressBar(bar_height=8)
     if unCLIP_prefs['use_StableUnCLIP_pipeline']:
-      total_steps = unCLIP_prefs['prior_num_inference_steps'] + unCLIP_prefs['decoder_num_inference_steps']
+      total_steps = unCLIP_prefs['prior_num_inference_steps']
     else:
       total_steps = unCLIP_prefs['prior_num_inference_steps'] + unCLIP_prefs['decoder_num_inference_steps'] + unCLIP_prefs['super_res_num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -16807,6 +16875,7 @@ def run_unCLIP(page, from_list=False):
         return
       unCLIP_prompts.append(unCLIP_prefs['prompt'])
     page.unCLIP_output.controls.clear()
+    page.unCLIP_output.update()
     from PIL.PngImagePlugin import PngInfo
     clear_pipes('unCLIP')
     torch.cuda.empty_cache()
@@ -16823,13 +16892,36 @@ def run_unCLIP(page, from_list=False):
         torch.cuda.empty_cache()
         pipe_unCLIP = None
     if pipe_unCLIP == None:
-        prt(Row([ProgressRing(), Text(f"  Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)], padding=padding.only(left=8)))
+        prt(Installing(f"  Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress."))
         try:
             if unCLIP_prefs['use_StableUnCLIP_pipeline']:
-              from diffusers import DiffusionPipeline
-              pipe_unCLIP = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="stable_unclip", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, decoder_pipe_kwargs=dict(image_encoder=None))
+              from diffusers import UnCLIPScheduler, DDPMScheduler, StableUnCLIPPipeline
+              from diffusers.models import PriorTransformer
+              from transformers import CLIPTokenizer, CLIPTextModelWithProjection
+              prior = PriorTransformer.from_pretrained(model_id, subfolder="prior", torch_dtype=torch.float16)
+              prior_text_model_id = "openai/clip-vit-large-patch14"
+              prior_tokenizer = CLIPTokenizer.from_pretrained(prior_text_model_id)
+              prior_text_model = CLIPTextModelWithProjection.from_pretrained(prior_text_model_id, torch_dtype=torch.float16)
+              prior_scheduler = UnCLIPScheduler.from_pretrained(model_id, subfolder="prior_scheduler")
+              #prior_scheduler = DDPMScheduler.from_config(prior_scheduler.config)
+              prior_scheduler = pipeline_scheduler(prior_scheduler, from_scheduler=False)
+              stable_unclip_model_id = "stabilityai/stable-diffusion-2-1-unclip-small"
+              pipe_unCLIP = StableUnCLIPPipeline.from_pretrained(
+                  stable_unclip_model_id,
+                  torch_dtype=torch.float16,
+                  variant="fp16",
+                  prior_tokenizer=prior_tokenizer,
+                  prior_text_encoder=prior_text_model,
+                  prior=prior,
+                  prior_scheduler=prior_scheduler,
+              )
               pipe_unCLIP.to(torch_device)
-              pipe_unCLIP = optimize_pipe(pipe_unCLIP)
+              pipe_unCLIP.enable_attention_slicing()
+              pipe_unCLIP.enable_sequential_cpu_offload()
+              #from diffusers import DiffusionPipeline
+              #pipe_unCLIP = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="stable_unclip", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, decoder_pipe_kwargs=dict(image_encoder=None))
+              #pipe_unCLIP.to(torch_device)
+              #pipe_unCLIP = optimize_pipe(pipe_unCLIP)
               loaded_StableUnCLIP = True
             else:
               from diffusers import UnCLIPPipeline
@@ -16839,7 +16931,7 @@ def run_unCLIP(page, from_list=False):
               loaded_StableUnCLIP = False
         except Exception as e:
             clear_last()
-            alert_msg(page, f"Error Downloading {stable}unCLIP Pipeline", content=Text(str(e)))
+            alert_msg(page, f"Error Downloading {stable}unCLIP Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
         pipe_unCLIP.set_progress_bar_config(disable=True)
         clear_last()
@@ -16859,13 +16951,13 @@ def run_unCLIP(page, from_list=False):
             random_seed = (int(unCLIP_prefs['seed']) + num) if int(unCLIP_prefs['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
-                if unCLIP_prefs['use_StableUnCLIP_pipeline']:
-                  images = pipe_unCLIP([pr], prior_num_inference_steps=unCLIP_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_prefs['decoder_num_inference_steps'], prior_guidance_scale=unCLIP_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_prefs['decoder_guidance_scale'], num_images_per_prompt=1, width=512, height=512, generator=generator).images
+                if unCLIP_prefs['use_StableUnCLIP_pipeline']:#decoder_num_inference_steps=unCLIP_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_prefs['super_res_num_inference_steps'], decoder_guidance_scale=unCLIP_prefs['decoder_guidance_scale'], 
+                  images = pipe_unCLIP([pr], prior_num_inference_steps=unCLIP_prefs['prior_num_inference_steps'], prior_guidance_scale=unCLIP_prefs['prior_guidance_scale'], num_images_per_prompt=1, width=512, height=512, generator=generator, callback=callback_fnc, callback_steps=1).images
                 else:
                   images = pipe_unCLIP([pr], prior_num_inference_steps=unCLIP_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_prefs['super_res_num_inference_steps'], prior_guidance_scale=unCLIP_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_prefs['decoder_guidance_scale'], num_images_per_prompt=1, generator=generator, callback=callback_fnc, callback_steps=1).images
             except Exception as e:
                 clear_last()
-                alert_msg(page, f"Error running {stable}unCLIP Pipeline", content=Text(str(e)))
+                alert_msg(page, f"Error running {stable}unCLIP Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 return
             clear_last()
             fname = format_filename(pr)
@@ -17010,7 +17102,7 @@ def run_unCLIP_image_variation(page, from_list=False):
     torch.cuda.reset_peak_memory_stats()
     if pipe_unCLIP_image_variation == None:
         from diffusers import UnCLIP_ImageVariationPipeline
-        prt(Row([ProgressRing(), Text("  Downloading unCLIP Image Variation Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
+        prt(Installing(" Downloading unCLIP Image Variation Kakaobrain Karlo Pipeline... It's a big one, see console for progress."))
         try:
             pipe_unCLIP_image_variation = UnCLIP_ImageVariationPipeline.from_pretrained("kakaobrain/karlo-v1-alpha-image-variations", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_unCLIP_image_variation.to(torch_device)
@@ -17199,7 +17291,7 @@ def run_unCLIP_interpolation(page, from_list=False):
         torch.cuda.empty_cache()
         pipe_unCLIP_interpolation = None
     if pipe_unCLIP_interpolation == None:
-        prt(Row([Container(content=None, width=8), ProgressRing(), Text(f"  Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
+        prt(Installing(f"Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress."))
         try:
             from diffusers import DiffusionPipeline
             pipe_unCLIP_interpolation = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="AlanB/unclip_text_interpolation_mod", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None) #, decoder_pipe_kwargs=dict(image_encoder=None)
@@ -17378,7 +17470,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
     dtype = torch.float16 if not prefs['higher_vram_mode'] else torch.float32 if torch.cuda.is_available() else torch.bfloat16
     if pipe_unCLIP_image_interpolation == None:
         from diffusers import DiffusionPipeline
-        prt(Row([ProgressRing(), Text("  Downloading unCLIP Image Interpolation Kakaobrain Karlo Pipeline... It's a big one, see console for progress.", weight=FontWeight.BOLD)]))
+        prt(Installing("Downloading unCLIP Image Interpolation Kakaobrain Karlo Pipeline... It's a big one, see console for progress."))
         try:
             pipe_unCLIP_image_interpolation = DiffusionPipeline.from_pretrained("kakaobrain/karlo-v1-alpha-image-variations", custom_pipeline="unclip_image_interpolation", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_unCLIP_image_interpolation.to(torch_device)
@@ -17616,7 +17708,7 @@ def run_magic_mix(page, from_list=False):
       schedule = DDIMScheduler.from_pretrained(model, subfolder="scheduler")
     if pipe_magic_mix == None or magic_mix_prefs['scheduler_mode'] != magic_mix_prefs['scheduler_last']:
         from diffusers import DiffusionPipeline
-        prt(Row([ProgressRing(), Text("  Downloading MagicMix Pipeline... ", weight=FontWeight.BOLD)]))
+        prt(Installing("Downloading MagicMix Pipeline... "))
         try:
             pipe_magic_mix = DiffusionPipeline.from_pretrained(model, custom_pipeline="AlanB/magic_mix_mod", scheduler=schedule, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_magic_mix.to(torch_device)
@@ -17755,7 +17847,7 @@ def run_paint_by_example(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
-    prt(Row([ProgressRing(), Text("Installing Paint-by-Example Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing Paint-by-Example Pipeline..."))
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
@@ -17980,7 +18072,7 @@ def run_instruct_pix2pix(page, from_list=False):
       instruct = {'prompt':instruct_pix2pix_prefs['prompt'], 'negative_prompt': instruct_pix2pix_prefs['negative_prompt'], 'original_image': instruct_pix2pix_prefs['original_image'], 'seed': instruct_pix2pix_prefs['seed']}
       instruct_pix2pix_prompts.append(instruct)
       page.instruct_pix2pix_output.controls.clear()
-    prt(Row([ProgressRing(), Text("Installing Instruct-Pix2Pix Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing Instruct-Pix2Pix Pipeline..."))
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
@@ -18190,7 +18282,7 @@ def run_controlnet(page, from_list=False):
       page.controlnet_output.controls.clear()
     autoscroll(True)
     prt(Divider(thickness=2, height=4))
-    prt(Row([ProgressRing(), Text("Installing ControlNet Packages...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing ControlNet Packages..."))
     if status['loaded_controlnet'] == controlnet_prefs["control_task"]:
         clear_pipes('controlnet')
     else:
@@ -18511,7 +18603,7 @@ def run_text_to_video(page):
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     page.text_to_video_output.controls.clear()
     autoscroll(True)
-    prt(Row([ProgressRing(), Text("Installing Text-To-Video Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing Text-To-Video Pipeline..."))
     model_id = "damo-vilab/text-to-video-ms-1.7b"
     clear_pipes()
     #clear_pipes('text_to_video')
@@ -18686,7 +18778,7 @@ def run_materialdiffusion(page):
         print(f"Error: {e}")
         #alert_msg(page, f"Error installing Material Diffusion from TomMoore515...", content=Text(str(e)))
         pass
-    prt(Row([ProgressRing(), Text("Installing Replicate Material Diffusion Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing Replicate Material Diffusion Pipeline..."))
     try:
         import replicate
     except ImportError as e:
@@ -18868,7 +18960,7 @@ def run_DiT(page, from_list=False):
     torch.cuda.reset_peak_memory_stats()
     if pipe_DiT == None:
         from diffusers import DiTPipeline
-        prt(Row([ProgressRing(), Text("  Downloading DiT Pipeline...", weight=FontWeight.BOLD)]))
+        prt(Installing("Downloading DiT Pipeline..."))
         try:
             pipe_DiT = DiTPipeline.from_pretrained("facebook/DiT-XL-2-512", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             pipe_DiT.to(torch_device)
@@ -19009,7 +19101,7 @@ def run_dreamfusion(page):
     page.dreamfusion_output.controls = []
     page.dreamfusion_output.update()
     if not status['installed_dreamfusion']:
-      add_to_dreamfusion_output(Row([ProgressRing(), Text("Installing Stable DreamFusion 3D Pipeline...", weight=FontWeight.BOLD)]))
+      add_to_dreamfusion_output(Installing("Installing Stable DreamFusion 3D Pipeline..."))
       get_dreamfusion(page)
       status['installed_dreamfusion'] = True
       clear_last()
@@ -19080,7 +19172,7 @@ def run_point_e(page):
     page.point_e_output.update()
     point_e_dir = os.path.join(root_dir, "point-e")
     if not os.path.exists(point_e_dir):
-        add_to_point_e_output(Row([ProgressRing(), Text("Installing OpenAI Point-E 3D Library...", weight=FontWeight.BOLD)]))
+        add_to_point_e_output(Installing("Installing OpenAI Point-E 3D Library..."))
         try:
             run_process("pip install -U scikit-image")
             run_process("git clone https://github.com/openai/point-e.git", cwd=root_dir)
@@ -19272,7 +19364,7 @@ def run_instant_ngp(page):
       return
     page.instant_ngp_output.controls.clear()
     page.instant_ngp_output.update()
-    prt(Row([ProgressRing(), Text(" Downloading Instant-NGP Packages...", weight=FontWeight.BOLD)]))
+    prt(Installing("Downloading Instant-NGP Packages..."))
     instant_ngp_dir = os.path.join(root_dir, 'instant-ngp')
     '''if not os.path.exists(diffusers_dir):
       os.chdir(root_dir)
@@ -19397,7 +19489,7 @@ def run_dall_e(page, from_list=False):
     try:
         import openai
     except:
-        prt(Row([ProgressRing(), Text("Installing OpenAi Dall-E 2 API...", weight=FontWeight.BOLD)]))
+        prt(Installing("Installing OpenAi Dall-E 2 API..."))
         run_process("pip install -q openai", realtime=False)
         clear_last()
         import openai
@@ -19570,7 +19662,7 @@ def run_kandinsky(page):
       del page.kandinsky_output.controls[-1]
       page.kandinsky_output.update()
     progress = ProgressBar(bar_height=8)
-    prt(Row([ProgressRing(), Text("Installing Kandinsky 2.0 Engine & Models... See console log for progress.", weight=FontWeight.BOLD)]))
+    prt(Installing("Installing Kandinsky 2.0 Engine & Models... See console log for progress."))
     '''try:
         if transformers.__version__ != "4.23.1": # Kandinsky conflict
           run_sp("pip uninstall -y transformers", realtime=True)
@@ -19748,7 +19840,7 @@ def run_deep_daze(page):
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}"
       progress.update()
-    prt(Row([Container(content=None, width=8), ProgressRing(), Text("  Initializing Deep Daze Pipeline...", weight=FontWeight.BOLD)]))
+    prt(Installing("Initializing Deep Daze Pipeline..."))
     from PIL.PngImagePlugin import PngInfo
     from tqdm.notebook import trange
     try:
@@ -19938,7 +20030,7 @@ def main(page: Page):
         help_dlg.open = False
         page.update()
     help_dlg = AlertDialog(
-        title=Text("💁   Help/Information - Stable Diffusion Deluxe " + version), content=Column([Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI friends with our pretty interface."),
+        title=Text("💁   Help/Information - Stable Diffusion Deluxe " + SDD_version), content=Column([Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI friends with our pretty interface."),
               Text("Simply go through the self-explanitory tabs step-by-step and set your preferences to get started. The default values are good for most, but you can have some fun experimenting. All values are automatically saved as you make changes and change tabs."),
               Text("Each time you open the app, you should start in the Installers section, turn on all the components you plan on using in you session, then Run the Installers and let them download. You can multitask and work in other tabs while it's installing."),
               Text("In the Prompts List, add as many text prompts as you can think of, and edit any prompt to override any default Image Parameter.  Once you're ready, Run Diffusion on your Prompts List and watch it fill your Drive with beauty.."),
@@ -20190,8 +20282,8 @@ class NumberPicker(UserControl):
               e.control = self
               self.on_change(e)
         def minus_click(e):
-            v = int(self.value)
-            if v > self.min:
+            self.value = int(self.value)
+            if self.value > self.min:
               self.value -= self.step
               self.txt_number.value = self.value
               self.txt_number.update()
@@ -20199,8 +20291,8 @@ class NumberPicker(UserControl):
               if self.on_change is not None:
                 self.on_change(e)
         def plus_click(e):
-            v = int(self.value)
-            if v < self.max:
+            self.value = int(self.value)
+            if self.value < self.max:
               self.value += self.step
               self.txt_number.value = self.value
               self.txt_number.update()
@@ -20301,6 +20393,14 @@ class SliderRow(UserControl):
         self.slider_number = slider_text
         slider_row = Row([slider_label, slider_text, slider_edit, slider])
         return slider_row
+
+class Installing(UserControl):
+    def __init__(self, message=""):
+        super().__init__()
+        self.message = message
+        self.build()
+    def build(self):
+        return Row([Container(content=None, width=8), ProgressRing(), Container(content=None, width=1), Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)])
 
 ''' Sample alt Object format
 class Component(UserControl):
