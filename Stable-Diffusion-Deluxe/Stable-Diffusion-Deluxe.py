@@ -11,9 +11,7 @@ saved_settings_json = '.\sdd-settings.json' #@param {'type': 'string'}
 tunnel_type = "desktop" #@param ["localtunnel", "ngrok"] 
 #, "cloudflared"
 auto_launch_website = False #@param {'type': 'boolean'}
-upgrade_to_Torch_2 = False #@param {'type': 'boolean'}
-#@markdown Upgrading Colab to PyTorch 2.0 speeds up Diffusion times, but it takes extra time to install. It's optional but if you do want it, after it uninstalls/reinstalls it'll Restart Runtime and looks like a crash, then when Colab is reinitiallized you'll rerun this cell then run the next. In the Diffusers Installer, set Mem Optimization to 'Torch 2.0 + Xformers' then enjoy...
-force_reinstall = False
+force_updates = False
 SDD_version = "v1.8.0"
 import os, subprocess, sys, shutil
 import random as rnd
@@ -52,27 +50,6 @@ def run_sp(cmd_str, cwd=None, realtime=True):
       return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env).stdout.decode('utf-8')
     else:
       return subprocess.run(cmd_list, stdout=subprocess.PIPE, env=env, cwd=cwd).stdout.decode('utf-8')
-if upgrade_to_Torch_2:
-  torch_installed = False
-  try:
-      import torch
-      torch_installed = True
-  except:
-      pass
-  if torch_installed:
-      from packaging import version
-      if version.parse(torch.__version__) < version.parse("2.0.0"):
-          torch_installed = False
-  if not torch_installed:
-      run_sp("pip uninstall -q --yes torch torchaudio torchvision torchtext torchdata")
-      if is_Colab:
-          run_sp("pip install -q torch torchaudio torchvision torchtext torchdata")
-      else: #TODO: Check OS and run platform specific
-          run_sp("pip install -q torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu118")
-      clear_output()
-      print("Upgraded to Torch 2.0 packages. Restarting Runtime, then run all again. In app's Installers, set Memory Optimization to 'Torch 2.0 + Xformers'.")
-      if is_Colab: os.kill(os.getpid(), 9)
-
 save_to_GDrive = storage_type == "Colab Google Drive"
 if save_to_GDrive:
   if not os.path.isdir(os.path.join(root_dir, 'drive')):
@@ -1106,7 +1083,7 @@ def buildInstallers(page):
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
   model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
-  memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention"), dropdown.Option("Torch 2.0 + Xformers")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
+  memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
   sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
@@ -1534,10 +1511,10 @@ LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_
 
 def buildParameters(page):
   global prefs, status, args
-  def changed(e, pref=None, asInt=False):
+  def changed(e, pref=None, asInt=False, apply=True):
       if pref is not None:
         prefs[pref] = e.control.value if not asInt else int(e.control.value)
-      if page.floating_action_button is None:
+      if page.floating_action_button is None and apply:
         show_apply_fab(len(prompts) > 0)
       #if apply_changes_button.visible != (len(prompts) > 0): #status['changed_parameters']:
       #  apply_changes_button.visible = len(prompts) > 0
@@ -1545,6 +1522,8 @@ def buildParameters(page):
       status['changed_parameters'] = True
       #page.update()
   def change(e):
+      if page.floating_action_button is None:
+        show_apply_fab(len(prompts) > 0)
       status['changed_parameters'] = True
   def run_parameters(e):
       save_parameters()
@@ -1652,31 +1631,31 @@ def buildParameters(page):
       if e.control.value: page.img_block.height = 0
       else: page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
       page.img_block.update()
-      changed(e, 'use_interpolation')
+      changed(e, 'use_interpolation', apply=False)
   def change_interpolation_steps(e):
       interpolation_steps_value.value = f" {int(e.control.value)} steps"
       interpolation_steps_value.update()
-      changed(e, 'num_interpolation_steps', asInt=True)
+      changed(e, 'num_interpolation_steps', asInt=True, apply=False)
   def toggle_SAG(e):
       sag_scale_slider.height = None if e.control.value else 0
       sag_scale_slider.update()
-      changed(e, 'use_SAG')
+      changed(e, 'use_SAG', apply=False)
   def change_sag_scale(e):
       sag_scale_value.value = f" {float(e.control.value)}"
       sag_scale_value.update()
-      changed(e, 'sag_scale')
+      changed(e, 'sag_scale', apply=False)
   def toggle_attend_and_excite(e):
       max_iter_to_alter_slider.height = None if e.control.value else 0
       max_iter_to_alter_slider.update()
-      changed(e, 'use_attend_and_excite')
+      changed(e, 'use_attend_and_excite', apply=False)
   def change_max_iter_to_alter(e):
       max_iter_to_alter_value.value = f" {int(e.control.value)} Iterations"
       max_iter_to_alter_value.update()
-      changed(e, 'max_iter_to_alter', asInt=True)
+      changed(e, 'max_iter_to_alter', asInt=True, apply=False)
   def change_enlarge_scale(e):
       enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
       enlarge_scale_slider.update()
-      changed(e, 'enlarge_scale')
+      changed(e, 'enlarge_scale', apply=False)
   def change_strength(e):
       strength_value.value = f" {int(e.control.value * 100)}"
       strength_value.update()
@@ -1690,19 +1669,19 @@ def buildParameters(page):
       page.img_block.update()
       changed(e, 'use_conceptualizer')
   def toggle_centipede(e):
-      changed(e,'centipede_prompts_as_init_images')
+      changed(e,'centipede_prompts_as_init_images', apply=False)
       image_pickers.height = None if not e.control.value else 0
       image_pickers.update()
   def toggle_LoRA(e):
-      changed(e,'use_LoRA_model')
+      changed(e,'use_LoRA_model', apply=False)
       LoRA_block.width = None if e.control.value else 0
       LoRA_block.update()
   def changed_LoRA(e):
-      changed(e, 'LoRA_model')
+      changed(e, 'LoRA_model', apply=False)
       custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
       custom_LoRA_model.update()
       
-  batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+  batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name', apply=False))
   #batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'batch_size'))
   #n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
   batch_size = NumberPicker(label="Batch Size: ", min=1, max=10, value=prefs['batch_size'], tooltip="Generates multiple images at the same time. Uses more memory...", on_change=lambda e: changed(e, 'batch_size'))
@@ -1724,11 +1703,11 @@ def buildParameters(page):
   init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=prefs['init_image_strength'], on_change=change_strength, expand=True)
   strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight=FontWeight.BOLD)
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
-  page.use_inpaint_model = Tooltip(message="When using init_image and/or mask, use the newer pipeline for potentially better results", content=Switch(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_inpaint_model')))
+  page.use_inpaint_model = Tooltip(message="When using init_image and/or mask, use the newer pipeline for potentially better results", content=Switch(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_inpaint_model', apply=False)))
   page.use_inpaint_model.visible = status['installed_img2img']
-  page.use_alt_diffusion = Tooltip(message="Supports 9 different languages for text2image & image2image", content=Switch(label="Use AltDiffusion Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile')))
+  page.use_alt_diffusion = Tooltip(message="Supports 9 different languages for text2image & image2image", content=Switch(label="Use AltDiffusion Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile', apply=False)))
   page.use_alt_diffusion.visible = status['installed_alt_diffusion']
-  page.use_versatile = Tooltip(message="Dual Guided between prompt & image, or create Image Variation", content=Switch(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile')))
+  page.use_versatile = Tooltip(message="Dual Guided between prompt & image, or create Image Variation", content=Switch(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile', apply=False)))
   page.use_versatile.visible = status['installed_versatile']
   use_LoRA_model = Tooltip(message="Applies custom trained weighted attention model on top of loaded model", content=Switch(label="Use LoRA Model Adapter Layer ", value=prefs['use_LoRA_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_LoRA))
   page.LoRA_model = Dropdown(label="LoRA Model Weights", width=200, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
@@ -1739,7 +1718,7 @@ def buildParameters(page):
       page.LoRA_model.options.append(dropdown.Option(m['name']))
   page.LoRA_model.options.append(dropdown.Option("Custom LoRA Path"))
   
-  custom_LoRA_model = TextField(label="Custom LoRA Model Path", value=prefs['custom_LoRA_model'], width=370, on_change=lambda e:changed(e, 'custom_LoRA_model'))
+  custom_LoRA_model = TextField(label="Custom LoRA Model Path", value=prefs['custom_LoRA_model'], width=370, on_change=lambda e:changed(e, 'custom_LoRA_model', apply=False))
   custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
   LoRA_block = Container(Row([page.LoRA_model, custom_LoRA_model]), padding=padding.only(top=3), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   LoRA_block.width = None if prefs['use_LoRA_model'] else 0
@@ -1782,30 +1761,30 @@ def buildParameters(page):
   num_cutouts = NumberPicker(label="    Number of Cutouts: ", min=1, max=10, value=prefs['num_cutouts'], on_change=lambda e: changed(e, 'num_cutouts', asInt=True))
   num_cutouts.visible = bool(prefs['use_cutouts'])
   #num_cutouts = TextField(label="Number of Cutouts", value=prefs['num_cutouts'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_cutouts', asInt=True))
-  unfreeze_unet = Checkbox(label="Unfreeze UNET", value=prefs['unfreeze_unet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'unfreeze_unet'))
-  unfreeze_vae = Checkbox(label="Unfreeze VAE", value=prefs['unfreeze_vae'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'unfreeze_vae'))
+  unfreeze_unet = Checkbox(label="Unfreeze UNET", value=prefs['unfreeze_unet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'unfreeze_unet', apply=False))
+  unfreeze_vae = Checkbox(label="Unfreeze VAE", value=prefs['unfreeze_vae'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'unfreeze_vae', apply=False))
   page.clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.use_conceptualizer_model = Tooltip(message="Use Textual-Inversion Community Model Concepts", content=Switch(label="Use Custom Conceptualizer Model", tooltip="Use Textual-Inversion Community Model", value=prefs['use_conceptualizer'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_conceptualizer))
   page.use_conceptualizer_model.visible = bool(status['installed_conceptualizer'])
-  page.use_depth2img = Tooltip(message="To use, provide init_image with a good composition and prompts to approximate same depth.", content=Switch(label="Use Depth2Image Pipeline for img2img init image generation", value=prefs['use_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_depth2img')))
+  page.use_depth2img = Tooltip(message="To use, provide init_image with a good composition and prompts to approximate same depth.", content=Switch(label="Use Depth2Image Pipeline for img2img init image generation", value=prefs['use_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_depth2img', apply=False)))
   page.use_depth2img.visible = bool(status['installed_depth2img'])
-  page.use_imagic = Tooltip(message="Allows you to edit an image with prompt text.", content=Switch(label="Use iMagic for img2img init image editing", value=prefs['use_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_imagic')))
+  page.use_imagic = Tooltip(message="Allows you to edit an image with prompt text.", content=Switch(label="Use iMagic for img2img init image editing", value=prefs['use_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_imagic', apply=False)))
   page.use_imagic.visible = bool(status['installed_imagic'])
-  page.use_composable = Tooltip(message="Allows conjunction and negation operators for compositional generation with conditional diffusion models", content=Switch(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_composable')))
+  page.use_composable = Tooltip(message="Allows conjunction and negation operators for compositional generation with conditional diffusion models", content=Switch(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_composable', apply=False)))
   page.use_composable.visible = bool(status['installed_composable'])
-  page.use_panorama = Column([Tooltip(message="Fuses together images to make extra-wide 2048x512", content=Switch(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_panorama'))),
-                              Row([Text("Panoramic Width x 512:"), Slider(min=1024, max=4608, divisions=28, label="{value}px", expand=True, value=prefs['panorama_width'], on_change=lambda e:changed(e, 'panorama_width', asInt=True))])])
+  page.use_panorama = Column([Tooltip(message="Fuses together images to make extra-wide 2048x512", content=Switch(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_panorama', apply=False))),
+                              Row([Text("Panoramic Width x 512:"), Slider(min=1024, max=4608, divisions=28, label="{value}px", expand=True, value=prefs['panorama_width'], on_change=lambda e:changed(e, 'panorama_width', asInt=True, apply=False))])])
   page.use_panorama.visible = status['installed_panorama']
-  page.use_safe = Tooltip(message="Models trained only on Safe images", content=Switch(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_safe')))
+  page.use_safe = Tooltip(message="Models trained only on Safe images", content=Switch(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_safe', apply=False)))
   page.use_safe.visible = bool(status['installed_safe'])
-  page.use_upscale = Tooltip(message="Enlarges your Image Generations guided by the same Prompt.", content=Switch(label="Upscale 4X with Stable Diffusion 2", value=prefs['use_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_upscale')))
+  page.use_upscale = Tooltip(message="Enlarges your Image Generations guided by the same Prompt.", content=Switch(label="Upscale 4X with Stable Diffusion 2", value=prefs['use_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_upscale', apply=False)))
   page.use_upscale.visible = bool(status['installed_upscale'])
   apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
   enlarge_scale_value = Text(f" {float(prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
   enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
   enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
-  face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-  display_upscaled_image = Checkbox(label="Display Upscaled Image", value=prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+  face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance', apply=False))
+  display_upscaled_image = Checkbox(label="Display Upscaled Image", value=prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image', apply=False))
   ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
@@ -9014,34 +8993,30 @@ def get_LoRA_model(name):
 
 def get_diffusers(page):
     global scheduler, model_path, prefs, status
-    if prefs['memory_optimization'] == 'Torch 2.0 + Xformers':
-        torch_installed = False
-        try:
-            import torch
-            torch_installed = True
-        except:
-            pass
-        if torch_installed:
-            from packaging import version
-            if version.parse(torch.__version__) < version.parse("2.0.0"):
-                torch_installed = False
-        if not torch_installed:
-            page.console_msg("Upgrading Torch 2.0 Packages...")
-            run_process("pip uninstall --yes torch torchaudio torchvision torchtext torchdata", page=page)
-            if is_Colab:
-                run_process("pip install torch torchaudio torchvision torchtext torchdata", page=page)
-            else: #TODO: Check OS and run platform specific
-                run_process("pip install torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu118", page=page)
-    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention' or prefs['memory_optimization'] == 'Torch 2 + Xformers':
+    torch_installed = False
+    try:
+        import torch
+        torch_installed = True
+    except:
+        pass
+    if torch_installed:
+        from packaging import version
+        if version.parse(torch.__version__) < version.parse("2.0.0"):
+            torch_installed = False
+    if not torch_installed:
+        page.console_msg("Upgrading Torch 2.0 Packages...")
+        run_process("pip uninstall --yes torch torchaudio torchvision torchtext torchdata", page=page)
+        if is_Colab:
+            run_process("pip install torch torchaudio torchvision torchtext torchdata", page=page)
+        else: #TODO: Check OS and run platform specific
+            run_process("pip install torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu118", page=page)
+    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
         try:
             import xformers
         except ModuleNotFoundError:
             page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
             run_process("pip install --pre -U triton", page=page)
-            if prefs['memory_optimization'] == 'Torch 2.0 + Xformers':
-                run_process("pip install -U xformers==0.0.18", page=page)
-            else:
-                run_process("pip install -U xformers==0.0.16", page=page)
+            run_process("pip install -U xformers==0.0.18", page=page)
             import xformers
             page.console_msg("Installing Hugging Face Diffusers Pipeline...")
             pass
@@ -9327,8 +9302,8 @@ try:
     import torch
 except Exception:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
-    print("Installing PyTorch with CUDA 1.17")
-    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117", realtime=False)
+    print("Installing PyTorch with CUDA 1.18")
+    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118", realtime=False)
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
       import torch
