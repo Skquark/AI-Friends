@@ -1691,10 +1691,14 @@ def buildParameters(page):
   #n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
   batch_size = NumberPicker(label="Batch Size: ", min=1, max=10, value=prefs['batch_size'], tooltip="Generates multiple images at the same time. Uses more memory...", on_change=lambda e: changed(e, 'batch_size'))
   n_iterations = NumberPicker(label="Number of Iterations: ", min=1, max=30, value=prefs['n_iterations'], tooltip="Creates multiple images in batch seperately", on_change=lambda e: changed(e, 'n_iterations'))
-  steps = TextField(label="Steps", value=prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', asInt=True))
-  eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta'))
-  seed = TextField(label="Seed", value=prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed'))
+  #steps = TextField(label="Steps", value=prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', asInt=True))
+  steps = SliderRow(label="Steps", min=0, max=200, divisions=200, pref=prefs, key='steps', on_change=change)
+  #eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta'))
+  eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=1, pref=prefs, key='eta', tooltip="", on_change=change)
+  seed = TextField(label="Seed", value=prefs['seed'], keyboard_type=KeyboardType.NUMBER, width = 160, on_change=lambda e:changed(e,'seed'))
   param_rows = Row([Column([batch_folder_name, seed, batch_size]), Column([steps, eta, n_iterations])])
+  batch_row = Row([batch_folder_name, seed])
+  number_row = Row([batch_size, n_iterations])
   guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=prefs, key='guidance_scale', on_change=change)
   width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='width', on_change=change)
   height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='height', on_change=change)
@@ -1799,6 +1803,7 @@ def buildParameters(page):
   if not prefs['apply_ESRGAN_upscale']:
     ESRGAN_settings.height = 0
   parameters_button = ElevatedButton(content=Text(value="📜   Continue to Image Prompts", size=20), on_click=run_parameters)
+  parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
   #apply_changes_button = ElevatedButton(content=Text(value="🔀   Apply Changes to Current Prompts", size=20), on_click=apply_to_prompts)
   #apply_changes_button.visible = len(prompts) > 0 and status['changed_parameters']
   def show_apply_fab(show = True):
@@ -1812,7 +1817,6 @@ def buildParameters(page):
         page.update()
   show_apply_fab(len(prompts) > 0 and status['changed_parameters'])
   page.show_apply_fab = show_apply_fab
-  parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
   def updater():
       #parameters.update()
       c.update()
@@ -1822,7 +1826,13 @@ def buildParameters(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
         Header("📝  Stable Diffusion Image Parameters"),
-        param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
+        #param_rows,
+        batch_row,
+        number_row,
+        steps,
+        guidance,
+        eta,
+        width_slider, height_slider, #Divider(height=9, thickness=2), 
         page.interpolation_block, page.use_safe, page.img_block, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
         Row([use_LoRA_model, LoRA_block]), page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
@@ -2140,7 +2150,7 @@ def buildPromptsList(page):
       prompt_help_dlg = AlertDialog(title=Text("💁   Help with Prompt Creations"), content=Column([
           Text("You can keep your text prompts simple, or get really complex with it. Just describe the image you want it to dream up with as many details as you can think of. Add artists, styles, colors, adjectives and get creative..."),
           Text('Now you can add prompt weighting, so you can emphasize the strength of certain words between parentheses, and de-emphasize words between brackets. For example: "A (hyper realistic) painting of (magical:1.8) owl with the (((face of a cat))), without [[tail]], in a [twisted:0.6] tree, by Thomas Kinkade"'),
-          Text('After adding your prompts, click on a prompt line to edit all the parameters of it. There you can add negative prompts like "lowres, bad_anatomy, error_body, bad_fingers, missing_fingers, error_lighting, jpeg_artifacts, signature, watermark, username, blurry" or anything else you don\'t want'),
+          Text('After adding your prompts, click on a prompt line to edit all the parameters of it. There you can add negative prompts like "lowres, bad_anatomy, error_body, bad_fingers, missing_fingers, error_lighting, jpeg_artifacts, signature, watermark, username, blurry" or anything else you don\'t want.'),
           Text('Then you can override all the parameters for each individual prompt, playing with variations of sizes, steps, guidance scale, init & mask image, seeds, etc.  In the prompts list, you can press the ... options button to duplicate, delete and move prompts in the batch queue.  When ready, Run Diffusion on Prompts...')
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😀  Very nice... ", on_click=close_help_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = prompt_help_dlg
@@ -2521,7 +2531,7 @@ def buildPromptGenerator(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🧠  OpenAI GPT-3 Prompt Genenerator", "Enter a phrase each prompt should start with and the amount of prompts to generate. 'Subject Details' is optional to influence the output. 'Phase as subject' makes it about phrase and subject detail. 'Request mode' is the way it asks for the visual description. Just experiment, AI will continue to surprise."),
-        Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], on_change=lambda e: changed(e, 'phrase')), TextField(label="Subject Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_generator']['subject_detail'], on_change=lambda e: changed(e, 'subject_detail')), Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'phrase_as_subject'))]),
+        Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], multiline=True, on_change=lambda e: changed(e, 'phrase')), TextField(label="Subject Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_generator']['subject_detail'], multiline=True, on_change=lambda e: changed(e, 'subject_detail')), Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'phrase_as_subject'))]),
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_generator']['amount'], on_change=lambda e: changed(e, 'amount')),
               NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_generator']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
@@ -2587,7 +2597,7 @@ def buildPromptRemixer(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🔄  Prompt Remixer - GPT-3 AI Helper", "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friend. Experiment.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([TextField(label="Seed Prompt", expand=True, value=prefs['prompt_remixer']['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt')), TextField(label="Optional About Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_remixer']['optional_about_influencer'], on_change=lambda e: changed(e, 'optional_about_influencer'))]),
+        Row([TextField(label="Seed Prompt", expand=True, value=prefs['prompt_remixer']['seed_prompt'], multiline=True, on_change=lambda e: changed(e, 'seed_prompt')), TextField(label="Optional About Detail", expand=True, hint_text="Optional about detail", value=prefs['prompt_remixer']['optional_about_influencer'], multiline=True, on_change=lambda e: changed(e, 'optional_about_influencer'))]),
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_remixer']['amount'], on_change=lambda e: changed(e, 'amount')),
               NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_remixer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
@@ -2663,7 +2673,7 @@ def buildPromptBrainstormer(page):
         Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
-        Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], on_change=lambda e: changed(e, 'about_prompt')),]),
+        Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
         ElevatedButton(content=Text("⛈️    Brainstorm Prompt", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_prompt_brainstormer(page)),
         page.prompt_brainstormer_list,
         brainstormer_list_buttons,
@@ -2796,7 +2806,7 @@ def buildMagicPrompt(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🎩  Magic Prompt Generator - GPT-2 AI Helper", "Generates new Image Prompts made for Stable Diffusion with a specially trained GPT-2 Text AI by Gustavosta...", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([TextField(label="Starter Prompt Text", expand=True, value=magic_prompt_prefs['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt'))]),
+        Row([TextField(label="Starter Prompt Text", expand=True, value=magic_prompt_prefs['seed_prompt'], multiline=True, on_change=lambda e: changed(e, 'seed_prompt'))]),
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=40, value=magic_prompt_prefs['amount'], on_change=lambda e: changed(e, 'amount')), seed,
               NumberPicker(label="Random Artists: ", min=0, max=10, value=magic_prompt_prefs['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
@@ -2880,7 +2890,7 @@ def buildDistilGPT2(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("⚗️  Distilled GPT-2 Generator - GPT-2 AI Helper", "Generates new Image Prompts with a model trained on 2,470,000 descriptive Stable Diffusion prompts...", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([TextField(label="Starter Prompt Text", expand=True, value=distil_gpt2_prefs['seed_prompt'], on_change=lambda e: changed(e, 'seed_prompt'))]),
+        Row([TextField(label="Starter Prompt Text", expand=True, value=distil_gpt2_prefs['seed_prompt'], multiline=True, on_change=lambda e: changed(e, 'seed_prompt'))]),
         AI_temperature,
         ResponsiveRow([top_k, no_repeat_ngram_size]),
         ResponsiveRow([repetition_penalty, penalty_alpha]),
@@ -3239,7 +3249,6 @@ def buildInitVideo(page):
     negative_prompt  = TextField(label="Negative Prompt Text", value=init_video_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=init_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Image Filename Prefix", value=init_video_prefs['file_prefix'], width=150, on_change=lambda e:changed(e,'file_prefix'))
-    
     video_file = TextField(label="Video File", value=init_video_prefs['video_file'], on_change=lambda e:changed(e,'video_file'), height=60, suffix=IconButton(icon=icons.VIDEO_CALL, on_click=pick_video))
     #init_folder = TextField(label="Init Image Folder Path", value=init_video_prefs['init_folder'], on_change=lambda e:changed(e,'init_folder'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     fps = TextField(label="Frames Per Seccond", value=init_video_prefs['fps'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'fps', ptype="int"))
@@ -5497,8 +5506,8 @@ def buildInstructPix2Pix(page):
         eta_value.update()
         eta_row.update()
     original_image = TextField(label="Original Image", value=instruct_pix2pix_prefs['original_image'], on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
-    prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(instruct_pix2pix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=instruct_pix2pix_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=instruct_pix2pix_prefs, key='guidance_scale')
@@ -5669,9 +5678,9 @@ def buildControlNet(page):
         multi_layers.controls.clear()
         multi_layers.update()
     original_image = TextField(label="Original Drawing", value=controlnet_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
-    prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 8}, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':4}, on_change=lambda e:changed(e,'negative_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation")], value=controlnet_prefs['control_task'], on_change=change_task)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNet Layer", on_click=add_layer)
@@ -5781,7 +5790,7 @@ Resources:
         ESRGAN_settings.height = None if e.control.value else 0
         text_to_video_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Animation Prompt Text", value=text_to_video_prefs['prompt'], col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Animation Prompt Text", value=text_to_video_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=text_to_video_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=text_to_video_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")   
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=text_to_video_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
@@ -5931,17 +5940,22 @@ def buildMaterialDiffusion(page):
         guidance.update()
         changed(e, 'prompt_strength', ptype="float")
 
-    material_prompt = TextField(label="Material Prompt", value=materialdiffusion_prefs['material_prompt'], on_change=lambda e:changed(e,'material_prompt'))
+    material_prompt = TextField(label="Material Prompt", value=materialdiffusion_prefs['material_prompt'], multiline=True, on_change=lambda e:changed(e,'material_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=materialdiffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    file_prefix = TextField(label="Filename Prefix", value=materialdiffusion_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
+    file_prefix = TextField(label="Filename Prefix", value=materialdiffusion_prefs['file_prefix'], width=150, on_change=lambda e:changed(e,'file_prefix'))
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
     #num_outputs = TextField(label="num_outputs", value=materialdiffusion_prefs['num_outputs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_outputs', ptype="int"))
     #n_iterations = TextField(label="Number of Iterations", value=materialdiffusion_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
     steps = TextField(label="Inference Steps", value=materialdiffusion_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
     eta = TextField(label="DDIM ETA", value=materialdiffusion_prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta', ptype="float"))
-    seed = TextField(label="Seed", value=materialdiffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
+    steps = SliderRow(label="Inference Steps", min=0, max=200, divisions=200, pref=materialdiffusion_prefs, key='steps')
+    eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=1, pref=materialdiffusion_prefs, key='eta')
+    seed = TextField(label="Seed", value=materialdiffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width=120, on_change=lambda e:changed(e,'seed', ptype="int"))
     param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=8, step=1, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}), 
-                      Column([steps, eta, seed], col={'xs':12, 'md':6})], vertical_alignment=CrossAxisAlignment.START)
+                      Column([steps, eta, seed], col={'xs':12, 'lg':6})], vertical_alignment=CrossAxisAlignment.START)
+    batch_row = Row([batch_folder_name, file_prefix], col={'xs':12, 'lg':6})
+    number_row = Row([NumberPicker(label="Output Images", min=1, max=8, step=1, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int")), seed], col={'xs':12, 'md':6})
+    param_rows = ResponsiveRow([number_row, batch_row], vertical_alignment=CrossAxisAlignment.START)
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=materialdiffusion_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='height')
@@ -5971,9 +5985,15 @@ def buildMaterialDiffusion(page):
         padding=padding.only(18, 14, 20, 10), content=Column([
             Header("🧱  Replicate Material Diffusion", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key."),
             material_prompt,
-            param_rows, guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
+            steps,
+            guidance,
+            eta,
+            width_slider, height_slider, #Divider(height=9, thickness=2), 
             img_block, page.ESRGAN_block_material,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
+            param_rows,
+            #batch_row,
+            #number_row,
             parameters_row,
             page.materialdiffusion_output
         ],
@@ -6049,7 +6069,7 @@ def buildDiT(page):
       alert_msg(page, "ImageNET Class List", content=Container(Column([ResponsiveRow(
         controls=classes,
         expand=True,
-      )], spacing=0), width=(page.window_width or page.width) - 150), okay="That's a lot...", sound=False)
+      )], spacing=0), width=(page.window_width or page.width) - 150), okay="😲  That's a lot...", sound=False)
     guidance_scale = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=DiT_prefs, key='guidance_scale')
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
@@ -6190,7 +6210,7 @@ def buildDallE2(page):
         enlarge_scale_slider.update()
         changed(e, 'enlarge_scale', ptype="float")
 
-    prompt = TextField(label="Prompt Text", value=dall_e_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=dall_e_prefs['prompt'], multiline=True, on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=dall_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=dall_e_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     #num_images = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=dall_e_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
@@ -6296,7 +6316,7 @@ def buildKandinsky(page):
           Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
           Markdown("[Kandinsky GitHub](https://github.com/ai-forever/Kandinsky-2) | [Kandinsky 2.1 Blog](https://habr.com/ru/companies/sberbank/articles/725282/) | [FusionBrain Demo](https://fusionbrain.ai/diffusion)"),
-        ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Quality... ", on_click=close_kandinsky_dlg)], actions_alignment=MainAxisAlignment.END)
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = kandinsky_help_dlg
       kandinsky_help_dlg.open = True
       page.update()
@@ -6305,15 +6325,15 @@ def buildKandinsky(page):
             img = e.files
             uf = []
             fname = img[0]
-            print(", ".join(map(lambda f: f.name, e.files)))
+            #print(", ".join(map(lambda f: f.name, e.files)))
             src_path = page.get_upload_url(fname.name, 600)
             uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
             pick_files_dialog.upload(uf)
-            print(str(src_path))
+            #print(str(src_path))
             #src_path = ''.join(src_path)
-            print(str(uf[0]))
+            #print(str(uf[0]))
             dst_path = os.path.join(root_dir, fname.name)
-            print(f'Copy {src_path} to {dst_path}')
+            #print(f'Copy {src_path} to {dst_path}')
             #shutil.copy(src_path, dst_path)
             # TODO: is init or mask?
             init_image.value = dst_path
@@ -6358,9 +6378,9 @@ def buildKandinsky(page):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Prompt Text", value=kandinsky_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=kandinsky_prefs['prompt'], multiline=True, on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    file_prefix = TextField(label="Filename Prefix", value=kandinsky_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
+    file_prefix = TextField(label="Filename Prefix", value=kandinsky_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=kandinsky_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
     #num_outputs = TextField(label="num_outputs", value=kandinsky_prefs['num_outputs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_outputs', ptype="int"))
     #n_iterations = TextField(label="Number of Iterations", value=kandinsky_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
@@ -6368,7 +6388,8 @@ def buildKandinsky(page):
     ddim_eta = TextField(label="DDIM ETA", value=kandinsky_prefs['ddim_eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'ddim_eta', ptype="float"))
     dynamic_threshold_v = TextField(label="Dynamic Threshold", value=kandinsky_prefs['dynamic_threshold_v'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'dynamic_threshold_v', ptype="float"))
     sampler = Dropdown(label="Sampler", width=200, options=[dropdown.Option("ddim_sampler"), dropdown.Option("p_sampler")], value=kandinsky_prefs['sampler'], on_change=lambda e:changed(e,'sampler'), col={'xs':12, 'md':6})
-    param_rows = ResponsiveRow([Column([batch_folder_name, NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))], col={'xs':12, 'md':6}), 
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_fuse_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    param_rows = ResponsiveRow([Column([batch_folder_name, n_images], col={'xs':12, 'md':6}), 
                       Column([file_prefix, sampler], col={'xs':12, 'md':6})
                       #Column([steps, ddim_eta, dynamic_threshold_v], col={'xs':12, 'md':6})
                       ], vertical_alignment=CrossAxisAlignment.START)
@@ -6403,10 +6424,13 @@ def buildKandinsky(page):
         padding=padding.only(18, 14, 20, 10), content=Column([
             Header("🎎  Kandinsky 2.1", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
             prompt,
-            param_rows, #dropdown_row, 
+            #param_rows, #dropdown_row, 
             steps, prior_steps, prior_cf_scale,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
-            img_block, page.ESRGAN_block_kandinsky,
+            img_block,
+            Row([batch_folder_name, file_prefix]),
+            Row([n_images, sampler]),
+            page.ESRGAN_block_kandinsky,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
             parameters_row,
             page.kandinsky_output
@@ -6456,17 +6480,16 @@ def buildKandinskyFuse(page):
             img = e.files
             uf = []
             fname = img[0]
-            print(", ".join(map(lambda f: f.name, e.files)))
+            #print(", ".join(map(lambda f: f.name, e.files)))
             src_path = page.get_upload_url(fname.name, 600)
             uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
             pick_files_dialog.upload(uf)
-            print(str(src_path))
+            #print(str(src_path))
             #src_path = ''.join(src_path)
-            print(str(uf[0]))
+            #print(str(uf[0]))
             dst_path = os.path.join(root_dir, fname.name)
-            print(f'Copy {src_path} to {dst_path}')
+            #print(f'Copy {src_path} to {dst_path}')
             #shutil.copy(src_path, dst_path)
-            # TODO: is init or mask?
             init_image.value = dst_path
     pick_files_dialog = FilePicker(on_result=pick_files_result)
     page.overlay.append(pick_files_dialog)
@@ -6478,14 +6501,9 @@ def buildKandinskyFuse(page):
         nonlocal pick_type
         if e.progress == 1:
             fname = os.path.join(root_dir, e.file_name)
-            if pick_type == "init":
-                init_image.value = fname
-                init_image.update()
-                kandinsky_fuse_prefs['init_image'] = fname
-            elif pick_type == "mask":
-                mask_image.value = fname
-                mask_image.update()
-                kandinsky_fuse_prefs['mask_image'] = fname
+            init_image.value = fname
+            init_image.update()
+            kandinsky_fuse_prefs['init_image'] = fname
             page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def upload_files(e):
@@ -6517,11 +6535,12 @@ def buildKandinskyFuse(page):
           Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
           Markdown("[Kandinsky GitHub](https://github.com/ai-forever/Kandinsky-2) | [Kandinsky 2.1 Blog](https://habr.com/ru/companies/sberbank/articles/725282/) | [FusionBrain Demo](https://fusionbrain.ai/diffusion)"),
-        ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Quality... ", on_click=close_kandinsky_dlg)], actions_alignment=MainAxisAlignment.END)
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🫢  Possibility Overload... ", on_click=close_kandinsky_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = kandinsky_help_dlg
       kandinsky_help_dlg.open = True
       page.update()
     def add_image(e):
+        if not bool(kandinsky_fuse_prefs['init_image']): return
         layer = {'init_image': kandinsky_fuse_prefs['init_image'], 'weight': kandinsky_fuse_prefs['weight']}
         kandinsky_fuse_prefs['mixes'].append(layer)
         fuse_layers.controls.append(ListTile(title=Row([Text(layer['init_image'], weight=FontWeight.BOLD), Text(f"Weight: {layer['weight']}")], alignment=MainAxisAlignment.SPACE_BETWEEN), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
@@ -6537,6 +6556,7 @@ def buildKandinskyFuse(page):
         init_image.value = ""
         init_image.update()
     def add_prompt(e):
+        if not bool(kandinsky_fuse_prefs['prompt']): return
         layer = {'prompt': kandinsky_fuse_prefs['prompt'], 'weight': kandinsky_fuse_prefs['weight']}
         kandinsky_fuse_prefs['mixes'].append(layer)
         fuse_layers.controls.append(ListTile(title=Row([Text(layer['prompt'], weight=FontWeight.BOLD), Text(f"Weight: {layer['weight']}")], alignment=MainAxisAlignment.SPACE_BETWEEN), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
@@ -6584,10 +6604,42 @@ def buildKandinskyFuse(page):
           fuse_layers.controls.insert(idx-1, dr)
           fuse_layers.update()
     def edit_layer(e):
-        #name = e.control.title.controls[0].value
-        #path = e.control.title.controls[1].value
         data = e.control.data
         layer_type = "prompt" if "prompt" in data else "image"
+        def pick_files_result(e: FilePickerResultEvent):
+            if e.files:
+                img = e.files
+                uf = []
+                fname = img[0]
+                src_path = page.get_upload_url(fname.name, 600)
+                uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
+                pick_files_dialog.upload(uf)
+                dst_path = os.path.join(root_dir, fname.name)
+                image_mix.value = dst_path
+        pick_files_dialog = FilePicker(on_result=pick_files_result)
+        page.overlay.append(pick_files_dialog)
+        def file_picker_result(e: FilePickerResultEvent):
+            if e.files != None:
+                upload_files(e)
+        def on_upload_progress(e: FilePickerUploadEvent):
+            if e.progress == 1:
+                fname = os.path.join(root_dir, e.file_name)
+                image_mix.value = fname
+                image_mix.update()
+                data['init_image'] = fname
+                page.update()
+        file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+        def upload_files(e):
+            uf = []
+            if file_picker.result != None and file_picker.result.files != None:
+                for f in file_picker.result.files:
+                    uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+                file_picker.upload(uf)
+        page.overlay.append(file_picker)
+        def pick_image(e):
+            file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
+        #name = e.control.title.controls[0].value
+        #path = e.control.title.controls[1].value
         if layer_type == "prompt":
             prompt_value = data["prompt"]
             image_value = ""
@@ -6633,14 +6685,16 @@ def buildKandinskyFuse(page):
             e.control.update()
             page.update()
         prompt_text = TextField(label="Fuse Prompt Text", value=prompt_value, multiline=True, visible=layer_type == "prompt")
-        image_mix = TextField(label="Fuse Image Path", value=image_value, visible=layer_type == "image", height=65)
+        image_mix = TextField(label="Fuse Image Path", value=image_value, visible=layer_type == "image", height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_image))
         edit_weights = SliderRow(label="Weight/Strength", min=0, max=1, divisions=20, round=1, pref=data, key='weight', tooltip="Indicates how much each individual concept should influence the overall guidance. If no weights are provided all concepts are applied equally.")
         dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.window_width or page.width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
         page.dialog = dlg_edit
         dlg_edit.open = True
         page.update()
-    add_prompt_btn = IconButton(icons.ADD, tooltip="Add Text Prompt", on_click=add_prompt)
-    add_image_btn = IconButton(icons.ADD, tooltip="Add Image to Mix", on_click=add_image)
+    add_prompt_btn = ft.FilledButton("➕ Add Prompt", width=135, on_click=add_prompt)
+    #add_prompt_btn = IconButton(icons.ADD, tooltip="Add Text Prompt", on_click=add_prompt)
+    add_image_btn = ft.FilledButton("➕ Add Image", width=135, on_click=add_image)
+    #add_image_btn = IconButton(icons.ADD, tooltip="Add Image to Mix", on_click=add_image)
     prompt = TextField(label="Mix Prompt Text", value=kandinsky_fuse_prefs['prompt'], expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
     prompt_row = Row([prompt, add_prompt_btn])
     init_image = TextField(label="Mixing Image", value=kandinsky_fuse_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
@@ -6648,13 +6702,14 @@ def buildKandinskyFuse(page):
     weight_slider = SliderRow(label="Text or Image Weight", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_fuse_prefs, key='weight')
     fuse_layers = Column([], spacing=0)
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_fuse_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    file_prefix = TextField(label="Filename Prefix", value=kandinsky_fuse_prefs['file_prefix'], on_change=lambda e:changed(e,'file_prefix'))
+    file_prefix = TextField(label="Filename Prefix", value=kandinsky_fuse_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=kandinsky_fuse_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
     #num_outputs = TextField(label="num_outputs", value=kandinsky_fuse_prefs['num_outputs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_outputs', ptype="int"))
     #n_iterations = TextField(label="Number of Iterations", value=kandinsky_fuse_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
     steps = TextField(label="Number of Steps", value=kandinsky_fuse_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
     sampler = Dropdown(label="Sampler", width=200, options=[dropdown.Option("ddim_sampler"), dropdown.Option("p_sampler")], value=kandinsky_fuse_prefs['sampler'], on_change=lambda e:changed(e,'sampler'), col={'xs':12, 'md':6})
-    param_rows = ResponsiveRow([Column([batch_folder_name, NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_fuse_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))], col={'xs':12, 'md':6}), 
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_fuse_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    param_rows = ResponsiveRow([Column([batch_folder_name, n_images], col={'xs':12, 'md':6}), 
                       Column([file_prefix, sampler], col={'xs':12, 'md':6})
                       #Column([steps, ddim_eta, dynamic_threshold_v], col={'xs':12, 'md':6})
                       ], vertical_alignment=CrossAxisAlignment.START)
@@ -6690,9 +6745,11 @@ def buildKandinskyFuse(page):
             Divider(height=5, thickness=4),
             fuse_layers,
             #Divider(height=2, thickness=2),
-            param_rows, #dropdown_row, 
+            #param_rows, #dropdown_row, 
             steps, prior_steps, prior_cf_scale,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2), 
+            Row([batch_folder_name, file_prefix]),
+            Row([n_images, sampler]),
             page.ESRGAN_block_kandinsky_fuse,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)), 
             parameters_row,
@@ -7074,8 +7131,8 @@ def buildSemanticGuidance(page):
         page.semantic_prompts.controls.clear()
         page.semantic_prompts.update()
         if prefs['enable_sounds']: page.snd_delete.play()
-    prompt = TextField(label="Base Prompt Text", value=semantic_prefs['prompt'], col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=semantic_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Base Prompt Text", value=semantic_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=semantic_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(semantic_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=semantic_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=semantic_prefs, key='guidance_scale')
@@ -7126,6 +7183,7 @@ def buildSemanticGuidance(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+#TODO: Waiting for Scribbler addon integration
 def buildDreamMask(page):
     #prog_bars: Dict[str, ProgressRing] = {}
     files = Ref[Column]()
@@ -8744,7 +8802,8 @@ def buildMubert(page):
           mubert_help_dlg.open = False
           page.update()
         mubert_help_dlg = AlertDialog(title=Text("💁   Help with Mubert"), content=Column([
-            Text("Mubert "),
+            Text("Mubert AI is a cutting-edge tool that allows you to create realistic and infinite music by learning from a large dataset of existing music. The result is a high-quality and original music stream that sounds like it was composed by a professional musician."),
+            Text("This uses the Mubert Developer API which is actually quite expensive to use, so don't be surprised if your generation fails because the API Key has used it's monthy quota. Sorry, it's not free/opensource..."),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🥁  Gimme a Beat... ", on_click=close_mubert_dlg)], actions_alignment=MainAxisAlignment.END)
         page.dialog = mubert_help_dlg
         mubert_help_dlg.open = True
