@@ -574,6 +574,7 @@ def buildStableDiffusers(page):
     page.InstructPix2Pix = buildInstructPix2Pix(page)
     page.ControlNet = buildControlNet(page)
     page.TextToVideo = buildTextToVideo(page)
+    page.TextToVideoZero = buildTextToVideoZero(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.MaskMaker = buildDreamMask(page)
     page.DiT = buildDiT(page)
@@ -597,6 +598,7 @@ def buildStableDiffusers(page):
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
+            Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
@@ -1395,6 +1397,7 @@ def buildInstallers(page):
         page.ESRGAN_block_deep_daze.height = None
         page.ESRGAN_block_DiT.height = None
         page.ESRGAN_block_text_to_video.height = None
+        page.ESRGAN_block_text_to_video_zero.height = None
         page.ESRGAN_block.update()
         page.ESRGAN_block_material.update()
         page.ESRGAN_block_dalle.update()
@@ -1413,6 +1416,7 @@ def buildInstallers(page):
         page.ESRGAN_block_deep_daze.update()
         page.ESRGAN_block_DiT.update()
         page.ESRGAN_block_text_to_video.update()
+        page.ESRGAN_block_text_to_video_zero.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
           import openai
@@ -5431,6 +5435,11 @@ instruct_pix2pix_prefs = {
     'seed': 0,
     'max_size': 768,
     'num_images': 1,
+    'use_init_video': False,
+    'init_video': '',
+    'fps': 12,
+    'start_time': 0,
+    'end_time': 0,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -5478,12 +5487,18 @@ def buildInstructPix2Pix(page):
         if e.files != None:
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
+      nonlocal pick_type
       if e.progress == 1:
         instruct_pix2pix_prefs['file_name'] = e.file_name.rpartition('.')[0]
         fname = os.path.join(root_dir, e.file_name)
-        original_image.value = fname
-        original_image.update()
-        instruct_pix2pix_prefs['original_image'] = fname
+        if pick_type == "image":
+          original_image.value = fname
+          original_image.update()
+          instruct_pix2pix_prefs['original_image'] = fname
+        elif pick_type == "video":
+          init_video.value = fname
+          init_video.update()
+          instruct_pix2pix_prefs['init_video'] = fname
         page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def upload_files(e):
@@ -5493,9 +5508,15 @@ def buildInstructPix2Pix(page):
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
-    #page.overlay.append(pick_files_dialog)
+    pick_type = ""
     def pick_original(e):
+        nonlocal pick_type
+        pick_type = "image"
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def pick_video(e):
+        nonlocal pick_type
+        pick_type = "video"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         instruct_pix2pix_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -5505,10 +5526,27 @@ def buildInstructPix2Pix(page):
         eta_value.value = f" {instruct_pix2pix_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-    original_image = TextField(label="Original Image", value=instruct_pix2pix_prefs['original_image'], on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    def toggle_init_video(e):
+        changed(e, 'use_init_video')
+        show = e.control.value
+        original_image.visible = not show
+        original_image.update()
+        init_video.visible = show
+        init_video.update()
+        vid_params.height = None if show else 0
+        vid_params.update()
+        run_prompt_list.visible = not show
+        run_prompt_list.update()
+    original_image = TextField(label="Original Image", value=instruct_pix2pix_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(instruct_pix2pix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switch(label="Use Init Video", value=instruct_pix2pix_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
+    init_video = TextField(label="Init Video Clip", value=instruct_pix2pix_prefs['init_video'], expand=True, visible=instruct_pix2pix_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=instruct_pix2pix_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    start_time = TextField(label="Start Time (s)", value=instruct_pix2pix_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=instruct_pix2pix_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if instruct_pix2pix_prefs['use_init_video'] else 0)
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=instruct_pix2pix_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=instruct_pix2pix_prefs, key='guidance_scale')
     image_guidance = SliderRow(label="Image Guidance Scale", min=0, max=200, divisions=400, round=1, pref=instruct_pix2pix_prefs, key='image_guidance_scale', tooltip="Image guidance scale is to push the generated image towards the inital image `image`. Higher image guidance scale encourages to generate images that are closely linked to the source image `image`, usually at the expense of lower image quality.")
@@ -5527,12 +5565,14 @@ def buildInstructPix2Pix(page):
     page.instruct_pix2pix_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.instruct_pix2pix_output.controls) > 0
+    run_prompt_list = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instruct_pix2pix(page, from_list=True))
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🏜️  Instruct-Pix2Pix", "Text-Based Image Editing - Learning to Follow Image Editing Instructions...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
-        original_image,
+        Row([original_image, init_video, use_init_video]),
+        vid_params,
         ResponsiveRow([prompt, negative_prompt]),
         num_inference_row,
         guidance,
@@ -5544,7 +5584,7 @@ def buildInstructPix2Pix(page):
         #Row([jump_length, jump_n_sample, seed]),
         
         Row([ElevatedButton(content=Text("🏖️  Run Instruct Pix2Pix", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instruct_pix2pix(page)),
-             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instruct_pix2pix(page, from_list=True))]),
+             run_prompt_list]),
         page.instruct_pix2pix_output,
         clear_button,
       ]
@@ -5554,7 +5594,7 @@ def buildInstructPix2Pix(page):
 controlnet_prefs = {
     'original_image': '',
     'prompt': '',
-    'negative_prompt': 'lowres, text, watermark, cropped, worst quality, low quality',
+    'negative_prompt': 'lowres, text, watermark, cropped, low quality',
     'control_task': 'Scribble',
     'conditioning_scale': 1.0,
     'multi_controlnets': [],
@@ -5566,6 +5606,11 @@ controlnet_prefs = {
     'guidance_scale': 9, #30
     'seed': 0,
     'eta': 0,
+    'use_init_video': False,
+    'init_video': '',
+    'fps': 12,
+    'start_time': 0,
+    'end_time': 0,
     'file_prefix': 'controlnet-',
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -5626,9 +5671,14 @@ def buildControlNet(page):
       if e.progress == 1:
         controlnet_prefs['file_name'] = e.file_name.rpartition('.')[0]
         fname = os.path.join(root_dir, e.file_name)
-        original_image.value = fname
-        original_image.update()
-        controlnet_prefs['original_image'] = fname
+        if pick_type == "image":
+          original_image.value = fname
+          original_image.update()
+          controlnet_prefs['original_image'] = fname
+        elif pick_type == "video":
+          init_video.value = fname
+          init_video.update()
+          controlnet_prefs['init_video'] = fname
         page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def upload_files(e):
@@ -5638,25 +5688,60 @@ def buildControlNet(page):
                 uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
+    pick_type = ""
     def pick_original(e):
+        nonlocal pick_type
+        pick_type = "image"
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def pick_video(e):
+        nonlocal pick_type
+        pick_type = "video"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         controlnet_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
     def change_task(e):
+        task = e.control.value
+        show = task.startswith("Video")# or task == "Video OpenPose"
+        update = controlnet_prefs['use_init_video'] != show
         changed(e,'control_task')
-        threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" else 0
+        threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" or controlnet_prefs['control_task'] == "Video Canny Edge" else 0
         threshold.update()
+        if update:
+            original_image.visible = not show
+            original_image.update()
+            init_video.visible = show
+            init_video.update()
+            vid_params.height = None if show else 0
+            vid_params.update()
+            conditioning_scale.visible = not show
+            conditioning_scale.update()
+            add_layer_btn.visible = not show
+            add_layer_btn.update()
+            multi_layers.visible = not show
+            multi_layers.update()
+            run_prompt_list.visible = not show
+            run_prompt_list.update()
+            controlnet_prefs['use_init_video'] = show
     def change_eta(e):
         changed(e, 'eta', ptype="float")
         eta_value.value = f" {controlnet_prefs['eta']}"
         eta_value.update()
         eta_row.update()
     def add_layer(e):
-        layer = {'control_task': controlnet_prefs['control_task'], 'original_image': controlnet_prefs['original_image'], 'conditioning_scale': controlnet_prefs['conditioning_scale']}
+        layer = {'control_task': controlnet_prefs['control_task'], 'original_image': controlnet_prefs['original_image'], 'conditioning_scale': controlnet_prefs['conditioning_scale'], 'use_init_video': False}
+        if controlnet_prefs['control_task'] == "Video Canny Edge" or controlnet_prefs['control_task'] == "Video OpenPose":
+          layer['use_init_video'] = True
+          layer['init_video'] = controlnet_prefs['init_video']
+          layer['fps'] = controlnet_prefs['fps']
+          layer['start_time'] = controlnet_prefs['start_time']
+          layer['end_time'] = controlnet_prefs['end_time']
+          controlnet_prefs['init_video'] = ""
+          init_video.value = ""
+          original_image.update()
         controlnet_prefs['multi_controlnets'].append(layer)
-        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['init_video'] if layer['use_init_video'] else layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[
               PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
               PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
@@ -5681,11 +5766,19 @@ def buildControlNet(page):
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation")], value=controlnet_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
-    add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNet Layer", on_click=add_layer)
+    #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNet Layer", on_click=add_layer)
+    add_layer_btn = ft.FilledButton("➕ Add Layer", width=135, on_click=add_layer)
     multi_layers = Column([], spacing=0)
     seed = TextField(label="Seed", width=90, value=str(controlnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    #use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switch(label="Use Init Video", value=controlnet_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
+    init_video = TextField(label="Init Video Clip", value=controlnet_prefs['init_video'], expand=True, visible=controlnet_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    start_time = TextField(label="Start Time (s)", value=controlnet_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=controlnet_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_prefs['use_init_video'] else 0)
+
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='low_threshold')
@@ -5707,13 +5800,15 @@ def buildControlNet(page):
     page.controlnet_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.controlnet_output.controls) > 0
+    run_prompt_list = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet(page, from_list=True))
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🕸️  ControlNet Image+Text2Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
-        Row([control_task, original_image, add_layer_btn]),
+        Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
         multi_layers,
+        vid_params,
         Divider(thickness=2, height=4),
         ResponsiveRow([prompt, negative_prompt]),
         threshold,
@@ -5724,7 +5819,7 @@ def buildControlNet(page):
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet,
         Row([ElevatedButton(content=Text("🏸  Run ControlNet", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet(page)),
-             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet(page, from_list=True))]),
+             run_prompt_list]),
         page.controlnet_output,
         clear_button,
       ]
@@ -5832,6 +5927,153 @@ Resources:
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_text_to_video(page, from_list=True))
         ]),
         page.text_to_video_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+text_to_video_zero_prefs = {
+    'prompt': '',
+    'negative_prompt': 'text, words, watermark, shutterstock',
+    'num_inference_steps': 50,
+    'guidance_scale': 9.0,
+    'export_to_video': True,
+    'eta': 0.0,
+    'seed': 0,
+    'width': 1024,
+    'height': 1024,
+    'num_frames': 8,
+    'motion_field_strength_x': 12,
+    'motion_field_strength_y': 12,
+    't0': 42,
+    't1': 47,
+    'input_video': '',
+    'prep_type': 'Zero Shot',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+    "lower_memory": True,
+}
+
+def buildTextToVideoZero(page):
+    global text_to_video_zero_prefs, prefs, pipe_text_to_video_zero
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            text_to_video_zero_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            text_to_video_zero_prefs[pref] = float(e.control.value)
+          else:
+            text_to_video_zero_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.text_to_video_zero_output.controls = []
+      page.text_to_video_zero_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def text_to_video_zero_help(e):
+      def close_text_to_video_zero_dlg(e):
+        nonlocal text_to_video_zero_help_dlg
+        text_to_video_zero_help_dlg.open = False
+        page.update()
+      text_to_video_zero_help_dlg = AlertDialog(title=Text("💁   Help with Text-To-Video Zero"), content=Column([
+          Text("Recent text-to-video generation approaches rely on computationally heavy training and require large-scale video datasets. In this paper, we introduce a new task of zero-shot text-to-video generation and propose a low-cost approach (without any training or optimization) by leveraging the power of existing text-to-image synthesis methods (e.g., Stable Diffusion), making them suitable for the video domain. Our key modifications include (i) enriching the latent codes of the generated frames with motion dynamics to keep the global scene and the background time consistent; and (ii) reprogramming frame-level self-attention using a new cross-frame attention of each frame on the first frame, to preserve the context, appearance, and identity of the foreground object."),
+          Text("Experiments show that this leads to low overhead, yet high-quality and remarkably consistent video generation. Moreover, our approach is not limited to text-to-video synthesis but is also applicable to other tasks such as conditional and content-specialized video generation, and Video Instruct-Pix2Pix, i.e., instruction-guided video editing. As experiments show, our method performs comparably or sometimes better than recent approaches, despite not being trained on additional video data."),
+          Markdown("""* [Project Page](https://text2video-zero.github.io/)
+* [Paper](https://arxiv.org/abs/2303.13439)
+* [Original Code](https://github.com/Picsart-AI-Research/Text2Video-Zero)""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🎞  Let's go crazy... ", on_click=close_text_to_video_zero_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = text_to_video_zero_help_dlg
+      text_to_video_zero_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        text_to_video_zero_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_steps(e):
+        steps = e.control.value
+        t0.set_max(steps - 1)
+        t0.set_max(steps - 1)
+        t0.set_divisions(steps - 1)
+        if text_to_video_zero_prefs['t0'] > steps - 1:
+            text_to_video_zero_prefs['t0'] = steps - 1
+            t0.set_value(text_to_video_zero_prefs['t0'])
+        t1.set_min(text_to_video_zero_prefs['t0'] + 1)
+        t1.set_max(steps - 1)
+        if text_to_video_zero_prefs['t1'] > steps - 1:
+            text_to_video_zero_prefs['t1'] = steps - 1
+            t1.set_value(text_to_video_zero_prefs['t1'])
+        if text_to_video_zero_prefs['t1'] < t1.min:
+            text_to_video_zero_prefs['t1'] = t1.min
+            t1.set_value(text_to_video_zero_prefs['t1'])
+        t1.set_divisions(t1.max - t1.min)
+        t0.update_slider()
+        t1.update_slider()
+    def change_t0(e):
+        t0_value = e.control.value
+        steps = num_inference_row.value
+        t1.set_min(t0_value + 1)
+        if text_to_video_zero_prefs['t1'] > steps - 1:
+            text_to_video_zero_prefs['t1'] = steps - 1
+            t1.set_value(text_to_video_zero_prefs['t1'])
+        if text_to_video_zero_prefs['t1'] < t1.min:
+            text_to_video_zero_prefs['t1'] = t1.min
+            t1.set_value(text_to_video_zero_prefs['t1'])
+        t1.set_divisions(t1.max - t1.min)
+        t1.update_slider()
+    prompt = TextField(label="Animation Prompt Text", value=text_to_video_zero_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=text_to_video_zero_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=text_to_video_zero_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")   
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=text_to_video_zero_prefs, key='num_inference_steps', on_change=change_steps, tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=text_to_video_zero_prefs, key='guidance_scale')
+    eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=text_to_video_zero_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    motion_field_strength_x = SliderRow(label="Motion Field Strength X", min=1, max=30, divisions=29, pref=text_to_video_zero_prefs, key='motion_field_strength_x', tooltip="Strength of motion in generated video along x-axis")   
+    motion_field_strength_y = SliderRow(label="Motion Field Strength Y", min=1, max=30, divisions=29, pref=text_to_video_zero_prefs, key='motion_field_strength_y', tooltip="Strength of motion in generated video along y-axis")   
+    t0 = SliderRow(label="Timestep t0", min=0, max=50, divisions=50, pref=text_to_video_zero_prefs, key='t0', on_change=change_t0, tooltip="Should be in the range [0, num_inference_steps - 1]")
+    t1 = SliderRow(label="Timestep t1", min=43, max=50, divisions=7, pref=text_to_video_zero_prefs, key='t1', tooltip="Should be in the range [t0 + 1, num_inference_steps - 1]")   
+    #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_zero_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_zero_prefs, key='height')
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switch(label="Export to Video", value=text_to_video_zero_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switch(label="Lower Memory Mode", value=text_to_video_zero_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_zero_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(text_to_video_zero_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=text_to_video_zero_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=text_to_video_zero_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=text_to_video_zero_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_text_to_video_zero = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_text_to_video_zero.height = None if status['installed_ESRGAN'] else 0
+    page.text_to_video_zero_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.text_to_video_zero_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎥  Text-To-Video Zero", "Text-to-Image Diffusion Models for Zero-Shot Video Generators", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=text_to_video_zero_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        ResponsiveRow([prompt, negative_prompt]),
+        #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_zero_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
+        Row([export_to_video]),
+        num_frames,
+        num_inference_row,
+        guidance,
+        eta_slider,
+        motion_field_strength_x, motion_field_strength_y,
+        t0, t1,
+        #width_slider, height_slider,
+        page.ESRGAN_block_text_to_video_zero,
+        Row([seed, batch_folder_name]),
+        #Row([jump_length, jump_n_sample, seed]),
+        Row([
+            ElevatedButton(content=Text("📹  Run Text2Video-Zero", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_text_to_video_zero(page)),
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_text_to_video_zero(page, from_list=True))
+        ]),
+        page.text_to_video_zero_output,
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
@@ -9148,6 +9390,7 @@ pipe_audio_ldm = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_text_to_video = None
+pipe_text_to_video_zero = None
 pipe_gpt2 = None
 pipe_distil_gpt2 = None
 pipe_controlnet = None
@@ -11009,6 +11252,15 @@ def clear_text_to_video_pipe():
     gc.collect()
     torch.cuda.empty_cache()
     pipe_text_to_video = None
+def clear_text_to_video_zero_pipe():
+  global pipe_text_to_video_zero
+  if pipe_text_to_video_zero is not None:
+    del pipe_text_to_video_zero
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.ipc_collect()
+    torch.cuda.reset_peak_memory_stats()
+    pipe_text_to_video_zero = None
 def clear_DiT_pipe():
   global pipe_DiT
   if pipe_DiT is not None:
@@ -11104,6 +11356,7 @@ def clear_pipes(allbut=None):
     if not 'riffusion' in but: clear_riffusion_pipe()
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
     if not 'text_to_video' in but: clear_text_to_video_pipe()
+    if not 'text_to_video_zero' in but: clear_text_to_video_zero_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
@@ -18374,8 +18627,11 @@ def run_instruct_pix2pix(page, from_list=False):
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
-    if not bool(instruct_pix2pix_prefs['original_image']):
+    if not bool(instruct_pix2pix_prefs['original_image']) and not instruct_pix2pix_prefs['use_init_video']:
       alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
+      return
+    if not bool(instruct_pix2pix_prefs['init_video']) and instruct_pix2pix_prefs['use_init_video']:
+      alert_msg(page, "You must provide the Input Initial Video Clip to process...")
       return
     if not bool(instruct_pix2pix_prefs['prompt']):
       alert_msg(page, "You must provide a Instructional Image Editing Prompt...")
@@ -18455,33 +18711,99 @@ def run_instruct_pix2pix(page, from_list=False):
     clear_last()
     prt("Generating Instruct-Pix2Pix of your Image...")
     prt(progress)
+    max_size = instruct_pix2pix_prefs['max_size']
     batch_output = os.path.join(stable_dir, instruct_pix2pix_prefs['batch_folder_name'])
+    output_dir = batch_output
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
     batch_output = os.path.join(prefs['image_output'], instruct_pix2pix_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
-    for pr in instruct_pix2pix_prompts:
-      if pr['original_image'].startswith('http'):
-        #response = requests.get(instruct_pix2pix_prefs['original_image'])
-        #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
-        original_img = PILImage.open(requests.get(pr['original_image'], stream=True).raw)
-      else:
-        if os.path.isfile(pr['original_image']):
-          original_img = PILImage.open(pr['original_image'])
+    if instruct_pix2pix_prefs['use_init_video']:
+        init_vid = instruct_pix2pix_prefs['init_video']
+        try:
+            start_time = float(instruct_pix2pix_prefs['start_time'])
+            end_time = float(instruct_pix2pix_prefs['end_time'])
+            fps = int(instruct_pix2pix_prefs['fps'])
+        except Exception:
+            alert_msg(page, "Make sure your Numbers are actual numbers...")
+            return
+        if init_vid.startswith('http'):
+            init_vid = download_file(init_vid, output_dir)
         else:
-          alert_msg(page, f"ERROR: Couldn't find your original_image {pr['original_image']}")
-          return
-      width, height = original_img.size
-      width, height = scale_dimensions(width, height, instruct_pix2pix_prefs['max_size'])
-      original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
+            if not os.path.isfile(init_vid):
+              alert_msg(page, f"ERROR: Couldn't find your init_video {init_vid}")
+              return
+        prt("Extracting Frames from Video Clip")
+        try:
+            import cv2
+        except Exception:
+            run_process("pip install -q opencv-contrib-python", page=page)
+            import cv2
+            pass
+        try:
+            cap = cv2.VideoCapture(init_vid)
+        except Exception as e:
+            alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
+            clear_last()
+            return
+        count = 0
+        video = []
+        frames = []
+        width = height = 0
+        cap.set(cv2.CAP_PROP_FPS, fps)
+        video_length = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        start_frame = int(start_time * fps)
+        if end_time == 0 or end_time == 0.0:
+            end_frame = int(video_length)
+        else:
+            end_frame = int(end_time * fps)
+        total = end_frame - start_frame
+        for i in range(start_frame, end_frame):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            success, image = cap.read()
+            if success:
+                #filename = os.path.join(output_dir, f'{file_prefix}{count}.png')
+                if width == 0:
+                    shape = image.shape
+                    width, height = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
+                image = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
+                #cv2.imwrite(os.path.join(output_dir, filename), image)
+                video.append(PILImage.fromarray(image))
+                count += 1
+        cap.release()
+        clear_last()
+        #reader = imageio.get_reader(instruct_pix2pix_prefs['init_video'], "ffmpeg")
+        #frame_count = instruct_pix2pix_prefs['fps'] #TODO: This isn't frame count, do it right
+        #video = [Image.fromarray(reader.get_data(i)) for i in range(frame_count)]
+    else: video = None
+    for pr in instruct_pix2pix_prompts:
+      if not instruct_pix2pix_prefs['use_init_video']:
+        if pr['original_image'].startswith('http'):
+          #response = requests.get(instruct_pix2pix_prefs['original_image'])
+          #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+          original_img = PILImage.open(requests.get(pr['original_image'], stream=True).raw)
+        else:
+          if os.path.isfile(pr['original_image']):
+            original_img = PILImage.open(pr['original_image'])
+          else:
+            alert_msg(page, f"ERROR: Couldn't find your original_image {pr['original_image']}")
+            return
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, instruct_pix2pix_prefs['max_size'])
+        original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
       for num in range(instruct_pix2pix_prefs['num_images']):
         prt(progress)
         random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator(device=torch_device).manual_seed(random_seed)
         #generator = torch.manual_seed(random_seed)
         try:
-          images = pipe_instruct_pix2pix(pr['prompt'], image=original_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+          if instruct_pix2pix_prefs['use_init_video']:
+            from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
+            pipe_instruct_pix2pix.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=3))
+            images = pipe_instruct_pix2pix([pr['prompt']] * len(video), image=video, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+          else:
+            images = pipe_instruct_pix2pix(pr['prompt'], image=original_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
         except Exception as e:
           clear_last()
           alert_msg(page, f"ERROR: Couldn't run Instruct-Pix2Pix on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
@@ -18640,6 +18962,11 @@ def run_controlnet(page, from_list=False):
           original.append(c['original_image'])
           conditioning_scale.append(c['conditioning_scale'])
       control = {'prompt':controlnet_prefs['prompt'], 'negative_prompt': controlnet_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'seed': controlnet_prefs['seed']}
+      if controlnet_prefs['use_init_video']:
+        control['init_video'] = controlnet_prefs['init_video']
+        control['start_time'] = controlnet_prefs['start_time']
+        control['end_time'] = controlnet_prefs['end_time']
+        control['fps'] = controlnet_prefs['fps']
       controlnet_prompts.append(control)
       page.controlnet_output.controls.clear()
     autoscroll(True)
@@ -18687,13 +19014,13 @@ def run_controlnet(page, from_list=False):
     def get_controlnet(task):
         if controlnet_models[task] != None:
             return controlnet_models[task]
-        if task == "Canny Map Edge":
+        if task == "Canny Map Edge" or task == "Video Canny Edge":
             controlnet_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Scribble":
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
             controlnet_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
-        elif task == "OpenPose":
+        elif task == "OpenPose" or task == "Video OpenPose":
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
             controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
@@ -18795,8 +19122,60 @@ def run_controlnet(page, from_list=False):
             gc.collect()
             torch.cuda.empty_cache()
             return'''
+    def prep_video(vid):
+        nonlocal width, height
+        if vid.startswith('http'):
+            init_vid = download_file(vid, stable_dir)
+        else:
+            if os.path.isfile(vid):
+                init_vid = vid
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_video {vid}")
+                return
+        try:
+            start_time = float(controlnet_prefs['start_time'])
+            end_time = float(controlnet_prefs['end_time'])
+            fps = int(controlnet_prefs['fps'])
+            max_size = controlnet_prefs['max_size']
+        except Exception:
+            alert_msg(page, "Make sure your Numbers are actual numbers...")
+            return
+        prt("Extracting Frames from Video Clip")
+        try:
+            cap = cv2.VideoCapture(init_vid)
+        except Exception as e:
+            alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
+            clear_last()
+            return
+        count = 0
+        video = []
+        frames = []
+        width = height = 0
+        cap.set(cv2.CAP_PROP_FPS, fps)
+        video_length = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        start_frame = int(start_time * fps)
+        if end_time == 0 or end_time == 0.0:
+            end_frame = int(video_length)
+        else:
+            end_frame = int(end_time * fps)
+        total = end_frame - start_frame
+        for i in range(start_frame, end_frame):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            success, image = cap.read()
+            if success:
+                #filename = os.path.join(output_dir, f'{file_prefix}{count}.png')
+                if width == 0:
+                    shape = image.shape
+                    width, height = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
+                image = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
+                #cv2.imwrite(os.path.join(output_dir, filename), image)
+                video.append(PILImage.fromarray(image))
+                count += 1
+        cap.release()
+        clear_last()
+        return video
     loaded_controlnet = None
-    if len(controlnet_prefs['multi_controlnets']) > 0 and not from_list:
+    if len(controlnet_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_prefs['use_init_video']:
         controlnet = []
         loaded_controlnet = []
         for c in controlnet_prefs['multi_controlnets']:
@@ -18812,6 +19191,7 @@ def run_controlnet(page, from_list=False):
     model = get_model(prefs['model_ckpt'])
     model_path = model['path']
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
+
         pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
         pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True)
@@ -18819,6 +19199,10 @@ def run_controlnet(page, from_list=False):
     #else:
         #pipe_controlnet.controlnet=controlnet
     pipe_controlnet = pipeline_scheduler(pipe_controlnet)
+    if controlnet_prefs['use_init_video']:
+        from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
+        pipe_controlnet.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+        pipe_controlnet.controlnet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
     clear_last()
     prt(f"Generating ControlNet {controlnet_prefs['control_task']} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_prefs['batch_folder_name'])
@@ -18830,17 +19214,22 @@ def run_controlnet(page, from_list=False):
     for pr in controlnet_prompts:
         autoscroll(False)
         prt(progress)
-        if len(controlnet_prefs['multi_controlnets']) > 0 and not from_list:
+        if len(controlnet_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_prefs['use_init_video']:
             original_img = []
             for c in controlnet_prefs['multi_controlnets']:
                 original_img.append(prep_image(c['control_task'], c['original_image']))
-        else:
+        elif not controlnet_prefs['use_init_video']:
             original_img = prep_image(controlnet_prefs['control_task'], pr['original_image'])
+        else:
+            video_img = prep_video(pr['original_image'])
+            latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
         try:
             random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
-            
-            images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+            if not controlnet_prefs['use_init_video']:
+                images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+            else:
+                images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
         except Exception as e:
             #clear_last()
             clear_last()
@@ -18950,7 +19339,7 @@ def run_text_to_video(page):
     def autoscroll(scroll=True):
       page.TextToVideo.auto_scroll = scroll
       page.TextToVideo.update()
-      page.text_to_video_output = scroll
+      page.text_to_video_output.auto_scroll = scroll
       page.text_to_video_output.update()
     progress = ProgressBar(bar_height=8)
     total_steps = text_to_video_prefs['num_inference_steps']
@@ -19107,6 +19496,196 @@ def run_text_to_video(page):
         num += 1
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_text_to_video_zero(page):
+    global text_to_video_zero_prefs, prefs, status, pipe_text_to_video_zero, model_path
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.text_to_video_zero_output.controls.append(line)
+      page.text_to_video_zero_output.update()
+    def clear_last():
+      del page.text_to_video_zero_output.controls[-1]
+      page.text_to_video_zero_output.update()
+    def autoscroll(scroll=True):
+      page.TextToVideo.auto_scroll = scroll
+      page.TextToVideo.update()
+      page.text_to_video_zero_output.auto_scroll = scroll
+      page.text_to_video_zero_output.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = text_to_video_zero_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    page.text_to_video_zero_output.controls.clear()
+    autoscroll(True)
+    prt(Installing("Installing Text-To-Video Zero Pipeline..."))
+    import cv2
+    #model_id = "damo-vilab/text-to-video-ms-1.7b"
+    clear_pipes()
+    #clear_pipes('text_to_video_zero')
+    torch.cuda.empty_cache()
+    torch.cuda.reset_max_memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+    if pipe_text_to_video_zero is None:
+        from diffusers import TextToVideoZeroPipeline, DPMSolverMultistepScheduler
+        pipe_text_to_video_zero = TextToVideoZeroPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        #pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
+        pipe_text_to_video_zero.scheduler = DPMSolverMultistepScheduler.from_config(pipe_text_to_video_zero.scheduler.config)
+        pipe_text_to_video_zero = pipe_text_to_video_zero.to(torch_device)
+        #pipe_text_to_video_zero = optimize_pipe(pipe_text_to_video_zero, vae_tiling=True, vae=True, to_gpu=False)
+        pipe_text_to_video_zero.set_progress_bar_config(disable=True)
+    else:
+        pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
+    try:
+        import imageio
+    except Exception:
+        run_sp("pip install imageio", realtime=False)
+        import imageio
+        pass
+    clear_last()
+    prt("Generating Text-To-Video Zero from your Prompt...")
+    autoscroll(False)
+    prt(progress)
+    batch_output = os.path.join(stable_dir, text_to_video_zero_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    local_output = batch_output
+    batch_output = os.path.join(prefs['image_output'], text_to_video_zero_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = int(text_to_video_zero_prefs['seed']) if int(text_to_video_zero_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator(device="cuda").manual_seed(random_seed)
+    #generator = torch.manual_seed(random_seed)
+    width = text_to_video_zero_prefs['width']
+    height = text_to_video_zero_prefs['height']
+    try:
+      #print(f"prompt={text_to_video_zero_prefs['prompt']}, negative_prompt={text_to_video_zero_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={text_to_video_zero_prefs['edit_momentum_scale']}, edit_mom_beta={text_to_video_zero_prefs['edit_mom_beta']}, num_inference_steps={text_to_video_zero_prefs['num_inference_steps']}, eta={text_to_video_zero_prefs['eta']}, guidance_scale={text_to_video_zero_prefs['guidance_scale']}")
+      #, output_type = "pt", width=width, height=height
+      frames = pipe_text_to_video_zero(prompt=text_to_video_zero_prefs['prompt'], negative_prompt=text_to_video_zero_prefs['negative_prompt'], video_length=text_to_video_zero_prefs['num_frames'], num_inference_steps=text_to_video_zero_prefs['num_inference_steps'], eta=text_to_video_zero_prefs['eta'], guidance_scale=text_to_video_zero_prefs['guidance_scale'], motion_field_strength_x=text_to_video_zero_prefs['motion_field_strength_x'], motion_field_strength_y=text_to_video_zero_prefs['motion_field_strength_y'], t0=text_to_video_zero_prefs['t0'], t1=text_to_video_zero_prefs['t1'], generator=generator, callback=callback_fnc, callback_steps=1).images
+    except Exception as e:
+      clear_last()
+      clear_last()
+      alert_msg(page, f"ERROR: Couldn't Text-To-Video Zero your image for some reason. Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    clear_last()
+    clear_last()
+    save_path = os.path.join(prefs['image_output'], text_to_video_zero_prefs['batch_folder_name'])
+    filename = f"{prefs['file_prefix']}{format_filename(text_to_video_zero_prefs['prompt'])}"
+    filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    video_path = ""
+    if text_to_video_zero_prefs['export_to_video']:
+        #from diffusers.utils import export_to_video
+        #video_path = export_to_video(frames)
+        local_file = available_file(local_output, filename, 0, ext="mp4", no_num=True)
+        save_file = available_file(batch_output, filename, 0, ext="mp4", no_num=True)
+        imageio.mimsave(local_file, frames, fps=4)
+        shutil.copy(local_file, save_file)
+        #print(f"video_path: {video_path}")
+    #video = frames.cpu().numpy()
+    #print(f"video: {video}")
+    #print(f"frames type: {type(frames)} len: {len(frames)}")
+    #result = [(r * 255).astype("uint8") for r in result]
+    from PIL.PngImagePlugin import PngInfo
+    num = 0
+    for image in frames:
+        random_seed += num
+        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+        image_path = available_file(batch_output, fname, num)
+        unscaled_path = image_path
+        output_file = image_path.rpartition(slash)[2]
+        #uint8_image = (image * 255).round().astype("uint8")
+        img = PILImage.fromarray((image * 255).astype("uint8"))
+        #print(f"img type: {type(img)}")
+        #np_image = image.cpu().numpy()
+        #print(f"image: {type(image)}, np_image: {type(np_image)}")
+        #print(f"image type: {type(image)} to {image_path}")
+        #cv2.imwrite(image_path, image)
+        #PILImage.fromarray(image).save(image_path)
+        img.save(image_path)
+        #image.save(image_path)
+        #imageio.imwrite(local_file, image, extension=".png")
+        #img = pipe_text_to_video_zero.numpy_to_pil(image)
+        #img.save(image_path)
+        #imageio.imsave(local_file, img, extension=".png")
+        #PILImage.fromarray(img).save(image_path)
+        out_path = image_path.rpartition(slash)[0]
+        upscaled_path = os.path.join(out_path, output_file)
+        if not text_to_video_zero_prefs['display_upscaled_image'] or not text_to_video_zero_prefs['apply_ESRGAN_upscale']:
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+        if text_to_video_zero_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'     
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{num}.png'
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+            #print(f'Moving {fpath} to {dst_path}')
+            #shutil.move(fpath, dst_path)
+            shutil.copy(image_path, dst_path)
+            #faceenhance = ' --face_enhance' if text_to_video_zero_prefs["face_enhance"] else ''
+            faceenhance = ''
+            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {text_to_video_zero_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            image_path = upscaled_path
+            os.chdir(stable_dir)
+            if text_to_video_zero_prefs['display_upscaled_image']:
+                time.sleep(0.2)
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_zero_prefs["enlarge_scale"]), height=height * float(text_to_video_zero_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if prefs['save_image_metadata']:
+            img = PILImage.open(image_path)
+            metadata = PngInfo()
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+            metadata.add_text("copyright", prefs['meta_Copyright'])
+            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {text_to_video_zero_prefs['enlarge_scale']}x with ESRGAN" if text_to_video_zero_prefs['apply_ESRGAN_upscale'] else "")
+            metadata.add_text("pipeline", "Text-To-Video Zero")
+            if prefs['save_config_in_metadata']:
+              config_json = text_to_video_zero_prefs.copy()
+              config_json['model_path'] = model_path
+              config_json['scheduler_mode'] = prefs['scheduler_mode']
+              config_json['seed'] = random_seed
+              del config_json['num_frames']
+              del config_json['width']
+              del config_json['height']
+              del config_json['display_upscaled_image']
+              del config_json['batch_folder_name']
+              if not config_json['apply_ESRGAN_upscale']:
+                del config_json['enlarge_scale']
+                del config_json['apply_ESRGAN_upscale']
+              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+            img.save(image_path, pnginfo=metadata)
+        #TODO: PyDrive
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(os.path.join(prefs['image_output'], text_to_video_zero_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(os.path.join(prefs['image_output'], text_to_video_zero_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        num += 1
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+    
 
 def run_materialdiffusion(page):
     global materialdiffusion_prefs, prefs
@@ -20855,10 +21434,10 @@ class SliderRow(UserControl):
             # TODO: Figure out how to update label text on web
             #slider.label = f"{v}{self.suffix}"
             #slider.update()
-            slider_value.value = f"{v}{self.suffix}"
-            slider_value.update()
-            slider_edit.value = f"{v}"
-            slider_edit.update()
+            self.slider_value.value = f"{v}{self.suffix}"
+            self.slider_value.update()
+            self.slider_edit.value = f"{v}"
+            self.slider_edit.update()
             if self.on_change is not None:
               e.control = self
               self.on_change(e)
@@ -20872,19 +21451,19 @@ class SliderRow(UserControl):
               return
             if self.value < self.min:
               self.value = self.min
-              slider_edit.value = self.value
-              slider_value.value = self.value
-              slider_value.update()
+              self.slider_edit.value = self.value
+              self.slider_value.value = self.value
+              self.slider_value.update()
             if self.value > self.max:
               self.value = self.max
-              slider_edit.value = self.value
-              slider_value.value = self.value
-              slider_value.update()
+              self.slider_edit.value = self.value
+              self.slider_value.value = self.value
+              self.slider_value.update()
             if self.multiple != 1:
               v = int(self.multiple * round(self.value / self.multiple))
               if v != self.value:
-                slider_edit.value = v
-                slider_edit.update()
+                self.slider_edit.value = v
+                self.slider_edit.update()
                 self.value = v
             if self.on_change is not None:
               e.control = self
@@ -20892,21 +21471,21 @@ class SliderRow(UserControl):
             slider.value = self.value
             slider.label = f"{self.value}{self.suffix}"
             slider.update()
-            slider_value.value = f"{self.value}{self.suffix}"
-            slider_value.update()
+            self.slider_value.value = f"{self.value}{self.suffix}"
+            self.slider_value.update()
             self.pref[self.key] = int(self.value) if self.round == 0 else float(self.value)
         def blur(e):
-            slider_edit.visible = False
+            self.slider_edit.visible = False
             slider_text.visible = True
-            slider_edit.update()
+            self.slider_edit.update()
             slider_text.update()
             slider_label.value = f"{self.label}: "
             slider_label.update()
         def edit(e):
-            slider_edit.visible = True
+            self.slider_edit.visible = True
             slider_text.visible = False
             slider_text.update()
-            slider_edit.update()
+            self.slider_edit.update()
             slider_label.value = f"{self.label}"
             slider_label.update()
             #self.slider_number = TextField(value=str(self.value), on_blur=blur, text_align=TextAlign.CENTER, width=55, height=50, content_padding=padding.only(top=4), keyboard_type=KeyboardType.NUMBER, on_change=changed)
@@ -20914,14 +21493,32 @@ class SliderRow(UserControl):
             #
             #e.control.update()
             #e.page.update()
-        slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
+        self.slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
         slider = Slider(min=self.min, max=self.max, divisions=self.divisions, label="{value}" + self.suffix, value=self.pref[self.key], tooltip=self.tooltip, expand=True, on_change=change_slider)
-        slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
-        slider_text = GestureDetector(slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
+        self.slider = slider
+        self.slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
+        slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
         slider_label = Text(f"{self.label}: ")
         self.slider_number = slider_text
-        slider_row = Row([slider_label, slider_text, slider_edit, slider])
+        slider_row = Row([slider_label, slider_text, self.slider_edit, slider])
         return slider_row
+    def set_value(self, value):
+        self.value = value
+        self.slider.value = value
+        self.slider_edit.value = value
+        self.pref[self.key] = value
+        self.slider_value.value = f" {self.pref[self.key]}{self.suffix}"
+    def set_min(self, value):
+        self.min = value
+        self.slider.min = value
+    def set_max(self, value):
+        self.max = value
+        self.slider.max = value
+    def set_divisions(self, value):
+        self.divisions = value
+        self.slider.divisions = value
+    def update_slider(self):
+        self.slider.update()
 
 class Installing(UserControl):
     def __init__(self, message=""):
