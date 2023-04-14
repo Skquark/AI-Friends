@@ -1181,8 +1181,7 @@ def buildInstallers(page):
       #stability_box.update()
   install_Stability_api = Tooltip(message="Use DreamStudio.com servers without your GPU to create images on CPU.", content=Switch(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_stability))
   use_Stability_api = Checkbox(label="Use Stability-ai API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
-  #dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), 
-  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
+  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
   clip_guidance_preset = Dropdown(label="Clip Guidance Preset", width=350, options=[dropdown.Option("SIMPLE"), dropdown.Option("FAST_BLUE"), dropdown.Option("FAST_GREEN"), dropdown.Option("SLOW"), dropdown.Option("SLOWER"), dropdown.Option("SLOWEST"), dropdown.Option("NONE")], value=prefs['clip_guidance_preset'], autofocus=False, on_change=lambda e:changed(e, 'clip_guidance_preset'))
   #generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM"), dropdown.Option("K_EULER"), dropdown.Option("K_EULER_ANCESTRAL"), dropdown.Option("K_HEUN"), dropdown.Option("K_DPMPP_2M"), dropdown.Option("K_DPM_2_ANCESTRAL"), dropdown.Option("K_LMS"), dropdown.Option("K_DPMPP_2S_ANCESTRAL"), dropdown.Option("K_DPM_2")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
@@ -5440,6 +5439,7 @@ instruct_pix2pix_prefs = {
     'fps': 12,
     'start_time': 0,
     'end_time': 0,
+    'control_v': 'v1.1',
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -5777,13 +5777,13 @@ def buildControlNet(page):
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
     start_time = TextField(label="Start Time (s)", value=controlnet_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=controlnet_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
-    vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_prefs['use_init_video'] else 0)
+    vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_prefs['use_init_video'] else 0)
 
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='low_threshold')
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='high_threshold')
-    threshold = Container(Column([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold = Container(Column([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" else 0
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_prefs['eta']}", weight=FontWeight.BOLD)
@@ -10902,7 +10902,7 @@ def get_stability(page):
     # New way, other is obsolete
     import requests
     api_host = os.getenv('API_HOST', 'https://api.stability.ai')
-    stability_url = f"{api_host}/v1alpha/engines/list" #user/account"
+    stability_url = f"{api_host}/v1/engines/list" #user/account"
     response = requests.get(stability_url, headers={"Authorization": prefs['Stability_api_key']})
     if response.status_code != 200:
       alert_msg(page, "ERROR with Stability-ai: " + str(response.text))
@@ -11603,7 +11603,7 @@ def start_diffusion(page):
           import base64
           api_host = os.getenv('API_HOST', 'https://api.stability.ai')
           engine_id = prefs['model_checkpoint']# if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
-          url = f"{api_host}/v1alpha/generation/{engine_id}/"#image-to-image"
+          url = f"{api_host}/v1/generation/{engine_id}/"#image-to-image"
           headers = {
               'Content-Type': 'application/json',
               'Accept': 'application/json',#'image/png',
@@ -11620,14 +11620,13 @@ def start_diffusion(page):
               "steps": arg['steps'],
               "text_prompts": [
                   {
-                      "text": pr,
+                      "text": pr[0] if type(pr) == list else pr,
                       "weight": 1
                   }
               ],
           }
           if bool(arg['negative_prompt']):
-            payload['text_prompts'].append({"text": arg['negative_prompt'], "weight": -10})
-
+            payload['text_prompts'].append({"text": arg['negative_prompt'][0] if type(arg['negative_prompt']) == list else arg['negative_prompt'], "weight": -10})
           if bool(arg['mask_image']) or (bool(arg['init_image']) and arg['alpha_mask']):
             if not bool(arg['init_image']):
               clear_last()
@@ -11716,7 +11715,8 @@ def start_diffusion(page):
                 alert_msg(page, "Stability-API ERROR: Insufficient Credit Balance. Reload at DreamStudio.com...", content=Text(str(response.text)))
                 return
               else:
-                prt(f"Stability-API ERROR {response.status_code}: " + str(response.text))
+                prt(Text(f"Stability-API ERROR {response.status_code}: " + str(response.text), selectable=True))
+                print(payload)
                 continue
             #with open(output_file, "wb") as f:
             #  f.write(response.content)
@@ -12130,7 +12130,7 @@ def start_diffusion(page):
                   token_indices = pipe_attend_and_excite.get_indices(ptext)
                 #, negative_prompt=arg['negative_prompt'], num_images_per_prompt=int(arg['batch_size'])
                 #images = pipe_attend_and_excite(prompt=ptext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                images = pipe_attend_and_excite(prompt=ptext, negative_prompt=ntext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), num_images_per_prompt=int(arg['batch_size']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_attend_and_excite(prompt=ptext, negative_prompt=ntext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), height=arg['height'], width=arg['width'], num_images_per_prompt=int(arg['batch_size']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_versatile'] and status['installed_versatile']:
                 pipe_used = "Versatile Text-to-Image"
                 images = pipe_versatile_text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -19002,44 +19002,82 @@ def run_controlnet(page, from_list=False):
         gc.collect()
         torch.cuda.empty_cache()
         return
-
-    canny_checkpoint = "lllyasviel/sd-controlnet-canny"
-    scribble_checkpoint = "lllyasviel/sd-controlnet-scribble"
-    openpose_checkpoint = "lllyasviel/sd-controlnet-openpose"
-    depth_checkpoint = "lllyasviel/sd-controlnet-depth"
-    HED_checkpoint = "lllyasviel/sd-controlnet-hed"
-    mlsd_checkpoint = "lllyasviel/sd-controlnet-mlsd"
-    normal_checkpoint = "lllyasviel/sd-controlnet-normal"
-    seg_checkpoint = "lllyasviel/sd-controlnet-seg"
+    control_v11 = "takuma104/control_v11"
+    if controlnet_prefs['control_v'] == 'v1.1':
+        canny_checkpoint = "control_v11p_sd15_canny"
+        scribble_checkpoint = "control_v11p_sd15_scribble"
+        openpose_checkpoint = "control_v11p_sd15_openpose"
+        depth_checkpoint = "control_v11p_sd15_depth"
+        HED_checkpoint = "control_v11p_sd15_softedge"
+        mlsd_checkpoint = "control_v11p_sd15_mlsd"
+        normal_checkpoint = "control_v11p_sd15_normalbae"
+        seg_checkpoint = "control_v11p_sd15_seg"
+    else:
+        canny_checkpoint = "lllyasviel/sd-controlnet-canny"
+        scribble_checkpoint = "lllyasviel/sd-controlnet-scribble"
+        openpose_checkpoint = "lllyasviel/sd-controlnet-openpose"
+        depth_checkpoint = "lllyasviel/sd-controlnet-depth"
+        HED_checkpoint = "lllyasviel/sd-controlnet-hed"
+        mlsd_checkpoint = "lllyasviel/sd-controlnet-mlsd"
+        normal_checkpoint = "lllyasviel/sd-controlnet-normal"
+        seg_checkpoint = "lllyasviel/sd-controlnet-seg"
+    hed = None
+    openpose = None
+    depth_estimator = None
+    mlsd = None
+    image_processor = None
+    image_segmentor = None
     def get_controlnet(task):
+        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor
         if controlnet_models[task] != None:
             return controlnet_models[task]
         if task == "Canny Map Edge" or task == "Video Canny Edge":
-            controlnet_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            if controlnet_prefs['control_v'] == 'v1.1':
+                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            else:
+                controlnet_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Scribble":
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
-            controlnet_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            if controlnet_prefs['control_v'] == 'v1.1':
+                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            else:
+                controlnet_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "OpenPose" or task == "Video OpenPose":
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
-            controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            if controlnet_prefs['control_v'] == 'v1.1':
+                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            else:
+                controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Depth":
             from transformers import pipeline
             depth_estimator = pipeline('depth-estimation')
-            controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            if controlnet_prefs['control_v'] == 'v1.1':
+                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            else:
+                controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "HED":
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
-            controlnet_models[task] = ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            if controlnet_prefs['control_v'] == 'v1.1':
+                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            else:
+                controlnet_models[task] = ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "M-LSD":
             from controlnet_aux import MLSDdetector
             mlsd = MLSDdetector.from_pretrained('lllyasviel/ControlNet')
-            controlnet_models[task] = ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            if controlnet_prefs['control_v'] == 'v1.1':
+                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            else:
+                controlnet_models[task] = ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Normal Map":
             from transformers import pipeline
             depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas")
-            controlnet_models[task] = ControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            if controlnet_prefs['control_v'] == 'v1.1':
+                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=normal_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            else:
+                controlnet_models[task] = ControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Segmented":
             from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
             from controlnet_utils import ade_palette
@@ -19049,32 +19087,34 @@ def run_controlnet(page, from_list=False):
         return controlnet_models[task]
     width, height = 0, 0
     def prep_image(task, img):
+        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor
         nonlocal width, height
-        if img.startswith('http'):
-            #response = requests.get(controlnet_prefs['original_image'])
-            #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
-            original_img = PILImage.open(requests.get(img, stream=True).raw)
-        else:
-            if os.path.isfile(img):
-                original_img = PILImage.open(img)
-            else:
-                alert_msg(page, f"ERROR: Couldn't find your original_image {img}")
-                return
-        width, height = original_img.size
-        width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
-        #print(f"Size: {width}x{height}")
-        original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
-        return original_img
-        '''input_image = np.array(original_img)
+        if isinstance(img, str):
+          if img.startswith('http'):
+              #response = requests.get(controlnet_prefs['original_image'])
+              #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+              original_img = PILImage.open(requests.get(img, stream=True).raw)
+          else:
+              if os.path.isfile(img):
+                  original_img = PILImage.open(img)
+              else:
+                  alert_msg(page, f"ERROR: Couldn't find your original_image {img}")
+                  return
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
+          #print(f"Size: {width}x{height}")
+          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
+        #return original_img
+        #input_image = np.array(original_img)
         try:
-            if task == "Canny Map Edge":
+            if task == "Canny Map Edge" or task == "Video Canny Edge":
                 input_image = cv2.Canny(input_image, controlnet_prefs['low_threshold'], controlnet_prefs['high_threshold'])
                 input_image = input_image[:, :, None]
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
                 original_img = PILImage.fromarray(input_image)
             elif task == "Scribble":
                 original_img = hed(original_img, scribble=True)
-            elif task == "OpenPose":
+            elif task == "OpenPose" or task == "Video OpenPose":
                 original_img = openpose(original_img)
             elif task == "Depth":
                 original_img = depth_estimator(original_img)['depth']
@@ -19087,7 +19127,7 @@ def run_controlnet(page, from_list=False):
             elif task == "M-LSD":
                 original_img = mlsd(original_img)
             elif task == "Normal Map":
-                depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas" )
+                #depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas" )
                 original_img = depth_estimator(original_img)['predicted_depth'][0]
                 input_image = original_img.numpy()
                 image_depth = input_image.copy()
@@ -19104,6 +19144,7 @@ def run_controlnet(page, from_list=False):
                 input_image = (input_image * 127.5 + 127.5).clip(0, 255).astype(np.uint8)
                 original_img = PILImage.fromarray(input_image)
             elif task == "Segmented":
+                from controlnet_utils import ade_palette
                 pixel_values = image_processor(original_img, return_tensors="pt").pixel_values
                 with torch.no_grad():
                   outputs = image_segmentor(pixel_values)
@@ -19121,7 +19162,7 @@ def run_controlnet(page, from_list=False):
             alert_msg(page, f"ERROR Preparing ControlNet {controlnet_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             gc.collect()
             torch.cuda.empty_cache()
-            return'''
+            return
     def prep_video(vid):
         nonlocal width, height
         if vid.startswith('http'):
@@ -19169,7 +19210,8 @@ def run_controlnet(page, from_list=False):
                     width, height = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
                 image = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
                 #cv2.imwrite(os.path.join(output_dir, filename), image)
-                video.append(PILImage.fromarray(image))
+                image = prep_image(controlnet_prefs['control_task'], PILImage.fromarray(image))
+                video.append(image)
                 count += 1
         cap.release()
         clear_last()
@@ -19321,6 +19363,7 @@ def run_controlnet(page, from_list=False):
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             num += 1
     autoscroll(False)
+    del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_text_to_video(page):
