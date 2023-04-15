@@ -1697,7 +1697,8 @@ def buildParameters(page):
   #steps = TextField(label="Steps", value=prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', asInt=True))
   steps = SliderRow(label="Steps", min=0, max=200, divisions=200, pref=prefs, key='steps', on_change=change)
   #eta = TextField(label="DDIM ETA", value=prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta'))
-  eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=1, pref=prefs, key='eta', tooltip="", on_change=change)
+  eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=1, pref=prefs, key='eta', tooltip="", visible=False, on_change=change)
+  page.etas.append(eta)
   seed = TextField(label="Seed", value=prefs['seed'], keyboard_type=KeyboardType.NUMBER, width = 160, on_change=lambda e:changed(e,'seed'))
   param_rows = Row([Column([batch_folder_name, seed, batch_size]), Column([steps, eta, n_iterations])])
   batch_row = Row([batch_folder_name, seed])
@@ -9395,7 +9396,7 @@ pipe_gpt2 = None
 pipe_distil_gpt2 = None
 pipe_controlnet = None
 controlnet = None
-controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None}
+controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 stability_api = None
 
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -19027,7 +19028,7 @@ def run_controlnet(page, from_list=False):
         if controlnet_models[task] != None:
             return controlnet_models[task]
         if task == "Canny Map Edge" or task == "Video Canny Edge":
-            controlnet_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_models["Canny Map Edge"] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Scribble":
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
@@ -19035,7 +19036,7 @@ def run_controlnet(page, from_list=False):
         elif task == "OpenPose" or task == "Video OpenPose":
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
-            controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_models["OpenPose"] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Depth":
             from transformers import pipeline
             depth_estimator = pipeline('depth-estimation')
@@ -21235,6 +21236,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("💸  Much appreciated", on_click=close_donate_dlg)], actions_alignment=MainAxisAlignment.END,
     )
+    page.etas = []
     page.theme_mode = prefs['theme_mode'].lower()
     if prefs['theme_mode'] == 'Dark':
       page.dark_theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())#, use_material3=True)
@@ -21448,7 +21450,7 @@ class NumberPicker(UserControl):
         return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 class SliderRow(UserControl):
-    def __init__(self, label="", value=None, min=0, max=20, divisions=20, multiple=1, step=1, round=0, suffix="", tooltip="", pref=None, key=None, on_change=None):
+    def __init__(self, label="", value=None, min=0, max=20, divisions=20, multiple=1, step=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, on_change=None):
         super().__init__()
         self.value = value or pref[key]
         self.min = min
@@ -21458,6 +21460,10 @@ class SliderRow(UserControl):
         self.label = label
         self.round = round
         self.suffix = suffix
+        self.left_text = left_text
+        self.right_text = right_text
+        self._visible = visible
+        self.slider_row = Container(content=None)
         self.tooltip = tooltip
         self.pref = pref
         self.key = key
@@ -21535,9 +21541,13 @@ class SliderRow(UserControl):
         self.slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
         slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
         slider_label = Text(f"{self.label}: ")
+        left = Text("", visible=False)
+        right = Text("", visible=False)
+        if bool(self.left_text): left.value = self.left_text
+        if bool(self.right_text): right.value = self.right_text
         self.slider_number = slider_text
-        slider_row = Row([slider_label, slider_text, self.slider_edit, slider])
-        return slider_row
+        self.slider_row = Container(Row([slider_label, slider_text, self.slider_edit, left, slider, right]), visible=self._visible)
+        return self.slider_row
     def set_value(self, value):
         self.value = value
         self.slider.value = value
@@ -21553,6 +21563,14 @@ class SliderRow(UserControl):
     def set_divisions(self, value):
         self.divisions = value
         self.slider.divisions = value
+    @property
+    def show(self):
+        return self._visible
+    @show.setter
+    def show(self, value):
+        self._visible = value
+        self.slider_row.visible = value
+        self.slider_row.update()
     def update_slider(self):
         self.slider.update()
 
