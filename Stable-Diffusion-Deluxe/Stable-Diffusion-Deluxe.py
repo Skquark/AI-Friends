@@ -388,8 +388,8 @@ import io, shutil, traceback
 from contextlib import redirect_stdout
 try:
   import numpy as np
-except Exception:
-  run_sp("pip install --update numpy", realtime=False)
+except ModuleNotFoundError:
+  run_sp("pip install numpy", realtime=False)
   import numpy as np
   pass
 
@@ -5766,7 +5766,7 @@ def buildControlNet(page):
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNet Layer", on_click=add_layer)
     add_layer_btn = ft.FilledButton("➕ Add Layer", width=135, on_click=add_layer)
@@ -19002,92 +19002,80 @@ def run_controlnet(page, from_list=False):
         gc.collect()
         torch.cuda.empty_cache()
         return
-    control_v11 = "takuma104/control_v11"
-    if controlnet_prefs['control_v'] == 'v1.1':
-        canny_checkpoint = "control_v11p_sd15_canny"
-        scribble_checkpoint = "control_v11p_sd15_scribble"
-        openpose_checkpoint = "control_v11p_sd15_openpose"
-        depth_checkpoint = "control_v11p_sd15_depth"
-        HED_checkpoint = "control_v11p_sd15_softedge"
-        mlsd_checkpoint = "control_v11p_sd15_mlsd"
-        normal_checkpoint = "control_v11p_sd15_normalbae"
-        seg_checkpoint = "control_v11p_sd15_seg"
-    else:
-        canny_checkpoint = "lllyasviel/sd-controlnet-canny"
-        scribble_checkpoint = "lllyasviel/sd-controlnet-scribble"
-        openpose_checkpoint = "lllyasviel/sd-controlnet-openpose"
-        depth_checkpoint = "lllyasviel/sd-controlnet-depth"
-        HED_checkpoint = "lllyasviel/sd-controlnet-hed"
-        mlsd_checkpoint = "lllyasviel/sd-controlnet-mlsd"
-        normal_checkpoint = "lllyasviel/sd-controlnet-normal"
-        seg_checkpoint = "lllyasviel/sd-controlnet-seg"
+    canny_checkpoint = "lllyasviel/control_v11p_sd15_canny"
+    scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
+    openpose_checkpoint = "lllyasviel/control_v11p_sd15_openpose"
+    depth_checkpoint = "lllyasviel/control_v11p_sd15_depth"
+    HED_checkpoint = "lllyasviel/control_v11p_sd15_softedge"
+    mlsd_checkpoint = "lllyasviel/control_v11p_sd15_mlsd"
+    normal_checkpoint = "lllyasviel/control_v11p_sd15_normalbae"
+    seg_checkpoint = "lllyasviel/control_v11p_sd15_seg"
+    lineart_checkpoint = "lllyasviel/control_v11p_sd15_lineart"
+    ip2p_checkpoint = "lllyasviel/control_v11e_sd15_ip2p"
+    shuffle_checkpoint = "lllyasviel/control_v11e_sd15_shuffle"
     hed = None
     openpose = None
     depth_estimator = None
     mlsd = None
     image_processor = None
     image_segmentor = None
+    normal = None
+    lineart = None
+    shuffle = None
     def get_controlnet(task):
-        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor
+        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
         if controlnet_models[task] != None:
             return controlnet_models[task]
         if task == "Canny Map Edge" or task == "Video Canny Edge":
-            if controlnet_prefs['control_v'] == 'v1.1':
-                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
-            else:
-                controlnet_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Scribble":
             from controlnet_aux import HEDdetector
-            hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
-            if controlnet_prefs['control_v'] == 'v1.1':
-                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
-            else:
-                controlnet_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+            controlnet_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "OpenPose" or task == "Video OpenPose":
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
-            if controlnet_prefs['control_v'] == 'v1.1':
-                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
-            else:
-                controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Depth":
             from transformers import pipeline
             depth_estimator = pipeline('depth-estimation')
-            if controlnet_prefs['control_v'] == 'v1.1':
-                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
-            else:
-                controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "HED":
             from controlnet_aux import HEDdetector
-            hed = HEDdetector.from_pretrained('lllyasviel/ControlNet')
-            if controlnet_prefs['control_v'] == 'v1.1':
-                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
-            else:
-                controlnet_models[task] = ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+            #pidi_net = PidiNetDetector.from_pretrained('lllyasviel/Annotators')
+            controlnet_models[task] = ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "M-LSD":
             from controlnet_aux import MLSDdetector
             mlsd = MLSDdetector.from_pretrained('lllyasviel/ControlNet')
-            if controlnet_prefs['control_v'] == 'v1.1':
-                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
-            else:
-                controlnet_models[task] = ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_models[task] = ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Normal Map":
-            from transformers import pipeline
-            depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas")
-            if controlnet_prefs['control_v'] == 'v1.1':
-                controlnet_models[task] = ControlNetModel.from_pretrained(control_v11, subfolder=normal_checkpoint, torch_dtype=torch.float16).to(torch_device)
-            else:
-                controlnet_models[task] = ControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            #from transformers import pipeline
+            #depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas")
+            from controlnet_aux import NormalBaeDetector
+            normal = NormalBaeDetector.from_pretrained("lllyasviel/Annotators")
+            controlnet_models[task] = ControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Segmented":
             from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
             from controlnet_utils import ade_palette
             image_processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-small")
             image_segmentor = UperNetForSemanticSegmentation.from_pretrained("openmmlab/upernet-convnext-small")
             controlnet_models[task] = ControlNetModel.from_pretrained(seg_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "LineArt":
+            from controlnet_aux import LineartDetector
+            lineart = LineartDetector.from_pretrained("lllyasviel/Annotators")
+            controlnet_models[task] = ControlNetModel.from_pretrained(lineart_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Shuffle":
+            from controlnet_aux import ContentShuffleDetector
+            shuffle = ContentShuffleDetector()
+            controlnet_models[task] = ControlNetModel.from_pretrained(shuffle_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Instruct Pix2Pix":
+            controlnet_models[task] = ControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.float16).to(torch_device)
+
         return controlnet_models[task]
     width, height = 0, 0
     def prep_image(task, img):
-        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor
+        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
         nonlocal width, height
         if isinstance(img, str):
           if img.startswith('http'):
@@ -19115,7 +19103,7 @@ def run_controlnet(page, from_list=False):
             elif task == "Scribble":
                 original_img = hed(original_img, scribble=True)
             elif task == "OpenPose" or task == "Video OpenPose":
-                original_img = openpose(original_img)
+                original_img = openpose(original_img, hand_and_face=True)
             elif task == "Depth":
                 original_img = depth_estimator(original_img)['depth']
                 input_image = np.array(original_img)
@@ -19123,12 +19111,12 @@ def run_controlnet(page, from_list=False):
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
                 original_img = PILImage.fromarray(input_image)
             elif task == "HED":
-                original_img = hed(original_img)
+                original_img = hed(original_img, safe=True)
             elif task == "M-LSD":
                 original_img = mlsd(original_img)
             elif task == "Normal Map":
                 #depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas" )
-                original_img = depth_estimator(original_img)['predicted_depth'][0]
+                '''original_img = depth_estimator(original_img)['predicted_depth'][0]
                 input_image = original_img.numpy()
                 image_depth = input_image.copy()
                 image_depth -= np.min(image_depth)
@@ -19142,7 +19130,8 @@ def run_controlnet(page, from_list=False):
                 input_image = np.stack([x, y, z], axis=2)
                 input_image /= np.sum(input_image ** 2.0, axis=2, keepdims=True) ** 0.5
                 input_image = (input_image * 127.5 + 127.5).clip(0, 255).astype(np.uint8)
-                original_img = PILImage.fromarray(input_image)
+                original_img = PILImage.fromarray(input_image)'''
+                original_img = normal(original_img)
             elif task == "Segmented":
                 from controlnet_utils import ade_palette
                 pixel_values = image_processor(original_img, return_tensors="pt").pixel_values
@@ -19155,6 +19144,10 @@ def run_controlnet(page, from_list=False):
                     color_seg[seg == label, :] = color
                 color_seg = color_seg.astype(np.uint8)
                 original_img = PILImage.fromarray(color_seg)
+            elif task == "LineArt":
+                original_img = lineart(original_img)
+            elif task == "Shuffle":
+                original_img = shuffle(original_img)
             return original_img
         except Exception as e:
             #clear_last()
@@ -19363,7 +19356,7 @@ def run_controlnet(page, from_list=False):
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             num += 1
     autoscroll(False)
-    del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor
+    del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_text_to_video(page):
