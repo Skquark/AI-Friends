@@ -21530,7 +21530,7 @@ class SliderRow(UserControl):
             #e.control.update()
             #e.page.update()
         self.slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-        slider = Slider(min=self.min, max=self.max, divisions=self.divisions, label="{value}" + self.suffix, value=self.pref[self.key], tooltip=self.tooltip, expand=True, on_change=change_slider)
+        slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), label="{value}" + self.suffix, value=float(self.pref[self.key]), tooltip=self.tooltip, expand=True, on_change=change_slider)
         self.slider = slider
         self.slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
         slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
