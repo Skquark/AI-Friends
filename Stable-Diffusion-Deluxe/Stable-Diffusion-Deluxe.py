@@ -794,6 +794,13 @@ def initState(page):
       pyi_splash.update_text('Ready to get creative...')
       pyi_splash.close()
       #log.info('Splash screen closed.')
+    if prefs['scheduler_mode'] != "DDIM":
+      for eta in page.etas:
+        if isinstance(eta, SliderRow):
+          eta.show = False
+        else:
+          eta.visible = False
+          eta.update()
     if prefs['start_in_installation'] and current_tab == 0:
       page.tabs.selected_index = 1
       page.tabs.update()
@@ -1009,7 +1016,17 @@ def buildInstallers(page):
       diffusers_settings.update()
       status['changed_installers'] = True
   install_diffusers = Tooltip(message="Required Libraries for most Image Generation functionality", content=Switch(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_diffusers))
-
+  def change_scheduler(e):
+      show = e.control.value == "DDIM"
+      update = prefs['scheduler_mode'] == "DDIM" or show
+      changed(e, 'scheduler_mode')
+      if update:
+          for eta in page.etas:
+            if isinstance(eta, SliderRow):
+              eta.show = show
+            else:
+              eta.visible = show
+              eta.update()
   scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the noise", width=200,
             options=[
                 dropdown.Option("DDIM"),
@@ -1025,7 +1042,7 @@ def buildInstallers(page):
                 dropdown.Option("Heun Discrete"),
                 dropdown.Option("K-DPM2 Ancestral"),
                 dropdown.Option("K-DPM2 Discrete"),
-            ], value=prefs['scheduler_mode'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_mode'),
+            ], value=prefs['scheduler_mode'], autofocus=False, on_change=change_scheduler,
         )
   def changed_model_ckpt(e):
       changed(e, 'model_ckpt')
@@ -3982,6 +3999,7 @@ def buildAudioDiffusion(page):
         eta_row.update()
     steps_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=audio_diffusion_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(audio_diffusion_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    page.etas.append(eta)
     eta_value = Text(f" {audio_diffusion_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("DDIM ETA:"), eta_value, eta,])
     audio_model = Dropdown(label="Audio Model", width=400, options=[dropdown.Option("teticio/audio-diffusion-ddim-256"), dropdown.Option("teticio/audio-diffusion-breaks-256"), dropdown.Option("teticio/audio-diffusion-instrumental-hiphop-256"), dropdown.Option("teticio/latent-audio-diffusion-256"), dropdown.Option("teticio/latent-audio-diffusion-ddim-256"), dropdown.Option("teticio/conditional-latent-audio-diffusion-512")], value=audio_diffusion_prefs['audio_model'], on_change=lambda e: changed(e, 'audio_model'))
@@ -4496,6 +4514,7 @@ def buildRepainter(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(repaint_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {repaint_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
+    page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=repaint_prefs, key='max_size')
     page.repaint_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -4594,6 +4613,7 @@ def buildImageVariation(page):
     #eta = TextField(label="ETA", value=str(image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     eta_row = Row([Text("DDIM ETA: "), eta])
+    page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=image_variation_prefs, key='max_size')
     page.image_variation_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -5393,6 +5413,7 @@ def buildPaintByExample(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(paint_by_example_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {paint_by_example_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
+    page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=paint_by_example_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=paint_by_example_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=paint_by_example_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -5555,6 +5576,7 @@ def buildInstructPix2Pix(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(instruct_pix2pix_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {instruct_pix2pix_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
+    page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=instruct_pix2pix_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=instruct_pix2pix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=instruct_pix2pix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -5789,6 +5811,7 @@ def buildControlNet(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
+    page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_prefs, key='max_size')
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -7385,6 +7408,7 @@ def buildSemanticGuidance(page):
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(semantic_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {semantic_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, eta])
+    page.etas.append(eta_row)
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=semantic_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=semantic_prefs, key='height')
     batch_folder_name = TextField(label="Batch Folder Name", value=semantic_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -19028,15 +19052,17 @@ def run_controlnet(page, from_list=False):
         if controlnet_models[task] != None:
             return controlnet_models[task]
         if task == "Canny Map Edge" or task == "Video Canny Edge":
-            controlnet_models["Canny Map Edge"] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            task = "Canny Map Edge"
+            controlnet_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Scribble":
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
             controlnet_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "OpenPose" or task == "Video OpenPose":
+            task = "OpenPose"
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
-            controlnet_models["OpenPose"] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Depth":
             from transformers import pipeline
             depth_estimator = pipeline('depth-estimation')
@@ -21295,8 +21321,8 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         page.update()
 
     page.add(t)
+    initState(page)
     if not status['initialized']:
-        initState(page)
         status['initialized'] = True
     #page.add(ElevatedButton("Show Banner", on_click=show_banner_click))
     #page.add (Text ("Enhanced Stable Diffusion Deluxe by Skquark, Inc."))
