@@ -4754,10 +4754,10 @@ def buildUnCLIP(page):
         page.ESRGAN_block_unCLIP,
         Row([ElevatedButton(content=Text("🖇️   Get unCLIP Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP(page)), 
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP(page, from_list=True))]),
-        
-      ]
-    )), page.unCLIP_output,
+        page.unCLIP_output,
         clear_button,
+      ]
+    )),
     ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
@@ -4886,10 +4886,10 @@ def buildUnCLIP_ImageVariation(page):
         page.ESRGAN_block_unCLIP_image_variation,
         Row([ElevatedButton(content=Text("🦄   Get unCLIP Image Variation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_variation(page)), 
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_image_variation(page, from_list=True))]),
-        
-      ]
-    )), page.unCLIP_image_variation_output,
+        page.unCLIP_image_variation_output,
         clear_button,
+      ]
+    )), 
     ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
@@ -5004,9 +5004,10 @@ def buildUnCLIP_Interpolation(page):
         page.ESRGAN_block_unCLIP_interpolation,
         Row([ElevatedButton(content=Text("🎆   Get unCLIP Interpolations", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_interpolation(page))]),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_unCLIP_interpolation(page, from_list=True))]),
-      ]
-    )), page.unCLIP_interpolation_output,
+        page.unCLIP_interpolation_output,
         clear_button,
+      ]
+    )), 
     ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
@@ -5196,16 +5197,18 @@ def buildMagicMix(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def add_to_magic_mix_output(o):
-      page.magic_mix_output.controls.append(o)
-      page.magic_mix_output.update()
+      page.MagicMix.controls.append(o)
+      page.MagicMix.update()
       if not clear_button.visible:
         clear_button.visible = True
         clear_button.update()
     page.add_to_magic_mix_output = add_to_magic_mix_output
     def clear_output(e):
       if prefs['enable_sounds']: page.snd_delete.play()
-      page.magic_mix_output.controls = []
-      page.magic_mix_output.update()
+      for i, c in enumerate(page.MagicMix.controls):
+        if i == 0: continue
+        else: del page.MagicMix.controls[i]
+      page.MagicMix.update()
       clear_button.visible = False
       clear_button.update()
     def magic_mix_help(e):
@@ -5610,8 +5613,7 @@ def buildInstructPix2Pix(page):
              run_prompt_list]),
         page.instruct_pix2pix_output,
         clear_button,
-      ]
-    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+      ]))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 controlnet_prefs = {
@@ -9734,8 +9736,8 @@ def get_diffusers(page):
     
     from huggingface_hub import notebook_login, HfApi, HfFolder, login
     #from diffusers import StableDiffusionPipeline, logging
-    #from diffusers import logging
-    #logging.set_verbosity_error()
+    from diffusers import logging
+    logging.set_verbosity_error()
     if not os.path.exists(HfFolder.path_token):
         #from huggingface_hub.commands.user import _login
         #_login(HfApi(), token=prefs['HuggingFace_api_key'])
@@ -10956,7 +10958,8 @@ def get_ESRGAN(page):
     run_process("pip install gfpgan --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
     run_process(f"pip install -r requirements.txt --quiet", page=page, realtime=False, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
     run_process(f"python setup.py develop --quiet", page=page, realtime=False, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
-    run_process(f"wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P experiments/pretrained_models --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
+    run_process(f"wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth -P experiments/pretrained_models --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
+    #run_process(f"wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P experiments/pretrained_models --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
     os.chdir(root_dir)
 
 
@@ -11345,6 +11348,7 @@ def clear_controlnet_pipe():
     status['loaded_controlnet'] = None
     
 def clear_pipes(allbut=None):
+    if torch_device == "cpu": return
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
     if not 'txt2img' in but: clear_txt2img_pipe()
     if not 'img2img' in but: clear_img2img_pipe()
@@ -11387,9 +11391,11 @@ def clear_pipes(allbut=None):
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
-    torch.cuda.ipc_collect()
-    torch.cuda.reset_peak_memory_stats()
-
+    try:
+        torch.cuda.ipc_collect()
+        torch.cuda.reset_peak_memory_stats()
+    except Exception:
+        pass
 import base64
 def get_base64(image_path):
     with open(image_path, "rb") as img_file:
@@ -12139,7 +12145,8 @@ def start_diffusion(page):
                 size = pipe_attend_and_excite.unet.config.sample_size * pipe_attend_and_excite.vae_scale_factor
                 arg['width'] = size
                 arg['height'] = size
-                token_indices = words = []
+                token_indices = []
+                words = []
                 ptext = pr[0] if type(pr) == list else pr
                 ntext = arg['negative_prompt'][0] if type(arg['negative_prompt']) == list else arg['negative_prompt']
                 for ti, w in enumerate(ptext.split()):
@@ -12151,8 +12158,10 @@ def start_diffusion(page):
                     words.append(w)
                 ptext = ' '.join(words)
                 pr = [ptext * arg['batch_size']] if type(pr) == list else ptext
-                if token_indices < 1:
+                print(f"token_indices: {token_indices} | ptext: {ptext}")
+                if len(token_indices) < 1:
                   token_indices = pipe_attend_and_excite.get_indices(ptext)
+                print(f"indices: {token_indices}")
                 #, negative_prompt=arg['negative_prompt'], num_images_per_prompt=int(arg['batch_size'])
                 #images = pipe_attend_and_excite(prompt=ptext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 images = pipe_attend_and_excite(prompt=ptext, negative_prompt=ntext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), height=arg['height'], width=arg['width'], num_images_per_prompt=int(arg['batch_size']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -12321,7 +12330,7 @@ def start_diffusion(page):
           shutil.copy(fpath, dst_path)
           faceenhance = ' --face_enhance' if prefs["face_enhance"] else ''
           #python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {enlarge_scale}{faceenhance}
-          run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+          run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
           out_file = short_name.rpartition('.')[0] + '_out.png'
           #print(f'move {root_dir}Real-ESRGAN/{result_folder}/{out_file} to {fpath}')
           #shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
@@ -12515,7 +12524,7 @@ def start_diffusion(page):
         dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, fname)
         shutil.move(i, dst_path)
       faceenhance = ' --face_enhance' if prefs["face_enhance"] else ''
-      run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+      run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
       filenames = os.listdir(os.path.join(dist_dir, 'Real-ESRGAN', 'results'))
       for oname in filenames:
         fparts = oname.rpartition('_out')
@@ -13303,7 +13312,7 @@ def run_upscaling(page):
         split(img, rows, cols, dst_path, True)
     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
     faceenhance = ' --face_enhance' if face_enhance else ''
-    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i {upload_folder} --outscale {enlarge_scale}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i {upload_folder} --outscale {enlarge_scale}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
     os.chdir(root_dir)
     if is_Colab:
       from google.colab import files
@@ -13750,11 +13759,16 @@ def run_repainter(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.repaint_output.controls.append(line)
-      page.repaint_output.update()
+      page.RePainter.controls.append(line)
+      page.RePainter.update()
     def clear_last():
-      del page.repaint_output.controls[-1]
-      page.repaint_output.update()
+      del page.RePainter.controls[-1]
+      page.RePainter.update()
+    def autoscroll(scroll=True):
+      page.RePainter.auto_scroll = scroll
+      page.RePainter.update()
+    def clear_list():
+      page.RePainter.controls = page.RePainter.controls[:1]
     progress = ProgressBar(bar_height=8)
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
@@ -13765,6 +13779,8 @@ def run_repainter(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    autoscroll(True)
+    clear_list()
     prt(Installing("Installing RePaint Pipeline..."))
     import requests, random
     from io import BytesIO
@@ -13809,6 +13825,7 @@ def run_repainter(page):
       pipe_repaint = get_repaint_pipe()
     clear_last()
     prt("Generating Repaint of your Image...")
+    autoscroll(False)
     prt(progress)
     random_seed = int(repaint_prefs['seed']) if int(repaint_prefs['seed']) > 0 else random.randint(0,4294967295)
     generator = torch.Generator(device=torch_device).manual_seed(random_seed)
@@ -13830,6 +13847,7 @@ def run_repainter(page):
     out_path = image_path
     clear_last()
     clear_last()
+    autoscroll(True)
     prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
     #prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     #TODO: ESRGAN, Metadata & PyDrive
@@ -13842,6 +13860,7 @@ def run_repainter(page):
       out_path = new_file
       shutil.copy(image_path, new_file)
     prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_image_variation(page):
@@ -13852,11 +13871,16 @@ def run_image_variation(page):
     def prt(line):
       if type(line) == str:
         line = Text(line)
-      page.image_variation_output.controls.append(line)
-      page.image_variation_output.update()
+      page.ImageVariation.controls.append(line)
+      page.ImageVariation.update()
     def clear_last():
-      del page.image_variation_output.controls[-1]
-      page.image_variation_output.update()
+      del page.ImageVariation.controls[-1]
+      page.ImageVariation.update()
+    def autoscroll(scroll=True):
+      page.ImageVariation.auto_scroll = scroll
+      page.ImageVariation.update()
+    def clear_list():
+      page.ImageVariation.controls = page.ImageVariation.controls[:1]
     progress = ProgressBar(bar_height=8)
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
@@ -13866,9 +13890,8 @@ def run_image_variation(page):
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
-    page.image_variation_output.controls.clear()
-    page.ImageVariation.auto_scroll = True
-    page.ImageVariation.update()
+    autoscroll(True)
+    clear_list()
     from io import BytesIO
     from PIL import ImageOps
     if image_variation_prefs['init_image'].startswith('http'):
@@ -13908,6 +13931,7 @@ def run_image_variation(page):
         clear_last()
     s = "s" if image_variation_prefs['num_images'] > 1 else ""
     prt(f"Generating Variation{s} of your Image...")
+    autoscroll(False)
     prt(progress)
     random_seed = int(image_variation_prefs['seed']) if int(image_variation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     generator = torch.Generator(device=torch_device).manual_seed(random_seed)
@@ -13921,6 +13945,7 @@ def run_image_variation(page):
         return
     clear_last()
     clear_last()
+    autoscroll(True)
     fname = image_variation_prefs['init_image'].rpartition('.')[0]
     fname = fname.rpartition(slash)[2]
     if prefs['file_suffix_seed']: fname += f"-{random_seed}"
@@ -13942,17 +13967,23 @@ def run_image_variation(page):
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     page.ImageVariation.auto_scroll = False
     page.ImageVariation.update()
+    autoscroll(True)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_CLIPstyler(page):
     def prt(line):
       if type(line) == str:
         line = Text(line)
-      page.image2text_output.controls.append(line)
-      page.image2text_output.update()
+      page.CLIPstyler.controls.append(line)
+      page.CLIPstyler.update()
     def clear_last():
-      del page.image2text_output.controls[-1]
-      page.image2text_output.update()
+      del page.CLIPstyler.controls[-1]
+      page.CLIPstyler.update()
+    def autoscroll(scroll=True):
+      page.CLIPstyler.auto_scroll = scroll
+      page.CLIPstyler.update()
+    def clear_list():
+      page.CLIPstyler.controls = page.CLIPstyler.controls[:1]
     clipstyler_dir = os.path.join(root_dir, "CLIPstyler")
     if not os.path.exists(clipstyler_dir):
           os.mkdir(clipstyler_dir)
@@ -13979,6 +14010,8 @@ def run_CLIPstyler(page):
         alert_msg(page, "Couldn't find a valid File, Path or URL...")
         return
     progress = ProgressBar(bar_height=8)
+    autoscroll(True)
+    clear_list()
     prt(Installing("Downloading CLIP-Styler Packages..."))
     run_process("pip install ftfy regex tqdm", realtime=False, page=page)
     run_sp("pip install git+https://github.com/openai/CLIP.git", realtime=False)
@@ -14085,6 +14118,7 @@ def run_CLIPstyler(page):
                     'conv5_1': 1.6}
     clear_last()
     prt("Generating Stylized Image from your source... Check console output for progress.")
+    autoscroll(False)
     prt(progress)
 
     content_weight = style_args.lambda_c
@@ -14159,7 +14193,7 @@ def run_CLIPstyler(page):
         optimizer.zero_grad()
         total_loss.backward()
         optimizer.step()
-
+        autoscroll(True)
         if epoch % show_every == 0:
             prt("After %d iters:" % epoch)
             prt('  Total loss: ', total_loss.item())
@@ -14186,6 +14220,7 @@ def run_CLIPstyler(page):
         progress.update()
     #clear_last()
     # TODO: ESRGAN and copy to GDrive and Metadata
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_semantic(page):
@@ -14196,14 +14231,16 @@ def run_semantic(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.semantic_output.controls.append(line)
-      page.semantic_output.update()
+      page.SemanticGuidance.controls.append(line)
+      page.SemanticGuidance.update()
     def clear_last():
-      del page.semantic_output.controls[-1]
-      page.semantic_output.update()
+      del page.SemanticGuidance.controls[-1]
+      page.SemanticGuidance.update()
     def autoscroll(scroll=True):
       page.SemanticGuidance.auto_scroll = scroll
       page.SemanticGuidance.update()
+    def clear_list():
+      page.SemanticGuidance.controls = page.SemanticGuidance.controls[:1]
     progress = ProgressBar(bar_height=8)
     total_steps = semantic_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -14215,6 +14252,7 @@ def run_semantic(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
     autoscroll(True)
     prt(Installing("Installing Semantic Guidance Pipeline..."))
     
@@ -14297,7 +14335,7 @@ def run_semantic(page):
             shutil.copy(image_path, dst_path)
             #faceenhance = ' --face_enhance' if semantic_prefs["face_enhance"] else ''
             faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {semantic_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {semantic_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             image_path = upscaled_path
@@ -17467,16 +17505,21 @@ def run_unCLIP(page, from_list=False):
         if update:
           page.imageColumn.update()
       else:
-        page.unCLIP_output.controls.append(line)
+        page.unCLIP.controls.append(line)
         if update:
-          page.unCLIP_output.update()
+          page.unCLIP.update()
     def clear_last():
       if from_list:
         del page.imageColumn.controls[-1]
         page.imageColumn.update()
       else:
-        del page.unCLIP_output.controls[-1]
-        page.unCLIP_output.update()
+        del page.unCLIP.controls[-1]
+        page.unCLIP.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.unCLIP.controls = page.unCLIP.controls[:1]
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -17511,8 +17554,8 @@ def run_unCLIP(page, from_list=False):
         alert_msg(page, "You need to add a Text Prompt first... ")
         return
       unCLIP_prompts.append(unCLIP_prefs['prompt'])
-    page.unCLIP_output.controls.clear()
-    page.unCLIP_output.update()
+    autoscroll(True)
+    clear_list()
     from PIL.PngImagePlugin import PngInfo
     clear_pipes('unCLIP')
     torch.cuda.empty_cache()
@@ -17630,7 +17673,7 @@ def run_unCLIP(page, from_list=False):
                     shutil.copy(image_path, dst_path)
                     #faceenhance = ' --face_enhance' if unCLIP_prefs["face_enhance"] else ''
                     faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {unCLIP_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                     out_file = short_name.rpartition('.')[0] + '_out.png'
                     upscaled_path = os.path.join(out_path, output_file)
                     shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
@@ -17672,6 +17715,7 @@ def run_unCLIP(page, from_list=False):
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_prefs["enlarge_scale"]), height=512 * float(unCLIP_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_unCLIP_image_variation(page, from_list=False):
@@ -17687,16 +17731,21 @@ def run_unCLIP_image_variation(page, from_list=False):
         if update:
           page.imageColumn.update()
       else:
-        page.unCLIP_image_variation_output.controls.append(line)
+        page.UnCLIP_ImageVariation.controls.append(line)
         if update:
-          page.unCLIP_image_variation_output.update()
+          page.UnCLIP_ImageVariation.update()
     def clear_last():
       if from_list:
         del page.imageColumn.controls[-1]
         page.imageColumn.update()
       else:
-        del page.unCLIP_image_variation_output.controls[-1]
-        page.unCLIP_image_variation_output.update()
+        del page.UnCLIP_ImageVariation.controls[-1]
+        page.UnCLIP_ImageVariation.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.UnCLIP_ImageVariation.controls = page.UnCLIP_ImageVariation.controls[:1]
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -17729,7 +17778,8 @@ def run_unCLIP_image_variation(page, from_list=False):
         alert_msg(page, "You need to add a Initial Image first... ")
         return
       unCLIP_image_variation_inits.append(unCLIP_image_variation_prefs['init_image'])
-    page.unCLIP_image_variation_output.controls.clear()
+    autoscroll(True)
+    clear_list()
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
@@ -17817,7 +17867,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                     shutil.copy(image_path, dst_path)
                     #faceenhance = ' --face_enhance' if unCLIP_image_variation_prefs["face_enhance"] else ''
                     faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_image_variation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {unCLIP_image_variation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                     out_file = short_name.rpartition('.')[0] + '_out.png'
                     shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                     image_path = upscaled_path
@@ -17858,6 +17908,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                     shutil.copy(image_path, new_file)
                 time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_unCLIP_interpolation(page, from_list=False):
@@ -17883,6 +17934,11 @@ def run_unCLIP_interpolation(page, from_list=False):
       else:
         del page.unCLIP_interpolation_output.controls[-1]
         page.unCLIP_interpolation_output.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.unCLIP_Interpolation.controls = page.unCLIP_Interpolation.controls[:1]
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -17914,7 +17970,8 @@ def run_unCLIP_interpolation(page, from_list=False):
         alert_msg(page, "You need to add a Text Prompt first... ")
         return
       unCLIP_interpolation_prompts.append({'start_prompt': unCLIP_interpolation_prefs['prompt'], 'end_prompt':unCLIP_interpolation_prefs['end_prompt']})
-    page.unCLIP_interpolation_output.controls.clear()
+    autoscroll(True)
+    clear_list()
     from PIL.PngImagePlugin import PngInfo
     clear_pipes()#'unCLIP_interpolation')
     torch.cuda.empty_cache()
@@ -17998,7 +18055,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                     shutil.copy(image_path, dst_path)
                     #faceenhance = ' --face_enhance' if unCLIP_interpolation_prefs["face_enhance"] else ''
                     faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {unCLIP_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                     out_file = short_name.rpartition('.')[0] + '_out.png'
                     shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                     image_path = upscaled_path
@@ -18039,6 +18096,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_interpolation_prefs["enlarge_scale"]), height=512 * float(unCLIP_interpolation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_unCLIP_image_interpolation(page, from_list=False):
@@ -18054,16 +18112,21 @@ def run_unCLIP_image_interpolation(page, from_list=False):
         if update:
           page.imageColumn.update()
       else:
-        page.unCLIP_image_interpolation_output.controls.append(line)
+        page.UnCLIP_ImageInterpolation.controls.append(line)
         if update:
-          page.unCLIP_image_interpolation_output.update()
+          page.UnCLIP_ImageInterpolation.update()
     def clear_last():
       if from_list:
         del page.imageColumn.controls[-1]
         page.imageColumn.update()
       else:
-        del page.unCLIP_image_interpolation_output.controls[-1]
-        page.unCLIP_image_interpolation_output.update()
+        del page.UnCLIP_ImageInterpolation.controls[-1]
+        page.UnCLIP_ImageInterpolation.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.UnCLIP_ImageInterpolation.controls = page.UnCLIP_ImageInterpolation.controls[:1]
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -18096,7 +18159,8 @@ def run_unCLIP_image_interpolation(page, from_list=False):
         alert_msg(page, "You need to add a Initial and Ending Image first... ")
         return
       unCLIP_image_interpolation_inits.append({'init_image':unCLIP_image_interpolation_prefs['init_image'], 'end_image':unCLIP_image_interpolation_prefs['end_image']})
-    page.unCLIP_image_interpolation_output.controls.clear()
+    autoscroll(True)
+    clear_list()
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
@@ -18201,7 +18265,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
                 shutil.copy(image_path, dst_path)
                 #faceenhance = ' --face_enhance' if unCLIP_image_interpolation_prefs["face_enhance"] else ''
                 faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {unCLIP_image_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {unCLIP_image_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                 out_file = short_name.rpartition('.')[0] + '_out.png'
                 shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                 image_path = upscaled_path
@@ -18242,6 +18306,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
             num +=1
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -18258,16 +18323,21 @@ def run_magic_mix(page, from_list=False):
         if update:
           page.imageColumn.update()
       else:
-        page.magic_mix_output.controls.append(line)
+        page.MagicMix.controls.append(line)
         if update:
-          page.magic_mix_output.update()
+          page.MagicMix.update()
     def clear_last():
       if from_list:
         del page.imageColumn.controls[-1]
         page.imageColumn.update()
       else:
-        del page.magic_mix_output.controls[-1]
-        page.magic_mix_output.update()
+        del page.MagicMix.controls[-1]
+        page.MagicMix.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.MagicMix.controls = page.MagicMix.controls[:1]
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -18303,7 +18373,8 @@ def run_magic_mix(page, from_list=False):
       page.tabs.selected_index = 4
       page.tabs.update()
     else:
-      page.magic_mix_output.controls.clear()
+      clear_list()
+    autoscroll(True)
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
@@ -18412,7 +18483,7 @@ def run_magic_mix(page, from_list=False):
                 shutil.copy(image_path, dst_path)
                 #faceenhance = ' --face_enhance' if magic_mix_prefs["face_enhance"] else ''
                 faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {magic_mix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {magic_mix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                 out_file = short_name.rpartition('.')[0] + '_out.png'
                 shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                 image_path = upscaled_path
@@ -18455,6 +18526,7 @@ def run_magic_mix(page, from_list=False):
                 shutil.copy(image_path, new_file)
             time.sleep(0.2)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_paint_by_example(page):
@@ -18471,11 +18543,16 @@ def run_paint_by_example(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.paint_by_example_output.controls.append(line)
-      page.paint_by_example_output.update()
+      page.PaintByExample.controls.append(line)
+      page.PaintByExample.update()
     def clear_last():
-      del page.paint_by_example_output.controls[-1]
-      page.paint_by_example_output.update()
+      del page.PaintByExample.controls[-1]
+      page.PaintByExample.update()
+    def autoscroll(scroll=True):
+      page.PaintByExample.auto_scroll = scroll
+      page.PaintByExample.update()
+    def clear_list():
+      page.PaintByExample.controls = page.PaintByExample.controls[:1]
     progress = ProgressBar(bar_height=8)
     total_steps = paint_by_example_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -18487,6 +18564,8 @@ def run_paint_by_example(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    autoscroll(True)
+    clear_list()
     prt(Installing("Installing Paint-by-Example Pipeline..."))
     import requests, random
     from io import BytesIO
@@ -18551,6 +18630,7 @@ def run_paint_by_example(page):
       pipe_paint_by_example = pipe_paint_by_example.to("cpu")
     clear_last()
     prt("Generating Paint-by-Example of your Image... (slow because it uses CPU instead of GPU)")
+    autoscroll(False)
     prt(progress)
     batch_output = os.path.join(stable_dir, paint_by_example_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
@@ -18601,7 +18681,7 @@ def run_paint_by_example(page):
             shutil.copy(image_path, dst_path)
             #faceenhance = ' --face_enhance' if paint_by_example_prefs["face_enhance"] else ''
             faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {paint_by_example_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {paint_by_example_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             image_path = upscaled_path
@@ -18644,6 +18724,7 @@ def run_paint_by_example(page):
         time.sleep(0.2)
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1
+    autoscroll(True)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -18669,16 +18750,18 @@ def run_instruct_pix2pix(page, from_list=False):
         if update:
           page.imageColumn.update()
       else:
-        page.instruct_pix2pix_output.controls.append(line)
+        page.InstructPix2Pix.controls.append(line)
         if update:
-          page.instruct_pix2pix_output.update()
+          page.InstructPix2Pix.update()
     def clear_last():
       if from_list:
+        if len(page.imageColumn.controls) == 0: return
         del page.imageColumn.controls[-1]
         page.imageColumn.update()
       else:
-        del page.instruct_pix2pix_output.controls[-1]
-        page.instruct_pix2pix_output.update()
+        if len(page.InstructPix2Pix.controls) == 1: return
+        del page.InstructPix2Pix.controls[-1]
+        page.InstructPix2Pix.update()
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -18697,6 +18780,11 @@ def run_instruct_pix2pix(page, from_list=False):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.InstructPix2Pix.controls = page.InstructPix2Pix.controls[:1]
     instruct_pix2pix_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -18707,14 +18795,15 @@ def run_instruct_pix2pix(page, from_list=False):
         instruct_pix2pix_prompts.append(instruct)
       page.tabs.selected_index = 4
       page.tabs.update()
-      page.instruct_pix2pix_output.controls.clear()
     else:
       if not bool(instruct_pix2pix_prefs['prompt']):
         alert_msg(page, "You need to add a Text Prompt first... ")
         return
       instruct = {'prompt':instruct_pix2pix_prefs['prompt'], 'negative_prompt': instruct_pix2pix_prefs['negative_prompt'], 'original_image': instruct_pix2pix_prefs['original_image'], 'seed': instruct_pix2pix_prefs['seed']}
       instruct_pix2pix_prompts.append(instruct)
-      page.instruct_pix2pix_output.controls.clear()
+    autoscroll(True)
+    clear_list()
+    prt(Divider(thickness=2, height=4))
     prt(Installing("Installing Instruct-Pix2Pix Pipeline..."))
     import requests, random
     from io import BytesIO
@@ -18871,7 +18960,7 @@ def run_instruct_pix2pix(page, from_list=False):
                 shutil.copy(image_path, dst_path)
                 #faceenhance = ' --face_enhance' if instruct_pix2pix_prefs["face_enhance"] else ''
                 faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {instruct_pix2pix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {instruct_pix2pix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                 out_file = short_name.rpartition('.')[0] + '_out.png'
                 shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                 image_path = upscaled_path
@@ -18935,18 +19024,28 @@ def run_controlnet(page, from_list=False):
         if update:
           page.imageColumn.update()
       else:
-        page.controlnet_output.controls.append(line)
+        page.ControlNet.controls.append(line)
+        #page.controlnet_output.controls.append(line)
         if update:
-          page.controlnet_output.update()
+          page.ControlNet.update()
+          #page.controlnet_output.update()
     def clear_last():
       if from_list:
         if len(page.imageColumn.controls) == 0: return
         del page.imageColumn.controls[-1]
         page.imageColumn.update()
       else:
-        if len(page.controlnet_output.controls) == 0: return
-        del page.controlnet_output.controls[-1]
-        page.controlnet_output.update()
+        if len(page.ControlNet.controls) == 1: return
+        del page.ControlNet.controls[-1]
+        page.ControlNet.update()
+        #if len(page.controlnet_output.controls) == 0: return
+        #del page.controlnet_output.controls[-1]
+        #page.controlnet_output.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.ControlNet.controls = page.ControlNet.controls[:1]
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -18973,7 +19072,7 @@ def run_controlnet(page, from_list=False):
         controlnet_prompts.append(control)
       page.tabs.selected_index = 4
       page.tabs.update()
-      page.controlnet_output.controls.clear()
+      #page.controlnet_output.controls.clear()
     else:
       if not bool(controlnet_prefs['prompt']):
         alert_msg(page, "You need to add a Text Prompt first... ")
@@ -18993,8 +19092,9 @@ def run_controlnet(page, from_list=False):
         control['end_time'] = controlnet_prefs['end_time']
         control['fps'] = controlnet_prefs['fps']
       controlnet_prompts.append(control)
-      page.controlnet_output.controls.clear()
+      #page.controlnet_output.controls.clear()
     autoscroll(True)
+    clear_list()
     prt(Divider(thickness=2, height=4))
     prt(Installing("Installing ControlNet Packages..."))
     if status['loaded_controlnet'] == controlnet_prefs["control_task"]:
@@ -19120,9 +19220,9 @@ def run_controlnet(page, from_list=False):
           #print(f"Size: {width}x{height}")
           original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
         #return original_img
-        #input_image = np.array(original_img)
         try:
             if task == "Canny Map Edge" or task == "Video Canny Edge":
+                input_image = np.array(original_img)
                 input_image = cv2.Canny(input_image, controlnet_prefs['low_threshold'], controlnet_prefs['high_threshold'])
                 input_image = input_image[:, :, None]
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
@@ -19339,7 +19439,7 @@ def run_controlnet(page, from_list=False):
                 shutil.copy(image_path, dst_path)
                 #faceenhance = ' --face_enhance' if controlnet_prefs["face_enhance"] else ''
                 faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {controlnet_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {controlnet_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                 out_file = short_name.rpartition('.')[0] + '_out.png'
                 shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                 image_path = upscaled_path
@@ -19394,16 +19494,18 @@ def run_text_to_video(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.text_to_video_output.controls.append(line)
-      page.text_to_video_output.update()
+      page.TextToVideo.controls.append(line)
+      page.TextToVideo.update()
     def clear_last():
-      del page.text_to_video_output.controls[-1]
-      page.text_to_video_output.update()
+      del page.TextToVideo.controls[-1]
+      page.TextToVideo.update()
+    def clear_list():
+      page.TextToVideo.controls = page.TextToVideo.controls[:1]
     def autoscroll(scroll=True):
       page.TextToVideo.auto_scroll = scroll
       page.TextToVideo.update()
-      page.text_to_video_output.auto_scroll = scroll
-      page.text_to_video_output.update()
+      page.TextToVideo.auto_scroll = scroll
+      page.TextToVideo.update()
     progress = ProgressBar(bar_height=8)
     total_steps = text_to_video_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -19415,7 +19517,7 @@ def run_text_to_video(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
-    page.text_to_video_output.controls.clear()
+    clear_list()
     autoscroll(True)
     prt(Installing("Installing Text-To-Video Pipeline..."))
     model_id = "damo-vilab/text-to-video-ms-1.7b"
@@ -19514,7 +19616,7 @@ def run_text_to_video(page):
             shutil.copy(image_path, dst_path)
             #faceenhance = ' --face_enhance' if text_to_video_prefs["face_enhance"] else ''
             faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {text_to_video_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {text_to_video_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             image_path = upscaled_path
@@ -19568,16 +19670,18 @@ def run_text_to_video_zero(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.text_to_video_zero_output.controls.append(line)
-      page.text_to_video_zero_output.update()
+      page.TextToVideo.controls.append(line)
+      page.TextToVideo.update()
     def clear_last():
-      del page.text_to_video_zero_output.controls[-1]
-      page.text_to_video_zero_output.update()
+      del page.TextToVideo.controls[-1]
+      page.TextToVideo.update()
+    def clear_list():
+      page.ImageVariation.controls = page.ImageVariation.controls[:1]
     def autoscroll(scroll=True):
       page.TextToVideo.auto_scroll = scroll
       page.TextToVideo.update()
-      page.text_to_video_zero_output.auto_scroll = scroll
-      page.text_to_video_zero_output.update()
+      page.TextToVideo.auto_scroll = scroll
+      page.TextToVideo.update()
     progress = ProgressBar(bar_height=8)
     total_steps = text_to_video_zero_prefs['num_inference_steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -19589,7 +19693,7 @@ def run_text_to_video_zero(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
-    page.text_to_video_zero_output.controls.clear()
+    clear_list()
     autoscroll(True)
     prt(Installing("Installing Text-To-Video Zero Pipeline..."))
     import cv2
@@ -19704,7 +19808,7 @@ def run_text_to_video_zero(page):
             shutil.copy(image_path, dst_path)
             #faceenhance = ' --face_enhance' if text_to_video_zero_prefs["face_enhance"] else ''
             faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {text_to_video_zero_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {text_to_video_zero_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
             image_path = upscaled_path
@@ -19761,11 +19865,16 @@ def run_materialdiffusion(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.materialdiffusion_output.controls.append(line)
-      page.materialdiffusion_output.update()
+      page.MaterialDiffusion.controls.append(line)
+      page.MaterialDiffusion.update()
     def clear_last():
-      del page.materialdiffusion_output.controls[-1]
-      page.materialdiffusion_output.update()
+      del page.MaterialDiffusion.controls[-1]
+      page.MaterialDiffusion.update()
+    def clear_list():
+      page.MaterialDiffusion.controls = page.MaterialDiffusion.controls[:1]
+    def autoscroll(scroll=True):
+      page.MaterialDiffusion.auto_scroll = scroll
+      page.MaterialDiffusion.update()
     progress = ProgressBar(bar_height=8)
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
@@ -19776,6 +19885,8 @@ def run_materialdiffusion(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
+    autoscroll(True)
     try:
       run_sp("pip install git+https://github.com/TomMoore515/material_stable_diffusion.git@main#egg=predict", realtime=True)
     except Exception as e:
@@ -19832,6 +19943,7 @@ def run_materialdiffusion(page):
     clear_pipes()
     clear_last()
     prt("Generating your Material Diffusion Image...")
+    autoscroll(False)
     prt(progress)
     random_seed = int(materialdiffusion_prefs['seed']) if int(materialdiffusion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     try:
@@ -19843,9 +19955,10 @@ def run_materialdiffusion(page):
         return
     clear_last()
     clear_last()
+    autoscroll(True)
     txt2img_output = stable_dir
     batch_output = prefs['image_output']
-    print(str(images))
+    #print(str(images))
     if images is None:
         prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
         return
@@ -19898,7 +20011,7 @@ def run_materialdiffusion(page):
             #faceenhance = ' --face_enhance' if materialdiffusion_prefs["face_enhance"] else ''
             faceenhance = ''
             #python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {enlarge_scale}{faceenhance}
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {materialdiffusion_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {materialdiffusion_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             #print(f'move {root_dir}Real-ESRGAN/{result_folder}/{out_file} to {fpath}')
             #shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
@@ -19913,6 +20026,7 @@ def run_materialdiffusion(page):
             shutil.copy(image_path, os.path.join(out_path, new_file))
         # TODO: Add Metadata
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_DiT(page, from_list=False):
@@ -19923,15 +20037,15 @@ def run_DiT(page, from_list=False):
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
-      page.DiT_output.controls.append(line)
+      page.DiT.controls.append(line)
       if update:
-        page.DiT_output.update()
+        page.DiT.update()
     def clear_last():
-      del page.DiT_output.controls[-1]
-      page.DiT_output.update()
+      del page.DiT.controls[-1]
+      page.DiT.update()
+    def clear_list():
+      page.DiT.controls = page.DiT.controls[:1]
     def autoscroll(scroll=True):
-      page.DiT_output.auto_scroll = scroll
-      page.DiT_output.update()
       page.DiT.auto_scroll = scroll
       page.DiT.update()
     progress = ProgressBar(bar_height=8)
@@ -19956,7 +20070,8 @@ def run_DiT(page, from_list=False):
         alert_msg(page, "You need to add a Text Prompt first... ")
         return
       DiT_prompts.append(DiT_prefs['prompt'])
-    page.DiT_output.controls.clear()
+    clear_list()
+    autoscroll(True)
     from PIL.PngImagePlugin import PngInfo
     clear_pipes('DiT')
     torch.cuda.empty_cache()
@@ -20037,7 +20152,7 @@ def run_DiT(page, from_list=False):
                     shutil.copy(image_path, dst_path)
                     #faceenhance = ' --face_enhance' if DiT_prefs["face_enhance"] else ''
                     faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {DiT_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {DiT_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                     out_file = short_name.rpartition('.')[0] + '_out.png'
                     shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
                     image_path = upscaled_path
@@ -20077,6 +20192,7 @@ def run_DiT(page, from_list=False):
                     shutil.copy(image_path, new_file)
                 time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def get_dreamfusion(page):
@@ -20484,11 +20600,16 @@ def run_dall_e(page, from_list=False):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.dall_e_output.controls.append(line)
-      page.dall_e_output.update()
+      page.DallE2.controls.append(line)
+      page.DallE2.update()
     def clear_last():
-      del page.dall_e_output.controls[-1]
-      page.dall_e_output.update()
+      del page.DallE2.controls[-1]
+      page.DallE2.update()
+    def autoscroll(scroll=True):
+      page.DallE2.auto_scroll = scroll
+      page.DallE2.update()
+    def clear_list():
+      page.DallE2.controls = page.DallE2.controls[:1]
     progress = ProgressBar(bar_height=8)
     try:
         import openai
@@ -20519,7 +20640,8 @@ def run_dall_e(page, from_list=False):
             return
     else:
         dall_e_list.append({'prompt': dall_e_prefs['prompt'], 'init_image': dall_e_prefs['init_image'], 'mask_image': dall_e_prefs['mask_image']})
-    
+    clear_list()
+    autoscroll(True)
     for p in dall_e_list:
         init_image = p['init_image']
         mask_image = p['mask_image']
@@ -20557,6 +20679,7 @@ def run_dall_e(page, from_list=False):
         #print(f'Resize to {width}x{height}')
         #clear_pipes()
         prt("Generating your Dall-E 2 Image...")
+        autoscroll(False)
         prt(progress)
 
         try:
@@ -20575,6 +20698,7 @@ def run_dall_e(page, from_list=False):
             return
         clear_last()
         clear_last()
+        autoscroll(True)
         txt2img_output = stable_dir
         batch_output = prefs['image_output']
         #print(str(images))
@@ -20633,7 +20757,7 @@ def run_dall_e(page, from_list=False):
                 #shutil.move(fpath, dst_path)
                 shutil.copy(image_path, dst_path)
                 faceenhance = ' --face_enhance' if dall_e_prefs["face_enhance"] else ''
-                run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
                 out_file = short_name.rpartition('.')[0] + '_out.png'
                 upscaled_path = new_path
                 shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
@@ -20647,6 +20771,7 @@ def run_dall_e(page, from_list=False):
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
             # TODO: Add Metadata
             prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 loaded_kandinsky_task = ""
@@ -20661,13 +20786,19 @@ def run_kandinsky(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.kandinsky_output.controls.append(line)
-      page.kandinsky_output.update()
+      page.Kandinsky.controls.append(line)
+      page.Kandinsky.update()
     def clear_last():
-      del page.kandinsky_output.controls[-1]
-      page.kandinsky_output.update()
-    page.kandinsky_output.controls.clear()
+      del page.Kandinsky.controls[-1]
+      page.Kandinsky.update()
+    def autoscroll(scroll=True):
+      page.Kandinsky.auto_scroll = scroll
+      page.Kandinsky.update()
+    def clear_list():
+      page.Kandinsky.controls = page.Kandinsky.controls[:1]
     progress = ProgressBar(bar_height=8)
+    clear_list()
+    autoscroll(True)
     prt(Installing("Installing Kandinsky 2.1 Engine & Models... See console log for progress."))
     clear_pipes("kandinsky")
     '''try:
@@ -20751,6 +20882,7 @@ def run_kandinsky(page):
         clear_pipes('kandinsky')
     clear_last()
     prt("Generating your Kandinsky 2.1 Image...")
+    autoscroll(False)
     prt(progress)
 
     try:
@@ -20773,6 +20905,7 @@ def run_kandinsky(page):
         return
     clear_last()
     clear_last()
+    autoscroll(True)
     txt2img_output = stable_dir
     batch_output = prefs['image_output']
     #print(str(images))
@@ -20821,7 +20954,7 @@ def run_kandinsky(page):
             #shutil.move(fpath, dst_path)
             shutil.copy(image_path, dst_path)
             faceenhance = ' --face_enhance' if kandinsky_prefs["face_enhance"] else ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {kandinsky_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {kandinsky_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             upscaled_path = os.path.join(out_path, new_file)
             shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
@@ -20834,6 +20967,7 @@ def run_kandinsky(page):
             shutil.copy(image_path, os.path.join(out_path, new_file))
         # TODO: Add Metadata
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_kandinsky_fuse(page):
@@ -20847,13 +20981,19 @@ def run_kandinsky_fuse(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.kandinsky_fuse_output.controls.append(line)
-      page.kandinsky_fuse_output.update()
+      page.KandinskyFuse.controls.append(line)
+      page.KandinskyFuse.update()
     def clear_last():
-      del page.kandinsky_fuse_output.controls[-1]
-      page.kandinsky_fuse_output.update()
-    page.kandinsky_fuse_output.controls.clear()
+      del page.KandinskyFuse.controls[-1]
+      page.KandinskyFuse.update()
+    def autoscroll(scroll=True):
+      page.KandinskyFuse.auto_scroll = scroll
+      page.KandinskyFuse.update()
+    def clear_list():
+      page.KandinskyFuse.controls = page.KandinskyFuse.controls[:1]
     progress = ProgressBar(bar_height=8)
+    clear_list()
+    autoscroll(True)
     prt(Installing("Installing Kandinsky 2.1 Engine & Models... See console log for progress."))
     clear_pipes("kandinsky")
     try:
@@ -20909,6 +21049,7 @@ def run_kandinsky_fuse(page):
         clear_pipes("kandinsky")
     clear_last()
     prt("Generating your Kandinsky 2.1 Fused Image...")
+    autoscroll(False)
     prt(progress)
 
     try:
@@ -20920,6 +21061,7 @@ def run_kandinsky_fuse(page):
         return
     clear_last()
     clear_last()
+    autoscroll(True)
     txt2img_output = stable_dir
     batch_output = prefs['image_output']
     #print(str(images))
@@ -20969,7 +21111,7 @@ def run_kandinsky_fuse(page):
             #shutil.move(fpath, dst_path)
             shutil.copy(image_path, dst_path)
             faceenhance = ' --face_enhance' if kandinsky_fuse_prefs["face_enhance"] else ''
-            run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {kandinsky_fuse_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {kandinsky_fuse_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
             out_file = short_name.rpartition('.')[0] + '_out.png'
             upscaled_path = os.path.join(out_path, new_file)
             shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
@@ -20982,25 +21124,31 @@ def run_kandinsky_fuse(page):
             shutil.copy(image_path, os.path.join(out_path, new_file))
         # TODO: Add Metadata
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_deep_daze(page):
     global deep_daze_prefs, status
     #https://colab.research.google.com/drive/1_YOHdORb0Fg1Q7vWZ_KlrtFe9Ur3pmVj?usp=sharing#scrollTo=6IPQ_rdA2Sa7
     def add_to_deep_daze_output(o):
-      page.deep_daze_output.controls.append(o)
-      page.deep_daze_output.update()
+      page.DeepDaze.controls.append(o)
+      page.DeepDaze.update()
     def prt(line):
       if type(line) == str:
         line = Text(line)
-      page.deep_daze_output.controls.append(line)
-      page.deep_daze_output.update()
+      page.DeepDaze.controls.append(line)
+      page.DeepDaze.update()
     def clear_last():
       #page.deep_daze_output.controls = []
-      del page.deep_daze_output.controls[-1]
-      page.deep_daze_output.update()
-    page.deep_daze_output.controls = []
-    page.deep_daze_output.update()
+      del page.DeepDaze.controls[-1]
+      page.DeepDaze.update()
+    def autoscroll(scroll=True):
+      page.DeepDaze.auto_scroll = scroll
+      page.DeepDaze.update()
+    def clear_list():
+      page.DeepDaze.controls = page.DeepDaze.controls[:1]
+    clear_list()
+    autoscroll(True)
     progress = ProgressBar(bar_height=8, expand=True)
     total_steps = deep_daze_prefs['iterations']
     def callback_fnc(step: int) -> None:
@@ -21030,6 +21178,7 @@ def run_deep_daze(page):
     def abort_daze(e):
         nonlocal abort_run
         abort_run = True
+        autoscroll(False)
         page.snd_error.play()
         page.snd_delete.play()
     pipe_deep_daze = Imagine(
@@ -21043,6 +21192,7 @@ def run_deep_daze(page):
     )
     clear_last()
     prt("    Dreaming up your DeepDaze Image...")
+    autoscroll(False)
     prt(Row([progress, IconButton(icon=icons.CANCEL, tooltip="Abort Daze & Save Progress", on_click=abort_daze)], alignment=MainAxisAlignment.SPACE_BETWEEN))
     #filename = format_filename(deep_daze_prefs['prompt'])
     filename = deep_daze_prefs['prompt'].replace(' ', '_')
@@ -21083,8 +21233,7 @@ def run_deep_daze(page):
     clear_last()
     clear_last()
     clear_last()
-    page.DeepDaze.auto_scroll = True
-    page.DeepDaze.update()
+    autoscroll(True)
     if not deep_daze_prefs['display_upscaled_image'] or not deep_daze_prefs['apply_ESRGAN_upscale']:
         prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
         #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -21105,7 +21254,7 @@ def run_deep_daze(page):
         shutil.copy(image_path, dst_path)
         #faceenhance = ' --face_enhance' if deep_daze_prefs["face_enhance"] else ''
         faceenhance = ''
-        run_sp(f'python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {deep_daze_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+        run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {deep_daze_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
         out_file = short_name.rpartition('.')[0] + '_out.png'
         upscaled_path = os.path.join(out_path, output_file)
         shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
@@ -21155,6 +21304,7 @@ def run_deep_daze(page):
     del pipe_deep_daze
     gc.collect()
     torch.cuda.empty_cache()
+    autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -21217,15 +21367,15 @@ def main(page: Page):
     def close_credits_dlg(e):
         credits_dlg.open = False
         page.update()
-    credits_markdown = '''This notebook is an Open-Source side project by [Skquark, Inc.](https://Skquark.com), primarily created by Alan Bedian for fun and full-feature functionality.
+    credits_markdown = '''This toolkit is an Open-Source side project by [Skquark, Inc.](https://Skquark.com), primarily created by Alan Bedian for fun and full-feature functionality.
 
-The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the Diffusers Pipeline. The HuggingFace Diffusers team includes Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj & Thomas Wolf.
+The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the [Diffusers Pipelines](https://github.com/huggingface/diffusers). The HuggingFace Diffusers team includes Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj & Thomas Wolf.
 
 For the great app UI framework, we thank [Flet](https://Flet.dev) with the amazing Flutter based Python library with a very functional dev platform that made this possible.
 
 For the brains behind our Prompt Helpers, we thank our friend [OpenAI GPT-3](https://beta.OpenAI.com), [Bloom-AI](https://huggingface.co/bigscience/bloom) and [TextSynth](https://TextSynth.com) for making an AI so fun to talk to and use.
 
-Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVbAfm), [Stable Diffusion](https://discord.gg/stablediffusion), and [Flet](https://discord.gg/nFqy742h) for their support and user contributions.'''
+Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVbAfm), [Stable Diffusion](https://discord.gg/stablediffusion), [HuggingFace](https://discord.gg/hugging-face-879548962464493619) and [Flet](https://discord.gg/nFqy742h) for their support and user contributions.'''
     credits_dlg = AlertDialog(
         title=Text("🙌   Credits/Acknowledgments"), content=Column([Markdown(credits_markdown, extension_set="gitHubWeb", on_tap_link=open_url)
         ], scroll=ScrollMode.AUTO),
@@ -21606,7 +21756,7 @@ class Installing(UserControl):
         self.message = message
         self.build()
     def build(self):
-        return Row([Container(content=None, width=8), ProgressRing(), Container(content=None, width=1), Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)])
+        return Container(content=Row([ProgressRing(), Container(content=None, width=1), Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)]), padding=padding.only(left=9, bottom=4))
 
 ''' Sample alt Object format
 class Component(UserControl):
@@ -21632,13 +21782,15 @@ class Main:
         self.page.update()
 main = Main()'''
 
-port = 8502
+port = 80
 if tunnel_type == "ngrok":
   #if bool(url):
   #  public_url = url
   #else:
-    from pyngrok import ngrok
-    public_url = ngrok.connect(port = str(port)).public_url
+    from pyngrok import conf, ngrok
+    conf.get_default().ngrok_version = "v3"
+    #public_url = ngrok.connect(port = str(port)).public_url
+    public_url = ngrok.connect(port).public_url
 elif tunnel_type == "localtunnel":
   if False:
   #if bool(url):
