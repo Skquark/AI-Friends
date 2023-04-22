@@ -1214,6 +1214,7 @@ def buildInstallers(page):
   
   
   def run_installers(e):
+      global force_updates
       def console_clear():
         page.banner.content.controls = []
         page.update()
@@ -1466,6 +1467,7 @@ def buildInstallers(page):
       update_parameters(page)
       page.Parameters.controls[0].content.update()
       #page.Parameters.updater()
+      force_updates = False
       if current_tab==1:
         page.Installers.controls[0].content.update()
         page.Installers.update()
@@ -2691,7 +2693,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI", 
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -7699,6 +7701,9 @@ textualinversion_prefs = {
     'gradient_accumulation_steps': 4,
     'seed': 22276,
     'repeats': 100,
+    'validation_prompt': '',
+    'validation_steps': 1,
+    'num_vectors': 2,
     'output_dir': os.path.join(root_dir, "sd-concept-output"),
     'learning_rate': 5e-04,
     'name_of_your_concept': "",
@@ -7849,8 +7854,11 @@ def buildTextualInversion(page):
     what_to_teach = Dropdown(label="What to Teach", width=250, options=[dropdown.Option("object"), dropdown.Option("style")], value=textualinversion_prefs['what_to_teach'], on_change=lambda e: changed(e, 'what_to_teach'))
     placeholder_token = TextField(label="Placeholder <Token> Keyword", value=textualinversion_prefs['placeholder_token'], on_change=lambda e:changed(e,'placeholder_token'))
     initializer_token = TextField(label="Initializer Token Category Summary", value=textualinversion_prefs['initializer_token'], on_change=lambda e:changed(e,'initializer_token'))
-    scale_lr = Checkbox(label="Scale Learning Rate", tooltip="", value=textualinversion_prefs['scale_lr'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'scale_lr'))
+    validation_prompt = TextField(label="Validation <Token> Prompt", value=textualinversion_prefs['validation_prompt'], on_change=lambda e:changed(e,'validation_prompt'))
     gradient_accumulation_steps = TextField(label="Gradient Accumulation Steps", value=textualinversion_prefs['gradient_accumulation_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'gradient_accumulation_steps', ptype='int'), width = 160)
+    scale_lr = Checkbox(label="Scale Learning Rate", tooltip="", value=textualinversion_prefs['scale_lr'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'scale_lr'))
+    validation_steps = TextField(label="Validation Steps", value=textualinversion_prefs['validation_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'validation_steps', ptype='int'), width = 145)
+    num_vectors = TextField(label="Number of Vectors", value=textualinversion_prefs['num_vectors'], tooltip="How many textual inversion vectors shall be used to learn the concept.", keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_vectors', ptype='int'), width = 145)
     repeats = TextField(label="Repeats", value=textualinversion_prefs['repeats'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'repeats', ptype='int'), width = 160)
     train_batch_size = TextField(label="Train Batch Size", value=textualinversion_prefs['train_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'train_batch_size', ptype='float'), width = 160)
     max_train_steps = TextField(label="Max Training Steps", value=textualinversion_prefs['max_train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160)
@@ -7878,6 +7886,7 @@ def buildTextualInversion(page):
         Header("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", "Provide a collection of images to conceptualize. Warning: May take over an hour to run the training...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)]),
         Row([what_to_teach, initializer_token]),
         Row([placeholder_token, name_of_your_concept]),
+        Row([validation_prompt, validation_steps, num_vectors]),
         scale_lr,
         Row([gradient_accumulation_steps, repeats, train_batch_size]),
         Row([max_train_steps, learning_rate, seed]),
@@ -9420,6 +9429,8 @@ pipe_text_to_video = None
 pipe_text_to_video_zero = None
 pipe_gpt2 = None
 pipe_distil_gpt2 = None
+pipe_stable_lm = None
+tokenizer_stable_lm = None
 pipe_controlnet = None
 controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
@@ -9658,6 +9669,7 @@ def get_diffusers(page):
     if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
         try:
             import xformers
+            if force_updates: raise ImportError("Forcing update")
         except ModuleNotFoundError:
             page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
             run_process("pip install --pre -U triton", page=page)
@@ -9701,6 +9713,7 @@ def get_diffusers(page):
     except ModuleNotFoundError as e:#ModuleNotFoundError as e:'''
     try:
         import diffusers
+        if force_updates: raise ImportError("Forcing update")
     except Exception:
         run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         pass
@@ -9885,7 +9898,7 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
         num_train_timesteps=1000,
         trained_betas=None,
         #predict_epsilon=True,
-        prediction_type="v_prediction" if model.startswith('stabilityai') else "epsilon",
+        prediction_type="v_prediction" if p.model.startswith('stabilityai') else "epsilon",
         thresholding=False,
         algorithm_type="dpmsolver++",
         solver_type="midpoint",
@@ -10049,7 +10062,7 @@ def install_xformers(page):
 
 def get_text2image(page):
     os.chdir(root_dir)
-    global pipe, unet, scheduler, prefs
+    global pipe, unet, scheduler, prefs, model
     def open_url(e):
       page.launch_url(e.data)
     '''if pipe is not None:
@@ -10133,9 +10146,15 @@ def get_lpw_pipe():
       pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
     else:
       if prefs['disable_nsfw_filter']:
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+        if 'from_ckpt' in model:
+          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+        else:  
+          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
       else:
-        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+        if 'from_ckpt' in model:
+          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+        else:
+          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
@@ -11346,7 +11365,16 @@ def clear_controlnet_pipe():
     pipe_controlnet = None
     controlnet = None
     status['loaded_controlnet'] = None
-    
+def clear_stable_lm_pipe():
+  global pipe_stable_lm, tokenizer_stable_lm
+  if pipe_stable_lm is not None:
+    del pipe_stable_lm
+    del tokenizer_stable_lm
+    gc.collect()
+    torch.cuda.empty_cache()
+    pipe_stable_lm = None
+    tokenizer_stable_lm = None
+   
 def clear_pipes(allbut=None):
     if torch_device == "cpu": return
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
@@ -11391,6 +11419,7 @@ def clear_pipes(allbut=None):
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
+    if not 'stable_lm' in but: clear_stable_lm_pipe()
     try:
         torch.cuda.ipc_collect()
         torch.cuda.reset_peak_memory_stats()
@@ -12826,6 +12855,67 @@ def run_prompt_remixer(page):
   for item in prompts_remix:
     page.add_to_prompt_remixer(item)
 
+def get_stable_lm(ai_model="StableLM 3b"):
+    global pipe_stable_lm, tokenizer_stable_lm
+    clear_pipes('stable_lm')
+    if pipe_stable_lm != None:
+      return pipe_stable_lm
+    try:
+      import accelerate
+    except Exception:
+      run_sp("pip install accelerate", realtime=False)
+      import accelerate
+      pass
+    try:
+      import bitsandbytes
+    except Exception:
+      run_sp("pip install bitsandbytes", realtime=False)
+      import bitsandbytes
+      pass
+    try:
+      import transformers
+    except Exception:
+      run_sp("pip install -q transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
+      import transformers
+      pass
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    if ai_model == "StableLM 3b":
+        model_name = "stabilityai/stablelm-tuned-alpha-3b"
+    else:
+        model_name = "stabilityai/stablelm-base-alpha-7b"
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        pipe_stable_lm = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype="float16",
+            load_in_8bit=True,
+            device_map="auto",
+            offload_folder="./offload",
+            cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None
+        )
+    except Exception as e:
+      print(str(e))
+      return None
+    return pipe_stable_lm
+
+def stable_lm_request(input_sentence, temperature=0.5, max_tokens=2048, top_k=0, top_p=0.9, do_sample=True):
+    global pipe_stable_lm, tokenizer_stable_lm
+    inputs = tokenizer_stable_lm(input_sentence, return_tensors="pt")
+    inputs.to(pipe_stable_lm.device)
+    tokens = pipe_stable_lm.generate(
+      **inputs,
+      max_new_tokens=max_tokens,
+      temperature=temperature,
+      top_k=top_k,
+      top_p=top_p,
+      do_sample=do_sample,
+      pad_token_id=tokenizer_stable_lm.eos_token_id,
+    )
+    completion_tokens = tokens[0][inputs['input_ids'].size(1):]
+    completion = tokenizer_stable_lm.decode(completion_tokens, skip_special_tokens=True)
+    return completion
+      
 brainstorm_request_modes = {
     "Brainstorm":"Brainstorm visual ideas for an image prompt about ",
     "Write":"Write an interesting visual scene about ",
@@ -12840,6 +12930,7 @@ brainstorm_request_modes = {
 def run_prompt_brainstormer(page):
     import random as rnd
     global artists, styles, brainstorm_request_modes
+    global pipe_stable_lm, tokenizer_stable_lm
     textsynth_engine = "gptj_6B" #param ["gptj_6B", "boris_6B", "fairseq_gpt_13B", "gptneox_20B", "m2m100_1_2B"]
     #markdown HuggingFace Bloom AI Settings
     max_tokens_length = 128 #param {type:'slider', min:1, max:64, step:1}
@@ -12867,7 +12958,8 @@ def run_prompt_brainstormer(page):
         if not bool(prefs['OpenAI_api_key']): good_key = False
       except NameError: good_key = False
       if not good_key:
-        print(f"\33[91mMissing OpenAI_api_key...\33[0m Define your key up above.")
+        alert_msg(page, f"Missing OpenAI_api_key... Define your key in Settings.")
+        return
       else:
         try:
           import openai
@@ -12886,7 +12978,8 @@ def run_prompt_brainstormer(page):
         if not bool(prefs['HuggingFace_api_key']): good_key = False
       except NameError: good_key = False
       if not good_key:
-        print(f"\33[91mMissing HuggingFace_api_key...\33[0m Define your key up above.")
+        alert_msg(page, f"Missing HuggingFace_api_key... Define your key in Settings.")
+        return
     #ask_OpenAI_instead = False #@param {type:'boolean'}
 
     prompt_request_modes = [
@@ -12949,7 +13042,23 @@ def run_prompt_brainstormer(page):
         generation = data[0]["generated_text"].split(input_sentence, 1)[1]
         #return data[0]["generated_text"]
         return generation
-
+    
+    def stable_lm_request(input_sentence):
+        inputs = tokenizer_stable_lm(input_sentence, return_tensors="pt")
+        inputs.to(pipe_stable_lm.device)
+        tokens = pipe_stable_lm.generate(
+          **inputs,
+          max_new_tokens=2048,
+          temperature=prefs['prompt_brainstormer']['AI_temperature'],
+          top_k=0,
+          top_p=0.9,
+          do_sample=True,
+          pad_token_id=tokenizer_stable_lm.eos_token_id,
+        )
+        completion_tokens = tokens[0][inputs['input_ids'].size(1):]
+        completion = tokenizer_stable_lm.decode(completion_tokens, skip_special_tokens=True)
+        return completion
+      
     def prompt_brainstormer():
       #(prompt=prompt, temperature=AI_temperature, presence_penalty=1, stop= "\n")
       page.prompt_brainstormer_list.controls.append(Installing("Storming the AI's Brain..."))
@@ -12969,8 +13078,13 @@ def run_prompt_brainstormer(page):
         result = bloom_request(request)
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5":
         result = flan_request(request) 
-      del page.prompt_brainstormer_list.controls[-1]
-      page.prompt_brainstormer_list.update()
+      elif prefs['prompt_brainstormer']['AI_engine'].startswith("Stable"):
+        if pipe_stable_lm != None and tokenizer_stable_lm != None:
+          page.add_to_prompt_brainstormer(Installing("Installing StableLM-Alpha Pipeline..."))
+          pipe_stable_lm = get_stable_lm(prefs['prompt_brainstormer']['AI_engine'])
+          del page.prompt_brainstormer_list.controls[-1]
+          page.prompt_brainstormer_list.update()
+        result = stable_lm_request(request, temperature=prefs['prompt_brainstormer']['AI_temperature']) 
       page.add_to_prompt_brainstormer(str(result) + '\n')
     #print(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else ""))
     if good_key:
@@ -15548,8 +15662,263 @@ Here are the images used for training this concept:
       prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token in prompts.", on_tap_link=lambda e: e.page.launch_url(e.data)))
     if prefs['enable_sounds']: page.snd_alert.play()
 
-
 def run_textualinversion(page):
+    global textualinversion_prefs, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.textualinversion_output.controls.append(line)
+      page.textualinversion_output.update()
+    def clear_last():
+      del page.textualinversion_output.controls[-1]
+      page.textualinversion_output.update()
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    save_path = os.path.join(root_dir, "my_concept")
+    error = False
+    if not os.path.exists(save_path):
+      error = True
+    elif len(os.listdir(save_path)) == 0:
+      error = True
+    if len(page.ti_file_list.controls) == 0:
+      error = True
+    if error:
+      alert_msg(page, "Couldn't find a list of images to train concept. Add image files to the list...")
+      return
+    page.textualinversion_output.controls.clear()
+    page.textualinversion_output.update()
+    prt(Installing("Downloading Textual-Inversion Training Models"))
+    
+    placeholder_token = textualinversion_prefs['placeholder_token'].strip()
+    if not placeholder_token.startswith('<'): placeholder_token = '<' + placeholder_token
+    if not placeholder_token.endswith('>'): placeholder_token = placeholder_token + '>'
+    initializer_token = textualinversion_prefs['initializer_token'].strip()
+    if bool(initializer_token):
+      if not initializer_token.startswith('<'): initializer_token = '<' + initializer_token
+      if not initializer_token.endswith('>'): initializer_token = initializer_token + '>'
+    diffusers_dir = os.path.join(root_dir, "diffusers")
+    if not os.path.exists(diffusers_dir):
+      os.chdir(root_dir)
+      run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
+    run_process('pip install git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]', cwd=root_dir, realtime=False)
+    os.chdir(diffusers_dir)
+    run_sp('pip install -e ".[training]"', cwd=diffusers_dir, realtime=False)
+    textualinversion_dir = os.path.join(diffusers_dir, "examples", "textual_inversion")
+    #textualinversion_dir = os.path.join(diffusers_dir, "examples", "text_to_image")
+    os.chdir(textualinversion_dir)
+    run_sp("pip install -r requirements.txt", cwd=textualinversion_dir, realtime=False)
+    run_process("pip install -qq bitsandbytes", page=page)
+    run_sp("accelerate config default", realtime=False)
+    #from accelerate.utils import write_basic_config
+    #write_basic_config()
+    import argparse
+    from io import BytesIO
+
+    clear_pipes()
+    clear_last()
+    #num_new_images = None
+    random_seed = int(textualinversion_prefs['seed']) if int(textualinversion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    name_of_your_model = textualinversion_prefs['name_of_your_model']
+    from argparse import Namespace
+    textualinversion_args = Namespace(
+        pretrained_model_name_or_path=model_path,
+        resolution=textualinversion_prefs['resolution'],
+        center_crop=True,
+        #train_data_dir=save_path,
+        #caption_column=textualinversion_prefs['instance_prompt'].strip(),
+        train_data_dir=save_path,
+        validation_prompt=textualinversion_prefs['validation_prompt'].strip(),
+        placeholder_token=placeholder_token,
+        initializer_token=initializer_token,
+        learnable_property=textualinversion_prefs['what_to_teach'],
+        learning_rate=textualinversion_prefs['learning_rate'],#5e-06,'
+        lr_scheduler=textualinversion_prefs['lr_scheduler'],
+        lr_warmup_steps=textualinversion_prefs['lr_warmup_steps'],
+        scale_lr=textualinversion_prefs['scale_lr'],
+        max_train_steps=textualinversion_prefs['max_train_steps'],#450,
+        train_batch_size=textualinversion_prefs['train_batch_size'],
+        checkpointing_steps=textualinversion_prefs['checkpointing_steps'],
+        gradient_accumulation_steps=textualinversion_prefs['gradient_accumulation_steps'],
+        validation_steps=textualinversion_prefs['validation_steps'],
+        num_vectors=textualinversion_prefs['num_vectors'],
+        #mixed_precision="no", # set to "fp16" for mixed-precision training.
+        gradient_checkpointing=True, # set this to True to lower the memory usage.
+        use_8bit_adam=not prefs['higher_vram_mode'], # use 8bit optimizer from bitsandbytes
+        enable_xformers_memory_efficient_attention = status['installed_xformers'],
+        seed=random_seed,
+        #with_prior_preservation=textualinversion_prefs['prior_preservation'], 
+        #prior_loss_weight=textualinversion_prefs['prior_loss_weight'],
+        #sample_batch_size=textualinversion_prefs['sample_batch_size'],
+        #class_data_dir=textualinversion_prefs['class_data_dir'], 
+        #class_prompt=textualinversion_prefs['class_prompt'],
+        num_class_images=textualinversion_prefs['num_class_images'],
+        output_dir=os.path.join(save_path, format_filename(textualinversion_prefs['name_of_your_concept'], use_dash=True)),
+    )
+    output_dir = textualinversion_args.output_dir
+    arg_str = "accelerate launch textual_inversion.py"
+    #arg_str = 'accelerate --mixed_precision="fp16" launch train_text_to_image_lora.py'
+    for k, v in vars(textualinversion_args).items():
+      if isinstance(v, str):
+        if ' ' in v:
+          v = f'"{v}"'
+      if isinstance(v, bool):
+        if bool(v):
+          arg_str += f" --{k}"
+      else:
+        arg_str += f" --{k}={v}"
+    prt(Text("*** Running Training *** See Console for Progress", weight=FontWeight.BOLD))
+    #if num_new_images != None: prt(f"  Number of class images to sample: {num_new_images}.")
+    #prt(f"  Instantaneous batch size per device = {textualinversion_args.train_batch_size}")
+    #prt(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
+    #prt(f"  Gradient Accumulation steps = {textualinversion_args.gradient_accumulation_steps}")
+    #prt(f"  Total optimization steps = {textualinversion_args.max_train_steps}")
+    prt(arg_str)
+    progress = ProgressBar(bar_height=8)
+    prt(progress)
+    if(textualinversion_prefs['save_model']):
+      from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
+      from huggingface_hub import Repository, create_repo, whoami
+      #from diffusers import StableDiffusionPipeline
+      api = HfApi()
+      your_username = api.whoami()["name"]
+      #textualinversion_pipe = StableDiffusionPipeline.from_pretrained(
+      #  textualinversion_args.output_dir,
+      #  torch_dtype=torch.float16,
+      #).to("cuda")
+      #os.makedirs("fp16_model",exist_ok=True)
+      #textualinversion_pipe.save_pretrained("fp16_model")
+      hf_token = prefs['HuggingFace_api_key']
+      private = False if textualinversion_prefs['where_to_save_model'] == "Public HuggingFace" else True
+      repo_id = f"{your_username}/{format_filename(name_of_your_model, use_dash=True)}"
+      output_dir = textualinversion_args.output_dir
+      if(not prefs['HuggingFace_api_key']):
+        with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
+      else:
+        hf_token = prefs['HuggingFace_api_key']
+      try:
+        create_repo(repo_id, private=private, exist_ok=True, token=hf_token)
+        repo = Repository(output_dir, clone_from=repo_id, token=hf_token)
+      except Exception as e:
+        alert_msg(page, f"ERROR Creating repo {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+        return
+    else:
+      if not os.path.exists(output_dir): os.makedirs(output_dir, exist_ok=True)
+
+    try:
+      os.chdir(textualinversion_dir)
+      #!accelerate $arg_str # type: ignore
+      os.system(arg_str)
+      #run_sp(arg_str, cwd=textualinversion_dir, realtime=True)
+      #run_sp(arg_str, cwd=textualinversion_dir)
+    except Exception as e:
+      clear_last()
+      alert_msg(page, f"ERROR: Out of Memory (or something else). Try reducing parameters and try again...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+      with torch.no_grad():
+        torch.cuda.empty_cache()
+      return
+    clear_last()
+
+    #title Save your newly created concept to the [library of concepts](https://huggingface.co/sd-concepts-library)?
+    save_concept_to_public_library = textualinversion_prefs['save_concept']
+    name_of_your_concept = textualinversion_prefs['name_of_your_concept']
+    # `hf_token_write`: leave blank if you logged in with a token with `write access` in the [Initial Setup](#scrollTo=KbzZ9xe6dWwf). If not, [go to your tokens settings and create a write access token](https://huggingface.co/settings/tokens)
+    hf_token_write = prefs['HuggingFace_api_key']
+
+    if(save_concept_to_public_library):
+        from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
+        from huggingface_hub import create_repo
+        api = HfApi()
+        your_username = api.whoami()["name"]
+        repo_id = f"sd-concepts-library/{format_filename(name_of_your_concept, use_dash=True)}"
+        #output_dir = textualinversion_prefs["output_dir"]
+        if(not hf_token_write):
+            with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
+        else:
+            hf_token = hf_token_write
+        if(textualinversion_prefs['where_to_save_concept'] == "Public Library"):
+            #Join the Concepts Library organization if you aren't part of it already
+            run_sp(f"curl -X POST -H 'Authorization: Bearer '{hf_token} -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-concepts-library/share/VcLXJtzwwxnHYCkNMLpSJCdnNFZHQwWywv", realtime=False)
+            # curl -X POST -H 'Authorization: Bearer '$hf_token -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-concepts-library/share/VcLXJtzwwxnHYCkNMLpSJCdnNFZHQwWywv
+        else:
+            repo_id = f"{your_username}/{format_filename(name_of_your_concept, use_dash=True)}"
+        images_upload = os.listdir(save_path)
+        image_string = ""
+        repo_id = f"sd-concepts-library/{format_filename(name_of_your_concept, use_dash=True)}"
+        for i, image in enumerate(images_upload):
+            image_string = f'''{image_string}![{placeholder_token} {i}](https://huggingface.co/{repo_id}/resolve/main/concept_images/{image})
+        '''
+        if(textualinversion_prefs['what_to_teach'] == "style"):
+            what_to_teach_article = f"a `{textualinversion_prefs['what_to_teach']}`"
+        else:
+            what_to_teach_article = f"an `{textualinversion_prefs['what_to_teach']}`"
+        description = textualinversion_prefs['readme_description']
+        if bool(description.strip()):
+            description = textualinversion_prefs['readme_description'] + '\n\n'
+        readme_text = f'''---
+license: mit
+base_model: {model_path}
+tags:
+- stable-diffusion
+- stable-diffusion-diffusers
+- text-to-image
+- diffusers
+- textual_inversion
+inference: true
+---
+# Textual inversion text2image fine-tuning - {repo_id}
+### {name_of_your_concept} by {your_username} using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
+This is the `{placeholder_token}` concept taught to Stable Diffusion via Textual Inversion. You can load this concept into the [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb) notebook. You can also train your own concepts and load them into the concept libraries there too, or using [this notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_textual_inversion_training.ipynb).
+
+{description}Here is the new concept you will be able to use as {what_to_teach_article}:
+{image_string}
+'''
+        #Save the readme to a file
+        readme_file = open("README.md", "w")
+        readme_file.write(readme_text)
+        readme_file.close()
+        #Save the token identifier to a file
+        text_file = open("token_identifier.txt", "w")
+        text_file.write(placeholder_token)
+        text_file.close()
+        #Save the type of teached thing to a file
+        type_file = open("type_of_concept.txt","w")
+        type_file.write(textualinversion_prefs['what_to_teach'])
+        type_file.close()
+        operations = [
+            CommitOperationAdd(path_in_repo="learned_embeds.bin", path_or_fileobj=f"{output_dir}/learned_embeds.bin"),
+            CommitOperationAdd(path_in_repo="token_identifier.txt", path_or_fileobj="token_identifier.txt"),
+            CommitOperationAdd(path_in_repo="type_of_concept.txt", path_or_fileobj="type_of_concept.txt"),
+            CommitOperationAdd(path_in_repo="README.md", path_or_fileobj="README.md"),
+        ]
+        try:
+          create_repo(repo_id, private=True, token=hf_token)
+        except Exception as e:
+          alert_msg(page, f"ERROR Creating repo {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+          return
+        api = HfApi()
+        api.create_commit(
+            repo_id=repo_id,
+            operations=operations,
+            commit_message=f"Upload the concept {name_of_your_concept} embeds and token",
+            token=hf_token
+        )
+        api.upload_folder(
+            folder_path=save_path,
+            path_in_repo="concept_images",
+            repo_id=repo_id,
+            token=hf_token
+        )
+        prefs['custom_model'] = repo_id
+        prefs['custom_models'].append({'name': name_of_your_concept, 'path':repo_id})
+        page.custom_model.value = repo_id
+        try:
+          page.custom_model.update()
+        except Exception: pass
+        prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token to your Prompt text.", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_textualinversion2(page):
     global textualinversion_prefs, prefs
     def prt(line):
       if type(line) == str:
