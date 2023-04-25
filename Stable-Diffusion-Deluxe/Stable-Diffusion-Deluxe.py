@@ -227,6 +227,7 @@ def load_settings_file():
       'OpenAI_api_key': "",
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
+      'AIHorde_api_key': "0000000000",
       'HuggingFace_username': "",
       'scheduler_mode': "DDIM",
       'higher_vram_mode': False,
@@ -279,12 +280,18 @@ def load_settings_file():
       'custom_model': '',
       'custom_models': [],
       'tortoise_custom_voices': [],
+      'custom_dance_diffusion_models': [],
       'clip_model_id': "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
       'install_Stability_api': False,
       'use_Stability_api': False,
       'model_checkpoint': "stable-diffusion-768-v2-1",
       'generation_sampler': "K_EULER_ANCESTRAL",
       'clip_guidance_preset': "FAST_BLUE",
+      'install_AIHorde_api': False,
+      'use_AIHorde_api': False,
+      'AIHorde_model': 'stable_diffusion',
+      'AIHorde_sampler': 'k_euler_a',
+      'AIHorde_post_processing': "None",
       'install_ESRGAN': True,
       'batch_folder_name': "",
       'batch_size': 1,
@@ -328,7 +335,7 @@ def load_settings_file():
           'amount': 10,
           'random_artists': 2,
           'random_styles': 1,
-          'permutate_artists': True,
+          'permutate_artists': False,
           'request_mode': 3,
           'AI_temperature': 0.9,
           'AI_engine': "OpenAI GPT-3",
@@ -340,7 +347,7 @@ def load_settings_file():
           'amount': 10,
           'random_artists': 2,
           'random_styles': 1,
-          'permutate_artists': True,
+          'permutate_artists': False,
           'request_mode': 3,
           'AI_temperature': 0.9,
           'AI_engine': "OpenAI GPT-3",
@@ -359,7 +366,7 @@ def load_settings_file():
           'amount': 10,
           'random_artists': 2,
           'random_styles': 1,
-          'permutate_artists': True,
+          'permutate_artists': False,
       },
     }
 if prefs == {}:
@@ -400,6 +407,7 @@ status = {
     'installed_txt2img': False,
     'installed_img2img': False,
     'installed_stability': False,
+    'installed_AIHorde': False,
     'installed_megapipe': False,
     'installed_interpolation': False,
     'installed_clip': False,
@@ -767,6 +775,12 @@ if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
 if 'AI_engine' not in prefs['prompt_generator']: prefs['prompt_generator']['AI_engine'] = 'OpenAI GPT-3'
 if 'AI_engine' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AI_engine'] = 'OpenAI GPT-3'
+if 'AIHorde_api_key' not in prefs: prefs['AIHorde_api_key'] = '0000000000'
+if 'install_AIHorde_api' not in prefs: prefs['install_AIHorde_api'] = False
+if 'use_AIHorde_api' not in prefs: prefs['use_AIHorde_api'] = False
+if 'AIHorde_model' not in prefs: prefs['AIHorde_model'] = 'stable_diffusion'
+if 'AIHorde_sampler' not in prefs: prefs['AIHorde_sampler'] = 'k_euler_a'
+if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "None"
 
 def initState(page):
     global status, current_tab
@@ -885,12 +899,13 @@ def buildSettings(page):
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters", value=prefs['disable_nsfw_filter'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
   retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
-  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key (optional)", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key (optional)", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
   TextSynth_api = TextField(label="TextSynth API Key (optional)", value=prefs['TextSynth_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'TextSynth_api_key'))
   Replicate_api = TextField(label="Replicate API Key (optional)", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Replicate_api_key'))
+  AIHorde_api = TextField(label="AIHorde API Key (optional)", value=prefs['AIHorde_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'AIHorde_api_key'))
   #save_button = ElevatedButton(content=Text(value="💾  Save Settings", size=20), on_click=save_settings, style=b_style())
   
   c = Column([Container(
@@ -917,6 +932,7 @@ def buildSettings(page):
         OpenAI_api,
         TextSynth_api,
         Replicate_api,
+        AIHorde_api,
         api_instructions,
         #save_button,
         Container(content=None, height=32),
@@ -1205,6 +1221,19 @@ def buildInstallers(page):
   #"K_EULER" "K_DPM_2" "K_LMS" "K_DPMPP_2S_ANCESTRAL" "K_DPMPP_2M" "DDIM" "DDPM" "K_EULER_ANCESTRAL" "K_HEUN" "K_DPM_2_ANCESTRAL"
   stability_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_Stability_api, model_checkpoint, generation_sampler, clip_guidance_preset]))
   
+  def toggle_AIHorde(e):
+      prefs['install_AIHorde_api'] = e.control.value
+      AIHorde_settings.height=None if prefs['install_AIHorde_api'] else 0
+      AIHorde_settings.update()
+      page.update()
+  install_AIHorde = Tooltip(message="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.", content=Switch(label="Install AIHorde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'],active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_AIHorde))
+  use_AIHorde = Checkbox(label="Use AIHorde API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_AIHorde_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_AIHorde_api'))
+  AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("3DKX"), dropdown.Option("Abyss OrangeMix"), dropdown.Option("AbyssOrangeMix-AfterDark"), dropdown.Option("ACertainThing"), dropdown.Option("AIO Pixel Art"), dropdown.Option("Analog Diffusion"), dropdown.Option("Anime Pencil Diffusion"), dropdown.Option("Anygen"), dropdown.Option("Anything Diffusion"), dropdown.Option("Anything v3"), dropdown.Option("App Icon Diffusion"), dropdown.Option("Arcane Diffusion"), dropdown.Option("Archer Diffusion"), dropdown.Option("Asim Simpsons"), dropdown.Option("A to Zovya RPG"), dropdown.Option("Balloon Art"), dropdown.Option("Borderlands"), dropdown.Option("BPModel"), dropdown.Option("BubblyDubbly"), dropdown.Option("Char"), dropdown.Option("CharHelper"), dropdown.Option("Cheese Daddys Landscape Mix"), dropdown.Option("ChilloutMix"), dropdown.Option("ChromaV5"), dropdown.Option("Classic Animation Diffusion"), dropdown.Option("Clazy"), dropdown.Option("Colorful"), dropdown.Option("Coloring Book"), dropdown.Option("Comic-Diffusion"), dropdown.Option("Concept Sheet"), dropdown.Option("Counterfeit"), dropdown.Option("Cyberpunk Anime Diffusion"), dropdown.Option("CyriousMix"), dropdown.Option("Dan Mumford Style"), dropdown.Option("Darkest Diffusion"), dropdown.Option("Dark Victorian Diffusion"), dropdown.Option("Deliberate"), dropdown.Option("DGSpitzer Art Diffusion"), dropdown.Option("Disco Elysium"), dropdown.Option("DnD Item"), dropdown.Option("Double Exposure Diffusion"), dropdown.Option("Dreamlike Diffusion"), dropdown.Option("Dreamlike Photoreal"), dropdown.Option("DreamLikeSamKuvshinov"), dropdown.Option("Dreamshaper"), dropdown.Option("DucHaiten"), dropdown.Option("DucHaiten Classic Anime"), dropdown.Option("Dungeons and Diffusion"), dropdown.Option("Dungeons n Waifus"), dropdown.Option("Eimis Anime Diffusion"), dropdown.Option("Elden Ring Diffusion"), dropdown.Option("Elldreth's Lucid Mix"), dropdown.Option("Elldreths Retro Mix"), dropdown.Option("Epic Diffusion"), dropdown.Option("Eternos"), dropdown.Option("Experience"), dropdown.Option("ExpMix Line"), dropdown.Option("FaeTastic"), dropdown.Option("Fantasy Card Diffusion"), dropdown.Option("FKing SciFi"), dropdown.Option("Funko Diffusion"), dropdown.Option("Furry Epoch"), dropdown.Option("Future Diffusion"), dropdown.Option("Ghibli Diffusion"), dropdown.Option("GorynichMix"), dropdown.Option("Grapefruit Hentai"), dropdown.Option("Graphic-Art"), dropdown.Option("GTA5 Artwork Diffusion"), dropdown.Option("GuoFeng"), dropdown.Option("Guohua Diffusion"), dropdown.Option("HASDX"), dropdown.Option("Hassanblend"), dropdown.Option("Healy's Anime Blend"), dropdown.Option("Hentai Diffusion"), dropdown.Option("HRL"), dropdown.Option("iCoMix"), dropdown.Option("Illuminati Diffusion"), dropdown.Option("Inkpunk Diffusion"), dropdown.Option("Jim Eidomode"), dropdown.Option("JWST Deep Space Diffusion"), dropdown.Option("Kenshi"), dropdown.Option("Knollingcase"), dropdown.Option("Korestyle"), dropdown.Option("kurzgesagt"), dropdown.Option("Laolei New Berry Protogen Mix"), dropdown.Option("Lawlas's yiff mix"), dropdown.Option("Liberty"), dropdown.Option("Marvel Diffusion"), dropdown.Option("Mega Merge Diffusion"), dropdown.Option("Microcasing"), dropdown.Option("Microchars"), dropdown.Option("Microcritters"), dropdown.Option("Microscopic"), dropdown.Option("Microworlds"), dropdown.Option("Midjourney Diffusion"), dropdown.Option("Midjourney PaintArt"), dropdown.Option("Min Illust Background"), dropdown.Option("ModernArt Diffusion"), dropdown.Option("mo-di-diffusion"), dropdown.Option("Moedel"), dropdown.Option("MoistMix"), dropdown.Option("Movie Diffusion"), dropdown.Option("NeverEnding Dream"), dropdown.Option("Nitro Diffusion"), dropdown.Option("Openniji"), dropdown.Option("OrbAI"), dropdown.Option("Papercutcraft"), dropdown.Option("Papercut Diffusion"), dropdown.Option("Pastel Mix"), dropdown.Option("Perfect World"), dropdown.Option("PFG"), dropdown.Option("pix2pix"), dropdown.Option("PIXHELL"), dropdown.Option("Poison"), dropdown.Option("Pokemon3D"), dropdown.Option("PortraitPlus"), dropdown.Option("PPP"), dropdown.Option("Pretty 2.5D"), dropdown.Option("PRMJ"), dropdown.Option("Project Unreal Engine 5"), dropdown.Option("ProtoGen"), dropdown.Option("Protogen Anime"), dropdown.Option("Protogen Infinity"), dropdown.Option("Pulp Vector Art"), dropdown.Option("PVC"), dropdown.Option("Rachel Walker Watercolors"), dropdown.Option("Rainbowpatch"), dropdown.Option("Ranma Diffusion"), dropdown.Option("RCNZ Dumb Monkey"), dropdown.Option("RCNZ Gorilla With A Brick"), dropdown.Option("RealBiter"), dropdown.Option("Realism Engine"), dropdown.Option("Realistic Vision"), dropdown.Option("Redshift Diffusion"), dropdown.Option("Rev Animated"), dropdown.Option("Robo-Diffusion"), dropdown.Option("Rodent Diffusion"), dropdown.Option("RPG"), dropdown.Option("Samdoesarts Ultmerge"), dropdown.Option("Sci-Fi Diffusion"), dropdown.Option("SD-Silicon"), dropdown.Option("Seek.art MEGA"), dropdown.Option("Smoke Diffusion"), dropdown.Option("Something"), dropdown.Option("Sonic Diffusion"), dropdown.Option("Spider-Verse Diffusion"), dropdown.Option("Squishmallow Diffusion"), dropdown.Option("stable_diffusion"), dropdown.Option("stable_diffusion_2.1"), dropdown.Option("stable_diffusion_inpainting"), dropdown.Option("Supermarionation"), dropdown.Option("Sygil-Dev Diffusion"), dropdown.Option("Synthwave"), dropdown.Option("SynthwavePunk"), dropdown.Option("TrexMix"), dropdown.Option("trinart"), dropdown.Option("Trinart Characters"), dropdown.Option("Tron Legacy Diffusion"), dropdown.Option("T-Shirt Diffusion"), dropdown.Option("T-Shirt Print Designs"), dropdown.Option("Uhmami"), dropdown.Option("Ultraskin"), dropdown.Option("UMI Olympus"), dropdown.Option("Unstable Ink Dream"), dropdown.Option("URPM"), dropdown.Option("Valorant Diffusion"), dropdown.Option("Van Gogh Diffusion"), dropdown.Option("Vector Art"), dropdown.Option("vectorartz"), dropdown.Option("Vintedois Diffusion"), dropdown.Option("VinteProtogenMix"), dropdown.Option("Vivid Watercolors"), dropdown.Option("Voxel Art Diffusion"), dropdown.Option("waifu_diffusion"), dropdown.Option("Wavyfusion"), dropdown.Option("Woop-Woop Photo"), dropdown.Option("Xynthii-Diffusion"), dropdown.Option("Yiffy"), dropdown.Option("Zack3D"), dropdown.Option("Zeipher Female Model"), dropdown.Option("Zelda BOTW")], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
+  AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
+  AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=350, options=[dropdown.Option("None"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
+  AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, AIHorde_model, AIHorde_sampler, AIHorde_post_processing]))
+  AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
+  
   install_ESRGAN = Tooltip(message="Recommended to enlarge & sharpen all images as they're made.", content=Switch(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_ESRGAN')))
   install_OpenAI = Tooltip(message="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.", content=Switch(label="Install OpenAI GPT-3 Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_OpenAI')))
   install_TextSynth = Tooltip(message="Alternative Text AI for brainstorming & rewriting your prompts. Pretty smart..", content=Switch(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_TextSynth')))
@@ -1248,6 +1277,9 @@ def buildInstallers(page):
         return
       if prefs['install_TextSynth'] and not bool(prefs['TextSynth_api_key']):
         alert_msg(e.page, "You must have your TextSynth API Key to use GPT-J Text AI.")
+        return
+      if prefs['install_AIHorde_api'] and not bool(prefs['AIHorde_api_key']):
+        alert_msg(e.page, "You must have your AIHorde.net API Key to use Stable Horde.  Note that it will use your Kudos.")
         return
       page.banner.content = Column([], scroll=ScrollMode.AUTO, auto_scroll=True, tight=True, spacing=0, alignment=MainAxisAlignment.END)
       page.banner.open = True
@@ -1390,6 +1422,9 @@ def buildInstallers(page):
         console_msg("Installing Stability-API DreamStudio.ai Pipeline...")
         get_stability(page)
         status['installed_stability'] = True
+      if prefs['install_AIHorde_api']:
+        console_msg("Installing Stable Horde AIHorde.net Pipeline...")
+        get_AIHorde(page)
       if prefs['install_ESRGAN'] and not status['installed_ESRGAN']:
         if not os.path.isdir(os.path.join(dist_dir, 'Real-ESRGAN')):
           get_ESRGAN(page)
@@ -1498,6 +1533,8 @@ def buildInstallers(page):
         #install_img2img,
         install_Stability_api,
         stability_settings,
+        install_AIHorde,
+        AIHorde_settings,
         #install_CLIP_guided,
         #clip_settings,
         install_ESRGAN,
@@ -1605,7 +1642,10 @@ def buildParameters(page):
   def on_upload_progress(e: FilePickerUploadEvent):
     nonlocal pick_type
     if e.progress == 1:
-      fname = os.path.join(root_dir, e.file_name)
+      if not slash in e.file_name:
+        fname = os.path.join(root_dir, e.file_name)
+      else:
+        fname = e.file_name
       if pick_type == "init":
         init_image.value = fname
         init_image.update()
@@ -1620,7 +1660,10 @@ def buildParameters(page):
       uf = []
       if file_picker.result != None and file_picker.result.files != None:
           for f in file_picker.result.files:
-              uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
           file_picker.upload(uf)
   page.overlay.append(file_picker)
   pick_type = ""
@@ -2046,7 +2089,10 @@ def editPrompt(e):
     def on_upload_progress(e: FilePickerUploadEvent):
       nonlocal pick_type
       if e.progress == 1:
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+        else:
+          fname = e.file_name
         if pick_type == "init":
           init_image.value = fname
           init_image.update()
@@ -2061,7 +2107,10 @@ def editPrompt(e):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if e.page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     e.page.overlay.append(file_picker)
     pick_type = ""
@@ -2435,7 +2484,7 @@ def buildPromptsList(page):
           clear_prompt(None)
   page.on_keyboard_event = on_keyboard
   def run_diffusion(e):
-      if not status['installed_diffusers'] and not status['installed_stability']:
+      if not status['installed_diffusers'] and not status['installed_stability'] and not status['installed_AIHorde']:
         alert_msg(e.page, "You must Install the required Diffusers or Stability api first...")
         return
       if prefs['use_interpolation'] and prefs['install_interpolation'] and not status['installed_interpolation']:
@@ -2458,7 +2507,7 @@ def buildPromptsList(page):
   add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.window_width or page.width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   copy_prompts_button = IconButton(icons.COPY_ALL, tooltip="Save Prompts as Plain-Text List", on_click=copy_prompts)
-  paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Create Prompts from Plain-Text List", on_click=paste_prompts)
+  paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Load Prompts from Plain-Text List", on_click=paste_prompts)
   prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True), add_prompt_button])
   #diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
   clear_prompts_button = ElevatedButton(content=Text("❌   Clear Prompts List", size=18), on_click=clear_list)
@@ -3052,7 +3101,10 @@ def buildESRGANupscaler(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+        else:
+          fname = e.file_name
         image_path.value = fname
         image_path.update()
         ESRGAN_prefs['image_path'] = fname
@@ -3064,7 +3116,10 @@ def buildESRGANupscaler(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     def pick_destination(e):
         alert_msg(page, "Switch to Colab tab and press Files button on the Left & Find the Path you want to Save Images into, Right Click and Copy Path, then Paste here")
@@ -3246,8 +3301,12 @@ def buildInitVideo(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        init_video_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          init_video_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          init_video_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         video_file.value = fname
         video_file.update()
         init_video_prefs['video_file'] = fname
@@ -3257,7 +3316,10 @@ def buildInitVideo(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     #page.overlay.append(pick_files_dialog)
@@ -3312,6 +3374,7 @@ image2text_prefs = {
     'max_size': 768,
     'save_csv': False,
     'images': [],
+    'use_AIHorde': False,
 }
 
 def buildImage2Text(page):
@@ -3364,14 +3427,18 @@ def buildImage2Text(page):
         if not os.path.exists(save_dir):
           os.mkdir(save_dir)
         image2text_prefs['folder_path'] = save_dir
-        fname = os.path.join(root_dir, e.file_name)
-        fpath = os.path.join(save_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          fpath = os.path.join(save_dir, e.file_name)
+        else:
+          fname = e.file_name
+          fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
         original_img = PILImage.open(fname)
         width, height = original_img.size
         width, height = scale_dimensions(width, height, image2text_prefs['max_size'])
-        original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
         original_img.save(fpath)
-        shutil.move(fname, fpath)
+        #shutil.move(fname, fpath)
         page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
         page.image2text_file_list.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -3381,7 +3448,11 @@ def buildImage2Text(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                #uf.append(FilePickerUploadFile(f.name, upload_url=f.path))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -3462,6 +3533,7 @@ def buildImage2Text(page):
       image2text_list_buttons.visible = False
 
     mode = Dropdown(label="Interrogation Mode", width=250, options=[dropdown.Option("best"), dropdown.Option("classic"), dropdown.Option("fast")], value=image2text_prefs['mode'], on_change=lambda e: changed(e, 'mode'))
+    use_AIHorde = Switch(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_AIHorde'))
     save_csv = Checkbox(label="Save CSV file of Prompts", tooltip="", value=image2text_prefs['save_csv'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_csv'))
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=32, multiple=16, suffix="px", pref=image2text_prefs, key='max_size')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=image2text_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
@@ -3475,6 +3547,7 @@ def buildImage2Text(page):
       content=Column([
         Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
         mode,
+        #Row([mode, use_AIHorde]),
         max_row,
         Row([image_path, add_image_button]),
         page.image2text_file_list,
@@ -3548,14 +3621,18 @@ def buildBLIP2Image2Text(page):
         if not os.path.exists(save_dir):
           os.mkdir(save_dir)
         BLIP2_image2text_prefs['folder_path'] = save_dir
-        fname = os.path.join(root_dir, e.file_name)
-        fpath = os.path.join(save_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          fpath = os.path.join(save_dir, e.file_name)
+        else:
+          fname = e.file_name
+          fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
         original_img = PILImage.open(fname)
         width, height = original_img.size
         width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
         original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
         original_img.save(fpath)
-        shutil.move(fname, fpath)
+        #shutil.move(fname, fpath)
         page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
         page.BLIP2_image2text_file_list.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -3565,7 +3642,10 @@ def buildBLIP2Image2Text(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -3770,9 +3850,13 @@ def buildDanceDiffusion(page):
         if e.progress == 1:
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
-          shutil.move(fname, fpath)
+          if not slash in e.file_name:
+            fname = os.path.join(root_dir, e.file_name)
+            fpath = os.path.join(save_dir, e.file_name)
+            shutil.move(fname, fpath)
+          else:
+            fname = e.file_name
+            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
@@ -3781,7 +3865,10 @@ def buildDanceDiffusion(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_wav(e):
@@ -3977,8 +4064,13 @@ def buildAudioDiffusion(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-            audio_diffusion_prefs['file_name'] = e.file_name.rpartition('.')[0]
-            fname = os.path.join(root_dir, e.file_name)
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+              audio_diffusion_prefs['file_name'] = e.file_name.rpartition('.')[0]
+            else:
+              fname = e.file_name
+              fpath = os.path.join(root_dir, e.file_name.rpartition(slash)[2])
+              audio_diffusion_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
             audio_file.value = fname
             audio_file.update()
             audio_diffusion_prefs['audio_file'] = fname
@@ -3988,7 +4080,10 @@ def buildAudioDiffusion(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def pick_audio(e):
@@ -4166,8 +4261,12 @@ def buildPoint_E(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        point_e_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          point_e_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          point_e_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
         init_image.value = fname
         init_image.update()
         point_e_prefs['init_image'] = fname
@@ -4177,7 +4276,10 @@ def buildPoint_E(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     #page.overlay.append(pick_files_dialog)
@@ -4297,14 +4399,19 @@ def buildInstantNGP(page):
         if e.progress == 1:
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
+          if not slash in e.file_name:
+            fname = os.path.join(root_dir, e.file_name)
+            fpath = os.path.join(save_dir, e.file_name)
+          else:
+            fname = e.file_name
+            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
           original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
           original_img.save(fpath)
-          os.remove(fname)
+          if page.web:
+            os.remove(fname)
           #shutil.move(fname, fpath)
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -4314,7 +4421,10 @@ def buildInstantNGP(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -4470,8 +4580,12 @@ def buildRepainter(page):
     def on_upload_progress(e: FilePickerUploadEvent):
       nonlocal pick_type
       if e.progress == 1:
-        repaint_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          repaint_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          repaint_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "original":
           original_image.value = fname
           original_image.update()
@@ -4486,7 +4600,10 @@ def buildRepainter(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -4592,8 +4709,12 @@ def buildImageVariation(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        image_variation_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          image_variation_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          image_variation_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         init_image.value = fname
         init_image.update()
         image_variation_prefs['init_image'] = fname
@@ -4603,7 +4724,10 @@ def buildImageVariation(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def pick_init(e):
@@ -4826,8 +4950,12 @@ def buildUnCLIP_ImageVariation(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        unCLIP_image_variation_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          unCLIP_image_variation_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          unCLIP_image_variation_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         init_image.value = fname
         init_image.update()
         unCLIP_image_variation_prefs['init_image'] = fname
@@ -4837,7 +4965,10 @@ def buildUnCLIP_ImageVariation(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def pick_init(e):
@@ -5080,8 +5211,12 @@ def buildUnCLIP_ImageInterpolation(page):
     def on_upload_progress(e: FilePickerUploadEvent):
       nonlocal pick_type
       if e.progress == 1:
-        unCLIP_image_interpolation_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          unCLIP_image_interpolation_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          unCLIP_image_interpolation_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "init":
             init_image.value = fname
             init_image.update()
@@ -5096,7 +5231,10 @@ def buildUnCLIP_ImageInterpolation(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def pick_init(e):
@@ -5229,8 +5367,12 @@ def buildMagicMix(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        magic_mix_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          magic_mix_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          magic_mix_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         init_image.value = fname
         init_image.update()
         magic_mix_prefs['init_image'] = fname
@@ -5240,7 +5382,10 @@ def buildMagicMix(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def pick_init(e):
@@ -5360,8 +5505,12 @@ def buildPaintByExample(page):
     def on_upload_progress(e: FilePickerUploadEvent):
       nonlocal pick_type
       if e.progress == 1:
-        paint_by_example_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          paint_by_example_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          paint_by_example_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "original":
           original_image.value = fname
           original_image.update()
@@ -5380,7 +5529,10 @@ def buildPaintByExample(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -5516,8 +5668,12 @@ def buildInstructPix2Pix(page):
     def on_upload_progress(e: FilePickerUploadEvent):
       nonlocal pick_type
       if e.progress == 1:
-        instruct_pix2pix_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          instruct_pix2pix_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          instruct_pix2pix_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "image":
           original_image.value = fname
           original_image.update()
@@ -5532,7 +5688,10 @@ def buildInstructPix2Pix(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -5696,8 +5855,12 @@ def buildControlNet(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
-        controlnet_prefs['file_name'] = e.file_name.rpartition('.')[0]
-        fname = os.path.join(root_dir, e.file_name)
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          controlnet_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          controlnet_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
         if pick_type == "image":
           original_image.value = fname
           original_image.update()
@@ -5712,7 +5875,10 @@ def buildControlNet(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -6171,7 +6337,10 @@ def buildMaterialDiffusion(page):
     def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-            fname = os.path.join(root_dir, e.file_name)
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+            else:
+              fname = e.file_name
             if pick_type == "init":
                 init_image.value = fname
                 init_image.update()
@@ -6186,7 +6355,10 @@ def buildMaterialDiffusion(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -6443,7 +6615,10 @@ def buildDallE2(page):
     def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-            fname = os.path.join(root_dir, e.file_name)
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+            else:
+              fname = e.file_name
             if pick_type == "init":
                 init_image.value = fname
                 init_image.update()
@@ -6458,7 +6633,10 @@ def buildDallE2(page):
         dalle = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 dalle.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(dalle)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -6616,7 +6794,10 @@ def buildKandinsky(page):
     def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-            fname = os.path.join(root_dir, e.file_name)
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+            else:
+              fname = e.file_name
             if pick_type == "init":
                 init_image.value = fname
                 init_image.update()
@@ -6631,7 +6812,10 @@ def buildKandinsky(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -6770,7 +6954,10 @@ def buildKandinskyFuse(page):
     def on_upload_progress(e: FilePickerUploadEvent):
         nonlocal pick_type
         if e.progress == 1:
-            fname = os.path.join(root_dir, e.file_name)
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+            else:
+              fname = e.file_name
             init_image.value = fname
             init_image.update()
             kandinsky_fuse_prefs['init_image'] = fname
@@ -6780,7 +6967,10 @@ def buildKandinskyFuse(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -6893,7 +7083,10 @@ def buildKandinskyFuse(page):
                 upload_files(e)
         def on_upload_progress(e: FilePickerUploadEvent):
             if e.progress == 1:
-                fname = os.path.join(root_dir, e.file_name)
+                if not slash in e.file_name:
+                  fname = os.path.join(root_dir, e.file_name)
+                else:
+                  fname = e.file_name
                 image_mix.value = fname
                 image_mix.update()
                 data['init_image'] = fname
@@ -6903,7 +7096,10 @@ def buildKandinskyFuse(page):
             uf = []
             if file_picker.result != None and file_picker.result.files != None:
                 for f in file_picker.result.files:
+                  if page.web:
                     uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+                  else:
+                    on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
                 file_picker.upload(uf)
         page.overlay.append(file_picker)
         def pick_image(e):
@@ -7193,7 +7389,10 @@ def buildCLIPstyler(page):
             upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-            fname = os.path.join(root_dir, e.file_name)
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+            else:
+              fname = e.file_name
             original_image.value = fname
             original_image.update()
             CLIPstyler_prefs['original_image'] = fname
@@ -7203,7 +7402,10 @@ def buildCLIPstyler(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     pick_type = ""
@@ -7466,6 +7668,10 @@ def buildDreamMask(page):
           upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
       if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+        else:
+          fname = e.file_name
         files.current.controls.append(Row([Text(f"Done uploading {root_dir}{e.file_name}")]))
         page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -7473,7 +7679,10 @@ def buildDreamMask(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
 
@@ -7574,14 +7783,18 @@ def buildDreamBooth(page):
         if e.progress == 1:
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
+          if not slash in e.file_name:
+            fname = os.path.join(root_dir, e.file_name)
+            fpath = os.path.join(save_dir, e.file_name)
+          else:
+            fname = e.file_name
+            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, dreambooth_prefs['max_size'])
           original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
           original_img.save(fpath)
-          os.remove(fname)
+          if page.web: os.remove(fname)
           #shutil.move(fname, fpath)
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -7591,7 +7804,10 @@ def buildDreamBooth(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -7779,14 +7995,18 @@ def buildTextualInversion(page):
         if e.progress == 1:
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
+          if not slash in e.file_name:
+            fname = os.path.join(root_dir, e.file_name)
+            fpath = os.path.join(save_dir, e.file_name)
+          else:
+            fname = e.file_name
+            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, textualinversion_prefs['max_size'])
           original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
           original_img.save(fpath)
-          os.remove(fname)
+          if page.web: os.remove(fname)
           #shutil.move(fname, fpath)
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -7796,7 +8016,10 @@ def buildTextualInversion(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -8041,14 +8264,18 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         if e.progress == 1:
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
+          if not slash in e.file_name:
+            fname = os.path.join(root_dir, e.file_name)
+            fpath = os.path.join(save_dir, e.file_name)
+          else:
+            fname = e.file_name
+            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
           original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
           original_img.save(fpath)
-          os.remove(fname)
+          if page.web: os.remove(fname)
           #shutil.move(fname, fpath)
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -8058,7 +8285,10 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -8252,14 +8482,18 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         if e.progress == 1:
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
+          if not slash in e.file_name:
+            fname = os.path.join(root_dir, e.file_name)
+            fpath = os.path.join(save_dir, e.file_name)
+          else:
+            fname = e.file_name
+            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, LoRA_prefs['resolution'])
           original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
           original_img.save(fpath)
-          os.remove(fname)
+          if page.web: os.remove(fname)
           #shutil.move(fname, fpath)
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -8269,7 +8503,10 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_image(e):
@@ -8752,9 +8989,14 @@ def buildTortoiseTTS(page):
         if e.progress == 1:
           if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-          fname = os.path.join(root_dir, e.file_name)
-          fpath = os.path.join(save_dir, e.file_name)
-          shutil.move(fname, fpath)
+          if not slash in e.file_name:
+            fname = os.path.join(root_dir, e.file_name)
+            fpath = os.path.join(save_dir, e.file_name)
+            shutil.move(fname, fpath)
+          else:
+            fname = e.file_name
+            fpath = os.path.join(save_dir, e.file_name.rpartition(slash)[2])
+            shutil.copy(fname, fpath)
           add_file(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
@@ -8763,7 +9005,10 @@ def buildTortoiseTTS(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def add_wav(e):
@@ -8984,8 +9229,12 @@ def buildRiffusion(page):
             upload_files(e)
     def on_upload_progress(e: FilePickerUploadEvent):
         if e.progress == 1:
-            riffusion_prefs['file_name'] = e.file_name.rpartition('.')[0]
-            fname = os.path.join(root_dir, e.file_name)
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+              riffusion_prefs['file_name'] = e.file_name.rpartition('.')[0]
+            else:
+              fname = e.file_name
+              riffusion_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
             audio_file.value = fname
             audio_file.update()
             riffusion_prefs['audio_file'] = fname
@@ -8995,7 +9244,10 @@ def buildRiffusion(page):
         uf = []
         if file_picker.result != None and file_picker.result.files != None:
             for f in file_picker.result.files:
+              if page.web:
                 uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
     def pick_audio(e):
@@ -10137,24 +10389,24 @@ def get_lpw_pipe():
     else:
       return pipe
   if 'revision' in model:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
   else:
     if 'vae' in model:
       from diffusers import AutoencoderKL, UNet2DConditionModel
       vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
       unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
-      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
     else:
       if prefs['disable_nsfw_filter']:
         if 'from_ckpt' in model:
-          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
         else:  
-          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
       else:
         if 'from_ckpt' in model:
-          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
         else:
-          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
@@ -10968,6 +11220,19 @@ def update_stability():
     )
     SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'].lower())
 '''
+def get_AIHorde(page):
+    global prefs, status
+    import requests
+    api_host = os.getenv('API_HOST', 'https://stablehorde.net/api/')
+    horde_url = f"{api_host}/v2/find_user" #user/account"
+    response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'})
+    if response.status_code != 200:
+      alert_msg(page, "ERROR {response.status_code} with AIHorde Authentication", content=Text(str(response.text)))
+      return
+    payload = response.json()
+    print(str(payload))
+    status['installed_AIHorde'] = True
+    
 def get_ESRGAN(page):
     os.chdir(dist_dir)
     run_process(f"git clone https://github.com/xinntao/Real-ESRGAN.git -q", page=page, cwd=dist_dir)
@@ -11533,14 +11798,14 @@ def start_diffusion(page):
   last_seed = args['seed']
   if args['seed'] < 1 or args['seed'] is None:
     rand_seed = random.randint(0,2147483647)
-    if not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability'])):
+    if (not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability']))) and (not (prefs['use_AIHorde_api'] or (not status['installed_diffusers'] and status['installed_AIHorde']))):
       if use_custom_scheduler:
         generator = torch.manual_seed(rand_seed)
       else:
         generator = torch.Generator("cuda").manual_seed(rand_seed)
     last_seed = rand_seed
   else:
-    if not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability'])):
+    if not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability'])) and (not (prefs['use_AIHorde_api'] or (not status['installed_diffusers'] and status['installed_AIHorde']))):
       if use_custom_scheduler:
         generator = torch.manual_seed(args['seed'])
       else:
@@ -11616,14 +11881,14 @@ def start_diffusion(page):
       if last_seed != arg['seed']:
         if arg['seed'] < 1 or arg['seed'] is None:
           rand_seed = random.randint(0,2147483647)
-          if not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability'])):
+          if (not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability']))) and (not (prefs['use_AIHorde_api'] or (not status['installed_diffusers'] and status['installed_AIHorde']))):
             if use_custom_scheduler:
               generator = torch.manual_seed(rand_seed)
             else:
               generator = torch.Generator("cuda").manual_seed(rand_seed)
           arg['seed'] = rand_seed
         else:
-          if not(prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability'])):
+          if (not(prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability']))) and (not (prefs['use_AIHorde_api'] or (not status['installed_diffusers'] and status['installed_AIHorde']))):
             if use_custom_scheduler:
               generator = torch.manual_seed(arg['seed'])
             else:
@@ -11642,8 +11907,9 @@ def start_diffusion(page):
       #prt(p_count + ('─' * 90))
       #prt(f'{pr[0] if type(pr) == list else pr} - seed:{arg["seed"]}')
       total_steps = arg['steps']
-      
-      if prefs['use_Stability_api'] or bool(arg['use_Stability'] or (not status['installed_diffusers'] and status['installed_stability'])):
+      #if prefs['use_Stability_api'] or bool(arg['use_Stability'] or (not status['installed_diffusers'] and status['installed_stability'])):
+      if status['installed_stability'] and (not status['installed_diffusers'] or prefs['use_Stability_api']) and not (status['installed_AIHorde'] and prefs['use_AIHorde_api']):
+        print('use_Stability_api')
         if not status['installed_stability']:
           alert_msg(page, f"ERROR: To use Stability-API, you must run the install it first and have proper API key")
           return
@@ -11693,8 +11959,8 @@ def start_diffusion(page):
               prt(f"ERROR: You have not selected an init_image to go with your image mask..")
               continue
             if arg['init_image'].startswith('http'):
-              response = requests.get(arg['init_image'])
-              init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+              i_response = requests.get(arg['init_image'])
+              init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
             else:
               if os.path.isfile(arg['init_image']):
                 init_img = PILImage.open(arg['init_image'])
@@ -11709,8 +11975,8 @@ def start_diffusion(page):
             #init_image = preprocess(init_img)
             if not arg['alpha_mask']:
               if arg['mask_image'].startswith('http'):
-                response = requests.get(arg['mask_image'])
-                mask_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+                i_response = requests.get(arg['mask_image'])
+                mask_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
               else:
                 if os.path.isfile(arg['mask_image']):
                   mask_img = PILImage.open(arg['mask_image'])
@@ -11739,8 +12005,8 @@ def start_diffusion(page):
             #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
           elif bool(arg['init_image']):
             if arg['init_image'].startswith('http'):
-              response = requests.get(arg['init_image'])
-              init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+              i_response = requests.get(arg['init_image'])
+              init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
             else:
               if os.path.isfile(arg['init_image']):
                 init_img = PILImage.open(arg['init_image']).convert("RGB")
@@ -11797,7 +12063,209 @@ def start_diffusion(page):
                   prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
                 if artifact.type == generation.ARTIFACT_IMAGE:
                   images.append(PILImage.open(io.BytesIO(artifact.binary)))
+      elif prefs['use_AIHorde_api'] and status['installed_AIHorde']:# or bool(prefs['use_AIHorde_api'] or (not status['installed_diffusers'] and status['installed_AIHorde'])):
+        if not status['installed_AIHorde']:
+          alert_msg(page, f"ERROR: To use AIHorde-API, you must run the install it first and have proper API key")
+          return
+        stats = Text("Stable Horde API Diffusion ")
+        prt(stats)
+        #prt('Stable Horde API Diffusion ')# + ('─' * 100))
+        #print(f'"{SD_prompt}", height={SD_height}, width={SD_width}, steps={SD_steps}, cfg_scale={SD_guidance_scale}, seed={SD_seed}, sampler={generation_sampler}')
+        #strikes = 0
+        images = []
+        arg['width'] = multiple_of_64(arg['width'])
+        arg['height'] = multiple_of_64(arg['height'])
+        prt(pb)
+        answers = None
+        response = None
+        
+        import requests
+        from io import BytesIO
+        import base64
+        import cv2
+        api_host = 'https://stablehorde.net/api'
+        engine_id = prefs['AIHorde_model']
+        api_check_url = f"{api_host}/v2/generate/check/"
+        api_get_result_url = f"{api_host}/v2/generate/status/"
+        url = f"{api_host}/v2/generate/async"
+        headers = {
+            #'Content-Type': 'application/json',
+            #'Accept': 'application/json',
+            'apikey': prefs['AIHorde_api_key'],
+        }
+        text_prompt = pr[0] if type(pr) == list else pr
+        if bool(arg['negative_prompt']):
+          text_prompt += "###" +arg['negative_prompt'][0] if type(arg['negative_prompt']) == list else arg['negative_prompt']
+        payload = {
+          "prompt": text_prompt,
+          "nsfw": prefs["disable_nsfw_filter"],
+          "models": [prefs["AIHorde_model"]]
+        }
+        params = {
+          "cfg_scale": arg['guidance_scale'],
+          "denoising_strength": arg['init_image_strength'],
+          "width": arg['width'],
+          "height": arg['height'],
+          "sampler_name": prefs['AIHorde_sampler'],
+          "n": arg['batch_size'],
+          "seed": str(arg['seed']),
+          "steps": arg['steps'],
+        }
+        if prefs['AIHorde_post_processing'] != "None":
+          params['post_processing'] = [prefs['AIHorde_post_processing']]
+        if bool(arg['mask_image']) or (bool(arg['init_image']) and arg['alpha_mask']):
+          if not bool(arg['init_image']):
+            clear_last()
+            prt(f"ERROR: You have not selected an init_image to go with your image mask..")
+            continue
+          if arg['init_image'].startswith('http'):
+            i_response = requests.get(arg['init_image'])
+            init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+          else:
+            if os.path.isfile(arg['init_image']):
+              init_img = PILImage.open(arg['init_image'])
+            else: 
+              clear_last()
+              prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
+          init_img = init_img.resize((arg['width'], arg['height']))
+          buff = BytesIO()
+          init_img.save(buff, format="PNG")
+          buff.seek(0)
+          img_str = io.BufferedReader(buff).read()
+          #init_image = preprocess(init_img)
+          if not arg['alpha_mask']:
+            if arg['mask_image'].startswith('http'):
+              i_response = requests.get(arg['mask_image'])
+              mask_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+            else:
+              if os.path.isfile(arg['mask_image']):
+                mask_img = PILImage.open(arg['mask_image'])
+              else:
+                clear_last()
+                prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
+            mask = mask_img.resize((arg['width'], arg['height']))
 
+            buff = BytesIO()
+            mask.save(buff, format="PNG")
+            buff.seek(0)
+            mask_str = io.BufferedReader(buff).read()
+          payload['source_image'] = img_str
+          if not arg['alpha_mask']:
+            payload['source_mask'] = mask_str
+          pipe_used = "Stable Horde-API Inpainting"
+          payload['source_processing'] = "inpainting"
+          #engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
+          #response = requests.post(url+"image-to-image/masking", headers=headers, files=files)
+          #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
+        elif bool(arg['init_image']):
+          if arg['init_image'].startswith('http'):
+            i_response = requests.get(arg['init_image'])
+            init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+          else:
+            if os.path.isfile(arg['init_image']):
+              init_img = PILImage.open(arg['init_image']).convert("RGB")
+            else:
+              clear_last()
+              prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
+          init_img = init_img.resize((arg['width'], arg['height']))
+          
+          buff = BytesIO()
+          init_img.save(buff, format="PNG")
+          buff.seek(0)
+          img_str = io.BufferedReader(buff).read()
+          #img_str = open(buff.read(), 'rb') #base64.b64encode(buff.getvalue())  init_img.tobytes("raw")
+          payload['source_image'] = img_str
+          pipe_used = "Stable Horde-API Image-to-Image"
+          payload['source_processing'] = "img2img"
+          #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
+        else:
+          pipe_used = "Stable Horde-API Text-to-Image"
+          #response = requests.post(url+"text-to-image", headers=headers, json=payload)
+          #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
+        payload["params"] = params
+        #print(params)
+        response = requests.post(url, headers=headers, json=payload)
+        
+        if response != None:
+          if response.status_code != 202:
+            if response.status_code == 400:
+              alert_msg(page, "Stable Horde-API ERROR: Validation Error...", content=Text(str(response.text)))
+              return
+            else:
+              prt(Text(f"Stable Horde-API ERROR {response.status_code}: " + str(response.text), selectable=True))
+              print(payload)
+              continue
+          #with open(output_file, "wb") as f:
+          #  f.write(response.content)
+        
+        artifacts = json.loads(response.content)
+        q_id = artifacts['id']
+        #print(str(artifacts))
+        #stats = Text("")
+        #prt(stats)
+        elapsed_seconds = 0
+        try:
+          while True:
+            check_response = requests.get(api_check_url + q_id)
+            check = json.loads(check_response.content)
+            div = check['wait_time'] + elapsed_seconds
+            if div == 0: continue
+            try:
+              percentage = (1 - check['wait_time'] / div)
+            except Exception:
+              continue
+              pass
+            pb.value = percentage
+            pb.update()
+            status_txt = f"Stable Horde API Diffusion - Queued Position: {check['queue_position']} - Waiting: {check['waiting']} - Wait Time: {check['wait_time']}"
+            stats.value = status_txt #str(check)
+            stats.update()
+            if bool(check['done']):
+              break
+            time.sleep(1)
+            elapsed_seconds += 1
+        except Exception as e:
+          alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+          return
+        get_response = requests.get(api_get_result_url + q_id)
+        final_results = json.loads(get_response.content)
+        clear_last(update=False)
+        clear_last()
+        for gen in final_results["generations"]:
+          #print(f'{type(resp)} - {resp["seed"]}')
+          if gen["censored"]:
+            prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
+            continue
+          img_response = requests.get(gen['img'])
+          webp_file = io.BytesIO(img_response.content)
+          cv_img = cv2.imdecode(np.frombuffer(webp_file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
+          images.append(PILImage.fromarray(cv_img))
+          #cv_img = cv2.imdecode(io.BytesIO(base64.b64decode(gen['img'])), cv2.IMREAD_COLOR)
+          #cv_img = cv2.imdecode(np.frombuffer(base64.b64decode(gen['img']), dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+          #decoded_string = base64.b64decode(gen['img'])
+          #nparr = np.frombuffer(decoded_string, np.uint8)
+          #cv_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+          #print(gen['img'])
+          #print(str(type(gen['img'])))
+          #img_bytes = io.BytesIO(decoded_string)
+          #img = Image.open(io.BytesIO(img_response.content))
+          #pil_image = PILImage.open(webp_file)
+          #images.append(PILImage.open(io.BytesIO(img_response.content)))
+          #images.append(PILImage.open(pil_image))
+          #images.append(PILImage.open(img_response.content))
+          #images.append(PILImage.open(io.BytesIO(base64.b64decode(gen['img']))).convert('RGB'))
+          #print(f'{type(response.content)} {response.content}')
+          '''if answers != None:
+            for resp in answers:
+              for artifact in resp.artifacts:
+                #print("Artifact reason: " + str(artifact.finish_reason))
+                if artifact.finish_reason == generation.FILTER:         
+                  usable_image = False
+                if artifact.finish_reason == generation.ARTIFACT_TEXT:         
+                  usable_image = False
+                  prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
+                if artifact.type == generation.ARTIFACT_IMAGE:
+                  images.append(PILImage.open(io.BytesIO(artifact.binary)))'''
       else:
         #from torch.amp.autocast_mode import autocast
         #precision_scope = autocast if prefs['precision']=="autocast" else nullcontext
@@ -14503,99 +14971,191 @@ def run_image2text(page):
     def clear_last():
       del page.image2text_output.controls[-1]
       page.image2text_output.update()
+    if image2text_prefs['use_AIHorde'] and not bool(prefs['AIHorde_api_key']):
+      alert_msg(page, "To use AIHorde API service, you must provide an API key in settings")
+      return
     progress = ProgressBar(bar_height=8)
     #if not status['installed_diffusers']:
     #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
     #  return
-    prt(Installing("Downloading Image2Text CLIP-Interrogator Blips..."))
-    #try:
-    #    import clip
-    #except ModuleNotFoundError:
-    try:
-        if transformers.__version__ != "4.21.3": # Diffusers conflict
-          run_process("pip uninstall -y transformers", realtime=False)
-    except Exception:
-        pass
-    run_process("pip install ftfy regex tqdm timm fairscale requests", realtime=False)
-    #run_sp("pip install --upgrade transformers==4.21.2", realtime=False)
-    run_process("pip install -q transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
-    run_process("pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip", realtime=False)
-    run_process("pip install -e git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
-    run_process("pip clone https://github.com/pharmapsychotic/clip-interrogator.git", realtime=False)
-        #['pip', 'install', 'ftfy', 'gradio', 'regex', 'tqdm', 'transformers==4.21.2', 'timm', 'fairscale', 'requests'],
-    #    pass
-    # Have to force downgrade of transformers because error with cache_dir, but should upgrade after run
-    run_process("pip install clip-interrogator", realtime=False)
-    
-    '''def setup():
-        install_cmds = [
-            ['pip', 'install', 'ftfy', 'gradio', 'regex', 'tqdm', 'transformers==4.21.2', 'timm', 'fairscale', 'requests'],
-            ['pip', 'install', 'git+https://github.com/openai/CLIP.git@main#egg=clip'],
-            ['pip', 'install', 'git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip'],
-            ['git', 'clone', 'https://github.com/pharmapsychotic/clip-interrogator.git'],
-            ['pip', 'install', 'clip-interrogator'],
-        ]
-        for cmd in install_cmds:
-            print(subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode('utf-8'))
-    setup()'''
-    #run_sp("pip install git+https://github.com/openai/CLIP.git", realtime=False)
-    import argparse, sys, time
-    sys.path.append('src/blip')
-    sys.path.append('src/clip')
-    sys.path.append('clip-interrogator')
-    import clip
-    import torch
-    from clip_interrogator import Interrogator, Config
-    clear_last()
-    prt("Interrogating Images to Describe Prompt... Check console output for progress.")
-    prt(progress)
-    try:
-        ci = Interrogator(Config())
-    except Exception as e:
+    if not image2text_prefs['use_AIHorde']:
+        prt(Installing("Downloading Image2Text CLIP-Interrogator Blips..."))
+        try:
+            if transformers.__version__ != "4.21.3": # Diffusers conflict
+              run_process("pip uninstall -y transformers", realtime=False)
+        except Exception:
+            pass
+        run_process("pip install ftfy regex tqdm timm fairscale requests", realtime=False)
+        #run_sp("pip install --upgrade transformers==4.21.2", realtime=False)
+        run_process("pip install -q transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
+        run_process("pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip", realtime=False)
+        run_process("pip install -e git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
+        run_process("pip clone https://github.com/pharmapsychotic/clip-interrogator.git", realtime=False)
+            #['pip', 'install', 'ftfy', 'gradio', 'regex', 'tqdm', 'transformers==4.21.2', 'timm', 'fairscale', 'requests'],
+        #    pass
+        # Have to force downgrade of transformers because error with cache_dir, but should upgrade after run
+        run_process("pip install clip-interrogator", realtime=False)
+        
+        '''def setup():
+            install_cmds = [
+                ['pip', 'install', 'ftfy', 'gradio', 'regex', 'tqdm', 'transformers==4.21.2', 'timm', 'fairscale', 'requests'],
+                ['pip', 'install', 'git+https://github.com/openai/CLIP.git@main#egg=clip'],
+                ['pip', 'install', 'git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip'],
+                ['git', 'clone', 'https://github.com/pharmapsychotic/clip-interrogator.git'],
+                ['pip', 'install', 'clip-interrogator'],
+            ]
+            for cmd in install_cmds:
+                print(subprocess.run(cmd, stdout=subprocess.PIPE).stdout.decode('utf-8'))
+        setup()'''
+        #run_sp("pip install git+https://github.com/openai/CLIP.git", realtime=False)
+        import argparse, sys, time
+        sys.path.append('src/blip')
+        sys.path.append('src/clip')
+        sys.path.append('clip-interrogator')
+        import clip
+        import torch
+        from clip_interrogator import Interrogator, Config
         clear_last()
-        alert_msg(page, "ERROR: Problem running Interrogator. Try running before installing Diffusers...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
-        return
-    def inference(image, mode):
-        nonlocal ci
-        image = image.convert('RGB')
-        if mode == 'best':
-            return ci.interrogate(image)
-        elif mode == 'classic':
-            return ci.interrogate_classic(image)
-        else:
-            return ci.interrogate_fast(image)
-    folder_path = image2text_prefs['folder_path']
-    mode = image2text_prefs['mode'] #'best' #param ["best","classic", "fast"]
-    files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
-    clear_last()
-    i2t_prompts = []
-    for file in files:
-        image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
-        prompt = inference(image, mode)
-        i2t_prompts.append(prompt)
-        page.add_to_image2text(prompt)
-        #thumb = image.copy()
-        #thumb.thumbnail([256, 256])
-        #display(thumb)
-        #print(prompt)
-    if image2text_prefs['save_csv']:
-        if len(i2t_prompts):
-            import csv
-            csv_path = os.path.join(folder_path, 'img2txt_prompts.csv')
-            with open(csv_path, 'w', encoding='utf-8', newline='') as f:
-                w = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
-                w.writerow(['image', 'prompt'])
-                for file, prompt in zip(files, i2t_prompts):
-                    w.writerow([file, prompt])
+        prt("Interrogating Images to Describe Prompt... Check console output for progress.")
+        prt(progress)
+        try:
+            ci = Interrogator(Config())
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "ERROR: Problem running Interrogator. Try running before installing Diffusers...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+            return
+        def inference(image, mode):
+            nonlocal ci
+            image = image.convert('RGB')
+            if mode == 'best':
+                return ci.interrogate(image)
+            elif mode == 'classic':
+                return ci.interrogate_classic(image)
+            else:
+                return ci.interrogate_fast(image)
+        folder_path = image2text_prefs['folder_path']
+        mode = image2text_prefs['mode'] #'best' #param ["best","classic", "fast"]
+        files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
+        clear_last()
+        i2t_prompts = []
+        for file in files:
+            image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
+            prompt = inference(image, mode)
+            i2t_prompts.append(prompt)
+            page.add_to_image2text(prompt)
+            #thumb = image.copy()
+            #thumb.thumbnail([256, 256])
+            #display(thumb)
+            #print(prompt)
+        if image2text_prefs['save_csv']:
+            if len(i2t_prompts):
+                import csv
+                csv_path = os.path.join(folder_path, 'img2txt_prompts.csv')
+                with open(csv_path, 'w', encoding='utf-8', newline='') as f:
+                    w = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
+                    w.writerow(['image', 'prompt'])
+                    for file, prompt in zip(files, i2t_prompts):
+                        w.writerow([file, prompt])
 
-            prt(f"\n\n\nGenerated {len(i2t_prompts)} and saved to {csv_path}, enjoy!")
-        else:
-            prt(f"Sorry, we couldn't find any images in {folder_path}")
-    run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
-    run_process("pip uninstall -y clip-interrogator", realtime=False)
-    run_process("pip uninstall -y transformers", realtime=False)
-    run_process("pip install --upgrade transformers", realtime=False)
-    clear_last()
+                prt(f"\n\n\nGenerated {len(i2t_prompts)} and saved to {csv_path}, enjoy!")
+            else:
+                prt(f"Sorry, we couldn't find any images in {folder_path}")
+        run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
+        run_process("pip uninstall -y clip-interrogator", realtime=False)
+        run_process("pip uninstall -y transformers", realtime=False)
+        run_process("pip install --upgrade transformers", realtime=False)
+        clear_last()
+    else:
+        if not status['installed_AIHorde']:
+          prt("Installing AIHorde API Library")
+          get_AIHorde(page)
+          clear_last()
+        import requests
+        from io import BytesIO
+        prt("Interrogating Images to Describe Prompt...")
+        prt(progress)
+        api_host = 'https://stablehorde.net/api'
+        api_check_url = f"{api_host}/v2/generate/check/"
+        api_get_result_url = f"{api_host}/v2/interrogate/status/"
+        interrogate_url = f"{api_host}/v2/interrogate/async"
+        mode = image2text_prefs['mode'] #'best' #param ["best","classic", "fast"]
+        headers = {
+            #'Content-Type': 'application/json',
+            #'Accept': 'application/json',
+            'apikey': prefs['AIHorde_api_key'],
+        }
+        payload = {
+          "forms": [
+            {
+              "name": "caption",
+              #"payload": {
+              #  "*": {
+              #    "additionalProp1": "string",
+              #  }
+              #}
+            }
+          ],
+          "slow_workers": False if mode == "fast" else True
+        }
+        folder_path = image2text_prefs['folder_path']
+        files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
+        print(f"Files: {len(files)}")
+        for file in files:
+            stats = Text("Stable Horde API Interrogation ")
+            prt(stats)
+            image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
+            buff = io.BytesIO()
+            image.save(buff, format="PNG")
+            buff.seek(0)
+            img_str = io.BufferedReader(buff).read()
+            payload['source_image'] = img_str.decode()
+            
+            response = requests.post(interrogate_url, headers=headers, json=json.dumps(payload))
+            if response != None:
+              if response.status_code != 202:
+                if response.status_code == 400:
+                  alert_msg(page, "Stable Horde-API ERROR: Validation Error...", content=Text(str(response.text)))
+                  return
+                else:
+                  prt(Text(f"Stable Horde-API ERROR {response.status_code}: " + str(response.text), selectable=True))
+                  print(payload)
+                  continue
+            artifacts = json.loads(response.content)
+            q_id = artifacts['id']
+            print(f"ID: {q_id}")
+            elapsed_seconds = 0
+            try:
+              while True:
+                check_response = requests.get(api_check_url + q_id)
+                check = json.loads(check_response.content)
+                div = check['wait_time'] + elapsed_seconds
+                if div == 0: continue
+                try:
+                  percentage = (1 - check['wait_time'] / div)
+                except Exception:
+                  continue
+                pb.value = percentage
+                pb.update()
+                status_txt = f"Stable Horde API Interrogation - Queued Position: {check['queue_position']} - Waiting: {check['waiting']} - Wait Time: {check['wait_time']}"
+                stats.value = status_txt #str(check)
+                stats.update()
+                if bool(check['done']):
+                  break
+                time.sleep(1)
+                elapsed_seconds += 1
+            except Exception as e:
+              alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+              return
+            get_response = requests.get(api_get_result_url + q_id)
+            final_results = json.loads(get_response.content)
+            clear_last()
+            clear_last()
+            prt(str(final_results))
+            for r in final_results['forms']:
+              prompt = r['result']['*']
+              i2t_prompts.append(prompt)
+              page.add_to_image2text(prompt)
+            
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_BLIP2_image2text(page):
