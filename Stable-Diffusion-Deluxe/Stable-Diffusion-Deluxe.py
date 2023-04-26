@@ -581,6 +581,7 @@ def buildStableDiffusers(page):
     page.PaintByExample = buildPaintByExample(page)
     page.InstructPix2Pix = buildInstructPix2Pix(page)
     page.ControlNet = buildControlNet(page)
+    page.DeepFloyd = buildDeepFloyd(page)
     page.TextToVideo = buildTextToVideo(page)
     page.TextToVideoZero = buildTextToVideoZero(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
@@ -595,6 +596,7 @@ def buildStableDiffusers(page):
         tabs=[
             Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
+            Tab(text="DeepFloyd", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
@@ -3369,6 +3371,9 @@ def buildInitVideo(page):
 
 image2text_prefs = {
     'mode': 'best',
+    'request_mode': 'Caption',
+    'slow_workers': True,
+    'trusted_workers': False,
     'folder_path': '',
     'image_path': '',
     'max_size': 768,
@@ -3441,6 +3446,7 @@ def buildImage2Text(page):
         #shutil.move(fname, fpath)
         page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
         page.image2text_file_list.update()
+        image2text_prefs['images'].append(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def pick_path(e):
         file_picker.pick_files(allow_multiple=True, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Image File to Enlarge")
@@ -3468,20 +3474,22 @@ def buildImage2Text(page):
           original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
           width, height = original_img.size
           width, height = scale_dimensions(width, height, image2text_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
           page.image2text_file_list.update()
+          image2text_prefs['images'].append(fpath)
         elif os.path.isfile(image_path.value):
           fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
           original_img = PILImage.open(image_path.value)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, image2text_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           #shutil.copy(image_path.value, fpath)
           page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
           page.image2text_file_list.update()
+          image2text_prefs['images'].append(fpath)
         elif os.path.isdir(image_path.value):
           for f in os.listdir(image_path.value):
             file_path = os.path.join(image_path.value, f)
@@ -3491,11 +3499,12 @@ def buildImage2Text(page):
               original_img = PILImage.open(file_path)
               width, height = original_img.size
               width, height = scale_dimensions(width, height, image2text_prefs['max_size'])
-              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               original_img.save(fpath)
               #shutil.copy(file_path, fpath)
               page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
               page.image2text_file_list.update()
+              image2text_prefs['images'].append(fpath)
         else:
           if bool(image_path.value):
             alert_msg(page, "Couldn't find a valid File, Path or URL...")
@@ -3518,6 +3527,15 @@ def buildImage2Text(page):
       if prefs['enable_sounds']: page.snd_drop.play()
       for p in page.image2text_list.controls:
         page.add_to_prompts(p.title.value)
+    def toggle_AIHorde(e):
+      use = e.control.value
+      changed(e,'use_AIHorde')
+      AIHorde_row.height=None if use else 0
+      AIHorde_row.update()
+      mode.visible = not use
+      mode.update()
+      request_mode.visible = use
+      request_mode.update()
     def clear_prompts(e):
       if prefs['enable_sounds']: page.snd_delete.play()
       page.image2text_list.controls = []
@@ -3533,7 +3551,11 @@ def buildImage2Text(page):
       image2text_list_buttons.visible = False
 
     mode = Dropdown(label="Interrogation Mode", width=250, options=[dropdown.Option("best"), dropdown.Option("classic"), dropdown.Option("fast")], value=image2text_prefs['mode'], on_change=lambda e: changed(e, 'mode'))
-    use_AIHorde = Switch(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_AIHorde'))
+    use_AIHorde = Switch(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_AIHorde)
+    request_mode = Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation")], value=image2text_prefs['request_mode'], visible=False, on_change=lambda e: changed(e, 'request_mode'))
+    slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
+    trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
+    AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), height=None if image2text_prefs['use_AIHorde'] else 0, animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
     save_csv = Checkbox(label="Save CSV file of Prompts", tooltip="", value=image2text_prefs['save_csv'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_csv'))
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=32, multiple=16, suffix="px", pref=image2text_prefs, key='max_size')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=image2text_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
@@ -3546,14 +3568,15 @@ def buildImage2Text(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
-        mode,
-        #Row([mode, use_AIHorde]),
+        #mode,
+        Row([mode, request_mode, use_AIHorde]),
+        AIHorde_row,
         max_row,
         Row([image_path, add_image_button]),
         page.image2text_file_list,
+        ElevatedButton(content=Text("👨‍🎨️  Get Prompts from Images", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_image2text(page)),
         page.image2text_list,
         image2text_list_buttons,
-        ElevatedButton(content=Text("👨‍🎨️  Get Prompts from Images", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_image2text(page)),
         page.image2text_output,
       ],
     ))], scroll=ScrollMode.AUTO)
@@ -3630,7 +3653,7 @@ def buildBLIP2Image2Text(page):
         original_img = PILImage.open(fname)
         width, height = original_img.size
         width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
-        original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
         original_img.save(fpath)
         #shutil.move(fname, fpath)
         page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
@@ -3661,7 +3684,7 @@ def buildBLIP2Image2Text(page):
           original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
           width, height = original_img.size
           width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
           page.BLIP2_image2text_file_list.update()
@@ -3670,7 +3693,7 @@ def buildBLIP2Image2Text(page):
           original_img = PILImage.open(image_path.value)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           #shutil.copy(image_path.value, fpath)
           page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
@@ -3684,7 +3707,7 @@ def buildBLIP2Image2Text(page):
               original_img = PILImage.open(file_path)
               width, height = original_img.size
               width, height = scale_dimensions(width, height, BLIP2_image2text_prefs['max_size'])
-              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               original_img.save(fpath)
               #shutil.copy(file_path, fpath)
               page.BLIP2_image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
@@ -4408,7 +4431,7 @@ def buildInstantNGP(page):
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           if page.web:
             os.remove(fname)
@@ -4439,7 +4462,7 @@ def buildInstantNGP(page):
           model_image = PILImage.open(BytesIO(response.content)).convert("RGB")
           width, height = model_image.size
           width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
-          model_image = model_image.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          model_image = model_image.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           model_image.save(fpath)
           add_file(fpath)
         elif os.path.isfile(image_path.value):
@@ -4447,7 +4470,7 @@ def buildInstantNGP(page):
           original_img = PILImage.open(image_path.value)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           #shutil.copy(image_path.value, fpath)
           add_file(fpath)
@@ -4460,7 +4483,7 @@ def buildInstantNGP(page):
               original_img = PILImage.open(file_path)
               width, height = original_img.size
               width, height = scale_dimensions(width, height, instant_ngp_prefs['resolution'])
-              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               original_img.save(fpath)
               #shutil.copy(file_path, fpath)
               add_file(fpath)
@@ -6019,6 +6042,183 @@ def buildControlNet(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+deepfloyd_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'init_image': '',
+    'mask_image': '',
+    'alpha_mask': False,
+    'invert_mask': False,
+    'num_inference_steps': 100,
+    'guidance_scale': 10,
+    'image_strength': 0.7,
+    'superres_num_inference_steps': 50,
+    'superres_guidance_scale': 4,
+    'upscale_num_inference_steps': 75,
+    'upscale_guidance_scale': 9,
+    'eta': 0.0,
+    'seed': 0,
+    'max_size': 768,
+    'num_images': 1,
+    'batch_folder_name': '',
+    'file_prefix': 'IF-',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildDeepFloyd(page):
+    global deepfloyd_prefs, prefs, pipe_deepfloyd
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            deepfloyd_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            deepfloyd_prefs[pref] = float(e.control.value)
+          else:
+            deepfloyd_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_deepfloyd_output(o):
+      page.deepfloyd_output.controls.append(o)
+      page.deepfloyd_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.deepfloyd_output.controls = []
+      page.deepfloyd_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def deepfloyd_help(e):
+      def close_deepfloyd_dlg(e):
+        nonlocal deepfloyd_help_dlg
+        deepfloyd_help_dlg.open = False
+        page.update()
+      deepfloyd_help_dlg = AlertDialog(title=Text("💁   Help with DeepFloyd-IF"), content=Column([
+          Markdown("You must accept the license on the model card of [DeepFloyd/IF-I-IF-v1.0](https://huggingface.co/DeepFloyd/IF-I-IF-v1.0) and [DeepFloyd/IF-II-L-v1.0](https://huggingface.co/DeepFloyd/IF-II-L-v1.0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text('DeepFloyd IF is a novel state-of-the-art open-source text-to-image model with a high degree of photorealism and language understanding. Built by the team behind ruDALL-E (the Russian-language version of OpenAI\'s DALL-E algorithm), inspired by Google\'s "Imagen", and backed by the company behind Stable Diffusion, DeepFloyd\'s IF outperforms all of those algorithms. DeepFloyd IF is particularly good at understanding complex prompts and relationships between objects. It is also very good at inserting legible text into images - even more so than Stable Diffusion XL. It can even understand prompts in multiple languages. IF, or "Intelligent Fiction", is a text2image generator that is designed to create text and captions in the images in response to a prompt. The model is a modular composed of a frozen text encoder and three cascaded pixel diffusion modules:'),
+          Markdown("""* Stage 1: a base model that generates 64x64 px image based on text prompt,
+* Stage 2: a 64x64 px => 256x256 px super-resolution model, and a
+* Stage 3: a 256x256 px => 1024x1024 px super-resolution model Stage 1 and Stage 2 utilize a frozen text encoder based on the T5 transformer to extract text embeddings, which are then fed into a UNet architecture enhanced with cross-attention and attention pooling. Stage 3 is Stability's x4 Upscaling model. The result is a highly efficient model that outperforms current state-of-the-art models, achieving a zero-shot FID score of 6.66 on the COCO dataset. Our work underscores the potential of larger UNet architectures in the first stage of cascaded diffusion models and depicts a promising future for text-to-image synthesis.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😌  Let's go Deep... ", on_click=close_deepfloyd_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = deepfloyd_help_dlg
+      deepfloyd_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      nonlocal pick_type
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          deepfloyd_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          deepfloyd_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        if pick_type == "image":
+          init_image.value = fname
+          init_image.update()
+          deepfloyd_prefs['init_image'] = fname
+        elif pick_type == "mask":
+          mask_image.value = fname
+          mask_image.update()
+          deepfloyd_prefs['mask_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    def pick_init(e):
+        nonlocal pick_type
+        pick_type = "image"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def pick_mask(e):
+        nonlocal pick_type
+        pick_type = "mask"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Mask Image File")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        deepfloyd_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_eta(e):
+        changed(e, 'eta', ptype="float")
+        eta_value.value = f" {deepfloyd_prefs['eta']}"
+        eta_value.update()
+        eta_row.update()
+
+    init_image = TextField(label="Original Image", value=deepfloyd_prefs['init_image'], expand=True, on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    mask_image = TextField(label="Mask Image", value=deepfloyd_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=deepfloyd_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    alpha_mask = Checkbox(label="Alpha Mask", value=deepfloyd_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
+
+    prompt = TextField(label="Prompt Text", value=deepfloyd_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=deepfloyd_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    seed = TextField(label="Seed", width=90, value=str(deepfloyd_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=200, divisions=199, pref=deepfloyd_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=deepfloyd_prefs, key='guidance_scale')
+    
+    superres_num_inference_row = SliderRow(label="Super Resolution Inference Steps", min=1, max=200, divisions=199, pref=deepfloyd_prefs, key='superres_num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    superres_guidance = SliderRow(label="Super Resolution Guidance Scale", min=0, max=50, divisions=100, round=1, pref=deepfloyd_prefs, key='superres_guidance_scale')
+    upscale_num_inference_row = SliderRow(label="Upscale Inference Steps", min=1, max=200, divisions=199, pref=deepfloyd_prefs, key='upscale_num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    upscale_guidance = SliderRow(label="Upscale Guidance Scale", min=0, max=50, divisions=100, round=1, pref=deepfloyd_prefs, key='upscale_guidance_scale')
+    image_strength = SliderRow(label="Image Strength", min=0, max=1, divisions=20, round=2, pref=deepfloyd_prefs, key='image_strength', tooltip="Conceptually, indicates how much to transform the reference `image`. Denoising steps depends on the amount of noise initially added.")
+    #eta = TextField(label="ETA", value=str(deepfloyd_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(deepfloyd_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta_value = Text(f" {deepfloyd_prefs['eta']}", weight=FontWeight.BOLD)
+    eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
+    #page.etas.append(eta_row)
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=deepfloyd_prefs, key='max_size', tooltip="Resizes your Init and Mask Image to save memory.")
+    file_prefix = TextField(label="Filename Prefix",  value=deepfloyd_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=deepfloyd_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=deepfloyd_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=deepfloyd_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=deepfloyd_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_deepfloyd = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_deepfloyd.height = None if status['installed_ESRGAN'] else 0
+    page.deepfloyd_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.deepfloyd_output.controls) > 0
+    run_prompt_list = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deepfloyd(page, from_list=True))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🌈  DeepFloyd IF", "A new AI image generator that achieves state-of-the-art results on numerous image-generation tasks...", actions=[IconButton(icon=icons.HELP, tooltip="Help with IF-DeepFloyd Settings", on_click=deepfloyd_help)]),
+        ResponsiveRow([prompt, negative_prompt]),
+        ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        #Row([init_image, mask_image, invert_mask]),
+        image_strength,
+        num_inference_row,
+        guidance,
+        superres_num_inference_row,
+        superres_guidance,
+        upscale_num_inference_row,
+        upscale_guidance,
+        eta_row,
+        max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=deepfloyd_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name, file_prefix]),
+        page.ESRGAN_block_deepfloyd,
+        Row([ElevatedButton(content=Text("🎈  Run DeepFloyd", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deepfloyd(page)),
+             run_prompt_list]),
+        page.deepfloyd_output,
+        clear_button,
+      ]))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 text_to_video_prefs = {
     'prompt': '',
@@ -7792,7 +7992,7 @@ def buildDreamBooth(page):
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, dreambooth_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           if page.web: os.remove(fname)
           #shutil.move(fname, fpath)
@@ -7822,7 +8022,7 @@ def buildDreamBooth(page):
           concept_image = PILImage.open(BytesIO(response.content)).convert("RGB")
           width, height = concept_image.size
           width, height = scale_dimensions(width, height, dreambooth_prefs['max_size'])
-          concept_image = concept_image.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          concept_image = concept_image.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           concept_image.save(fpath)
           add_file(fpath)
         elif os.path.isfile(image_path.value):
@@ -7830,7 +8030,7 @@ def buildDreamBooth(page):
           original_img = PILImage.open(image_path.value)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, dreambooth_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           #shutil.copy(image_path.value, fpath)
           add_file(fpath)
@@ -7843,7 +8043,7 @@ def buildDreamBooth(page):
               original_img = PILImage.open(file_path)
               width, height = original_img.size
               width, height = scale_dimensions(width, height, dreambooth_prefs['max_size'])
-              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               original_img.save(fpath)
               #shutil.copy(file_path, fpath)
               add_file(fpath)
@@ -8004,7 +8204,7 @@ def buildTextualInversion(page):
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, textualinversion_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           if page.web: os.remove(fname)
           #shutil.move(fname, fpath)
@@ -8034,7 +8234,7 @@ def buildTextualInversion(page):
           concept_image = PILImage.open(BytesIO(response.content)).convert("RGB")
           width, height = concept_image.size
           width, height = scale_dimensions(width, height, textualinversion_prefs['max_size'])
-          concept_image = concept_image.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          concept_image = concept_image.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           concept_image.save(fpath)
           add_file(fpath)
         elif os.path.isfile(image_path.value):
@@ -8042,7 +8242,7 @@ def buildTextualInversion(page):
           original_img = PILImage.open(image_path.value)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, textualinversion_prefs['max_size'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           #shutil.copy(image_path.value, fpath)
           add_file(fpath)
@@ -8055,7 +8255,7 @@ def buildTextualInversion(page):
               original_img = PILImage.open(file_path)
               width, height = original_img.size
               width, height = scale_dimensions(width, height, textualinversion_prefs['max_size'])
-              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               original_img.save(fpath)
               #shutil.copy(file_path, fpath)
               add_file(fpath)
@@ -8273,7 +8473,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           if page.web: os.remove(fname)
           #shutil.move(fname, fpath)
@@ -8303,7 +8503,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
           model_image = PILImage.open(BytesIO(response.content)).convert("RGB")
           width, height = model_image.size
           width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
-          model_image = model_image.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          model_image = model_image.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           model_image.save(fpath)
           add_file(fpath)
         elif os.path.isfile(image_path.value):
@@ -8311,7 +8511,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
           original_img = PILImage.open(image_path.value)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           #shutil.copy(image_path.value, fpath)
           add_file(fpath)
@@ -8324,7 +8524,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
               original_img = PILImage.open(file_path)
               width, height = original_img.size
               width, height = scale_dimensions(width, height, LoRA_dreambooth_prefs['resolution'])
-              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               original_img.save(fpath)
               #shutil.copy(file_path, fpath)
               add_file(fpath)
@@ -8491,7 +8691,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
           original_img = PILImage.open(fname)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, LoRA_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           if page.web: os.remove(fname)
           #shutil.move(fname, fpath)
@@ -8521,7 +8721,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
           model_image = PILImage.open(BytesIO(response.content)).convert("RGB")
           width, height = model_image.size
           width, height = scale_dimensions(width, height, LoRA_prefs['resolution'])
-          model_image = model_image.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          model_image = model_image.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           model_image.save(fpath)
           add_file(fpath)
         elif os.path.isfile(image_path.value):
@@ -8529,7 +8729,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
           original_img = PILImage.open(image_path.value)
           width, height = original_img.size
           width, height = scale_dimensions(width, height, LoRA_prefs['resolution'])
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           #shutil.copy(image_path.value, fpath)
           add_file(fpath)
@@ -8542,7 +8742,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
               original_img = PILImage.open(file_path)
               width, height = original_img.size
               width, height = scale_dimensions(width, height, LoRA_prefs['resolution'])
-              original_img = original_img.resize((width, height), resample=PILImage.LANCZOS).convert("RGB")
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               original_img.save(fpath)
               #shutil.copy(file_path, fpath)
               add_file(fpath)
@@ -11231,6 +11431,15 @@ def get_AIHorde(page):
       return
     payload = response.json()
     print(str(payload))
+    AI_Horde = os.path.join(dist_dir, "AI-Horde-CLI")
+    if not os.path.exists(AI_Horde) or force_updates:
+      run_sp("git clone https://github.com/db0/AI-Horde-CLI.git", cwd=dist_dir, realtime=False)
+      run_sp("pip install -r cli_requirements.txt --user", cwd=AI_Horde, realtime=False)
+    try:
+      import yaml
+    except Exception:
+      run_sp("pip install pyyaml", realtime=False)
+      pass
     status['installed_AIHorde'] = True
     
 def get_ESRGAN(page):
@@ -12426,7 +12635,7 @@ def start_diffusion(page):
                 from PIL import ImageOps
                 mask_img = ImageOps.invert(mask_img.convert('RGB'))
               mask_img = mask_img.convert("L")
-              mask_img = mask_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS).convert("RGB")
+              mask_img = mask_img.resize((arg['width'], arg['height']), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               #mask = mask_img.resize((arg['width'], arg['height']))
               #mask = np.array(mask).astype(np.float32) / 255.0
               #mask = np.tile(mask,(4,1,1))
@@ -14379,7 +14588,7 @@ def run_repainter(page):
         return
     width, height = original_img.size
     width, height = scale_dimensions(width, height, repaint_prefs['max_size'])
-    original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
+    original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
     original_img = ImageOps.exif_transpose(original_img).convert("RGB")
     mask_img = None
     if repaint_prefs['mask_image'].startswith('http'):
@@ -14498,7 +14707,7 @@ def run_image_variation(page):
           [0.26862954, 0.26130258, 0.27577711]),
     ])
     init_img = tform(init_img).to(torch_device)
-    #init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
+    #init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
     #init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     clear_pipes('image_variation')
     if pipe_image_variation == None:
@@ -14577,7 +14786,7 @@ def run_CLIPstyler(page):
         original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
         #width, height = original_img.size
         #width, height = scale_dimensions(width, height)
-        original_img = original_img.resize((CLIPstyler_prefs['width'], CLIPstyler_prefs['height']), resample=PILImage.LANCZOS).convert("RGB")
+        original_img = original_img.resize((CLIPstyler_prefs['width'], CLIPstyler_prefs['height']), resample=PILImage.Resampling.LANCZOS).convert("RGB")
         original_img.save(fpath)
         CLIPstyler_prefs['image_dir'] = fpath
     elif os.path.isfile(CLIPstyler_prefs['original_image']):
@@ -14585,7 +14794,7 @@ def run_CLIPstyler(page):
         original_img = PILImage.open(CLIPstyler_prefs['original_image'])
         #width, height = original_img.size
         #width, height = scale_dimensions(width, height)
-        original_img = original_img.resize((CLIPstyler_prefs['width'], CLIPstyler_prefs['height']), resample=PILImage.LANCZOS).convert("RGB")
+        original_img = original_img.resize((CLIPstyler_prefs['width'], CLIPstyler_prefs['height']), resample=PILImage.Resampling.LANCZOS).convert("RGB")
         original_img.save(fpath)
         CLIPstyler_prefs['image_dir'] = fpath
     else:
@@ -14978,6 +15187,9 @@ def run_image2text(page):
     #if not status['installed_diffusers']:
     #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
     #  return
+    if len(image2text_prefs['images']) < 1:
+      alert_msg(page, "You must add one or more files to interrogate first... ")
+      return
     if not image2text_prefs['use_AIHorde']:
         prt(Installing("Downloading Image2Text CLIP-Interrogator Blips..."))
         try:
@@ -15035,7 +15247,8 @@ def run_image2text(page):
                 return ci.interrogate_fast(image)
         folder_path = image2text_prefs['folder_path']
         mode = image2text_prefs['mode'] #'best' #param ["best","classic", "fast"]
-        files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
+        #files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
+        files = image2text_prefs['images']
         clear_last()
         i2t_prompts = []
         for file in files:
@@ -15067,12 +15280,12 @@ def run_image2text(page):
         clear_last()
     else:
         if not status['installed_AIHorde']:
-          prt("Installing AIHorde API Library")
+          prt(Installing("Installing AIHorde API Library..."))
           get_AIHorde(page)
           clear_last()
         import requests
         from io import BytesIO
-        prt("Interrogating Images to Describe Prompt...")
+        prt(f"Getting {image2text_prefs['request_mode']} of Images with the Horde to Describe Prompt...")
         prt(progress)
         api_host = 'https://stablehorde.net/api'
         api_check_url = f"{api_host}/v2/generate/check/"
@@ -15097,13 +15310,53 @@ def run_image2text(page):
           ],
           "slow_workers": False if mode == "fast" else True
         }
+        def get_captions(filename):
+          with open(filename, 'r') as f:
+            lines = f.readlines()
+          captions = []
+          for line in lines:
+            if 'caption result:' in line:
+              captions.append(line.split('caption result: ')[1])
+          return captions
+        import yaml
+        AI_Horde = os.path.join(dist_dir, "AI-Horde-CLI")
+        cli_response = os.path.join(AI_Horde, "cliRequests.log")
+        alchemy_yml = os.path.join(AI_Horde, "cliRequestsData_Alchemy.yml")
+        alchemy = f'''
+filename: "horde_alchemy"
+api_key: "{prefs["AIHorde_api_key"]}"
+submit_dict:
+    trusted_workers: {image2text_prefs["trusted_workers"]}
+    slow_workers: {image2text_prefs["slow_workers"]}
+    forms: 
+        - name: "{image2text_prefs["request_mode"].lower()}"'''
+
+        al = yaml.safe_load(alchemy)
+
+        with open(alchemy_yml, 'w') as file:
+            yaml.dump(al, file)
+
+        #print(open('names.yaml').read())
         folder_path = image2text_prefs['folder_path']
-        files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
-        print(f"Files: {len(files)}")
-        for file in files:
+        #files = [f for f in image2text_prefs['images'] if f.endswith('.jpg') or  f.endswith('.png')] else []
+        #files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
+        #print(f"Files: {len(files)}")
+        i2t_prompts = []
+        for file in image2text_prefs['images']:
             stats = Text("Stable Horde API Interrogation ")
-            prt(stats)
-            image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
+            #prt(stats)
+            img_file = os.path.join(folder_path, file)
+            run_process(f'python cli_request_alchemy.py --api_key {prefs["AIHorde_api_key"]} --file "{alchemy_yml}" --source_image "{img_file}"', cwd=AI_Horde, realtime=True)
+            captions = get_captions(cli_response)
+            for r in captions:
+              prompt = to_title(r.strip(), sentence=True)
+              i2t_prompts.append(prompt)
+              page.add_to_image2text(prompt)
+            new_log = available_file(AI_Horde, "cliRequests", 0, ext="log")
+            shutil.move(cli_response, new_log)
+            clear_last()
+            clear_last()
+            '''image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
             buff = io.BytesIO()
             image.save(buff, format="PNG")
             buff.seek(0)
@@ -15154,7 +15407,7 @@ def run_image2text(page):
             for r in final_results['forms']:
               prompt = r['result']['*']
               i2t_prompts.append(prompt)
-              page.add_to_image2text(prompt)
+              page.add_to_image2text(prompt)'''
             
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -18050,7 +18303,7 @@ def run_audio_ldm(page):
     finally:
         from audioldm import text_to_audio, build_model
     import soundfile as sf
-    model_id="haoheliu/AudioLDM-S-Full"
+    model_id="cvssp/audioldm-s-full-v2"
     clear_pipes('audio_ldm')
     # This will download all the models used by Audio LDM from the HuggingFace hub.
     if pipe_audio_ldm == None:
@@ -19516,7 +19769,7 @@ def run_paint_by_example(page):
       original_img = ImageOps.exif_transpose(original_img).convert("RGBA")
     else:
       original_img = ImageOps.exif_transpose(original_img).convert("RGB")
-    original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
+    original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
     mask_img = None
     if not bool(paint_by_example_prefs['mask_image']) and bool(paint_by_example_prefs['alpha_mask']):
       red, green, blue, alpha = PILImage.Image.split(original_img)
@@ -19834,7 +20087,7 @@ def run_instruct_pix2pix(page, from_list=False):
             return
         width, height = original_img.size
         width, height = scale_dimensions(width, height, instruct_pix2pix_prefs['max_size'])
-        original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
       for num in range(instruct_pix2pix_prefs['num_images']):
         prt(progress)
         random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
@@ -20147,7 +20400,7 @@ def run_controlnet(page, from_list=False):
           width, height = original_img.size
           width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
           #print(f"Size: {width}x{height}")
-          original_img = original_img.resize((width, height), resample=PILImage.LANCZOS)
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
         #return original_img
         try:
             if task == "Canny Map Edge" or task == "Video Canny Edge":
@@ -20282,10 +20535,9 @@ def run_controlnet(page, from_list=False):
     model = get_model(prefs['model_ckpt'])
     model_path = model['path']
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
-
         pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
-        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True)
+        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_prefs["control_task"]
     #else:
         #pipe_controlnet.controlnet=controlnet
@@ -20414,6 +20666,402 @@ def run_controlnet(page, from_list=False):
     autoscroll(False)
     del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_deepfloyd(page, from_list=False):
+    global deepfloyd_prefs, prefs, status, pipe_deepfloyd
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if not bool(deepfloyd_prefs['init_image']):
+      alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
+      return
+    if not bool(deepfloyd_prefs['prompt']):
+      alert_msg(page, "You must provide a Text-to-Image Prompt...")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.DeepFloyd.controls.append(line)
+        if update:
+          page.DeepFloyd.update()
+    def clear_last():
+      if from_list:
+        if len(page.imageColumn.controls) == 0: return
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        if len(page.DeepFloyd.controls) == 1: return
+        del page.DeepFloyd.controls[-1]
+        page.DeepFloyd.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.DeepFloyd.auto_scroll = scroll
+        page.DeepFloyd.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = deepfloyd_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.DeepFloyd.controls = page.DeepFloyd.controls[:1]
+    deepfloyd_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        df_prompt = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'init_image': p['init_image'] if bool(p['init_image']) else deepfloyd_prefs['init_image'], 'mask_image': p['mask_image'] if bool(p['mask_image']) else deepfloyd_prefs['mask_image'], 'image_strength': p['init_image_strength'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps': p['steps'], 'seed': p['seed']}
+        deepfloyd_prompts.append(df_prompt)
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    else:
+      if not bool(deepfloyd_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      df_prompt = {'prompt':deepfloyd_prefs['prompt'], 'negative_prompt': deepfloyd_prefs['negative_prompt'], 'init_image': deepfloyd_prefs['init_image'], 'mask_image': deepfloyd_prefs['mask_image'], 'image_strength': deepfloyd_prefs['image_strength'], 'guidance_scale':deepfloyd_prefs['guidance_scale'], 'num_inference_steps': deepfloyd_prefs['num_inference_steps'], 'seed': deepfloyd_prefs['seed']}
+      deepfloyd_prompts.append(df_prompt)
+    autoscroll(True)
+    clear_list()
+    prt(Divider(thickness=2, height=4))
+    import requests, random
+    from io import BytesIO
+    from PIL import ImageOps
+    from PIL.PngImagePlugin import PngInfo
+    from diffusers import DiffusionPipeline
+    from diffusers.utils import pt_to_pil
+    from diffusers import IFPipeline, IFImg2ImgPipeline, IFInpaintingPipeline, IFSuperResolutionPipeline, IFSafetyChecker
+    from transformers import T5EncoderModel
+    
+    clear_pipes()
+    torch.cuda.empty_cache()
+    torch.cuda.reset_max_memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+    model_id = "DeepFloyd/IF-I-IF-v1.0"
+    #clear_last()
+    prt("Generating DeepFloyd-IF of your Image...")
+    prt(progress)
+    max_size = deepfloyd_prefs['max_size']
+    batch_output = os.path.join(stable_dir, deepfloyd_prefs['batch_folder_name'])
+    output_dir = batch_output
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], deepfloyd_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+
+    for pr in deepfloyd_prompts:
+        init_img = None
+        mask_img = None
+        if bool(pr['init_image']):
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, deepfloyd_prefs['max_size'])
+            if bool(deepfloyd_prefs['alpha_mask']):
+                init_img = init_img.convert("RGBA")
+            else:
+                init_img = init_img.convert("RGB")
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if not bool(pr['mask_image']) and bool(deepfloyd_prefs['alpha_mask']):
+            mask_img = init_img.convert('RGBA')
+            red, green, blue, alpha = PILImage.Image.split(init_img)
+            mask_img = alpha.convert('L')
+        else:
+            if pr['mask_image'].startswith('http'):
+                #response = requests.get(deepfloyd_prefs['init_image'])
+                #init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['mask_image']):
+                    mask_img = PILImage.open(pr['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                    return
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, deepfloyd_prefs['max_size'])
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if deepfloyd_prefs['invert_mask'] and not deepfloyd_prefs['alpha_mask']:
+            from PIL import ImageOps
+            mask_img = ImageOps.invert(mask_img.convert('RGB'))
+        for num in range(deepfloyd_prefs['num_images']):
+            random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.manual_seed(random_seed)
+            try:
+                prt(Installing("Running DeepFloyd-IF Text Encoder..."))
+                text_encoder = T5EncoderModel.from_pretrained("DeepFloyd/IF-I-IF-v1.0", subfolder="text_encoder", device_map="auto", load_in_8bit=True, variant="8bit")
+                pipe_deepfloyd = DiffusionPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", text_encoder=text_encoder, unet=None, device_map="auto")
+                #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+                prompt_embeds, negative_embeds = pipe.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
+                del text_encoder
+                del pipe_deepfloyd
+                gc.collect()
+                torch.cuda.empty_cache()
+                clear_last()
+                safety_modules = {}
+                if init_img == None:
+                    prt(Installing("Stage 1: Installing DeepFloyd-IF Pipeline..."))
+                    pipe_deepfloyd = IFPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto", safety_checker=None if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_deepfloyd.enable_model_cpu_offload()
+                    total_steps = pr['num_inference_steps']
+                    clear_last()
+                    prt(progress)
+                    images = pipe_deepfloyd(
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_embeds,
+                        num_inference_steps = pr['num_inference_steps'],
+                        guidance_scale = pr['guidance_scale'],
+                        output_type="pt",
+                        generator=generator,
+                        callback=callback_fnc, callback_steps=1,
+                    ).images
+                    safety_modules = {
+                        "feature_extractor": pipe_deepfloyd.feature_extractor,
+                        "safety_checker": pipe_deepfloyd.safety_checker,
+                        "watermarker": pipe_deepfloyd.watermarker,
+                    }
+                    del pipe_deepfloyd
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    total_steps = deepfloyd_prefs['superres_num_inference_steps']
+                    clear_last()
+                    prt(Installing("Stage 2: Installing DeepFloyd Super Resolution Pipeline..."))
+                    pipe_deepfloyd = IFSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")
+                    pipe_deepfloyd.enable_model_cpu_offload()
+                    clear_last()
+                    prt(progress)
+                    images = pipe_deepfloyd(
+                        image=images,
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_embeds,
+                        num_inference_steps = deepfloyd_prefs['superres_num_inference_steps'],
+                        guidance_scale = deepfloyd_prefs['superres_guidance_scale'],
+                        output_type="pt",
+                        generator=generator,
+                        callback=callback_fnc, callback_steps=1,
+                    ).images
+                elif init_img != None and mask_img == None:
+                    prt(Installing("Stage 1: Installing DeepFloyd-IF Image2Image Pipeline..."))
+                    pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", variant="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_deepfloyd.enable_model_cpu_offload()
+                    total_steps = pr['num_inference_steps']
+                    clear_last()
+                    prt(progress)
+                    images = pipe_deepfloyd(
+                        image=init_img,
+                        strength=pr['image_strength'],
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_embeds,
+                        num_inference_steps = pr['num_inference_steps'],
+                        guidance_scale = pr['guidance_scale'],
+                        output_type="pt",
+                        generator=generator,
+                        callback=callback_fnc, callback_steps=1,
+                    ).images
+                    safety_modules = {
+                        "feature_extractor": pipe_deepfloyd.feature_extractor,
+                        "safety_checker": pipe_deepfloyd.safety_checker,
+                        "watermarker": pipe_deepfloyd.watermarker,
+                    }
+                    del pipe_deepfloyd
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    total_steps = deepfloyd_prefs['superres_num_inference_steps']
+                    clear_last()
+                    prt(Installing("Stage 2: Installing DeepFloyd Img2Img Super Resolution Pipeline..."))
+                    from diffusers import IFImg2ImgSuperResolutionPipeline
+                    pipe_deepfloyd = IFImg2ImgSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")
+                    pipe_deepfloyd.enable_model_cpu_offload()
+                    clear_last()
+                    prt(progress)
+                    images = pipe_deepfloyd(
+                        image=images,
+                        origional_image=init_img,
+                        strength=pr['image_strength'],
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_embeds,
+                        num_inference_steps = deepfloyd_prefs['superres_num_inference_steps'],
+                        guidance_scale = deepfloyd_prefs['superres_guidance_scale'],
+                        output_type="pt",
+                        generator=generator,
+                        callback=callback_fnc, callback_steps=1,
+                    ).images
+                elif init_img != None and mask_img != None:
+                    prt(Installing("Stage 1: Installing DeepFloyd-IF Inpainting Pipeline..."))
+                    pipe_deepfloyd = IFInpaintingPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", variant="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_deepfloyd.enable_model_cpu_offload()
+                    total_steps = pr['num_inference_steps']
+                    clear_last()
+                    prt(progress)
+                    images = pipe_deepfloyd(
+                        image=init_img,
+                        mask_image=mask_img,
+                        strength=pr['image_strength'],
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_embeds,
+                        num_inference_steps = pr['num_inference_steps'],
+                        guidance_scale = pr['guidance_scale'],
+                        output_type="pt",
+                        generator=generator,
+                        callback=callback_fnc, callback_steps=1,
+                    ).images
+                    safety_modules = {
+                        "feature_extractor": pipe_deepfloyd.feature_extractor,
+                        "safety_checker": pipe_deepfloyd.safety_checker,
+                        "watermarker": pipe_deepfloyd.watermarker,
+                    }
+                    del pipe_deepfloyd
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    clear_last()
+                    prt(Installing("Stage 2: Installing DeepFloyd Inpainting Super Resolution Pipeline..."))
+                    from diffusers import IFInpaintingSuperResolutionPipeline
+                    pipe_deepfloyd = IFInpaintingSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")
+                    pipe_deepfloyd.enable_model_cpu_offload()
+                    total_steps = deepfloyd_prefs['superres_num_inference_steps']
+                    clear_last()
+                    prt(progress)
+                    images = pipe_deepfloyd(
+                        image=images,
+                        origional_image=init_img,
+                        mask_image=mask_img,
+                        strength=pr['image_strength'],
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_embeds,
+                        num_inference_steps = deepfloyd_prefs['superres_num_inference_steps'],
+                        guidance_scale = deepfloyd_prefs['superres_guidance_scale'],
+                        output_type="pt",
+                        generator=generator,
+                        callback=callback_fnc, callback_steps=1,
+                    ).images
+                
+                del pipe_deepfloyd
+                gc.collect()
+                torch.cuda.empty_cache()
+                prt(Installing("Stage 3: Installing Stable Diffusion X4 Upscaler Pipeline..."))
+                pipe_deepfloyd = DiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-x4-upscaler", **safety_modules, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_deepfloyd.enable_model_cpu_offload()
+                total_steps = deepfloyd_prefs['upscale_num_inference_steps']
+                clear_last()
+                prt(progress)
+                images = pipe_deepfloyd(prompt=pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, image=images, noise_level=100, num_inference_steps=deepfloyd_prefs['upscale_num_inference_steps'], guidance_scale=deepfloyd_prefs['upscale_guidance_scale'], generator=generator, callback=callback_fnc, callback_steps=1).images
+                del pipe_deepfloyd
+                gc.collect()
+                torch.cuda.empty_cache()
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't run IF-DeepFloyd on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
+                del pipe_deepfloyd
+                gc.collect()
+                torch.cuda.empty_cache()
+                return
+        
+            #clear_last()
+            clear_last()
+            filename = f"{deepfloyd_prefs['file_prefix']}{format_filename(pr['prompt'])}"
+            #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+            #num = 0
+            for image in images:
+                random_seed += num
+                fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+                image_path = available_file(os.path.join(stable_dir, deepfloyd_prefs['batch_folder_name']), fname, num)
+                unscaled_path = image_path
+                output_file = image_path.rpartition(slash)[2]
+                image = pt_to_pil(image)
+                image.save(image_path)
+                out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
+                if not deepfloyd_prefs['display_upscaled_image'] or not deepfloyd_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if deepfloyd_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    #w = int(arg['width'] * prefs["enlarge_scale"])
+                    #h = int(arg['height'] * prefs["enlarge_scale"])
+                    #prt(Row([Text(f'Enlarging {prefs["enlarge_scale"]}X to {w}x{h}')], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Text(f'Enlarging Real-ESRGAN {prefs["enlarge_scale"]}X')], alignment=MainAxisAlignment.CENTER))
+                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                    upload_folder = 'upload'
+                    result_folder = 'results'     
+                    if os.path.isdir(upload_folder):
+                        shutil.rmtree(upload_folder)
+                    if os.path.isdir(result_folder):
+                        shutil.rmtree(result_folder)
+                    os.mkdir(upload_folder)
+                    os.mkdir(result_folder)
+                    short_name = f'{fname[:80]}-{num}.png'
+                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                    #shutil.move(fpath, dst_path)
+                    shutil.copy(image_path, dst_path)
+                    #faceenhance = ' --face_enhance' if deepfloyd_prefs["face_enhance"] else ''
+                    faceenhance = ''
+                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {deepfloyd_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    out_file = short_name.rpartition('.')[0] + '_out.png'
+                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    image_path = upscaled_path
+                    os.chdir(stable_dir)
+                    clear_last()
+                    if deepfloyd_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(deepfloyd_prefs["enlarge_scale"]), height=height * float(deepfloyd_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                        #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {deepfloyd_prefs['enlarge_scale']}x with ESRGAN" if deepfloyd_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", "DeepFloyd-IF") #TODO: Img2Img or Inpainting
+                    if prefs['save_config_in_metadata']:
+                        config_json = deepfloyd_prefs.copy()
+                        config_json['model_path'] = model_id
+                        config_json['seed'] = random_seed
+                        config_json['prompt'] = pr['prompt']
+                        config_json['negative_prompt'] = pr['negative_prompt']
+                        del config_json['num_images']
+                        del config_json['max_size']
+                        del config_json['display_upscaled_image']
+                        del config_json['batch_folder_name']
+                        if not config_json['apply_ESRGAN_upscale']:
+                            del config_json['enlarge_scale']
+                            del config_json['apply_ESRGAN_upscale']
+                        metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                #TODO: PyDrive
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], deepfloyd_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], deepfloyd_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                time.sleep(0.2)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+                #num += 1
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_text_to_video(page):
     global text_to_video_prefs, prefs, status, pipe_text_to_video, model_path
@@ -20852,7 +21500,7 @@ def run_materialdiffusion(page):
                 return
         #width, height = init_img.size
         #width, height = scale_dimensions(materialdiffusion_prefs['width'], materialdiffusion_prefs['height'])
-        init_img = init_img.resize((materialdiffusion_prefs['width'], materialdiffusion_prefs['height']), resample=PILImage.LANCZOS)
+        init_img = init_img.resize((materialdiffusion_prefs['width'], materialdiffusion_prefs['height']), resample=PILImage.Resampling.LANCZOS)
         init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     mask_img = None
     if bool(materialdiffusion_prefs['mask_image']):
@@ -21275,7 +21923,7 @@ def run_point_e(page):
         if init_img != None:
             width, height = init_img.size
             width, height = scale_dimensions(width, height, 960)
-            init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     
     status_txt = Text("Generating your 3D model, may take a while...")
@@ -21585,7 +22233,7 @@ def run_dall_e(page, from_list=False):
                 else:
                     alert_msg(page, f"ERROR: Couldn't find your init_image {init_image}")
                     return
-            init_img = init_img.resize((dall_e_prefs['size'], dall_e_prefs['size']), resample=PILImage.LANCZOS)
+            init_img = init_img.resize((dall_e_prefs['size'], dall_e_prefs['size']), resample=PILImage.Resampling.LANCZOS)
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")
             init_img.save(init_file)
         mask_img = None
@@ -21773,7 +22421,7 @@ def run_kandinsky(page):
             else:
                 alert_msg(page, f"ERROR: Couldn't find your init_image {kandinsky_prefs['init_image']}")
                 return
-        init_img = init_img.resize((kandinsky_prefs['width'], kandinsky_prefs['height']), resample=PILImage.LANCZOS)
+        init_img = init_img.resize((kandinsky_prefs['width'], kandinsky_prefs['height']), resample=PILImage.Resampling.LANCZOS)
         init_img = ImageOps.exif_transpose(init_img).convert("RGB")
         #init_img.save(init_file)
     mask_img = None
@@ -21958,7 +22606,7 @@ def run_kandinsky_fuse(page):
                 else:
                     alert_msg(page, f"ERROR: Couldn't find your init_image {mix['init_image']}")
                     return
-            init_img = init_img.resize((kandinsky_fuse_prefs['width'], kandinsky_fuse_prefs['height']), resample=PILImage.LANCZOS)
+            init_img = init_img.resize((kandinsky_fuse_prefs['width'], kandinsky_fuse_prefs['height']), resample=PILImage.Resampling.LANCZOS)
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")
             images_texts.append(init_img)
         weights.append(mix['weight'])
