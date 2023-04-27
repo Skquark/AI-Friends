@@ -178,7 +178,7 @@ if not is_Colab:
         slash = '\\'
 else:
     image_output = '/content/drive/MyDrive/AI/Stable_Diffusion/images_out'
-
+saved_settings_json = f'.{slash}sdd-settings.json'
 favicon = os.path.join(root_dir, "favicon.png")
 assets = os.path.join(root_dir, "assets")
 if not os.path.isfile(favicon):
@@ -544,6 +544,7 @@ def buildPromptHelpers(page):
     page.remixer = buildPromptRemixer(page)
     page.brainstormer = buildPromptBrainstormer(page)
     page.writer = buildPromptWriter(page)
+    page.Image2Text = buildImage2Text(page)
     page.MagicPrompt = buildMagicPrompt(page)
     page.DistilGPT2 = buildDistilGPT2(page)
     page.RetrievePrompts = buildRetrievePrompts(page)
@@ -557,6 +558,7 @@ def buildPromptHelpers(page):
             Tab(text="Prompt Generator", content=page.generator, icon=icons.CLOUD),
             Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
             Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
+            Tab(text="Image2Text", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="Magic Prompt", content=page.MagicPrompt, icon=icons.AUTO_FIX_HIGH),
             Tab(text="Distil GPT-2", content=page.DistilGPT2, icon=icons.FILTER_ALT),
             Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
@@ -596,7 +598,7 @@ def buildStableDiffusers(page):
         tabs=[
             Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
-            Tab(text="DeepFloyd", content=page.DeepFloyd, icon=icons.LOOKS),
+            #Tab(text="DeepFloyd", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
@@ -649,6 +651,7 @@ def buildAudioAIs(page):
     page.DanceDiffusion = buildDanceDiffusion(page)
     page.AudioDiffusion = buildAudioDiffusion(page)
     page.AudioLDM = buildAudioLDM(page)
+    page.Bark = buildBark(page)
     page.Riffusion = buildRiffusion(page)
     page.Mubert = buildMubert(page)
     audioAIsTabs = Tabs(
@@ -657,6 +660,7 @@ def buildAudioAIs(page):
         tabs=[
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
+            Tab(text="Bark", content=page.Bark, icon=icons.PETS),
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
             Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
@@ -672,7 +676,6 @@ def buildExtras(page):
     page.CachedModelManager = buildCachedModelManager(page)
     page.CustomModelManager = buildCustomModelManager(page)
     page.BLIP2Image2Text = buildBLIP2Image2Text(page)
-    page.Image2Text = buildImage2Text(page)
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page)
@@ -684,7 +687,6 @@ def buildExtras(page):
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
             Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
             Tab(text="Model Manager", content=page.CustomModelManager, icon=icons.DIFFERENCE),
-            Tab(text="Image2Text Interrogator", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="Kandinsky 2.1", content=page.Kandinsky, icon=icons.AC_UNIT),
@@ -986,6 +988,7 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=Fal
         msg += " May have to restart runtime."
         pass
       okay = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
+      if content == None: content = Container(content=None)
       page.alert_dlg = AlertDialog(title=Text(msg), content=Column([content], scroll=ScrollMode.AUTO), actions=[okay], actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.window_width or page.width) - 200)
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
@@ -1229,10 +1232,10 @@ def buildInstallers(page):
       AIHorde_settings.update()
       page.update()
   install_AIHorde = Tooltip(message="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.", content=Switch(label="Install AIHorde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'],active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_AIHorde))
-  use_AIHorde = Checkbox(label="Use AIHorde API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_AIHorde_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_AIHorde_api'))
+  use_AIHorde = Checkbox(label="Use Stable Horde API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_AIHorde_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_AIHorde_api'))
   AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("3DKX"), dropdown.Option("Abyss OrangeMix"), dropdown.Option("AbyssOrangeMix-AfterDark"), dropdown.Option("ACertainThing"), dropdown.Option("AIO Pixel Art"), dropdown.Option("Analog Diffusion"), dropdown.Option("Anime Pencil Diffusion"), dropdown.Option("Anygen"), dropdown.Option("Anything Diffusion"), dropdown.Option("Anything v3"), dropdown.Option("App Icon Diffusion"), dropdown.Option("Arcane Diffusion"), dropdown.Option("Archer Diffusion"), dropdown.Option("Asim Simpsons"), dropdown.Option("A to Zovya RPG"), dropdown.Option("Balloon Art"), dropdown.Option("Borderlands"), dropdown.Option("BPModel"), dropdown.Option("BubblyDubbly"), dropdown.Option("Char"), dropdown.Option("CharHelper"), dropdown.Option("Cheese Daddys Landscape Mix"), dropdown.Option("ChilloutMix"), dropdown.Option("ChromaV5"), dropdown.Option("Classic Animation Diffusion"), dropdown.Option("Clazy"), dropdown.Option("Colorful"), dropdown.Option("Coloring Book"), dropdown.Option("Comic-Diffusion"), dropdown.Option("Concept Sheet"), dropdown.Option("Counterfeit"), dropdown.Option("Cyberpunk Anime Diffusion"), dropdown.Option("CyriousMix"), dropdown.Option("Dan Mumford Style"), dropdown.Option("Darkest Diffusion"), dropdown.Option("Dark Victorian Diffusion"), dropdown.Option("Deliberate"), dropdown.Option("DGSpitzer Art Diffusion"), dropdown.Option("Disco Elysium"), dropdown.Option("DnD Item"), dropdown.Option("Double Exposure Diffusion"), dropdown.Option("Dreamlike Diffusion"), dropdown.Option("Dreamlike Photoreal"), dropdown.Option("DreamLikeSamKuvshinov"), dropdown.Option("Dreamshaper"), dropdown.Option("DucHaiten"), dropdown.Option("DucHaiten Classic Anime"), dropdown.Option("Dungeons and Diffusion"), dropdown.Option("Dungeons n Waifus"), dropdown.Option("Eimis Anime Diffusion"), dropdown.Option("Elden Ring Diffusion"), dropdown.Option("Elldreth's Lucid Mix"), dropdown.Option("Elldreths Retro Mix"), dropdown.Option("Epic Diffusion"), dropdown.Option("Eternos"), dropdown.Option("Experience"), dropdown.Option("ExpMix Line"), dropdown.Option("FaeTastic"), dropdown.Option("Fantasy Card Diffusion"), dropdown.Option("FKing SciFi"), dropdown.Option("Funko Diffusion"), dropdown.Option("Furry Epoch"), dropdown.Option("Future Diffusion"), dropdown.Option("Ghibli Diffusion"), dropdown.Option("GorynichMix"), dropdown.Option("Grapefruit Hentai"), dropdown.Option("Graphic-Art"), dropdown.Option("GTA5 Artwork Diffusion"), dropdown.Option("GuoFeng"), dropdown.Option("Guohua Diffusion"), dropdown.Option("HASDX"), dropdown.Option("Hassanblend"), dropdown.Option("Healy's Anime Blend"), dropdown.Option("Hentai Diffusion"), dropdown.Option("HRL"), dropdown.Option("iCoMix"), dropdown.Option("Illuminati Diffusion"), dropdown.Option("Inkpunk Diffusion"), dropdown.Option("Jim Eidomode"), dropdown.Option("JWST Deep Space Diffusion"), dropdown.Option("Kenshi"), dropdown.Option("Knollingcase"), dropdown.Option("Korestyle"), dropdown.Option("kurzgesagt"), dropdown.Option("Laolei New Berry Protogen Mix"), dropdown.Option("Lawlas's yiff mix"), dropdown.Option("Liberty"), dropdown.Option("Marvel Diffusion"), dropdown.Option("Mega Merge Diffusion"), dropdown.Option("Microcasing"), dropdown.Option("Microchars"), dropdown.Option("Microcritters"), dropdown.Option("Microscopic"), dropdown.Option("Microworlds"), dropdown.Option("Midjourney Diffusion"), dropdown.Option("Midjourney PaintArt"), dropdown.Option("Min Illust Background"), dropdown.Option("ModernArt Diffusion"), dropdown.Option("mo-di-diffusion"), dropdown.Option("Moedel"), dropdown.Option("MoistMix"), dropdown.Option("Movie Diffusion"), dropdown.Option("NeverEnding Dream"), dropdown.Option("Nitro Diffusion"), dropdown.Option("Openniji"), dropdown.Option("OrbAI"), dropdown.Option("Papercutcraft"), dropdown.Option("Papercut Diffusion"), dropdown.Option("Pastel Mix"), dropdown.Option("Perfect World"), dropdown.Option("PFG"), dropdown.Option("pix2pix"), dropdown.Option("PIXHELL"), dropdown.Option("Poison"), dropdown.Option("Pokemon3D"), dropdown.Option("PortraitPlus"), dropdown.Option("PPP"), dropdown.Option("Pretty 2.5D"), dropdown.Option("PRMJ"), dropdown.Option("Project Unreal Engine 5"), dropdown.Option("ProtoGen"), dropdown.Option("Protogen Anime"), dropdown.Option("Protogen Infinity"), dropdown.Option("Pulp Vector Art"), dropdown.Option("PVC"), dropdown.Option("Rachel Walker Watercolors"), dropdown.Option("Rainbowpatch"), dropdown.Option("Ranma Diffusion"), dropdown.Option("RCNZ Dumb Monkey"), dropdown.Option("RCNZ Gorilla With A Brick"), dropdown.Option("RealBiter"), dropdown.Option("Realism Engine"), dropdown.Option("Realistic Vision"), dropdown.Option("Redshift Diffusion"), dropdown.Option("Rev Animated"), dropdown.Option("Robo-Diffusion"), dropdown.Option("Rodent Diffusion"), dropdown.Option("RPG"), dropdown.Option("Samdoesarts Ultmerge"), dropdown.Option("Sci-Fi Diffusion"), dropdown.Option("SD-Silicon"), dropdown.Option("Seek.art MEGA"), dropdown.Option("Smoke Diffusion"), dropdown.Option("Something"), dropdown.Option("Sonic Diffusion"), dropdown.Option("Spider-Verse Diffusion"), dropdown.Option("Squishmallow Diffusion"), dropdown.Option("stable_diffusion"), dropdown.Option("stable_diffusion_2.1"), dropdown.Option("stable_diffusion_inpainting"), dropdown.Option("Supermarionation"), dropdown.Option("Sygil-Dev Diffusion"), dropdown.Option("Synthwave"), dropdown.Option("SynthwavePunk"), dropdown.Option("TrexMix"), dropdown.Option("trinart"), dropdown.Option("Trinart Characters"), dropdown.Option("Tron Legacy Diffusion"), dropdown.Option("T-Shirt Diffusion"), dropdown.Option("T-Shirt Print Designs"), dropdown.Option("Uhmami"), dropdown.Option("Ultraskin"), dropdown.Option("UMI Olympus"), dropdown.Option("Unstable Ink Dream"), dropdown.Option("URPM"), dropdown.Option("Valorant Diffusion"), dropdown.Option("Van Gogh Diffusion"), dropdown.Option("Vector Art"), dropdown.Option("vectorartz"), dropdown.Option("Vintedois Diffusion"), dropdown.Option("VinteProtogenMix"), dropdown.Option("Vivid Watercolors"), dropdown.Option("Voxel Art Diffusion"), dropdown.Option("waifu_diffusion"), dropdown.Option("Wavyfusion"), dropdown.Option("Woop-Woop Photo"), dropdown.Option("Xynthii-Diffusion"), dropdown.Option("Yiffy"), dropdown.Option("Zack3D"), dropdown.Option("Zeipher Female Model"), dropdown.Option("Zelda BOTW")], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
   AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
-  AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=350, options=[dropdown.Option("None"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
+  AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=350, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
   AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, AIHorde_model, AIHorde_sampler, AIHorde_post_processing]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
   
@@ -3567,7 +3570,7 @@ def buildImage2Text(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
+        Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create text prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
         #mode,
         Row([mode, request_mode, use_AIHorde]),
         AIHorde_row,
@@ -6100,7 +6103,7 @@ def buildDeepFloyd(page):
         deepfloyd_help_dlg.open = False
         page.update()
       deepfloyd_help_dlg = AlertDialog(title=Text("💁   Help with DeepFloyd-IF"), content=Column([
-          Markdown("You must accept the license on the model card of [DeepFloyd/IF-I-IF-v1.0](https://huggingface.co/DeepFloyd/IF-I-IF-v1.0) and [DeepFloyd/IF-II-L-v1.0](https://huggingface.co/DeepFloyd/IF-II-L-v1.0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("**You must accept the license on the model card of [DeepFloyd/IF-I-IF-v1.0](https://huggingface.co/DeepFloyd/IF-I-IF-v1.0) before using.**", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text('DeepFloyd IF is a novel state-of-the-art open-source text-to-image model with a high degree of photorealism and language understanding. Built by the team behind ruDALL-E (the Russian-language version of OpenAI\'s DALL-E algorithm), inspired by Google\'s "Imagen", and backed by the company behind Stable Diffusion, DeepFloyd\'s IF outperforms all of those algorithms. DeepFloyd IF is particularly good at understanding complex prompts and relationships between objects. It is also very good at inserting legible text into images - even more so than Stable Diffusion XL. It can even understand prompts in multiple languages. IF, or "Intelligent Fiction", is a text2image generator that is designed to create text and captions in the images in response to a prompt. The model is a modular composed of a frozen text encoder and three cascaded pixel diffusion modules:'),
           Markdown("""* Stage 1: a base model that generates 64x64 px image based on text prompt,
 * Stage 2: a 64x64 px => 256x256 px super-resolution model, and a
@@ -9372,6 +9375,89 @@ def buildAudioLDM(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+bark_prefs = {
+    'text': '',
+    'text_temp': 0.7,
+    'waveform_temp': 0.7,
+    'acoustic_prompt': 'Unconditional',
+    'n_iterations': 1,
+    'seed': 0,
+    'batch_folder_name': '',
+    'file_prefix': 'bark-',
+}
+
+def buildBark(page):
+    global prefs, bark_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              bark_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              bark_prefs[pref] = float(e.control.value)
+            else:
+              bark_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_bark_output(o):
+        page.bark_output.controls.append(o)
+        page.bark_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.bark_output.controls = []
+        page.bark_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def bark_help(e):
+        def close_bark_dlg(e):
+          nonlocal bark_help_dlg
+          bark_help_dlg.open = False
+          page.update()
+        bark_help_dlg = AlertDialog(title=Text("💁   Help with Bark AI"), content=Column([
+            Text("Bark is a transformer-based text-to-audio model created by Suno. Bark can generate highly realistic, multilingual speech as well as other audio - including music, background noise and simple sound effects. The model can also produce nonverbal communications like laughing, sighing and crying. To support the research community, we are providing access to pretrained model checkpoints ready for inference."),
+            Text("Below is a list of some known non-speech sounds, but we are finding more every day. Please let us know if you find patterns that work particularly well on Discord!"),
+            Text("[laughter], [laughs], [sighs], [music], [gasps], [clears throat], — or … for hesitations, ♪ for song lyrics, capitalization for emphasis of a word, MAN/WOMAN: for bias towards speaker"),
+            Markdown("Checkout their [GitHub Project](https://github.com/suno-ai/bark), [HuggingFace Space](https://huggingface.co/spaces/suno/bark) and [Suno Discord](https://discord.com/invite/J2B2vsjKuE).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🦊  Woof... ", on_click=close_bark_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = bark_help_dlg
+        bark_help_dlg.open = True
+        page.update()
+    #duration_row = SliderRow(label="Duration", min=1, max=20, divisions=38, round=1, suffix="s", pref=bark_prefs, key='duration')
+    text_temp = SliderRow(label="Text Temperature", min=0, max=1, divisions=20, round=2, pref=bark_prefs, key='text_temp', tooltip="1.0 more diverse, 0.0 more conservative")
+    waveform_temp = SliderRow(label="Wave Temperature", min=0, max=1, divisions=20, round=2, pref=bark_prefs, key='waveform_temp', tooltip="1.0 more diverse, 0.0 more conservative")
+    text = TextField(label="Text Prompt to Vocalize", value=bark_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
+    acoustic_prompt = Dropdown(label="Acoustic Prompt", width=250, options=[dropdown.Option("Unconditional"), dropdown.Option("Announcer")], value=bark_prefs['acoustic_prompt'], on_change=lambda e: changed(e, 'acoustic_prompt'))
+    langs = ["en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "tr", "zh"]
+    for lang in langs:
+        for n in range(10):
+            #label = f"Speaker {n} ({lang})"
+            acoustic_prompt.options.append(dropdown.Option(f"{lang}_speaker_{n}"))
+    batch_folder_name = TextField(label="Batch Folder Name", value=bark_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=bark_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_iterations = Tooltip(message="Make multiple for quality control. Generates candidates and choose the best.", content=NumberPicker(label="Number of Iterations:   ", min=1, max=10, value=bark_prefs['n_iterations'], on_change=lambda e: changed(e, 'n_iterations')))
+    seed = TextField(label="Seed", value=bark_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.bark_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.bark_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🐶  Bark AI", "Text-to-Audio Generation for Multilingual Speech, Music and Sound Effects...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=bark_help)]),
+        text,
+        text_temp,
+        waveform_temp,
+        Row([acoustic_prompt, n_iterations]),
+        #Row([n_iterations, seed]),
+        Row([batch_folder_name, file_prefix]),
+        ElevatedButton(content=Text("🐕  Run Bark", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_bark(page)),
+        page.bark_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+  
 riffusion_prefs = {
     'prompt': '',
     'negative_prompt': '',
@@ -15285,8 +15371,7 @@ def run_image2text(page):
           clear_last()
         import requests
         from io import BytesIO
-        prt(f"Getting {image2text_prefs['request_mode']} of Images with the Horde to Describe Prompt...")
-        prt(progress)
+        
         api_host = 'https://stablehorde.net/api'
         api_check_url = f"{api_host}/v2/generate/check/"
         api_get_result_url = f"{api_host}/v2/interrogate/status/"
@@ -15318,10 +15403,21 @@ def run_image2text(page):
             if 'caption result:' in line:
               captions.append(line.split('caption result: ')[1])
           return captions
+        def interrogate_line(j, cat):
+          l = []
+          for t in j[cat]:
+            l.append(f"{t['text']}:{round(t['confidence'], 1)}")
+          return f"**{cat.capitalize()}:** {', '.join(l)}<br>"
+        def get_interrogation(j):
+          attr = ""
+          for t in j.keys():
+            attr += interrogate_line(j, t)
+          return attr
         import yaml
         AI_Horde = os.path.join(dist_dir, "AI-Horde-CLI")
         cli_response = os.path.join(AI_Horde, "cliRequests.log")
         alchemy_yml = os.path.join(AI_Horde, "cliRequestsData_Alchemy.yml")
+        interrogation_txt = os.path.join(AI_Horde, "cliRequestsData_Alchemy.yml_interrogation.txt")
         alchemy = f'''
 filename: "horde_alchemy"
 api_key: "{prefs["AIHorde_api_key"]}"
@@ -15343,20 +15439,31 @@ submit_dict:
         #print(f"Files: {len(files)}")
         i2t_prompts = []
         for file in image2text_prefs['images']:
+            prt(f"Getting {image2text_prefs['request_mode']} with the Horde to Describe Image...")
+            prt(progress)
             stats = Text("Stable Horde API Interrogation ")
             #prt(stats)
             img_file = os.path.join(folder_path, file)
             run_process(f'python cli_request_alchemy.py --api_key {prefs["AIHorde_api_key"]} --file "{alchemy_yml}" --source_image "{img_file}"', cwd=AI_Horde, realtime=True)
-            captions = get_captions(cli_response)
-            for r in captions:
-              prompt = to_title(r.strip(), sentence=True)
-              i2t_prompts.append(prompt)
-              page.add_to_image2text(prompt)
-            new_log = available_file(AI_Horde, "cliRequests", 0, ext="log")
-            shutil.move(cli_response, new_log)
             clear_last()
             clear_last()
-            '''image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
+            if image2text_prefs["request_mode"] == "Caption":
+                captions = get_captions(cli_response)
+                for r in captions:
+                  prompt = to_title(r.strip(), sentence=True)
+                  i2t_prompts.append(prompt)
+                  page.add_to_image2text(prompt)
+                new_log = available_file(AI_Horde, "cliRequests", 0, ext="log")
+                shutil.move(cli_response, new_log)
+            else:
+                with open(interrogation_txt) as json_file:
+                  interrogation = json.load(json_file)
+                prt(Markdown(get_interrogation(interrogation), selectable=True))
+                new_interrogation = available_file(AI_Horde, "cliRequestsData_Alchemy.yml_interrogation", 0, ext="txt")
+                shutil.move(interrogation_txt, new_interrogation)
+                os.remove(cli_response)
+            ''' API Method, want to go back to if I can upload source_image
+            image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
             buff = io.BytesIO()
             image.save(buff, format="PNG")
             buff.seek(0)
@@ -15408,7 +15515,6 @@ submit_dict:
               prompt = r['result']['*']
               i2t_prompts.append(prompt)
               page.add_to_image2text(prompt)'''
-            
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_BLIP2_image2text(page):
@@ -18356,6 +18462,79 @@ def run_audio_ldm(page):
     prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_bark(page):
+    global bark_prefs, pipe_bark, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.bark_output.controls.append(line)
+      page.bark_output.update()
+    def clear_last():
+      if len(page.bark_output.controls) < 1: return
+      del page.bark_output.controls[-1]
+      page.bark_output.update()
+    def play_audio(e):
+      e.control.data.play()
+    if not bool(bark_prefs['text']):
+      alert_msg(page, "Provide Text for the AI to create the sound of...")
+      return
+    progress = ProgressBar(bar_height=8)
+    prt(Installing("Downloading Bark Packages..."))
+    from scipy.io.wavefile import write as write_wav
+    import sys
+    sys.path.append(os.path.join(bark_dir, 'audioldm'))
+    try:
+        from bark import SAMPLE_RATE, generate_audio, preload_models
+        if force_updates: raise ImportError("Forcing update")
+    except Exception:
+        try:
+            run_process("pip install git+https://github.com/suno-ai/bark.git", page=page)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Bark requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+            return
+        pass
+    finally:
+        from bark import SAMPLE_RATE, generate_audio, preload_models
+    import soundfile as sf
+    clear_pipes()
+    preload_models()
+    clear_last()
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(bark_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, bark_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    history_prompt = bark_prefs['acoustic_prompt']
+    if history_prompt == "Unconditional":
+        history_prompt = None
+    if history_prompt == "Anouncer":
+        history_prompt = "announcer"
+    for i in range(bark_prefs['n_iterations']):
+        prt(Text("  Generating Bark Audio...", weight=FontWeight.BOLD))
+        prt(progress)
+        #random_seed = int(bark_prefs['seed']) if int(bark_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        try:
+            audio_array = generate_audio(bark_prefs['text'], history_prompt=history_prompt, text_temp=bark_prefs['text_temp'], waveform_temp=bark_prefs['waveform_temp'])
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error generating Bark waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+        fname = format_filename(bark_prefs['text'])
+        if fname[-1] == '.': fname = fname[:-1]
+        file_prefix = bark_prefs['file_prefix']
+        audio_name = f'{file_prefix}-{fname}'
+        audio_name = audio_name[:int(prefs['file_max_length'])]
+        fname = available_file(audio_out, audio_name, i, ext="wav")
+        write_wav(fname, SAMPLE_RATE, audio_array)
+        clear_last()
+        clear_last()
+        a_out = Audio(src=fname, autoplay=False)
+        page.overlay.append(a_out)
+        page.update()
+        display_name = fname
+        prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 def run_riffusion(page):
     global riffusion_prefs, pipe_riffusion, prefs
     def prt(line):
@@ -20672,9 +20851,9 @@ def run_deepfloyd(page, from_list=False):
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
-    if not bool(deepfloyd_prefs['init_image']):
-      alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
-      return
+    #if not bool(deepfloyd_prefs['init_image']):
+    #  alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
+    #  return
     if not bool(deepfloyd_prefs['prompt']):
       alert_msg(page, "You must provide a Text-to-Image Prompt...")
       return
@@ -20746,7 +20925,8 @@ def run_deepfloyd(page, from_list=False):
     from PIL.PngImagePlugin import PngInfo
     from diffusers import DiffusionPipeline
     from diffusers.utils import pt_to_pil
-    from diffusers import IFPipeline, IFImg2ImgPipeline, IFInpaintingPipeline, IFSuperResolutionPipeline, IFSafetyChecker
+    from diffusers import IFPipeline, IFImg2ImgPipeline, IFInpaintingPipeline, IFSuperResolutionPipeline
+    #, IFSafetyChecker
     from transformers import T5EncoderModel
     
     clear_pipes()
@@ -20785,24 +20965,24 @@ def run_deepfloyd(page, from_list=False):
             else:
                 init_img = init_img.convert("RGB")
             init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
-        if not bool(pr['mask_image']) and bool(deepfloyd_prefs['alpha_mask']):
-            mask_img = init_img.convert('RGBA')
-            red, green, blue, alpha = PILImage.Image.split(init_img)
-            mask_img = alpha.convert('L')
-        else:
-            if pr['mask_image'].startswith('http'):
-                #response = requests.get(deepfloyd_prefs['init_image'])
-                #init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
-                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
-            else:
-                if os.path.isfile(pr['mask_image']):
-                    mask_img = PILImage.open(pr['mask_image'])
+            if not bool(pr['mask_image']) and bool(deepfloyd_prefs['alpha_mask']):
+                mask_img = init_img.convert('RGBA')
+                red, green, blue, alpha = PILImage.Image.split(init_img)
+                mask_img = alpha.convert('L')
+            elif bool(pr['mask_image']):
+                if pr['mask_image'].startswith('http'):
+                    #response = requests.get(deepfloyd_prefs['init_image'])
+                    #init_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+                    mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
                 else:
-                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
-                    return
-            width, height = mask_img.size
-            width, height = scale_dimensions(width, height, deepfloyd_prefs['max_size'])
-            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+                    if os.path.isfile(pr['mask_image']):
+                        mask_img = PILImage.open(pr['mask_image'])
+                    else:
+                        alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                        return
+                width, height = mask_img.size
+                width, height = scale_dimensions(width, height, deepfloyd_prefs['max_size'])
+                mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
         if deepfloyd_prefs['invert_mask'] and not deepfloyd_prefs['alpha_mask']:
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
@@ -20811,7 +20991,8 @@ def run_deepfloyd(page, from_list=False):
             generator = torch.manual_seed(random_seed)
             try:
                 prt(Installing("Running DeepFloyd-IF Text Encoder..."))
-                text_encoder = T5EncoderModel.from_pretrained("DeepFloyd/IF-I-IF-v1.0", subfolder="text_encoder", device_map="auto", load_in_8bit=True, variant="8bit")
+                #, load_in_8bit=True
+                text_encoder = T5EncoderModel.from_pretrained("DeepFloyd/IF-I-IF-v1.0", subfolder="text_encoder", device_map="auto", variant="8bit")
                 pipe_deepfloyd = DiffusionPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", text_encoder=text_encoder, unet=None, device_map="auto")
                 #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
                 prompt_embeds, negative_embeds = pipe.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
@@ -20823,7 +21004,8 @@ def run_deepfloyd(page, from_list=False):
                 safety_modules = {}
                 if init_img == None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Pipeline..."))
-                    pipe_deepfloyd = IFPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto", safety_checker=None if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
+                    pipe_deepfloyd = IFPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto", safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     pipe_deepfloyd.enable_model_cpu_offload()
                     total_steps = pr['num_inference_steps']
                     clear_last()
@@ -20864,7 +21046,8 @@ def run_deepfloyd(page, from_list=False):
                     ).images
                 elif init_img != None and mask_img == None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Image2Image Pipeline..."))
-                    pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", variant="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
+                    pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     pipe_deepfloyd.enable_model_cpu_offload()
                     total_steps = pr['num_inference_steps']
                     clear_last()
@@ -20910,7 +21093,8 @@ def run_deepfloyd(page, from_list=False):
                     ).images
                 elif init_img != None and mask_img != None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Inpainting Pipeline..."))
-                    pipe_deepfloyd = IFInpaintingPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", variant="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
+                    pipe_deepfloyd = IFInpaintingPipeline.from_pretrained("DeepFloyd/IF-I-IF-v1.0", variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     pipe_deepfloyd.enable_model_cpu_offload()
                     total_steps = pr['num_inference_steps']
                     clear_last()
@@ -20970,6 +21154,13 @@ def run_deepfloyd(page, from_list=False):
                 del pipe_deepfloyd
                 gc.collect()
                 torch.cuda.empty_cache()
+            except EnvironmentError as e:
+                clear_last()
+                alert_msg(page, f"ERROR: You must accept the license on the DeepFloyd model card first.", content=Text(str(e)))
+                del pipe_deepfloyd
+                gc.collect()
+                torch.cuda.empty_cache()
+                return
             except Exception as e:
                 clear_last()
                 alert_msg(page, f"ERROR: Couldn't run IF-DeepFloyd on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
