@@ -236,6 +236,9 @@ def load_settings_file():
       'sequential_cpu_offload': False,
       'vae_slicing': True,
       'vae_tiling': False,
+      'enable_torch_compile': False,
+      'enable_tome': False,
+      'tome_ratio': 0.5,
       'cache_dir': '',
       'install_diffusers': True,
       'install_interpolation': False,
@@ -516,6 +519,7 @@ def buildTabs(page):
     page.StableDiffusers = buildStableDiffusers(page)
     page.Trainers = buildTrainers(page)
     page.AudioAIs = buildAudioAIs(page)
+    page.Text3DAIs = build3DAIs(page)
     page.Extras = buildExtras(page)
     
     t = Tabs(selected_index=0, animation_duration=300, expand=1,
@@ -527,8 +531,9 @@ def buildTabs(page):
             Tab(text="Generate Images", content=page.Images, icon=icons.IMAGE_OUTLINED),
             Tab(text="Prompt Helpers", content=page.PromptHelpers, icon=icons.BUBBLE_CHART_OUTLINED),
             Tab(text="Stable Diffusers", content=page.StableDiffusers, icon=icons.PALETTE),
-            Tab(text="AI Trainers", content=page.Trainers, icon=icons.TSUNAMI),
+            Tab(text="3D AIs", content=page.Text3DAIs, icon=icons.VIEW_IN_AR),
             Tab(text="Audio AIs", content=page.AudioAIs, icon=icons.EQUALIZER),
+            Tab(text="AI Trainers", content=page.Trainers, icon=icons.TSUNAMI),
             Tab(text="Extras", content=page.Extras, icon=icons.ALL_INBOX),
         ],
     )
@@ -593,6 +598,7 @@ def buildStableDiffusers(page):
     page.DiT = buildDiT(page)
     page.DreamFusion = buildDreamFusion(page)
     page.Point_E = buildPoint_E(page)
+    page.Shap_E = buildShap_E(page)
     page.InstantNGP = buildInstantNGP(page)
     diffusersTabs = Tabs(
         selected_index=0,
@@ -617,13 +623,32 @@ def buildStableDiffusers(page):
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
-            Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
-            Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
-            Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
+            #Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
+            #Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
+            #Tab(text="Shap-E 3D", content=page.Shap_E, icon=icons.PRECISION_MANUFACTURING),
+            #Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
         ],
         expand=1,
         #on_change=tab_on_change
+    )
+    return diffusersTabs
+
+def build3DAIs(page):
+    page.DreamFusion = buildDreamFusion(page)
+    page.Point_E = buildPoint_E(page)
+    page.Shap_E = buildShap_E(page)
+    page.InstantNGP = buildInstantNGP(page)
+    diffusersTabs = Tabs(
+        selected_index=0,
+        animation_duration=300,
+        tabs=[
+            Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
+            Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
+            Tab(text="Shap-E 3D", content=page.Shap_E, icon=icons.PRECISION_MANUFACTURING),
+            Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
+        ],
+        expand=1,
     )
     return diffusersTabs
 
@@ -789,6 +814,9 @@ if 'use_AIHorde_api' not in prefs: prefs['use_AIHorde_api'] = False
 if 'AIHorde_model' not in prefs: prefs['AIHorde_model'] = 'stable_diffusion'
 if 'AIHorde_sampler' not in prefs: prefs['AIHorde_sampler'] = 'k_euler_a'
 if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "None"
+if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
+if 'enable_tome' not in prefs: prefs['enable_tome'] = False
+if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
 
 def initState(page):
     global status, current_tab
@@ -1136,6 +1164,8 @@ def buildInstallers(page):
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
   enable_vae_tiling = Checkbox(label="Enable VAE Tiling", tooltip="The VAE will split the input tensor into tiles to compute decoding and encoding in several steps. This is useful to save a large amount of memory and to allow the processing of larger images.", value=prefs['vae_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_tiling'))
   enable_vae_slicing = Checkbox(label="Enable VAE Slicing", tooltip="Sliced VAE decode latents for larger batches of images with limited VRAM. Splits the input tensor in slices to compute decoding in several steps", value=prefs['vae_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_slicing'))
+  enable_tome = Checkbox(label="Enable Token Merging", tooltip="ToMe optimizes the Pipelines to create images faster, at the expense of some quality. Works by merging the redundant tokens / patches progressively in the forward pass of a Transformer-based network.", value=prefs['enable_tome'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_tome'))
+  enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
   #install_megapipe = Switch(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Tooltip(message="The best general purpose component. Create images with long prompts, weights & models", content=Switch(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_text2img')))
   install_img2img = Tooltip(message="Gets more coherant results modifying Inpaint init & mask images", content=Switch(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_img2img')))
@@ -1209,6 +1239,7 @@ def buildInstallers(page):
                                  #  enable_vae_slicing
                                  #enable_attention_slicing,
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
+                                 Row([enable_tome, enable_torch_compile]),
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion, 
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config, 
@@ -4354,6 +4385,114 @@ def buildPoint_E(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+shap_e_prefs = {
+    'prompt_text': '',
+    'init_image': '',
+    'guidance_scale': 15.0,
+    'base_model': 'base40M-textvec', #'base40M', 'base300M' or 'base1B'
+    'render_mode': 'NeRF', #STF
+    'use_karras': True,
+    'size': 64,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    #'seed': 0,
+    #'max_steps': 512,
+}
+
+def buildShap_E(page):
+    global prefs, shap_e_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            shap_e_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            shap_e_prefs[pref] = float(e.control.value)
+          else:
+            shap_e_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_shap_e_output(o):
+      page.shap_e_output.controls.append(o)
+      page.shap_e_output.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.shap_e_output.controls = []
+      page.shap_e_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def df_help(e):
+      def close_df_dlg(e):
+        nonlocal df_help_dlg
+        df_help_dlg.open = False
+        page.update()
+      df_help_dlg = AlertDialog(title=Text("💁   Help with OpenAI Shap-E"), content=Column([
+          Text("We present Shap-E, a conditional generative model for 3D assets. Unlike recent work on 3D generative models which produce a single output representation, Shap-E directly generates the parameters of implicit functions that can be rendered as both textured meshes and neural radiance fields. We train Shap-E in two stages: first, we train an encoder that deterministically maps 3D assets into the parameters of an implicit function; second, we train a conditional diffusion model on outputs of the encoder. When trained on a large dataset of paired 3D and text data, our resulting models are capable of generating complex and diverse 3D assets in a matter of seconds. When compared to Point-E, an explicit generative model over point clouds, Shap-E converges faster and reaches comparable or better sample quality despite modeling a higher-dimensional, multi-representation output space."),
+          Markdown("[GitHub Page](https://github.com/openai/shap-e) - [Read the Paper](https://arxiv.org/pdf/2305.02463.pdf)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🚴  Shaping up... ", on_click=close_df_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = df_help_dlg
+      df_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          shap_e_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          shap_e_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
+        init_image.value = fname
+        init_image.update()
+        shap_e_prefs['init_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    #page.overlay.append(pick_files_dialog)
+    def pick_original(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    prompt_text = TextField(label="Prompt Text", value=shap_e_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
+    init_image = TextField(label="Sample Image (optional, instead of prompt)", value=shap_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    #base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=shap_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
+    render_mode = Dropdown(label="Render Mode", width=250, options=[dropdown.Option("NeRF"), dropdown.Option("STF")], value=shap_e_prefs['render_mode'], on_change=lambda e: changed(e, 'render_mode'))
+    size = SliderRow(label="Size of Render", min=32, max=512, divisions=15, multiple=32, tooltip="Higher values take longer to render.", suffix="px", pref=shap_e_prefs, key='size')
+    batch_folder_name = TextField(label="3D Model Folder Name", value=shap_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    #batch_size = TextField(label="Batch Size", value=shap_e_prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
+    batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=shap_e_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=shap_e_prefs, key='guidance_scale')
+    #seed = TextField(label="Seed", value=shap_e_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    page.shap_e_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.shap_e_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🧊  Shap-E 3D Mesh", "Provide a Prompt or Image to Generate Conditional 3D PLY Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Shap-E Settings", on_click=df_help)]),
+        prompt_text,
+        init_image,
+        render_mode,
+        guidance,
+        size,
+        Row([batch_folder_name, batch_size]),
+        ElevatedButton(content=Text("🪀  Run Shap-E", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_shap_e(page)),
+        page.shap_e_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 instant_ngp_prefs = {
     'train_steps': 2000, #Total number of training steps to perform.  If provided, overrides num_train_epochs.
@@ -6483,7 +6622,7 @@ def buildDeepFloyd(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌈  DeepFloyd IF", "A new AI image generator that achieves state-of-the-art results on numerous image-generation tasks...", actions=[IconButton(icon=icons.HELP, tooltip="Help with IF-DeepFloyd Settings", on_click=deepfloyd_help)]),
+        Header("🌈  DeepFloyd IF (under construction, may not work)", "A new AI image generator that achieves state-of-the-art results on numerous image-generation tasks...", actions=[IconButton(icon=icons.HELP, tooltip="Help with IF-DeepFloyd Settings", on_click=deepfloyd_help)]),
         ResponsiveRow([prompt, negative_prompt]),
         ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         #Row([init_image, mask_image, invert_mask]),
@@ -10541,7 +10680,8 @@ def get_diffusers(page):
         import diffusers
         if force_updates: raise ImportError("Forcing update")
     except Exception:
-        run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+        run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
+        #run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         pass
     try:
         import transformers
@@ -10834,7 +10974,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True):
+def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True):
     global prefs, status
     if prefs['memory_optimization'] == 'Attention Slicing':
       #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
@@ -10861,6 +11001,17 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
     else:
       if to_gpu:
         p.to(torch_device)
+    if prefs['enable_torch_compile'] and torch_compile:
+      p.unet.to(memory_format=torch.channels_last)
+      p.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
+    if prefs['enable_tome'] and tome:
+      try:
+        import tomesd
+      except Exception:
+        run_sp("pip install tomesd", realtime=False)
+        import tomesd
+        pass
+      tomesd.apply_patch(p, ratio=prefs['tome_ratio'])
     status['loaded_scheduler'] = prefs['scheduler_mode']
     status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
@@ -10905,7 +11056,7 @@ def get_text2image(page):
         torch.cuda.empty_cache()
         pipe = None'''
     try:
-      if use_custom_scheduler:
+      if use_custom_scheduler: # Not really using anymore, maybe later
         from transformers import CLIPTextModel, CLIPTokenizer
         from diffusers import AutoencoderKL, UNet2DConditionModel
         # 1. Load the autoencoder model which will be used to decode the latents into image space. 
@@ -21600,9 +21751,10 @@ def run_controlnet(page, from_list=False):
 
 def run_deepfloyd(page, from_list=False):
     global deepfloyd_prefs, prefs, status, pipe_deepfloyd
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    import torch
+    #if not status['installed_diffusers']:
+    #  alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+    #  return
     #if not bool(deepfloyd_prefs['init_image']):
     #  alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
     #  return
@@ -21671,7 +21823,54 @@ def run_deepfloyd(page, from_list=False):
     autoscroll(True)
     clear_list()
     prt(Divider(thickness=2, height=4))
+    if not status['installed_diffusers']:
+        prt(Installing("Installing HuggingFace Diffusers Packages..."))
+        try:
+            import diffusers
+            if force_updates: raise ImportError("Forcing update")
+        except Exception:
+            run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+            pass
+        try:
+            import transformers
+            if force_updates: raise ImportError("Forcing update")
+        except Exception:
+            #run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
+            run_process("pip install --upgrade transformers~=4.28 -q", page=page)
+            pass
+        try:
+            import accelerate
+        except Exception:
+            run_process("pip install --upgrade accelerate~=0.18 -q", page=page)
+            pass
+        try:
+            import torch
+        except Exception:
+            run_process("pip install --upgrade torch~=2.0 -q", page=page)
+            import torch
+            pass
+        try:
+            from huggingface_hub import notebook_login, HfFolder, login
+        except Exception:
+            run_process("pip install huggingface_hub --upgrade", page=page)
+            import torch
+            pass
+        if not os.path.exists(HfFolder.path_token):
+            try:
+              login(token=prefs['HuggingFace_api_key'], add_to_git_credential=True)
+            except Exception:
+              alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet conenction.")
+              return
+        clear_last()
     prt(Installing("Installing DeepFloyd IF Required Packages..."))
+    try:
+        import safetensors
+        from safetensors import safe_open
+    except Exception:
+        run_process("pip install -qq --upgrade safetensors~=0.3", page=page)
+        import safetensors
+        from safetensors import safe_open
+        pass
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
@@ -23003,6 +23202,176 @@ def run_point_e(page):
     else:
       prt(Text(f"Saved npz & ply files to {point_e_out}"))
     # TODO: PyDrive2
+    if prefs['enable_sounds']: page.snd_alert.play()
+    os.chdir(root_dir)
+
+def run_shap_e(page):
+    global shap_e_prefs, status
+    def add_to_shap_e_output(o):
+      page.shap_e_output.controls.append(o)
+      page.shap_e_output.update()
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.shap_e_output.controls.append(line)
+      page.shap_e_output.update()
+    def prt_status(text):
+        nonlocal status_txt
+        status_txt.value = text
+        status_txt.update()
+    def clear_last():
+      #page.shap_e_output.controls = []
+      del page.shap_e_output.controls[-1]
+      page.shap_e_output.update()
+    if not bool(shap_e_prefs["prompt_text"].strip()):
+      alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
+      return
+    page.shap_e_output.controls = []
+    page.shap_e_output.update()
+    shap_e_dir = os.path.join(root_dir, "shap-e")
+    add_to_shap_e_output(Installing("Installing OpenAI Shap-E 3D Libraries..."))
+    if not os.path.exists(shap_e_dir):
+        try:
+            #run_process("pip install -U scikit-image")
+            run_process("git clone https://github.com/openai/shap-e.git", cwd=root_dir)
+            run_process("pip install .", cwd=shap_e_dir)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Shap-E Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_pipes()
+    from shap_e.diffusion.sample import sample_latents
+    from shap_e.diffusion.gaussian_diffusion import diffusion_from_config
+    from shap_e.models.download import load_model, load_config
+    from shap_e.util.notebooks import create_pan_cameras, decode_latent_images, gif_widget
+    from shap_e.util.image_util import load_image
+    from PIL import ImageOps
+    try:
+      import imageio
+    except Exception:
+      run_sp("pip install imageio", realtime=False)
+      import imageio
+      pass
+    xm = load_model('transmitter', device=torch_device)
+    model = load_model('image300M' if bool(shap_e_prefs['init_image']) else 'text300M' , device=torch_device)
+    diffusion = diffusion_from_config(load_config('diffusion'))
+    if bool(shap_e_prefs['prompt_text']):
+        filename = format_filename(shap_e_prefs['prompt_text'])
+    elif bool(shap_e_prefs['init_image']):
+        filename = format_filename(shap_e_prefs['init_image'].rpartition(slash)[1].rparition('.')[0])
+    if bool(shap_e_prefs['batch_folder_name']):
+        filename = format_filename(shap_e_prefs['batch_folder_name'], force_underscore=True)
+    else:
+        alert_msg(page, "If you're not using Prompt Text, provide a name for your 3D Model.")
+        return
+        
+    #filename = format_filename(shap_e_prefs['prompt_text'])
+    #fname = f"{shap_e_prefs['file_prefix']}{fname}"
+    shap_e_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'shap_e', shap_e_prefs['batch_folder_name'])
+    #if bool(shap_e_prefs['batch_folder_name']):
+    #    shap_e_out = os.path.join(shap_e_dir, shap_e_prefs['batch_folder_name'])
+    #else:
+    #    shap_e_out = shap_e_dir
+    if not os.path.exists(shap_e_out):
+        os.makedirs(shap_e_out)
+    #shap_e_out = os.path.join(shap_e_out, fname)
+    #estimate = convert(int(shap_e_prefs["training_iters"] * 0.7))
+    init_img = None
+    if bool(shap_e_prefs['init_image']):
+        if shap_e_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(shap_e_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(shap_e_prefs['init_image']):
+                init_img = PILImage.open(shap_e_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {shap_e_prefs['init_image']}")
+                if not bool(shap_e_prefs['prompt_text']):
+                    return
+        if init_img != None:
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, 512)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    
+    status_txt = Text("Generating your 3D model... See console for progress.")
+    progress = ProgressBar(bar_height=8)
+    total_steps = 64
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
+    clear_last()
+    add_to_shap_e_output(status_txt)
+    add_to_shap_e_output(progress)
+    if init_img == None:
+        model_kwargs = dict(texts=[shap_e_prefs['prompt_text']] * shap_e_prefs['batch_size'])
+    else:
+        model_kwargs = dict(images=[init_img] * shap_e_prefs['batch_size'])
+    try:
+        latents = sample_latents(
+            batch_size=shap_e_prefs['batch_size'],
+            model=model,
+            diffusion=diffusion,
+            guidance_scale=shap_e_prefs['guidance_scale'],
+            model_kwargs=model_kwargs,
+            progress=True,
+            clip_denoised=True,
+            use_fp16=True,
+            use_karras=shap_e_prefs['use_karras'],
+            karras_steps=64,
+            sigma_min=1e-3,
+            sigma_max=160,
+            s_churn=0,
+        )
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error running Shap-E sample_latents.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    prt_status("Generating Shap-E Models...") #images=[img]
+    step = 0
+    try:
+        cameras = create_pan_cameras(shap_e_prefs['size'], torch_device)
+        for i, latent in enumerate(latents):
+            img_file = os.path.join(shap_e_out, f'{filename}_{i}.png')
+            images = decode_latent_images(xm, latent, cameras, rendering_mode=shap_e_prefs['render_mode'].lower())
+            #images.save(img_file)
+            display(gif_widget(images))
+            callback_fnc(i)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error running Shap-E decode_latent_images.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    imgs = []
+    for i, img in enumerate(images):
+        img_file = os.path.join(shap_e_out, f'{filename}_{i}.png')
+        img.save(img_file)
+        imgs.append(imageio.imread(img))
+    gif_file = os.path.join(shap_e_out, f'{filename}.gif')
+    imageio.mimsave(gif_file, imgs)
+
+    prt_status('Saving PLY mesh file...')
+    from shap_e.util.notebooks import decode_latent_mesh
+    try:
+        for i, latent in enumerate(latents):
+            pc_file = os.path.join(shap_e_out, f'{filename}_{i}.ply')
+            with open(pc_file, 'wb') as f:
+                decode_latent_mesh(xm, latent).tri_mesh().write_ply(f)
+    except Exception as e:
+      clear_last()
+      alert_msg(page, "Error running Shap-E decode_latent_mesh.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+      return
+    
+    del latents
+    gc.collect()
+    torch.cuda.empty_cache()
+    clear_last()
+    clear_last()
+    prt(ImageButton(src=gif_file, width=shap_e_prefs['size'], height=shap_e_prefs['size'], data=gif_file, subtitle=pc_file, page=page))
+    prt("Finished generating Shap-E Mesh... Hope it's good.")
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
 
