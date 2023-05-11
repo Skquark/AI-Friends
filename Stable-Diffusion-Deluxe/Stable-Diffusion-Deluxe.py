@@ -387,7 +387,7 @@ from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAx
 from flet import Image as Img
 try:
     import PIL
-except Exception:
+except ModuleNotFoundError:
     run_sp("pip install Pillow", realtime=False)
     run_sp("pip install image", realtime=False)
     import PIL
@@ -395,6 +395,7 @@ except Exception:
 from PIL import Image as PILImage # Avoids flet conflict
 import random as rnd
 import io, shutil, traceback
+from packaging import version
 from contextlib import redirect_stdout
 try:
   import numpy as np
@@ -1083,19 +1084,22 @@ def buildInstallers(page):
   scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the noise", width=200,
             options=[
                 dropdown.Option("DDIM"),
-                dropdown.Option("K-LMS"),
+                dropdown.Option("LMS Discrete"),
                 dropdown.Option("PNDM"),
                 #dropdown.Option("DDPM"),
                 dropdown.Option("DPM Solver"),
                 dropdown.Option("DPM Solver++"),
+                dropdown.Option("SDE-DPM Solver++"),
                 #dropdown.Option("DPM Stochastic"),
                 dropdown.Option("K-Euler Discrete"),
                 dropdown.Option("K-Euler Ancestral"),
                 dropdown.Option("DEIS Multistep"),
                 dropdown.Option("UniPC Multistep"),
                 dropdown.Option("Heun Discrete"),
+                dropdown.Option("Karras Heun Discrete"),
                 dropdown.Option("K-DPM2 Ancestral"),
                 dropdown.Option("K-DPM2 Discrete"),
+                dropdown.Option("Karras-LMS"),
             ], value=prefs['scheduler_mode'], autofocus=False, on_change=change_scheduler,
         )
   def changed_model_ckpt(e):
@@ -1158,7 +1162,9 @@ def buildInstallers(page):
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
   model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
-  memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing"), dropdown.Option("Xformers Mem Efficient Attention")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
+  memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
+  if version.parse(torch.__version__) < version.parse("2.0.0"):
+      memory_optimization.options.append(dropdown.Option("Xformers Mem Efficient Attention"))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
   sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
@@ -1517,7 +1523,7 @@ def buildInstallers(page):
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
           import openai
-        except ImportError as e:
+        except ModuleNotFoundError as e:
           console_msg("Installing OpenAI GPT-3 Libraries...")
           run_process("pip install openai -qq", page=page)
           pass
@@ -1525,7 +1531,7 @@ def buildInstallers(page):
       if prefs['install_TextSynth'] and not status['installed_TextSynth']:
         try:
           from textsynthpy import TextSynth, Complete
-        except ImportError as e:
+        except ModuleNotFoundError as e:
           console_msg("Installing TextSynth GPT-J Libraries...")
           run_process("pip install textsynthpy -qq", page=page)
           pass
@@ -4392,7 +4398,9 @@ shap_e_prefs = {
     'base_model': 'base40M-textvec', #'base40M', 'base300M' or 'base1B'
     'render_mode': 'NeRF', #STF
     'use_karras': True,
+    'karras_steps': 64,
     'size': 64,
+    'save_frames': False,
     'batch_size': 1,
     'batch_folder_name': '',
     #'seed': 0,
@@ -4413,9 +4421,6 @@ def buildShap_E(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def add_to_shap_e_output(o):
-      page.shap_e_output.controls.append(o)
-      page.shap_e_output.update()
     def clear_output(e):
       if prefs['enable_sounds']: page.snd_delete.play()
       page.shap_e_output.controls = []
@@ -4468,10 +4473,12 @@ def buildShap_E(page):
     #base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=shap_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
     render_mode = Dropdown(label="Render Mode", width=250, options=[dropdown.Option("NeRF"), dropdown.Option("STF")], value=shap_e_prefs['render_mode'], on_change=lambda e: changed(e, 'render_mode'))
     size = SliderRow(label="Size of Render", min=32, max=512, divisions=15, multiple=32, tooltip="Higher values take longer to render.", suffix="px", pref=shap_e_prefs, key='size')
+    karras_steps = SliderRow(label="Karras Steps", min=1, max=100, divisions=99, round=0, pref=shap_e_prefs, key='karras_steps')
     batch_folder_name = TextField(label="3D Model Folder Name", value=shap_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     #batch_size = TextField(label="Batch Size", value=shap_e_prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=shap_e_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=shap_e_prefs, key='guidance_scale')
+    save_frames = Checkbox(label="Save Preview Frames", tooltip="Saves PNG Sequence of camera rotation, same as animated gif preview.", value=shap_e_prefs['save_frames'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_frames'))
     #seed = TextField(label="Seed", value=shap_e_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
     page.shap_e_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -4482,8 +4489,9 @@ def buildShap_E(page):
         Header("🧊  Shap-E 3D Mesh", "Provide a Prompt or Image to Generate Conditional 3D PLY Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Shap-E Settings", on_click=df_help)]),
         prompt_text,
         init_image,
-        render_mode,
+        Row([render_mode, save_frames]),
         guidance,
+        karras_steps,
         size,
         Row([batch_folder_name, batch_size]),
         ElevatedButton(content=Text("🪀  Run Shap-E", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_shap_e(page)),
@@ -5844,7 +5852,7 @@ def buildMagicMix(page):
     scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the noise", width=200,
             options=[
                 dropdown.Option("DDIM"),
-                dropdown.Option("K-LMS"),
+                dropdown.Option("LMS Discrete"),
                 dropdown.Option("PNDM"),
             ], value=magic_mix_prefs['scheduler_mode'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_mode'),
         )
@@ -10345,6 +10353,7 @@ def buildCachedModelManager(page):
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
+
 if 'pipe' in locals():
   clear_pipes()
 use_custom_scheduler = False
@@ -10620,7 +10629,6 @@ def get_diffusers(page):
     except:
         pass
     if torch_installed:
-        from packaging import version
         if version.parse(torch.__version__) < version.parse("2.0.0"):
             torch_installed = False
     if not torch_installed:
@@ -10649,7 +10657,7 @@ def get_diffusers(page):
         status['installed_xformers'] = True
     try:
         import accelerate
-    except Exception:
+    except ModuleNotFoundError:
         page.console_msg("Installing Hugging Face Accelerate Package...")
         run_process("pip install --upgrade accelerate~=0.18 -q", page=page)
         #run_process("pip install --upgrade git+https://github.com/huggingface/accelerate.git -q", page=page)
@@ -10668,7 +10676,7 @@ def get_diffusers(page):
           #run_process("pip uninstall -q transformers==4.21.3", page=page, realtime=False)
         if transformers.__version__ == "4.23.1": # Kandinsky conflict
           run_process("pip uninstall -y transformers", realtime=False)
-    except Exception:
+    except ModuleNotFoundError:
         pass
     #run_process("pip install -q huggingface_hub", page=page)
     '''try:
@@ -10678,38 +10686,38 @@ def get_diffusers(page):
     except ModuleNotFoundError as e:#ModuleNotFoundError as e:'''
     try:
         import diffusers
-        if force_updates: raise ImportError("Forcing update")
-    except Exception:
-        run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
-        #run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+        if force_updates: raise ModuleNotFoundError("Forcing update")
+    except ModuleNotFoundError:
+        run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
+        #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         pass
     try:
         import transformers
-        if force_updates: raise ImportError("Forcing update")
-    except Exception:
+        if force_updates: raise ModuleNotFoundError("Forcing update")
+    except ModuleNotFoundError:
         #run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
-        run_process("pip install --upgrade transformers~=4.28 -q", page=page)
+        run_process("pip install --upgrade transformers~=4.28", page=page)
         pass
     try:
         import scipy
-    except Exception:
-        run_process("pip install -qq --upgrade scipy", page=page)
+    except ModuleNotFoundError:
+        run_process("pip install -upgrade scipy", page=page)
         pass
     try:
         import ftfy
-    except Exception:
-        run_process("pip install -qq --upgrade ftfy", page=page)
+    except ModuleNotFoundError:
+        run_process("pip install --upgrade ftfy", page=page)
         pass
     try:
         import safetensors
-    except Exception:
-        run_process("pip install --upgrade safetensors~=0.3 -q", page=page)
+    except ModuleNotFoundError:
+        run_process("pip install --upgrade safetensors~=0.3", page=page)
         import safetensors
         from safetensors import safe_open
         pass
     try:
         import ipywidgets
-    except Exception:
+    except ModuleNotFoundError:
         run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
         pass
     run_process("git config --global credential.helper store", page=page)
@@ -10743,7 +10751,7 @@ def get_diffusers(page):
 
 def model_scheduler(model, big3=False):
     scheduler_mode = prefs['scheduler_mode']
-    if scheduler_mode == "K-LMS":
+    if scheduler_mode == "LMS Discrete":
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "PNDM":
@@ -10767,9 +10775,18 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
       s = EulerAncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "Karras-LMS":
+      from diffusers import LMSDiscreteScheduler
+      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      scheduler_config = s.get_scheduler_config()
+      s = LMSDiscreteScheduler(**scheduler_config, use_karras_sigmas=True)
     elif scheduler_mode == "DPM Stochastic":
       from diffusers import DPMSolverSDEScheduler
       s = DPMSolverSDEScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "SDE-DPM Solver++":
+      from diffusers import DPMSolverMultistepScheduler
+      s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+      s.config.algorithm_type = 'sde-dpmsolver++'
     elif scheduler_mode == "DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
       s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler",
@@ -10790,6 +10807,9 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "Heun Discrete":
       from diffusers import HeunDiscreteScheduler
       s = HeunDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "Karras Heun Discrete":
+      from diffusers import HeunDiscreteScheduler
+      s = HeunDiscreteScheduler.from_pretrained(model, subfolder="scheduler", use_karras_sigmas=True)
     elif scheduler_mode == "K-DPM2 Ancestral":
       from diffusers import KDPM2AncestralDiscreteScheduler
       s = KDPM2AncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
@@ -10828,14 +10848,14 @@ def model_scheduler(model, big3=False):
       use_custom_scheduler = True
     #print(f"Loaded Schedueler {scheduler_mode} {type(scheduler)}")
     else:
-      print(f"Unknown scheduler request {scheduler_mode} - Using K-LMS")
+      print(f"Unknown scheduler request {scheduler_mode} - Using LMS Discrete")
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     return s
 
 def pipeline_scheduler(p, big3=False, from_scheduler = True):
     scheduler_mode = prefs['scheduler_mode']
-    if scheduler_mode == "K-LMS":
+    if scheduler_mode == "LMS Discrete":
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "PNDM":
@@ -10856,12 +10876,21 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
     elif scheduler_mode == "DPM Stochastic":
       from diffusers import DPMSolverSDEScheduler
       s = DPMSolverSDEScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+    elif scheduler_mode == "SDE-DPM Solver++":
+      from diffusers import DPMSolverMultistepScheduler #"hf-internal-testing/tiny-stable-diffusion-torch"
+      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s.config.algorithm_type = 'sde-dpmsolver++'
     elif scheduler_mode == "K-Euler Discrete":
       from diffusers import EulerDiscreteScheduler
       s = EulerDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
       s = EulerAncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+    elif scheduler_mode == "Karras-LMS":
+      from diffusers import LMSDiscreteScheduler
+      s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      scheduler_config = s.get_scheduler_config()
+      s = LMSDiscreteScheduler(**scheduler_config, use_karras_sigmas=True)
     elif scheduler_mode == "DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
       s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config,
@@ -10882,6 +10911,9 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
     elif scheduler_mode == "Heun Discrete":
       from diffusers import HeunDiscreteScheduler
       s = HeunDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+    elif scheduler_mode == "Karras Heun Discrete":
+      from diffusers import HeunDiscreteScheduler
+      s = HeunDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, use_karras_sigmas=True)
     elif scheduler_mode == "K-DPM2 Ancestral":
       from diffusers import KDPM2AncestralDiscreteScheduler
       s = KDPM2AncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
@@ -10920,7 +10952,7 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
       use_custom_scheduler = True
     #print(f"Loaded Schedueler {scheduler_mode} {type(scheduler)}")
     else:
-      print(f"Unknown scheduler request {scheduler_mode} - Using K-LMS")
+      print(f"Unknown scheduler request {scheduler_mode} - Using LMS Discrete")
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_config(p.scheduler.config)
     p.scheduler = s
@@ -10931,14 +10963,14 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
 torch_device = "cuda"
 try:
     import torch
-except Exception:
+except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
     print("Installing PyTorch with CUDA 1.18")
     run_sp("pip install -U --force-reinstall torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu118", realtime=False)
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
       import torch
-    except Exception:
+    except ModuleNotFoundError:
       run_sp("pip install -q torch")
       import torch
       pass
@@ -11003,7 +11035,7 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
         p.to(torch_device)
     if prefs['enable_torch_compile'] and torch_compile:
       p.unet.to(memory_format=torch.channels_last)
-      p.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
+      p.unet = torch.compile(p.unet, mode="reduce-overhead", fullgraph=True)
     if prefs['enable_tome'] and tome:
       try:
         import tomesd
@@ -11969,7 +12001,7 @@ def get_AIHorde(page):
       run_sp("pip install -r cli_requirements.txt --user", cwd=AI_Horde, realtime=False)
     try:
       import yaml
-    except Exception:
+    except ModuleNotFoundError:
       run_sp("pip install pyyaml", realtime=False)
       pass
     status['installed_AIHorde'] = True
@@ -13049,8 +13081,8 @@ def start_diffusion(page):
             latents.shape
             #Cool  64×64  is expected. The model will transform this latent representation (pure noise) into a 512 × 512 image later on.
             #Next, we initialize the scheduler with our chosen num_inference_steps. This will compute the sigmas and exact time step values to be used during the denoising process.
-            scheduler.set_timesteps(arg['steps'])#The K-LMS scheduler needs to multiple the `latents` by its `sigma` values. Let's do this here
-            if prefs['scheduler_mode'] == "K-LMS" or prefs['scheduler_mode'] == "Score-SDE-Vp":
+            scheduler.set_timesteps(arg['steps'])#The LMS Discrete scheduler needs to multiple the `latents` by its `sigma` values. Let's do this here
+            if prefs['scheduler_mode'] == "LMS Discrete" or prefs['scheduler_mode'] == "Score-SDE-Vp":
               latents = latents * scheduler.sigmas[0]#We are ready to write the denoising loop.
             from tqdm.auto import tqdm
             clear_pipes("unet")
@@ -13061,7 +13093,7 @@ def start_diffusion(page):
             for i, t in tqdm(enumerate(scheduler.timesteps)):
               # expand the latents if we are doing classifier-free guidance to avoid doing two forward passes.
               latent_model_input = torch.cat([latents] * 2)
-              if prefs['scheduler_mode'] == "K-LMS" or prefs['scheduler_mode'] == "Score-SDE-Vp":
+              if prefs['scheduler_mode'] == "LMS Discrete" or prefs['scheduler_mode'] == "Score-SDE-Vp":
                 sigma = scheduler.sigmas[i]
                 latent_model_input = latent_model_input / ((sigma**2 + 1) ** 0.5)
               # predict the noise residual
@@ -14089,19 +14121,23 @@ def get_stable_lm(ai_model="StableLM 3b"):
       return pipe_stable_lm
     try:
       import accelerate
-    except Exception:
+    except ModuleNotFoundError:
       run_sp("pip install accelerate", realtime=False)
       import accelerate
       pass
     try:
+      os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
       import bitsandbytes
-    except Exception:
-      run_sp("pip install bitsandbytes", realtime=False)
+    except ModuleNotFoundError:
+      if sys.platform.startswith("win"):
+          run_sp("pip install bitsandbytes-windows", realtime=False)
+      else:
+          run_sp("pip install bitsandbytes", realtime=False)
       import bitsandbytes
       pass
     try:
       import transformers
-    except Exception:
+    except ModuleNotFoundError:
       run_sp("pip install -q transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
       import transformers
       pass
@@ -14190,7 +14226,7 @@ def run_prompt_brainstormer(page):
       else:
         try:
           import openai
-        except ImportError:
+        except ModuleNotFoundError:
           run_sp("pip install --upgrade openai -qq")
           #clear_output()
         finally:
@@ -14950,7 +14986,7 @@ def run_init_video(page):
     page.add_to_init_video_output(progress)
     try:
         import cv2
-    except Exception:
+    except ModuleNotFoundError:
         run_process("pip install -q cv2", page=page)
         import cv2
         pass
@@ -16454,7 +16490,7 @@ def run_BLIP2_image2text(page):
     try:
         import lavis
         #from lavis.models import load_model_and_preprocess
-    except Exception:
+    except ModuleNotFoundError:
         try:
             #run_process("pip install clip-salesforce-lavis", page=page, show=True)
             run_sp("pip install -q salesforce-lavis", realtime=True)
@@ -16731,7 +16767,7 @@ def run_audio_diffusion(page):
 
     try:
         import mel
-    except Exception:
+    except ModuleNotFoundError:
         try:
             run_process("pip install -q mel", page=page, show=True, print=True)
         except Exception as e:
@@ -16874,7 +16910,17 @@ def run_dreambooth(page):
     #os.chdir(os.path.join(root_dir, "diffusers", "examples", "dreambooth"))
     #run_process("pip install -r requirements.txt", realtime=False)
     os.chdir(root_dir)
-    run_process("pip install -qq bitsandbytes")
+    try:
+        os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+        #run_sp("export LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH", realtime=False)
+        import bitsandbytes
+    except Exception:
+        if sys.platform.startswith("win"):
+            run_sp("pip install bitsandbytes-windows", realtime=False)
+        else:
+            run_sp("pip install --upgrade bitsandbytes", realtime=False)
+        import bitsandbytes
+        pass
     import argparse
     import itertools
     import math
@@ -16894,6 +16940,7 @@ def run_dreambooth(page):
     from torchvision import transforms
     from tqdm.auto import tqdm
     from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
+    
     import bitsandbytes as bnb
     import gc
     import glob
@@ -17348,7 +17395,16 @@ def run_dreambooth2(page):
     dreambooth_dir = os.path.join(diffusers_dir, "examples", "dreambooth")
     os.chdir(dreambooth_dir)
     run_process("pip install -r requirements.txt", cwd=dreambooth_dir, realtime=False)
-    run_process("pip install -qq bitsandbytes", page=page)
+    try:
+      os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+      import bitsandbytes
+    except ModuleNotFoundError:
+      if sys.platform.startswith("win"):
+          run_sp("pip install bitsandbytes-windows", realtime=False)
+      else:
+          run_sp("pip install bitsandbytes", realtime=False)
+      import bitsandbytes
+      pass
     #from accelerate.utils import write_basic_config
     #write_basic_config()
     import argparse
@@ -19398,7 +19454,7 @@ def run_bark(page):
     prt(Installing("Downloading Bark Packages..."))
     try:
         import scipy
-    except Exception:
+    except ModuleNotFoundError:
         run_process("pip install -qq --upgrade scipy", page=page)
         pass
     from scipy.io.wavfile import write as write_wav
@@ -19655,7 +19711,7 @@ def run_mubert(page):
         pass
     try:
         import httpx
-    except Exception:
+    except ModuleNotFoundError:
         run_process("pip install httpx", page=page)
         import httpx
         pass
@@ -20671,7 +20727,7 @@ def run_magic_mix(page, from_list=False):
     #torch.cuda.reset_peak_memory_stats()
     model = get_model(prefs['model_ckpt'])['path']
     scheduler_mode = magic_mix_prefs['scheduler_mode']
-    if scheduler_mode == "K-LMS":
+    if scheduler_mode == "LMS Discrete":
       from diffusers import LMSDiscreteScheduler
       schedule = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "PNDM":
@@ -21115,7 +21171,7 @@ def run_instruct_pix2pix(page, from_list=False):
         prt("Extracting Frames from Video Clip")
         try:
             import cv2
-        except Exception:
+        except ModuleNotFoundError:
             run_process("pip install -q opencv-contrib-python", page=page)
             import cv2
             pass
@@ -21372,12 +21428,12 @@ def run_controlnet(page, from_list=False):
     try:
         try:
           import cv2
-        except Exception:
+        except ModuleNotFoundError:
           run_sp("pip install opencv-contrib-python", realtime=False)
           pass
         try:
           from controlnet_aux import MLSDdetector
-        except Exception:
+        except ModuleNotFoundError:
           run_sp("pip install --upgrade controlnet-aux", realtime=False)
           #run_sp("pip install git+https://github.com/patrickvonplaten/controlnet_aux.git")
           pass
@@ -21772,15 +21828,15 @@ def run_deepfloyd(page, from_list=False):
         page.DeepFloyd.controls.append(line)
         if update:
           page.DeepFloyd.update()
-    def clear_last():
+    def clear_last(update=True):
       if from_list:
         if len(page.imageColumn.controls) == 0: return
         del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        if update: page.imageColumn.update()
       else:
         if len(page.DeepFloyd.controls) == 1: return
         del page.DeepFloyd.controls[-1]
-        page.DeepFloyd.update()
+        if update: page.DeepFloyd.update()
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -21823,54 +21879,85 @@ def run_deepfloyd(page, from_list=False):
     autoscroll(True)
     clear_list()
     prt(Divider(thickness=2, height=4))
-    if not status['installed_diffusers']:
-        prt(Installing("Installing HuggingFace Diffusers Packages..."))
-        try:
-            import diffusers
-            if force_updates: raise ImportError("Forcing update")
-        except Exception:
-            run_process("pip install -q --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
-            pass
-        try:
-            import transformers
-            if force_updates: raise ImportError("Forcing update")
-        except Exception:
-            #run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
-            run_process("pip install --upgrade transformers~=4.28 -q", page=page)
-            pass
-        try:
-            import accelerate
-        except Exception:
-            run_process("pip install --upgrade accelerate~=0.18 -q", page=page)
-            pass
-        try:
-            import torch
-        except Exception:
-            run_process("pip install --upgrade torch~=2.0 -q", page=page)
-            import torch
-            pass
-        try:
-            from huggingface_hub import notebook_login, HfFolder, login
-        except Exception:
-            run_process("pip install huggingface_hub --upgrade", page=page)
-            import torch
-            pass
-        if not os.path.exists(HfFolder.path_token):
-            try:
-              login(token=prefs['HuggingFace_api_key'], add_to_git_credential=True)
-            except Exception:
-              alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet conenction.")
-              return
-        clear_last()
-    prt(Installing("Installing DeepFloyd IF Required Packages..."))
+    #if not status['installed_diffusers']:
+    install = Installing("Installing Diffusers & Required Packages...")
+    prt(install)
+    try:
+        import diffusers
+        if force_updates: raise ModuleNotFoundError("Forcing update")
+    except ModuleNotFoundError:
+        install.set_details("...HuggingFace Diffusers v0.16")
+        run_process("pip install --upgrade diffusers~=0.16", page=page)
+        #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
+        #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+        pass
+    try:
+        import transformers
+        if force_updates: raise ModuleNotFoundError("Forcing update")
+    except ModuleNotFoundError:
+        install.set_details("...Transformers v4.28")
+        #run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
+        run_process("pip install --upgrade transformers~=4.28", page=page)
+        pass
     try:
         import safetensors
         from safetensors import safe_open
-    except Exception:
-        run_process("pip install -qq --upgrade safetensors~=0.3", page=page)
+    except ModuleNotFoundError:
+        install.set_details("...SafeTensors v0.3")
+        run_process("pip install --upgrade safetensors~=0.3", page=page)
         import safetensors
         from safetensors import safe_open
         pass
+    try:
+        import sentencepiece
+    except ModuleNotFoundError:
+        install.set_details("...SentencePiece v0.1")
+        run_sp("pip install --upgrade sentencepiece~=0.1", realtime=False)
+        import sentencepiece
+        pass
+    try:
+        import accelerate
+    except ModuleNotFoundError:
+        install.set_details("...Accelerate v0.18")
+        run_process("pip install --upgrade accelerate~=0.18", page=page)
+        pass
+    install.set_message("Installing DeepFloyd IF Required Packages...")
+    if deepfloyd_prefs['low_memory']:
+        #clear_last(update=False)
+        #prt(Installing("Installing DeepFloyd IF Required Packages..."))
+        #try:
+        #  import bitsandbytes
+        #except Exception:
+        install.set_details("...BitsandBytes v0.38")
+        os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+        #run_sp("export LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH", realtime=False)
+        if sys.platform.startswith("win"):
+            run_sp("pip install bitsandbytes-windows", realtime=False)
+        else:
+            run_sp("pip install --upgrade bitsandbytes~=0.38", realtime=False)
+        # import bitsandbytes
+        #  pass
+    try:
+        import torch
+    except ModuleNotFoundError:
+        install.set_details("...Torch v2.0")
+        run_process("pip install --upgrade torch~=2.0", page=page)
+        import torch
+        pass
+    try:
+        from huggingface_hub import notebook_login, HfFolder, login
+    except ModuleNotFoundError:
+        install.set_details("...HuggingFace Hub")
+        run_process("pip install huggingface_hub --upgrade", page=page)
+        import torch
+        pass
+    if not os.path.exists(HfFolder.path_token):
+        try:
+          login(token=prefs['HuggingFace_api_key'], add_to_git_credential=True)
+        except Exception:
+          alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet conenction.")
+          return
+
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
@@ -21880,33 +21967,13 @@ def run_deepfloyd(page, from_list=False):
     from diffusers import IFPipeline, IFImg2ImgPipeline, IFInpaintingPipeline, IFSuperResolutionPipeline
     #from diffusers.pipelines.deepfloyd_if.safety_checker IFSafetyChecker
     from transformers import T5EncoderModel, T5Tokenizer
-    try:
-      import sentencepiece
-    except Exception:
-      run_sp("pip install --upgrade sentencepiece~=0.1 -q", realtime=False)
-      import sentencepiece
-      pass
-    #try:
-    #  import bitsandbytes
-    #except Exception:
-    # import bitsandbytes
-    #  pass
-    run_sp("pip install --upgrade bitsandbytes~=0.38 -q", realtime=False)
-    try:
-        import safetensors
-        from safetensors import safe_open
-    except Exception:
-        run_process("pip install -qq --upgrade safetensors~=0.3", page=page)
-        import safetensors
-        from safetensors import safe_open
-        pass
     #run_sp("accelerate config default", realtime=False)
     clear_pipes()
     torch.cuda.empty_cache()
     torch.cuda.reset_max_memory_allocated()
     #torch.cuda.reset_peak_memory_stats()
     model_id = "DeepFloyd/IF-I-XL-v1.0"
-    clear_last()
+    clear_last(update=False)
     
     max_size = deepfloyd_prefs['max_size']
     batch_output = os.path.join(stable_dir, deepfloyd_prefs['batch_folder_name'])
@@ -21961,35 +22028,56 @@ def run_deepfloyd(page, from_list=False):
             random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator().manual_seed(random_seed)
             try:
-                prt(Installing("Running DeepFloyd-IF Text Encoder..."))
-                #, load_in_8bit=True
-                text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, variant="8bit") #, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, text_encoder=text_encoder, unet=None, device_map="auto") #, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
-                prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
-                del text_encoder
-                del pipe_deepfloyd
-                gc.collect()
-                torch.cuda.empty_cache()
-                clear_last()
+                if deepfloyd_prefs['low_memory']:
+                    install = Installing("Running DeepFloyd-IF Text Encoder...")
+                    prt(install)
+                    #, load_in_8bit=True
+                    install.set_details("...text_encoder T5EncoderModel")
+                    text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, variant="8bit", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    install.set_details("...DiffusionPipeline")
+                    pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, text_encoder=text_encoder, unet=None, device_map=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    # Still getting errors here! WTF?
+                    #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+                    install.set_details("...encode_prompts")
+                    prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
+                    install.set_details("...clearing pipes")
+                    del text_encoder
+                    del pipe_deepfloyd
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    clear_last(update=False)
                 safety_modules = {}
                 if init_img == None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Pipeline..."))
                     # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
-                    pipe_deepfloyd = IFPipeline.from_pretrained(model_id, text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")#, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                    #pipe_deepfloyd.enable_model_cpu_offload()
                     total_steps = pr['num_inference_steps']
                     clear_last()
                     prt(progress)
-                    images = pipe_deepfloyd(
-                        prompt_embeds=prompt_embeds,
-                        negative_prompt_embeds=negative_embeds,
-                        num_inference_steps = pr['num_inference_steps'],
-                        guidance_scale = pr['guidance_scale'],
-                        output_type="pt",
-                        generator=generator,
-                        callback=callback_fnc, callback_steps=1,
-                    ).images
+                    if deepfloyd_prefs['low_memory']:
+                        pipe_deepfloyd = IFPipeline.from_pretrained(model_id, text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto", safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        #pipe_deepfloyd.enable_model_cpu_offload()
+                        images = pipe_deepfloyd(
+                            prompt_embeds=prompt_embeds,
+                            negative_prompt_embeds=negative_embeds,
+                            num_inference_steps = pr['num_inference_steps'],
+                            guidance_scale = pr['guidance_scale'],
+                            output_type="pt",
+                            generator=generator,
+                            callback=callback_fnc, callback_steps=1,
+                        ).images
+                    else:
+                        pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        pipe_deepfloyd.enable_model_cpu_offload()
+                        prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
+                        images = pipe_deepfloyd(
+                            prompt_embeds=prompt_embeds,
+                            negative_prompt_embeds=negative_embeds,
+                            num_inference_steps = pr['num_inference_steps'],
+                            guidance_scale = pr['guidance_scale'],
+                            output_type="pt",
+                            generator=generator,
+                            callback=callback_fnc, callback_steps=1,
+                        ).images
                     safety_modules = {
                         "feature_extractor": pipe_deepfloyd.feature_extractor,
                         "safety_checker": pipe_deepfloyd.safety_checker,
@@ -22002,8 +22090,9 @@ def run_deepfloyd(page, from_list=False):
                     clear_last()
                     prt(Installing("Stage 2: Installing DeepFloyd Super Resolution Pipeline..."))
                     #IFSuperResolutionPipeline
-                    pipe_deepfloyd = DiffusionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")
-                    #pipe_deepfloyd.enable_model_cpu_offload()
+                    pipe_deepfloyd = DiffusionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16)
+                    if not deepfloyd_prefs['low_memory']:
+                        pipe_deepfloyd.enable_model_cpu_offload()
                     clear_last()
                     prt(progress)
                     images = pipe_deepfloyd(
@@ -22094,7 +22183,7 @@ def run_deepfloyd(page, from_list=False):
                     clear_last()
                     prt(Installing("Stage 2: Installing DeepFloyd Inpainting Super Resolution Pipeline..."))
                     from diffusers import IFInpaintingSuperResolutionPipeline
-                    pipe_deepfloyd = IFInpaintingSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")
+                    pipe_deepfloyd = IFInpaintingSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map=None)
                     pipe_deepfloyd.enable_model_cpu_offload()
                     total_steps = deepfloyd_prefs['superres_num_inference_steps']
                     clear_last()
@@ -22462,7 +22551,7 @@ def run_text_to_video_zero(page):
         pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
     try:
         import imageio
-    except Exception:
+    except ModuleNotFoundError:
         run_sp("pip install imageio", realtime=False)
         import imageio
         pass
@@ -22643,7 +22732,7 @@ def run_materialdiffusion(page):
     prt(Installing("Installing Replicate Material Diffusion Pipeline..."))
     try:
         import replicate
-    except ImportError as e:
+    except ModuleNotFoundError as e:
         run_process("pip install replicate -qq", realtime=True)
         import replicate
         pass
@@ -23207,9 +23296,6 @@ def run_point_e(page):
 
 def run_shap_e(page):
     global shap_e_prefs, status
-    def add_to_shap_e_output(o):
-      page.shap_e_output.controls.append(o)
-      page.shap_e_output.update()
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -23219,17 +23305,17 @@ def run_shap_e(page):
         nonlocal status_txt
         status_txt.value = text
         status_txt.update()
-    def clear_last():
+    def clear_last(update=True):
       #page.shap_e_output.controls = []
       del page.shap_e_output.controls[-1]
-      page.shap_e_output.update()
+      if update: page.shap_e_output.update()
     if not bool(shap_e_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
     page.shap_e_output.controls = []
     page.shap_e_output.update()
     shap_e_dir = os.path.join(root_dir, "shap-e")
-    add_to_shap_e_output(Installing("Installing OpenAI Shap-E 3D Libraries..."))
+    prt(Installing("Installing OpenAI Shap-E 3D Libraries..."))
     if not os.path.exists(shap_e_dir):
         try:
             #run_process("pip install -U scikit-image")
@@ -23252,15 +23338,20 @@ def run_shap_e(page):
       run_sp("pip install imageio", realtime=False)
       import imageio
       pass
-    xm = load_model('transmitter', device=torch_device)
-    model = load_model('image300M' if bool(shap_e_prefs['init_image']) else 'text300M' , device=torch_device)
-    diffusion = diffusion_from_config(load_config('diffusion'))
+    try:
+        xm = load_model('transmitter', device=torch_device)
+        shap_e_model = load_model('image300M' if bool(shap_e_prefs['init_image']) else 'text300M' , device=torch_device)
+        diffusion = diffusion_from_config(load_config('diffusion'))
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error downloading Shap-E models.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
     if bool(shap_e_prefs['prompt_text']):
-        filename = format_filename(shap_e_prefs['prompt_text'])
+        fname = format_filename(shap_e_prefs['prompt_text'])
     elif bool(shap_e_prefs['init_image']):
-        filename = format_filename(shap_e_prefs['init_image'].rpartition(slash)[1].rparition('.')[0])
-    if bool(shap_e_prefs['batch_folder_name']):
-        filename = format_filename(shap_e_prefs['batch_folder_name'], force_underscore=True)
+        fname = format_filename(shap_e_prefs['init_image'].rpartition(slash)[1].rparition('.')[0])
+    elif bool(shap_e_prefs['batch_folder_name']):
+        fname = format_filename(shap_e_prefs['batch_folder_name'], force_underscore=True)
     else:
         alert_msg(page, "If you're not using Prompt Text, provide a name for your 3D Model.")
         return
@@ -23295,7 +23386,7 @@ def run_shap_e(page):
     
     status_txt = Text("Generating your 3D model... See console for progress.")
     progress = ProgressBar(bar_height=8)
-    total_steps = 64
+    total_steps = shap_e_prefs['karras_steps']
     def callback_fnc(step: int) -> None:
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
@@ -23304,9 +23395,9 @@ def run_shap_e(page):
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}"
       progress.update()
-    clear_last()
-    add_to_shap_e_output(status_txt)
-    add_to_shap_e_output(progress)
+    clear_last(update=False)
+    prt(status_txt)
+    prt(progress)
     if init_img == None:
         model_kwargs = dict(texts=[shap_e_prefs['prompt_text']] * shap_e_prefs['batch_size'])
     else:
@@ -23314,7 +23405,7 @@ def run_shap_e(page):
     try:
         latents = sample_latents(
             batch_size=shap_e_prefs['batch_size'],
-            model=model,
+            model=shap_e_model,
             diffusion=diffusion,
             guidance_scale=shap_e_prefs['guidance_scale'],
             model_kwargs=model_kwargs,
@@ -23322,54 +23413,58 @@ def run_shap_e(page):
             clip_denoised=True,
             use_fp16=True,
             use_karras=shap_e_prefs['use_karras'],
-            karras_steps=64,
+            karras_steps=shap_e_prefs['karras_steps'],
             sigma_min=1e-3,
             sigma_max=160,
             s_churn=0,
         )
     except Exception as e:
         clear_last()
-        alert_msg(page, "Error running Shap-E sample_latents.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        alert_msg(page, "Error running Shap-E sample_latents.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         return
-    prt_status("Generating Shap-E Models...") #images=[img]
+    prt_status("Generating Shap-E 3D Models...") #images=[img]
     step = 0
     try:
         cameras = create_pan_cameras(shap_e_prefs['size'], torch_device)
         for i, latent in enumerate(latents):
-            img_file = os.path.join(shap_e_out, f'{filename}_{i}.png')
+            img_file = os.path.join(shap_e_out, f'{fname}_{i}.png')
             images = decode_latent_images(xm, latent, cameras, rendering_mode=shap_e_prefs['render_mode'].lower())
             #images.save(img_file)
             display(gif_widget(images))
-            callback_fnc(i)
+            #callback_fnc(i)
     except Exception as e:
         clear_last()
         alert_msg(page, "Error running Shap-E decode_latent_images.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
         return
-    imgs = []
-    for i, img in enumerate(images):
-        img_file = os.path.join(shap_e_out, f'{filename}_{i}.png')
-        img.save(img_file)
-        imgs.append(imageio.imread(img))
-    gif_file = os.path.join(shap_e_out, f'{filename}.gif')
-    imageio.mimsave(gif_file, imgs)
+    if shap_e_prefs['save_frames']:
+        imgs = []
+        for i, img in enumerate(images):
+            img_file = os.path.join(shap_e_out, f'{fname}_{i}.png')
+            img.save(img_file)
+            #imgs.append(imageio.imread(np.asarray(img)))
+    gif_file = os.path.join(shap_e_out, f'{fname}.gif')
+    #imageio.mimsave(gif_file, imgs, 'GIF', duration=100, loop=0)
+    images[0].save(gif_file, save_all=True, append_images=images[1:], duration=100, loop=0)
 
     prt_status('Saving PLY mesh file...')
     from shap_e.util.notebooks import decode_latent_mesh
     try:
         for i, latent in enumerate(latents):
-            pc_file = os.path.join(shap_e_out, f'{filename}_{i}.ply')
+            pc_file = os.path.join(shap_e_out, f'{fname}_{i}.ply')
             with open(pc_file, 'wb') as f:
                 decode_latent_mesh(xm, latent).tri_mesh().write_ply(f)
     except Exception as e:
       clear_last()
       alert_msg(page, "Error running Shap-E decode_latent_mesh.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
       return
-    
+    del xm
+    del shap_e_model
+    del diffusion
     del latents
     gc.collect()
     torch.cuda.empty_cache()
-    clear_last()
-    clear_last()
+    clear_last(update=False)
+    clear_last(update=False)
     prt(ImageButton(src=gif_file, width=shap_e_prefs['size'], height=shap_e_prefs['size'], data=gif_file, subtitle=pc_file, page=page))
     prt("Finished generating Shap-E Mesh... Hope it's good.")
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -23730,15 +23825,15 @@ def run_kandinsky(page):
     run_process("pip install -q sentencepiece", realtime=False)'''
     try:
         import accelerate
-    except Exception:
+    except ModuleNotFoundError:
         run_sp("pip install -q --upgrade git+https://github.com/huggingface/accelerate.git", realtime=True)
     try:
         import clip
-    except Exception:
+    except ModuleNotFoundError:
         run_sp('pip install git+https://github.com/openai/CLIP.git', realtime=True)
     try:
         from kandinsky2 import get_kandinsky2
-    except Exception:
+    except ModuleNotFoundError:
         #run_process("pip install transformers==4.23.1 --upgrade --force-reinstall -q", realtime=False)
         #run_process("pip install -q git+https://github.com/ai-forever/Kandinsky-2.0.git", realtime=False)
         #run_sp('pip install -q "git+https://github.com/ai-forever/Kandinsky-2.0.git"', realtime=True)
@@ -23915,11 +24010,11 @@ def run_kandinsky_fuse(page):
     clear_pipes("kandinsky")
     try:
         import clip
-    except Exception:
+    except ModuleNotFoundError:
         run_sp('pip install git+https://github.com/openai/CLIP.git', realtime=False)
     try:
         from kandinsky2 import get_kandinsky2
-    except Exception:
+    except ModuleNotFoundError:
         run_sp('pip install -q "git+https://github.com/Skquark/Kandinsky-2.git"', realtime=False)
         from kandinsky2 import get_kandinsky2
         pass
@@ -24658,7 +24753,15 @@ class Installing(UserControl):
         self.message = message
         self.build()
     def build(self):
-        return Container(content=Row([ProgressRing(), Container(content=None, width=1), Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)]), padding=padding.only(left=9, bottom=4))
+        self.message_txt = Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
+        self.details = Text("")
+        return Container(content=Row([ProgressRing(), Container(content=None, width=1), self.message_txt, Container(content=None, expand=True), self.details]), padding=padding.only(left=9, bottom=4))
+    def set_message(self, msg):
+        self.message_txt.value = msg
+        self.message_txt.update()
+    def set_details(self, msg):
+        self.details.value = msg
+        self.details.update()
 
 ''' Sample alt Object format
 class Component(UserControl):
