@@ -594,6 +594,7 @@ def buildStableDiffusers(page):
     page.DeepFloyd = buildDeepFloyd(page)
     page.TextToVideo = buildTextToVideo(page)
     page.TextToVideoZero = buildTextToVideoZero(page)
+    page.StableAnimation = buildStableAnimation(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.MaskMaker = buildDreamMask(page)
     page.DiT = buildDiT(page)
@@ -622,6 +623,7 @@ def buildStableDiffusers(page):
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
+            Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             #Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
@@ -6298,6 +6300,10 @@ def buildControlNet(page):
           Text("M-LSD - A monochrome image composed only of white straight lines on a black background."),
           Text("Normal Map - A normal mapped image."),
           Text("Segmented - An ADE20K's semantic segmentation protocol image."),
+          Text("LineArt - An image with line art, usually black lines on a white background."),
+          Text("Shuffle - An image with shuffled patches or regions."),
+          Text("Brightness - An image based on brightness of init."),
+          Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Too much control... ", on_click=close_controlnet_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = controlnet_help_dlg
       controlnet_help_dlg.open = True
@@ -6411,7 +6417,7 @@ def buildControlNet(page):
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNet Layer", on_click=add_layer)
     add_layer_btn = ft.FilledButton("➕ Add Layer", width=135, on_click=add_layer)
@@ -6906,6 +6912,402 @@ def buildTextToVideoZero(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+stable_animation_prefs = {
+    #'prompt': '',
+    'animation_prompt': '{\n0:"",\n}',
+    #'animation_prompts': {},
+    'negative_prompt': 'text, words, watermark, shutterstock',
+    #'frame': 0,
+    'num_inference_steps': 50,
+    'guidance_scale': 9.0,
+    'export_to_video': True,
+    'seed': 0,
+    'width': 512,
+    'height': 512,
+    'max_frames': 300,
+    'steps_curve': "0:(30)",
+    'model': 'stable-diffusion-v1-5',
+    'style_preset': "None",
+    'sampler': 'K_dpmpp_2m',
+    'clip_guidance': "None",
+    'steps_strength_adj': True,
+    'interpolate_prompts': False,
+    'locked_seed': False,
+    'noise_add_curve': "0:(0.02)",
+    'noise_scale_curve': "0:(0.99)",
+    'strength_curve': "0:(0.65)",
+    'diffusion_cadence_curve': "0:(1.0)",
+    'cadence_interp': 'Mix',
+    'cadence_spans': False,
+    'inpaint_border': False,
+    'border': "replicate",
+    'use_inpainting_model': False,
+    'fps': 12,
+    'mask_min_value': "0:(0.25)",
+    'mask_binarization_thr': 0.5,
+    #Colour & Depth Parameters
+    'color_coherence': 'LAB',
+    'brightness_curve': "0:(1.0)",
+    'contrast_curve': "0:(1.0)",
+    'hue_curve': "0:(0.0)",
+    'saturation_curve': "0:(1.0)",
+    'lightness_curve': "0:(0.0)",
+    'color_match_animate': True,
+    'depth_model_weight': 0.3,
+    'near_plane': 200,
+    'far_plane': 10000,
+    'fov_curve': "0:(25)", #-180
+    'depth_blur_curve': "0:(0.0)", #-7
+    'depth_warp_curve': "0:(1.0)", #-1
+    #2D & 3D Parameters
+    'translation_x': "0:(0)",
+    'translation_y': "0:(0)",
+    'translation_z': "0:(0)",
+    'angle': "0:(0)",
+    'zoom': "0:(1)",
+    'rotation_x': "0:(0)",
+    'rotation_y': "0:(0)",
+    'rotation_z': "0:(0)",
+    'camera_type': "Perspective",#Orthographic
+    'render_mode': "Mesh",#Pointcloud
+    'animation_mode': "3D warp",
+    'mask_power': 0.3, #-4
+    #Input Parameters
+    'init_image': "",
+    'init_sizing': "Stretch",
+    'mask_image': "",
+    'mask_invert': False,
+    'video_init_path': "",
+    'video_flow_warp': True,
+    'video_mix_in_curve': "0:(0.02)",
+    'extract_nth_frame': 1,
+    'video_init_fps': 12,
+    #Post-Processor Parameters
+    'output_fps': 24,
+    'frame_interpolation_mode': "Rife", #film, none
+    'frame_interpolation_factor': "2", #4, 8
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+    "lower_memory": True,
+}
+stable_animation_prefs_default = stable_animation_prefs.copy()
+
+def buildStableAnimation(page):
+    global stable_animation_prefs, prefs, pipe_stable_animation
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            stable_animation_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            stable_animation_prefs[pref] = float(e.control.value)
+          else:
+            stable_animation_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.stable_animation_output.controls = []
+      page.stable_animation_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def stable_animation_help(e):
+      def close_stable_animation_dlg(e):
+        nonlocal stable_animation_help_dlg
+        stable_animation_help_dlg.open = False
+        page.update()
+      stable_animation_help_dlg = AlertDialog(title=Text("💁   Help with Stable Animation"), content=Column([
+          Text("With our Animation SDK, artists and developers have the ability to use the Stable Diffusion family of models to generate stunning animations. Create animations purely from prompts, start with an initial image, or drive an animation from a source video. "),
+          Text("Artists have the ability to use all of our available inference models to generate animations. We currently support text-to-animation, image-to-animation, and video-to-animation. To see animated previews of how these parameters affect the resulting animation, please check out our Animation Handbook."),
+          Markdown(" [Project Page](https://platform.stability.ai/docs/features/animation) | [Colab Gradio](https://colab.research.google.com/github/Stability-AI/stability-sdk/blob/animation/nbs/animation_gradio.ipynb) | [Animation Handbook](https://docs.google.com/document/d/1iHcAu_5rG11guGFie8sXBXPGuM4yKzqdd13MJ_1LU8U/edit?usp=sharing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("💸  Worth it... ", on_click=close_stable_animation_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = stable_animation_help_dlg
+      stable_animation_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        stable_animation_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      nonlocal pick_type
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          stable_animation_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          stable_animation_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        if pick_type == "image":
+          init_image.value = fname
+          init_image.update()
+          stable_animation_prefs['init_image'] = fname
+        if pick_type == "mask":
+          mask_image.value = fname
+          mask_image.update()
+          stable_animation_prefs['mask_image'] = fname
+        elif pick_type == "video":
+          init_video.value = fname
+          init_video.update()
+          stable_animation_prefs['init_video'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    def pick_init(e):
+        nonlocal pick_type
+        pick_type = "image"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
+    def pick_mask(e):
+        nonlocal pick_type
+        pick_type = "mask"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Mask Image File")
+    def pick_video(e):
+        nonlocal pick_type
+        pick_type = "video"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
+    def save_preset(e):
+      def copy_preset(pl):
+        nonlocal text_list, enter_text
+        page.set_clipboard(enter_text.value)
+        page.snack_bar = SnackBar(content=Text(f"📋   Animation Preset copied to clipboard..."))
+        page.snack_bar.open = True
+        close_dlg(e)
+      def close_dlg(e):
+          dlg_copy.open = False
+          page.update()
+      text_list = json.dumps(stable_animation_prefs, indent = 4)
+      enter_text = TextField(label="Stable Animation Preset JSON", value=text_list.strip(), expand=True, filled=True, multiline=True, autofocus=True)
+      dlg_copy = AlertDialog(modal=False, title=Text("📝  Stable Animation as JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Preset JSON to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_preset(text_list))], actions_alignment=MainAxisAlignment.END)
+      page.dialog = dlg_copy
+      dlg_copy.open = True
+      page.update()
+    def paste_preset(e):
+      def save_preset(e):
+        try:
+          preset_json = json.loads(enter_text.value.strip())
+        except UnicodeDecodeError:
+          close_dlg(e)
+          alert_msg("Error Parsing JSON Data...")
+          return
+        load_preset(preset_json)
+        close_dlg(e)
+      def close_dlg(e):
+          dlg_paste.open = False
+          page.update()
+      enter_text = TextField(label="Enter Stable Animation Preset JSON", expand=True, filled=True, min_lines=30, multiline=True, autofocus=True)
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste Saved Preset JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Load Preset JSON Values ", size=19, weight=FontWeight.BOLD), on_click=save_preset)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = dlg_paste
+      dlg_paste.open = True
+      page.update()
+    def load_preset(d):
+      global stable_animation_prefs
+      stable_animation_prefs = d.copy()
+      prompt.value = d['animation_prompt']
+      negative_prompt.value = d['negative_prompt']
+      max_frames.value = d['max_frames']
+      fps.set_value(d['fps'])
+      num_inference_row.set_value(d['num_inference_steps'])
+      guidance.set_value(d['guidance_scale'])
+      model_checkpoint.value = d['model']
+      generation_sampler.value = d['sampler']
+      style_preset.value = d['style_preset']
+      clip_guidance.value = d['clip_guidance']
+      steps_strength_adj.value = d['steps_strength_adj']
+      interpolate_prompts.value = d['interpolate_prompts']
+      locked_seed.value = d['locked_seed']
+      noise_add_curve.value = d['noise_add_curve']
+      noise_scale_curve.value = d['noise_scale_curve']
+      strength_curve.value = d['strength_curve']
+      diffusion_cadence_curve.value = d['diffusion_cadence_curve']
+      cadence_interp.value = d['cadence_interp']
+      cadence_spans.value = d['cadence_spans']
+      inpaint_border.value = d['inpaint_border']
+      border.value = d['border']
+      use_inpainting_model.value = d['use_inpainting_model']
+      mask_min_value.value = d['mask_min_value']
+      mask_binarization_thr.set_value(d['mask_binarization_thr'])
+      color_coherence.value = d['color_coherence']
+      brightness_curve.value = d['brightness_curve']
+      contrast_curve.value = d['contrast_curve']
+      hue_curve.value = d['hue_curve']
+      saturation_curve.value = d['saturation_curve']
+      lightness_curve.value = d['lightness_curve']
+      color_match_animate.value = d['color_match_animate']
+      depth_model_weight.set_value(d['depth_model_weight'])
+      fov_curve.value = d['fov_curve']
+      depth_blur_curve.value = d['depth_blur_curve']
+      depth_warp_curve.value = d['depth_warp_curve']
+      translation_x.value = d['translation_x']
+      translation_y.value = d['translation_y']
+      translation_z.value = d['translation_z']
+      angle.value = d['angle']
+      zoom.value = d['zoom']
+      rotation_x.value = d['rotation_x']
+      rotation_y.value = d['rotation_y']
+      rotation_z.value = d['rotation_z']
+      camera_type.value = d['camera_type']
+      render_mode.value = d['render_mode']
+      mask_power.set_value(d['mask_power'])
+      init_image.value = d['init_image']
+      init_sizing.value = d['init_sizing']
+      mask_image.value = d['mask_image']
+      mask_invert.value = d['mask_invert']
+      video_mix_in_curve.value = d['video_mix_in_curve']
+      animation_mode.value = d['animation_mode']
+      init_video.value = d['video_init_path']
+      video_mix_in_curve.value = d['video_mix_in_curve']
+      video_flow_warp.value = d['video_flow_warp']
+      extract_nth_frame.value = d['extract_nth_frame']
+      video_init_fps.value = d['video_init_fps']
+      output_fps.value = d['output_fps']
+      frame_interpolation_mode.value = d['frame_interpolation_mode']
+      frame_interpolation_factor.value = d['frame_interpolation_factor']
+      width_slider.set_value(d['width'])
+      height_slider.set_value(d['height'])
+      seed.value = d['seed']
+      batch_folder_name.value = d['batch_folder_name']
+      #.set_value(d[''])
+      page.update()
+    def load_default(e):
+      global stable_animation_prefs_default
+      load_preset(stable_animation_prefs_default)
+    copy_preset_button = IconButton(icons.COPY_ALL, tooltip="Save Animation Presets as JSON", on_click=save_preset)
+    paste_preset_button = IconButton(icons.CONTENT_PASTE, tooltip="Load Animation Presets as JSON", on_click=paste_preset)
+    default_preset_button = IconButton(icons.REFRESH, tooltip="Reset Animation Presets to Default", on_click=load_default)
+    #prompt = TextField(label="Animation Prompt Text", value=stable_animation_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Animation Prompt Text", value=stable_animation_prefs['animation_prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'animation_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=stable_animation_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    max_frames  = TextField(label="Max Number of Frames", width=200, hint_text="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", value=stable_animation_prefs['max_frames'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'max_frames', ptype='int'))
+    #max_frames = SliderRow(label="Max Number of Frames", min=1, max=300, divisions=299, pref=stable_animation_prefs, key='max_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")   
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', expand=True, pref=stable_animation_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=stable_animation_prefs, key='num_inference_steps', on_change=lambda e:changed(e,'num_inference_steps'), tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=stable_animation_prefs, key='guidance_scale')
+    #eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=stable_animation_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=270, options=[dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=stable_animation_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
+    generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=230, options=[dropdown.Option("DDIM"), dropdown.Option("PLMS"), dropdown.Option("K_euler"), dropdown.Option("K_euler_ancestral"), dropdown.Option("K_heun"), dropdown.Option("K_dpmpp_2m"), dropdown.Option("K_dpm_2_ancestral"), dropdown.Option("K_lms"), dropdown.Option("K_dpmpp_2s_ancestral"), dropdown.Option("K_dpm_2")], value=stable_animation_prefs['sampler'], autofocus=False, on_change=lambda e:changed(e, 'sampler'))
+    #DDIM, PLMS, K_euler, K_euler_ancestral, K_heun, K_dpm_2, K_dpm_2_ancestral, K_lms, K_dpmpp_2m, K_dpmpp_2s_ancestral
+    style_preset = Dropdown(label="Style Preset", hint_text="", width=240, options=[dropdown.Option("None"), dropdown.Option("3d-model"), dropdown.Option("analog-film"), dropdown.Option("anime"), dropdown.Option("cinematic"), dropdown.Option("comic-book"), dropdown.Option("digital-art"), dropdown.Option("enhance fantasy-art"), dropdown.Option("isometric"), dropdown.Option("line-art"), dropdown.Option("low-poly"), dropdown.Option("modeling-compound"), dropdown.Option("neon-punk"), dropdown.Option("origami"), dropdown.Option("photographic"), dropdown.Option("pixel-art")], value=stable_animation_prefs['style_preset'], autofocus=False, on_change=lambda e:changed(e, 'style_preset'))
+    clip_guidance = Dropdown(label="Clip Guidance", hint_text="", width=240, options=[dropdown.Option("None"), dropdown.Option("Simple"), dropdown.Option("FastBlue"), dropdown.Option("FastGreen")], value=stable_animation_prefs['clip_guidance'], autofocus=False, on_change=lambda e:changed(e, 'clip_guidance'))
+    steps_strength_adj = Checkbox(label="Steps Strength Adjustment", tooltip="Adjusts number of diffusion steps based on current previous frame strength value.", value=stable_animation_prefs['steps_strength_adj'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'steps_strength_adj'))
+    interpolate_prompts = Checkbox(label="Interpolate Prompts", tooltip="Smoothly interpolate prompts between keyframes.", value=stable_animation_prefs['interpolate_prompts'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'interpolate_prompts'))
+    locked_seed = Checkbox(label="Locked Seed", tooltip="Keep the same seed for all frames.", value=stable_animation_prefs['locked_seed'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'locked_seed'))
+    noise_add_curve  = TextField(label="Noise Add Curve", value=stable_animation_prefs['noise_add_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'noise_add_curve'))
+    noise_scale_curve  = TextField(label="Noise Scale Curve", value=stable_animation_prefs['noise_scale_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'noise_scale_curve'))
+    strength_curve  = TextField(label="Strength Curve", value=stable_animation_prefs['strength_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'strength_curve'))
+    diffusion_cadence_curve  = TextField(label="Diffusion Cadence Curve", hint_text="One greater than the number of frames between diffusion operations. A cadence of 1 performs diffusion on each frame. Values greater than one will generate frames using interpolation methods.", value=stable_animation_prefs['diffusion_cadence_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'diffusion_cadence_curve'))
+    cadence_interp = Dropdown(label="Cadence Interpolation", hint_text="", width=200, options=[dropdown.Option("Mix"), dropdown.Option("RIFE"), dropdown.Option("VAE-LERP"), dropdown.Option("VAE-SLERP")], value=stable_animation_prefs['cadence_interp'], autofocus=False, on_change=lambda e:changed(e, 'cadence_interp'))
+    cadence_spans = Checkbox(label="Cadence Spans", tooltip="Experimental diffusion cadence mode for better outpainting", value=stable_animation_prefs['cadence_spans'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'cadence_spans'))
+    inpaint_border = Checkbox(label="Inpaint Border", tooltip="Use inpainting on top of border regions for 2D and 3D warp modes.", value=stable_animation_prefs['inpaint_border'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'inpaint_border'))
+    border = Dropdown(label="Border", hint_text="Method that will be used to fill empty regions, e.g. after a rotation transform.", width=200, options=[dropdown.Option("reflect"), dropdown.Option("replicate"), dropdown.Option("wrap"), dropdown.Option("zero"), dropdown.Option("prefill")], value=stable_animation_prefs['border'], autofocus=False, on_change=lambda e:changed(e, 'border'))
+    use_inpainting_model = Checkbox(label="Use Inpainting Model", tooltip="", value=stable_animation_prefs['use_inpainting_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'use_inpainting_model'))
+    mask_min_value  = TextField(label="Mask Minimum", value=stable_animation_prefs['mask_min_value'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'mask_min_value'))
+    mask_binarization_thr = SliderRow(label="Mask Binarization Threshold", min=0, max=1.0, divisions=20, round=1, pref=stable_animation_prefs, key='mask_binarization_thr', expand=True, tooltip="Grayscale mask values lower than this value will be set to 0, values that are higher — to 1.")
+    color_coherence = Dropdown(label="Color Coherance", hint_text="Color space that will be used for inter-frame color adjustments.", width=350, col={'xs':12, 'md':6, 'lg':4, 'xl':3}, options=[dropdown.Option("None"), dropdown.Option("HSV"), dropdown.Option("LAB"), dropdown.Option("RGB")], value=stable_animation_prefs['color_coherence'], autofocus=False, on_change=lambda e:changed(e, 'color_coherence'))
+    brightness_curve  = TextField(label="Brightness Curve", value=stable_animation_prefs['brightness_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'brightness_curve'))
+    contrast_curve  = TextField(label="Contrast Curve", value=stable_animation_prefs['contrast_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'contrast_curve'))
+    hue_curve  = TextField(label="Hue Curve", value=stable_animation_prefs['hue_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'hue_curve'))
+    saturation_curve  = TextField(label="Saturation Curve", value=stable_animation_prefs['saturation_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'saturation_curve'))
+    lightness_curve  = TextField(label="Lightness Curve", value=stable_animation_prefs['lightness_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'lightness_curve'))
+    color_match_animate = Checkbox(label="Color Match Animate", tooltip="Animate color match between key frames.", value=stable_animation_prefs['color_match_animate'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'color_match_animate'))
+    depth_model_weight = SliderRow(label="Depth Model Weight", min=0, max=1.0, divisions=20, round=1, pref=stable_animation_prefs, key='depth_model_weight', expand=True, tooltip="Blend factor between AdaBins and MiDaS depth models.")
+    fov_curve  = TextField(label="FOV Curve", hint_text="FOV angle of camera volume in degrees. Max 180.", value=stable_animation_prefs['fov_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'fov_curve'))
+    depth_blur_curve  = TextField(label="Depth Blur Curve", hint_text="", value=stable_animation_prefs['depth_blur_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'depth_blur_curve'))
+    depth_warp_curve  = TextField(label="Depth Warp Curve", hint_text="", value=stable_animation_prefs['depth_warp_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'depth_warp_curve'))
+    translation_x  = TextField(label="Translation X", hint_text="", value=stable_animation_prefs['translation_x'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'translation_x'))
+    translation_y  = TextField(label="Translation Y", hint_text="", value=stable_animation_prefs['translation_y'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'translation_y'))
+    translation_z  = TextField(label="Translation Z", hint_text="", value=stable_animation_prefs['translation_z'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'translation_z'))
+    angle  = TextField(label="Angle", hint_text="", value=stable_animation_prefs['angle'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'angle'))
+    zoom  = TextField(label="Zoom", hint_text="", value=stable_animation_prefs['zoom'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'zoom'))
+    rotation_x  = TextField(label="Rotation X", hint_text="", value=stable_animation_prefs['rotation_x'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'rotation_x'))
+    rotation_y  = TextField(label="Rotation Y", hint_text="", value=stable_animation_prefs['rotation_y'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'rotation_y'))
+    rotation_z  = TextField(label="Rotation Z", hint_text="", value=stable_animation_prefs['rotation_z'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'rotation_z'))
+    camera_type = Dropdown(label="Camera Type", hint_text="", width=200, options=[dropdown.Option("Perspective"), dropdown.Option("Orthographic")], value=stable_animation_prefs['camera_type'], autofocus=False, on_change=lambda e:changed(e, 'camera_type'))
+    render_mode = Dropdown(label="Render Mode", hint_text="", width=200, options=[dropdown.Option("Mesh"), dropdown.Option("Pointcloud")], value=stable_animation_prefs['render_mode'], autofocus=False, col={'xs':12, 'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e, 'render_mode'))
+    mask_power = SliderRow(label="Mesh Power", min=0, max=4.0, divisions=80, round=1, expand=True, pref=stable_animation_prefs, key='mask_power', tooltip="")
+    init_image = TextField(label="Initial Image", value=stable_animation_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    init_sizing = Dropdown(label="Init Sizing", hint_text="", width=200, options=[dropdown.Option("Cover"), dropdown.Option("Stretch"), dropdown.Option("Resize-Canvas")], value=stable_animation_prefs['init_sizing'], autofocus=False, on_change=lambda e:changed(e, 'init_sizing'))
+    mask_image = TextField(label="Mask Image", value=stable_animation_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_mask))
+    mask_invert = Checkbox(label="Invert Mask", tooltip="White in mask marks areas to change by default.", value=stable_animation_prefs['mask_invert'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'mask_invert'))
+    video_mix_in_curve  = TextField(label="Video Mixin Curve", hint_text="", value=stable_animation_prefs['video_mix_in_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'video_mix_in_curve'))
+    animation_mode = Dropdown(label="Animation Mode", hint_text="", width=200, options=[dropdown.Option("2D"), dropdown.Option("3D warp"), dropdown.Option("3D render"), dropdown.Option("Video Input")], value=stable_animation_prefs['animation_mode'], autofocus=False, on_change=lambda e:changed(e, 'animation_mode'))
+    init_video = TextField(label="Init Video File", value=stable_animation_prefs['video_init_path'], on_change=lambda e:changed(e,'video_init_path'), expand=True, height=60, suffix=IconButton(icon=icons.VIDEO_CALL, on_click=pick_video))
+    video_mix_in_curve  = TextField(label="Video Mixin Curve", hint_text="", value=stable_animation_prefs['video_mix_in_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'video_mix_in_curve'))
+    video_flow_warp = Checkbox(label="Video Flow Warp", tooltip="Whether or not to transfer the optical flow from the video to the generated animation as a warp effect.", value=stable_animation_prefs['video_flow_warp'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'video_flow_warp'))
+    extract_nth_frame  = TextField(label="Extract Nth Frame", width=200, hint_text="Only use every Nth frame of the video", value=stable_animation_prefs['extract_nth_frame'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'extract_nth_frame', ptype='int'))
+    video_init_fps  = TextField(label="Init Video FPS", width=200, hint_text="", value=stable_animation_prefs['video_init_fps'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'video_init_fps', ptype='int'))
+    output_fps  = TextField(label="Output FPS", width=200, hint_text="Frame rate to use when generating video output.", value=stable_animation_prefs['output_fps'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'output_fps', ptype='int'))
+    frame_interpolation_mode = Dropdown(label="Frame Interpolation Mode", hint_text="", width=200, options=[dropdown.Option("Rife"), dropdown.Option("Film"), dropdown.Option("None")], value=stable_animation_prefs['frame_interpolation_mode'], autofocus=False, on_change=lambda e:changed(e, 'frame_interpolation_mode'))
+    frame_interpolation_factor = Dropdown(label="Frame Interpolation Factor", hint_text="", width=200, options=[dropdown.Option("2"), dropdown.Option("4"), dropdown.Option("8")], value=stable_animation_prefs['frame_interpolation_factor'], autofocus=False, on_change=lambda e:changed(e, 'frame_interpolation_factor'))
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=stable_animation_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=stable_animation_prefs, key='height')
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switch(label="Export to Video", value=stable_animation_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switch(label="Lower Memory Mode", value=stable_animation_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    seed = TextField(label="Seed", width=90, value=str(stable_animation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=stable_animation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=stable_animation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=stable_animation_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=stable_animation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_stable_animation = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_stable_animation.height = None if status['installed_ESRGAN'] else 0
+    page.stable_animation_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.stable_animation_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🥏  Stable Animation SDK", "Use Stability.ai API Credits for Advanced Video Generation", actions=[copy_preset_button, paste_preset_button, default_preset_button, IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=stable_animation_help)]),
+        ResponsiveRow([prompt, negative_prompt], vertical_alignment=CrossAxisAlignment.START),
+        Row([max_frames, fps]),
+        num_inference_row,
+        guidance,
+        Row([model_checkpoint, generation_sampler, style_preset, clip_guidance], wrap=True),
+        Row([steps_strength_adj, interpolate_prompts, locked_seed], wrap=True),
+        ResponsiveRow([noise_add_curve, noise_scale_curve, strength_curve, diffusion_cadence_curve]),
+        Row([cadence_interp, cadence_spans]),
+        Row([border, inpaint_border, use_inpainting_model]),
+        Row([mask_min_value, mask_binarization_thr]),
+        ResponsiveRow([color_coherence, brightness_curve, contrast_curve, hue_curve, saturation_curve, lightness_curve]),
+        Row([color_match_animate, depth_model_weight]),
+        ResponsiveRow([fov_curve, depth_blur_curve, depth_warp_curve]),
+        ResponsiveRow([translation_x, translation_y, translation_z, zoom]),
+        ResponsiveRow([rotation_x, rotation_y, rotation_z, angle]),
+        Row([camera_type, render_mode, mask_power]),
+        Row([init_image, init_sizing]),
+        Row([mask_image, mask_invert]),
+        Row([init_video, animation_mode]),
+        Row([video_flow_warp, video_mix_in_curve]),
+        Row([extract_nth_frame, video_init_fps, output_fps], wrap=True),
+        Row([export_to_video, frame_interpolation_mode, frame_interpolation_factor]),
+        width_slider, height_slider,
+        page.ESRGAN_block_stable_animation,
+        Row([seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("🧌  Run Stable Animation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_animation(page)),
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_animation(page, from_list=True))
+        ]),
+        page.stable_animation_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 materialdiffusion_prefs = {
     "material_prompt": '',
@@ -10688,8 +11090,8 @@ def get_diffusers(page):
         import diffusers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
-        #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+        #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
+        run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         pass
     try:
         import transformers
@@ -12873,7 +13275,12 @@ def start_diffusion(page):
         import requests
         from io import BytesIO
         import base64
-        import cv2
+        try:
+            import cv2
+        except ModuleNotFoundError:
+            run_sp("pip install opencv-python", realtime=False)
+            import cv2
+            pass
         api_host = 'https://stablehorde.net/api'
         engine_id = prefs['AIHorde_model']
         api_check_url = f"{api_host}/v2/generate/check/"
@@ -13572,6 +13979,7 @@ def start_diffusion(page):
         if prefs['centipede_prompts_as_init_images']:
           shutil.copy(fpath, os.path.join(root_dir, 'init_images'))
           last_image = os.path.join(root_dir, 'init_images', f'{fname}-{num}.png')
+        page.auto_scrolling(True)
         if not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']:
           #print(f"Image path:{image_path}")
           upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
@@ -14987,7 +15395,7 @@ def run_init_video(page):
     try:
         import cv2
     except ModuleNotFoundError:
-        run_process("pip install -q cv2", page=page)
+        run_process("pip install -q opencv-python", page=page)
         import cv2
         pass
     try:
@@ -21458,6 +21866,8 @@ def run_controlnet(page, from_list=False):
     lineart_checkpoint = "lllyasviel/control_v11p_sd15_lineart"
     ip2p_checkpoint = "lllyasviel/control_v11e_sd15_ip2p"
     shuffle_checkpoint = "lllyasviel/control_v11e_sd15_shuffle"
+    tile_checkpoint = "lllyasviel/control_v11f1e_sd15_tile"
+    brightness_checkpoint = "ioclab/control_v1p_sd15_brightness"
     hed = None
     openpose = None
     depth_estimator = None
@@ -21516,11 +21926,25 @@ def run_controlnet(page, from_list=False):
             from controlnet_aux import ContentShuffleDetector
             shuffle = ContentShuffleDetector()
             controlnet_models[task] = ControlNetModel.from_pretrained(shuffle_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Tile":
+            controlnet_models[task] = ControlNetModel.from_pretrained(tile_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Brightness":
+            controlnet_models[task] = ControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.float16, use_safetensors=True)
         elif task == "Instruct Pix2Pix":
             controlnet_models[task] = ControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.float16).to(torch_device)
 
         return controlnet_models[task]
     width, height = 0, 0
+    def resize_for_condition_image(input_image: PILImage, resolution: int):
+        input_image = input_image.convert("RGB")
+        W, H = input_image.size
+        k = float(resolution) / min(H, W)
+        H *= k
+        W *= k
+        H = int(round(H / 64.0)) * 64
+        W = int(round(W / 64.0)) * 64
+        img = input_image.resize((W, H), resample=PILImage.LANCZOS)
+        return img
     def prep_image(task, img):
         nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
         nonlocal width, height
@@ -21595,6 +22019,10 @@ def run_controlnet(page, from_list=False):
                 original_img = lineart(original_img)
             elif task == "Shuffle":
                 original_img = shuffle(original_img)
+            elif task == "Tile":
+                original_img = resize_for_condition_image(original_img, 1024)
+            elif task == "Brightness":
+                original_img = PILImage.fromarray(original_img).convert('L')
             return original_img
         except Exception as e:
             #clear_last()
@@ -22028,9 +22456,9 @@ def run_deepfloyd(page, from_list=False):
             random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator().manual_seed(random_seed)
             try:
+                install = Installing("Running DeepFloyd-IF Text Encoder...")
+                prt(install)
                 if deepfloyd_prefs['low_memory']:
-                    install = Installing("Running DeepFloyd-IF Text Encoder...")
-                    prt(install)
                     #, load_in_8bit=True
                     install.set_details("...text_encoder T5EncoderModel")
                     text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, variant="8bit", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
@@ -22040,12 +22468,18 @@ def run_deepfloyd(page, from_list=False):
                     #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
                     install.set_details("...encode_prompts")
                     prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
-                    install.set_details("...clearing pipes")
                     del text_encoder
                     del pipe_deepfloyd
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    clear_last(update=False)
+                else:
+                    install.set_details("...DiffusionPipeline")
+                    pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_deepfloyd.enable_model_cpu_offload()
+                    install.set_details("...encode_prompts")
+                    prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
+                install.set_details("...clearing pipes")
+                gc.collect()
+                torch.cuda.empty_cache()
+                clear_last(update=False)
                 safety_modules = {}
                 if init_img == None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Pipeline..."))
@@ -22056,28 +22490,15 @@ def run_deepfloyd(page, from_list=False):
                     if deepfloyd_prefs['low_memory']:
                         pipe_deepfloyd = IFPipeline.from_pretrained(model_id, text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto", safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                         #pipe_deepfloyd.enable_model_cpu_offload()
-                        images = pipe_deepfloyd(
-                            prompt_embeds=prompt_embeds,
-                            negative_prompt_embeds=negative_embeds,
-                            num_inference_steps = pr['num_inference_steps'],
-                            guidance_scale = pr['guidance_scale'],
-                            output_type="pt",
-                            generator=generator,
-                            callback=callback_fnc, callback_steps=1,
-                        ).images
-                    else:
-                        pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                        pipe_deepfloyd.enable_model_cpu_offload()
-                        prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
-                        images = pipe_deepfloyd(
-                            prompt_embeds=prompt_embeds,
-                            negative_prompt_embeds=negative_embeds,
-                            num_inference_steps = pr['num_inference_steps'],
-                            guidance_scale = pr['guidance_scale'],
-                            output_type="pt",
-                            generator=generator,
-                            callback=callback_fnc, callback_steps=1,
-                        ).images
+                    images = pipe_deepfloyd(
+                        prompt_embeds=prompt_embeds,
+                        negative_prompt_embeds=negative_embeds,
+                        num_inference_steps = pr['num_inference_steps'],
+                        guidance_scale = pr['guidance_scale'],
+                        output_type="pt",
+                        generator=generator,
+                        callback=callback_fnc, callback_steps=1,
+                    ).images
                     safety_modules = {
                         "feature_extractor": pipe_deepfloyd.feature_extractor,
                         "safety_checker": pipe_deepfloyd.safety_checker,
@@ -22512,7 +22933,7 @@ def run_text_to_video_zero(page):
       del page.TextToVideo.controls[-1]
       page.TextToVideo.update()
     def clear_list():
-      page.ImageVariation.controls = page.ImageVariation.controls[:1]
+      page.TextToVideo.controls = page.TextToVideo.controls[:1]
     def autoscroll(scroll=True):
       page.TextToVideo.auto_scroll = scroll
       page.TextToVideo.update()
@@ -22686,6 +23107,279 @@ def run_text_to_video_zero(page):
             shutil.copy(image_path, new_file)
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+    
+def run_stable_animation(page):
+    global stable_animation_prefs, prefs, status
+    if not bool(prefs['Stability_api_key']):
+        alert_msg(e.page, "You must have your DreamStudio.ai Stability-API Key to use Stability.  Note that it will cost you tokens.")
+        return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.StableAnimation.controls.append(line)
+      page.StableAnimation.update()
+    def clear_last():
+      del page.StableAnimation.controls[-1]
+      page.StableAnimation.update()
+    def clear_list():
+      page.StableAnimation.controls = page.StableAnimation.controls[:1]
+    def autoscroll(scroll=True):
+      page.StableAnimation.auto_scroll = scroll
+      page.StableAnimation.update()
+    abort_run = False
+    def abort_diffusion(e):
+      nonlocal abort_run
+      abort_run = True
+      page.snd_error.play()
+      page.snd_delete.play()
+    progress = ProgressBar(bar_height=8)
+    total_steps = stable_animation_prefs['num_inference_steps']
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
+    clear_list()
+    autoscroll(True)
+    prt(Installing("Installing Stable Animation Pipeline..."))
+    #import cv2
+    #model_id = "damo-vilab/text-to-video-ms-1.7b"
+    try:
+        clear_pipes()
+        #clear_pipes('stable_animation')
+        torch.cuda.empty_cache()
+        #torch.cuda.reset_max_memory_allocated()
+        torch.cuda.reset_peak_memory_stats()
+    except Exception:
+        pass
+    try:
+        from stability_sdk import api
+    except ModuleNotFoundError:
+        run_sp("pip install stability_sdk[anim_ui]", realtime=True)
+        from stability_sdk import api
+        pass
+    from tqdm import tqdm
+    from PIL.PngImagePlugin import PngInfo
+    
+    #batch_output = os.path.join(stable_dir, stable_animation_prefs['batch_folder_name'])
+    #if not os.path.isdir(batch_output):
+    #  os.makedirs(batch_output)
+    #local_output = batch_output
+    batch_output = os.path.join(prefs['image_output'], stable_animation_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = int(stable_animation_prefs['seed']) if int(stable_animation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    width = stable_animation_prefs['width']
+    height = stable_animation_prefs['height']
+    animation_prompts = stable_animation_prefs['animation_prompt'].strip()
+    try:
+        prompts = json.loads(animation_prompts)
+    except json.JSONDecodeError:
+        try:
+            prompts = eval(animation_prompts)
+        except Exception as e:
+            alert_msg(page, "Invalid JSON or Python code for animation_prompts.")
+            return
+    prompts = {int(k): v for k, v in prompts.items()}
+    from stability_sdk.api import (ClassifierException, Context, OutOfCreditsException)
+    context = Context("grpc.stability.ai:443", prefs['Stability_api_key'])
+    from stability_sdk.animation import (
+        AnimationArgs,
+        Animator,
+        interpolate_frames
+    )
+    from stability_sdk.utils import (create_video_from_frames, extract_frames_from_video, interpolate_mode_from_string)
+    args = AnimationArgs()
+    args.width = width
+    args.height = height
+    args.sampler = stable_animation_prefs['sampler']
+    #args_generation.custom_model = stable_animation_prefs['custom_model']
+    args.model = stable_animation_prefs['model'].lower()
+    args.seed = random_seed
+    args.cfg_scale = stable_animation_prefs['guidance_scale']
+    args.clip_guidance = stable_animation_prefs['clip_guidance']
+    args.init_image = stable_animation_prefs['init_image']
+    args.init_sizing = stable_animation_prefs['init_sizing'].lower()
+    args.mask_path = stable_animation_prefs['mask_image']
+    args.mask_invert = stable_animation_prefs['mask_invert']
+    args.preset = stable_animation_prefs['style_preset']
+    args.animation_mode = stable_animation_prefs['animation_mode']
+    args.max_frames = stable_animation_prefs['max_frames']
+    args.border = stable_animation_prefs['border'].lower()
+    args.noise_add_curve = stable_animation_prefs['noise_add_curve']
+    args.noise_scale_curve = stable_animation_prefs['noise_scale_curve']
+    args.strength_curve = stable_animation_prefs['strength_curve']
+    args.steps_curve = stable_animation_prefs['steps_curve']
+    args.steps_strength_adj = stable_animation_prefs['steps_strength_adj']
+    args.interpolate_prompts = stable_animation_prefs['interpolate_prompts']
+    args.locked_seed = stable_animation_prefs['locked_seed']
+    args.angle = stable_animation_prefs['angle']
+    args.zoom = stable_animation_prefs['zoom']
+    args.translation_x = stable_animation_prefs['translation_x']
+    args.translation_y = stable_animation_prefs['translation_y']
+    args.translation_z = stable_animation_prefs['translation_z']
+    args.rotation_x = stable_animation_prefs['rotation_x']
+    args.rotation_y = stable_animation_prefs['rotation_y']
+    args.rotation_z = stable_animation_prefs['rotation_z']
+    args.diffusion_cadence_curve = stable_animation_prefs['diffusion_cadence_curve']
+    args.cadence_interp = stable_animation_prefs['cadence_interp'].lower()
+    args.cadence_spans = stable_animation_prefs['cadence_spans']
+    args.color_coherence = stable_animation_prefs['color_coherence']
+    args.brightness_curve = stable_animation_prefs['brightness_curve']
+    args.contrast_curve = stable_animation_prefs['contrast_curve']
+    args.hue_curve = stable_animation_prefs['hue_curve']
+    args.saturation_curve = stable_animation_prefs['saturation_curve']
+    args.lightness_curve = stable_animation_prefs['lightness_curve']
+    args.color_match_animate = stable_animation_prefs['color_match_animate']
+    args.depth_model_weight = stable_animation_prefs['depth_model_weight']
+    args.near_plane = stable_animation_prefs['near_plane']
+    args.far_plane = stable_animation_prefs['far_plane']
+    args.fov_curve = stable_animation_prefs['fov_curve']
+    args.depth_blur_curve = stable_animation_prefs['depth_blur_curve']
+    args.depth_warp_curve = stable_animation_prefs['depth_warp_curve']
+    #args_depth.save_depth_maps = stable_animation_prefs['save_depth_maps']
+    args.camera_type = stable_animation_prefs['camera_type'].lower()
+    args.render_mode = stable_animation_prefs['render_mode'].lower()
+    args.mask_power = stable_animation_prefs['mask_power']
+    args.use_inpainting_model = stable_animation_prefs['use_inpainting_model']
+    args.inpaint_border = stable_animation_prefs['inpaint_border']
+    args.mask_min_value = stable_animation_prefs['mask_min_value']
+    args.mask_binarization_thr = stable_animation_prefs['mask_binarization_thr']
+    #args_inpaint.save_inpaint_masks = False
+    args.video_init_path = stable_animation_prefs['video_init_path']
+    args.extract_nth_frame = int(stable_animation_prefs['extract_nth_frame'])
+    args.video_mix_in_curve = stable_animation_prefs['video_mix_in_curve']
+    args.video_flow_warp = stable_animation_prefs['video_flow_warp']
+    args.fps = stable_animation_prefs['output_fps']
+    args.reverse = False
+    #arg_objs = AnimationArgs(args_generation, args_animation, args_camera, args_coherence, args_color, args_depth, args_render_3d, args_inpaint, args_vid_in, args_vid_out)
+    try:
+        animator = Animator(
+            api_context=context,
+            animation_prompts=prompts,
+            negative_prompt=stable_animation_prefs['negative_prompt'],
+            args=args,
+            #out_dir=batch_output
+            #negative_prompt_weight=negative_prompt_weight,
+            #resume=resume,
+        )
+    except ClassifierException as e:
+        alert_msg(page, "Animation terminated early due to NSFW classifier.")
+        return
+    except OutOfCreditsException as e:
+        alert_msg(page, f"Animation terminated early, out of credits.\n{e.details}")
+        return
+    except Exception as e:
+        alert_msg(page, f"Animation terminated early due to exception:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    total_steps = args.max_frames
+    filename = f"{prefs['file_prefix']}{format_filename(prompts[0])}"
+    filename = filename[:int(prefs['file_max_length'])]
+    #fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+    clear_last()
+    prt(Row([Text("Generating Stable Animation from your Prompts..."), Container(content=None, expand=True), IconButton(icon=icons.CANCEL, tooltip="Abort Current Run", on_click=abort_diffusion)]))
+    prt(progress)
+    autoscroll(False)
+    try:
+      #frames = pipe_stable_animation(prompt=stable_animation_prefs['prompt'], negative_prompt=stable_animation_prefs['negative_prompt'], video_length=stable_animation_prefs['max_frames'], num_inference_steps=stable_animation_prefs['num_inference_steps'], eta=stable_animation_prefs['eta'], guidance_scale=stable_animation_prefs['guidance_scale'], motion_field_strength_x=stable_animation_prefs['motion_field_strength_x'], motion_field_strength_y=stable_animation_prefs['motion_field_strength_y'], t0=stable_animation_prefs['t0'], t1=stable_animation_prefs['t1'], generator=generator, callback=callback_fnc, callback_steps=1).images
+      for num, image in enumerate(tqdm(animator.render(), initial=animator.start_frame_idx, total=args.max_frames), start=animator.start_frame_idx):
+        if abort_run:
+            clear_last()
+            clear_last()
+            prt("🛑  Aborted Current Animation Run")
+            return
+        callback_fnc(num)
+        fname = f"frame_{num:05d}"
+        #image_path = available_file(batch_output, fname, num, no_num=True)
+        image_path = os.path.join(batch_output, f"{fname}.png")
+        unscaled_path = image_path
+        output_file = image_path.rpartition(slash)[2]
+        image.save(image_path)
+        out_path = image_path.rpartition(slash)[0]
+        upscaled_path = os.path.join(out_path, output_file)
+        
+        if stable_animation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'     
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{num}.png'
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+            shutil.copy(image_path, dst_path)
+            faceenhance = ''
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {stable_animation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            image_path = upscaled_path
+            os.chdir(stable_dir)
+            if stable_animation_prefs['display_upscaled_image']:
+                time.sleep(0.2)
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(stable_animation_prefs["enlarge_scale"]), height=height * float(stable_animation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if prefs['save_image_metadata']:
+            img = PILImage.open(image_path)
+            metadata = PngInfo()
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+            metadata.add_text("copyright", prefs['meta_Copyright'])
+            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {stable_animation_prefs['enlarge_scale']}x with ESRGAN" if stable_animation_prefs['apply_ESRGAN_upscale'] else "")
+            metadata.add_text("pipeline", "Stable Animation")
+            if prefs['save_config_in_metadata']:
+                config_json = stable_animation_prefs.copy()
+                config_json['model_path'] = model_path
+                config_json['scheduler_mode'] = prefs['scheduler_mode']
+                config_json['seed'] = random_seed
+                del config_json['max_frames']
+                del config_json['width']
+                del config_json['height']
+                del config_json['display_upscaled_image']
+                del config_json['batch_folder_name']
+                if not config_json['apply_ESRGAN_upscale']:
+                    del config_json['enlarge_scale']
+                    del config_json['apply_ESRGAN_upscale']
+                metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+            img.save(image_path, pnginfo=metadata)
+        if not stable_animation_prefs['display_upscaled_image'] or not stable_animation_prefs['apply_ESRGAN_upscale']:
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+        '''if storage_type == "Colab Google Drive":
+            new_file = available_file(os.path.join(prefs['image_output'], stable_animation_prefs['batch_folder_name']), fname, num, no_num=True)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(os.path.join(prefs['image_output'], stable_animation_prefs['batch_folder_name']), fname, num, no_num=True)
+            out_path = new_file
+            shutil.copy(image_path, new_file)'''
+        prt(Row([Text(image_path)], alignment=MainAxisAlignment.CENTER))
+    except Exception as e:
+      #clear_last()
+      #clear_last()
+      alert_msg(page, f"ERROR: Couldn't Stable Animation your image for some reason. Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    #clear_last()
+    #clear_last()
+    save_path = os.path.join(prefs['image_output'], stable_animation_prefs['batch_folder_name'])
+    #filename = f"{prefs['file_prefix']}{format_filename(prompts[0])}"
+    #filename = filename[:int(prefs['file_max_length'])]
+    autoscroll(True)
+    
+    if stable_animation_prefs['export_to_video']:
+        prt("Exporting Frames to Video")
+        #from diffusers.utils import export_to_video
+        #video_path = export_to_video(frames)
+        #local_file = available_file(local_output, filename, 0, ext="mp4", no_num=True)
+        save_file = available_file(batch_output, filename, 0, ext="mp4", no_num=True)
+        create_video_from_frames(batch_output, save_file, fps=stable_animation_prefs['output_fps'])
+        #imageio.mimsave(local_file, frames, fps=4)
+        #shutil.copy(local_file, save_file)
+        clear_last()
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
     
@@ -24623,7 +25317,7 @@ class NumberPicker(UserControl):
         return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 class SliderRow(UserControl):
-    def __init__(self, label="", value=None, min=0, max=20, divisions=20, multiple=1, step=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, on_change=None):
+    def __init__(self, label="", value=None, min=0, max=20, divisions=20, multiple=1, step=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, on_change=None):
         super().__init__()
         self.value = value or pref[key]
         self.min = min
@@ -24638,6 +25332,7 @@ class SliderRow(UserControl):
         self._visible = visible
         self.slider_row = Container(content=None)
         self.tooltip = tooltip
+        self.expand = expand
         self.pref = pref
         self.key = key
         self.on_change = on_change
@@ -24719,7 +25414,7 @@ class SliderRow(UserControl):
         if bool(self.left_text): left.value = self.left_text
         if bool(self.right_text): right.value = self.right_text
         self.slider_number = slider_text
-        self.slider_row = Container(Row([slider_label, slider_text, self.slider_edit, left, slider, right]), visible=self._visible)
+        self.slider_row = Container(Row([slider_label, slider_text, self.slider_edit, left, slider, right]), expand=self.expand, visible=self._visible)
         return self.slider_row
     def set_value(self, value):
         self.value = value
@@ -24727,6 +25422,8 @@ class SliderRow(UserControl):
         self.slider_edit.value = value
         self.pref[self.key] = value
         self.slider_value.value = f" {self.pref[self.key]}{self.suffix}"
+        self.slider_value.update()
+        self.slider.update()
     def set_min(self, value):
         self.min = value
         self.slider.min = value
