@@ -582,6 +582,7 @@ def buildStableDiffusers(page):
     page.unCLIP_Interpolation = buildUnCLIP_Interpolation(page)
     page.unCLIP_ImageInterpolation = buildUnCLIP_ImageInterpolation(page)
     page.UnCLIP_ImageVariation = buildUnCLIP_ImageVariation(page)
+    page.Reference = buildReference(page)
     page.EDICT = buildEDICT(page)
     page.DiffEdit = buildDiffEdit(page)
     page.ImageVariation = buildImageVariation(page)
@@ -614,6 +615,7 @@ def buildStableDiffusers(page):
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
+            Tab(text="Reference", content=page.Reference, icon=icons.CRISIS_ALERT),
             Tab(text="EDICT Edit", content=page.EDICT, icon=icons.AUTO_AWESOME),
             Tab(text="DiffEdit", content=page.DiffEdit, icon=icons.AUTO_GRAPH),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
@@ -1091,6 +1093,7 @@ def buildInstallers(page):
                 #dropdown.Option("DDPM"),
                 dropdown.Option("DPM Solver"),
                 dropdown.Option("DPM Solver++"),
+                dropdown.Option("DPM Solver Inverse"),
                 dropdown.Option("SDE-DPM Solver++"),
                 #dropdown.Option("DPM Stochastic"),
                 dropdown.Option("K-Euler Discrete"),
@@ -1501,6 +1504,7 @@ def buildInstallers(page):
         page.ESRGAN_block_DiT.height = None
         page.ESRGAN_block_text_to_video.height = None
         page.ESRGAN_block_text_to_video_zero.height = None
+        page.ESRGAN_block_stable_animation.height = None
         page.ESRGAN_block.update()
         page.ESRGAN_block_material.update()
         page.ESRGAN_block_dalle.update()
@@ -1522,6 +1526,7 @@ def buildInstallers(page):
         page.ESRGAN_block_DiT.update()
         page.ESRGAN_block_text_to_video.update()
         page.ESRGAN_block_text_to_video_zero.update()
+        page.ESRGAN_block_stable_animation.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
           import openai
@@ -4953,6 +4958,161 @@ def buildImageVariation(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+reference_prefs = {
+    'ref_image': '',
+    'prompt': '',
+    'negative_prompt': '',
+    'guidance_scale': 7.5,
+    'num_inference_steps': 50,
+    'seed': 0,
+    'eta': 0.0,
+    'attention_auto_machine_weight': 1.0,
+    'gn_auto_machine_weight': 1.0,
+    'style_fidelity': 0.5,
+    'reference_attn': True,
+    'reference_adain': True,
+    'batch_size': 1,
+    'num_images': 1,
+    'max_size': 1024,
+    'width': 960,
+    'height': 768,
+    'last_model': '',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 4.0,
+    "display_upscaled_image": False,
+}
+def buildReference(page):
+    global reference_prefs, prefs, pipe_reference
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            reference_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            reference_prefs[pref] = float(e.control.value)
+          else:
+            reference_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_reference_output(o):
+      page.Reference.controls.append(o)
+      page.Reference.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_reference_output = add_to_reference_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      for i, c in enumerate(page.Reference.controls):
+        if i == 0: continue
+        else: del page.Reference.controls[i]
+      page.Reference.update()
+      clear_button.visible = False
+      clear_button.update()
+    def reference_help(e):
+      def close_reference_dlg(e):
+        nonlocal reference_help_dlg
+        reference_help_dlg.open = False
+        page.update()
+      reference_help_dlg = AlertDialog(title=Text("🙅   Help with Reference-Only"), content=Column([
+          Text("This reference-only ControlNet can directly link the attention layers of your SD to any independent images, so that your SD will read arbitary images for reference. This preprocessor does not require any control models. It can guide the diffusion directly using images as references. This method is similar to inpaint-based reference but it does not make your image disordered."),
+          Text("Note that this method is as 'non-opinioned' as possible. It only contains very basic connection codes, without any personal preferences, to connect the attention layers with your reference images. However, even if we tried best to not include any opinioned codes, we still need to write some subjective implementations to deal with weighting, cfg-scale, etc - tech report is on the way."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧙  Powerful... ", on_click=close_reference_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = reference_help_dlg
+      reference_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          reference_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          reference_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        ref_image.value = fname
+        ref_image.update()
+        reference_prefs['ref_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_init(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
+    prompt = TextField(label="Prompt Text", value=reference_prefs['prompt'], col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=reference_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        reference_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    ref_image = TextField(label="Reference Image", value=reference_prefs['ref_image'], on_change=lambda e:changed(e,'ref_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    seed = TextField(label="Seed", width=90, value=str(reference_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=reference_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")   
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=reference_prefs, key='guidance_scale')
+    eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=1, pref=reference_prefs, key='eta', tooltip="", visible=False)
+    page.etas.append(eta)
+    style_fidelity = SliderRow(label="Style Fidelity", min=0.0, max=1.0, divisions=20, round=2, pref=reference_prefs, key='style_fidelity', tooltip="Style fidelity of ref_uncond_xt. If style_fidelity=1.0, control more important, elif style_fidelity=0.0, prompt more important, else balanced.")
+    attention_auto_machine_weight = SliderRow(label="Attention Auto Machine Weight", min=0.0, max=1.0, divisions=20, round=2, pref=reference_prefs, key='attention_auto_machine_weight', tooltip="Weight of using reference query for self attention's context. If attention_auto_machine_weight=1.0, use reference query for all self attention's context.")
+    gn_auto_machine_weight = SliderRow(label="Gn Auto Machine Weight", min=0.0, max=2.0, divisions=20, round=1, pref=reference_prefs, key='gn_auto_machine_weight', tooltip="Weight of using reference adain. If gn_auto_machine_weight=2.0, use all reference adain plugins.")
+    #reference_attn = Checkbox(label="Reference Attention", value=reference_prefs['reference_attn'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'reference_attn'), tooltip="Whether to use reference query for self attention's context.")
+    #reference_adain = Checkbox(label="Reference Adain", value=reference_prefs['reference_adain'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'reference_adain'), tooltip="Whether to use reference Adain (Adaptive Instance Normalization).")
+    reference_attn = Tooltip(message="Whether to use reference query for self attention's context.", content=Switch(label=" Reference Attention  ", value=reference_prefs['reference_attn'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'reference_attn')))
+    reference_adain = Tooltip(message="Whether to use reference Adain (Adaptive Instance Normalization).", content=Switch(label=" Reference Adain", value=reference_prefs['reference_adain'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'reference_adain')))
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=reference_prefs, key='max_size')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=reference_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=reference_prefs, key='height')
+    batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=reference_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    num_images = NumberPicker(label="Number of Iterations: ", min=1, max=12, value=reference_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=reference_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=reference_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=reference_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=reference_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_reference = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_reference.height = None if status['installed_ESRGAN'] else 0
+    if not unCLIP_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    page.reference_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.reference_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎩  Reference-Only Image with Prompt", "ControlNet Pipeline for Transfering Ref Subject to new images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Reference Settings", on_click=reference_help)]),
+        ref_image,
+        ResponsiveRow([prompt, negative_prompt]),
+        num_inference_row,
+        guidance,
+        eta,
+        style_fidelity,
+        ResponsiveRow([attention_auto_machine_weight, gn_auto_machine_weight]),
+        Row([reference_attn, reference_adain]),
+        max_row,
+        width_slider,
+        height_slider,
+        ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
+        page.ESRGAN_block_reference,
+        Row([ElevatedButton(content=Text("💗  Make Reference", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_reference(page)), 
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_reference(page, from_list=True))]),
+        page.reference_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+
 EDICT_prefs = {
     'target_prompt': '',
     'negative_prompt': '',
@@ -5077,7 +5237,7 @@ def buildEDICT(page):
         max_row,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=EDICT_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_EDICT,
-        ElevatedButton(content=Text("🧝  Get EDICT Edit", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_EDICT(page)),
+        ElevatedButton(content=Text("🧝  Run EDICT Edit", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_EDICT(page)),
         page.EDICT_output,
         clear_button,
       ]
@@ -5208,7 +5368,7 @@ def buildDiffEdit(page):
         max_row,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=DiffEdit_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_DiffEdit,
-        ElevatedButton(content=Text("😃  Get DiffEdit", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiffEdit(page)),
+        ElevatedButton(content=Text("😃  Run DiffEdit", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiffEdit(page)),
         page.DiffEdit_output,
         clear_button,
       ]
@@ -6495,8 +6655,10 @@ deepfloyd_prefs = {
     'eta': 0.0,
     'seed': 0,
     'max_size': 768,
+    'model_size': 'L (900M)',
     'apply_watermark': True,
     'low_memory': True,
+    'keep_pipelines': False,
     'num_images': 1,
     'batch_folder_name': '',
     'file_prefix': 'IF-',
@@ -6621,6 +6783,8 @@ def buildDeepFloyd(page):
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=deepfloyd_prefs, key='max_size', tooltip="Resizes your Init and Mask Image to save memory.")
     apply_watermark = Tooltip(message="Under the license, you are legally required to include the watermark on bottom right corner.", content=Switch(label="Apply IF Watermark", value=deepfloyd_prefs['apply_watermark'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'apply_watermark')))
     low_memory = Tooltip(message="Needed for < 16GB VRAM to run. If you have more power, disable for faster runs.", content=Switch(label="Lower Memory", value=deepfloyd_prefs['low_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'low_memory')))
+    keep_pipelines = Tooltip(message="Keeps all 3 Pipelines loaded persistantly. Faster reuse, but needs a lot of VRAM.", content=Switch(label="Keep Pipelines Loaded", value=deepfloyd_prefs['keep_pipelines'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'keep_pipelines')))
+    model_size = Dropdown(label="Model Size", hint_text="Amount of Parameters trained on. Depends on your available memory.", width=240, options=[dropdown.Option("XL (4.3B)"), dropdown.Option("L (900M)"), dropdown.Option("M (400M)")], value=deepfloyd_prefs['model_size'], autofocus=False, on_change=lambda e:changed(e, 'model_size'))
     file_prefix = TextField(label="Filename Prefix",  value=deepfloyd_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     batch_folder_name = TextField(label="Batch Folder Name", value=deepfloyd_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=deepfloyd_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -6649,7 +6813,7 @@ def buildDeepFloyd(page):
         upscale_guidance,
         eta_row,
         max_row,
-        Row([apply_watermark, low_memory]),
+        Row([apply_watermark, low_memory, keep_pipelines, model_size]),
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=deepfloyd_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name, file_prefix]),
         page.ESRGAN_block_deepfloyd,
         Row([ElevatedButton(content=Text("🎈  Run DeepFloyd", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_deepfloyd(page)),
@@ -6914,10 +7078,11 @@ def buildTextToVideoZero(page):
     return c
 
 stable_animation_prefs = {
-    #'prompt': '',
-    'animation_prompt': '{\n0:"",\n}',
-    #'animation_prompts': {},
+    #'animation_prompt': '{\n0:"",\n}',
+    'animation_prompts': {},
     'negative_prompt': 'text, words, watermark, shutterstock',
+    'negative_prompt_weight': -1.0,
+    #'prompt': '',
     #'frame': 0,
     'num_inference_steps': 50,
     'guidance_scale': 9.0,
@@ -6983,6 +7148,8 @@ stable_animation_prefs = {
     'video_mix_in_curve': "0:(0.02)",
     'extract_nth_frame': 1,
     'video_init_fps': 12,
+    'resume': False,
+    'resume_from': '-1',
     #Post-Processor Parameters
     'output_fps': 24,
     'frame_interpolation_mode': "Rife", #film, none
@@ -7091,12 +7258,17 @@ def buildStableAnimation(page):
       def close_dlg(e):
           dlg_copy.open = False
           page.update()
+      stable_animation_prefs['animation_prompts'] = {str(k):v for k,v in stable_animation_prefs['animation_prompts'].items()}
       text_list = json.dumps(stable_animation_prefs, indent = 4)
       enter_text = TextField(label="Stable Animation Preset JSON", value=text_list.strip(), expand=True, filled=True, multiline=True, autofocus=True)
-      dlg_copy = AlertDialog(modal=False, title=Text("📝  Stable Animation as JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Preset JSON to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_preset(text_list))], actions_alignment=MainAxisAlignment.END)
+      dlg_copy = AlertDialog(modal=False, title=Text("📝   Stable Animation as JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Preset JSON to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_preset(text_list))], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_copy
       dlg_copy.open = True
       page.update()
+    def toggle_resume(e):
+      stable_animation_prefs['resume'] = e.control.value
+      resume_from.visible = stable_animation_prefs['resume']
+      resume_from.update()
     def paste_preset(e):
       def save_preset(e):
         try:
@@ -7107,19 +7279,28 @@ def buildStableAnimation(page):
           return
         load_preset(preset_json)
         close_dlg(e)
+      def paste_clipboard(e):
+          enter_text.value = page.get_clipboard()
+          enter_text.update()
       def close_dlg(e):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Stable Animation Preset JSON", expand=True, filled=True, min_lines=30, multiline=True, autofocus=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste Saved Preset JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Load Preset JSON Values ", size=19, weight=FontWeight.BOLD), on_click=save_preset)], actions_alignment=MainAxisAlignment.END)
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste Saved Preset JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), TextButton(content=Text("📋  Paste from Clipboard", size=18), on_click=paste_clipboard), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Load Preset JSON Values ", size=19, weight=FontWeight.BOLD), on_click=save_preset)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_paste
       dlg_paste.open = True
       page.update()
     def load_preset(d):
       global stable_animation_prefs
       stable_animation_prefs = d.copy()
-      prompt.value = d['animation_prompt']
+      stable_animation_prefs['animation_prompts'] = {}
+      #animation_prompt.value = d['animation_prompt']
+      animation_prompts.controls.clear()
+      prompts = d['animation_prompts'].copy()
+      for k, v in prompts.items():
+        add_prompt(d, int(k), v, False)
       negative_prompt.value = d['negative_prompt']
+      negative_prompt_weight.value = d['negative_prompt_weight']
       max_frames.value = d['max_frames']
       fps.set_value(d['fps'])
       num_inference_row.set_value(d['num_inference_steps'])
@@ -7176,6 +7357,8 @@ def buildStableAnimation(page):
       extract_nth_frame.value = d['extract_nth_frame']
       video_init_fps.value = d['video_init_fps']
       output_fps.value = d['output_fps']
+      resume.value = d['resume']
+      resume_from.value = d['resume_from']
       frame_interpolation_mode.value = d['frame_interpolation_mode']
       frame_interpolation_factor.value = d['frame_interpolation_factor']
       width_slider.set_value(d['width'])
@@ -7187,12 +7370,99 @@ def buildStableAnimation(page):
     def load_default(e):
       global stable_animation_prefs_default
       load_preset(stable_animation_prefs_default)
+    def edit_prompt(e):
+      nonlocal animation_prompts
+      f = int(e.control.data)
+      edit_prompt = stable_animation_prefs['animation_prompts'][str(f)]
+      def close_dlg(e):
+        dlg_edit.open = False
+        page.update()
+      def save_prompt(e):
+        fr = int(editing_frame.value)
+        pline = f'{fr}: "{editing_prompt.value}"'
+        for p in animation_prompts.controls:
+          if p.data == f:
+            p.title.value = pline
+            p.data = fr
+            for button in p.trailing.items:
+              button.data = fr
+            break
+        stable_animation_prefs['animation_prompts'][str(editing_frame.value)] = editing_prompt.value.strip()
+        if f != int(editing_frame.value):
+          del stable_animation_prefs['animation_prompts'][str(f)]
+          sorted_dict = {}
+          for key in sorted(stable_animation_prefs['animation_prompts'].keys()):
+              sorted_dict[key] = stable_animation_prefs['animation_prompts'][key]
+          stable_animation_prefs['animation_prompts'] = sorted_dict
+          animation_prompts.controls = sorted(animation_prompts.controls, key=lambda tile: tile.data)
+        animation_prompts.update()
+        close_dlg(e)
+      editing_frame = TextField(label="Frame", width=90, value=str(f), keyboard_type=KeyboardType.NUMBER, tooltip="")
+      editing_prompt = TextField(label="Keyframe Prompt Animation", expand=True, multiline=True, value=edit_prompt, autofocus=True)
+      dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ Edit Prompt Keyframe"), content=Container(Column([
+          Row([editing_frame, editing_prompt])
+      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width or page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = dlg_edit
+      dlg_edit.open = True
+      page.update()
+    def del_prompt(e):
+      f = e.control.data
+      for i, p in enumerate(animation_prompts.controls):
+        if p.data == f:
+          del animation_prompts.controls[i]
+          break
+      animation_prompts.update()
+      del stable_animation_prefs['animation_prompts'][str(f)]
+      if prefs['enable_sounds']: page.snd_delete.play()
+    def clear_prompts(e):
+      animation_prompts.controls.clear()
+      animation_prompts.update()
+      stable_animation_prefs['animation_prompts'] = {}
+      clear_prompt(e)
+      if prefs['enable_sounds']: page.snd_delete.play()
+    def clear_prompt(e):
+      prompt.value = ""
+      prompt.update()
+    def copy_prompt(e):
+      p = stable_animation_prefs['animation_prompts'][str(e.control.data)]
+      page.set_clipboard(p)
+      page.snack_bar = SnackBar(content=Text(f"📋  Prompt Text copied to clipboard..."))
+      page.snack_bar.open = True
+      page.update()
+    def add_prompt(e, f=None, p=None, sound=True):
+      if (not bool(prompt.value) or not bool(frame.value)) and f == None: return
+      if f == None: f = int(frame.value)
+      if p == None: p = prompt.value.strip()
+      pline = f'{f}: "{p}"'
+      if f in stable_animation_prefs['animation_prompts']:
+        for i, p in enumerate(animation_prompts.controls):
+          if p.data == f:
+            p.title.value = pline
+      else:
+        animation_prompts.controls.append(ListTile(title=Text(pline, size=14), data=f, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+            items=[PopupMenuItem(icon=icons.EDIT, text="Edit Animation Prompt", on_click=edit_prompt, data=f),
+                  PopupMenuItem(icon=icons.COPY, text="Copy Prompt Text", on_click=copy_prompt, data=f),
+                  PopupMenuItem(icon=icons.DELETE, text="Delete Animation Prompt", on_click=del_prompt, data=f), PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Prompts", on_click=clear_prompts)]), dense=True, on_click=edit_prompt))
+      stable_animation_prefs['animation_prompts'][str(f)] = p
+      #stable_animation_prefs['animation_prompts'] = {int(k):v for k,v in stable_animation_prefs['animation_prompts'].items()}
+      #stable_animation_prefs['animation_prompts'] = sorted(stable_animation_prefs['animation_prompts'].keys())
+      #stable_animation_prefs['animation_prompts'] = {i: stable_animation_prefs['animation_prompts'][i] for i in list(stable_animation_prefs['animation_prompts'].keys()).sort()}
+      sorted_dict = {}
+      for key in sorted(stable_animation_prefs['animation_prompts'].keys()):
+          sorted_dict[key] = stable_animation_prefs['animation_prompts'][key]
+      stable_animation_prefs['animation_prompts'] = sorted_dict
+      animation_prompts.controls = sorted(animation_prompts.controls, key=lambda tile: tile.data)
+      animation_prompts.update()
+      if prefs['enable_sounds'] and sound: page.snd_drop.play()
     copy_preset_button = IconButton(icons.COPY_ALL, tooltip="Save Animation Presets as JSON", on_click=save_preset)
     paste_preset_button = IconButton(icons.CONTENT_PASTE, tooltip="Load Animation Presets as JSON", on_click=paste_preset)
-    default_preset_button = IconButton(icons.REFRESH, tooltip="Reset Animation Presets to Default", on_click=load_default)
-    #prompt = TextField(label="Animation Prompt Text", value=stable_animation_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    prompt = TextField(label="Animation Prompt Text", value=stable_animation_prefs['animation_prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'animation_prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=stable_animation_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    default_preset_button = IconButton(icons.REFRESH, tooltip="Reset Animation Presets to Default", on_click=load_default) #, suffix=IconButton(icons.CLEAR, on_click=clear_prompt), width=50, height=50
+    prompt = TextField(label="Keyframe Prompt Text", value="", filled=True, expand=True, multiline=True)
+    frame = TextField(label="Frame", width=76, value="0", filled=True, keyboard_type=KeyboardType.NUMBER, tooltip="")
+    negative_prompt_weight = TextField(label="Negative Weight", width=120, value=stable_animation_prefs['negative_prompt_weight'], keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'negative_prompt_weight'))
+    add_prompt_keyframe = ft.FilledButton("➕  Add Keyframe", on_click=add_prompt)
+    #animation_prompt = TextField(label="Animation Prompt Text", value=stable_animation_prefs['animation_prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'animation_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=stable_animation_prefs['negative_prompt'], col={'md':3}, expand=True, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     max_frames  = TextField(label="Max Number of Frames", width=200, hint_text="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", value=stable_animation_prefs['max_frames'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'max_frames', ptype='int'))
     #max_frames = SliderRow(label="Max Number of Frames", min=1, max=300, divisions=299, pref=stable_animation_prefs, key='max_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")   
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', expand=True, pref=stable_animation_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
@@ -7204,9 +7474,9 @@ def buildStableAnimation(page):
     #DDIM, PLMS, K_euler, K_euler_ancestral, K_heun, K_dpm_2, K_dpm_2_ancestral, K_lms, K_dpmpp_2m, K_dpmpp_2s_ancestral
     style_preset = Dropdown(label="Style Preset", hint_text="", width=240, options=[dropdown.Option("None"), dropdown.Option("3d-model"), dropdown.Option("analog-film"), dropdown.Option("anime"), dropdown.Option("cinematic"), dropdown.Option("comic-book"), dropdown.Option("digital-art"), dropdown.Option("enhance fantasy-art"), dropdown.Option("isometric"), dropdown.Option("line-art"), dropdown.Option("low-poly"), dropdown.Option("modeling-compound"), dropdown.Option("neon-punk"), dropdown.Option("origami"), dropdown.Option("photographic"), dropdown.Option("pixel-art")], value=stable_animation_prefs['style_preset'], autofocus=False, on_change=lambda e:changed(e, 'style_preset'))
     clip_guidance = Dropdown(label="Clip Guidance", hint_text="", width=240, options=[dropdown.Option("None"), dropdown.Option("Simple"), dropdown.Option("FastBlue"), dropdown.Option("FastGreen")], value=stable_animation_prefs['clip_guidance'], autofocus=False, on_change=lambda e:changed(e, 'clip_guidance'))
-    steps_strength_adj = Checkbox(label="Steps Strength Adjustment", tooltip="Adjusts number of diffusion steps based on current previous frame strength value.", value=stable_animation_prefs['steps_strength_adj'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'steps_strength_adj'))
-    interpolate_prompts = Checkbox(label="Interpolate Prompts", tooltip="Smoothly interpolate prompts between keyframes.", value=stable_animation_prefs['interpolate_prompts'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'interpolate_prompts'))
-    locked_seed = Checkbox(label="Locked Seed", tooltip="Keep the same seed for all frames.", value=stable_animation_prefs['locked_seed'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'locked_seed'))
+    steps_strength_adj = Checkbox(label="Steps Strength Adjustment", tooltip="Adjusts number of diffusion steps based on current previous frame strength value.", value=stable_animation_prefs['steps_strength_adj'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'steps_strength_adj'), col={'xs':12, 'md':6, 'lg':4, 'xl':3})
+    interpolate_prompts = Checkbox(label="Interpolate Prompts", tooltip="Smoothly interpolate prompts between keyframes.", value=stable_animation_prefs['interpolate_prompts'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'interpolate_prompts'), col={'xs':12, 'md':6, 'lg':4, 'xl':3})
+    locked_seed = Checkbox(label="Locked Seed", tooltip="Keep the same seed for all frames.", value=stable_animation_prefs['locked_seed'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'locked_seed'), col={'xs':12, 'md':6, 'lg':4, 'xl':3})
     noise_add_curve  = TextField(label="Noise Add Curve", value=stable_animation_prefs['noise_add_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'noise_add_curve'))
     noise_scale_curve  = TextField(label="Noise Scale Curve", value=stable_animation_prefs['noise_scale_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'noise_scale_curve'))
     strength_curve  = TextField(label="Strength Curve", value=stable_animation_prefs['strength_curve'], col={'xs':12, 'md':6, 'lg':4, 'xl':3}, multiline=True, on_change=lambda e:changed(e,'strength_curve'))
@@ -7259,7 +7529,9 @@ def buildStableAnimation(page):
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switch(label="Export to Video", value=stable_animation_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switch(label="Lower Memory Mode", value=stable_animation_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
     seed = TextField(label="Seed", width=90, value=str(stable_animation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    batch_folder_name = TextField(label="Batch Folder Name", value=stable_animation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    resume = Switch(label="Resume Previous Animation", value=stable_animation_prefs['resume'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume)
+    resume_from = TextField(label="Resume from Frame", width=150, value=str(stable_animation_prefs['resume_from']), visible=stable_animation_prefs['resume'], keyboard_type=KeyboardType.NUMBER, tooltip="-1 resumes from last frame", on_change=lambda e:changed(e,'seed', ptype='int'))
+    batch_folder_name = TextField(label="Animation Folder Name", value=stable_animation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=stable_animation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=stable_animation_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=stable_animation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
@@ -7269,16 +7541,21 @@ def buildStableAnimation(page):
     page.stable_animation_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.stable_animation_output.controls) > 0
+    animation_prompts = Column([], spacing=0)
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🥏  Stable Animation SDK", "Use Stability.ai API Credits for Advanced Video Generation", actions=[copy_preset_button, paste_preset_button, default_preset_button, IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=stable_animation_help)]),
-        ResponsiveRow([prompt, negative_prompt], vertical_alignment=CrossAxisAlignment.START),
+        Header("🥏  Stable Animation SDK", "Use Stability.ai API Credits for Advanced Video Generation, similar to Deforum & Disco Diffusion.", actions=[copy_preset_button, paste_preset_button, default_preset_button, IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=stable_animation_help)]),
+        #ResponsiveRow([animation_prompt, negative_prompt], vertical_alignment=CrossAxisAlignment.START),
+        Row([frame, prompt, add_prompt_keyframe]),
+        animation_prompts,
+        Divider(thickness=2, height=4),
+        Row([negative_prompt, negative_prompt_weight]),
         Row([max_frames, fps]),
         num_inference_row,
         guidance,
         Row([model_checkpoint, generation_sampler, style_preset, clip_guidance], wrap=True),
-        Row([steps_strength_adj, interpolate_prompts, locked_seed], wrap=True),
+        ResponsiveRow([steps_strength_adj, interpolate_prompts, locked_seed]),
         ResponsiveRow([noise_add_curve, noise_scale_curve, strength_curve, diffusion_cadence_curve]),
         Row([cadence_interp, cadence_spans]),
         Row([border, inpaint_border, use_inpainting_model]),
@@ -7293,7 +7570,7 @@ def buildStableAnimation(page):
         Row([mask_image, mask_invert]),
         Row([init_video, animation_mode]),
         Row([video_flow_warp, video_mix_in_curve]),
-        Row([extract_nth_frame, video_init_fps, output_fps], wrap=True),
+        Row([extract_nth_frame, video_init_fps, output_fps, Row([resume, resume_from])], wrap=True),
         Row([export_to_video, frame_interpolation_mode, frame_interpolation_factor]),
         width_slider, height_slider,
         page.ESRGAN_block_stable_animation,
@@ -7432,7 +7709,7 @@ def buildMaterialDiffusion(page):
     param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=8, step=1, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}), 
                       Column([steps, eta, seed], col={'xs':12, 'lg':6})], vertical_alignment=CrossAxisAlignment.START)
     batch_row = Row([batch_folder_name, file_prefix], col={'xs':12, 'lg':6})
-    number_row = Row([NumberPicker(label="Output Images", min=1, max=8, step=1, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int")), seed], col={'xs':12, 'md':6})
+    number_row = Row([NumberPicker(label="Output Images", min=1, max=4, step=3, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int")), seed], col={'xs':12, 'md':6})
     param_rows = ResponsiveRow([number_row, batch_row], vertical_alignment=CrossAxisAlignment.START)
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=materialdiffusion_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=materialdiffusion_prefs, key='width')
@@ -10802,10 +11079,14 @@ pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_text_to_video = None
 pipe_text_to_video_zero = None
+pipe_deepfloyd = None
+pipe_deepfloyd2 = None
+pipe_deepfloyd3 = None
 pipe_gpt2 = None
 pipe_distil_gpt2 = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
+pipe_reference = None
 pipe_controlnet = None
 controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
@@ -11171,6 +11452,9 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "DPM Solver Singlestep":
       from diffusers import DPMSolverSinglestepScheduler
       s = DPMSolverSinglestepScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "DPM Solver Inverse":
+      from diffusers import DPMSolverMultistepInverseScheduler
+      s = DPMSolverMultistepInverseScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "K-Euler Discrete":
       from diffusers import EulerDiscreteScheduler
       s = EulerDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
@@ -11275,6 +11559,9 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
     elif scheduler_mode == "DPM Solver Singlestep":
       from diffusers import DPMSolverSinglestepScheduler
       s = DPMSolverSinglestepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+    elif scheduler_mode == "DPM Solver Inverse":
+      from diffusers import DPMSolverMultistepInverseScheduler
+      s = DPMSolverMultistepInverseScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "DPM Stochastic":
       from diffusers import DPMSolverSDEScheduler
       s = DPMSolverSDEScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
@@ -11486,8 +11773,7 @@ def get_text2image(page):
     '''if pipe is not None:
         #print("Clearing the ol' pipe first...")
         del pipe
-        gc.collect()
-        torch.cuda.empty_cache()
+        flush()
         pipe = None'''
     try:
       if use_custom_scheduler: # Not really using anymore, maybe later
@@ -11595,6 +11881,52 @@ def get_txt2img_pipe():
   pipe = get_lpw_pipe()
   return pipe
 
+def get_compel_pipe():
+  global pipe, scheduler, model_path, prefs
+  from diffusers import DiffusionPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  from diffusers import AutoencoderKL, UNet2DConditionModel
+  model = get_model(prefs['model_ckpt'])
+  os.chdir(root_dir)
+  #if not os.path.isfile(os.path.join(root_dir, 'lpw_stable_diffusion.py')):
+  #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/lpw_stable_diffusion.py")
+  #from lpw_stable_diffusion import StableDiffusionLongPromptWeightingPipeline
+  if pipe is not None:
+    if model['path'] != status['loaded_model']:
+      #clear_txt2img_pipe()
+      clear_pipes()
+    elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+      pipe = pipeline_scheduler(pipe)
+      return pipe
+    else:
+      return pipe
+  if 'revision' in model:
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+  else:
+    if 'vae' in model:
+      from diffusers import AutoencoderKL, UNet2DConditionModel
+      vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
+      unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+    else:
+      if prefs['disable_nsfw_filter']:
+        if 'from_ckpt' in model:
+          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+        else:  
+          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+      else:
+        if 'from_ckpt' in model:
+          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+        else:
+          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+    #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+  #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
+  #pipe = pipe.to(torch_device)
+  pipe = pipeline_scheduler(pipe)
+  pipe = optimize_pipe(pipe, vae=True)
+  pipe.set_progress_bar_config(disable=True)
+  return pipe
+
 def get_unet_pipe():
   global unet, scheduler, model_path, prefs
   from transformers import CLIPTextModel, CLIPTokenizer
@@ -11624,8 +11956,7 @@ def get_interpolation(page):
     if pipe_interpolation is not None:
       #print("Clearing the ol' pipe first...")
       del pipe_interpolation
-      gc.collect()
-      torch.cuda.empty_cache()
+      flush()
       pipe_interpolation = None
 
     pipe_interpolation = get_interpolation_pipe()
@@ -12495,317 +12826,291 @@ def get_conceptualizer(page):
     #pipe_conceptualizer = pipe_conceptualizer.to(torch_device)
     return pipe_conceptualizer
 
+def flush():
+    gc.collect()
+    torch.cuda.empty_cache()
 
 def clear_img2img_pipe():
   global pipe_img2img
   if pipe_img2img is not None:
     #print("Clearing out img2img pipeline for more VRAM")
     del pipe_img2img
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_img2img = None
 def clear_txt2img_pipe():
   global pipe
   if pipe is not None:
     #print("Clearing out text2img pipeline for more VRAM")
     del pipe
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe = None
 def clear_unet_pipe():
   global unet
   if unet is not None:
     #print("Clearing out unet custom pipeline for more VRAM")
     del unet
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     unet = None
 def clear_clip_guided_pipe():
   global pipe_clip_guided
   if pipe_clip_guided is not None:
     #print("Clearing out CLIP Guided pipeline for more VRAM")
     del pipe_clip_guided
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_clip_guided = None
 def clear_conceptualizer_pipe():
   global pipe_conceptualizer
   if pipe_conceptualizer is not None:
     #print("Clearing out CLIP Guided pipeline for more VRAM")
     del pipe_conceptualizer
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_conceptualizer = None
 def clear_repaint_pipe():
   global pipe_repaint
   if pipe_repaint is not None:
     del pipe_repaint
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_repaint = None
 def clear_imagic_pipe():
   global pipe_imagic
   if pipe_imagic is not None:
     del pipe_imagic
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_imagic = None
 def clear_composable_pipe():
   global pipe_composable
   if pipe_composable is not None:
     del pipe_composable
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_composable = None
 def clear_versatile_pipe():
   global pipe_versatile
   if pipe_versatile is not None:
     del pipe_versatile
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_versatile = None
 def clear_versatile_text2img_pipe():
   global pipe_versatile_text2img
   if pipe_versatile_text2img is not None:
     del pipe_versatile_text2img
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_versatile_text2img = None
 def clear_versatile_variation_pipe():
   global pipe_versatile_variation
   if pipe_versatile_variation is not None:
     del pipe_versatile_variation
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_versatile_variation = None
 def clear_versatile_dualguided_pipe():
   global pipe_versatile_dualguided
   if pipe_versatile_dualguided is not None:
     del pipe_versatile_dualguided
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_versatile_dualguided = None
 def clear_depth_pipe():
   global pipe_depth
   if pipe_depth is not None:
     del pipe_depth
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_depth = None
 def clear_interpolation_pipe():
   global pipe_interpolation
   if pipe_interpolation is not None:
     del pipe_interpolation
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_interpolation = None
 def clear_safe_pipe():
   global pipe_safe
   if pipe_safe is not None:
     del pipe_safe
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_safe = None
 def clear_upscale_pipe():
   global pipe_upscale
   if pipe_upscale is not None:
     del pipe_upscale
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_upscale = None
 def clear_image_variation_pipe():
   global pipe_image_variation
   if pipe_image_variation is not None:
     del pipe_image_variation
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_image_variation = None
 def clear_semantic_pipe():
   global pipe_semantic
   if pipe_semantic is not None:
     del pipe_semantic
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_semantic = None
 def clear_EDICT_pipe():
   global pipe_EDICT, text_encoder_EDICT
   if pipe_EDICT is not None:
     del pipe_EDICT
     del text_encoder_EDICT
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_EDICT = None
     text_encoder_EDICT = None
 def clear_DiffEdit_pipe():
   global pipe_DiffEdit
   if pipe_DiffEdit is not None:
     del pipe_DiffEdit
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_DiffEdit = None
 def clear_unCLIP_pipe():
   global pipe_unCLIP
   if pipe_unCLIP is not None:
     del pipe_unCLIP
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_unCLIP = None
 def clear_unCLIP_image_variation_pipe():
   global pipe_unCLIP_image_variation
   if pipe_unCLIP_image_variation is not None:
     del pipe_unCLIP_image_variation
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_unCLIP_image_variation = None
 def clear_unCLIP_interpolation_pipe():
   global pipe_unCLIP_interpolation
   if pipe_unCLIP_interpolation is not None:
     del pipe_unCLIP_interpolation
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_unCLIP_interpolation = None
 def clear_unCLIP_image_interpolation_pipe():
   global pipe_unCLIP_image_interpolation
   if pipe_unCLIP_image_interpolation is not None:
     del pipe_unCLIP_image_interpolation
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_unCLIP_image_interpolation = None
 def clear_magic_mix_pipe():
   global pipe_magic_mix
   if pipe_magic_mix is not None:
     del pipe_magic_mix
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_magic_mix = None
 def clear_paint_by_example_pipe():
   global pipe_paint_by_example
   if pipe_paint_by_example is not None:
     del pipe_paint_by_example
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_paint_by_example = None
 def clear_instruct_pix2pix_pipe():
   global pipe_instruct_pix2pix
   if pipe_instruct_pix2pix is not None:
     del pipe_instruct_pix2pix
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_instruct_pix2pix = None
 def clear_alt_diffusion_pipe():
   global pipe_alt_diffusion
   if pipe_alt_diffusion is not None:
     del pipe_alt_diffusion
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_alt_diffusion = None
 def clear_alt_diffusion_img2img_pipe():
   global pipe_alt_diffusion_img2img
   if pipe_alt_diffusion_img2img is not None:
     del pipe_alt_diffusion_img2img
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_alt_diffusion_img2img = None
 def clear_SAG_pipe():
   global pipe_SAG
   if pipe_SAG is not None:
     del pipe_SAG
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_SAG = None
 def clear_attend_and_excite_pipe():
   global pipe_attend_and_excite
   if pipe_attend_and_excite is not None:
     del pipe_attend_and_excite
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_attend_and_excite = None
 def clear_panorama_pipe():
   global pipe_panorama
   if pipe_panorama is not None:
     del pipe_panorama
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_panorama = None
 def clear_dance_pipe():
   global pipe_dance
   if pipe_dance is not None:
     del pipe_dance
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_dance = None
 def clear_audio_diffusion_pipe():
   global pipe_audio_diffusion
   if pipe_audio_diffusion is not None:
     del pipe_audio_diffusion
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_audio_diffusion = None
 def clear_riffusion_pipe():
   global pipe_riffusion
   if pipe_riffusion is not None:
     del pipe_riffusion
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_riffusion = None
 def clear_text_to_video_pipe():
   global pipe_text_to_video
   if pipe_text_to_video is not None:
     del pipe_text_to_video
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_text_to_video = None
 def clear_text_to_video_zero_pipe():
   global pipe_text_to_video_zero
   if pipe_text_to_video_zero is not None:
     del pipe_text_to_video_zero
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     torch.cuda.ipc_collect()
     torch.cuda.reset_peak_memory_stats()
     pipe_text_to_video_zero = None
+def clear_deepfloyd_pipe():
+  global pipe_deepfloyd, pipe_deepfloyd2, pipe_deepfloyd3
+  if pipe_deepfloyd is not None:
+    del pipe_deepfloyd, pipe_deepfloyd2, pipe_deepfloyd3
+    flush()
+    pipe_deepfloyd = None
+    pipe_deepfloyd2 = None
+    pipe_deepfloyd3 = None
+def clear_reference_pipe():
+  global pipe_reference
+  if pipe_reference is not None:
+    del pipe_reference
+    flush()
+    pipe_reference = None
 def clear_DiT_pipe():
   global pipe_DiT
   if pipe_DiT is not None:
     del pipe_DiT
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_DiT = None
 def clear_kandinsky_pipe():
   global pipe_kandinsky, loaded_kandinsky_task
   if pipe_kandinsky is not None:
     del pipe_kandinsky
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_kandinsky = None
     loaded_kandinsky_task = ""
 def clear_tortoise_tts_pipe():
   global pipe_tortoise_tts
   if pipe_tortoise_tts is not None:
     del pipe_tortoise_tts
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_tortoise_tts = None
 def clear_audio_ldm_pipe():
   global pipe_audio_ldm
   if pipe_audio_ldm is not None:
     del pipe_audio_ldm
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_audio_ldm = None
 def clear_gpt2_pipe():
   global pipe_gpt2
   if pipe_gpt2 is not None:
     del pipe_gpt2
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_gpt2 = None
 def clear_distil_gpt2_pipe():
   global pipe_distil_gpt2
   if pipe_distil_gpt2 is not None:
     del pipe_distil_gpt2
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_distil_gpt2 = None
 def clear_controlnet_pipe():
   global pipe_controlnet, controlnet, controlnet_models, status
@@ -12816,8 +13121,7 @@ def clear_controlnet_pipe():
       if v != None:
         del v
         controlnet_models[k] = None
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_controlnet = None
     controlnet = None
     status['loaded_controlnet'] = None
@@ -12826,8 +13130,7 @@ def clear_stable_lm_pipe():
   if pipe_stable_lm is not None:
     del pipe_stable_lm
     del tokenizer_stable_lm
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     pipe_stable_lm = None
     tokenizer_stable_lm = None
    
@@ -12863,6 +13166,8 @@ def clear_pipes(allbut=None):
     if not 'instruct_pix2pix' in but: clear_instruct_pix2pix_pipe()
     if not 'SAG' in but: clear_SAG_pipe()
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
+    if not 'deepfloyd' in but: clear_deepfloyd_pipe()
+    if not 'reference' in but: clear_reference_pipe()
     if not 'DiT' in but: clear_DiT_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'panorama' in but: clear_panorama_pipe()
@@ -13980,7 +14285,8 @@ def start_diffusion(page):
           shutil.copy(fpath, os.path.join(root_dir, 'init_images'))
           last_image = os.path.join(root_dir, 'init_images', f'{fname}-{num}.png')
         page.auto_scrolling(True)
-        if not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']:
+        #if (not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']) and prefs['apply_ESRGAN_upscale']:
+        if not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']:
           #print(f"Image path:{image_path}")
           upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           #time.sleep(0.2)
@@ -14115,9 +14421,9 @@ def start_diffusion(page):
             out_file.SetContentFile(os.path.join(stable_dir, json_file))
             out_file.Upload()
         output_files.append(os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file))
-        if prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']:
+        if (prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']) or not prefs['apply_ESRGAN_upscale']:
           upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
-          time.sleep(0.4)
+          #time.sleep(0.4)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(upscaled_path), width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([GestureDetector(content=Img(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           prt(Row([ImageButton(src=upscaled_path, width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), data=upscaled_path, subtitle=pr[0] if type(pr) == list else pr, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -15754,6 +16060,213 @@ def run_image_variation(page):
     page.ImageVariation.update()
     autoscroll(True)
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_reference(page, from_list=False):
+    global reference_prefs, pipe_reference
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Reference.controls.append(line)
+        if update:
+          page.Reference.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.Reference.controls[-1]
+        page.Reference.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Reference.controls = page.Reference.controls[:1]
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Reference.auto_scroll = scroll
+        page.Reference.update()
+      else:
+        page.Reference.auto_scroll = scroll
+        page.Reference.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = reference_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    reference_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        reference = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'ref_image': p['init_image'] if bool(p['init_image']) else reference_prefs['ref_image'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps': p['steps'], 'width': p['width'], 'height': p['height'], 'seed': p['seed']}
+        reference_prompts.append(reference)
+    else:
+        if not bool(reference_prefs['prompt']):
+            alert_msg(page, "You need to add a Text Prompt first... ")
+            return
+        reference = {'prompt':reference_prefs['prompt'], 'negative_prompt': reference_prefs['negative_prompt'], 'ref_image': reference_prefs['ref_image'], 'guidance_scale':reference_prefs['guidance_scale'], 'num_inference_steps': reference_prefs['num_inference_steps'], 'width': reference_prefs['width'], 'height': reference_prefs['height'], 'seed': reference_prefs['seed']}
+        reference_prompts.append(reference)
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    else:
+      clear_list()
+    autoscroll(True)
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    model = get_model(prefs['model_ckpt'])['path']
+    if reference_prefs['last_model'] == model:
+        clear_pipes('reference')
+    else:
+        clear_pipes()
+        reference_prefs['last_model'] = model
+    #torch.cuda.empty_cache()
+    #torch.cuda.reset_max_memory_allocated()
+    #torch.cuda.reset_peak_memory_stats()
+    if pipe_reference == None:
+        from diffusers import StableDiffusionReferencePipeline
+        prt(Installing(f"Installing Reference Pipeline with {model} Model... "))
+        try:
+            pipe_reference = StableDiffusionReferencePipeline.from_pretrained(model, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_reference.to(torch_device)
+            pipe_reference = pipeline_scheduler(pipe_reference)
+            pipe_reference = optimize_pipe(pipe_reference)
+            pipe_reference.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Reference Pipeline", content=Text(str(e)))
+            return
+        #pipe_reference.set_progress_bar_config(disable=True)
+        clear_last()
+    else:
+        pipe_reference = pipeline_scheduler(pipe_reference)
+    s = "s" if reference_prefs['num_images'] > 1 or reference_prefs['batch_size'] > 1 else ""
+    prt(f"Generating Reference{s} of your Image...")
+    batch_output = os.path.join(stable_dir, reference_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], reference_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in reference_prompts:
+        if pr['ref_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(pr['ref_image'], stream=True).raw)
+        else:
+            if os.path.isfile(pr['ref_image']):
+                init_img = PILImage.open(pr['ref_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your ref_image {pr['ref_image']}")
+                return
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, reference_prefs['max_size'])
+        init_img = init_img.resize((width, height), resample=PILImage.BICUBIC)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        width = pr['width']
+        height = pr['height']
+        total_steps = pr['num_inference_steps']
+        for num in range(reference_prefs['num_images']):
+            prt(progress)
+            autoscroll(False)
+            random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            #generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            try:
+                image = pipe_reference(ref_image=init_img, prompt=pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=pr['num_inference_steps'], attention_auto_machine_weight=reference_prefs['attention_auto_machine_weight'], gn_auto_machine_weight=reference_prefs['gn_auto_machine_weight'], style_fidelity=reference_prefs['style_fidelity'], reference_attn=reference_prefs['reference_attn'], reference_adain=reference_prefs['reference_adain'], guidance_scale=pr['guidance_scale'], width=width, height=height, num_images_per_prompt=reference_prefs['batch_size'], seed=random_seed, callback=callback_fnc, callback_steps=1)#.images 
+            except Exception as e:
+                clear_last()
+                alert_msg(page, "Error running Reference Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+                return
+            autoscroll(True)
+            clear_last()
+            fname = format_filename(pr['prompt'])
+            if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+            #for image in images:
+            image_path = available_file(os.path.join(stable_dir, reference_prefs['batch_folder_name']), fname, num)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            image.save(image_path)
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+            if not reference_prefs['display_upscaled_image'] or not reference_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if reference_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'     
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{num}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                #print(f'Moving {fpath} to {dst_path}')
+                #shutil.move(fpath, dst_path)
+                shutil.copy(image_path, dst_path)
+                #faceenhance = ' --face_enhance' if reference_prefs["face_enhance"] else ''
+                faceenhance = ''
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {reference_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if reference_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(reference_prefs["enlarge_scale"]), height=height * float(reference_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {reference_prefs['enlarge_scale']}x with ESRGAN" if reference_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", "Reference")
+                if prefs['save_config_in_metadata']:
+                  metadata.add_text("title", pr['prompt'])
+                  config_json = reference_prefs.copy()
+                  config_json['model_path'] = model
+                  config_json['seed'] = random_seed
+                  del config_json['num_images'], config_json['batch_size']
+                  del config_json['display_upscaled_image']
+                  del config_json['batch_folder_name']
+                  del config_json['max_size']
+                  if not config_json['apply_ESRGAN_upscale']:
+                    del config_json['enlarge_scale']
+                    del config_json['apply_ESRGAN_upscale']
+                  metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            #TODO: PyDrive
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], reference_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], reference_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            time.sleep(0.2)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_EDICT(page):
     global EDICT_prefs, prefs, status, pipe_EDICT, text_encoder_EDICT
@@ -20295,8 +20808,7 @@ def run_unCLIP(page, from_list=False):
     stable = "Stable " if unCLIP_prefs['use_StableUnCLIP_pipeline'] else ""
     if pipe_unCLIP != None and ((loaded_StableUnCLIP == True and not unCLIP_prefs['use_StableUnCLIP_pipeline']) or (loaded_StableUnCLIP == False and unCLIP_prefs['use_StableUnCLIP_pipeline'])):
         del pipe_unCLIP
-        gc.collect()
-        torch.cuda.empty_cache()
+        flush()
         pipe_unCLIP = None
     if pipe_unCLIP == None:
         prt(Installing(f"  Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress."))
@@ -20711,8 +21223,7 @@ def run_unCLIP_interpolation(page, from_list=False):
     stable = "Stable "
     if pipe_unCLIP_interpolation != None:
         del pipe_unCLIP_interpolation
-        gc.collect()
-        torch.cuda.empty_cache()
+        flush()
         pipe_unCLIP_interpolation = None
     if pipe_unCLIP_interpolation == None:
         prt(Installing(f"Downloading {stable}unCLIP Kakaobrain Karlo Pipeline... It's a big one, see console for progress."))
@@ -21852,8 +22363,7 @@ def run_controlnet(page, from_list=False):
     except Exception as e:
         clear_last()
         alert_msg(page, f"ERROR Installing Required Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-        gc.collect()
-        torch.cuda.empty_cache()
+        flush()
         return
     canny_checkpoint = "lllyasviel/control_v11p_sd15_canny"
     scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
@@ -22028,8 +22538,7 @@ def run_controlnet(page, from_list=False):
             #clear_last()
             clear_last()
             alert_msg(page, f"ERROR Preparing ControlNet {controlnet_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-            gc.collect()
-            torch.cuda.empty_cache()
+            flush()
             return
     def prep_video(vid):
         nonlocal width, height
@@ -22143,8 +22652,7 @@ def run_controlnet(page, from_list=False):
             #clear_last()
             clear_last()
             alert_msg(page, f"ERROR Generating ControlNet {controlnet_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-            gc.collect()
-            torch.cuda.empty_cache()
+            flush()
             return
         clear_pipes('controlnet')
         clear_last()
@@ -22233,8 +22741,50 @@ def run_controlnet(page, from_list=False):
     del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_controlnet_tile_upscale(page, source_image, prompt="best quality", scale_factor=2.5):
+    global controlnet_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_models
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using ControlNet Tile Upscale...")
+      return
+    from diffusers import ControlNetModel, DiffusionPipeline
+
+    def resize_for_condition_image(input_image: PILImage, resolution: int):
+        input_image = input_image.convert("RGB")
+        W, H = input_image.size
+        k = float(resolution) / min(H, W)
+        H *= k
+        W *= k
+        H = int(round(H / 64.0)) * 64
+        W = int(round(W / 64.0)) * 64
+        img = input_image.resize((W, H), resample=Image.LANCZOS)
+        return img
+
+    controlnet = ControlNetModel.from_pretrained('lllyasviel/control_v11f1e_sd15_tile', 
+                                                torch_dtype=torch.float16)
+    pipe_controlnet = DiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5",
+                                            custom_pipeline="stable_diffusion_controlnet_img2img",
+                                            controlnet=controlnet,
+                                            torch_dtype=torch.float16).to('cuda')
+    pipe_controlnet.enable_xformers_memory_efficient_attention()
+    if isinstance(source_image, str):
+        from diffusers.utils import load_image
+        source_image = load_image(source_image)
+
+    condition_image = resize_for_condition_image(source_image, 1024)
+    image = pipe_controlnet(prompt=prompt, 
+                negative_prompt="blur, lowres, bad anatomy, bad hands, cropped, worst quality", 
+                image=condition_image, 
+                controlnet_conditioning_image=condition_image, 
+                width=condition_image.size[0],
+                height=condition_image.size[1],
+                strength=1.0,
+                generator=torch.manual_seed(0),
+                num_inference_steps=32,
+                ).images[0]
+    return image
+
 def run_deepfloyd(page, from_list=False):
-    global deepfloyd_prefs, prefs, status, pipe_deepfloyd
+    global deepfloyd_prefs, prefs, status, pipe_deepfloyd, pipe_deepfloyd2, pipe_deepfloyd3
     import torch
     #if not status['installed_diffusers']:
     #  alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
@@ -22396,13 +22946,22 @@ def run_deepfloyd(page, from_list=False):
     #from diffusers.pipelines.deepfloyd_if.safety_checker IFSafetyChecker
     from transformers import T5EncoderModel, T5Tokenizer
     #run_sp("accelerate config default", realtime=False)
-    clear_pipes()
+    clear_pipes('deepfloyd')
     torch.cuda.empty_cache()
     torch.cuda.reset_max_memory_allocated()
     #torch.cuda.reset_peak_memory_stats()
-    model_id = "DeepFloyd/IF-I-XL-v1.0"
+    if deepfloyd_prefs['model_size'].startswith("X"):
+        model_id = "DeepFloyd/IF-I-XL-v1.0"
+        model_id_II = "DeepFloyd/IF-II-XL-v1.0"
+    elif deepfloyd_prefs['model_size'].startswith("L"):
+        model_id = "DeepFloyd/IF-I-L-v1.0"
+        model_id_II = "DeepFloyd/IF-II-L-v1.0"
+    elif deepfloyd_prefs['model_size'].startswith("M"):
+        model_id = "DeepFloyd/IF-I-M-v1.0"
+        model_id_II = "DeepFloyd/IF-II-M-v1.0"
     clear_last(update=False)
-    
+    if 'last_deepfloyd_mode' not in status:
+      status['last_deepfloyd_mode'] = ""
     max_size = deepfloyd_prefs['max_size']
     batch_output = os.path.join(stable_dir, deepfloyd_prefs['batch_folder_name'])
     output_dir = batch_output
@@ -22470,26 +23029,33 @@ def run_deepfloyd(page, from_list=False):
                     prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     del text_encoder
                     del pipe_deepfloyd
-                else:
-                    install.set_details("...DiffusionPipeline")
-                    pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                    pipe_deepfloyd.enable_model_cpu_offload()
-                    install.set_details("...encode_prompts")
-                    prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
+                
                 install.set_details("...clearing pipes")
-                gc.collect()
-                torch.cuda.empty_cache()
+                flush()
                 clear_last(update=False)
                 safety_modules = {}
                 if init_img == None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Pipeline..."))
                     # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
                     total_steps = pr['num_inference_steps']
-                    clear_last()
+                    #clear_last()
                     prt(progress)
                     if deepfloyd_prefs['low_memory']:
-                        pipe_deepfloyd = IFPipeline.from_pretrained(model_id, text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto", safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        pipe_deepfloyd = IFPipeline.from_pretrained(model_id, text_encoder=None, device_map="sequential", use_safetensors=True, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                         #pipe_deepfloyd.enable_model_cpu_offload()
+                        #pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
+                        #pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
+                    else:
+                        if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "text2image"):
+                            #install.set_details("...DiffusionPipeline")
+                            pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                            pipe_deepfloyd.to(torch_device)
+                            #pipe_deepfloyd.enable_model_cpu_offload()
+                            pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
+                            if prefs['enable_torch_compile']:
+                                pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
+                        #install.set_details("...encode_prompts")
+                        prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     images = pipe_deepfloyd(
                         prompt_embeds=prompt_embeds,
                         negative_prompt_embeds=negative_embeds,
@@ -22504,19 +23070,20 @@ def run_deepfloyd(page, from_list=False):
                         "safety_checker": pipe_deepfloyd.safety_checker,
                         "watermarker": pipe_deepfloyd.watermarker,
                     }
-                    del pipe_deepfloyd
-                    gc.collect()
-                    torch.cuda.empty_cache()
+                    if not deepfloyd_prefs['keep_pipelines']:
+                        del pipe_deepfloyd
+                        flush()
                     total_steps = deepfloyd_prefs['superres_num_inference_steps']
                     clear_last()
                     prt(Installing("Stage 2: Installing DeepFloyd Super Resolution Pipeline..."))
                     #IFSuperResolutionPipeline
-                    pipe_deepfloyd = DiffusionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16)
-                    if not deepfloyd_prefs['low_memory']:
-                        pipe_deepfloyd.enable_model_cpu_offload()
+                    if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "text2image":
+                        pipe_deepfloyd2 = DiffusionPipeline.from_pretrained(model_id_II, text_encoder=None, variant="fp16", torch_dtype=torch.float16)
+                        if not deepfloyd_prefs['low_memory']:
+                            pipe_deepfloyd2.enable_model_cpu_offload()
                     clear_last()
                     prt(progress)
-                    images = pipe_deepfloyd(
+                    images = pipe_deepfloyd2(
                         image=images,
                         prompt_embeds=prompt_embeds,
                         negative_prompt_embeds=negative_embeds,
@@ -22526,11 +23093,24 @@ def run_deepfloyd(page, from_list=False):
                         generator=generator,
                         callback=callback_fnc, callback_steps=1,
                     ).images
+                    status['last_deepfloyd_mode'] = "text2image"
                 elif init_img != None and mask_img == None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Image2Image Pipeline..."))
                     # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
-                    pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                    #pipe_deepfloyd.enable_model_cpu_offload()
+                    if deepfloyd_prefs['low_memory']:
+                        pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        #pipe_deepfloyd.enable_model_cpu_offload()
+                    else:
+                        if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "image2image"):
+                            #install.set_details("...DiffusionPipeline")
+                            pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                            pipe_deepfloyd.to(torch_device)
+                            #pipe_deepfloyd.enable_model_cpu_offload()
+                            pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
+                            if prefs['enable_torch_compile']:
+                                pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
+                        #install.set_details("...encode_prompts")
+                        prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     total_steps = pr['num_inference_steps']
                     clear_last()
                     prt(progress)
@@ -22550,18 +23130,20 @@ def run_deepfloyd(page, from_list=False):
                         "safety_checker": pipe_deepfloyd.safety_checker,
                         "watermarker": pipe_deepfloyd.watermarker,
                     }
-                    del pipe_deepfloyd
-                    gc.collect()
-                    torch.cuda.empty_cache()
+                    if not deepfloyd_prefs['keep_pipelines']:
+                        del pipe_deepfloyd
+                        flush()
                     total_steps = deepfloyd_prefs['superres_num_inference_steps']
                     clear_last()
                     prt(Installing("Stage 2: Installing DeepFloyd Img2Img Super Resolution Pipeline..."))
                     from diffusers import IFImg2ImgSuperResolutionPipeline
-                    pipe_deepfloyd = IFImg2ImgSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")
-                    #pipe_deepfloyd.enable_model_cpu_offload()
+                    if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "image2image":
+                        pipe_deepfloyd2 = IFImg2ImgSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")
+                        if not deepfloyd_prefs['low_memory']:
+                            pipe_deepfloyd2.enable_model_cpu_offload()
                     clear_last()
                     prt(progress)
-                    images = pipe_deepfloyd(
+                    images = pipe_deepfloyd2(
                         image=images,
                         origional_image=init_img,
                         strength=pr['image_strength'],
@@ -22573,11 +23155,24 @@ def run_deepfloyd(page, from_list=False):
                         generator=generator,
                         callback=callback_fnc, callback_steps=1,
                     ).images
+                    status['last_deepfloyd_mode'] = "image2image"
                 elif init_img != None and mask_img != None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Inpainting Pipeline..."))
                     # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
-                    pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                    pipe_deepfloyd.enable_model_cpu_offload()
+                    if deepfloyd_prefs['low_memory']:
+                        pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        pipe_deepfloyd.enable_model_cpu_offload()
+                    else:
+                        if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "inpainting"):
+                            #install.set_details("...DiffusionPipeline")
+                            pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                            pipe_deepfloyd.to(torch_device)
+                            #pipe_deepfloyd.enable_model_cpu_offload()
+                            pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
+                            if prefs['enable_torch_compile']:
+                                pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
+                        #install.set_details("...encode_prompts")
+                        prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     total_steps = pr['num_inference_steps']
                     clear_last()
                     prt(progress)
@@ -22598,18 +23193,20 @@ def run_deepfloyd(page, from_list=False):
                         "safety_checker": pipe_deepfloyd.safety_checker,
                         "watermarker": pipe_deepfloyd.watermarker,
                     }
-                    del pipe_deepfloyd
-                    gc.collect()
-                    torch.cuda.empty_cache()
+                    if not deepfloyd_prefs['keep_pipelines']:
+                        del pipe_deepfloyd
+                        flush()
                     clear_last()
                     prt(Installing("Stage 2: Installing DeepFloyd Inpainting Super Resolution Pipeline..."))
                     from diffusers import IFInpaintingSuperResolutionPipeline
-                    pipe_deepfloyd = IFInpaintingSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map=None)
-                    pipe_deepfloyd.enable_model_cpu_offload()
+                    if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "inpainting":
+                        pipe_deepfloyd2 = IFInpaintingSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map=None)
+                        if not deepfloyd_prefs['low_memory']:
+                            pipe_deepfloyd2.enable_model_cpu_offload()
                     total_steps = deepfloyd_prefs['superres_num_inference_steps']
                     clear_last()
                     prt(progress)
-                    images = pipe_deepfloyd(
+                    images = pipe_deepfloyd2(
                         image=images,
                         origional_image=init_img,
                         mask_image=mask_img,
@@ -22622,20 +23219,21 @@ def run_deepfloyd(page, from_list=False):
                         generator=generator,
                         callback=callback_fnc, callback_steps=1,
                     ).images
-                
-                del pipe_deepfloyd
-                gc.collect()
-                torch.cuda.empty_cache()
+                    status['last_deepfloyd_mode'] = "inpainting"
+                if not deepfloyd_prefs['keep_pipelines']:
+                    del pipe_deepfloyd2
+                    flush()
                 prt(Installing("Stage 3: Installing Stable Diffusion X4 Upscaler Pipeline..."))
-                pipe_deepfloyd = DiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-x4-upscaler", **safety_modules, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                pipe_deepfloyd.enable_model_cpu_offload()
+                if pipe_deepfloyd3 == None:
+                    pipe_deepfloyd3 = DiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-x4-upscaler", **safety_modules, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_deepfloyd3.enable_model_cpu_offload()
                 total_steps = deepfloyd_prefs['upscale_num_inference_steps']
                 clear_last()
                 prt(progress)
                 images = pipe_deepfloyd(prompt=pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, image=images, noise_level=100, num_inference_steps=deepfloyd_prefs['upscale_num_inference_steps'], guidance_scale=deepfloyd_prefs['upscale_guidance_scale'], generator=generator, callback=callback_fnc, callback_steps=1).images
-                del pipe_deepfloyd
-                gc.collect()
-                torch.cuda.empty_cache()
+                if not deepfloyd_prefs['keep_pipelines']:
+                    del pipe_deepfloyd3
+                    flush()
                 if deepfloyd_prefs['apply_watermark']:
                     from diffusers.pipelines.deepfloyd_if import IFWatermarker
                     watermarker = IFWatermarker.from_pretrained(model_id, subfolder="watermarker")
@@ -22646,15 +23244,12 @@ def run_deepfloyd(page, from_list=False):
                 clear_last()
                 alert_msg(page, f"ERROR: You must accept the license on the DeepFloyd model card first.", content=Text(str(e)))
                 #del pipe_deepfloyd
-                gc.collect()
-                torch.cuda.empty_cache()
+                flush()
                 return
             except Exception as e:
                 clear_last()
                 alert_msg(page, f"ERROR: Couldn't run IF-DeepFloyd on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-                #del pipe_deepfloyd
-                gc.collect()
-                torch.cuda.empty_cache()
+                clear_pipes()
                 return
         
             #clear_last()
@@ -22705,6 +23300,8 @@ def run_deepfloyd(page, from_list=False):
                         time.sleep(0.6)
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(deepfloyd_prefs["enlarge_scale"]), height=height * float(deepfloyd_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                else:
+                    time.sleep(0.8)
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
                     metadata = PngInfo()
@@ -22736,9 +23333,10 @@ def run_deepfloyd(page, from_list=False):
                     new_file = available_file(os.path.join(prefs['image_output'], deepfloyd_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
                     shutil.copy(image_path, new_file)
-                time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
                 #num += 1
+    if not deepfloyd_prefs['keep_pipelines']:
+        clear_pipes()
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -23145,21 +23743,13 @@ def run_stable_animation(page):
       progress.update()
     clear_list()
     autoscroll(True)
-    prt(Installing("Installing Stable Animation Pipeline..."))
+    prt(Installing("Installing Stable Animation Stability.ai Pipeline..."))
     #import cv2
-    #model_id = "damo-vilab/text-to-video-ms-1.7b"
-    try:
-        clear_pipes()
-        #clear_pipes('stable_animation')
-        torch.cuda.empty_cache()
-        #torch.cuda.reset_max_memory_allocated()
-        torch.cuda.reset_peak_memory_stats()
-    except Exception:
-        pass
+    #run_sp('pip install "stability_sdk[anim_ui]"', realtime=True)
     try:
         from stability_sdk import api
-    except ModuleNotFoundError:
-        run_sp("pip install stability_sdk[anim_ui]", realtime=True)
+    except Exception:
+        run_sp('pip install "stability_sdk[anim_ui]"', realtime=True) #
         from stability_sdk import api
         pass
     from tqdm import tqdm
@@ -23175,18 +23765,23 @@ def run_stable_animation(page):
     random_seed = int(stable_animation_prefs['seed']) if int(stable_animation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     width = stable_animation_prefs['width']
     height = stable_animation_prefs['height']
-    animation_prompts = stable_animation_prefs['animation_prompt'].strip()
-    try:
+    animation_prompts = stable_animation_prefs['animation_prompts']
+    '''try:
         prompts = json.loads(animation_prompts)
     except json.JSONDecodeError:
         try:
             prompts = eval(animation_prompts)
         except Exception as e:
             alert_msg(page, "Invalid JSON or Python code for animation_prompts.")
-            return
-    prompts = {int(k): v for k, v in prompts.items()}
+            return'''
+    prompts = {int(k): v for k, v in animation_prompts.items()}
     from stability_sdk.api import (ClassifierException, Context, OutOfCreditsException)
     context = Context("grpc.stability.ai:443", prefs['Stability_api_key'])
+    try:
+        balance, profile_picture = context.get_user_info()
+    except:
+        alert_msg(page, "Error getting Stability.ai User Info")
+        return
     from stability_sdk.animation import (
         AnimationArgs,
         Animator,
@@ -23255,6 +23850,8 @@ def run_stable_animation(page):
     args.video_mix_in_curve = stable_animation_prefs['video_mix_in_curve']
     args.video_flow_warp = stable_animation_prefs['video_flow_warp']
     args.fps = stable_animation_prefs['output_fps']
+    args.resume = stable_animation_prefs['resume']
+    args.resume_from = int(stable_animation_prefs['resume_from'])
     args.reverse = False
     #arg_objs = AnimationArgs(args_generation, args_animation, args_camera, args_coherence, args_color, args_depth, args_render_3d, args_inpaint, args_vid_in, args_vid_out)
     try:
@@ -23262,16 +23859,17 @@ def run_stable_animation(page):
             api_context=context,
             animation_prompts=prompts,
             negative_prompt=stable_animation_prefs['negative_prompt'],
+            negative_prompt_weight=stable_animation_prefs['negative_prompt_weight'],
             args=args,
             #out_dir=batch_output
             #negative_prompt_weight=negative_prompt_weight,
             #resume=resume,
         )
     except ClassifierException as e:
-        alert_msg(page, "Animation terminated early due to NSFW classifier.")
+        alert_msg(page, "Animation terminated early due to NSFW classifier. Sorry for the Censorship...")
         return
     except OutOfCreditsException as e:
-        alert_msg(page, f"Animation terminated early, out of credits.\n{e.details}")
+        alert_msg(page, f"Animation terminated early, out of credits. Refill them Tokens...", content=Text(f"{e.details}"))
         return
     except Exception as e:
         alert_msg(page, f"Animation terminated early due to exception:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -23281,15 +23879,15 @@ def run_stable_animation(page):
     filename = filename[:int(prefs['file_max_length'])]
     #fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
     clear_last()
-    prt(Row([Text("Generating Stable Animation from your Prompts..."), Container(content=None, expand=True), IconButton(icon=icons.CANCEL, tooltip="Abort Current Run", on_click=abort_diffusion)]))
+    prt(Row([Text(f"Generating Stable Animation from your Prompts... Available Credits: {round(balance, 1)}"), Container(content=None, expand=True), IconButton(icon=icons.CANCEL, tooltip="Abort Current Run", on_click=abort_diffusion)]))
     prt(progress)
-    autoscroll(False)
+    autoscroll(True)
     try:
       #frames = pipe_stable_animation(prompt=stable_animation_prefs['prompt'], negative_prompt=stable_animation_prefs['negative_prompt'], video_length=stable_animation_prefs['max_frames'], num_inference_steps=stable_animation_prefs['num_inference_steps'], eta=stable_animation_prefs['eta'], guidance_scale=stable_animation_prefs['guidance_scale'], motion_field_strength_x=stable_animation_prefs['motion_field_strength_x'], motion_field_strength_y=stable_animation_prefs['motion_field_strength_y'], t0=stable_animation_prefs['t0'], t1=stable_animation_prefs['t1'], generator=generator, callback=callback_fnc, callback_steps=1).images
       for num, image in enumerate(tqdm(animator.render(), initial=animator.start_frame_idx, total=args.max_frames), start=animator.start_frame_idx):
         if abort_run:
-            clear_last()
-            clear_last()
+            #clear_last()
+            #clear_last()
             prt("🛑  Aborted Current Animation Run")
             return
         callback_fnc(num)
@@ -23322,9 +23920,9 @@ def run_stable_animation(page):
             image_path = upscaled_path
             os.chdir(stable_dir)
             if stable_animation_prefs['display_upscaled_image']:
-                time.sleep(0.2)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(stable_animation_prefs["enlarge_scale"]), height=height * float(stable_animation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                time.sleep(0.2)
         if prefs['save_image_metadata']:
             img = PILImage.open(image_path)
             metadata = PngInfo()
@@ -23368,8 +23966,16 @@ def run_stable_animation(page):
     save_path = os.path.join(prefs['image_output'], stable_animation_prefs['batch_folder_name'])
     #filename = f"{prefs['file_prefix']}{format_filename(prompts[0])}"
     #filename = filename[:int(prefs['file_max_length'])]
-    autoscroll(True)
-    
+    #autoscroll(True)
+    progress = Container(content=None)
+    try:
+        new_balance, profile_picture = context.get_user_info()
+    except:
+        alert_msg(page, "Error getting User Info")
+        return
+    used_balance = balance - new_balance
+    cost = f"${round(used_balance * 0.01, 2)}"
+    prt(f"🫰  Done Generating Animation... Used {round(used_balance, 2)} Credits Total ~ {cost}")
     if stable_animation_prefs['export_to_video']:
         prt("Exporting Frames to Video")
         #from diffusers.utils import export_to_video
@@ -23380,6 +23986,11 @@ def run_stable_animation(page):
         #imageio.mimsave(local_file, frames, fps=4)
         #shutil.copy(local_file, save_file)
         clear_last()
+        try:
+            prt(VideoPlayer(save_file, width, height))
+        except Exception as e:
+            print(f"Error showing VideoPlayer: {e}")
+            pass
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
     
@@ -23417,24 +24028,24 @@ def run_materialdiffusion(page):
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
     autoscroll(True)
-    try:
-      run_sp("pip install git+https://github.com/TomMoore515/material_stable_diffusion.git@main#egg=predict", realtime=True)
+    '''try:
+      run_sp("pip install git+https://github.com/TomMoore515/material_stable_diffusion.git@main#egg=predict", realtime=False)
     except Exception as e:
         print(f"Error: {e}")
         #alert_msg(page, f"Error installing Material Diffusion from TomMoore515...", content=Text(str(e)))
-        pass
+        pass'''
     prt(Installing("Installing Replicate Material Diffusion Pipeline..."))
     try:
         import replicate
     except ModuleNotFoundError as e:
-        run_process("pip install replicate -qq", realtime=True)
+        run_process("pip install replicate -qq", realtime=False)
         import replicate
         pass
     os.environ["REPLICATE_API_TOKEN"] = prefs['Replicate_api_key']
     #export REPLICATE_API_TOKEN=
     try:
-        model = replicate.models.get("tommoore515/material_stable_diffusion")
-        version = model.versions.get("3b5c0242f8925a4ab6c79b4c51e9b4ce6374e9b07b5e8461d89e692fd0faa449")
+        rep_model = replicate.models.get("tommoore515/material_stable_diffusion")
+        rep_version = rep_model.versions.get("3b5c0242f8925a4ab6c79b4c51e9b4ce6374e9b07b5e8461d89e692fd0faa449")
     except Exception as e:
         alert_msg(page, f"Seems like your Replicate API Token is Invalid. Check it again...", content=Text(str(e)))
         return
@@ -23476,16 +24087,23 @@ def run_materialdiffusion(page):
     prt(progress)
     autoscroll(False)
     random_seed = int(materialdiffusion_prefs['seed']) if int(materialdiffusion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    #input = {'prompt':materialdiffusion_prefs['material_prompt'], 'width':materialdiffusion_prefs['width'], 'height':materialdiffusion_prefs['height'], 'init_image':init_img, 'mask':mask_img, 'prompt_strength':materialdiffusion_prefs['prompt_strength'], 'num_outputs':materialdiffusion_prefs['num_outputs'], 'num_inference_steps':materialdiffusion_prefs['steps'], 'guidance_scale':materialdiffusion_prefs['guidance_scale'], 'seed':random_seed}
     try:
-        images = version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], init_image=init_img, mask=mask_img, prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
+        if bool(init_img) and bool(mask_img):
+            images = rep_version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], init_image=init_img, mask=mask_img, prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
+        elif bool(init_img):
+            images = rep_version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], init_image=init_img, prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
+            #images = version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], init_image=init_img if bool(init_img) else "", mask=mask_img if bool(mask_img) else "", prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
+        else:
+            images = rep_version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
     except Exception as e:
         clear_last()
         clear_last()
         alert_msg(page, f"ERROR: Couldn't create your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
         return
-    clear_last()
-    clear_last()
     autoscroll(True)
+    clear_last()
+    clear_last()
     txt2img_output = stable_dir
     batch_output = prefs['image_output']
     #print(str(images))
@@ -23513,15 +24131,15 @@ def run_materialdiffusion(page):
             #prt(Row([Img(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([ImageButton(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], page=page)], alignment=MainAxisAlignment.CENTER))
 
-        if save_to_GDrive:
-            batch_output = os.path.join(prefs['image_output'], materialdiffusion_prefs['batch_folder_name'])
-            if not os.path.exists(batch_output):
-                os.makedirs(batch_output)
-        elif storage_type == "PyDrive Google Drive":
+        #if save_to_GDrive:
+        batch_output = os.path.join(prefs['image_output'], materialdiffusion_prefs['batch_folder_name'])
+        if not os.path.exists(batch_output):
+            os.makedirs(batch_output)
+        if storage_type == "PyDrive Google Drive":
             newFolder = gdrive.CreateFile({'title': materialdiffusion_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
             newFolder.Upload()
             batch_output = newFolder
-        out_path = batch_output if save_to_GDrive else txt2img_output
+        out_path = batch_output# if save_to_GDrive else txt2img_output
         
         if materialdiffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
@@ -23553,9 +24171,12 @@ def run_materialdiffusion(page):
                 time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
-            shutil.copy(image_path, os.path.join(out_path, new_file))
+            try:
+              shutil.copy(image_path, os.path.join(out_path, new_file))
+            except shutil.SameFileError: pass
         # TODO: Add Metadata
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+    del rep_model, rep_version
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -23969,8 +24590,7 @@ def run_point_e(page):
     #    print(file.name)
     #https://colab.research.google.com/drive/1Ok3ye2xWsuYOcmbAU3INN7AHy5gvvq5m
     del point_sampler
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     point_sampler = None
     clear_last()
     clear_last()
@@ -24155,8 +24775,7 @@ def run_shap_e(page):
     del shap_e_model
     del diffusion
     del latents
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     clear_last(update=False)
     clear_last(update=False)
     prt(ImageButton(src=gif_file, width=shap_e_prefs['size'], height=shap_e_prefs['size'], data=gif_file, subtitle=pc_file, page=page))
@@ -25008,8 +25627,7 @@ def run_deep_daze(page):
     prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     
     del pipe_deep_daze
-    gc.collect()
-    torch.cuda.empty_cache()
+    flush()
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -25460,6 +26078,44 @@ class Installing(UserControl):
         self.details.value = msg
         self.details.update()
 
+class VideoPlayer(UserControl):
+    def __init__(self, video_file="", width=500, height=500):
+        super().__init__()
+        self.video_file = video_file
+        self.width = width
+        self.height = height
+        self.build()
+    def build(self):
+        import cv2
+        import threading
+        import time
+        import base64
+        cap = cv2.VideoCapture(self.video_file)
+        b64_string = None         
+        image_box = ft.Image(src_base64=b64_string, width=self.width, height=self.height)
+        video_container = ft.Container(image_box, alignment=ft.alignment.center, expand=True)
+        def update_images():
+            while(cap.isOpened()):
+                # Capture frame-by-frame
+                ret, frame = cap.read()
+                if ret == True:
+                    # encode the resulting frame
+                    jpg_img = cv2.imencode('.jpg', frame)
+                    b64_string = base64.b64encode(jpg_img[1]).decode('utf-8')
+                    image_box.src_base64 = b64_string
+                    self.page.update()
+                else:
+                    break
+                time.sleep(1/115)
+            # when video is finished
+            #self.video_container.content.clean()
+            #self.video_container.content = ft.Text("Video Ended", size=20)
+            self.page.update()
+        update_image_thread = threading.Thread(target=update_images)
+        update_image_thread.daemon = True
+        update_image_thread.start()
+        return video_container
+
 ''' Sample alt Object format
 class Component(UserControl):
     def __init__(self):
@@ -25506,11 +26162,13 @@ elif tunnel_type == "localtunnel":
 else: public_url=""
 from IPython.display import Javascript
 if bool(public_url):
+    import urllib
     if auto_launch_website:
         display(Javascript('window.open("{url}");'.format(url=public_url)))
         time.sleep(0.7)
         clear_output()
     print("\nOpen URL in browser to launch app in tab: " + str(public_url))
+    print("Password/Enpoint IP for localtunnel is:",urllib.request.urlopen('https://ipv4.icanhazip.com').read().decode('utf8').strip("\n"))
 def close_tab():
   display(Javascript("window.close('', '_parent', '');"))
 #await google.colab.kernel.proxyPort(%s)
