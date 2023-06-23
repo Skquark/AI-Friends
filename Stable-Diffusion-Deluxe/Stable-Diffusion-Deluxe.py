@@ -179,7 +179,7 @@ if not is_Colab:
         slash = '\\'
 else:
     image_output = '/content/drive/MyDrive/AI/Stable_Diffusion/images_out'
-saved_settings_json = f'.{slash}sdd-settings.json'
+saved_settings_json = os.path.join(root_dir, "sdd-settings.json")
 favicon = os.path.join(root_dir, "favicon.png")
 assets = os.path.join(root_dir, "assets")
 if not os.path.isfile(favicon):
@@ -584,6 +584,8 @@ def buildStableDiffusers(page):
     page.unCLIP_ImageInterpolation = buildUnCLIP_ImageInterpolation(page)
     page.UnCLIP_ImageVariation = buildUnCLIP_ImageVariation(page)
     page.Reference = buildReference(page)
+    page.ControlNetQR = buildControlNetQR(page)
+    page.ControlNetSegmentAnything = buildControlNetSegmentAnything(page)
     page.EDICT = buildEDICT(page)
     page.DiffEdit = buildDiffEdit(page)
     page.ImageVariation = buildImageVariation(page)
@@ -619,6 +621,8 @@ def buildStableDiffusers(page):
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="Reference", content=page.Reference, icon=icons.CRISIS_ALERT),
+            Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
+            Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
             Tab(text="EDICT Edit", content=page.EDICT, icon=icons.AUTO_AWESOME),
             Tab(text="DiffEdit", content=page.DiffEdit, icon=icons.AUTO_GRAPH),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
@@ -1071,7 +1075,7 @@ def buildInstallers(page):
       diffusers_settings.height=None if prefs['install_diffusers'] else 0
       diffusers_settings.update()
       status['changed_installers'] = True
-  install_diffusers = Tooltip(message="Required Libraries for most Image Generation functionality", content=Switch(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_diffusers))
+  install_diffusers = Switcher(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], on_change=toggle_diffusers, tooltip="Required Libraries for most Image Generation functionality")
   def change_scheduler(e):
       show = e.control.value == "DDIM"
       update = prefs['scheduler_mode'] == "DDIM" or show
@@ -1175,30 +1179,30 @@ def buildInstallers(page):
   enable_vae_slicing = Checkbox(label="Enable VAE Slicing", tooltip="Sliced VAE decode latents for larger batches of images with limited VRAM. Splits the input tensor in slices to compute decoding in several steps", value=prefs['vae_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_slicing'))
   enable_tome = Checkbox(label="Enable Token Merging", tooltip="ToMe optimizes the Pipelines to create images faster, at the expense of some quality. Works by merging the redundant tokens / patches progressively in the forward pass of a Transformer-based network.", value=prefs['enable_tome'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_tome'))
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
-  #install_megapipe = Switch(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
-  install_text2img = Tooltip(message="The best general purpose component. Create images with long prompts, weights & models", content=Switch(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_text2img')))
-  install_img2img = Tooltip(message="Gets more coherant results modifying Inpaint init & mask images", content=Switch(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_img2img')))
-  #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switch(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
-  install_interpolation = Tooltip(message="Create multiple tween images between prompts latent space. Almost animation.", content=Switch(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation')))
-  #install_dreamfusion = Tooltip(message="Generate interesting mesh .obj, texture and preview video from a prompt.", content=Switch(label="Install Stable Diffusion DreamFusion 3D Pipeline", value=prefs['install_dreamfusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_dreamfusion'], on_change=lambda e:changed(e, 'install_dreamfusion')))
-  install_alt_diffusion = Tooltip(message="Multilingual Stable Diffusion supporting English, Chinese, Spanish, French, Russian, Japanese, Korean, Arabic and Italian.", content=Switch(label="Install AltDiffusion text2image & image2image Multilingual Pipeline", value=prefs['install_alt_diffusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_alt_diffusion'], on_change=lambda e:changed(e, 'install_alt_diffusion')))
-  install_attend_and_excite = Tooltip(message="Provides textual Attention-Based Semantic Guidance control over the image generation.", content=Switch(label="Install Attend and Excite text2image Pipeline", value=prefs['install_attend_and_excite'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_attend_and_excite'], on_change=lambda e:changed(e, 'install_attend_and_excite')))
-  install_SAG = Tooltip(message="Intelligent guidance that can plugged into any diffusion model using their self-attention map, improving sample quality.", content=Switch(label="Install Self-Attention Guidance (SAG) text2image Pipeline", value=prefs['install_SAG'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_SAG'], on_change=lambda e:changed(e, 'install_SAG')))
-  install_panorama = Tooltip(message="Generate panorama-like wide images, Fusing Diffusion Paths for Controlled Image Generation", content=Switch(label="Install MultiDiffusion Panorama text2image Pipeline", value=prefs['install_panorama'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_panorama'], on_change=lambda e:changed(e, 'install_panorama')))
-  install_imagic = Tooltip(message="Edit your image according to the prompted instructions like magic.", content=Switch(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic')))
-  install_depth2img = Tooltip(message="Uses Depth-map of init image for text-guided image to image generation.", content=Switch(label="Install Stable Diffusion Depth2Image Pipeline", value=prefs['install_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_depth2img'], on_change=lambda e:changed(e, 'install_depth2img')))
-  install_composable = Tooltip(message="Craft your prompts with | precise | weights AND composed together components | with AND NOT negatives.", content=Switch(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable')))
-  install_safe = Tooltip(message="Use a content quality tuned safety model, providing levels of NSFW protection.", content=Switch(label="Install Stable Diffusion Safe text2image Pipeline", value=prefs['install_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_safe'], on_change=toggle_safe))
+  #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
+  install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
+  install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
+  #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
+  install_interpolation = Switcher(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'), tooltip="Create multiple tween images between prompts latent space. Almost animation.")
+  #install_dreamfusion = Tooltip(message="Generate interesting mesh .obj, texture and preview video from a prompt.", content=Switcher(label="Install Stable Diffusion DreamFusion 3D Pipeline", value=prefs['install_dreamfusion'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_dreamfusion'], on_change=lambda e:changed(e, 'install_dreamfusion')))
+  install_alt_diffusion = Switcher(label="Install AltDiffusion text2image & image2image Multilingual Pipeline", value=prefs['install_alt_diffusion'], disabled=status['installed_alt_diffusion'], on_change=lambda e:changed(e, 'install_alt_diffusion'), tooltip="Multilingual Stable Diffusion supporting English, Chinese, Spanish, French, Russian, Japanese, Korean, Arabic and Italian.")
+  install_attend_and_excite = Switcher(label="Install Attend and Excite text2image Pipeline", value=prefs['install_attend_and_excite'], disabled=status['installed_attend_and_excite'], on_change=lambda e:changed(e, 'install_attend_and_excite'), tooltip="Provides textual Attention-Based Semantic Guidance control over the image generation.")
+  install_SAG = Switcher(label="Install Self-Attention Guidance (SAG) text2image Pipeline", value=prefs['install_SAG'], disabled=status['installed_SAG'], on_change=lambda e:changed(e, 'install_SAG'), tooltip="Intelligent guidance that can plugged into any diffusion model using their self-attention map, improving sample quality.")
+  install_panorama = Switcher(label="Install MultiDiffusion Panorama text2image Pipeline", value=prefs['install_panorama'], disabled=status['installed_panorama'], on_change=lambda e:changed(e, 'install_panorama'), tooltip="Generate panorama-like wide images, Fusing Diffusion Paths for Controlled Image Generation")
+  install_imagic = Switcher(label="Install Stable Diffusion iMagic image2image Pipeline", value=prefs['install_imagic'], disabled=status['installed_imagic'], on_change=lambda e:changed(e, 'install_imagic'), tooltip="Edit your image according to the prompted instructions like magic.")
+  install_depth2img = Switcher(label="Install Stable Diffusion Depth2Image Pipeline", value=prefs['install_depth2img'], disabled=status['installed_depth2img'], on_change=lambda e:changed(e, 'install_depth2img'), tooltip="Uses Depth-map of init image for text-guided image to image generation.")
+  install_composable = Switcher(label="Install Stable Diffusion Composable text2image Pipeline", value=prefs['install_composable'], disabled=status['installed_composable'], on_change=lambda e:changed(e, 'install_composable'), tooltip="Craft your prompts with | precise | weights AND composed together components | with AND NOT negatives.")
+  install_safe = Switcher(label="Install Stable Diffusion Safe text2image Pipeline", value=prefs['install_safe'], disabled=status['installed_safe'], on_change=toggle_safe, tooltip="Use a content quality tuned safety model, providing levels of NSFW protection.")
   safety_config = Container(Dropdown(label="Model Safety Level", width=350, options=[dropdown.Option("Weak"), dropdown.Option("Medium"), dropdown.Option("Strong"), dropdown.Option("Max")], value=prefs['safety_config'], on_change=lambda e:changed(e, 'safety_config')), padding=padding.only(left=32))
   safety_config.visible = prefs['install_safe']
-  install_versatile = Tooltip(message="Multi-flow model that provides both image and text data streams and conditioned on both text and image.", content=Switch(label="Install Versatile Diffusion text2image, Dual Guided & Image Variation Pipeline", value=prefs['install_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_versatile'], on_change=lambda e:changed(e, 'install_versatile')))
+  install_versatile = Switcher(label="Install Versatile Diffusion text2image, Dual Guided & Image Variation Pipeline", value=prefs['install_versatile'], disabled=status['installed_versatile'], on_change=lambda e:changed(e, 'install_versatile'), tooltip="Multi-flow model that provides both image and text data streams and conditioned on both text and image.")
 
   def toggle_clip(e):
       prefs['install_CLIP_guided'] = install_CLIP_guided.content.value
       status['changed_installers'] = True
       clip_settings.height=None if prefs['install_CLIP_guided'] else 0
       clip_settings.update()
-  install_CLIP_guided = Tooltip(message="Uses alternative LAION & OpenAI ViT diffusion. Takes more VRAM, so may need to make images smaller", content=Switch(label="Install Stable Diffusion CLIP-Guided Pipeline", value=prefs['install_CLIP_guided'], disabled=status['installed_clip'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
+  install_CLIP_guided = Switcher(label="Install Stable Diffusion CLIP-Guided Pipeline", value=prefs['install_CLIP_guided'], disabled=status['installed_clip'], on_change=toggle_clip, tooltip="Uses alternative LAION & OpenAI ViT diffusion. Takes more VRAM, so may need to make images smaller")
   clip_model_id = Dropdown(label="CLIP Model ID", width=350,
             options=[
                 dropdown.Option("laion/CLIP-ViT-B-32-laion2B-s34B-b79K"),
@@ -1230,7 +1234,7 @@ def buildInstallers(page):
       page.snack_bar = SnackBar(content=Text(f"📋  Token <{concept['token']}> copied to clipboard... Paste as word in your Prompt Text."))
       page.snack_bar.open = True
       page.update()
-  install_conceptualizer = Tooltip(message="Loads specially trained concept models to include in prompt with token", content=Switch(label="Install Stable Diffusion Textual-Inversion Conceptualizer Pipeline", value=prefs['install_conceptualizer'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_conceptualizer))
+  install_conceptualizer = Switcher(label="Install Stable Diffusion Textual-Inversion Conceptualizer Pipeline", value=prefs['install_conceptualizer'], on_change=toggle_conceptualizer, tooltip="Loads specially trained concept models to include in prompt with token")
   concept = get_concept(prefs['concepts_model'])
   concepts_model = Dropdown(label="SD-Concepts Library Model", hint_text="Specially trained community models made with Textual-Inversion", width=451, options=[], value=prefs['concepts_model'], on_change=change_concepts_model)
   copy_token_btn = IconButton(icon=icons.CONTENT_COPY, tooltip="Copy Token to Clipboard", on_click=copy_token)
@@ -1239,7 +1243,7 @@ def buildInstallers(page):
   conceptualizer_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=5), content=Column([concepts_row, concepts_info]))
   conceptualizer_settings.height = None if prefs['install_conceptualizer'] else 0
   for c in concepts: concepts_model.options.append(dropdown.Option(c['name']))
-  install_upscale = Tooltip(message="Allows you to enlarge images with prompts. Note: Will run out of mem for images larger than 512px, start small.", content=Switch(label="Install Stable Diffusion v2 Upscale 4X Pipeline", value=prefs['install_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, disabled=status['installed_upscale'], on_change=lambda e:changed(e, 'install_upscale')))
+  install_upscale = Switcher(label="Install Stable Diffusion v2 Upscale 4X Pipeline", value=prefs['install_upscale'], disabled=status['installed_upscale'], on_change=lambda e:changed(e, 'install_upscale'), tooltip="Allows you to enlarge images with prompts. Note: Will run out of mem for images larger than 512px, start small.")
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
                                  Column([Container(Column([Container(None, height=3), model_row, Container(content=None, height=4), scheduler_mode,
@@ -1259,7 +1263,7 @@ def buildInstallers(page):
       stability_settings.height=None if prefs['install_Stability_api'] else 0
       stability_settings.update()
       page.update()
-  install_Stability_api = Tooltip(message="Use DreamStudio.com servers without your GPU to create images on CPU.", content=Switch(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_stability))
+  install_Stability_api = Switcher(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], on_change=toggle_stability, tooltip="Use DreamStudio.com servers without your GPU to create images on CPU.")
   use_Stability_api = Checkbox(label="Use Stability-ai API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
   model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
   clip_guidance_preset = Dropdown(label="Clip Guidance Preset", width=350, options=[dropdown.Option("SIMPLE"), dropdown.Option("FAST_BLUE"), dropdown.Option("FAST_GREEN"), dropdown.Option("SLOW"), dropdown.Option("SLOWER"), dropdown.Option("SLOWEST"), dropdown.Option("NONE")], value=prefs['clip_guidance_preset'], autofocus=False, on_change=lambda e:changed(e, 'clip_guidance_preset'))
@@ -1273,7 +1277,7 @@ def buildInstallers(page):
       AIHorde_settings.height=None if prefs['install_AIHorde_api'] else 0
       AIHorde_settings.update()
       page.update()
-  install_AIHorde = Tooltip(message="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.", content=Switch(label="Install AIHorde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'],active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_AIHorde))
+  install_AIHorde = Switcher(label="Install AIHorde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'], on_change=toggle_AIHorde, tooltip="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.")
   use_AIHorde = Checkbox(label="Use Stable Horde API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_AIHorde_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_AIHorde_api'))
   AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("3DKX"), dropdown.Option("Abyss OrangeMix"), dropdown.Option("AbyssOrangeMix-AfterDark"), dropdown.Option("ACertainThing"), dropdown.Option("AIO Pixel Art"), dropdown.Option("Analog Diffusion"), dropdown.Option("Anime Pencil Diffusion"), dropdown.Option("Anygen"), dropdown.Option("Anything Diffusion"), dropdown.Option("Anything v3"), dropdown.Option("App Icon Diffusion"), dropdown.Option("Arcane Diffusion"), dropdown.Option("Archer Diffusion"), dropdown.Option("Asim Simpsons"), dropdown.Option("A to Zovya RPG"), dropdown.Option("Balloon Art"), dropdown.Option("Borderlands"), dropdown.Option("BPModel"), dropdown.Option("BubblyDubbly"), dropdown.Option("Char"), dropdown.Option("CharHelper"), dropdown.Option("Cheese Daddys Landscape Mix"), dropdown.Option("ChilloutMix"), dropdown.Option("ChromaV5"), dropdown.Option("Classic Animation Diffusion"), dropdown.Option("Clazy"), dropdown.Option("Colorful"), dropdown.Option("Coloring Book"), dropdown.Option("Comic-Diffusion"), dropdown.Option("Concept Sheet"), dropdown.Option("Counterfeit"), dropdown.Option("Cyberpunk Anime Diffusion"), dropdown.Option("CyriousMix"), dropdown.Option("Dan Mumford Style"), dropdown.Option("Darkest Diffusion"), dropdown.Option("Dark Victorian Diffusion"), dropdown.Option("Deliberate"), dropdown.Option("DGSpitzer Art Diffusion"), dropdown.Option("Disco Elysium"), dropdown.Option("DnD Item"), dropdown.Option("Double Exposure Diffusion"), dropdown.Option("Dreamlike Diffusion"), dropdown.Option("Dreamlike Photoreal"), dropdown.Option("DreamLikeSamKuvshinov"), dropdown.Option("Dreamshaper"), dropdown.Option("DucHaiten"), dropdown.Option("DucHaiten Classic Anime"), dropdown.Option("Dungeons and Diffusion"), dropdown.Option("Dungeons n Waifus"), dropdown.Option("Eimis Anime Diffusion"), dropdown.Option("Elden Ring Diffusion"), dropdown.Option("Elldreth's Lucid Mix"), dropdown.Option("Elldreths Retro Mix"), dropdown.Option("Epic Diffusion"), dropdown.Option("Eternos"), dropdown.Option("Experience"), dropdown.Option("ExpMix Line"), dropdown.Option("FaeTastic"), dropdown.Option("Fantasy Card Diffusion"), dropdown.Option("FKing SciFi"), dropdown.Option("Funko Diffusion"), dropdown.Option("Furry Epoch"), dropdown.Option("Future Diffusion"), dropdown.Option("Ghibli Diffusion"), dropdown.Option("GorynichMix"), dropdown.Option("Grapefruit Hentai"), dropdown.Option("Graphic-Art"), dropdown.Option("GTA5 Artwork Diffusion"), dropdown.Option("GuoFeng"), dropdown.Option("Guohua Diffusion"), dropdown.Option("HASDX"), dropdown.Option("Hassanblend"), dropdown.Option("Healy's Anime Blend"), dropdown.Option("Hentai Diffusion"), dropdown.Option("HRL"), dropdown.Option("iCoMix"), dropdown.Option("Illuminati Diffusion"), dropdown.Option("Inkpunk Diffusion"), dropdown.Option("Jim Eidomode"), dropdown.Option("JWST Deep Space Diffusion"), dropdown.Option("Kenshi"), dropdown.Option("Knollingcase"), dropdown.Option("Korestyle"), dropdown.Option("kurzgesagt"), dropdown.Option("Laolei New Berry Protogen Mix"), dropdown.Option("Lawlas's yiff mix"), dropdown.Option("Liberty"), dropdown.Option("Marvel Diffusion"), dropdown.Option("Mega Merge Diffusion"), dropdown.Option("Microcasing"), dropdown.Option("Microchars"), dropdown.Option("Microcritters"), dropdown.Option("Microscopic"), dropdown.Option("Microworlds"), dropdown.Option("Midjourney Diffusion"), dropdown.Option("Midjourney PaintArt"), dropdown.Option("Min Illust Background"), dropdown.Option("ModernArt Diffusion"), dropdown.Option("mo-di-diffusion"), dropdown.Option("Moedel"), dropdown.Option("MoistMix"), dropdown.Option("Movie Diffusion"), dropdown.Option("NeverEnding Dream"), dropdown.Option("Nitro Diffusion"), dropdown.Option("Openniji"), dropdown.Option("OrbAI"), dropdown.Option("Papercutcraft"), dropdown.Option("Papercut Diffusion"), dropdown.Option("Pastel Mix"), dropdown.Option("Perfect World"), dropdown.Option("PFG"), dropdown.Option("pix2pix"), dropdown.Option("PIXHELL"), dropdown.Option("Poison"), dropdown.Option("Pokemon3D"), dropdown.Option("PortraitPlus"), dropdown.Option("PPP"), dropdown.Option("Pretty 2.5D"), dropdown.Option("PRMJ"), dropdown.Option("Project Unreal Engine 5"), dropdown.Option("ProtoGen"), dropdown.Option("Protogen Anime"), dropdown.Option("Protogen Infinity"), dropdown.Option("Pulp Vector Art"), dropdown.Option("PVC"), dropdown.Option("Rachel Walker Watercolors"), dropdown.Option("Rainbowpatch"), dropdown.Option("Ranma Diffusion"), dropdown.Option("RCNZ Dumb Monkey"), dropdown.Option("RCNZ Gorilla With A Brick"), dropdown.Option("RealBiter"), dropdown.Option("Realism Engine"), dropdown.Option("Realistic Vision"), dropdown.Option("Redshift Diffusion"), dropdown.Option("Rev Animated"), dropdown.Option("Robo-Diffusion"), dropdown.Option("Rodent Diffusion"), dropdown.Option("RPG"), dropdown.Option("Samdoesarts Ultmerge"), dropdown.Option("Sci-Fi Diffusion"), dropdown.Option("SD-Silicon"), dropdown.Option("Seek.art MEGA"), dropdown.Option("Smoke Diffusion"), dropdown.Option("Something"), dropdown.Option("Sonic Diffusion"), dropdown.Option("Spider-Verse Diffusion"), dropdown.Option("Squishmallow Diffusion"), dropdown.Option("stable_diffusion"), dropdown.Option("stable_diffusion_2.1"), dropdown.Option("stable_diffusion_inpainting"), dropdown.Option("Supermarionation"), dropdown.Option("Sygil-Dev Diffusion"), dropdown.Option("Synthwave"), dropdown.Option("SynthwavePunk"), dropdown.Option("TrexMix"), dropdown.Option("trinart"), dropdown.Option("Trinart Characters"), dropdown.Option("Tron Legacy Diffusion"), dropdown.Option("T-Shirt Diffusion"), dropdown.Option("T-Shirt Print Designs"), dropdown.Option("Uhmami"), dropdown.Option("Ultraskin"), dropdown.Option("UMI Olympus"), dropdown.Option("Unstable Ink Dream"), dropdown.Option("URPM"), dropdown.Option("Valorant Diffusion"), dropdown.Option("Van Gogh Diffusion"), dropdown.Option("Vector Art"), dropdown.Option("vectorartz"), dropdown.Option("Vintedois Diffusion"), dropdown.Option("VinteProtogenMix"), dropdown.Option("Vivid Watercolors"), dropdown.Option("Voxel Art Diffusion"), dropdown.Option("waifu_diffusion"), dropdown.Option("Wavyfusion"), dropdown.Option("Woop-Woop Photo"), dropdown.Option("Xynthii-Diffusion"), dropdown.Option("Yiffy"), dropdown.Option("Zack3D"), dropdown.Option("Zeipher Female Model"), dropdown.Option("Zelda BOTW")], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
   AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
@@ -1281,9 +1285,9 @@ def buildInstallers(page):
   AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, AIHorde_model, AIHorde_sampler, AIHorde_post_processing]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
 
-  install_ESRGAN = Tooltip(message="Recommended to enlarge & sharpen all images as they're made.", content=Switch(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_ESRGAN')))
-  install_OpenAI = Tooltip(message="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.", content=Switch(label="Install OpenAI GPT-3 Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_OpenAI')))
-  install_TextSynth = Tooltip(message="Alternative Text AI for brainstorming & rewriting your prompts. Pretty smart..", content=Switch(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_TextSynth')))
+  install_ESRGAN = Switcher(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], on_change=lambda e:changed(e, 'install_ESRGAN'), tooltip="Recommended to enlarge & sharpen all images as they're made.")
+  install_OpenAI = Switcher(label="Install OpenAI GPT-3 Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], on_change=lambda e:changed(e, 'install_OpenAI'), tooltip="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.")
+  install_TextSynth = Switcher(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], on_change=lambda e:changed(e, 'install_TextSynth'), tooltip="Alternative Text AI for brainstorming & rewriting your prompts. Pretty smart..")
   diffusers_settings.height = None if prefs['install_diffusers'] else 0
   stability_settings.height = None if prefs['install_Stability_api'] else 0
   clip_settings.height = None if prefs['install_CLIP_guided'] else 0
@@ -1497,6 +1501,8 @@ def buildInstallers(page):
         page.ESRGAN_block_paint_by_example.height = None
         page.ESRGAN_block_instruct_pix2pix.height = None
         page.ESRGAN_block_controlnet.height = None
+        page.ESRGAN_block_controlnet_qr.height = None
+        page.ESRGAN_block_controlnet_segment.height = None
         page.ESRGAN_block_styler.height = None
         page.ESRGAN_block_deep_daze.height = None
         page.ESRGAN_block_DiT.height = None
@@ -1523,6 +1529,8 @@ def buildInstallers(page):
         page.ESRGAN_block_paint_by_example.update()
         page.ESRGAN_block_instruct_pix2pix.update()
         page.ESRGAN_block_controlnet.update()
+        page.ESRGAN_block_controlnet_qr.update()
+        page.ESRGAN_block_controlnet_segment.update()
         page.ESRGAN_block_styler.update()
         page.ESRGAN_block_deep_daze.update()
         page.ESRGAN_block_DiT.update()
@@ -1838,13 +1846,13 @@ def buildParameters(page):
   init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=prefs['init_image_strength'], on_change=change_strength, expand=True)
   strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight=FontWeight.BOLD)
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
-  page.use_inpaint_model = Tooltip(message="When using init_image and/or mask, use the newer pipeline for potentially better results", content=Switch(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_inpaint_model', apply=False)))
+  page.use_inpaint_model = Switcher(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], on_change=lambda e:changed(e,'use_inpaint_model', apply=False))
   page.use_inpaint_model.visible = status['installed_img2img']
-  page.use_alt_diffusion = Tooltip(message="Supports 9 different languages for text2image & image2image", content=Switch(label="Use AltDiffusion Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile', apply=False)))
+  page.use_alt_diffusion = Switcher(label="Use AltDiffusion Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Supports 9 different languages for text2image & image2image")
   page.use_alt_diffusion.visible = status['installed_alt_diffusion']
-  page.use_versatile = Tooltip(message="Dual Guided between prompt & image, or create Image Variation", content=Switch(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_versatile', apply=False)))
+  page.use_versatile = Switcher(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Dual Guided between prompt & image, or create Image Variation.")
   page.use_versatile.visible = status['installed_versatile']
-  use_LoRA_model = Tooltip(message="Applies custom trained weighted attention model on top of loaded model", content=Switch(label="Use LoRA Model Adapter Layer ", value=prefs['use_LoRA_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_LoRA))
+  use_LoRA_model = Switcher(label="Use LoRA Model Adapter Layer ", value=prefs['use_LoRA_model'], on_change=toggle_LoRA, tooltip="Applies custom trained weighted attention model on top of loaded model")
   page.LoRA_model = Dropdown(label="LoRA Model Weights", width=200, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
   if len(prefs['custom_LoRA_models']) > 0:
     for l in prefs['custom_LoRA_models']:
@@ -1857,8 +1865,8 @@ def buildParameters(page):
   custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
   LoRA_block = Container(Row([page.LoRA_model, custom_LoRA_model]), padding=padding.only(top=3), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   LoRA_block.width = None if prefs['use_LoRA_model'] else 0
-  centipede_prompts_as_init_images = Tooltip(message="Feeds each image to the next prompt sequentially down the line", content=Switch(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_centipede))
-  use_interpolation = Tooltip(message="Creates animation frames transitioning, but it's not always perfect.", content=Switch(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_interpolation))
+  centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
+  use_interpolation = Switcher(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
   interpolation_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['num_interpolation_steps'], on_change=change_interpolation_steps, expand=True)
   interpolation_steps_value = Text(f" {int(prefs['num_interpolation_steps'])} steps", weight=FontWeight.BOLD)
   interpolation_steps_slider = Container(Row([Text(f"Number of Interpolation Steps between Prompts: "), interpolation_steps_value, interpolation_steps]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -1871,7 +1879,7 @@ def buildParameters(page):
     page.interpolation_block.visible = False
   elif bool(prefs['use_interpolation']):
     page.img_block.height = 0
-  use_SAG = Tooltip(message="Can drastically boost the performance and quality. Extracts the intermediate attention map from a diffusion model at every iteration and selects tokens above a certain attention score for masking and blurring to obtain a partially blurred input.", content=Switch(label="Use Self-Attention Guidance (SAG) Text-to-Image", value=prefs['use_SAG'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_SAG))
+  use_SAG = Switcher(label="Use Self-Attention Guidance (SAG) Text-to-Image", value=prefs['use_SAG'], on_change=toggle_SAG, tooltip="Can drastically boost the performance and quality. Extracts the intermediate attention map from a diffusion model at every iteration and selects tokens above a certain attention score for masking and blurring to obtain a partially blurred input.")
   sag_scale = Slider(min=0, max=1, divisions=20, label="{value}", value=prefs['sag_scale'], tooltip="How much Self-Attention Guidance to apply.", on_change=change_sag_scale, expand=True)
   sag_scale_value = Text(f" {float(prefs['sag_scale'])}", weight=FontWeight.BOLD)
   sag_scale_slider = Container(Row([Text(f"SAG Scale: "),sag_scale_value, sag_scale]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -1880,7 +1888,7 @@ def buildParameters(page):
     sag_scale_slider.height = 0
   if not status['installed_SAG']:
     page.use_SAG.visible = False
-  use_attend_and_excite = Tooltip(message="To use, include plus signs before subject words in prompt to indicate token indices, like 'a +cat and a +frog'.", content=Switch(label="Use Attend and Excite", value=prefs['use_attend_and_excite'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_attend_and_excite))
+  use_attend_and_excite = Switcher(label="Use Attend and Excite", value=prefs['use_attend_and_excite'], on_change=toggle_attend_and_excite, tooltip="To use, include plus signs before subject words in prompt to indicate token indices, like 'a +cat and a +frog'.")
   max_iter_to_alter = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['max_iter_to_alter'], tooltip="The first denoising steps are where the attend-and-excite is applied. I.e. if `max_iter_to_alter` is 25 and there are a total of `30` denoising steps, the first 25 denoising steps will apply attend-and-excite and the last 5 will not apply attend-and-excite.", on_change=change_max_iter_to_alter, expand=True)
   max_iter_to_alter_value = Text(f" {int(prefs['max_iter_to_alter'])} iterations", weight=FontWeight.BOLD)
   max_iter_to_alter_slider = Container(Row([Text(f"Max Iterations to Alter: "), max_iter_to_alter_value, max_iter_to_alter]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -1889,7 +1897,7 @@ def buildParameters(page):
     max_iter_to_alter_slider.height = 0
   if not status['installed_attend_and_excite']:
     page.use_attend_and_excite.visible = False
-  page.use_clip_guided_model = Tooltip(message="Uses more VRAM, so you'll probably need to make image size smaller", content=Switch(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=prefs['use_clip_guided_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
+  page.use_clip_guided_model = Switcher(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=prefs['use_clip_guided_model'], on_change=toggle_clip)
   clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=prefs['clip_guidance_scale'], on_change=lambda e:changed(e,'clip_guidance_scale'), expand=True)
   clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
   use_cutouts = Checkbox(label="Use Cutouts", value=bool(prefs['use_cutouts']), fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=change_use_cutouts)
@@ -1899,22 +1907,22 @@ def buildParameters(page):
   unfreeze_unet = Checkbox(label="Unfreeze UNET", value=prefs['unfreeze_unet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'unfreeze_unet', apply=False))
   unfreeze_vae = Checkbox(label="Unfreeze VAE", value=prefs['unfreeze_vae'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'unfreeze_vae', apply=False))
   page.clip_block = Container(Column([clip_guidance_scale_slider, Row([use_cutouts, num_cutouts], expand=False), unfreeze_unet, unfreeze_vae, Divider(height=9, thickness=2)]), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-  page.use_conceptualizer_model = Tooltip(message="Use Textual-Inversion Community Model Concepts", content=Switch(label="Use Custom Conceptualizer Model", tooltip="Use Textual-Inversion Community Model", value=prefs['use_conceptualizer'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_conceptualizer))
+  page.use_conceptualizer_model = Switcher(label="Use Custom Conceptualizer Model", tooltip="Use Textual-Inversion Community Model Concepts", value=prefs['use_conceptualizer'], on_change=toggle_conceptualizer)
   page.use_conceptualizer_model.visible = bool(status['installed_conceptualizer'])
-  page.use_depth2img = Tooltip(message="To use, provide init_image with a good composition and prompts to approximate same depth.", content=Switch(label="Use Depth2Image Pipeline for img2img init image generation", value=prefs['use_depth2img'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_depth2img', apply=False)))
+  page.use_depth2img = Switcher(label="Use Depth2Image Pipeline for img2img init image generation", value=prefs['use_depth2img'], on_change=lambda e:changed(e,'use_depth2img', apply=False), tooltip="To use, provide init_image with a good composition and prompts to approximate same depth.")
   page.use_depth2img.visible = bool(status['installed_depth2img'])
-  page.use_imagic = Tooltip(message="Allows you to edit an image with prompt text.", content=Switch(label="Use iMagic for img2img init image editing", value=prefs['use_imagic'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_imagic', apply=False)))
+  page.use_imagic = Switcher(label="Use iMagic for img2img init image editing", value=prefs['use_imagic'], on_change=lambda e:changed(e,'use_imagic', apply=False), tooltip="Allows you to edit an image with prompt text.")
   page.use_imagic.visible = bool(status['installed_imagic'])
-  page.use_composable = Tooltip(message="Allows conjunction and negation operators for compositional generation with conditional diffusion models", content=Switch(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_composable', apply=False)))
+  page.use_composable = Switcher(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], on_change=lambda e:changed(e,'use_composable', apply=False), tooltip="Allows conjunction and negation operators for compositional generation with conditional diffusion models")
   page.use_composable.visible = bool(status['installed_composable'])
-  page.use_panorama = Column([Tooltip(message="Fuses together images to make extra-wide 2048x512", content=Switch(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_panorama', apply=False))),
+  page.use_panorama = Column([Switcher(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], on_change=lambda e:changed(e,'use_panorama', apply=False), tooltip="Fuses together images to make extra-wide 2048x512"),
                               Row([Text("Panoramic Width x 512:"), Slider(min=1024, max=4608, divisions=28, label="{value}px", expand=True, value=prefs['panorama_width'], on_change=lambda e:changed(e, 'panorama_width', asInt=True, apply=False))])])
   page.use_panorama.visible = status['installed_panorama']
-  page.use_safe = Tooltip(message="Models trained only on Safe images", content=Switch(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_safe', apply=False)))
+  page.use_safe = Switcher(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], on_change=lambda e:changed(e,'use_safe', apply=False), tooltip="Models trained only on Safe images")
   page.use_safe.visible = bool(status['installed_safe'])
-  page.use_upscale = Tooltip(message="Enlarges your Image Generations guided by the same Prompt.", content=Switch(label="Upscale 4X with Stable Diffusion 2", value=prefs['use_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_upscale', apply=False)))
+  page.use_upscale = Switcher(label="Upscale 4X with Stable Diffusion 2", value=prefs['use_upscale'], on_change=lambda e:changed(e,'use_upscale', apply=False), tooltip="Enlarges your Image Generations guided by the same Prompt.")
   page.use_upscale.visible = bool(status['installed_upscale'])
-  apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+  apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=prefs['apply_ESRGAN_upscale'], on_change=toggle_ESRGAN)
   enlarge_scale_value = Text(f" {float(prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
   enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
   enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
@@ -2203,7 +2211,7 @@ def editPrompt(e):
     #batch_folder_name = TextField(label="Batch Folder Name", value=arg['batch_folder_name'], on_change=changed)
     #print(str(arg))
     prompt_tweening = bool(arg['prompt2']) if 'prompt2' in arg else False
-    use_prompt_tweening = Switch(label="Prompt Tweening", value=prompt_tweening, active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=changed_tweening)
+    use_prompt_tweening = Switcher(label="Prompt Tweening", value=prompt_tweening, on_change=changed_tweening)
     use_prompt_tweening.visible = True if status['installed_txt2img'] and prefs['higher_vram_mode'] else False
 #TODO: Fix tweening code for float16 lpw pipeline to reactivate tweening
     prompt2 = TextField(label="Prompt 2 Transition Text", expand=True, value=arg['prompt2'] if 'prompt2' in arg else '')
@@ -2236,7 +2244,7 @@ def editPrompt(e):
     strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
     img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     img_block.height = None if (status['installed_txt2img'] or status['installed_stability']) else 0
-    use_clip_guided_model = Tooltip(message="Uses more VRAM, so you'll probably need to make image size smaller", content=Switch(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=arg['use_clip_guided_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_clip))
+    use_clip_guided_model = Switcher(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=arg['use_clip_guided_model'], on_change=toggle_clip)
     clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=arg['clip_guidance_scale'], expand=True)
     clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
     use_cutouts = Checkbox(label="Use Cutouts", value=bool(arg['use_cutouts']), fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
@@ -3202,7 +3210,7 @@ def buildESRGANupscaler(page):
     filename_suffix = TextField(label="Optional Filename Suffix", hint_text="-big", value=ESRGAN_prefs['filename_suffix'], on_change=lambda e:changed(e,'filename_suffix'), width=260)
     download_locally = Checkbox(label="Download Images Locally", value=ESRGAN_prefs['download_locally'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'download_locally'))
     display_image = Checkbox(label="Display Upscaled Image", value=ESRGAN_prefs['display_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_image'))
-    split_image_grid = Switch(label="Split Image Grid", value=ESRGAN_prefs['split_image_grid'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_split)
+    split_image_grid = Switcher(label="Split Image Grid", value=ESRGAN_prefs['split_image_grid'], on_change=toggle_split)
     rows = NumberPicker(label="Rows: ", min=1, max=8, value=ESRGAN_prefs['rows'], on_change=lambda e: changed(e, 'rows'))
     cols = NumberPicker(label="Columns: ", min=1, max=8, value=ESRGAN_prefs['cols'], on_change=lambda e: changed(e, 'cols'))
     split_container = Container(Row([rows, Container(content=None, width=25), cols]), animate_size=animation.Animation(800, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=28), height=0)
@@ -3620,7 +3628,7 @@ def buildImage2Text(page):
       image2text_list_buttons.visible = False
 
     mode = Dropdown(label="Interrogation Mode", width=250, options=[dropdown.Option("best"), dropdown.Option("classic"), dropdown.Option("fast")], value=image2text_prefs['mode'], on_change=lambda e: changed(e, 'mode'))
-    use_AIHorde = Switch(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_AIHorde)
+    use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
     request_mode = Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=False, on_change=lambda e: changed(e, 'request_mode'))
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
@@ -4046,7 +4054,7 @@ def buildDanceDiffusion(page):
     audio_length_in_s = TextField(label="Audio Length in Seconds", value=dance_prefs['audio_length_in_s'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'audio_length_in_s'), width = 190)
     number_row = Row([batch_size, seed, audio_length_in_s])
 
-    train_custom = Switch(label="Train Custom Audio   ", value=dance_prefs['train_custom'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_custom)
+    train_custom = Switcher(label="Train Custom Audio   ", value=dance_prefs['train_custom'], on_change=toggle_custom)
     custom_audio_name = TextField(label="Custom Audio Name", value=dance_prefs['custom_name'], on_change=lambda e:changed(e,'custom_name'))
     wav_path = TextField(label="Audio Files or Folder Path or URL to Train", value=dance_prefs['wav_path'], on_change=lambda e:changed(e,'wav_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_wav_button = ElevatedButton(content=Text("Add Audio Files"), on_click=add_wav)
@@ -4057,7 +4065,7 @@ def buildDanceDiffusion(page):
     accumulate_batches = Tooltip(message="Accumulate gradients over n batches, useful for training on one GPU. Effective batch size is BATCH_SIZE * ACCUM_BATCHES. Also increases the time between demos and saved checkpoints", content=TextField(label="Accumulate Batches", value=dance_prefs['accumulate_batches'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'accumulate_batches', ptype='int'), width = 160))
     demo_every = Tooltip(message="Number of training steps between demos", content=TextField(label="Demo Every", value=dance_prefs['demo_every'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'demo_every', ptype='int'), width = 160))
     checkpoint_every = Tooltip(message="Number of training steps between saving model checkpoints", content=TextField(label="Checkpoint Every", value=dance_prefs['checkpoint_every'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'checkpoint_every', ptype='int'), width = 160))
-    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=dance_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    save_model = Switcher(label="Save Model to HuggingFace ", value=dance_prefs['save_model'], on_change=toggle_save, tooltip="Requires WRITE access on API Key to Upload Checkpoint")
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public Library"), dropdown.Option("Privately to my Profile")], value=dance_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     readme_description = TextField(label="Extra README Description", value=dance_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
     where_to_save_model.visible = dance_prefs['save_model']
@@ -4813,7 +4821,7 @@ def buildInstantNGP(page):
     name_of_your_model = TextField(label="Name of your Model", value=instant_ngp_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'))
     train_steps = Tooltip(message="Total number of training steps to perform.  More the better, even around 35000..", content=TextField(label="Max Training Steps", value=instant_ngp_prefs['train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'train_steps', ptype='int'), width = 160))
     #save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=instant_ngp_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
-    #save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=instant_ngp_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    #save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switcher(label="Save Model to HuggingFace    ", value=instant_ngp_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
     #where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=instant_ngp_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=instant_ngp_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     #readme_description = TextField(label="Extra README Description", value=instant_ngp_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
@@ -5202,21 +5210,21 @@ def buildReference(page):
     gn_auto_machine_weight = SliderRow(label="Gn Auto Machine Weight", min=0.0, max=2.0, divisions=20, round=1, pref=reference_prefs, key='gn_auto_machine_weight', tooltip="Weight of using reference adain. If gn_auto_machine_weight=2.0, use all reference adain plugins.")
     #reference_attn = Checkbox(label="Reference Attention", value=reference_prefs['reference_attn'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'reference_attn'), tooltip="Whether to use reference query for self attention's context.")
     #reference_adain = Checkbox(label="Reference Adain", value=reference_prefs['reference_adain'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'reference_adain'), tooltip="Whether to use reference Adain (Adaptive Instance Normalization).")
-    reference_attn = Tooltip(message="Whether to use reference query for self attention's context.", content=Switch(label=" Reference Attention  ", value=reference_prefs['reference_attn'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'reference_attn')))
-    reference_adain = Tooltip(message="Whether to use reference Adain (Adaptive Instance Normalization).", content=Switch(label=" Reference Adain", value=reference_prefs['reference_adain'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'reference_adain')))
+    reference_attn = Switcher(label="Reference Attention ", value=reference_prefs['reference_attn'], on_change=lambda e:changed(e,'reference_attn'), tooltip="Whether to use reference query for self attention's context.")
+    reference_adain = Switcher(label="Reference Adain", value=reference_prefs['reference_adain'], on_change=lambda e:changed(e,'reference_adain'), tooltip="Whether to use reference Adain (Adaptive Instance Normalization).")
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=reference_prefs, key='max_size')
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=reference_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=reference_prefs, key='height')
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=reference_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
     num_images = NumberPicker(label="Number of Iterations: ", min=1, max=12, value=reference_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     batch_folder_name = TextField(label="Batch Folder Name", value=reference_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=reference_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=reference_prefs['apply_ESRGAN_upscale'], on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=reference_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=reference_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_reference = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_reference.height = None if status['installed_ESRGAN'] else 0
-    if not unCLIP_prefs['apply_ESRGAN_upscale']:
+    if not reference_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     page.reference_output = Column([], auto_scroll=True)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -5246,6 +5254,314 @@ def buildReference(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+controlnet_qr_prefs = {
+    'init_image': '',
+    'ref_image': '',
+    'qr_content': '',
+    'border_thickness': 5,
+    'use_image': False,
+    'prompt': '',
+    'negative_prompt': 'ugly, disfigured, low quality, blurry, nsfw',
+    'guidance_scale': 8.0,
+    'conditioning_scale': 1.8,
+    'strength': 0.9,
+    'num_inference_steps': 50,
+    'controlnet_version': "Stable Diffusion 2.1",
+    'seed': 0,
+    'batch_size': 1,
+    'num_images': 1,
+    'max_size': 768,
+    'last_model': '',
+    'last_controlnet_model': '',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+def buildControlNetQR(page):
+    global controlnet_qr_prefs, prefs, pipe_controlnet_qr
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            controlnet_qr_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            controlnet_qr_prefs[pref] = float(e.control.value)
+          else:
+            controlnet_qr_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_controlnet_qr_output(o):
+      page.ControlNetQR.controls.append(o)
+      page.ControlNetQR.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_controlnet_qr_output = add_to_controlnet_qr_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      for i, c in enumerate(page.ControlNetQR.controls):
+        if i == 0: continue
+        else: del page.ControlNetQR.controls[i]
+      page.ControlNetQR.update()
+      clear_button.visible = False
+      clear_button.update()
+    def controlnet_qr_help(e):
+      def close_controlnet_qr_dlg(e):
+        nonlocal controlnet_qr_help_dlg
+        controlnet_qr_help_dlg.open = False
+        page.update()
+      controlnet_qr_help_dlg = AlertDialog(title=Text("🙅   Help with ControlNet-QRCode"), content=Column([
+          Text("These ControlNet models have been trained on a large dataset of 150,000 QR code + QR code artwork couples. They provide a solid foundation for generating QR code-based artwork that is aesthetically pleasing, while still maintaining the integral QR code shape."),
+          Text("The Stable Diffusion 2.1 version is marginally more effective, as it was developed to address my specific needs. However, a 1.5 version model was also trained on the same dataset for those who are using the older version."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🥃  Scantastic... ", on_click=close_controlnet_qr_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = controlnet_qr_help_dlg
+      controlnet_qr_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+            upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+        nonlocal pick_type
+        if e.progress == 1:
+            if not slash in e.file_name:
+                fname = os.path.join(root_dir, e.file_name)
+                controlnet_qr_prefs['file_name'] = e.file_name.rpartition('.')[0]
+            else:
+                fname = e.file_name
+                controlnet_qr_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+            if pick_type == "init":
+                init_image.value = fname
+                init_image.update()
+                controlnet_qr_prefs['init_image'] = fname
+            elif pick_type == "ref":
+                ref_image.value = fname
+                ref_image.update()
+                controlnet_qr_prefs['ref_image'] = fname
+            page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    def pick_ref(e):
+        nonlocal pick_type
+        pick_type = "ref"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick QR Code Image File")
+    def pick_init(e):
+        nonlocal pick_type
+        pick_type = "init"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
+    prompt = TextField(label="Prompt Text", value=controlnet_qr_prefs['prompt'], col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_qr_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        controlnet_qr_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def toggle_image(e):
+        controlnet_qr_prefs['use_image'] = e.control.value
+        qr_generator.height = None if not e.control.value else 0
+        qr_generator.update()
+        qr_content.visible = not e.control.value
+        qr_content.update()
+        ref_image.visible = e.control.value
+        ref_image.update()
+    qr_content = TextField(label="QR Code Content (URL or whatever text)", value=controlnet_qr_prefs['qr_content'], expand=True, visible=not controlnet_qr_prefs['use_image'], on_change=lambda e:changed(e,'qr_content'))
+    init_image = TextField(label="Initial Image (optional)", value=controlnet_qr_prefs['init_image'], expand=True, on_change=lambda e:changed(e,'init_image'), height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    ref_image = TextField(label="ControlNet QR Code Image", value=controlnet_qr_prefs['ref_image'], expand=True, visible=controlnet_qr_prefs['use_image'], on_change=lambda e:changed(e,'ref_image'), height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_ref))
+    use_image = Switcher(label="Use QR Image Instead", value=controlnet_qr_prefs['use_image'], tooltip="Provide your own QR Code made elsewhere, or generate here.", on_change=toggle_image)
+    #use_image = Switcher(label="Use QR Image Instead", value=controlnet_qr_prefs['use_image'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_image)
+    border_thickness = SliderRow(label="Border Thickness", min=0, max=20, divisions=20, round=0, pref=controlnet_qr_prefs, key='border_thickness', tooltip="The border is equal to the thickness of 5 tiny black boxes around QR.")
+    qr_generator = Container(content=Column([border_thickness], alignment=MainAxisAlignment.START), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    qr_generator.height = None if not controlnet_qr_prefs['use_image'] else 0
+    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5")], value=controlnet_qr_prefs['controlnet_version'], on_change=lambda e: changed(e, 'controlnet_version'))
+    seed = TextField(label="Seed", width=90, value=str(controlnet_qr_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=controlnet_qr_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_qr_prefs, key='guidance_scale')
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0.0, max=5.0, divisions=50, round=1, pref=controlnet_qr_prefs, key='conditioning_scale', tooltip="Strength of the ControlNet Mask.")
+    strength = SliderRow(label="Init Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_qr_prefs, key='strength', tooltip="How strong the Initial Image should be over the ControlNet. Higher value give less influence.")
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_qr_prefs, key='max_size')
+    batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_qr_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    num_images = NumberPicker(label="Number of Iterations: ", min=1, max=12, value=controlnet_qr_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_qr_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_qr_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_qr_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_qr_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet_qr = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet_qr.height = None if status['installed_ESRGAN'] else 0
+    if not controlnet_qr_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    page.controlnet_qr_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.controlnet_qr_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🔗  ControlNet QRCode Art Generator", "ControlNet Img2Img for Inpainting QR Code with Prompt and/or Init Image...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetQR Settings", on_click=controlnet_qr_help)]),
+        Row([use_image, qr_content, ref_image]),
+        qr_generator,
+        ResponsiveRow([prompt, negative_prompt]),
+        Row([controlnet_version, init_image]),
+        num_inference_row,
+        guidance,
+        conditioning_scale,
+        strength,
+        max_size,
+        ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
+        page.ESRGAN_block_controlnet_qr,
+        Row([ElevatedButton(content=Text("🧑‍💻️  Make ControlNet QR", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_qr(page)),
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_qr(page, from_list=True), tooltip="Runs from global Prompt Queue using Image Parameters for Prompt, Neg Prompt, Steps, Guidance, Init Image, Strength and Seed.")]),
+        page.controlnet_qr_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+controlnet_segment_prefs = {
+    'ref_image': '',
+    'prompt': '',
+    'negative_prompt': 'low quality, low resolution, render, oversaturated, low contrast',
+    'guidance_scale': 7.5,
+    'num_inference_steps': 50,
+    'seed': 0,
+    'batch_size': 1,
+    'num_images': 1,
+    'max_size': 768,
+    'width': 960,
+    'height': 768,
+    'last_model': '',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+def buildControlNetSegmentAnything(page):
+    global controlnet_segment_prefs, prefs, pipe_controlnet_segment
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            controlnet_segment_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            controlnet_segment_prefs[pref] = float(e.control.value)
+          else:
+            controlnet_segment_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_controlnet_segment_output(o):
+      page.ControlNetSegmentAnything.controls.append(o)
+      page.ControlNetSegmentAnything.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_controlnet_segment_output = add_to_controlnet_segment_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      for i, c in enumerate(page.ControlNetSegmentAnything.controls):
+        if i == 0: continue
+        else: del page.ControlNetSegmentAnything.controls[i]
+      page.ControlNetSegmentAnything.update()
+      clear_button.visible = False
+      clear_button.update()
+    def controlnet_segment_help(e):
+      def close_controlnet_segment_dlg(e):
+        nonlocal controlnet_segment_help_dlg
+        controlnet_segment_help_dlg.open = False
+        page.update()
+      controlnet_segment_help_dlg = AlertDialog(title=Text("🙅   Help with ControlNet Segment-Anything"), content=Column([
+          Text("This model is based on the ControlNet Model, which allow us to generate Images using some sort of condition image. For this model, we selected the segmentation maps produced by Meta’s new segmentation model called Segment Anything Model as the condition image. We then trained the model to generate images based on the structure of the segmentation maps and the text prompts given."),
+          Text("For the training, we generated a segmented dataset based on the COYO-700M dataset. The dataset provided us with the images, and the text prompts. For the segmented images, we used Segment Anything Model. We then created 8k samples to train our model on, which isn’t a lot, but as a team, we have been very busy with many other responsibilities and time constraints, which made it challenging to dedicate a lot of time to generating a larger dataset. Despite the constraints we faced, we have still managed to achieve some nice results 🙌"),
+          Markdown("[Project Page](https://segment-anything.com) | [Model Card](https://huggingface.co/mfidabel/controlnet-segment-anything) | [Segment-Anything Code](https://github.com/facebookresearch/segment-anything) | [HuggingFace Demo](https://huggingface.co/spaces/mfidabel/controlnet-segment-anything)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧩  Puzzle the Pieces... ", on_click=close_controlnet_segment_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = controlnet_segment_help_dlg
+      controlnet_segment_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          controlnet_segment_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          controlnet_segment_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        ref_image.value = fname
+        ref_image.update()
+        controlnet_segment_prefs['ref_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_init(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
+    prompt = TextField(label="Prompt Text", value=controlnet_segment_prefs['prompt'], col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_segment_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        controlnet_segment_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    ref_image = TextField(label="Initial Image to Segment", value=controlnet_segment_prefs['ref_image'], on_change=lambda e:changed(e,'ref_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    seed = TextField(label="Seed", width=90, value=str(controlnet_segment_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=controlnet_segment_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_segment_prefs, key='guidance_scale')
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_segment_prefs, key='max_size')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_segment_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_segment_prefs, key='height')
+    batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_segment_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    num_images = NumberPicker(label="Number of Iterations: ", min=1, max=12, value=controlnet_segment_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_segment_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_segment_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_segment_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_segment_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet_segment = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet_segment.height = None if status['installed_ESRGAN'] else 0
+    if not controlnet_segment_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    page.controlnet_segment_output = Column([], auto_scroll=True)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.controlnet_segment_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🥸  ControlNet on Meta's Segment-Anything", "Upload an Image, Segment it with Segment Anything, write a prompt, and generate images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Segment Anything Settings", on_click=controlnet_segment_help)]),
+        ref_image,
+        ResponsiveRow([prompt, negative_prompt]),
+        num_inference_row,
+        guidance,
+        max_row,
+        #width_slider,
+        #height_slider,
+        ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
+        page.ESRGAN_block_controlnet_segment,
+        Row([ElevatedButton(content=Text("👹  Make ControlNet Segments", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_segment(page)),
+             ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_segment(page, from_list=True))]),
+        page.controlnet_segment_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 EDICT_prefs = {
     'target_prompt': '',
@@ -5346,7 +5662,7 @@ def buildEDICT(page):
     strength = SliderRow(label="Strength", min=0, max=1, divisions=20, round=2, pref=EDICT_prefs, key='strength')
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=EDICT_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=EDICT_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=EDICT_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=EDICT_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=EDICT_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=EDICT_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -5477,7 +5793,7 @@ def buildDiffEdit(page):
     strength = SliderRow(label="Strength", min=0, max=1, divisions=20, round=2, pref=DiffEdit_prefs, key='strength')
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=DiffEdit_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=DiffEdit_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=DiffEdit_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=DiffEdit_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=DiffEdit_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=DiffEdit_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -5597,13 +5913,13 @@ def buildUnCLIP(page):
     prior_guidance = SliderRow(label="Prior Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_prefs, key='prior_guidance_scale')
     decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_prefs, key='decoder_guidance_scale')
     batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    use_StableUnCLIP_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switch(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_prefs['use_StableUnCLIP_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_unCLIP))
+    use_StableUnCLIP_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switcher(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_prefs['use_StableUnCLIP_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_unCLIP))
     #eta = TextField(label="ETA", value=str(unCLIP_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(unCLIP_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=unCLIP_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=unCLIP_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -5740,7 +6056,7 @@ def buildUnCLIP_ImageVariation(page):
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=unCLIP_image_variation_prefs, key='max_size')
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_image_variation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=unCLIP_image_variation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(unCLIP_image_variation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_image_variation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
@@ -5849,13 +6165,13 @@ def buildUnCLIP_Interpolation(page):
     prior_guidance = SliderRow(label="Prior Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_interpolation_prefs, key='prior_guidance_scale')
     decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_interpolation_prefs, key='decoder_guidance_scale')
     batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_interpolation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    #use_StableunCLIP_interpolation_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switch(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_interpolation_prefs['use_StableunCLIP_interpolation_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_StableunCLIP_interpolation_pipeline')))
+    #use_StableunCLIP_interpolation_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switcher(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_interpolation_prefs['use_StableunCLIP_interpolation_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_StableunCLIP_interpolation_pipeline')))
     #eta = TextField(label="ETA", value=str(unCLIP_interpolation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_interpolation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(unCLIP_interpolation_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=unCLIP_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(unCLIP_interpolation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_interpolation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
@@ -6014,7 +6330,7 @@ def buildUnCLIP_ImageInterpolation(page):
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_image_interpolation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=unCLIP_image_interpolation_prefs, key='max_size')
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(unCLIP_image_interpolation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_image_interpolation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
@@ -6159,13 +6475,13 @@ def buildMagicMix(page):
     kmax_row = SliderRow(label="k-Max", min=0.0, max=1.0, divisions=20, round=2, pref=magic_mix_prefs, key='kmax', tooltip="A higher value of kmax results in loss of more information about the layout of the original image. Determine the range for the layout and content generation process.")
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=magic_mix_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=magic_mix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=magic_mix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=magic_mix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=magic_mix_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=magic_mix_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_magic_mix = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_magic_mix.height = None if status['installed_ESRGAN'] else 0
-    if not unCLIP_prefs['apply_ESRGAN_upscale']:
+    if not magic_mix_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
 
     page.magic_mix_output = Column([], auto_scroll=True)
@@ -6321,7 +6637,7 @@ def buildPaintByExample(page):
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=paint_by_example_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=paint_by_example_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=paint_by_example_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=paint_by_example_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=paint_by_example_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=paint_by_example_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -6475,7 +6791,7 @@ def buildInstructPix2Pix(page):
     prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(instruct_pix2pix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switch(label="Use Init Video", value=instruct_pix2pix_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
+    use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switcher(label="Use Init Video", value=instruct_pix2pix_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
     init_video = TextField(label="Init Video Clip", value=instruct_pix2pix_prefs['init_video'], expand=True, visible=instruct_pix2pix_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=instruct_pix2pix_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
     start_time = TextField(label="Start Time (s)", value=instruct_pix2pix_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
@@ -6491,7 +6807,7 @@ def buildInstructPix2Pix(page):
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=instruct_pix2pix_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=instruct_pix2pix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=instruct_pix2pix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=instruct_pix2pix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=instruct_pix2pix_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=instruct_pix2pix_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -6717,7 +7033,7 @@ def buildControlNet(page):
     add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
     multi_layers = Column([], spacing=0)
     seed = TextField(label="Seed", width=90, value=str(controlnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    #use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switch(label="Use Init Video", value=controlnet_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
+    #use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switcher(label="Use Init Video", value=controlnet_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
     init_video = TextField(label="Init Video Clip", value=controlnet_prefs['init_video'], expand=True, visible=controlnet_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
     start_time = TextField(label="Start Time (s)", value=controlnet_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
@@ -6737,7 +7053,7 @@ def buildControlNet(page):
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_prefs, key='max_size')
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=controlnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -6915,13 +7231,13 @@ def buildDeepFloyd(page):
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
     #page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=deepfloyd_prefs, key='max_size', tooltip="Resizes your Init and Mask Image to save memory.")
-    apply_watermark = Tooltip(message="Under the license, you are legally required to include the watermark on bottom right corner.", content=Switch(label="Apply IF Watermark", value=deepfloyd_prefs['apply_watermark'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'apply_watermark')))
-    low_memory = Tooltip(message="Needed for < 16GB VRAM to run. If you have more power, disable for faster runs.", content=Switch(label="Lower Memory", value=deepfloyd_prefs['low_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'low_memory')))
-    keep_pipelines = Tooltip(message="Keeps all 3 Pipelines loaded persistantly. Faster reuse, but needs a lot of VRAM.", content=Switch(label="Keep Pipelines Loaded", value=deepfloyd_prefs['keep_pipelines'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'keep_pipelines')))
+    apply_watermark = Tooltip(message="Under the license, you are legally required to include the watermark on bottom right corner.", content=Switcher(label="Apply IF Watermark", value=deepfloyd_prefs['apply_watermark'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'apply_watermark')))
+    low_memory = Tooltip(message="Needed for < 16GB VRAM to run. If you have more power, disable for faster runs.", content=Switcher(label="Lower Memory", value=deepfloyd_prefs['low_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'low_memory')))
+    keep_pipelines = Tooltip(message="Keeps all 3 Pipelines loaded persistantly. Faster reuse, but needs a lot of VRAM.", content=Switcher(label="Keep Pipelines Loaded", value=deepfloyd_prefs['keep_pipelines'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'keep_pipelines')))
     model_size = Dropdown(label="Model Size", hint_text="Amount of Parameters trained on. Depends on your available memory.", width=240, options=[dropdown.Option("XL (4.3B)"), dropdown.Option("L (900M)"), dropdown.Option("M (400M)")], value=deepfloyd_prefs['model_size'], autofocus=False, on_change=lambda e:changed(e, 'model_size'))
     file_prefix = TextField(label="Filename Prefix",  value=deepfloyd_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     batch_folder_name = TextField(label="Batch Folder Name", value=deepfloyd_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=deepfloyd_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=deepfloyd_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=deepfloyd_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=deepfloyd_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7025,11 +7341,11 @@ Resources:
     eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=text_to_video_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_prefs, key='height')
-    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switch(label="Export to Video", value=text_to_video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
-    lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switch(label="Lower Memory Mode", value=text_to_video_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=text_to_video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=text_to_video_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
     batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(text_to_video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=text_to_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=text_to_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=text_to_video_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=text_to_video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7170,11 +7486,11 @@ def buildTextToVideoZero(page):
     t1 = SliderRow(label="Timestep t1", min=43, max=50, divisions=7, pref=text_to_video_zero_prefs, key='t1', tooltip="Should be in the range [t0 + 1, num_inference_steps - 1]")
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_zero_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_zero_prefs, key='height')
-    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switch(label="Export to Video", value=text_to_video_zero_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
-    #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switch(label="Lower Memory Mode", value=text_to_video_zero_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=text_to_video_zero_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=text_to_video_zero_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
     batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_zero_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(text_to_video_zero_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=text_to_video_zero_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=text_to_video_zero_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=text_to_video_zero_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=text_to_video_zero_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7277,12 +7593,12 @@ def buildPotat1(page):
     #eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=potat1_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=potat1_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=potat1_prefs, key='height')
-    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switch(label="Export to Video", value=potat1_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=potat1_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=potat1_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=potat1_prefs, key='height')
     batch_folder_name = TextField(label="Video Folder Name", value=potat1_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(potat1_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=potat1_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=potat1_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=potat1_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=potat1_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7764,13 +8080,13 @@ def buildStableAnimation(page):
     frame_interpolation_factor = Dropdown(label="Frame Interpolation Factor", hint_text="", width=200, options=[dropdown.Option("2"), dropdown.Option("4"), dropdown.Option("8")], value=stable_animation_prefs['frame_interpolation_factor'], autofocus=False, on_change=lambda e:changed(e, 'frame_interpolation_factor'))
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=6, multiple=64, suffix="px", pref=stable_animation_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=6, multiple=64, suffix="px", pref=stable_animation_prefs, key='height')
-    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switch(label="Export to Video", value=stable_animation_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
-    #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switch(label="Lower Memory Mode", value=stable_animation_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=stable_animation_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=stable_animation_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
     seed = TextField(label="Seed", width=90, value=str(stable_animation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    resume = Switch(label="Resume Previous Animation", value=stable_animation_prefs['resume'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume)
+    resume = Switcher(label="Resume Previous Animation", value=stable_animation_prefs['resume'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume)
     resume_from = TextField(label="Resume from Frame", width=150, value=str(stable_animation_prefs['resume_from']), visible=stable_animation_prefs['resume'], keyboard_type=KeyboardType.NUMBER, tooltip="-1 resumes from last frame", on_change=lambda e:changed(e,'seed', ptype='int'))
     batch_folder_name = TextField(label="Animation Folder Name", value=stable_animation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=stable_animation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=stable_animation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=stable_animation_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=stable_animation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7961,7 +8277,7 @@ def buildMaterialDiffusion(page):
     strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     #strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=0.9, divisions=16, suffix="%", pref=materialdiffusion_prefs, key='prompt_strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=materialdiffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=materialdiffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=materialdiffusion_prefs, key='enlarge_scale')
     #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=materialdiffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=materialdiffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
@@ -8077,7 +8393,7 @@ def buildDiT(page):
     #eta_row = Row([Text("DDIM ETA: "), eta])
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(DiT_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=DiT_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=DiT_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=DiT_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=DiT_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -8236,7 +8552,7 @@ def buildDallE2(page):
     #strength_value = Text(f" {int(dall_e_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=dall_e_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=dall_e_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(dall_e_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
     enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=dall_e_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
@@ -8411,7 +8727,7 @@ def buildKandinsky(page):
     strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_prefs, key='strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     seed = TextField(label="Seed", width=90, value=str(kandinsky_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=kandinsky_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_prefs, key='enlarge_scale')
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
@@ -8591,7 +8907,7 @@ def buildKandinsky2(page):
     image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky2_prefs, key='strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=kandinsky2_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky2_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky2_prefs, key='enlarge_scale')
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky2_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky2_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
@@ -8921,7 +9237,7 @@ def buildKandinskyFuse(page):
     #invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky_fuse_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     #image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #img_block = Container(Column([image_pickers, weight_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=kandinsky_fuse_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_fuse_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_fuse_prefs, key='enlarge_scale')
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_fuse_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_fuse_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
@@ -9255,7 +9571,7 @@ def buildKandinsky2Fuse(page):
     #invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky2_fuse_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     #image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #img_block = Container(Column([image_pickers, weight_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=kandinsky2_fuse_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky2_fuse_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky2_fuse_prefs, key='enlarge_scale')
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky2_fuse_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky2_fuse_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
@@ -9360,13 +9676,13 @@ def buildDeepDaze(page):
     iterations_row = SliderRow(label="Number of Iterations", min=1, max=2000, divisions=1999, pref=deep_daze_prefs, key='iterations', tooltip="The number of times to calculate and backpropogate loss in a given epoch.")
     batch_folder_name = TextField(label="Batch Folder Name", value=deep_daze_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=deep_daze_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    save_progress = Tooltip(message="Whether or not to save images generated before training Siren is complete.", content=Switch(label="Save Progress Steps", value=deep_daze_prefs['save_progress'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_progress')))
+    save_progress = Tooltip(message="Whether or not to save images generated before training Siren is complete.", content=Switcher(label="Save Progress Steps", value=deep_daze_prefs['save_progress'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_progress')))
     #eta = TextField(label="ETA", value=str(deep_daze_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(deep_daze_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
     #max_size = Slider(min=256, max=1280, divisions=64, label="{value}px", value=int(deep_daze_prefs['max_size']), expand=True, on_change=lambda e:changed(e,'max_size', ptype='int'))
     #max_row = Row([Text("Max Resolution Size: "), max_size])
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=deep_daze_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=deep_daze_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=deep_daze_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=deep_daze_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -9503,7 +9819,7 @@ def buildCLIPstyler(page):
     #strength_value = Text(f" {int(CLIPstyler_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     #img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=CLIPstyler_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=CLIPstyler_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=CLIPstyler_prefs, key='enlarge_scale')
     #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=CLIPstyler_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=CLIPstyler_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
@@ -9685,7 +10001,7 @@ def buildSemanticGuidance(page):
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=semantic_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=semantic_prefs, key='height')
     batch_folder_name = TextField(label="Batch Folder Name", value=semantic_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    apply_ESRGAN_upscale = Switch(label="Apply ESRGAN Upscale", value=semantic_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=semantic_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=semantic_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=semantic_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -10434,7 +10750,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=LoRA_dreambooth_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
     seed = Tooltip(message="0 or -1 for Random. Pick any number.", content=TextField(label="Seed", value=LoRA_dreambooth_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160))
     save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_dreambooth_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
-    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=LoRA_dreambooth_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switcher(label="Save Model to HuggingFace    ", value=LoRA_dreambooth_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_dreambooth_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_dreambooth_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     readme_description = TextField(label="Extra README Description", value=LoRA_dreambooth_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
@@ -10656,7 +10972,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     #lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=LoRA_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
     seed = Tooltip(message="0 or -1 for Random. Pick any number.", content=TextField(label="Seed", value=LoRA_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160))
     save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
-    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=LoRA_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switcher(label="Save Model to HuggingFace    ", value=LoRA_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     readme_description = TextField(label="Extra README Description", value=LoRA_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
@@ -10776,8 +11092,8 @@ def buildConverter(page):
             ], value=converter_prefs['scheduler_type'], autofocus=False, on_change=lambda e:changed(e, 'scheduler_type'), col={'lg':6},
         )
     #save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=converter_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
-    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=converter_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
-    half_percision = Tooltip(message="Save weights in half precision.", content=Switch(label="Save Half Percision Float16    ", value=converter_prefs['half_percision'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'half_percision')))
+    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switcher(label="Save Model to HuggingFace    ", value=converter_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    half_percision = Tooltip(message="Save weights in half precision.", content=Switcher(label="Save Half Percision Float16    ", value=converter_prefs['half_percision'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'half_percision')))
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=converter_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=converter_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     readme_description = TextField(label="Extra README Description", value=converter_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
@@ -10944,7 +11260,7 @@ def buildCheckpointMerger(page):
     add_selected_model_button = ElevatedButton(content=Text("Add Selected Model"), on_click=add_selected_model)
     pretrained_model = TextField(label="HuggingFace Path or Local Path to Merge", value=checkpoint_merger_prefs['pretrained_model'], on_change=lambda e:changed(e,'pretrained_model'), expand=1)
     add_model_button = ElevatedButton(content=Text("Add Model Path"), on_click=add_custom_model)
-    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switch(label="Save Model to HuggingFace    ", value=checkpoint_merger_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switcher(label="Save Model to HuggingFace    ", value=checkpoint_merger_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=checkpoint_merger_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     readme_description = TextField(label="Extra README Description", value=checkpoint_merger_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
 
@@ -11132,7 +11448,7 @@ def buildTortoiseTTS(page):
       for custom in prefs['tortoise_custom_voices']:
         page.tortoise_voices.controls.append(Checkbox(label=custom['name'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
     custom_voice_name = TextField(label="Custom Voice Name", value=tortoise_prefs['custom_voice_name'], on_change=lambda e:changed(e,'custom_voice_name'))
-    train_custom = Switch(label="Train Custom Voice  ", value=tortoise_prefs['train_custom'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_custom)
+    train_custom = Switcher(label="Train Custom Voice  ", value=tortoise_prefs['train_custom'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_custom)
     wav_path = TextField(label="Audio Files or Folder Path or URL to Train", value=tortoise_prefs['wav_path'], on_change=lambda e:changed(e,'wav_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_wav_button = ElevatedButton(content=Text("Add Audio Files"), on_click=add_wav)
     page.tortoise_file_list = Column([], tight=True, spacing=0)
@@ -11968,6 +12284,8 @@ pipe_distil_gpt2 = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 pipe_reference = None
+pipe_controlnet_qr = None
+pipe_controlnet_segment = None
 pipe_controlnet = None
 controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
@@ -12009,6 +12327,7 @@ finetuned_models = [
     {"name": "Deliberate 2", "path": "SdValar/deliberate2", "prefix":""},
     {"name": "di.FFUSION.ai", "path": "FFusion/di.FFUSION.ai-v2.1-768-BaSE-alpha", "prefix":""},
     {"name": "Elden Ring", "path": "nitrosocke/elden-ring-diffusion", "prefix":"elden ring style "},
+    {"name": "Freedom", "path": "artificialguybr/freedom", "prefix":""},
     {"name": "Modern Disney", "path": "nitrosocke/mo-di-diffusion", "prefix": "modern disney style "},
     {"name": "Classic Disney", "path": "nitrosocke/classic-anim-diffusion", "prefix": "classic disney style "},
     {"name": "Loving Vincent (Van Gogh)", "path": "dallinmackay/Van-Gogh-diffusion", "prefix": "lvngvncnt "},
@@ -12464,6 +12783,11 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
       s = LMSDiscreteScheduler(**scheduler_config, use_karras_sigmas=True)
     elif scheduler_mode == "DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
+      try:
+        p_model = p.model
+      except Exception:
+        p_model = ""
+        pass
       s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config,
         beta_start=0.00085,
         beta_end=0.012,
@@ -12471,7 +12795,7 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
         num_train_timesteps=1000,
         trained_betas=None,
         #predict_epsilon=True,
-        prediction_type="v_prediction" if p.model.startswith('stabilityai') else "epsilon",
+        prediction_type="v_prediction" if p_model.startswith('stabilityai') else "epsilon",
         thresholding=False,
         algorithm_type="dpmsolver++",
         solver_type="midpoint",
@@ -12535,7 +12859,7 @@ torch_device = "cuda"
 try:
     from packaging import version
     import torch
-    if version.parse(torch.__version__) < version.parse("2.0.1"):
+    if version.parse(torch.__version__) < version.parse("2.0.1") and torch.cuda.is_available():
       raise ModuleNotFoundError("")
 except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
@@ -12567,7 +12891,11 @@ from random import random
 import time
 
 status['cpu_memory'] = psutil.virtual_memory().total / (1024 * 1024 * 1024)
-status['gpu_memory'] = torch.cuda.get_device_properties(0).total_memory / (1024 * 1024 * 1024)
+try:
+    status['gpu_memory'] = torch.cuda.get_device_properties(0).total_memory / (1024 * 1024 * 1024)
+except Exception:
+    status['gpu_memory'] = "N/A"
+    pass
 pb = ProgressBar(width=420, bar_height=8)
 total_steps = args['steps']
 def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -13976,6 +14304,26 @@ def clear_reference_pipe():
     del pipe_reference
     flush()
     pipe_reference = None
+def clear_controlnet_qr_pipe():
+  global pipe_controlnet_qr, pipe_controlnet
+  if pipe_controlnet_qr is not None:
+    del pipe_controlnet_qr
+    flush()
+    pipe_controlnet_qr = None
+  if pipe_controlnet is not None:
+    del pipe_controlnet
+    flush()
+    pipe_controlnet = None
+def clear_controlnet_segment_pipe():
+  global pipe_controlnet_segment, pipe_controlnet
+  if pipe_controlnet_segment is not None:
+    del pipe_controlnet_segment
+    flush()
+    pipe_controlnet_segment = None
+  if pipe_controlnet is not None:
+    del pipe_controlnet
+    flush()
+    pipe_controlnet = None
 def clear_DiT_pipe():
   global pipe_DiT
   if pipe_DiT is not None:
@@ -14071,6 +14419,8 @@ def clear_pipes(allbut=None):
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'reference' in but: clear_reference_pipe()
+    if not 'controlnet_qr' in but: clear_controlnet_qr_pipe()
+    if not 'controlnet_segment' in but: clear_controlnet_segment_pipe()
     if not 'DiT' in but: clear_DiT_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'panorama' in but: clear_panorama_pipe()
@@ -14095,9 +14445,15 @@ def clear_pipes(allbut=None):
 import base64
 def get_base64(image_path):
     with open(image_path, "rb") as img_file:
-        my_string = base64.b64encode(img_file.read()).decode('utf-8')
-        return my_string
-
+        base64_string = base64.b64encode(img_file.read()).decode('utf-8')
+        return base64_string
+def pil_to_base64(image):
+    image_stream = io.BytesIO()
+    image.save(image_stream, format='PNG')
+    image_bytes = image_stream.getvalue()
+    base64_string = base64.b64encode(image_bytes).decode('utf-8')
+    return base64_string
+  
 def available_file(folder, name, idx, ext='png', no_num=False):
   available = False
   while not available:
@@ -15576,7 +15932,7 @@ def run_prompt_generator(page):
       result = response["choices"][0]["text"].strip()
     elif prefs['prompt_generator']['AI_engine'] == "ChatGPT-3.5 Turbo":
       response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
+        model="gpt-3.5-turbo-16k",
         messages=[{"role": "user", "content": prompt}]
       )
       #print(str(response))
@@ -15681,7 +16037,7 @@ def run_prompt_remixer(page):
       #print(response)
       result = response["choices"][0]["text"].strip()
     elif prefs['prompt_remixer']['AI_engine'] == "ChatGPT-3.5 Turbo":
-      response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": prompt}])
+      response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "user", "content": prompt}])
       #print(str(response))
       result = response["choices"][0]["message"]["content"].strip()
 
@@ -15955,7 +16311,7 @@ def run_prompt_brainstormer(page):
         response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
         result = response["choices"][0]["text"].strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "ChatGPT-3.5 Turbo":
-        response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": request}])
+        response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "user", "content": request}])
         result = response["choices"][0]["message"]["content"].strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
         result = bloom_request(request)
@@ -17095,7 +17451,7 @@ def run_reference(page, from_list=False):
             random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             #generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
-                images = pipe_reference(ref_image=init_img, prompt=pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=pr['num_inference_steps'], attention_auto_machine_weight=reference_prefs['attention_auto_machine_weight'], gn_auto_machine_weight=reference_prefs['gn_auto_machine_weight'], style_fidelity=reference_prefs['style_fidelity'], reference_attn=reference_prefs['reference_attn'], reference_adain=reference_prefs['reference_adain'], guidance_scale=pr['guidance_scale'], width=width, height=height, num_images_per_prompt=reference_prefs['batch_size'], callback=callback_fnc, callback_steps=1)#.images
+                images = pipe_reference(ref_image=init_img, prompt=pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=pr['num_inference_steps'], attention_auto_machine_weight=reference_prefs['attention_auto_machine_weight'], gn_auto_machine_weight=reference_prefs['gn_auto_machine_weight'], style_fidelity=reference_prefs['style_fidelity'], reference_attn=reference_prefs['reference_attn'], reference_adain=reference_prefs['reference_adain'], guidance_scale=pr['guidance_scale'], width=width, height=height, num_images_per_prompt=reference_prefs['batch_size'], callback=callback_fnc, callback_steps=1).images
             except Exception as e:
                 clear_last()
                 alert_msg(page, "Error running Reference Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
@@ -17115,6 +17471,7 @@ def run_reference(page, from_list=False):
                 if not reference_prefs['display_upscaled_image'] or not reference_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    time.sleep(0.6)
                 if reference_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
                     upload_folder = 'upload'
@@ -17138,8 +17495,8 @@ def run_reference(page, from_list=False):
                     image_path = upscaled_path
                     os.chdir(stable_dir)
                     if reference_prefs['display_upscaled_image']:
-                        time.sleep(0.6)
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(reference_prefs["enlarge_scale"]), height=height * float(reference_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                        time.sleep(0.6)
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
@@ -17169,6 +17526,525 @@ def run_reference(page, from_list=False):
                     shutil.copy(image_path, new_file)
                 elif bool(prefs['image_output']):
                     new_file = available_file(os.path.join(prefs['image_output'], reference_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                time.sleep(0.2)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_controlnet_qr(page, from_list=False):
+    global controlnet_qr_prefs, pipe_controlnet_qr, pipe_controlnet
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.ControlNetQR.controls.append(line)
+        if update:
+          page.ControlNetQR.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.ControlNetQR.controls[-1]
+        page.ControlNetQR.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.ControlNetQR.controls = page.ControlNetQR.controls[:1]
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.ControlNetQR.auto_scroll = scroll
+        page.ControlNetQR.update()
+      else:
+        page.ControlNetQR.auto_scroll = scroll
+        page.ControlNetQR.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = controlnet_qr_prefs['num_inference_steps'] * 2
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    controlnet_qr_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        controlnet_qr = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'init_image': p['init_image'] if bool(p['init_image']) else controlnet_qr_prefs['init_image'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps': p['steps'], 'width': p['max_size'], 'height': p['max_size'], 'strength':p['init_image_strength'], 'seed': p['seed']}
+        controlnet_qr_prompts.append(controlnet_qr)
+    else:
+        if not bool(controlnet_qr_prefs['prompt']):
+            alert_msg(page, "You need to add a Text Prompt first... ")
+            return
+        controlnet_qr = {'prompt':controlnet_qr_prefs['prompt'], 'negative_prompt': controlnet_qr_prefs['negative_prompt'], 'init_image': controlnet_qr_prefs['init_image'], 'guidance_scale':controlnet_qr_prefs['guidance_scale'], 'num_inference_steps': controlnet_qr_prefs['num_inference_steps'], 'width': controlnet_qr_prefs['max_size'], 'height': controlnet_qr_prefs['max_size'], 'strength': controlnet_qr_prefs['strength'], 'seed': controlnet_qr_prefs['seed']}
+        controlnet_qr_prompts.append(controlnet_qr)
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    else:
+      clear_list()
+    autoscroll(True)
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    try:
+        import qrcode
+    except ImportError:
+        prt(Installing(f"Installing QRCode Library... "))
+        run_sp("pip install qrcode", realtime=False)
+        import qrcode
+        clear_last()
+        pass
+    sd_model = get_model(prefs['model_ckpt'])['path']
+    controlnet_model = "DionTimmer/controlnet_qrcode-control_v1p_sd15" if controlnet_qr_prefs['controlnet_version'].endswith("1.5") else "DionTimmer/controlnet_qrcode-control_v11p_sd21"
+    if controlnet_qr_prefs['last_model'] == sd_model and controlnet_qr_prefs['last_controlnet_model'] == controlnet_model and pipe_controlnet_qr != None:
+        clear_pipes('controlnet_qr')
+    else:
+        clear_pipes()
+        controlnet_qr_prefs['last_model'] = sd_model
+        controlnet_qr_prefs['last_controlnet_model'] = controlnet_model
+    #torch.cuda.empty_cache()
+    #torch.cuda.reset_max_memory_allocated()
+    #torch.cuda.reset_peak_memory_stats()
+    if pipe_controlnet_qr == None:
+        prt(Installing(f"Installing ControlNet QRCode Pipeline with {sd_model} Model... "))
+        from diffusers import StableDiffusionControlNetImg2ImgPipeline, ControlNetModel
+        try:
+            pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16)
+            pipe_controlnet_qr = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(sd_model, controlnet=pipe_controlnet, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
+            pipe_controlnet_qr = optimize_pipe(pipe_controlnet_qr)
+            pipe_controlnet_qr.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing ControlNet QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #pipe_controlnet_qr.set_progress_bar_config(disable=True)
+        clear_last()
+    else:
+        pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
+    s = "s" if controlnet_qr_prefs['num_images'] > 1 or controlnet_qr_prefs['batch_size'] > 1 else ""
+    prt(f"Generating ControlNet QR{s} of your Image...")
+    batch_output = os.path.join(stable_dir, controlnet_qr_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+        os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], controlnet_qr_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+        os.makedirs(batch_output)
+    batch_size = controlnet_qr_prefs['batch_size']
+    if controlnet_qr_prefs['use_image']:
+        if not bool(controlnet_qr_prefs['ref_image']):
+            alert_msg(page, f"ERROR: If using your own QR image, you must provide it.")
+            return
+        if controlnet_qr_prefs['ref_image'].startswith('http'):
+            qrcode_image = PILImage.open(requests.get(controlnet_qr_prefs['ref_image'], stream=True).raw)
+        else:
+            if os.path.isfile(pr['ref_image']):
+                qrcode_image = PILImage.open(controlnet_qr_prefs['ref_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your ref_image {controlnet_qr_prefs['ref_image']}")
+                return
+    else:
+        if not bool(controlnet_qr_prefs['qr_content']):
+            alert_msg(page, f"ERROR: If Generating QR Code, you must provide content like a URL.")
+            return
+        prt("Generating QR Code from content...")
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=10,
+            border=controlnet_qr_prefs['border_thickness'],
+        )
+        qr.add_data(controlnet_qr_prefs['qr_content'])
+        qr.make(fit=True)
+        qrcode_image = qr.make_image(fill_color="black", back_color="white")
+        clear_last()
+    width, height = qrcode_image.size
+    width, height = scale_dimensions(width, height, controlnet_qr_prefs['max_size'], multiple=32)
+    qrcode_image = qrcode_image.resize((width, height), resample=PILImage.LANCZOS)
+
+    for pr in controlnet_qr_prompts:
+        if bool(pr['init_image']):
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
+            #width = pr['width']
+            #height = pr['height']
+        else: 
+            init_img = qrcode_image
+            pr['strength'] = 1.0
+        total_steps = pr['num_inference_steps'] * 2
+        for num in range(controlnet_qr_prefs['num_images']):
+            prt(progress)
+            prt(Container(content=None))
+            clear_last()
+            autoscroll(False)
+            random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            try:
+                images = pipe_controlnet_qr(prompt=[pr['prompt']] * batch_size, negative_prompt=[pr['negative_prompt']] * batch_size, image=[init_img] * batch_size, control_image=qrcode_image, num_inference_steps=pr['num_inference_steps'], guidance_scale=pr['guidance_scale'], controlnet_conditioning_scale=float(controlnet_qr_prefs['conditioning_scale']), width=width, height=height, num_images_per_prompt=controlnet_qr_prefs['batch_size'], strength=pr['strength'], generator=generator, callback=callback_fnc, callback_steps=1).images
+            except Exception as e:
+                clear_last()
+                alert_msg(page, "Error running ControlNet-QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            autoscroll(True)
+            clear_last()
+            fname = format_filename(pr['prompt'])
+            i = 0
+            for image in images:
+                if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+                #for image in images:
+                image_path = available_file(os.path.join(stable_dir, controlnet_qr_prefs['batch_folder_name']), fname, num)
+                unscaled_path = image_path
+                output_file = image_path.rpartition(slash)[2]
+                image.save(image_path)
+                out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
+                if not controlnet_qr_prefs['display_upscaled_image'] or not controlnet_qr_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if controlnet_qr_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                    upload_folder = 'upload'
+                    result_folder = 'results'
+                    if os.path.isdir(upload_folder):
+                        shutil.rmtree(upload_folder)
+                    if os.path.isdir(result_folder):
+                        shutil.rmtree(result_folder)
+                    os.mkdir(upload_folder)
+                    os.mkdir(result_folder)
+                    short_name = f'{fname[:80]}-{num}.png'
+                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                    #print(f'Moving {fpath} to {dst_path}')
+                    #shutil.move(fpath, dst_path)
+                    shutil.copy(image_path, dst_path)
+                    #faceenhance = ' --face_enhance' if controlnet_qr_prefs["face_enhance"] else ''
+                    faceenhance = ''
+                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {controlnet_qr_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    out_file = short_name.rpartition('.')[0] + '_out.png'
+                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    image_path = upscaled_path
+                    os.chdir(stable_dir)
+                    if controlnet_qr_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(controlnet_qr_prefs["enlarge_scale"]), height=height * float(controlnet_qr_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                        #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {controlnet_qr_prefs['enlarge_scale']}x with ESRGAN" if controlnet_qr_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", "ControlNet-QRCode")
+                    if prefs['save_config_in_metadata']:
+                      metadata.add_text("title", pr['prompt'])
+                      config_json = controlnet_qr_prefs.copy()
+                      config_json['controlnet_model_path'] = controlnet_model
+                      config_json['model_path'] = sd_model
+                      config_json['seed'] = random_seed + i
+                      del config_json['num_images'], config_json['batch_size']
+                      del config_json['display_upscaled_image']
+                      del config_json['batch_folder_name']
+                      del config_json['max_size']
+                      del config_json['last_model']
+                      del config_json['last_controlnet_model']
+                      if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                #TODO: PyDrive
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], controlnet_qr_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], controlnet_qr_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                time.sleep(0.2)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+                i += 1
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_controlnet_segment(page, from_list=False):
+    global controlnet_segment_prefs, pipe_controlnet_segment
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.ControlNetSegmentAnything.controls.append(line)
+        if update:
+          page.ControlNetSegmentAnything.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.ControlNetSegmentAnything.controls[-1]
+        page.ControlNetSegmentAnything.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.ControlNetSegmentAnything.controls = page.ControlNetSegmentAnything.controls[:1]
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.ControlNetSegmentAnything.auto_scroll = scroll
+        page.ControlNetSegmentAnything.update()
+      else:
+        page.ControlNetSegmentAnything.auto_scroll = scroll
+        page.ControlNetSegmentAnything.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = controlnet_segment_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    controlnet_segment_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        controlnet_segment = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'ref_image': p['init_image'] if bool(p['init_image']) else controlnet_segment_prefs['ref_image'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps': p['steps'], 'width': p['width'], 'height': p['height'], 'seed': p['seed']}
+        controlnet_segment_prompts.append(controlnet_segment)
+    else:
+        if not bool(controlnet_segment_prefs['prompt']):
+            alert_msg(page, "You need to add a Text Prompt first... ")
+            return
+        controlnet_segment = {'prompt':controlnet_segment_prefs['prompt'], 'negative_prompt': controlnet_segment_prefs['negative_prompt'], 'ref_image': controlnet_segment_prefs['ref_image'], 'guidance_scale':controlnet_segment_prefs['guidance_scale'], 'num_inference_steps': controlnet_segment_prefs['num_inference_steps'], 'width': controlnet_segment_prefs['width'], 'height': controlnet_segment_prefs['height'], 'seed': controlnet_segment_prefs['seed']}
+        controlnet_segment_prompts.append(controlnet_segment)
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    else:
+      clear_list()
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    model = "runwayml/stable-diffusion-v1-5"#get_model(prefs['model_ckpt'])['path']
+    model_name = "1.5"#get_model(prefs['model_ckpt'])['name']
+    controlnet_model = "mfidabel/controlnet-segment-anything"
+    autoscroll(True)
+    installer = Installing(f"Installing ControlNet Segment-Anything Pipeline with {model} Model... ")
+    prt(installer)
+    clear_pipes('controlnet_segment')
+    #torch.cuda.empty_cache()
+    #torch.cuda.reset_max_memory_allocated()
+    #torch.cuda.reset_peak_memory_stats()
+    try:
+        from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
+    except ModuleNotFoundError:
+        installer.set_details("...facebookresearch/segment-anything")
+        run_sp("pip install git+https://github.com/facebookresearch/segment-anything.git", realtime=False)
+        from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
+        pass
+    SAM_URL = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
+    SAM_dir = os.path.join(root_dir, "sam_vit_h_4b8939.pth")
+    if not os.path.exists(SAM_dir):
+        installer.set_details("...Downloading SAM Weights")
+        r = requests.get(SAM_URL, allow_redirects=True)
+        installer.set_details("...Writing SAM Weights")
+        with open(SAM_dir, "wb") as sam_weights:
+            sam_weights.write(r.content)
+        del r
+
+    gc.collect()
+    sam = sam_model_registry["vit_h"](checkpoint=SAM_dir).to(torch_device)
+    mask_generator = SamAutomaticMaskGenerator(sam)
+    gc.collect()
+
+    from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
+    #prt(installer)
+    if pipe_controlnet_segment == None:
+        try:
+            installer.set_details(f"...ControlNet Model {controlnet_model}")
+            pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16).to(torch_device)
+            installer.set_details(f"...SD Model {model_name}")
+            pipe_controlnet_segment = StableDiffusionControlNetPipeline.from_pretrained(model, controlnet=pipe_controlnet, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_controlnet_segment = pipeline_scheduler(pipe_controlnet_segment)
+            pipe_controlnet_segment = optimize_pipe(pipe_controlnet_segment)
+            pipe_controlnet_segment.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing ControlNet Segment-Anything Pipeline", content=Text(str(e)))
+            return
+        #pipe_controlnet_segment.set_progress_bar_config(disable=True)
+    else:
+        pipe_controlnet_segment = pipeline_scheduler(pipe_controlnet_segment)
+    
+    def show_anns(anns):
+        if len(anns) == 0:
+            return
+        sorted_anns = sorted(anns, key=(lambda x: x['area']), reverse=True)
+        h, w =  anns[0]['segmentation'].shape
+        final_img = PILImage.fromarray(np.zeros((h, w, 3), dtype=np.uint8), mode="RGB")
+        for ann in sorted_anns:
+            m = ann['segmentation']
+            img = np.empty((m.shape[0], m.shape[1], 3), dtype=np.uint8)
+            for i in range(3):
+                img[:,:,i] = np.random.randint(255, dtype=np.uint8)
+            final_img.paste(PILImage.fromarray(img, mode="RGB"), (0, 0), PILImage.fromarray(np.uint8(m*255)))
+        return final_img
+    
+    clear_last()
+    s = "s" if controlnet_segment_prefs['num_images'] > 1 or controlnet_segment_prefs['batch_size'] > 1 else ""
+    prt(f"Generating ControlNet Segment-Anything{s} of your Image...")
+    batch_output = os.path.join(stable_dir, controlnet_segment_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], controlnet_segment_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in controlnet_segment_prompts:
+        if pr['ref_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(pr['ref_image'], stream=True).raw)
+        else:
+            if os.path.isfile(pr['ref_image']):
+                init_img = PILImage.open(pr['ref_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your ref_image {pr['ref_image']}")
+                return
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, controlnet_segment_prefs['max_size'], multiple=32)
+        init_img = init_img.resize((width, height), resample=PILImage.BICUBIC)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        #width = pr['width']
+        #height = pr['height']
+        total_steps = pr['num_inference_steps']
+        batch_size = controlnet_segment_prefs['batch_size']
+        fname = format_filename(pr['prompt'])
+        segmented_image = os.path.join(stable_dir, controlnet_segment_prefs['batch_folder_name'], f"{fname}-segmented.png")
+        for num in range(controlnet_segment_prefs['num_images']):
+            prt("Creating Segmented Mask Image...")
+            random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            np.random.seed(int(random_seed))
+            init_img_np = np.asarray(init_img)
+            masks = mask_generator.generate(init_img_np)
+            segmented_map = show_anns(masks)
+            segmented_map.save(segmented_image)
+            clear_last()#src_base64=pil_to_base64(segmented_map)
+            prt(Row([Img(src=segmented_image, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            del masks
+            flush()
+            prt(progress)
+            autoscroll(False)
+            #segmented_map = segment_image(init_img, random_seed)
+            #yield segmented_map, [PILImage.fromarray(np.zeros((width, height, 3), dtype=np.uint8))] * batch_size]
+            try:
+                images = pipe_controlnet_segment([pr['prompt']] * batch_size, [segmented_map] * batch_size, negative_prompt=[pr['negative_prompt']] * batch_size, num_inference_steps=pr['num_inference_steps'], guidance_scale=pr['guidance_scale'], width=width, height=height, generator=generator, callback=callback_fnc, callback_steps=1).images
+            except Exception as e:
+                clear_last()
+                alert_msg(page, "Error running ControlNet Segment-Anything Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+                return
+            autoscroll(True)
+            clear_last()
+            for image in images:
+                if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+                #for image in images:
+                image_path = available_file(os.path.join(stable_dir, controlnet_segment_prefs['batch_folder_name']), fname, num)
+                unscaled_path = image_path
+                output_file = image_path.rpartition(slash)[2]
+                image.save(image_path)
+                out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
+                if not controlnet_segment_prefs['display_upscaled_image'] or not controlnet_segment_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    time.sleep(0.8)
+                if controlnet_segment_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                    upload_folder = 'upload'
+                    result_folder = 'results'
+                    if os.path.isdir(upload_folder):
+                        shutil.rmtree(upload_folder)
+                    if os.path.isdir(result_folder):
+                        shutil.rmtree(result_folder)
+                    os.mkdir(upload_folder)
+                    os.mkdir(result_folder)
+                    short_name = f'{fname[:80]}-{num}.png'
+                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                    #print(f'Moving {fpath} to {dst_path}')
+                    #shutil.move(fpath, dst_path)
+                    shutil.copy(image_path, dst_path)
+                    #faceenhance = ' --face_enhance' if controlnet_segment_prefs["face_enhance"] else ''
+                    faceenhance = ''
+                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {controlnet_segment_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    out_file = short_name.rpartition('.')[0] + '_out.png'
+                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    image_path = upscaled_path
+                    os.chdir(stable_dir)
+                    if controlnet_segment_prefs['display_upscaled_image']:
+                        prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(controlnet_segment_prefs["enlarge_scale"]), height=height * float(controlnet_segment_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                        time.sleep(0.6)
+                        #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {controlnet_segment_prefs['enlarge_scale']}x with ESRGAN" if controlnet_segment_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", "ControlNetSegmentAnything")
+                    if prefs['save_config_in_metadata']:
+                      metadata.add_text("title", pr['prompt'])
+                      config_json = controlnet_segment_prefs.copy()
+                      config_json['model_path'] = model
+                      config_json['seed'] = random_seed
+                      del config_json['num_images'], config_json['batch_size']
+                      del config_json['display_upscaled_image']
+                      del config_json['batch_folder_name']
+                      del config_json['max_size']
+                      if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                #TODO: PyDrive
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], controlnet_segment_prefs['batch_folder_name']), fname, num)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], controlnet_segment_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
                     shutil.copy(image_path, new_file)
                 time.sleep(0.2)
@@ -22012,7 +22888,7 @@ def run_whisper(page):
             response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=whisper_prefs['AI_temperature'], presence_penalty=1)
             result = response["choices"][0]["text"].strip()
         elif whisper_prefs['AI_engine'] == "ChatGPT-3.5 Turbo":
-            response = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": request}])
+            response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "user", "content": request}])
             result = response["choices"][0]["message"]["content"].strip()
         return result
     if whisper_prefs['reformat']:
@@ -27684,12 +28560,20 @@ def main(page: Page):
         elif 'P100' in s: gpu = 'P100'
         elif 'V100' in s: gpu = 'V100'
         elif 'A100' in s: gpu = 'A100'
-        else: gpu = s
+        else:
+            import re
+            gpu = re.sub(r"\([^()]*\)", "", s).strip()
         status['cpu_used'] = psutil.virtual_memory().used / (1024 * 1024 * 1024)
         #memory_stats = torch.cuda.memory_stats(device=torch.device("cuda"))
         #available_memory = memory_stats["reserved_bytes.all.allocated"] - memory_stats["allocated_bytes.all.current"]
-        status['gpu_used'] = torch.cuda.max_memory_allocated(device=torch.device("cuda")) / (1024 * 1024 * 1024)
-        memory = f"GPU VRAM: {status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB | Runnning {gpu}"
+        try:
+            status['gpu_used'] = torch.cuda.max_memory_allocated(device=torch.device("cuda")) / (1024 * 1024 * 1024)
+            gpu_mem = f"{status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB"
+        except Exception:
+            status['gpu_used'] = 0
+            gpu_mem = "N/A"
+            pass
+        memory = f"GPU VRAM: {gpu_mem} - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB | Runnning {gpu}"
         help_dlg = AlertDialog(
             title=Text("💁   Help/Information - Stable Diffusion Deluxe " + SDD_version), content=Column([Text(memory), Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI Friends using our pretty interface."),
                   Text("Simply go through the self-explanitory tabs step-by-step and set your preferences to get started. The default values are good for most, but you can have some fun experimenting. All values are automatically saved as you make changes and change tabs."),
@@ -27891,7 +28775,7 @@ class ImageButton(UserControl):
         if self.width == None:
             self.image = Img(src=self.src, fit=self.fit, gapless_playback=True)
         else:
-            self.width, self.height = scale_width(self.width, self.height, (self.page.width or self.page.window_width) - 28)
+            self.width, self.height = scale_width(self.width, self.height, (self.page.window_width or self.page.width) - 28)
             self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
         self.column = Column([Row([PopupMenuButton(
             items = [
@@ -28106,6 +28990,24 @@ class Installing(UserControl):
     def show_progress(self, show):
         self.progress.visible = show
         self.progress.update()
+
+class Switcher(UserControl):
+    def __init__(self, label="", value=False, tooltip=None, disabled=False, on_change=None, active_color=None, active_track_color=None):
+        super().__init__()
+        self.label = label
+        self.value = value
+        self.tooltip = tooltip
+        self.disabled = disabled
+        self.on_change = on_change
+        self.active_color = active_color if active_color != None else colors.PRIMARY_CONTAINER
+        self.active_track_color = active_track_color if active_track_color != None else colors.PRIMARY
+        self.build()
+    def build(self):
+        self.switch = Switch(label=f"  {self.label} ", value=self.value, disabled=self.disabled, active_color=self.active_color, active_track_color=self.active_track_color, on_change=self.on_change)
+        if self.tooltip != None:
+            return Tooltip(message=self.tooltip, content=self.switch)
+        else:
+            return self.switch
 
 class VideoPlayer(UserControl):
     def __init__(self, video_file="", width=500, height=500):
