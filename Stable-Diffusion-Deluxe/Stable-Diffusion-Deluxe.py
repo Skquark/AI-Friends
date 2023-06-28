@@ -12,7 +12,7 @@ tunnel_type = "desktop" #@param ["localtunnel", "ngrok"]
 #, "cloudflared"
 auto_launch_website = False #@param {'type': 'boolean'}
 force_updates = False
-SDD_version = "v1.8.0"
+SDD_version = "v1.9.0"
 import os, subprocess, sys, shutil
 import random as rnd
 root_dir = '/content/'
@@ -101,6 +101,12 @@ except ImportError as e:
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
+'''try:
+  from flet_ivid import VideoContainer
+except ModuleNotFoundError:
+  run_sp("pip install --upgrade flet_ivid")
+  from flet_ivid import VideoContainer
+  pass'''
 try:
   import requests
 except Exception:
@@ -212,6 +218,7 @@ def load_settings_file():
       'file_suffix_seed': False,
       'file_max_length': 220,
       'file_allowSpace': False,
+      'file_datetime': False,
       'save_image_metadata': True,
       'meta_ArtistName':'',
       'meta_Copyright': '',
@@ -385,6 +392,8 @@ import flet as ft
 from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, FilledButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
 from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, KeyboardType, TextThemeStyle, AnimationCurve
 from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
+#from flet import OptionalNumber
+from flet import BlendMode
 from flet import Image as Img
 try:
     import PIL
@@ -397,7 +406,7 @@ from PIL import Image as PILImage # Avoids flet conflict
 if not hasattr(PILImage, 'Resampling'):  # Allow Pillow<9.0
    PILImage.Resampling = PILImage
 import random as rnd
-import io, shutil, traceback, string, datetime
+import io, shutil, traceback, string, datetime, threading
 from packaging import version
 from contextlib import redirect_stdout
 try:
@@ -596,10 +605,6 @@ def buildStableDiffusers(page):
     page.InstructPix2Pix = buildInstructPix2Pix(page)
     page.ControlNet = buildControlNet(page)
     page.DeepFloyd = buildDeepFloyd(page)
-    page.TextToVideo = buildTextToVideo(page)
-    page.TextToVideoZero = buildTextToVideoZero(page)
-    page.Potat1 = buildPotat1(page)
-    page.StableAnimation = buildStableAnimation(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.Kandinsky = buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page)
@@ -630,10 +635,6 @@ def buildStableDiffusers(page):
             Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
-            #Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
-            #Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
-            #Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
-            #Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             #Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
@@ -684,6 +685,7 @@ def buildVideoAIs(page):
     page.Potat1 = buildPotat1(page)
     page.StableAnimation = buildStableAnimation(page)
     page.ControlNet = buildControlNet(page)
+    page.Roop = buildROOP(page)
 
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
@@ -691,6 +693,7 @@ def buildVideoAIs(page):
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
+            Tab(text="ROOP", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
         ],
     )
@@ -698,9 +701,9 @@ def buildVideoAIs(page):
 
 def buildAudioAIs(page):
     page.TortoiseTTS = buildTortoiseTTS(page)
+    page.MusicGen = buildMusicGen(page)
     page.DanceDiffusion = buildDanceDiffusion(page)
     page.AudioDiffusion = buildAudioDiffusion(page)
-    page.MusicGen = buildMusicGen(page)
     page.AudioLDM = buildAudioLDM(page)
     page.Bark = buildBark(page)
     page.Riffusion = buildRiffusion(page)
@@ -709,11 +712,11 @@ def buildAudioAIs(page):
     audioAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
+            Tab(text="MusicGen", content=page.MusicGen, icon=icons.MUSIC_NOTE),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
             Tab(text="Bark", content=page.Bark, icon=icons.PETS),
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
-            Tab(text="MusicGen", content=page.MusicGen, icon=icons.MUSIC_NOTE),
             Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
             Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
             Tab(text="Whisper-STT", content=page.Whisper, icon=icons.HEARING),
@@ -773,6 +776,7 @@ def get_color(color):
 
 
 # Delete these after everyone's updated
+if 'file_datetime' not in prefs: prefs['file_datetime'] = False
 if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
 if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
 if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
@@ -940,6 +944,7 @@ def buildSettings(page):
   file_suffix_seed = Checkbox(label="Filename Suffix Seed   ", tooltip="Appends -seed# to the end of the image name", value=prefs['file_suffix_seed'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_suffix_seed'))
   file_allowSpace = Checkbox(label="Filename Allow Space", tooltip="Otherwise will replace spaces with _ underscores", value=prefs['file_allowSpace'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_allowSpace'))
   file_max_length = TextField(label="Filename Max Length", tooltip="How long can the name taken from prompt text be? Max 250", value=prefs['file_max_length'], keyboard_type=KeyboardType.NUMBER, width=150, height=60, on_change=lambda e:changed(e, 'file_max_length'))
+  file_datetime = Checkbox(label="Filename DateTime instead of Prompt Text", tooltip="Save File with Date-Time Stamp to protect your prompt.", value=prefs['file_datetime'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'file_datetime'))
   save_image_metadata = Checkbox(label="Save Image Metadata in png", tooltip="Embeds your Artist Name & Copyright in the file's EXIF", value=prefs['save_image_metadata'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_image_metadata'))
   meta_ArtistName = TextField(label="Artist Name Metadata", value=prefs['meta_ArtistName'], keyboard_type=KeyboardType.NAME, on_change=lambda e:changed(e, 'meta_ArtistName'))
   meta_Copyright = TextField(label="Copyright Metadata", value=prefs['meta_Copyright'], keyboard_type=KeyboardType.NAME, on_change=lambda e:changed(e, 'meta_Copyright'))
@@ -969,6 +974,7 @@ def buildSettings(page):
         #VerticalDivider(thickness=2),
         Row([file_prefix, file_suffix_seed]) if (page.window_width or page.width) > 500 else Column([file_prefix, file_suffix_seed]),
         Row([file_max_length, file_allowSpace]),
+        file_datetime,
         #Row([disable_nsfw_filter, retry_attempts]),
         #VerticalDivider(thickness=2, width=1),
         save_image_metadata,
@@ -1071,7 +1077,7 @@ def buildInstallers(page):
       if stat is not None:
         status[stat] = e.control.value
   def toggle_diffusers(e):
-      prefs['install_diffusers'] = install_diffusers.content.value
+      prefs['install_diffusers'] = e.control.value
       diffusers_settings.height=None if prefs['install_diffusers'] else 0
       diffusers_settings.update()
       status['changed_installers'] = True
@@ -1198,7 +1204,7 @@ def buildInstallers(page):
   install_versatile = Switcher(label="Install Versatile Diffusion text2image, Dual Guided & Image Variation Pipeline", value=prefs['install_versatile'], disabled=status['installed_versatile'], on_change=lambda e:changed(e, 'install_versatile'), tooltip="Multi-flow model that provides both image and text data streams and conditioned on both text and image.")
 
   def toggle_clip(e):
-      prefs['install_CLIP_guided'] = install_CLIP_guided.content.value
+      prefs['install_CLIP_guided'] = e.control.value
       status['changed_installers'] = True
       clip_settings.height=None if prefs['install_CLIP_guided'] else 0
       clip_settings.update()
@@ -1258,14 +1264,14 @@ def buildInstallers(page):
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
                                          install_versatile, install_SAG, install_attend_and_excite, install_panorama, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
-      prefs['install_Stability_api'] = install_Stability_api.content.value
+      prefs['install_Stability_api'] = e.control.value
       has_changed=True
       stability_settings.height=None if prefs['install_Stability_api'] else 0
       stability_settings.update()
       page.update()
   install_Stability_api = Switcher(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], on_change=toggle_stability, tooltip="Use DreamStudio.com servers without your GPU to create images on CPU.")
   use_Stability_api = Checkbox(label="Use Stability-ai API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
-  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
+  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-xl-1024-v0-9"), dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
   clip_guidance_preset = Dropdown(label="Clip Guidance Preset", width=350, options=[dropdown.Option("SIMPLE"), dropdown.Option("FAST_BLUE"), dropdown.Option("FAST_GREEN"), dropdown.Option("SLOW"), dropdown.Option("SLOWER"), dropdown.Option("SLOWEST"), dropdown.Option("NONE")], value=prefs['clip_guidance_preset'], autofocus=False, on_change=lambda e:changed(e, 'clip_guidance_preset'))
   #generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM"), dropdown.Option("K_EULER"), dropdown.Option("K_EULER_ANCESTRAL"), dropdown.Option("K_HEUN"), dropdown.Option("K_DPMPP_2M"), dropdown.Option("K_DPM_2_ANCESTRAL"), dropdown.Option("K_LMS"), dropdown.Option("K_DPMPP_2S_ANCESTRAL"), dropdown.Option("K_DPM_2")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
@@ -2054,13 +2060,15 @@ class Dream:
 
 
 def format_filename(s, force_underscore=False, use_dash=False, max_length=None):
+    if prefs['file_datetime'] and not use_dash and not force_underscore:
+        return datetime.now().strftime("%Y%m%d-%H%M%S")
     file_max_length = int(prefs['file_max_length']) if max_length == None else int(max_length)
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
     filename = ''.join(c for c in s if c in valid_chars)
     if use_dash:
-      filename = filename.replace(' ','-')
+        filename = filename.replace(' ','-')
     else:
-      if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
+        if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
     return filename[:file_max_length]
 
 def to_title(s, sentence=False):
@@ -2139,7 +2147,7 @@ def editPrompt(e):
         arg['prompt2'] = prompt2.value if bool(use_prompt_tweening.value) else None
         arg['tweens'] = int(tweens.value)
         arg['negative_prompt'] = negative_prompt.value if bool(negative_prompt.value) else None
-        arg['use_clip_guided_model'] = use_clip_guided_model.content.value
+        arg['use_clip_guided_model'] = use_clip_guided_model.value
         arg['clip_guidance_scale'] = float(clip_guidance_scale.value)
         arg['use_cutouts'] = use_cutouts.value
         arg['num_cutouts'] = int(num_cutouts.value)
@@ -4054,7 +4062,7 @@ def buildDanceDiffusion(page):
     audio_length_in_s = TextField(label="Audio Length in Seconds", value=dance_prefs['audio_length_in_s'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'audio_length_in_s'), width = 190)
     number_row = Row([batch_size, seed, audio_length_in_s])
 
-    train_custom = Switcher(label="Train Custom Audio   ", value=dance_prefs['train_custom'], on_change=toggle_custom)
+    train_custom = Switcher(label="Train Custom Audio ", value=dance_prefs['train_custom'], on_change=toggle_custom)
     custom_audio_name = TextField(label="Custom Audio Name", value=dance_prefs['custom_name'], on_change=lambda e:changed(e,'custom_name'))
     wav_path = TextField(label="Audio Files or Folder Path or URL to Train", value=dance_prefs['wav_path'], on_change=lambda e:changed(e,'wav_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_wav_button = ElevatedButton(content=Text("Add Audio Files"), on_click=add_wav)
@@ -4243,7 +4251,9 @@ music_gen_prefs = {
     'temperature': 1,
     'guidance': 5,
     'overlap': 5,
-    'recondition': False,
+    'dimension': 1,
+    #'recondition': False,
+    'harmony_only': False,
     'use_sampling': True,
     'two_step_cfg': False, #If True, performs 2 forward for Classifier Free Guidance, instead of batching together the two. This has some impact on how things are padded but seems to have little impact in practice.
     'seed': 0,
@@ -4323,16 +4333,19 @@ def buildMusicGen(page):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp3", "wav"], dialog_title="Pick Init Audio File")
     audio_file = TextField(label="Melody Conditioning Audio File (optional)", value=music_gen_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
     prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=music_gen_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
-    duration_row = SliderRow(label="Duration", min=1, max=300, divisions=299, suffix="s", expand=True, pref=music_gen_prefs, key='duration')
+    duration_row = SliderRow(label="Duration", min=1, max=720, divisions=718, suffix="s", expand=True, pref=music_gen_prefs, key='duration')
     #steps_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=music_gen_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     audio_model = Dropdown(label="Audio Model", width=150, options=[dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large")], value=music_gen_prefs['audio_model'], on_change=lambda e: changed(e, 'audio_model'))
     guidance = SliderRow(label="Classifier Free Guidance", min=0, max=10, divisions=20, round=1, pref=music_gen_prefs, key='guidance', tooltip="Large => better quality and relavancy to text; Small => better diversity", col={'lg':6})
     temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, pref=music_gen_prefs, key='temperature', tooltip="Softmax value used to module the next token probabilities", col={'lg':6})
-    top_k = SliderRow(label="Top-K Samples", min=0, max=300, divisions=300, round=0, pref=music_gen_prefs, key='top_k', tooltip="Number of highest probability vocabulary tokens to keep for top-k-filtering", col={'lg':6})
-    top_p = SliderRow(label="Top-P Samples", min=0, max=1, divisions=10, round=1, pref=music_gen_prefs, key='top_p', tooltip="Percent of highest probability vocabulary tokens to keep, , when set to 0 top_k is used", col={'lg':6})
-    recondition = Checkbox(label="Recondition Chunks over 30s", tooltip="Condition next chunks with the first chunk.", value=music_gen_prefs['recondition'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'recondition'), col={'lg':6})
+    top_k = SliderRow(label="Top-K Samples", min=0, max=300, divisions=299, round=0, pref=music_gen_prefs, key='top_k', tooltip="Number of highest probability vocabulary tokens to keep for top-k-filtering", col={'lg':6})
+    top_p = SliderRow(label="Top-P Samples", min=0, max=1, divisions=11, round=1, pref=music_gen_prefs, key='top_p', tooltip="Percent of highest probability vocabulary tokens to keep, , when set to 0 top_k is used", col={'lg':6})
+    #recondition = Checkbox(label="Recondition Chunks over 30s", tooltip="Condition next chunks with the first chunk.", value=music_gen_prefs['recondition'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'recondition'), col={'lg':6})
+    harmony_only = Checkbox(label="Harmony Only", tooltip="Remove Drums?", value=music_gen_prefs['harmony_only'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'harmony_only'), col={'lg':6})
+    #harmony_only = gr.Radio(label="Harmony Only",choices=["No", "Yes"], value="No", interactive=True, info="Remove Drums?")
     overlap = SliderRow(label="Overlap", min=1, max=29, divisions=28, round=0, pref=music_gen_prefs, key='overlap', tooltip="Time to resample chunks longer than 30s.", col={'lg':6})
-
+    dimension = SliderRow(label="Dimension", min=-2, max=2, divisions=3, round=0, pref=music_gen_prefs, key='dimension', tooltip="Which direction to add new segements of audio. (1 = stack tracks, 2 = lengthen, -2..0 = ?)", col={'lg':6})
+    #dimension = gr.Slider(minimum=-2, maximum=2, value=2, step=1, label="Dimension", info="determines which direction to add new segements of audio. (1 = stack tracks, 2 = lengthen, -2..0 = ?)", interactive=True)
     audio_name = TextField(label="Audio File Name", value=music_gen_prefs['audio_name'], on_change=lambda e:changed(e,'audio_name'))
     batch_folder_name = TextField(label="Batch Folder Name", value=music_gen_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=music_gen_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
@@ -4351,7 +4364,7 @@ def buildMusicGen(page):
         Row([audio_model, duration_row]),
         ResponsiveRow([guidance, temperature]),
         ResponsiveRow([top_k, top_p]),
-        ResponsiveRow([recondition, overlap]),
+        ResponsiveRow([dimension, overlap]),
         Row([num_samples, seed, file_prefix]),
         Row([audio_name, batch_folder_name]),
         ElevatedButton(content=Text("🎷  Run MusicGen", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_music_gen(page)),
@@ -5264,6 +5277,8 @@ controlnet_qr_prefs = {
     'negative_prompt': 'ugly, disfigured, low quality, blurry, nsfw',
     'guidance_scale': 8.0,
     'conditioning_scale': 1.8,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
     'strength': 0.9,
     'num_inference_steps': 50,
     'controlnet_version': "Stable Diffusion 2.1",
@@ -5387,6 +5402,8 @@ def buildControlNetQR(page):
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=controlnet_qr_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_qr_prefs, key='guidance_scale')
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0.0, max=5.0, divisions=50, round=1, pref=controlnet_qr_prefs, key='conditioning_scale', tooltip="Strength of the ControlNet Mask.")
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_qr_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_qr_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
     strength = SliderRow(label="Init Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_qr_prefs, key='strength', tooltip="How strong the Initial Image should be over the ControlNet. Higher value give less influence.")
     max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_qr_prefs, key='max_size')
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_qr_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
@@ -5415,6 +5432,7 @@ def buildControlNetQR(page):
         guidance,
         conditioning_scale,
         strength,
+        Row([control_guidance_start, control_guidance_end]),
         max_size,
         ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
         page.ESRGAN_block_controlnet_qr,
@@ -5482,7 +5500,7 @@ def buildControlNetSegmentAnything(page):
           Text("This model is based on the ControlNet Model, which allow us to generate Images using some sort of condition image. For this model, we selected the segmentation maps produced by Meta’s new segmentation model called Segment Anything Model as the condition image. We then trained the model to generate images based on the structure of the segmentation maps and the text prompts given."),
           Text("For the training, we generated a segmented dataset based on the COYO-700M dataset. The dataset provided us with the images, and the text prompts. For the segmented images, we used Segment Anything Model. We then created 8k samples to train our model on, which isn’t a lot, but as a team, we have been very busy with many other responsibilities and time constraints, which made it challenging to dedicate a lot of time to generating a larger dataset. Despite the constraints we faced, we have still managed to achieve some nice results 🙌"),
           Markdown("[Project Page](https://segment-anything.com) | [Model Card](https://huggingface.co/mfidabel/controlnet-segment-anything) | [Segment-Anything Code](https://github.com/facebookresearch/segment-anything) | [HuggingFace Demo](https://huggingface.co/spaces/mfidabel/controlnet-segment-anything)", on_tap_link=lambda e: e.page.launch_url(e.data)),
-          
+
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧩  Puzzle the Pieces... ", on_click=close_controlnet_segment_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = controlnet_segment_help_dlg
       controlnet_segment_help_dlg.open = True
@@ -6847,6 +6865,8 @@ controlnet_prefs = {
     'negative_prompt': 'lowres, text, watermark, cropped, low quality',
     'control_task': 'Scribble',
     'conditioning_scale': 1.0,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
     'multi_controlnets': [],
     'batch_size': 1,
     'max_size': 768,
@@ -6991,7 +7011,7 @@ def buildControlNet(page):
         eta_value.update()
         eta_row.update()
     def add_layer(e):
-        layer = {'control_task': controlnet_prefs['control_task'], 'original_image': controlnet_prefs['original_image'], 'conditioning_scale': controlnet_prefs['conditioning_scale'], 'use_init_video': False}
+        layer = {'control_task': controlnet_prefs['control_task'], 'original_image': controlnet_prefs['original_image'], 'conditioning_scale': controlnet_prefs['conditioning_scale'], 'control_guidance_start': controlnet_prefs['control_guidance_start'], 'control_guidance_end': controlnet_prefs['control_guidance_end'], 'use_init_video': False}
         if controlnet_prefs['control_task'] == "Video Canny Edge" or controlnet_prefs['control_task'] == "Video OpenPose":
           layer['use_init_video'] = True
           layer['init_video'] = controlnet_prefs['init_video']
@@ -7002,7 +7022,7 @@ def buildControlNet(page):
           init_video.value = ""
           original_image.update()
         controlnet_prefs['multi_controlnets'].append(layer)
-        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['init_video'] if layer['use_init_video'] else layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['init_video'] if layer['use_init_video'] else layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[
               PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
               PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
@@ -7029,6 +7049,8 @@ def buildControlNet(page):
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
     #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNet Layer", on_click=add_layer)
     add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
     multi_layers = Column([], spacing=0)
@@ -7069,6 +7091,7 @@ def buildControlNet(page):
         Header("🕸️  ControlNet Image+Text2Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
         Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
+        Row([control_guidance_start, control_guidance_end]),
         multi_layers,
         vid_params,
         Divider(thickness=2, height=4),
@@ -7285,6 +7308,7 @@ text_to_video_prefs = {
     'width': 256,
     'height': 256,
     'num_frames': 16,
+    'model': 'damo-vilab/text-to-video-ms-1.7b',
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -7343,6 +7367,7 @@ Resources:
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_prefs, key='height')
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=text_to_video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=text_to_video_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=text_to_video_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
     batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(text_to_video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=text_to_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -7361,7 +7386,7 @@ Resources:
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
-        Row([export_to_video, lower_memory]),
+        Row([export_to_video, lower_memory, model]),
         num_frames,
         num_inference_row,
         guidance,
@@ -8138,6 +8163,153 @@ def buildStableAnimation(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+roop_prefs = {
+    'source_image': '',
+    'target_image': '',
+    'frame_processor': 'face_swapper',
+    'keep_fps': True,
+    'keep_audio': True,
+    'keep_frames': True,
+    'many_faces': False,
+    'video_encoder': 'libx264',
+    'video_quality': 18,
+    'output_name': '',
+    'max_size': 768,
+    'num_images': 1,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+def buildROOP(page):
+    global roop_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            roop_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            roop_prefs[pref] = float(e.control.value)
+          else:
+            roop_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_roop_output(o):
+      page.roop_output.controls.append(o)
+      page.roop_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.roop_output.controls = []
+      page.roop_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def roop_help(e):
+      def close_roop_dlg(e):
+        nonlocal roop_help_dlg
+        roop_help_dlg.open = False
+        page.update()
+      roop_help_dlg = AlertDialog(title=Text("💁   Help with ROOP Face Swap"), content=Column([
+          Text("Choose a face (image with desired face) and the target image/video (image/video in which you want to replace the face) and click on Start. Open file explorer and navigate to the directory you select your output to be in. You will find a directory named <video_title> where you can see the frames being swapped in realtime. Once the processing is done, it will create the output file. That's it."),
+          Text("Roop is such a powerful tool that can be used for many purposes, so it’s crucial to know the potential risks of using Roop. Roop Deepfake is an experimental project that aims to make deep fake technology more accessible and easy to use. It uses a library called insightface and some models to detect and replace faces. You can also use GPU acceleration to speed up the process."),
+          Text("Disclaimer: This software is meant to be a productive contribution to the rapidly growing AI-generated media industry. It will help artists with tasks such as animating a custom character or using the character as a model for clothing etc."),
+          Markdown(" [GitHub Page](https://github.com/s0md3v/roop) | [HuggingFace Space](https://huggingface.co/spaces/zhsso/roop) | [Colab](https://colab.research.google.com/drive/1uX5k33KNXprOeu_P9iov1byLOd4XGo1i#scrollTo=aN1XeEX_tsra)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("👶  Promise not to abuse... ", on_click=close_roop_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = roop_help_dlg
+      roop_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      nonlocal pick_type
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          roop_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          roop_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        if pick_type == "source":
+          source_image.value = fname
+          source_image.update()
+          roop_prefs['source_image'] = fname
+        elif pick_type == "target":
+          target_image.value = fname
+          target_image.update()
+          roop_prefs['target_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    #page.overlay.append(pick_files_dialog)
+    def pick_source(e):
+        nonlocal pick_type
+        pick_type = "source"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Source Image File")
+    def pick_target(e):
+        nonlocal pick_type
+        pick_type = "target"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi", "png", "PNG", "jpg", "jpeg"], dialog_title="Pick Target Video or Image")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        roop_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    source_image = TextField(label="Source Image of Face", value=roop_prefs['source_image'], on_change=lambda e:changed(e,'source_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_source))
+    target_image = TextField(label="Target Video or Image", value=roop_prefs['target_image'], on_change=lambda e:changed(e,'target_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_target))
+    keep_fps = Switcher(label="Keep FPS", value=roop_prefs['keep_fps'], on_change=lambda e:changed(e,'keep_fps'))
+    keep_audio = Switcher(label="Keep Audio", value=roop_prefs['keep_audio'], on_change=lambda e:changed(e,'keep_audio'))
+    keep_frames = Switcher(label="Keep Frames", value=roop_prefs['keep_frames'], on_change=lambda e:changed(e,'keep_frames'))
+    many_faces = Switcher(label="Many Faces", value=roop_prefs['many_faces'], on_change=lambda e:changed(e,'many_faces'))
+    frame_processor = Dropdown(label="Frame Processor", width=160, options=[dropdown.Option("face_swapper"), dropdown.Option("face_enhancer")], value=roop_prefs['frame_processor'], on_change=lambda e: changed(e, 'frame_processor'))
+    video_encoder = Dropdown(label="Video Encoder", width=160, options=[dropdown.Option("libx264"), dropdown.Option("libx265"), dropdown.Option("libvpx-vp9")], value=roop_prefs['video_encoder'], on_change=lambda e: changed(e, 'video_encoder'))
+    video_quality = SliderRow(label="Video Quality", min=0, max=50, divisions=49, pref=roop_prefs, key='video_quality')
+    max_row = SliderRow(label="Max Image Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=roop_prefs, key='max_size')
+    output_name = TextField(label="Output File Name", value=roop_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=roop_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    num_images = NumberPicker(label="Number of Images: ", min=1, max=8, value=roop_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=roop_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=roop_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=roop_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_roop = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_roop.height = None if status['installed_ESRGAN'] else 0
+    page.roop_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.roop_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎭  ROOP Face Swapper", "Take a Video or Image and Replace the Face in it with a face of your choice, no dataset, no training needed...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ROOP", on_click=roop_help)]),
+        #ResponsiveRow([Row([source_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        source_image,
+        target_image,
+        ResponsiveRow([Column([keep_fps, keep_frames, frame_processor], col={'md':6, 'lg':4, 'xl':3}), Column([keep_audio, many_faces, video_encoder], col={'md':6, 'lg':4, 'xl':3})]),
+        video_quality,
+        max_row,
+        Row([output_name, batch_folder_name]),
+        page.ESRGAN_block_roop,
+        #Row([jump_length, jump_n_sample, seed]),
+        ElevatedButton(content=Text("😷  Run ROOP Swap", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_roop(page)),
+        page.roop_output,
+        #clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 
 materialdiffusion_prefs = {
@@ -14453,7 +14625,7 @@ def pil_to_base64(image):
     image_bytes = image_stream.getvalue()
     base64_string = base64.b64encode(image_bytes).decode('utf-8')
     return base64_string
-  
+
 def available_file(folder, name, idx, ext='png', no_num=False):
   available = False
   while not available:
@@ -17693,7 +17865,7 @@ def run_controlnet_qr(page, from_list=False):
             init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
             #width = pr['width']
             #height = pr['height']
-        else: 
+        else:
             init_img = qrcode_image
             pr['strength'] = 1.0
         total_steps = pr['num_inference_steps'] * 2
@@ -17705,7 +17877,7 @@ def run_controlnet_qr(page, from_list=False):
             random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
-                images = pipe_controlnet_qr(prompt=[pr['prompt']] * batch_size, negative_prompt=[pr['negative_prompt']] * batch_size, image=[init_img] * batch_size, control_image=qrcode_image, num_inference_steps=pr['num_inference_steps'], guidance_scale=pr['guidance_scale'], controlnet_conditioning_scale=float(controlnet_qr_prefs['conditioning_scale']), width=width, height=height, num_images_per_prompt=controlnet_qr_prefs['batch_size'], strength=pr['strength'], generator=generator, callback=callback_fnc, callback_steps=1).images
+                images = pipe_controlnet_qr(prompt=[pr['prompt']] * batch_size, negative_prompt=[pr['negative_prompt']] * batch_size, image=[init_img] * batch_size, control_image=qrcode_image, num_inference_steps=pr['num_inference_steps'], guidance_scale=pr['guidance_scale'], controlnet_conditioning_scale=float(controlnet_qr_prefs['conditioning_scale']), control_guidance_start=controlnet_qr_prefs['control_guidance_start'], control_guidance_end=controlnet_qr_prefs['control_guidance_end'], width=width, height=height, num_images_per_prompt=controlnet_qr_prefs['batch_size'], strength=pr['strength'], generator=generator, callback=callback_fnc, callback_steps=1).images
             except Exception as e:
                 clear_last()
                 alert_msg(page, "Error running ControlNet-QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -17910,7 +18082,7 @@ def run_controlnet_segment(page, from_list=False):
         #pipe_controlnet_segment.set_progress_bar_config(disable=True)
     else:
         pipe_controlnet_segment = pipeline_scheduler(pipe_controlnet_segment)
-    
+
     def show_anns(anns):
         if len(anns) == 0:
             return
@@ -17924,7 +18096,7 @@ def run_controlnet_segment(page, from_list=False):
                 img[:,:,i] = np.random.randint(255, dtype=np.uint8)
             final_img.paste(PILImage.fromarray(img, mode="RGB"), (0, 0), PILImage.fromarray(np.uint8(m*255)))
         return final_img
-    
+
     clear_last()
     s = "s" if controlnet_segment_prefs['num_images'] > 1 or controlnet_segment_prefs['batch_size'] > 1 else ""
     prt(f"Generating ControlNet Segment-Anything{s} of your Image...")
@@ -19623,23 +19795,16 @@ def run_music_gen(page):
         installer.set_details("...facebookresearch/audiocraft")
         run_sp("pip install -U ffmpeg", realtime=False)
         #run_sp("pip install -U audiocraft", realtime=True)
-        run_sp("pip install -U git+https://github.com/facebookresearch/audiocraft#egg=audiocraft", realtime=False)
+        #run_sp("pip install -U git+https://github.com/facebookresearch/audiocraft#egg=audiocraft", realtime=False)
+        run_sp("pip install -U git+https://github.com/Oncorporation/audiocraft#egg=audiocraft", realtime=False)
         pass
     finally:
         from audiocraft.models import musicgen
         from audiocraft.data.audio import audio_write
-
+        from audiocraft.data.audio_utils import apply_fade, apply_tafade
+        from audiocraft.utils.extend import generate_music_segments, add_settings_to_image, INTERRUPTING
+    text = music_gen_prefs['prompt']
     init = music_gen_prefs['audio_file']
-    duration = music_gen_prefs['duration']
-    overlap = music_gen_prefs['overlap']
-    seed = music_gen_prefs['seed']
-    output = None
-    first_chunk = None
-    total_samples = duration * 50 + 3
-    segment_duration = duration
-    if seed <= 0:
-        seed = rnd.randint(0, 0xffff_ffff_ffff)
-    torch.manual_seed(seed)
     model_id = music_gen_prefs['audio_model'] if not bool(init) else "melody"
     if music_gen_prefs['loaded_model'] != model_id:
         installer.set_details("...clear_pipes")
@@ -19655,25 +19820,47 @@ def run_music_gen(page):
             clear_last()
             alert_msg(page, "Error setting up MusicGen Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    if init.startswith('http'):
-        installer.set_details("...download audio_file")
-        init_audio = download_file(init)
-    else:
-        if os.path.isfile(init):
-            init_audio = init
-        else:
-            init_audio = None
     clear_last()
+    def get_melody(melody_filepath):
+        audio_data= list(librosa.load(melody_filepath, sr=None))
+        audio_data[0], audio_data[1] = audio_data[1], audio_data[0]
+        melody = tuple(audio_data)
+        return melody
     for num in range(music_gen_prefs['num_samples']):
+        if init.startswith('http'):
+            installer.set_details("...download audio_file")
+            melody = download_file(init)
+        else:
+            if os.path.isfile(init):
+                melody = init
+            else:
+                melody = None
+        if melody is None:
+            melody = get_melody(melody)
+        duration = music_gen_prefs['duration']
+        overlap = music_gen_prefs['overlap']
+        dimension = music_gen_prefs['dimension']
+        seed = music_gen_prefs['seed']
+        output = None
+        first_chunk = None
+        total_samples = duration * 50 + 3
+        segment_duration = duration
+        initial_duration = duration
+        output_segments = []
         gen_status = Text("  Generating MusicGen Sounds...", weight=FontWeight.BOLD)
         prt(gen_status)
         prt(progress)
-        if init_audio != None and duration > 30:
-            duration = 30
-        chunk = 1
+        if seed <= 0:
+            random_seed = rnd.randint(0, 0xffff_ffff_ffff)
+        else:
+            random_seed = seed + num
+        torch.manual_seed(random_seed)
+        #if melody != None and duration > 30:
+        #    duration = 30
+        chunk = 0
         while duration > 0:
             chunk += 1
-            if output is None: # first pass of long or short song
+            if not output_segments: # first pass of long or short song
                 if segment_duration > pipe_music_gen.lm.cfg.dataset.segment_duration:
                     segment_duration = pipe_music_gen.lm.cfg.dataset.segment_duration
                 else:
@@ -19683,7 +19870,7 @@ def run_music_gen(page):
                     segment_duration = duration + overlap
                 else:
                     segment_duration = pipe_music_gen.lm.cfg.dataset.segment_duration
-            gen_status.value = f"  Generating MusicGen... Segment duration: {segment_duration}, duration: {duration}, overlap: {overlap}, chunk: {chunk}"
+            gen_status.value = f"  Generating MusicGen... Segment duration: {segment_duration}, Remaining duration: {duration}, overlap: {overlap}, chunk: {chunk}"
             page.music_gen_output.update()
             #print(f'Segment duration: {segment_duration}, duration: {duration}, overlap: {overlap}')
             pipe_music_gen.set_generation_params(
@@ -19694,10 +19881,29 @@ def run_music_gen(page):
                 temperature=music_gen_prefs['temperature'],
                 cfg_coef=music_gen_prefs['guidance'],
                 duration=segment_duration,
+                rep_penalty=0.5
             )
             try:
-                if init_audio != None:
-                    import torchaudio
+                if melody:
+                    if duration > pipe_music_gen.lm.cfg.dataset.segment_duration:
+                        output_segments, duration = generate_music_segments(text, melody, random_seed, pipe_music_gen, duration, overlap, pipe_music_gen.lm.cfg.dataset.segment_duration, prompt_index, harmony_only=music_gen_prefs['harmony_only'])
+                    else:
+                        # pure original code
+                        sr, melody = melody[0], torch.from_numpy(melody[1]).to(pipe_music_gen.device).float().t().unsqueeze(0)
+                        print(melody.shape)
+                        if melody.dim() == 2:
+                            melody = melody[None]
+                        melody = melody[..., :int(sr * pipe_music_gen.lm.cfg.dataset.segment_duration)]
+                        output = pipe_music_gen.generate_with_chroma(
+                            descriptions=[text],
+                            melody_wavs=melody,
+                            melody_sample_rate=sr,
+                            progress=True
+                        )
+                    # All output_segments are populated, so we can break the loop or set duration to 0
+                    break
+                    '''import torchaudio
+                    sr, melody = melody[0], torch.from_numpy(melody[1]).to(pipe_music_gen.device).float().t().unsqueeze(0)
                     melody, sr = torchaudio.load(init_audio)
                     #sr = 32000
                     #melody = torch.from_numpy(init_audio).to(pipe_music_gen.device).float().t().unsqueeze(0)
@@ -19711,9 +19917,17 @@ def run_music_gen(page):
                         melody_sample_rate=sr,
                         progress=True
                     )
-                    duration -= segment_duration
+                    duration -= segment_duration'''
                 else:
-                    if output is None:
+                    if not output_segments:
+                        next_segment = pipe_music_gen.generate(descriptions=[text], progress=True)
+                        duration -= segment_duration
+                    else:
+                        last_chunk = output_segments[-1][:, :, -overlap*pipe_music_gen.sample_rate:]
+                        next_segment = pipe_music_gen.generate_continuation(last_chunk, pipe_music_gen.sample_rate, descriptions=[text], progress=False)
+                        duration -= segment_duration - overlap
+                    output_segments.append(next_segment)
+                    '''if output is None:
                         next_segment = pipe_music_gen.generate(descriptions=[music_gen_prefs['prompt'] * music_gen_prefs['batch_size']], progress=True)
                                                       #progress=updateProgress)
                         duration -= segment_duration
@@ -19723,17 +19937,44 @@ def run_music_gen(page):
                         last_chunk = output[:, :, -overlap*pipe_music_gen.sample_rate:]
                         next_segment = pipe_music_gen.generate_continuation(last_chunk,
                             pipe_music_gen.sample_rate, descriptions=[[music_gen_prefs['prompt'] * music_gen_prefs['batch_size']]], progress=True) #, melody_wavs=(first_chunk), resample=False
-                        duration -= segment_duration - overlap
+                        duration -= segment_duration - overlap'''
                     #output = pipe_music_gen.generate(descriptions=[music_gen_prefs['prompt'] * music_gen_prefs['batch_size']], progress=True)
-                if output is None:
-                    output = next_segment
-                else:
-                    output = torch.cat([output[:, :, :-overlap*pipe_music_gen.sample_rate], next_segment], 2)
+                #if output is None:
+                #    output = next_segment
+                #else:
+                #    output = torch.cat([output[:, :, :-overlap*pipe_music_gen.sample_rate], next_segment], 2)
             except Exception as e:
                 clear_last()
                 alert_msg(page, "Error Generating Music Output", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 return
             #output = output.detach().cpu().float()[0]
+        if output_segments:
+            try:
+                output = output_segments[0]
+                for i in range(1, len(output_segments)):
+                    overlap_samples = overlap * pipe_music_gen.sample_rate
+                    overlapping_output_fadeout = output[:, :, -overlap_samples:]
+                    #overlapping_output_fadeout = apply_fade(overlapping_output_fadeout,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=True,start=True, curve_end=0.0, current_device=pipe_music_gen.device)
+                    overlapping_output_fadeout = apply_tafade(overlapping_output_fadeout,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=True,start=True,shape="linear")
+                    overlapping_output_fadein = output_segments[i][:, :, :overlap_samples]
+                    #overlapping_output_fadein = apply_fade(overlapping_output_fadein,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=False,start=False, curve_start=0.0, current_device=pipe_music_gen.device)
+                    overlapping_output_fadein = apply_tafade(overlapping_output_fadein,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=False,start=False, shape="linear")
+                    overlapping_output = torch.cat([overlapping_output_fadeout[:, :, :-(overlap_samples // 2)], overlapping_output_fadein],dim=2)
+                    gen_status.value = f"  Saving MusicGen... Overlap size Fade:{overlapping_output.size()}\n output: {output.size()}\n segment: {output_segments[i].size()}"
+                    page.music_gen_output.update()
+                    #print(f" Overlap size Fade:{overlapping_output.size()}\n output: {output.size()}\n segment: {output_segments[i].size()}")
+                    output = torch.cat([output[:, :, :-overlap_samples], overlapping_output, output_segments[i][:, :, overlap_samples:]], dim=dimension)
+                output = output.detach().cpu().float()[0]
+            except Exception as e:
+                alert_msg(page, f"Error combining segments: {e}. Using the first segment only.")
+                output = output_segments[0].detach().cpu().float()[0]
+        else:
+            try:
+                output = output.detach().cpu().float()[0]
+            except Exception as e:
+                clear_last()
+                alert_msg(page, "Error Saving Music Output", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
 
         #sample_rate = pipe_music_gen.mel.get_sample_rate()
         save_dir = os.path.join(root_dir, 'audio_out', music_gen_prefs['batch_folder_name'])
@@ -19757,9 +19998,9 @@ def run_music_gen(page):
         #audios = output.audios
         idx = 0
         for wav in output:
-            aname = available_file(save_dir, audio_name, (num * music_gen_prefs['batch_size']) + idx, ext="wav")
+            aname = available_file(save_dir, audio_name, num + idx, ext="wav")
             with open(aname, "wb") as file:
-                audio_write(file.name, wav.cpu(), pipe_music_gen.sample_rate, strategy="loudness", loudness_compressor=True, loudness_headroom_db=16, add_suffix=False)
+                audio_write(file.name, wav.cpu(), pipe_music_gen.sample_rate, strategy="loudness", loudness_compressor=True, loudness_headroom_db=18, add_suffix=False, channels=2)
                 #waveform_video = gr.make_waveform(file.name)
             #for i in range(waveform.shape[0]):
             #    sf.write(aname, waveform[i, 0], samplerate=sample_rate)
@@ -19772,10 +20013,10 @@ def run_music_gen(page):
             display_name = aname
             #a.tofile(f"/content/dance-{i}.wav")
             if storage_type == "Colab Google Drive":
-                audio_save = available_file(audio_out, audio_name, (num * music_gen_prefs['batch_size']) + idx, ext='wav')
+                audio_save = available_file(audio_out, audio_name, num + idx, ext='wav')
                 shutil.copy(aname, audio_save)
             elif bool(prefs['image_output']):
-                audio_save = available_file(audio_out, audio_name, (num * music_gen_prefs['batch_size']) + idx, ext='wav')
+                audio_save = available_file(audio_out, audio_name, num + idx, ext='wav')
                 shutil.copy(aname, audio_save)
             else: audio_save = aname
             display_name = audio_save
@@ -19784,6 +20025,7 @@ def run_music_gen(page):
             idx += 1
         output = None
         first_chunk = None
+        output_segments = []
     flush()
     torch.cuda.ipc_collect()
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -24502,7 +24744,7 @@ def run_controlnet(page, from_list=False):
         alert_msg(page, "You need to add Prompts to your List first... ")
         return
       for p in prompts:
-        control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_prefs['original_image'], 'conditioning_scale': controlnet_prefs['conditioning_scale'], 'seed': p['seed']}
+        control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_prefs['original_image'], 'conditioning_scale': controlnet_prefs['conditioning_scale'], 'control_guidance_start': controlnet_prefs['control_guidance_start'], 'control_guidance_end': controlnet_prefs['control_guidance_end'], 'seed': p['seed']}
         controlnet_prompts.append(control)
       page.tabs.selected_index = 4
       page.tabs.update()
@@ -24513,13 +24755,19 @@ def run_controlnet(page, from_list=False):
         return
       original = controlnet_prefs['original_image']
       conditioning_scale = controlnet_prefs['conditioning_scale']
+      control_guidance_start = controlnet_prefs['control_guidance_start']
+      control_guidance_end = controlnet_prefs['control_guidance_end']
       if len(controlnet_prefs['multi_controlnets']) > 0:
         original = []
         conditioning_scale = []
+        control_guidance_start = []
+        control_guidance_end = []
         for c in controlnet_prefs['multi_controlnets']:
           original.append(c['original_image'])
           conditioning_scale.append(c['conditioning_scale'])
-      control = {'prompt':controlnet_prefs['prompt'], 'negative_prompt': controlnet_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'seed': controlnet_prefs['seed']}
+          control_guidance_start.append(c['control_guidance_start'])
+          control_guidance_end.append(c['control_guidance_end'])
+      control = {'prompt':controlnet_prefs['prompt'], 'negative_prompt': controlnet_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'control_guidance_start':control_guidance_start, 'control_guidance_end': control_guidance_end, 'seed': controlnet_prefs['seed']}
       if controlnet_prefs['use_init_video']:
         control['init_video'] = controlnet_prefs['init_video']
         control['start_time'] = controlnet_prefs['start_time']
@@ -24840,9 +25088,9 @@ def run_controlnet(page, from_list=False):
             random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             if not controlnet_prefs['use_init_video']:
-                images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
             else:
-                images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
         except Exception as e:
             #clear_last()
             clear_last()
@@ -25574,7 +25822,17 @@ def run_text_to_video(page):
     clear_list()
     autoscroll(True)
     prt(Installing("Installing Text-To-Video Pipeline..."))
-    model_id = "damo-vilab/text-to-video-ms-1.7b"
+    #), dropdown.Option(), dropdown.Option(), dropdown.Option(), dropdown.Option(
+    if text_to_video_prefs['model'] == "damo-vilab/text-to-video-ms-1.7b":
+        model_id = "damo-vilab/text-to-video-ms-1.7b"
+    elif text_to_video_prefs['model'] == "modelscope-damo-text2video-synthesis":
+        model_id = "damo-vilab/modelscope-damo-text2video-synthesis"
+    elif text_to_video_prefs['model'] == "modelscope-damo-text2video-pruned-weights":
+        model_id = "kabachuha/modelscope-damo-text2video-pruned-weights"
+    elif text_to_video_prefs['model'] == "cerspense/zeroscope_v2_576w":
+        model_id = "cerspense/zeroscope_v2_576w"
+    elif text_to_video_prefs['model'] == "cerspense/zeroscope_v2_XL":
+        model_id = "cerspense/zeroscope_v2_XL"
     clear_pipes()
     #clear_pipes('text_to_video')
     if pipe_text_to_video is None:
@@ -25714,6 +25972,8 @@ def run_text_to_video(page):
             shutil.copy(image_path, new_file)
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1
+    if bool(video_path):
+        prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -26085,6 +26345,7 @@ def run_potat1(page):
             shutil.copy(image_path, new_file)
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1'''
+    #prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     prt(f"Done creating video... Check {batch_output}")
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -26369,13 +26630,228 @@ def run_stable_animation(page):
         #shutil.copy(local_file, save_file)
         clear_last()
         try:
-            prt(VideoPlayer(save_file, width, height))
+            prt(Row([VideoContainer(save_file)], alignment=MainAxisAlignment.CENTER))
+            #prt(VideoPlayer(save_file, width, height))
         except Exception as e:
             print(f"Error showing VideoPlayer: {e}")
             pass
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_roop(page):
+    global roop_prefs, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.Roop.controls.append(line)
+      page.Roop.update()
+    def clear_last():
+      del page.Roop.controls[-1]
+      page.Roop.update()
+    def autoscroll(scroll=True):
+        page.Roop.auto_scroll = scroll
+        page.Roop.update()
+    if not bool(roop_prefs['source_image']) or not bool(roop_prefs['target_image']):
+        alert_msg(page, "You must provide a source image and target video or image...")
+        return
+    page.Roop.controls = page.Roop.controls[:1]
+    autoscroll()
+    installer = Installing("Installing ROOP Libraries...")
+    prt(installer)
+    roop_dir = os.path.join(root_dir, "roop")
+    if not os.path.exists(roop_dir):
+        try:
+            installer.set_details("...cloning s0md3v/roop.git")
+            run_process("git clone https://github.com/s0md3v/roop.git", cwd=root_dir)
+            installer.set_details("...installing requirements")
+            #run_process("pip install -r requirements.txt", cwd=roop_dir)
+            installer.set_details("...downloading roop inswapper")
+            wget("https://huggingface.co/camenduru/roop/resolve/main/inswapper_128.onnx", roop_dir)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Point-E Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    try:
+        import ffmpeg
+    except ImportError as e:
+        installer.set_details("...installing ffmpeg")
+        run_sp("pip install -q ffmpeg", realtime=False)
+        pass
+    try:
+        import cv2
+    except ModuleNotFoundError:
+        run_sp("pip install opencv-python", realtime=False)
+        import cv2
+        pass
+    try:
+        import onnx
+    except ImportError as e:
+        installer.set_details("...installing onnx")
+        run_sp("pip install -q onnx==1.14.0", realtime=False)
+        pass
+    try:
+        import insightface
+    except ImportError as e:
+        installer.set_details("...installing insightface")
+        run_sp("pip install -q insightface==0.7.3", realtime=False)
+        pass
+    try:
+        import tk
+    except ImportError as e:
+        installer.set_details("...installing tk")
+        run_sp("pip install -q tk==0.1.0", realtime=False)
+        pass
+    try:
+        import customtkinter
+    except ImportError as e:
+        installer.set_details("...installing customtkinter")
+        run_sp("pip install -q customtkinter==5.1.3", realtime=False)
+        pass
+    try:
+        import onnxruntime
+    except ImportError as e:
+        installer.set_details("...installing onnxruntime")
+        run_sp("pip install -q onnxruntime-gpu==1.15.0", realtime=False)
+        pass
+    try:
+        import opennsfw2
+    except ImportError as e:
+        installer.set_details("...installing opennsfw2")
+        run_sp("pip install -q opennsfw2==0.10.2", realtime=False)
+        try:
+            import protobuf
+        except ImportError as e:
+            installer.set_details("...installing protobuf") #3.20.*
+            run_sp("pip install -q protobuf==4.23.2", realtime=False)
+            pass
+        pass
+    try:
+        import gfpgan
+    except ImportError as e:
+        installer.set_details("...installing gfpgan")
+        run_sp("pip install -q gfpgan", realtime=False)
+        pass
+    clear_pipes()
+
+    from PIL import ImageOps
+    if bool(roop_prefs['output_name']):
+        fname = format_filename(roop_prefs['output_name'], force_underscore=True)
+    elif bool(roop_prefs['batch_folder_name']):
+        fname = format_filename(roop_prefs['batch_folder_name'], force_underscore=True)
+    else:
+        fname = "output"
+    #TODO: Add prefix
+    if bool(roop_prefs['batch_folder_name']):
+        batch_output = os.path.join(stable_dir, roop_prefs['batch_folder_name'])
+    else:
+        batch_output = stable_dir
+    if not os.path.exists(batch_output):
+        os.makedirs(batch_output)
+    #.rpartition(slash)[0], 'roop'
+    output_path = os.path.join(prefs['image_output'], roop_prefs['batch_folder_name'])
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    init_img = None
+    if roop_prefs['source_image'].startswith('http'):
+        installer.set_details("...downloading source image")
+        init_img = PILImage.open(requests.get(roop_prefs['source_image'], stream=True).raw)
+    else:
+        if os.path.isfile(roop_prefs['source_image']):
+            init_img = PILImage.open(roop_prefs['source_image'])
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your source_image {roop_prefs['source_image']}")
+            return
+    source_name = roop_prefs['source_image'].rpartition("/")[2] if "/" in roop_prefs['source_image'] else roop_prefs['source_image'].rpartition(slash)[2]
+    source_path = ""
+    if init_img != None:
+        installer.set_details("...resizing source image")
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, roop_prefs['max_size'])
+        init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        source_path = os.path.join(batch_output, f'{source_name.rpartition(".")[0]}.png')
+        init_img.save(source_path)
+    is_video = roop_prefs['target_image'].endswith('mp4') or roop_prefs['target_image'].endswith('avi')
+
+    target_img = None
+    target_name = roop_prefs['target_image'].rpartition("/")[2] if "/" in roop_prefs['target_image'] else roop_prefs['target_image'].rpartition(slash)[2]
+    target_path = ""
+    if roop_prefs['target_image'].startswith('http'):
+        if is_video:
+            installer.set_details("...downloading target video")
+            wget(roop_prefs['target_image'], batch_output)
+            target_path = os.path.join(batch_output, target_name)
+        else:
+            installer.set_details("...downloading target image")
+            target_img = PILImage.open(requests.get(roop_prefs['target_image'], stream=True).raw)
+    else:
+        if os.path.isfile(roop_prefs['target_image']):
+            if is_video:
+                target_path = roop_prefs['target_image']
+            else:
+                target_img = PILImage.open(roop_prefs['target_image'])
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your target_image {roop_prefs['target_image']}")
+            return
+    if target_img != None:
+        installer.set_details("...resizing target image")
+        width, height = target_img.size
+        width, height = scale_dimensions(width, height, roop_prefs['max_size'])
+        target_img = target_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        target_img = ImageOps.exif_transpose(target_img).convert("RGB")
+        target_path = os.path.join(batch_output, f'{target_name.rpartition(".")[0]}.png')
+        target_img.save(target_path)
+    clear_last()
+    progress = ProgressBar(bar_height=8)
+    prt(f"Generating your ROOP Face-Swap {'Video' if is_video else 'Image'}...")
+    prt(progress)
+    autoscroll(False)
+    total_steps = 100 #?
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
+    output_file = available_file(output_path, fname, 0, ext='mp4' if is_video else 'png')
+    #output_file = os.path.join(output_path, f"{fname}{'.mp4' if is_video else '.png'}")
+    cmd = f'python run.py -s "{source_path}" -t "{target_path}" -o "{output_file}"'
+    cmd += f" --frame-processor {roop_prefs['frame_processor']}"
+    cmd += f" --execution-provider {torch_device}"
+    if roop_prefs['keep_fps'] and is_video: cmd += " --keep-fps"
+    if roop_prefs['keep_audio'] and is_video: cmd += " --keep-audio"
+    if roop_prefs['keep_frames'] and is_video: cmd += " --keep-frames"
+    if roop_prefs['many_faces']: cmd += " --many-faces"
+    if is_video:
+        cmd += f" --video-encoder {roop_prefs['video_encoder']}"
+        cmd += f" --video-quality {roop_prefs['video_quality']}"
+    #--max-menory
+    prt(f"Running {cmd}")
+    try:
+        run_process(cmd, cwd=roop_dir, page=page, realtime=True)
+    except Exception as e:
+        clear_last()
+        clear_last()
+        alert_msg(page, "Error running Python.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    clear_last()
+    clear_last()
+    clear_last()
+    autoscroll(True)
+    #TODO: Upscale Image
+    if os.path.isfile(output_file):
+        if is_video:
+            prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
+            #prt(Row([VideoPlayer(video_file=output_file, width=width, height=height)], alignment=MainAxisAlignment.CENTER))
+        else:
+            prt(Row([ImageButton(src=output_file, data=output_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+    else:
+        prt("Error Generating Output File! A NSFW Image may have been detected.")
+    prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_materialdiffusion(page):
     global materialdiffusion_prefs, prefs
@@ -28550,10 +29026,7 @@ def main(page: Page):
           appbar.actions[2].icon=icons.MAXIMIZE
           appbar.actions[2].tooltip = "Restore Window"
         page.update()
-    help_dlg = None
-    def open_help_dlg(e):
-        nonlocal help_dlg
-        #status['cpu_available'] = psutil.virtual_memory().available / (1024 * 1024 * 1024)
+    def get_memory():
         from subprocess import getoutput
         s = getoutput('nvidia-smi -L')
         if 'T4' in s: gpu = 'T4'
@@ -28574,9 +29047,22 @@ def main(page: Page):
             gpu_mem = "N/A"
             pass
         memory = f"GPU VRAM: {gpu_mem} - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB | Runnning {gpu}"
+        return memory
+    help_dlg = None
+    def open_help_dlg(e):
+        nonlocal help_dlg
+        def clear_the_pipes(e):
+            nonlocal memory_text
+            clear_pipes()
+            time.sleep(0.8)
+            memory_text.value = get_memory()
+            memory_text.update()
+        memory_text = Text(get_memory())
+        clear_pipes_btn = ElevatedButton(content=Text("Clear Memory", size=16), on_click=clear_the_pipes)
+        memory_row = Row([memory_text, Container(content=None, expand=True), clear_pipes_btn])
         help_dlg = AlertDialog(
-            title=Text("💁   Help/Information - Stable Diffusion Deluxe " + SDD_version), content=Column([Text(memory), Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI Friends using our pretty interface."),
-                  Text("Simply go through the self-explanitory tabs step-by-step and set your preferences to get started. The default values are good for most, but you can have some fun experimenting. All values are automatically saved as you make changes and change tabs."),
+            title=Text("💁   Help/Information - Stable Diffusion Deluxe " + SDD_version), content=Column([memory_row, Text("If you don't know what Stable Diffusion is, you're in for a pleasant surprise.. If you're already familiar, you're gonna love how easy it is to be an artist with the help of our AI Friends using our pretty interface."),
+                  Text("Simply go through the self-explanitory tabs step-by-step and set your preferences to get started. The default values are good for most, but you can have some fun experimenting. Most values are automatically saved as you make changes and change tabs."),
                   Text("Each time you open the app, you should start in the Installers section, turn on all the components you plan on using in you session, then Run the Installers and let them download. You can multitask and work in other tabs while it's installing."),
                   Text("In the Prompts List, add as many text prompts as you can think of, and edit any prompt to override any default Image Parameter.  Once you're ready, Run Diffusion on your Prompts List and watch it fill your Drive with beauty.."),
                   Text("Try out any and all of our Prompt Helpers to use practical text AIs to make unique descriptive prompts fast, with our Prompt Generator, Remixer, Brainstormer and Advanced Writer.  You'll never run out of inspiration again..."),
@@ -28842,12 +29328,15 @@ class NumberPicker(UserControl):
         return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 class SliderRow(UserControl):
-    def __init__(self, label="", value=None, min=0, max=20, divisions=20, multiple=1, step=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, col=None, on_change=None):
+    def __init__(self, label="", value=None, min=0, max=20, divisions=20, step=None, multiple=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, col=None, on_change=None):
         super().__init__()
         self.value = value or pref[key]
         self.min = min
         self.max = max
-        self.divisions = divisions
+        if step:
+            self.divisions = (max - min) / step
+        else:
+            self.divisions = divisions
         self.multiple = multiple
         self.label = label
         self.round = round
@@ -29023,6 +29512,8 @@ class VideoPlayer(UserControl):
         import base64
         cap = cv2.VideoCapture(self.video_file)
         b64_string = None
+        blank_img = np.zeros((self.width, self.height, 1), dtype = "uint8")#cv2.imencode('.jpg', frame)
+        b64_string = base64.b64encode(blank_img[1]).decode('utf-8')
         image_box = ft.Image(src_base64=b64_string, width=self.width, height=self.height)
         video_container = ft.Container(image_box, alignment=ft.alignment.center, expand=True)
         def update_images():
@@ -29079,6 +29570,288 @@ class AudioPlayer(UserControl):
         self.row = Row([IconButton(icon=self.icon, icon_size=48, tooltip=f"Duration: {dur}", on_click=self.play_audio, data=self.audio_file), Text(self.display)])
         return self.row
 
+
+class VideoContainer(Container):
+    """This will show a video you choose."""
+    def __init__(
+            self,
+            video_path: str,
+            fps: int = 0,
+            play_after_loading=True,
+            video_frame_fit_type: ft.ImageFit = None,
+            video_progress_bar=True,
+            video_play_button=True,
+            exec_after_full_loaded=None,
+            only_show_cover=False,
+            content=None,
+            ref=None,
+            key=None,
+            width=None,
+            height=None,
+            left=None,
+            top=None,
+            right=None,
+            bottom=None,
+            expand=None,
+            col=None,
+            opacity=None,
+            rotate=None,
+            scale=None,
+            offset=None,
+            aspect_ratio=None,
+            animate_opacity=None,
+            animate_size=None,
+            animate_position=None,
+            animate_rotation=None,
+            animate_scale=None,
+            animate_offset=None,
+            on_animation_end=None,
+            tooltip=None,
+            visible=None,
+            disabled=None,
+            data=None,
+            padding=None,
+            margin=None,
+            alignment=None,
+            bgcolor=None,
+            gradient=None,
+            blend_mode=BlendMode.NONE,
+            border=None,
+            border_radius=None,
+            image_src=None,
+            image_src_base64=None,
+            image_repeat=None,
+            image_fit=None,
+            image_opacity=1.0,#OptionalNumber = None,
+            shape=None,
+            clip_behavior=None,
+            ink=None,
+            animate=None,
+            blur=None,
+            shadow=None,
+            url=None,
+            url_target=None,
+            theme=None,
+            theme_mode=None,
+            on_click=None,
+            on_long_press=None,
+            on_hover=None
+    ):
+        super().__init__(content, ref, key, width, height, left, top, right, bottom, expand, col, opacity, rotate,
+                         scale, offset, aspect_ratio, animate_opacity, animate_size, animate_position, animate_rotation,
+                         animate_scale, animate_offset, on_animation_end, tooltip, visible, disabled, data, padding,
+                         margin, alignment, bgcolor, gradient, blend_mode, border, border_radius, image_src,
+                         image_src_base64, image_repeat, image_fit, image_opacity, shape, clip_behavior, ink, animate,
+                         blur, shadow, url, url_target, theme, theme_mode, on_click, on_long_press, on_hover)
+        self.__cur_play_frame = 0
+        self.__video_pause_button = None
+        self.__video_play_button = None
+        self.__video_is_play = False
+        self.vid_duration = None
+        self.fps = fps
+        self.__video_is_full_loaded = None
+        self.video_frames = None
+        self.exec_after_full_loaded = exec_after_full_loaded
+        if not os.path.isfile(video_path):
+            raise FileNotFoundError("Cannot find the video at the path you set.")
+        self.all_frames_of_video = []
+        self.frame_length = 0
+        self.__video_played = False
+        self.video_progress_bar = video_progress_bar
+        self.video_play_button = video_play_button
+        if video_frame_fit_type is None:
+            self.video_frame_fit_type = ft.ImageFit.CONTAIN
+        self.__ui()
+        if only_show_cover:
+            self.read_video_cover(video_path)
+            return
+        if play_after_loading:
+            print("Please wait the video is loading..\nThis will take a time based on your video size...")
+            self.read_the_video(video_path)
+        else:
+            threading.Thread(target=self.read_the_video, args=[video_path], daemon=True).start()
+        self.audio_path = None
+        self.__audio_path = None
+        self.get_video_duration(video_path)
+        self.__frame_per_sleep = 1.0 / self.fps
+
+    def show_play(self):
+        self.__video_is_play = False
+        self.__video_play_button.visible = True
+        self.__video_pause_button.visible = False
+        self.__video_play_button.update()
+        self.__video_pause_button.update()
+
+    def show_pause(self):
+        self.__video_is_play = True
+        self.__video_play_button.visible = False
+        self.__video_pause_button.visible = True
+        self.__video_play_button.update()
+        self.__video_pause_button.update()
+
+    def __ui(self):
+        # the video tools control
+        self.video_tool_stack = Stack(expand=False)
+        self.content = self.video_tool_stack
+        self.image_frames_viewer = Image(expand=True, visible=False, fit=self.video_frame_fit_type)
+        self.video_tool_stack.controls.append(Row([self.image_frames_viewer], alignment=ft.MainAxisAlignment.CENTER))
+        self.__video_progress_bar = Container(height=2, bgcolor=ft.colors.BLUE_200)
+        self.video_tool_stack.controls.append(Row([self.__video_progress_bar], alignment=ft.MainAxisAlignment.START))
+
+        def play_video(e):
+            print(e)
+            if self.__video_is_play:
+                self.pause()
+                self.show_play()
+            else:
+                self.show_pause()
+                self.play()
+
+        self.__video_play_button = IconButton(
+            icon=icons.SMART_DISPLAY,
+            icon_color=colors.WHITE54,
+            icon_size=60,
+            data=0,
+            style=ButtonStyle(
+                elevation=4,
+            ),
+            on_click=play_video,
+            visible=True
+        )
+        self.__video_pause_button = IconButton(
+            icon=icons.PAUSE_PRESENTATION,
+            icon_color=colors.WHITE54,
+            icon_size=60,
+            data=0,
+            style=ButtonStyle(
+                elevation=4,
+            ),
+            on_click=play_video,
+            visible=False
+        )
+        self.video_tool_stack.controls.append(
+            Container(
+                content=Row(
+                    controls=[
+                        self.__video_play_button,
+                        self.__video_pause_button
+                    ]
+                ),
+                padding=padding.only(25, 10, 10, 10),
+                left=0,
+                bottom=0,
+            ),
+        )
+        if not self.video_progress_bar:
+            self.__video_progress_bar.visible = False
+        if not self.video_play_button:
+            self.__video_play_button.visible = False
+
+    def update_video_progress(self, frame_number):
+        if not self.video_progress_bar:
+            return
+        percent_of_progress = frame_number / self.video_frames * 1
+        if self.width:
+            self.__video_progress_bar.width = percent_of_progress * 1 * self.width
+        else:
+            self.__video_progress_bar.width = percent_of_progress * 1 * self.page.width
+        if self.__video_progress_bar.page is not None:
+            try:
+                self.__video_progress_bar.update()
+            except Exception as e:
+                pattern = r"control with ID '(.*)' not found"
+                match = re.search(pattern, e.args[0])
+                if not match:
+                    print(e)
+                return
+
+    def update(self):
+        self.image_frames_viewer.fit = self.video_frame_fit_type
+        self.__video_progress_bar.visible = self.video_progress_bar
+        return super().update()
+
+    def play(self):
+        """Play the video. (it's not blocking, because its on thread)."""
+        if self.page is None:
+            raise Exception("The control must be on page first.")
+        self.__video_played = True
+        threading.Thread(target=self.__play, daemon=True).start()
+
+    def __play(self):
+        self.image_frames_viewer.visible = True
+        num = self.__cur_play_frame
+        video_frames_len = len(self.all_frames_of_video)
+        for index, i in enumerate(self.all_frames_of_video[self.__cur_play_frame:-1]):
+            if not self.__video_played:
+                self.__cur_play_frame = self.__cur_play_frame + index
+                break
+            if index + self.__cur_play_frame == video_frames_len - 2:
+                self.__cur_play_frame = 0
+            threading.Thread(target=self.update_video_progress, args=[num], daemon=True).start()
+            self.image_frames_viewer.src_base64 = i
+            try:
+                self.image_frames_viewer.update()
+            except Exception as e:
+                pattern = r"control with ID '(.*)' not found"
+                match = re.search(pattern, e.args[0])
+                if not match:
+                    print(e)
+                return
+            time.sleep(self.__frame_per_sleep)
+            num += 1
+        self.show_play()
+
+    def pause(self):
+        self.__video_played = False
+
+    def read_video_cover(self, video_path):
+        video = cv2.VideoCapture(video_path)
+        frame_count = video.get(cv2.CAP_PROP_FRAME_COUNT)
+        slice_frame_num = frame_count / 2
+        video.set(cv2.CAP_PROP_POS_FRAMES, slice_frame_num)
+        success, frame = video.read()
+        _, buffer = cv2.imencode('.jpg', frame)
+        encoded_frame = base64.b64encode(buffer).decode('utf-8')
+        if self.image_frames_viewer.src_base64 is None:
+            self.image_frames_viewer.src_base64 = encoded_frame
+            self.image_frames_viewer.visible = True
+            if self.image_frames_viewer.page is not None:
+                self.image_frames_viewer.update()
+        video.release()
+
+    def read_the_video(self, video_path):
+        video = cv2.VideoCapture(video_path)
+        success, frame = video.read()
+        while success:
+            _, buffer = cv2.imencode('.jpg', frame)
+            encoded_frame = base64.b64encode(buffer).decode('utf-8')
+            self.all_frames_of_video.append(encoded_frame)
+            if self.image_frames_viewer.src_base64 is None:
+                self.image_frames_viewer.src_base64 = encoded_frame
+                self.image_frames_viewer.visible = True
+                if self.image_frames_viewer.page is not None:
+                    self.image_frames_viewer.update()
+            success, frame = video.read()
+        video.release()
+        self.__video_is_full_loaded = True
+        if self.exec_after_full_loaded:
+            self.exec_after_full_loaded()
+        self.frame_length = len(self.all_frames_of_video)
+        return self.all_frames_of_video
+
+    def get_video_duration(self, video_path):
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print("Error opening video file")
+            return
+        if self.fps == 0:
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            self.fps = fps
+        total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        self.video_frames = total_frames
+        duration = total_frames / fps
+        self.vid_duration = duration
+        cap.release()
 ''' Sample alt Object format
 class Component(UserControl):
     def __init__(self):
