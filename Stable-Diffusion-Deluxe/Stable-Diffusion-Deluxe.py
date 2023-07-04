@@ -682,6 +682,7 @@ def buildTrainers(page):
 def buildVideoAIs(page):
     page.TextToVideo = buildTextToVideo(page)
     page.TextToVideoZero = buildTextToVideoZero(page)
+    page.VideoToVideo = buildVideoToVideo(page)
     page.Potat1 = buildPotat1(page)
     page.StableAnimation = buildStableAnimation(page)
     page.ControlNet = buildControlNet(page)
@@ -692,6 +693,7 @@ def buildVideoAIs(page):
             Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
+            Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
@@ -709,6 +711,7 @@ def buildAudioAIs(page):
     page.Riffusion = buildRiffusion(page)
     page.Mubert = buildMubert(page)
     page.Whisper = buildWhisper(page)
+    page.VoiceFixer = buildVoiceFixer(page)
     audioAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
@@ -718,8 +721,9 @@ def buildAudioAIs(page):
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
             Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
-            Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
             Tab(text="Whisper-STT", content=page.Whisper, icon=icons.HEARING),
+            Tab(text="Voice Fixer", content=page.VoiceFixer, icon=icons.VOICE_CHAT),
+            Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
         ],
     )
     return audioAIsTabs
@@ -729,6 +733,7 @@ def buildExtras(page):
     page.CachedModelManager = buildCachedModelManager(page)
     page.CustomModelManager = buildCustomModelManager(page)
     page.MaskMaker = buildDreamMask(page)
+    page.BackgroundRemover = buildBackgroundRemover(page)
     page.BLIP2Image2Text = buildBLIP2Image2Text(page)
     page.DallE2 = buildDallE2(page)
     page.Kandinsky2 = buildKandinsky2(page)
@@ -739,6 +744,7 @@ def buildExtras(page):
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
             Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
             Tab(text="Model Manager", content=page.CustomModelManager, icon=icons.DIFFERENCE),
+            Tab(text="Background Remover", content=page.BackgroundRemover, icon=icons.WALLPAPER),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
             Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
@@ -4343,7 +4349,7 @@ def buildMusicGen(page):
     #recondition = Checkbox(label="Recondition Chunks over 30s", tooltip="Condition next chunks with the first chunk.", value=music_gen_prefs['recondition'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'recondition'), col={'lg':6})
     harmony_only = Checkbox(label="Harmony Only", tooltip="Remove Drums?", value=music_gen_prefs['harmony_only'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'harmony_only'), col={'lg':6})
     #harmony_only = gr.Radio(label="Harmony Only",choices=["No", "Yes"], value="No", interactive=True, info="Remove Drums?")
-    overlap = SliderRow(label="Overlap", min=1, max=29, divisions=28, round=0, pref=music_gen_prefs, key='overlap', tooltip="Time to resample chunks longer than 30s.", col={'lg':6})
+    overlap = SliderRow(label="Overlap", min=0, max=29, divisions=29, round=0, pref=music_gen_prefs, key='overlap', tooltip="Time to resample chunks longer than 30s.", col={'lg':6})
     dimension = SliderRow(label="Dimension", min=-2, max=2, divisions=3, round=0, pref=music_gen_prefs, key='dimension', tooltip="Which direction to add new segements of audio. (1 = stack tracks, 2 = lengthen, -2..0 = ?)", col={'lg':6})
     #dimension = gr.Slider(minimum=-2, maximum=2, value=2, step=1, label="Dimension", info="determines which direction to add new segements of audio. (1 = stack tracks, 2 = lengthen, -2..0 = ?)", interactive=True)
     audio_name = TextField(label="Audio File Name", value=music_gen_prefs['audio_name'], on_change=lambda e:changed(e,'audio_name'))
@@ -5112,6 +5118,109 @@ def buildImageVariation(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+background_remover_prefs = {
+    'init_image': '',
+    'threshold': 100,
+    'file_name': '',
+    'max_size': 1024,
+    'transparent_png': False,
+    'save_mask': False,
+    'output_name': '',
+    'batch_folder_name': '',
+}
+def buildBackgroundRemover(page):
+    global background_remover_prefs, prefs, pipe_background_remover
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            background_remover_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            background_remover_prefs[pref] = float(e.control.value)
+          else:
+            background_remover_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_background_remover_output(o):
+      page.background_remover_output.controls.append(o)
+      page.background_remover_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    page.add_to_background_remover_output = add_to_background_remover_output
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.background_remover_output.controls = []
+      page.background_remover_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def background_remover_help(e):
+      def close_background_remover_dlg(e):
+        nonlocal background_remover_help_dlg
+        background_remover_help_dlg.open = False
+        page.update()
+      background_remover_help_dlg = AlertDialog(title=Text("🙅   Help with Background Remover"), content=Column([
+          Text("Give it any of your favorite images and it finds the main subject within the threshold value and gives you a cleaned up version back.... Simple as that, very useful to reuse as init image in another pipeline without needing to edit in Photoshop first.."),
+          Markdown("[MODNet GitHub](https://github.com/Mazhar004/MODNet-BGRemover) | [HuggingFace Space](https://huggingface.co/spaces/nateraw/background-remover)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😸  Quite Convenient... ", on_click=close_background_remover_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = background_remover_help_dlg
+      background_remover_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          background_remover_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          background_remover_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        init_image.value = fname
+        init_image.update()
+        background_remover_prefs['init_image'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_init(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
+    init_image = TextField(label="Initial Image", value=background_remover_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    threshold = SliderRow(label="Mask Cutoff Threshold", min=0, max=250, divisions=250, round=0, pref=background_remover_prefs, key='threshold')
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=background_remover_prefs, key='max_size')
+    save_mask = Switcher(label="Save B&W Mask", value=background_remover_prefs['save_mask'], tooltip="Gives you a Mask File you can reuse for Inpainting.", on_change=lambda e:changed(e,'save_mask'))
+    output_name = TextField(label="Output File Name", value=background_remover_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=background_remover_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    page.background_remover_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.background_remover_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🖼  MODNet Background Remover", "A deep learning approach to clear the background of most images to isolate subject...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Background Remover Settings", on_click=background_remover_help)]),
+        init_image,
+        threshold,
+        max_row,
+        save_mask,
+        Row([output_name, batch_folder_name]),
+        ElevatedButton(content=Text("🏘  Get Background Remover", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_background_remover(page)),
+        page.background_remover_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 reference_prefs = {
     'ref_image': '',
@@ -7382,7 +7491,7 @@ Resources:
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎥  Text-To-Video Synthesis", "Modelscope's Text-to-video-synthesis Model to Animate Diffusion", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=text_to_video_help)]),
+        Header("🎥  Text-To-Video Synthesis", "Modelscope's Text-to-video-synthesis Model to Animate Diffusion", actions=[IconButton(icon=icons.HELP, tooltip="Help with Text-to-Video Settings", on_click=text_to_video_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
@@ -7527,7 +7636,7 @@ def buildTextToVideoZero(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎥  Text-To-Video Zero", "Text-to-Image Diffusion Models for Zero-Shot Video Generators", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=text_to_video_zero_help)]),
+        Header("🎥  Text-To-Video Zero", "Text-to-Image Diffusion Models for Zero-Shot Video Generators", actions=[IconButton(icon=icons.HELP, tooltip="Help with Text-To-Video Zero Settings", on_click=text_to_video_zero_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_zero_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
@@ -7551,6 +7660,161 @@ def buildTextToVideoZero(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+video_to_video_prefs = {
+    'init_video': '',
+    'fps': 12,
+    'start_time': 0,
+    'end_time': 0,
+    'prompt': '',
+    'negative_prompt': '',
+    'num_inference_steps': 50,
+    'guidance_scale': 15.0,
+    'strength': 0.6,
+    'export_to_video': True,
+    'eta': 0.0,
+    'seed': 0,
+    'max_size': 1024,
+    'width': 256,
+    'height': 256,
+    'num_frames': 16,
+    'model': 'damo-vilab/text-to-video-ms-1.7b',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+    "lower_memory": True,
+}
+
+def buildVideoToVideo(page):
+    global video_to_video_prefs, prefs, pipe_video_to_video, editing_prompt
+    editing_prompt = {'editing_prompt':'', 'edit_warmup_steps':10, 'edit_guidance_scale':5, 'edit_threshold':0.9, 'edit_weights':1, 'reverse_editing_direction': False}
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            video_to_video_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            video_to_video_prefs[pref] = float(e.control.value)
+          else:
+            video_to_video_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.video_to_video_output.controls = []
+      page.video_to_video_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def video_to_video_help(e):
+      def close_video_to_video_dlg(e):
+        nonlocal video_to_video_help_dlg
+        video_to_video_help_dlg.open = False
+        page.update()
+      video_to_video_help_dlg = AlertDialog(title=Text("💁   Help with Video-To-Video"), content=Column([
+          Text("Cerspense Zeroscope are watermark-free model and have been trained on images that are 1024x576. Text-to-video synthesis from [ModelScope](https://modelscope.cn/) can be considered the same as Stable Diffusion structure-wise but it is extended to videos instead of static images. More specifically, this system allows us to generate videos from a natural language text prompt."),
+          Markdown("""From the [model summary](https://huggingface.co/damo-vilab/modelscope-damo-text-to-video-synthesis):
+*This model is based on a multi-stage text-to-video generation diffusion model, which inputs a description text and returns a video that matches the text description. Only English input is supported.*
+Resources:
+* [Website](https://modelscope.cn/models/damo/text-to-video-synthesis/summary)
+* [GitHub repository](https://github.com/modelscope/modelscope/)""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🎞  What'll be next... ", on_click=close_video_to_video_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = video_to_video_help_dlg
+      video_to_video_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          video_to_video_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          video_to_video_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        init_video.value = fname
+        init_video.update()
+        video_to_video_prefs['init_video'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_video(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["avi", "mp4", "mov"], dialog_title="Pick Video File")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        video_to_video_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Video Prompt Text", value=video_to_video_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=video_to_video_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_video = TextField(label="Init Video File", value=video_to_video_prefs['init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.VIDEO_CALL, on_click=pick_video))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=video_to_video_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    start_time = TextField(label="Start Time (s)", value=controlnet_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=controlnet_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_prefs['use_init_video'] else 0)
+    #num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=video_to_video_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=video_to_video_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=video_to_video_prefs, key='guidance_scale')
+    strength = SliderRow(label="Init Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=video_to_video_prefs, key='strength', tooltip="Conceptually, indicates how much to transform the Reference Image over the Vid Generation. Higher value give less influence.")
+    eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=video_to_video_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=video_to_video_prefs, key='max_size')
+    #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=video_to_video_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=video_to_video_prefs, key='height')
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=video_to_video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=video_to_video_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    #model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=video_to_video_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=video_to_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(video_to_video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=video_to_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=video_to_video_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=video_to_video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_video_to_video = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_video_to_video.height = None if status['installed_ESRGAN'] else 0
+    page.video_to_video_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.video_to_video_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("📽  Video-To-Video Synthesis", "Modelscope's Video-to-video-synthesis Model to Reanimate Video Clips", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=video_to_video_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        ResponsiveRow([prompt, negative_prompt]),
+        init_video,
+        fps,
+        Row([start_time, end_time]),
+        #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=video_to_video_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
+        Row([export_to_video, lower_memory]),
+        #num_frames,
+        num_inference_row,
+        guidance,
+        strength,
+        eta_slider,
+        max_row,
+        #width_slider, height_slider,
+        page.ESRGAN_block_video_to_video,
+        Row([seed, batch_folder_name]),
+        #Row([jump_length, jump_n_sample, seed]),
+        Row([
+            ElevatedButton(content=Text("🎦  Run Video-To-Video", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_video_to_video(page)),
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_video_to_video(page, from_list=True))
+        ]),
+        page.video_to_video_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 potat1_prefs = {
     'prompt': '',
@@ -7635,7 +7899,7 @@ def buildPotat1(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🥔  Potat1️⃣ Text-To-Video Synthesis", "CamenDuru's Open-Source 1024x576 Text-To-Video Model ", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=potat1_help)]),
+        Header("🥔  Potat1️⃣ Text-To-Video Synthesis", "CamenDuru's Open-Source 1024x576 Text-To-Video Model ", actions=[IconButton(icon=icons.HELP, tooltip="Help with Potat1 Settings", on_click=potat1_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([export_to_video, lower_memory]),
@@ -8124,7 +8388,7 @@ def buildStableAnimation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🥏  Stable Animation SDK", "Use Stability.ai API Credits for Advanced Video Generation, similar to Deforum & Disco Diffusion.", actions=[copy_preset_button, paste_preset_button, default_preset_button, IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=stable_animation_help)]),
+        Header("🥏  Stable Animation SDK", "Use Stability.ai API Credits for Advanced Video Generation, similar to Deforum & Disco Diffusion.", actions=[copy_preset_button, paste_preset_button, default_preset_button, IconButton(icon=icons.HELP, tooltip="Help with Stable Animation Settings", on_click=stable_animation_help)]),
         #ResponsiveRow([animation_prompt, negative_prompt], vertical_alignment=CrossAxisAlignment.START),
         Row([frame, prompt, add_prompt_keyframe]),
         animation_prompts,
@@ -10186,7 +10450,7 @@ def buildSemanticGuidance(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧩  Semantic Guidance for Diffusion Models - SEGA", "Text-to-Image Generation with Latent Editing to apply or remove multiple concepts from an image with advanced controls....", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=semantic_help)]),
+        Header("🧩  Semantic Guidance for Diffusion Models - SEGA", "Text-to-Image Generation with Latent Editing to apply or remove multiple concepts from an image with advanced controls....", actions=[IconButton(icon=icons.HELP, tooltip="Help with Semantic Guidance Settings", on_click=semantic_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         Row([Text("Editing Semantic Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
@@ -11723,6 +11987,7 @@ def buildAudioLDM(page):
         ElevatedButton(content=Text("👏  Run AudioLDM", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_audio_ldm(page)),
         page.audioLDM_output,
         clear_button,
+        #AudioPlayer(audio_file=os.path.join(assets, "snd-drop.mp3"), display="tester", page=page)
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -12130,6 +12395,107 @@ def buildWhisper(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+voice_fixer_prefs = {
+    'audio_file': '',
+    'mode': 0,
+    'mode_0': True,
+    'mode_1': False,
+    'mode_2': False,
+    'audio_name': '',
+    'wav_path': '',
+    'batch_folder_name': '',
+    'file_prefix': 'voicefixer-',
+}
+
+def buildVoiceFixer(page):
+    global prefs, voice_fixer_prefs, voice_fixer_requests
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              voice_fixer_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              voice_fixer_prefs[pref] = float(e.control.value)
+            else:
+              voice_fixer_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.voice_fixer_output.controls = []
+        page.voice_fixer_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def voice_fixer_help(e):
+        def close_voice_fixer_dlg(e):
+          nonlocal voice_fixer_help_dlg
+          voice_fixer_help_dlg.open = False
+          page.update()
+        voice_fixer_help_dlg = AlertDialog(title=Text("💁   Help with VoiceFixer"), content=Column([
+            Text("Voicefixer aims to restore human speech regardless how serious it's degraded. It can handle noise, reveberation, low resolution (2kHz~44.1kHz) and clipping (0.1-1.0 threshold) effect within one model.  This package provides a pretrained Voicefixer, which is build based on neural vocoder and pretrained 44.1k universal speaker-independent neural vocoder."),
+            Markdown("[Arxiv Paper](https://arxiv.org/pdf/2109.13731.pdf) | [GitHub Code](https://github.com/haoheliu/voicefixer) | [Demo Page](https://haoheliu.github.io/demopage-voicefixer/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🦜  Loud & clear... ", on_click=close_voice_fixer_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = voice_fixer_help_dlg
+        voice_fixer_help_dlg.open = True
+        page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+        if e.progress == 1:
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+              voice_fixer_prefs['file_name'] = e.file_name.rpartition('.')[0]
+            else:
+              fname = e.file_name
+              fpath = os.path.join(root_dir, e.file_name.rpartition(slash)[2])
+              voice_fixer_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
+            audio_file.value = fname
+            audio_file.update()
+            voice_fixer_prefs['audio_file'] = fname
+            page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    def pick_audio(e):
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["wav", "mp3", "flac"], dialog_title="Pick Init Audio File")
+    audio_file = TextField(label="Input Audio File (WAV, MP3, URL or YouTube URL)", value=voice_fixer_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
+    #model_size = Dropdown(label="VoiceFixer Model Size", width=200, options=[dropdown.Option("tiny"), dropdown.Option("base"), dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large")], value=voice_fixer_prefs['model_size'], on_change=lambda e: changed(e, 'model_size'))
+    #trim_audio = Checkbox(label="Trim Audio to 30s", value=voice_fixer_prefs['trim_audio'], tooltip="Prefers a short audio chunk", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trim_audio'))
+    mode_0 = Checkbox(label="Mode 0", value=voice_fixer_prefs['mode_0'], tooltip="", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'mode_0'))
+    mode_1 = Checkbox(label="Mode 1", value=voice_fixer_prefs['mode_1'], tooltip="", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'mode_1'))
+    mode_2 = Checkbox(label="Mode 2", value=voice_fixer_prefs['mode_2'], tooltip="", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'mode_2'))
+    audio_name = TextField(label="Audio File Name", value=voice_fixer_prefs['audio_name'], on_change=lambda e:changed(e,'audio_name'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=voice_fixer_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=voice_fixer_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+
+    page.voice_fixer_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.voice_fixer_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("💬  Voice Fixer - Speech Restoration with Neural Vocoder", "Cleans up bad vocals and fixes the unwanted noise...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio Diffusion-TTS Settings", on_click=voice_fixer_help)]),
+        audio_file,
+        Row([mode_0, mode_1, mode_2]),
+        #Row([model_size, trim_audio]),
+        Row([audio_name, batch_folder_name, file_prefix]),
+        ElevatedButton(content=Text("🗣  Run VoiceFixer", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_voice_fixer(page)),
+        page.voice_fixer_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 def buildCustomModelManager(page):
     global prefs
@@ -12446,13 +12812,16 @@ pipe_audio_ldm = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_music_gen = None
+pipe_voice_fixer = None
 pipe_text_to_video = None
 pipe_text_to_video_zero = None
+pipe_video_to_video = None
 pipe_deepfloyd = None
 pipe_deepfloyd2 = None
 pipe_deepfloyd3 = None
 pipe_gpt2 = None
 pipe_distil_gpt2 = None
+pipe_background_remover = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 pipe_reference = None
@@ -12504,7 +12873,9 @@ finetuned_models = [
     {"name": "Classic Disney", "path": "nitrosocke/classic-anim-diffusion", "prefix": "classic disney style "},
     {"name": "Loving Vincent (Van Gogh)", "path": "dallinmackay/Van-Gogh-diffusion", "prefix": "lvngvncnt "},
     {"name": "Realistic Vision v1.4", "path": "SG161222/Realistic_Vision_V1.4", "prefix": ""},
+    {"name": "Realistic Vision v3", "path": "SG161222/Realistic_Vision_V3.0", "prefix": ""},
     {"name": "Redshift Renderer (Cinema4D)", "path": "nitrosocke/redshift-diffusion", "prefix": "redshift style "},
+    {"name": "Reliberate", "path": "sinkinai/reliberate_v10", "prefix": ""},
     {"name": "Waifu Diffusion", "path": "hakurei/waifu-diffusion", "prefix": "", "revision": "fp16"},
     {"name": "Ultima Waifu Diffusion", "path": "AdamOswald1/Ultima-Waifu-Diffusion", "prefix": ""},
     #{"name": "TrinArt Waifu 50-50", "path": "doohickey/trinart-waifu-diffusion-50-50", "prefix": ""},
@@ -12531,6 +12902,8 @@ finetuned_models = [
     {"name": "Avatar", "path": "Jersonm89/Avatar", "prefix": "avatar style "},
     {"name": "Dreamlike Diffusion v1", "path": "dreamlike-art/dreamlike-diffusion-1.0", "prefix": "dreamlikeart "},
     {"name": "Dreamlike Photoreal 2", "path": "dreamlike-art/dreamlike-photoreal-2.0", "prefix": ""},
+    {"name": "DreamShaper", "path": "Lykon/DreamShaper", "prefix": ""},
+    {"name": "Absolute Reality", "path": "Lykon/AbsoluteReality", "prefix": ""},
     {"name": "Glitch", "path": "BakkerHenk/glitch", "prefix": "a photo in sks glitched style "},
     {"name": "Knollingcase", "path": "Aybeeceedee/knollingcase", "prefix": "knollingcase "},
     {"name": "Wavy Diffusion", "path": "wavymulder/wavyfusion", "prefix": "wa-vy style "},
@@ -12544,6 +12917,7 @@ finetuned_models = [
     {"name": "Glitch Embedding", "path": "joachimsallstrom/Glitch-Embedding", "prefix": "glitch "},
     {"name": "Pokemon 3D", "path": "Timmahw/SD2.1_Pokemon3D", "prefix": ""},
     {"name": "Nephos", "path": "RomeroRZ/Nephos", "prefix": ""},
+    {"name": "NeverEnding Dream", "path": "Lykon/NeverEnding-Dream", "prefix": ""},
     {"name": "effeffIX Concept", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 "},
     {"name": "effeffIX Woman", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 woman "},
     {"name": "effeffIX Man", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 man "},
@@ -14448,6 +14822,12 @@ def clear_riffusion_pipe():
     del pipe_riffusion
     flush()
     pipe_riffusion = None
+def clear_voice_fixer_pipe():
+  global pipe_voice_fixer
+  if pipe_voice_fixer is not None:
+    del pipe_voice_fixer
+    flush()
+    pipe_voice_fixer = None
 def clear_text_to_video_pipe():
   global pipe_text_to_video
   if pipe_text_to_video is not None:
@@ -14462,6 +14842,12 @@ def clear_text_to_video_zero_pipe():
     torch.cuda.ipc_collect()
     torch.cuda.reset_peak_memory_stats()
     pipe_text_to_video_zero = None
+def clear_video_to_video_pipe():
+  global pipe_video_to_video
+  if pipe_video_to_video is not None:
+    del pipe_video_to_video
+    flush()
+    pipe_video_to_video = None
 def clear_deepfloyd_pipe():
   global pipe_deepfloyd, pipe_deepfloyd2, pipe_deepfloyd3
   if pipe_deepfloyd is not None:
@@ -14535,6 +14921,12 @@ def clear_distil_gpt2_pipe():
     del pipe_distil_gpt2
     flush()
     pipe_distil_gpt2 = None
+def clear_background_remover_pipe():
+  global pipe_background_remover
+  if pipe_background_remover is not None:
+    del pipe_background_remover
+    flush()
+    pipe_background_remover = None
 def clear_controlnet_pipe():
   global pipe_controlnet, controlnet, controlnet_models, status
   if pipe_controlnet is not None:
@@ -14601,12 +14993,15 @@ def clear_pipes(allbut=None):
     if not 'riffusion' in but: clear_riffusion_pipe()
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
     if not 'music_gen' in but: clear_music_gen_pipe()
+    if not 'voice_fixer' in but: clear_voice_fixer_pipe()
     if not 'text_to_video' in but: clear_text_to_video_pipe()
     if not 'text_to_video_zero' in but: clear_text_to_video_zero_pipe()
+    if not 'video_to_video' in but: clear_video_to_video_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
+    if not 'background_remover' in but: clear_background_remover_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'stable_lm' in but: clear_stable_lm_pipe()
     try:
@@ -14631,7 +15026,7 @@ def available_file(folder, name, idx, ext='png', no_num=False):
   while not available:
     # Todo, check if using PyDrive2
     if no_num:
-      if os.path.isfile(os.path.join(folder, f'{name}.{ext}')):
+      if not os.path.isfile(os.path.join(folder, f'{name}.{ext}')):
         return os.path.join(folder, f'{name}.{ext}')
     if os.path.isfile(os.path.join(folder, f'{name}-{idx}.{ext}')):
       idx += 1
@@ -17493,6 +17888,188 @@ def run_image_variation(page):
     autoscroll(True)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_background_remover(page):
+    global background_remover_prefs, pipe_background_remover
+    #if not status['installed_diffusers']:
+    #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+    #  return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.BackgroundRemover.controls.append(line)
+      page.BackgroundRemover.update()
+    def clear_last():
+      del page.BackgroundRemover.controls[-1]
+      page.BackgroundRemover.update()
+    def autoscroll(scroll=True):
+      page.BackgroundRemover.auto_scroll = scroll
+      page.BackgroundRemover.update()
+    def clear_list():
+      page.BackgroundRemover.controls = page.BackgroundRemover.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = background_remover_prefs['num_inference_steps']#len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    autoscroll(True)
+    clear_list()
+    installer = Installing("Downloading Background Remover Pipeline")
+    prt(installer)
+    try:
+        from huggingface_hub import hf_hub_download
+    except ModuleNotFoundError:
+        installer.set_details("...HuggingFace Hub")
+        run_process("pip install huggingface_hub --upgrade", page=page)
+        from huggingface_hub import hf_hub_download
+        pass
+    try:
+        import cv2
+    except ModuleNotFoundError:
+        installer.set_details("...installing opencv")
+        run_sp("pip install opencv-python", realtime=False)
+        import cv2
+        pass
+    try:
+        import onnx
+    except ImportError as e:
+        installer.set_details("...installing onnx")
+        run_sp("pip install -q onnx==1.14.0", realtime=False)
+        pass
+    try:
+        import onnxruntime
+    except ImportError as e:
+        installer.set_details("...installing onnxruntime")
+        run_sp("pip install -q onnxruntime-gpu==1.15.0", realtime=False)
+        pass
+    if pipe_background_remover == None:
+        installer.set_details("...downloading model")
+        pipe_background_remover = hf_hub_download('nateraw/background-remover-files', 'modnet.onnx', repo_type='dataset')
+    from io import BytesIO
+    from PIL import ImageOps
+    import cv2
+    import numpy as np
+    import onnxruntime
+    import requests
+    def get_scale_factor(im_h, im_w, ref_size=512):
+        if max(im_h, im_w) < ref_size or min(im_h, im_w) > ref_size:
+            if im_w >= im_h:
+                im_rh = ref_size
+                im_rw = int(im_w / im_h * ref_size)
+            elif im_w < im_h:
+                im_rw = ref_size
+                im_rh = int(im_h / im_w * ref_size)
+        else:
+            im_rh = im_h
+            im_rw = im_w
+        im_rw = im_rw - im_rw % 32
+        im_rh = im_rh - im_rh % 32
+        x_scale_factor = im_rw / im_w
+        y_scale_factor = im_rh / im_h
+        return x_scale_factor, y_scale_factor
+    if background_remover_prefs['init_image'].startswith('http'):
+        installer.set_details("...downloading image")
+        init_file = background_remover_prefs['init_image'].rpartition("/")[2].rpartition(".")[0]
+        init_img = PILImage.open(requests.get(background_remover_prefs['init_image'], stream=True).raw)
+    else:
+        if os.path.isfile(background_remover_prefs['init_image']):
+            init_file = background_remover_prefs['init_image'].rpartition(slash)[2].rpartition(".")[0]
+            init_img = PILImage.open(background_remover_prefs['init_image'])
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your init_image {background_remover_prefs['init_image']}")
+            return
+    if bool(background_remover_prefs['output_name']):
+        init_file = format_filename(background_remover_prefs['output_name'], force_underscore=True)
+    batch_output = os.path.join(stable_dir, background_remover_prefs['batch_folder_name'])
+    init_path = os.path.join(batch_output, f"{init_file}.jpg")
+    image_path = available_file(batch_output, init_file, 1)
+    mask_path = available_file(batch_output, f"{init_file}-mask.png", 1)
+    mask_file = available_file(os.path.join(prefs['image_output'], background_remover_prefs['batch_folder_name']), f"{init_file}-mask.png", 1)
+    if not os.path.isdir(batch_output):
+        os.makedirs(batch_output)
+    if not os.path.isdir(os.path.join(prefs['image_output'], background_remover_prefs['batch_folder_name'])):
+        os.makedirs(os.path.join(prefs['image_output'], background_remover_prefs['batch_folder_name']))
+    init_img.save(init_path)
+    clear_pipes('background_remover')
+    clear_last()
+    prt(f"Generating Foreground of your Image...")
+    prt(progress)
+    autoscroll(False)
+    im = cv2.imread(init_path)
+    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+    if len(im.shape) == 2:
+        im = im[:, :, None]
+    if im.shape[2] == 1:
+        im = np.repeat(im, 3, axis=2)
+    elif im.shape[2] == 4:
+        im = im[:, :, 0:3]
+    im = (im - 127.5) / 127.5
+    im_h, im_w, im_c = im.shape
+    x, y = get_scale_factor(im_h, im_w)
+    im = cv2.resize(im, None, fx=x, fy=y, interpolation=cv2.INTER_AREA)
+    im = np.transpose(im)
+    im = np.swapaxes(im, 1, 2)
+    im = np.expand_dims(im, axis=0).astype('float32')
+    session = onnxruntime.InferenceSession(pipe_background_remover, None, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+    input_name = session.get_inputs()[0].name
+    output_name = session.get_outputs()[0].name
+    result = session.run([output_name], {input_name: im})
+    matte = (np.squeeze(result[0]) * 255).astype('uint8')
+    matte = cv2.resize(matte, dsize=(im_w, im_h), interpolation=cv2.INTER_AREA)
+    cv2.imwrite(mask_path, matte)
+    if background_remover_prefs['save_mask']:
+        clear_last()
+        clear_last()
+        prt(Row([ImageButton(src=mask_path, width=im_w, height=im_h, data=mask_file, page=page)], alignment=MainAxisAlignment.CENTER))
+    image = PILImage.open(init_path)
+    matte = PILImage.open(mask_path)
+    image = np.asarray(image)
+    if len(image.shape) == 2:
+        image = image[:, :, None]
+    if image.shape[2] == 1:
+        image = np.repeat(image, 3, axis=2)
+    elif image.shape[2] == 4:
+        image = image[:, :, 0:3]
+    b, g, r = cv2.split(image)
+    mask = np.asarray(matte)
+    a = np.ones(mask.shape, dtype='uint8') * 255
+    alpha_im = cv2.merge([b, g, r, a], 4)
+    bg = np.zeros(alpha_im.shape)
+    new_mask = np.stack([mask, mask, mask, mask], axis=2)
+    foreground = np.where(new_mask > background_remover_prefs['threshold'], alpha_im, bg).astype(np.uint8)
+    img = PILImage.fromarray(foreground)
+    width, height = img.size
+    if not background_remover_prefs['save_mask']:
+        clear_last()
+        clear_last()
+    autoscroll(True)
+    img.save(image_path)
+    out_path = image_path
+    #prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    #TODO: ESRGAN, Metadata & PyDrive
+    if storage_type == "Colab Google Drive":
+        new_file = available_file(prefs['image_output'], init_file, 1)
+        out_path = new_file
+        shutil.copy(image_path, new_file)
+        if background_remover_prefs['save_mask']:
+            shutil.copy(mask_path, mask_file)
+    elif bool(prefs['image_output']):
+        new_file = available_file(prefs['image_output'], init_file, 1)
+        out_path = new_file
+        shutil.copy(image_path, new_file)
+        if background_remover_prefs['save_mask']:
+            shutil.copy(mask_path, mask_file)
+    prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    page.BackgroundRemover.auto_scroll = False
+    page.BackgroundRemover.update()
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+
 def run_reference(page, from_list=False):
     global reference_prefs, pipe_reference
     if not status['installed_diffusers']:
@@ -19597,16 +20174,17 @@ def run_dance_diffusion(page):
       fname = available_file(audio_local, audio_name, i, ext="wav")
       scipy.io.wavfile.write(fname, dance_pipe.unet.sample_rate, a.transpose())
       os.path.abspath(fname)
-      a_out = Audio(src=fname, autoplay=False)
-      page.overlay.append(a_out)
-      page.update()
+      #a_out = Audio(src=fname, autoplay=False)
+      #page.overlay.append(a_out)
+      #page.update()
       display_name = fname
       #a.tofile(f"/content/dance-{i}.wav")
       if storage_type == "Colab Google Drive":
         audio_save = available_file(audio_out, audio_name, i, ext='wav')
         shutil.copy(fname, audio_save)
         display_name = audio_save
-      prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+      prt(AudioPlayer(src=fname, display=display_name, data=audio_save, page=page))
+      #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
       i += 1
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -19639,13 +20217,14 @@ def run_audio_diffusion(page):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     progress = ProgressBar(bar_height=8)
-    state_text = Text(" Downloading Audio Diffusion Pipeline...", weight=FontWeight.BOLD)
-    prt(Row([ProgressRing(), state_text]))
+    installer = Installing("Downloading Audio Diffusion Pipeline...")
+    prt(installer)
     audio_diffusion_dir = os.path.join(root_dir, "audio_diffusion")
 
     try:
         import mel
     except ModuleNotFoundError:
+        installer.set_details("...installing mel")
         try:
             run_process("pip install -q mel", page=page, show=True, print=True)
         except Exception as e:
@@ -19663,6 +20242,7 @@ def run_audio_diffusion(page):
     else:
       clear_pipes('audio_diffusion')
     if pipe_audio_diffusion == None:
+      installer.set_details("...initializing audio_diffusion pipe")
       try:
           # TODO: Switch DDPM
         a_scheduler = DDIMScheduler()
@@ -19676,6 +20256,7 @@ def run_audio_diffusion(page):
         return
     init = audio_diffusion_prefs['audio_file']
     if init.startswith('http'):
+        installer.set_details("...downloading audio file")
         init_audio = download_file(init)
     else:
         if os.path.isfile(init):
@@ -19739,9 +20320,9 @@ def run_audio_diffusion(page):
         #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
         #IPython.display.Audio('generated.wav')
         scipy.io.wavfile.write(aname, sample_rate, a.transpose())
-        a_out = Audio(src=aname, autoplay=False)
-        page.overlay.append(a_out)
-        page.update()
+        #a_out = Audio(src=aname, autoplay=False)
+        #page.overlay.append(a_out)
+        #page.update()
         display_name = aname
         #a.tofile(f"/content/dance-{i}.wav")
         if storage_type == "Colab Google Drive":
@@ -19752,7 +20333,8 @@ def run_audio_diffusion(page):
             shutil.copy(aname, audio_save)
         else: audio_save = aname
         display_name = audio_save
-        prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+        prt(AudioPlayer(src=aname, display=audio_save, data=audio_save))
+        #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_music_gen(page):
@@ -19952,18 +20534,21 @@ def run_music_gen(page):
             try:
                 output = output_segments[0]
                 for i in range(1, len(output_segments)):
-                    overlap_samples = overlap * pipe_music_gen.sample_rate
-                    overlapping_output_fadeout = output[:, :, -overlap_samples:]
-                    #overlapping_output_fadeout = apply_fade(overlapping_output_fadeout,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=True,start=True, curve_end=0.0, current_device=pipe_music_gen.device)
-                    overlapping_output_fadeout = apply_tafade(overlapping_output_fadeout,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=True,start=True,shape="linear")
-                    overlapping_output_fadein = output_segments[i][:, :, :overlap_samples]
-                    #overlapping_output_fadein = apply_fade(overlapping_output_fadein,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=False,start=False, curve_start=0.0, current_device=pipe_music_gen.device)
-                    overlapping_output_fadein = apply_tafade(overlapping_output_fadein,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=False,start=False, shape="linear")
-                    overlapping_output = torch.cat([overlapping_output_fadeout[:, :, :-(overlap_samples // 2)], overlapping_output_fadein],dim=2)
-                    gen_status.value = f"  Saving MusicGen... Overlap size Fade:{overlapping_output.size()}\n output: {output.size()}\n segment: {output_segments[i].size()}"
-                    page.music_gen_output.update()
-                    #print(f" Overlap size Fade:{overlapping_output.size()}\n output: {output.size()}\n segment: {output_segments[i].size()}")
-                    output = torch.cat([output[:, :, :-overlap_samples], overlapping_output, output_segments[i][:, :, overlap_samples:]], dim=dimension)
+                    if overlap > 0:
+                        overlap_samples = overlap * pipe_music_gen.sample_rate
+                        overlapping_output_fadeout = output[:, :, -overlap_samples:]
+                        #overlapping_output_fadeout = apply_fade(overlapping_output_fadeout,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=True,start=True, curve_end=0.0, current_device=pipe_music_gen.device)
+                        overlapping_output_fadeout = apply_tafade(overlapping_output_fadeout,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=True,start=True,shape="linear")
+                        overlapping_output_fadein = output_segments[i][:, :, :overlap_samples]
+                        #overlapping_output_fadein = apply_fade(overlapping_output_fadein,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=False,start=False, curve_start=0.0, current_device=pipe_music_gen.device)
+                        overlapping_output_fadein = apply_tafade(overlapping_output_fadein,sample_rate=pipe_music_gen.sample_rate,duration=overlap,out=False,start=False, shape="linear")
+                        overlapping_output = torch.cat([overlapping_output_fadeout[:, :, :-(overlap_samples // 2)], overlapping_output_fadein],dim=2)
+                        gen_status.value = f"  Saving MusicGen... Overlap size Fade:{overlapping_output.size()}\n output: {output.size()}\n segment: {output_segments[i].size()}"
+                        page.music_gen_output.update()
+                        #print(f" Overlap size Fade:{overlapping_output.size()}\n output: {output.size()}\n segment: {output_segments[i].size()}")
+                        output = torch.cat([output[:, :, :-overlap_samples], overlapping_output, output_segments[i][:, :, overlap_samples:]], dim=dimension)
+                    else:
+                        output = torch.cat([output, output_segments[i]], dim=dimension)
                 output = output.detach().cpu().float()[0]
             except Exception as e:
                 alert_msg(page, f"Error combining segments: {e}. Using the first segment only.")
@@ -20007,9 +20592,9 @@ def run_music_gen(page):
             #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
             #IPython.display.Audio('generated.wav')
             #scipy.io.wavfile.write(aname, sample_rate, a.transpose())
-            a_out = Audio(src=aname, autoplay=False)
-            page.overlay.append(a_out)
-            page.update()
+            #a_out = Audio(src=aname, autoplay=False)
+            #page.overlay.append(a_out)
+            #page.update()
             display_name = aname
             #a.tofile(f"/content/dance-{i}.wav")
             if storage_type == "Colab Google Drive":
@@ -20020,8 +20605,8 @@ def run_music_gen(page):
                 shutil.copy(aname, audio_save)
             else: audio_save = aname
             display_name = audio_save
-            #prt(AudioPlayer(audio_file=aname, display=display_name, page=page))
-            prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+            prt(AudioPlayer(src=aname, display=audio_save, data=audio_out, page=page))
+            #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
             idx += 1
         output = None
         first_chunk = None
@@ -22349,17 +22934,19 @@ def run_tortoise_tts(page):
       alert_msg(page, "Provide Text for the AI voice to read...")
       return
     progress = ProgressBar(bar_height=8)
-    state_text = Text(" Downloading Tortoise-TTS Packages...", weight=FontWeight.BOLD)
-    prt(Row([ProgressRing(), state_text]))
+    installer = Installing("Downloading Tortoise-TTS Packages...")
+    prt(installer)
     tortoise_dir = os.path.join(root_dir, "tortoise-tts")
     voice_dir = os.path.join(tortoise_dir, 'tortoise', 'voices')
     if not os.path.isdir(tortoise_dir):
+      installer.set_details("...cloning jnorberg/toroise-tts")
       os.chdir(root_dir)
       run_process("git clone https://github.com/jnordberg/tortoise-tts.git", page=page)
     os.chdir(tortoise_dir)
     try:
       import pydub
     except Exception:
+      installer.set_details("...installing ffmpeg & pydub")
       run_process("pip install -q ffmpeg", page=page)
       run_process("pip install -q pydub", page=page)
       import pydub
@@ -22367,6 +22954,7 @@ def run_tortoise_tts(page):
     try:
       from tortoise.api import TextToSpeech
     except Exception:
+      installer.set_details("...installing all requirements")
       try:
         run_process("pip3 install -r requirements.txt", page=page, cwd=tortoise_dir)
         run_process("python3 setup.py install", page=page, cwd=tortoise_dir)
@@ -22384,6 +22972,7 @@ def run_tortoise_tts(page):
     clear_pipes('tortoise_tts')
     # This will download all the models used by Tortoise from the HuggingFace hub.
     if pipe_tortoise_tts == None:
+      installer.set_details("...initialize TextToSpeech pipe")
       try:
         pipe_tortoise_tts = TextToSpeech()
       except Exception as e:
@@ -22472,16 +23061,17 @@ def run_tortoise_tts(page):
     #IPython.display.Audio('generated.wav')
     clear_last()
     clear_last()
-    a_out = Audio(src=fname, autoplay=False)
-    page.overlay.append(a_out)
-    page.update()
+    #a_out = Audio(src=fname, autoplay=False)
+    #page.overlay.append(a_out)
+    #page.update()
     display_name = fname
     #a.tofile(f"/content/dance-{i}.wav")
     if storage_type == "Colab Google Drive":
       audio_save = available_file(audio_out, audio_name, 0, ext='wav')
       shutil.copy(fname, audio_save)
       display_name = audio_save
-    prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    prt(AudioPlayer(src=fname, display=display_name, data=display_name))
+    #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_audio_ldm(page):
@@ -22574,16 +23164,17 @@ def run_audio_ldm(page):
     #IPython.display.Audio('generated.wav')
     clear_last()
     clear_last()
-    a_out = Audio(src=fname, autoplay=False)
-    page.overlay.append(a_out)
-    page.update()
+    #a_out = Audio(src=fname, autoplay=False)
+    #page.overlay.append(a_out)
+    #page.update()
     display_name = fname
     #a.tofile(f"/content/dance-{i}.wav")
     if storage_type == "Colab Google Drive":
       audio_save = available_file(audio_out, audio_name, 0, ext='wav')
       shutil.copy(fname, audio_save)
       display_name = audio_save
-    prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_bark(page):
@@ -22657,11 +23248,12 @@ def run_bark(page):
         write_wav(fname, SAMPLE_RATE, audio_array)
         clear_last()
         clear_last()
-        a_out = Audio(src=fname, autoplay=False)
-        page.overlay.append(a_out)
-        page.update()
+        #a_out = Audio(src=fname, autoplay=False)
+        #page.overlay.append(a_out)
+        #page.update()
         display_name = fname
-        prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+        prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+        #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_riffusion(page):
@@ -22820,9 +23412,9 @@ def run_riffusion(page):
         wav = converter.audio_from_spectrogram_image(image=spec)
         wav.export(audio_file, format='wav')
         spec.save(image_file)
-        a_out = Audio(src=audio_file, autoplay=False)
-        page.overlay.append(a_out)
-        page.update()
+        #a_out = Audio(src=audio_file, autoplay=False)
+        #page.overlay.append(a_out)
+        #page.update()
         display_name = audio_file
         if storage_type == "Colab Google Drive":
           audio_save = available_file(audio_out, fname, 0, ext='wav')
@@ -22830,7 +23422,8 @@ def run_riffusion(page):
           shutil.copy(audio_file, audio_save)
           shutil.copy(image_file, image_save)
           display_name = audio_save
-        prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+        prt(AudioPlayer(src=audio_file, display=display_name, data=display_name, page=page))
+        #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -22949,16 +23542,17 @@ def run_mubert(page):
     fname = available_file(mubert_songs, audio_name, 0, ext="mp3")
     audio_file = download_file(out)
     shutil.copy(audio_file, fname)
-    a_out = Audio(src=fname, autoplay=False)
-    page.overlay.append(a_out)
-    page.update()
+    #a_out = Audio(src=fname, autoplay=False)
+    #page.overlay.append(a_out)
+    #page.update()
     display_name = fname
     #a.tofile(f"/content/dance-{i}.wav")
     if storage_type == "Colab Google Drive":
       audio_save = available_file(audio_out, audio_name, 0, ext='mp3')
       shutil.copy(fname, audio_save)
       display_name = audio_save
-    prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Column([Text(display_name), Text(tags, style=TextThemeStyle.DISPLAY_SMALL)])]))
+    prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+    #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Column([Text(display_name), Text(tags, style=TextThemeStyle.DISPLAY_SMALL)])]))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_whisper(page):
@@ -23036,10 +23630,11 @@ def run_whisper(page):
             f_name = ""
             def cb(d):
                 nonlocal f_name
-                if d["status"] == "downloading":# and d["total_bytes"] > 0:
-                    dl_progress = int(d["downloaded_bytes"] / d["total_bytes_estimate"])
-                    progress.value = dl_progress
-                    progress.update()
+                if d["status"] == "downloading" and "total_bytes_estimate" in d:# and d["total_bytes"] > 0:
+                    if d["total_bytes_estimate"] > 0:
+                        dl_progress = float(d["downloaded_bytes"]) / float(d["total_bytes_estimate"])
+                        progress.value = dl_progress
+                        progress.update()
                 else:
                     f_name = d['filename']
             installer.set_details("...getting YouTube file")
@@ -23167,6 +23762,165 @@ def run_whisper(page):
         prt(Text(response, size=18, selectable=True))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_voice_fixer(page):
+    global voice_fixer_prefs, pipe_voice_fixer
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.VoiceFixer.controls.append(line)
+      page.VoiceFixer.update()
+    def clear_last():
+      del page.VoiceFixer.controls[-1]
+      page.VoiceFixer.update()
+    def clear_list():
+      page.VoiceFixer.controls = page.VoiceFixer.controls[:1]
+    def autoscroll(scroll=True):
+      page.VoiceFixer.auto_scroll = scroll
+      page.VoiceFixer.update()
+    def play_audio(e):
+      e.control.data.play()
+    if not (voice_fixer_prefs['mode_0'] or voice_fixer_prefs['mode_1'] or voice_fixer_prefs['mode_2']):
+        alert_msg(page, f"You must select at least one Fixer Mode to restore...")
+        return
+    clear_list()
+    autoscroll(True)
+    progress = ProgressBar(bar_height=8)
+    installer = Installing("Installing VoiceFixer Packages...")
+    prt(installer)
+    clear_pipes("voice_fixer")
+    try:
+        from voicefixer import VoiceFixer
+    except ModuleNotFoundError as e:
+        installer.set_details("...installing voicefixer (takes a while)")
+        run_sp("pip install voicefixer --upgrade", realtime=False)
+        from voicefixer import VoiceFixer
+        pass
+    if pipe_voice_fixer == None:
+        installer.set_details("...initializing voicefixer model")
+        pipe_voice_fixer = VoiceFixer()
+    audio_path = voice_fixer_prefs['audio_file'].strip()
+    local_path = ""
+    if audio_path.startswith("http"):
+        if audio_path.startswith("https://youtu") or 'youtube' in audio_path:
+            try:
+                import ffmpeg
+            except ImportError as e:
+                installer.set_details("...installing ffmpeg")
+                run_sp("pip install -q ffmpeg", realtime=False)
+                pass
+            try:
+                import yt_dlp
+            except ImportError as e:
+                installer.set_details("...installing yt_dlp")
+                run_sp("pip install yt_dlp", realtime=False)
+                import yt_dlp
+                pass
+            f_name = ""
+            def cb(d):
+                nonlocal f_name
+                if d["status"] == "downloading" and "total_bytes_estimate" in d:# and d["total_bytes"] > 0:
+                    if d["total_bytes_estimate"] > 0:
+                        dl_progress = float(d["downloaded_bytes"]) / float(d["total_bytes_estimate"])
+                        progress.value = dl_progress
+                        progress.update()
+                else:
+                    f_name = d['filename']
+            installer.set_details("...getting YouTube file")
+            prt(progress)
+            ydl_opts = {
+                'format': 'm4a/bestaudio/best',
+                "progress_hooks": [cb],
+                'verbose': False,
+                'quiet': True,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                }]
+            }
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    error_code = ydl.download(audio_path)
+            except Exception as e:
+                alert_msg(page, f"ERROR: Couldn't download YouTube video for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            clear_last()
+            #print(error_code)
+            if error_code != 0:
+                alert_msg(page, f"ERROR CODE {error_code}: Couldn't download YouTube video for some reason...")
+                return
+            local_path = f"{f_name.rpartition('.')[0]}.mp3"
+        else:
+            installer.set_details("...downloading file")
+            local_path = download_file(audio_path)
+    else:
+        local_path = audio_path
+    if not (local_path.endswith("mp3") or local_path.endswith("wav") or local_path.endswith("flac")):
+        alert_msg(page, f"ERROR: File path must be a wav, mp3 or flac file...")
+        return
+    if not os.path.exists(local_path):
+        alert_msg(page, f"ERROR: Audio File not found...")
+        return
+    if local_path.endswith("mp3"):
+        try:
+            import ffmpeg
+        except ImportError as e:
+            installer.set_details("...installing ffmpeg")
+            run_sp("pip install -q ffmpeg", realtime=False)
+            pass
+        try:
+            import pydub
+        except ImportError:
+            installer.set_details("...installing pydub")
+            run_sp("pip install -q pydub", realtime=False)
+            import pydub
+            pass
+        from pydub import AudioSegment
+        installer.set_details("...converting from mp3")
+        sound = AudioSegment.from_mp3(local_path)
+        wav_file = local_path.rpartition(slash)[2].rpartition(".")[0]
+        local_path = available_file(root_dir, wav_file, 0, ext='wav')
+        sound = sound.set_frame_rate(44100)
+        installer.set_details("...converting to wav")
+        sound.export(local_path, format="wav")
+    #save_dir = os.path.join(root_dir, 'audio_out', voice_fixer_prefs['batch_folder_name'])
+    #if not os.path.exists(save_dir):
+    #    os.makedirs(save_dir, exist_ok=True)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(voice_fixer_prefs['batch_folder_name']):
+        audio_out = os.path.join(audio_out, voice_fixer_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    if bool(voice_fixer_prefs['audio_name']):
+        fname = format_filename(voice_fixer_prefs['audio_name'], force_underscore=True)
+    else: fname = "output"
+    fname = f"{voice_fixer_prefs['file_prefix']}{fname}"
+    output_file = available_file(audio_out, fname, 0, ext='wav')
+    modes = []
+    if voice_fixer_prefs['mode_0']: modes.append(0)
+    if voice_fixer_prefs['mode_1']: modes.append(1)
+    if voice_fixer_prefs['mode_2']: modes.append(2)
+    clear_last()
+    try:
+        for mode in modes:
+            prt(f"Running VoiceFixer mode {mode} on your Recording...")
+            prt(progress)
+            output_file = available_file(audio_out, f"{fname}-mode{mode}", 0, ext='wav', no_num=True)
+            pipe_voice_fixer.restore(input=local_path, output=output_file, cuda=torch_device == "cuda", mode=mode)
+            clear_last()
+            clear_last()
+            prt(AudioPlayer(src=output_file, display=output_file, page=page))
+            #a_out = Audio(src=output_file, autoplay=False)
+            #page.overlay.append(a_out)
+            #page.update()
+            #display_name = output_file
+            #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))    
+    except Exception as e:
+        alert_msg(page, f"ERROR: Couldn't Restore audio for some reason. Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        clear_last()
+        return
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 loaded_StableUnCLIP = None
 def run_unCLIP(page, from_list=False):
@@ -24792,6 +25546,7 @@ def run_controlnet(page, from_list=False):
           import cv2
         except ModuleNotFoundError:
           run_sp("pip install opencv-contrib-python", realtime=False)
+          import cv2
           pass
         try:
           from controlnet_aux import MLSDdetector
@@ -25843,8 +26598,9 @@ def run_text_to_video(page):
         if text_to_video_prefs['lower_memory']:
             pipe_text_to_video.enable_sequential_cpu_offload()
             #pipe_text_to_video.enable_model_cpu_offload()
+            pipe_text_to_video.unet.enable_forward_chunking(chunk_size=1, dim=1)
             pipe_text_to_video.enable_vae_tiling()
-            #pipe_text_to_video.enable_vae_slicing()
+            pipe_text_to_video.enable_vae_slicing()
         else:
             pipe_text_to_video = pipe_text_to_video.to(torch_device)
         #pipe_text_to_video = optimize_pipe(pipe_text_to_video, vae_tiling=True, vae=True, to_gpu=False)
@@ -26167,6 +26923,262 @@ def run_text_to_video_zero(page):
         num += 1
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_video_to_video(page):
+    global video_to_video_prefs, prefs, status, pipe_video_to_video, model_path
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.VideoToVideo.controls.append(line)
+      page.VideoToVideo.update()
+    def clear_last():
+      del page.VideoToVideo.controls[-1]
+      page.VideoToVideo.update()
+    def clear_list():
+      page.TextToVideo.controls = page.VideoToVideo.controls[:1]
+    def autoscroll(scroll=True):
+      page.VideoToVideo.auto_scroll = scroll
+      page.VideoToVideo.update()
+    if not bool(video_to_video_prefs['init_video']):
+      alert_msg(page, "You must provide the Input Initial Video Clip to process...")
+      return
+    progress = ProgressBar(bar_height=8)
+    total_steps = video_to_video_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Video-To-Video Pipeline...")
+    prt(installer)
+    #), dropdown.Option(), dropdown.Option(), dropdown.Option(), dropdown.Option(
+    try:
+        import cv2
+    except ModuleNotFoundError:
+        run_sp("pip install opencv-contrib-python", realtime=False)
+        import cv2
+        pass
+    model_id = "cerspense/zeroscope_v2_XL"
+    '''if video_to_video_prefs['model'] == "damo-vilab/text-to-video-ms-1.7b":
+        model_id = "damo-vilab/text-to-video-ms-1.7b"
+    elif video_to_video_prefs['model'] == "modelscope-damo-text2video-synthesis":
+        model_id = "damo-vilab/modelscope-damo-text2video-synthesis"
+    elif video_to_video_prefs['model'] == "modelscope-damo-text2video-pruned-weights":
+        model_id = "kabachuha/modelscope-damo-text2video-pruned-weights"
+    elif video_to_video_prefs['model'] == "cerspense/zeroscope_v2_576w":
+        model_id = "cerspense/zeroscope_v2_576w"
+    elif video_to_video_prefs['model'] == "cerspense/zeroscope_v2_XL":
+        model_id = "cerspense/zeroscope_v2_XL"'''
+    clear_pipes('video_to_video')
+    if pipe_video_to_video is None:
+        installer.set_details("...initializing VideoToVideo SDPipeline")
+        from diffusers import VideoToVideoSDPipeline, DPMSolverMultistepScheduler
+        pipe_video_to_video = VideoToVideoSDPipeline.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        #pipe_video_to_video = pipeline_scheduler(pipe_video_to_video)
+        pipe_video_to_video.scheduler = DPMSolverMultistepScheduler.from_config(pipe_video_to_video.scheduler.config)
+        if video_to_video_prefs['lower_memory']:
+            pipe_video_to_video.enable_sequential_cpu_offload()
+            pipe_video_to_video.enable_model_cpu_offload()
+            pipe_video_to_video.unet.enable_forward_chunking(chunk_size=1, dim=1)
+            #pipe_video_to_video.enable_vae_tiling()
+            pipe_video_to_video.enable_vae_slicing()
+        else:
+            pipe_video_to_video = pipe_video_to_video.to(torch_device)
+        #pipe_video_to_video = optimize_pipe(pipe_video_to_video, vae_tiling=True, vae=True, to_gpu=False)
+        pipe_video_to_video.set_progress_bar_config(disable=True)
+    else:
+        pipe_video_to_video = pipeline_scheduler(pipe_video_to_video)
+    #clear_last()
+    def prep_video(vid):
+        nonlocal width, height
+        if vid.startswith('http'):
+            init_vid = download_file(vid, stable_dir)
+            installer.set_details("...extracting frames from video")
+        else:
+            if os.path.isfile(vid):
+                init_vid = vid
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_video {vid}")
+                return
+        try:
+            start_time = float(controlnet_prefs['start_time'])
+            end_time = float(controlnet_prefs['end_time'])
+            fps = int(controlnet_prefs['fps'])
+            max_size = controlnet_prefs['max_size']
+        except Exception:
+            alert_msg(page, "Make sure your Numbers are actual numbers...")
+            return
+        installer.set_details("Extracting Frames from Video Clip")
+        try:
+            cap = cv2.VideoCapture(init_vid)
+        except Exception as e:
+            alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
+            clear_last()
+            return
+        count = 0
+        video = []
+        frames = []
+        width = height = 0
+        cap.set(cv2.CAP_PROP_FPS, fps)
+        video_length = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        start_frame = int(start_time * fps)
+        if end_time == 0 or end_time == 0.0:
+            end_frame = int(video_length)
+        else:
+            end_frame = int(end_time * fps)
+        total = end_frame - start_frame
+        for i in range(start_frame, end_frame):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            success, image = cap.read()
+            if success:
+                #filename = os.path.join(output_dir, f'{file_prefix}{count}.png')
+                if width == 0:
+                    shape = image.shape
+                    width, height = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
+                image = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
+                #cv2.imwrite(os.path.join(output_dir, filename), image)
+                #image = prep_image(controlnet_prefs['control_task'], PILImage.fromarray(image))
+                video.append(image)
+                count += 1
+        cap.release()
+        #clear_last()
+        return video
+    init_frames = prep_video(video_to_video_prefs['init_video'])
+    clear_last()
+    prt("Generating Video-To-Video with your Prompt...")
+    prt(progress)
+    autoscroll(False)
+    batch_output = os.path.join(stable_dir, video_to_video_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    local_output = batch_output
+    batch_output = os.path.join(prefs['image_output'], video_to_video_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = int(video_to_video_prefs['seed']) if int(video_to_video_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator(device="cpu").manual_seed(random_seed)
+    #generator = torch.manual_seed(random_seed)
+    width = video_to_video_prefs['width']
+    height = video_to_video_prefs['height']
+    try:
+      #print(f"prompt={video_to_video_prefs['prompt']}, negative_prompt={video_to_video_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={video_to_video_prefs['edit_momentum_scale']}, edit_mom_beta={video_to_video_prefs['edit_mom_beta']}, num_inference_steps={video_to_video_prefs['num_inference_steps']}, eta={video_to_video_prefs['eta']}, guidance_scale={video_to_video_prefs['guidance_scale']}")
+      #, output_type = "pt", width=width, height=height
+      frames = pipe_video_to_video(prompt=video_to_video_prefs['prompt'], negative_prompt=video_to_video_prefs['negative_prompt'], video=init_frames, num_inference_steps=video_to_video_prefs['num_inference_steps'], eta=video_to_video_prefs['eta'], guidance_scale=video_to_video_prefs['guidance_scale'], strength=video_to_video_prefs['strength'], generator=generator, callback=callback_fnc, callback_steps=1).frames
+    except Exception as e:
+      clear_last()
+      clear_last()
+      alert_msg(page, f"ERROR: Couldn't Video-To-Video your image for some reason. Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    clear_last()
+    clear_last()
+    autoscroll(True)
+    save_path = os.path.join(prefs['image_output'], video_to_video_prefs['batch_folder_name'])
+    filename = f"{prefs['file_prefix']}{format_filename(video_to_video_prefs['prompt'])}"
+    filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    video_path = ""
+    if video_to_video_prefs['export_to_video']:
+        from diffusers.utils import export_to_video
+        video_path = export_to_video(frames)
+        shutil.copy(video_path, available_file(local_output, filename, 0, ext="mp4", no_num=True))
+        shutil.copy(video_path, available_file(batch_output, filename, 0, ext="mp4", no_num=True))
+        #print(f"video_path: {video_path}")
+    #video = frames.cpu().numpy()
+    #print(f"video: {video}")
+    import cv2
+    from PIL.PngImagePlugin import PngInfo
+    num = 0
+    for image in frames:
+        random_seed += num
+        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+        image_path = available_file(batch_output, fname, num)
+        unscaled_path = image_path
+        output_file = image_path.rpartition(slash)[2]
+        #uint8_image = (image * 255).round().astype("uint8")
+        #np_image = image.cpu().numpy()
+        #print(f"image: {type(image)}, np_image: {type(np_image)}")
+        #print(f"image: {type(image)} to {image_path}")
+        cv2.imwrite(image_path, image)
+        #PILImage.fromarray(np_image).save(image_path)
+        out_path = image_path.rpartition(slash)[0]
+        upscaled_path = os.path.join(out_path, output_file)
+        if not video_to_video_prefs['display_upscaled_image'] or not video_to_video_prefs['apply_ESRGAN_upscale']:
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+        if video_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{num}.png'
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+            #print(f'Moving {fpath} to {dst_path}')
+            #shutil.move(fpath, dst_path)
+            shutil.copy(image_path, dst_path)
+            #faceenhance = ' --face_enhance' if video_to_video_prefs["face_enhance"] else ''
+            faceenhance = ''
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {video_to_video_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            image_path = upscaled_path
+            os.chdir(stable_dir)
+            if video_to_video_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(video_to_video_prefs["enlarge_scale"]), height=height * float(video_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if prefs['save_image_metadata']:
+            img = PILImage.open(image_path)
+            metadata = PngInfo()
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+            metadata.add_text("copyright", prefs['meta_Copyright'])
+            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {video_to_video_prefs['enlarge_scale']}x with ESRGAN" if video_to_video_prefs['apply_ESRGAN_upscale'] else "")
+            metadata.add_text("pipeline", "Video-To-Video")
+            if prefs['save_config_in_metadata']:
+              config_json = video_to_video_prefs.copy()
+              config_json['model_path'] = model_id
+              config_json['scheduler_mode'] = prefs['scheduler_mode']
+              config_json['seed'] = random_seed
+              del config_json['num_frames']
+              del config_json['width']
+              del config_json['height']
+              del config_json['display_upscaled_image']
+              del config_json['batch_folder_name']
+              del config_json['lower_memory']
+              if not config_json['apply_ESRGAN_upscale']:
+                del config_json['enlarge_scale']
+                del config_json['apply_ESRGAN_upscale']
+              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+            img.save(image_path, pnginfo=metadata)
+        #TODO: PyDrive
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(os.path.join(prefs['image_output'], video_to_video_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(os.path.join(prefs['image_output'], video_to_video_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        num += 1
+    if bool(video_path):
+        prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_potat1(page):
     global potat1_prefs, prefs, status, pipe_potat1, model_path
@@ -29539,35 +30551,46 @@ class VideoPlayer(UserControl):
         return video_container
 
 class AudioPlayer(UserControl):
-    def __init__(self, audio_file="", display="", page=None):
+    def __init__(self, src="", display="", data=None, autoplay=False, page=None):
         super().__init__()
-        self.audio_file = audio_file
+        self.src = src
         self.display = display
+        self.data = data if data != None else src
         self.page = page
+        self.state = "stopped"
+        self.audio = Audio(src=self.src, autoplay=autoplay, on_state_changed=self.state_changed)
+        self.page.overlay.append(self.audio)
         self.build()
     def play_audio(self, e):
-        #e.control.data.play()
         if self.state == "playing":
             self.audio.pause()
+        elif self.state == "paused":
+            self.audio.resume()
         else:
             self.audio.play()
     def state_changed(self, e):
         self.state = e.data
+        #print(self.state)
         if e.data == "completed":
             self.icon = icons.PLAY_CIRCLE_FILLED
         if e.data == "playing":
-            self.icon = icons.STOP
-        self.row.update()
-    def build(self):
-        self.audio = Audio(src=self.audio_file, autoplay=False, on_state_changed=self.state_changed)
-        self.page.overlay.append(self.audio)
+            self.icon = icons.PAUSE
+        self.button.icon = self.icon
+        self.button.update()
+    def did_mount(self):
         self.page.update()
+        duration = self.audio.get_duration()
+        #print(duration)
+        if duration > 0:
+            dt = datetime.datetime.fromtimestamp(duration / 1000)
+            dur = dt.strftime('%H:%M:%S.%f')[:-3]
+            self.button.tooltip = f"Duration: {dur}"
+            self.button.update()
+    def build(self):
         self.icon = icons.PLAY_CIRCLE_FILLED
-        #duration = self.audio.get_duration()
-        #dt = datetime.datetime.fromtimestamp(duration / 1000)
         dur = ""#dt.strftime('%H:%M:%S.%f')[:-3]
-        #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
-        self.row = Row([IconButton(icon=self.icon, icon_size=48, tooltip=f"Duration: {dur}", on_click=self.play_audio, data=self.audio_file), Text(self.display)])
+        self.button = IconButton(icon=self.icon, icon_size=48, tooltip=f"Duration: {dur}", on_click=self.play_audio, data=self.data)
+        self.row = Row([self.button, Text(self.display)])
         return self.row
 
 
