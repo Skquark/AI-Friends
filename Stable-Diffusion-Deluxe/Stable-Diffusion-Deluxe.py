@@ -252,6 +252,7 @@ def load_settings_file():
       'install_interpolation': False,
       'install_text2img': True,
       'install_img2img': False,
+      'install_SDXL': False,
       'install_megapipe': True,
       'install_CLIP_guided': False,
       'install_OpenAI': False,
@@ -270,6 +271,7 @@ def load_settings_file():
       'install_upscale': False,
       'safety_config': 'Strong',
       'use_imagic': False,
+      'use_SDXL': False,
       'use_composable': False,
       'use_safe': False,
       'use_versatile': False,
@@ -422,6 +424,7 @@ status = {
     'installed_diffusers': False,
     'installed_txt2img': False,
     'installed_img2img': False,
+    'installed_SDXL': False,
     'installed_stability': False,
     'installed_AIHorde': False,
     'installed_megapipe': False,
@@ -529,7 +532,7 @@ def buildTabs(page):
     page.PromptsList = buildPromptsList(page)
     page.PromptHelpers = buildPromptHelpers(page)
     page.Images = buildImages(page)
-    page.StableDiffusers = buildStableDiffusers(page)
+    page.ImageAIs = buildImageAIs(page)
     page.Trainers = buildTrainers(page)
     page.VideoAIs = buildVideoAIs(page)
     page.AudioAIs = buildAudioAIs(page)
@@ -544,7 +547,7 @@ def buildTabs(page):
             Tab(text="Prompts List", content=page.PromptsList, icon=icons.FORMAT_LIST_BULLETED),
             Tab(text="Generate Images", content=page.Images, icon=icons.IMAGE_OUTLINED),
             Tab(text="Prompt Helpers", content=page.PromptHelpers, icon=icons.BUBBLE_CHART_OUTLINED),
-            Tab(text="Stable Diffusers", content=page.StableDiffusers, icon=icons.PALETTE),
+            Tab(text="Image AIs", content=page.ImageAIs, icon=icons.PALETTE),
             Tab(text="Video AIs", content=page.VideoAIs, icon=icons.VIDEO_CAMERA_BACK),
             Tab(text="3D AIs", content=page.Text3DAIs, icon=icons.VIEW_IN_AR),
             Tab(text="Audio AIs", content=page.AudioAIs, icon=icons.EQUALIZER),
@@ -586,7 +589,7 @@ def buildPromptHelpers(page):
     )
     return promptTabs
 
-def buildStableDiffusers(page):
+def buildImageAIs(page):
     page.RePainter = buildRepainter(page)
     page.unCLIP = buildUnCLIP(page)
     page.unCLIP_Interpolation = buildUnCLIP_Interpolation(page)
@@ -606,6 +609,7 @@ def buildStableDiffusers(page):
     page.ControlNet = buildControlNet(page)
     page.DeepFloyd = buildDeepFloyd(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
+    page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page)
     page.DiT = buildDiT(page)
@@ -619,7 +623,7 @@ def buildStableDiffusers(page):
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
             Tab(text="Kandinsky", content=page.Kandinsky, icon=icons.TOLL),
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
-            Tab(text="DeepFloyd", content=page.DeepFloyd, icon=icons.LOOKS),
+            Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
@@ -636,6 +640,7 @@ def buildStableDiffusers(page):
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
+            Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             #Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
             #Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
@@ -693,10 +698,10 @@ def buildVideoAIs(page):
             Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
-            Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
-            Tab(text="ROOP", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
-            Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
+            Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
+            Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
+            Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
         ],
     )
     return videoAIsTabs
@@ -735,7 +740,6 @@ def buildExtras(page):
     page.MaskMaker = buildDreamMask(page)
     page.BackgroundRemover = buildBackgroundRemover(page)
     page.BLIP2Image2Text = buildBLIP2Image2Text(page)
-    page.DallE2 = buildDallE2(page)
     page.Kandinsky2 = buildKandinsky2(page)
     page.Kandinsky2Fuse = buildKandinsky2Fuse(page)
     page.DeepDaze = buildDeepDaze(page)
@@ -747,7 +751,6 @@ def buildExtras(page):
             Tab(text="Background Remover", content=page.BackgroundRemover, icon=icons.WALLPAPER),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
             Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
-            Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="Kandinsky 2.1", content=page.Kandinsky2, icon=icons.AC_UNIT),
             Tab(text="Kandinsky Fuse", content=page.Kandinsky2Fuse, icon=icons.FIREPLACE),
             Tab(text="DeepDaze", content=page.DeepDaze, icon=icons.FACE),
@@ -832,6 +835,8 @@ if 'max_iter_to_alter' not in prefs: prefs['max_iter_to_alter'] = 25
 if 'install_SAG' not in prefs: prefs['install_SAG'] = False
 if 'use_SAG' not in prefs: prefs['use_SAG'] = False
 if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
+if 'install_SDXL' not in prefs: prefs['install_SDXL'] = False
+if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
@@ -1193,6 +1198,8 @@ def buildInstallers(page):
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
+  SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-0.9)", on_tap_link=lambda e: e.page.launch_url(e.data))
+  install_SDXL = Switcher(label="Install Stable Diffusion XL 0.9 text2image & image2image Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=lambda e:changed(e, 'install_SDXL'), tooltip="Latest SDXL v0.9 trained on 1080p images.")
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
   install_interpolation = Switcher(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'), tooltip="Create multiple tween images between prompts latent space. Almost animation.")
@@ -1266,7 +1273,7 @@ def buildInstallers(page):
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
                                  Row([enable_tome, enable_torch_compile]),
                                  ]), padding=padding.only(left=32, top=4)),
-                                         install_text2img, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
+                                         install_text2img, Row([install_SDXL, SDXL_model_card]), install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
                                          install_versatile, install_SAG, install_attend_and_excite, install_panorama, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
@@ -1377,6 +1384,14 @@ def buildInstallers(page):
         status['installed_megapipe'] = True
         page.img_block.height = None
         page.img_block.update()'''
+      if prefs['install_SDXL'] and prefs['install_diffusers']:
+        console_msg("Installing Stable Diffusion XL text2image & image2image Pipeline...")
+        if get_SDXL(page):
+          status['installed_SDXL'] = True
+          page.img_block.height = None
+          page.img_block.update()
+          page.use_SDXL.visible = True
+          page.use_SDXL.update()
       if prefs['install_alt_diffusion'] and prefs['install_diffusers']:
         console_msg("Installing AltDiffusion text2image & image2image Pipeline...")
         get_alt_diffusion(page)
@@ -1858,6 +1873,8 @@ def buildParameters(page):
   init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=prefs['init_image_strength'], on_change=change_strength, expand=True)
   strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight=FontWeight.BOLD)
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
+  page.use_SDXL = Switcher(label="Use Stable Diffusion XL Model/Pipeline Instead", tooltip="The latest SDXL base model, with img2img Refiner. It's tasty..", value=prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL', apply=False))
+  page.use_SDXL.visible = status['installed_SDXL']
   page.use_inpaint_model = Switcher(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], on_change=lambda e:changed(e,'use_inpaint_model', apply=False))
   page.use_inpaint_model.visible = status['installed_img2img']
   page.use_alt_diffusion = Switcher(label="Use AltDiffusion Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Supports 9 different languages for text2image & image2image")
@@ -1979,7 +1996,7 @@ def buildParameters(page):
         guidance,
         eta,
         width_slider, height_slider, #Divider(height=9, thickness=2),
-        page.interpolation_block, page.use_safe, page.img_block, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
+        page.interpolation_block, page.img_block, page.use_safe, page.use_SDXL, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
         Row([use_LoRA_model, LoRA_block]), page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
         #parameters_row,
@@ -7197,7 +7214,7 @@ def buildControlNet(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🕸️  ControlNet Image+Text2Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
+        Header("🕸️  ControlNet Image+Text2Image+Video2Video", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
         Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
         Row([control_guidance_start, control_guidance_end]),
@@ -7678,7 +7695,7 @@ video_to_video_prefs = {
     'width': 256,
     'height': 256,
     'num_frames': 16,
-    'model': 'damo-vilab/text-to-video-ms-1.7b',
+    'model': 'cerspense/zeroscope_v2_576w',
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -7772,7 +7789,7 @@ Resources:
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=video_to_video_prefs, key='height')
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=video_to_video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=video_to_video_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
-    #model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=video_to_video_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
+    model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=video_to_video_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
     batch_folder_name = TextField(label="Batch Folder Name", value=video_to_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(video_to_video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=video_to_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -7787,14 +7804,14 @@ Resources:
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("📽  Video-To-Video Synthesis", "Modelscope's Video-to-video-synthesis Model to Reanimate Video Clips", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=video_to_video_help)]),
+        Header("📽  Video-To-Video Synthesis", "Note: Uses more than 16GB VRAM, may crash session. Video-to-video-synthesis Model to Reanimate Video Clips", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=video_to_video_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         init_video,
         fps,
         Row([start_time, end_time]),
         #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=video_to_video_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
-        Row([export_to_video, lower_memory]),
+        Row([export_to_video, lower_memory, model]),
         #num_frames,
         num_inference_row,
         guidance,
@@ -9061,7 +9078,7 @@ def buildKandinsky(page):
       kandinsky_help_dlg = AlertDialog(title=Text("🙅   Help with Kandinsky Pipeline"), content=Column([
           #Text("NOTE: Right now, installing this may be incompatible with Diffusers packages, so it may not work if you first installed HuggingFace & Stable Diffusion. It's recommended to run this on a fresh runtime, only installing ESRGAN to upscale. We hope to fix this soon, but works great."),
           #Text("Kandinsky 2.1 inherits best practicies from Dall-E 2 and Latent diffusion, while introducing some new ideas."),
-          Markdown("Kandinsky 2.1 inherits best practices from [DALL-E 2](https://arxiv.org/abs/2204.06125) and [Latent Diffusion](https://huggingface.co/docs/diffusers/api/pipelines/latent_diffusion), while introducing some new ideas.\nIt uses [CLIP](https://huggingface.co/docs/transformers/model_doc/clip) for encoding images and text, and a diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach enhances the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation.\nThe Kandinsky model is created by [Arseniy Shakhmatov](https://github.com/cene555), [Anton Razzhigaev](https://github.com/razzant), [Aleksandr Nikolich](https://github.com/AlexWortega), [Igor Pavlov](https://github.com/boomb0om), [Andrey Kuznetsov](https://github.com/kuznetsoffandrey) and [Denis Dimitrov](https://github.com/denndimitrov) and the original codebase can be found [here](https://github.com/ai-forever/Kandinsky-2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("Kandinsky 2.2 inherits best practices from [DALL-E 2](https://arxiv.org/abs/2204.06125) and [Latent Diffusion](https://huggingface.co/docs/diffusers/api/pipelines/latent_diffusion), while introducing some new ideas.\nIt uses [CLIP](https://huggingface.co/docs/transformers/model_doc/clip) for encoding images and text, and a diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach enhances the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation.\nThe Kandinsky model is created by [Arseniy Shakhmatov](https://github.com/cene555), [Anton Razzhigaev](https://github.com/razzant), [Aleksandr Nikolich](https://github.com/AlexWortega), [Igor Pavlov](https://github.com/boomb0om), [Andrey Kuznetsov](https://github.com/kuznetsoffandrey) and [Denis Dimitrov](https://github.com/denndimitrov) and the original codebase can be found [here](https://github.com/ai-forever/Kandinsky-2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -9172,14 +9189,14 @@ def buildKandinsky(page):
     page.ESRGAN_block_kandinsky.height = None if status['installed_ESRGAN'] else 0
     if not kandinsky_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
+    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2.2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page, from_list=True, with_params=True))
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
     page.kandinsky_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🎎  Kandinsky 2.1", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
+            Header("🎎  Kandinsky 2.2", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #param_rows, #dropdown_row,
             steps,
@@ -9352,7 +9369,7 @@ def buildKandinsky2(page):
     page.ESRGAN_block_kandinsky2.height = None if status['installed_ESRGAN'] else 0
     if not kandinsky2_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
+    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2.2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
 
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.kandinsky2_output = Column([])
@@ -12120,7 +12137,7 @@ def buildRiffusion(page):
           nonlocal riffusion_help_dlg
           riffusion_help_dlg.open = False
           page.update()
-        riffusion_help_dlg = AlertDialog(title=Text("💁   Help with Audio-LDM"), content=Column([
+        riffusion_help_dlg = AlertDialog(title=Text("💁   Help with Riffusion"), content=Column([
             Text("This is the v1.5 stable diffusion model with no modifications, just fine-tuned on images of spectrograms paired with text. Audio processing happens downstream of the model. It can generate infinite variations of a prompt by varying the seed. All the same web UIs and techniques like img2img, inpainting, negative prompts, and interpolation work out of the box."),
             Markdown("[Project Page](https://www.riffusion.com/about), [Codebase](https://github.com/riffusion/riffusion), [Discord](https://discord.gg/yu6SRwvX4v)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🎺  Let's Jam... ", on_click=close_riffusion_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -12773,6 +12790,8 @@ retry_attempts_if_NSFW = 3
 unet = None
 pipe = None
 pipe_img2img = None
+pipe_SDXL = None
+pipe_SDXL_img2img = None
 pipe_interpolation = None
 pipe_clip_guided = None
 pipe_conceptualizer = None
@@ -13882,6 +13901,56 @@ def get_composable_pipe():
   #pipe_composable.set_progress_bar_config(disable=True)
   return pipe_composable
 
+def get_SDXL(page):
+    global pipe_SDXL
+    def open_url(e):
+      page.launch_url(e.data)
+    try:
+      pipe_SDXL = get_SDXL_pipe()
+      return True
+    except Exception as er:
+      model_url = f"https://huggingface.co/stabilityai/stable-diffusion-xl-base-0.9"
+      alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace Stable Diffusion XL Model Card to use Checkpoint',
+                content=Markdown(f'[{model_url}]({model_url})<br>{er}', on_tap_link=open_url))
+      return False
+
+def get_SDXL_pipe():
+  global pipe_SDXL, pipe_SDXL_img2img, prefs
+  from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline
+  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  try:
+      import invisible_watermark
+  except ImportError:
+      run_sp("pip install invisible-watermark>=2.0", realtime=False)
+      pass
+  model_id = "stabilityai/stable-diffusion-xl-base-0.9"
+  refiner_id = "stabilityai/stable-diffusion-xl-refiner-0.9"
+  if pipe_SDXL is not None:
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+        pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+        return pipe_SDXL
+      else:
+        return pipe_SDXL
+  pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
+      model_id,
+      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+      variant="fp16",
+      torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
+      use_safetensors=True,
+      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+  )
+  pipe_SDXL_img2img = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
+      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+  )
+  pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+  pipe_SDXL = optimize_pipe(pipe_SDXL)
+  pipe_SDXL.set_progress_bar_config(disable=True)
+  pipe_SDXL_img2img = pipeline_scheduler(pipe_SDXL_img2img)
+  pipe_SDXL_img2img = optimize_pipe(pipe_SDXL_img2img)
+  pipe_SDXL_img2img.set_progress_bar_config(disable=True)
+  return pipe_SDXL
+
 def get_versatile(page):
     import torch, gc
     global pipe_versatile_text2img
@@ -14620,6 +14689,16 @@ def clear_unet_pipe():
     del unet
     flush()
     unet = None
+def clear_SDXL_pipe():
+  global pipe_SDXL, pipe_SDXL_img2img
+  if pipe_SDXL is not None:
+    del pipe_SDXL
+    flush()
+    pipe_SDXL = None
+  if pipe_SDXL_img2img is not None:
+    del pipe_SDXL_img2img
+    flush()
+    pipe_SDXL_img2img = None
 def clear_clip_guided_pipe():
   global pipe_clip_guided
   if pipe_clip_guided is not None:
@@ -14954,6 +15033,7 @@ def clear_pipes(allbut=None):
     but = [] if allbut == None else [allbut] if type(allbut) is str else allbut
     if not 'txt2img' in but: clear_txt2img_pipe()
     if not 'img2img' in but: clear_img2img_pipe()
+    if not 'SDXL' in but: clear_SDXL_pipe()
     if not 'unet' in but: clear_unet_pipe()
     if not 'clip_guided' in but: clear_clip_guided_pipe()
     if not 'conceptualizer' in but: clear_conceptualizer_pipe()
@@ -15044,7 +15124,7 @@ def available_folder(folder, name, idx):
 #import asyncio
 #async
 def start_diffusion(page):
-  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale
+  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale, pipe_SDXL, pipe_SDXL_img2img
   global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
   def prt(line, update=True):
     if type(line) == str:
@@ -15775,7 +15855,7 @@ def start_diffusion(page):
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['init_image']):
-              if not status['installed_txt2img'] and not (prefs['use_imagic'] and status['installed_imagic']) and not (prefs['use_depth2img'] and status['installed_depth2img']) and not (prefs['use_alt_diffusion'] and status['installed_alt_diffusion']):
+              if not status['installed_txt2img'] and not (prefs['use_imagic'] and status['installed_imagic']) and not (prefs['use_depth2img'] and status['installed_depth2img']) and not (prefs['use_alt_diffusion'] and status['installed_alt_diffusion']) and not status['installed_SDXL']:
                 alert_msg(page, f"CRITICAL ERROR: You have not installed a image2image pipeline yet.  Run in the Installer..")
                 continue
               if prefs['use_versatile'] and status['installed_versatile']:
@@ -15791,6 +15871,12 @@ def start_diffusion(page):
                     prt(Installing("Initializing Versatile Image Variation Pipeline..."))
                     pipe_versatile_variation = get_versatile_variation_pipe()
                     clear_last()
+              elif prefs['use_SDXL'] and status['installed_SDXL']:
+                clear_pipes("SDXL")
+                if pipe_SDXL_img2img is None:
+                  prt(Installing("Initializing Stable Diffusion XL Image2Image Pipeline..."))
+                  pipe_SDXL = get_SDXL_pipe()
+                  clear_last()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion_img2img")
                 if pipe_alt_diffusion_img2img is None:
@@ -15851,6 +15937,9 @@ def start_diffusion(page):
                 else:
                   pipe_used = "Versatile Variation"
                   images = pipe_versatile_variation(negative_prompt=arg['negative_prompt'], image=init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_SDXL'] and status['installed_SDXL']:
+                pipe_used = "Stable Diffusion XL Image-to-Image"
+                images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Image-to-Image"
                 with torch.autocast("cuda"):
@@ -15897,6 +15986,12 @@ def start_diffusion(page):
                 if pipe_composable is None:
                   prt(Installing("Initializing Composable Text2Image Pipeline..."))
                   pipe_composable = get_composable_pipe()
+                  clear_last()
+              elif prefs['use_SDXL'] and status['installed_SDXL']:
+                clear_pipes("SDXL")
+                if pipe_SDXL is None:
+                  prt(Installing("Initializing Stable Diffusion XL Pipeline..."))
+                  pipe_SDXL = get_SDXL_pipe()
                   clear_last()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion")
@@ -15956,6 +16051,11 @@ def start_diffusion(page):
                   weights = '|'.join(['1' * segments])
                 pipe_used = "Composable Text-to-Image"
                 images = pipe_composable(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], weights=weights, generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_SDXL'] and status['installed_SDXL']:
+                pipe_used = "Stable Diffusion XL Text-to-Image"
+                #TODO: Figure out batch num_images_per_prompt + option to not refine
+                image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images[0]
+                images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=image[None, :], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
                 with torch.autocast("cuda"):
@@ -16205,6 +16305,8 @@ def start_diffusion(page):
         config_json['pipeline'] = pipe_used
         config_json['scheduler_mode'] = sampler_str
         config_json['model_path'] = model_path
+        if prefs['use_SDXL'] and status['installed_SDXL']:
+          config_json['model_path'] = "stabilityai/stable-diffusion-xl-base-0.9"
         if prefs['save_image_metadata']:
           img = PILImage.open(fpath)
           metadata = PngInfo()
@@ -22652,6 +22754,9 @@ def run_converter(page):
     if converter_prefs['half_percision']:
       run_cmd += f' --half'
     run_cmd += f' --dump_path {custom_path}'
+    #TODO: Add this to UI to use
+    #if bool(converter_prefs['vae_path']): #"Set to a path, hub id to an already converted vae to not convert it again."
+    #  run_cmd += f' --vae_path {converter_prefs["vae_path"]}'
     prt(f"Running {run_cmd}")
     try:
       run_sp(run_cmd, cwd=scripts_dir, realtime=True)
@@ -25605,6 +25710,12 @@ def run_controlnet(page, from_list=False):
             from transformers import pipeline
             depth_estimator = pipeline('depth-estimation')
             controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Kandinsky Depth":
+            from transformers import pipeline
+            from diffusers import KandinskyV22PriorPipeline, KandinskyV22ControlnetPipeline
+            depth_estimator = pipeline('depth-estimation')
+            #controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_models[task] = KandinskyV22ControlnetPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-controlnet-depth", torch_dtype=torch.float16).to(torch_device)
         elif task == "HED":
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
@@ -25689,6 +25800,14 @@ def run_controlnet(page, from_list=False):
                 input_image = input_image[:, :, None]
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
                 original_img = PILImage.fromarray(input_image)
+            elif task == "Kandinsky Depth":
+                original_img = depth_estimator(original_img)['depth']
+                input_image = np.array(original_img)
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                detected_map = torch.from_numpy(input_image).float() / 255.0
+                original_img = detected_map.permute(2, 0, 1).unsqueeze(0).half().to("cuda")
+                #original_img = PILImage.fromarray(input_image)
             elif task == "HED":
                 original_img = hed(original_img, safe=True)
             elif task == "M-LSD":
@@ -26967,8 +27086,8 @@ def run_video_to_video(page):
         run_sp("pip install opencv-contrib-python", realtime=False)
         import cv2
         pass
-    model_id = "cerspense/zeroscope_v2_XL"
-    '''if video_to_video_prefs['model'] == "damo-vilab/text-to-video-ms-1.7b":
+    #model_id = "cerspense/zeroscope_v2_XL"
+    if video_to_video_prefs['model'] == "damo-vilab/text-to-video-ms-1.7b":
         model_id = "damo-vilab/text-to-video-ms-1.7b"
     elif video_to_video_prefs['model'] == "modelscope-damo-text2video-synthesis":
         model_id = "damo-vilab/modelscope-damo-text2video-synthesis"
@@ -26977,7 +27096,7 @@ def run_video_to_video(page):
     elif video_to_video_prefs['model'] == "cerspense/zeroscope_v2_576w":
         model_id = "cerspense/zeroscope_v2_576w"
     elif video_to_video_prefs['model'] == "cerspense/zeroscope_v2_XL":
-        model_id = "cerspense/zeroscope_v2_XL"'''
+        model_id = "cerspense/zeroscope_v2_XL"
     clear_pipes('video_to_video')
     if pipe_video_to_video is None:
         installer.set_details("...initializing VideoToVideo SDPipeline")
@@ -26986,7 +27105,7 @@ def run_video_to_video(page):
         #pipe_video_to_video = pipeline_scheduler(pipe_video_to_video)
         pipe_video_to_video.scheduler = DPMSolverMultistepScheduler.from_config(pipe_video_to_video.scheduler.config)
         if video_to_video_prefs['lower_memory']:
-            pipe_video_to_video.enable_sequential_cpu_offload()
+            #pipe_video_to_video.enable_sequential_cpu_offload()
             pipe_video_to_video.enable_model_cpu_offload()
             pipe_video_to_video.unet.enable_forward_chunking(chunk_size=1, dim=1)
             #pipe_video_to_video.enable_vae_tiling()
@@ -27054,7 +27173,7 @@ def run_video_to_video(page):
         return video
     init_frames = prep_video(video_to_video_prefs['init_video'])
     clear_last()
-    prt("Generating Video-To-Video with your Prompt...")
+    prt(f"Generating Video-To-Video on {len(frames)} Frames with your Prompt...")
     prt(progress)
     autoscroll(False)
     batch_output = os.path.join(stable_dir, video_to_video_prefs['batch_folder_name'])
@@ -28653,6 +28772,7 @@ def run_shap_e(page):
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
 
+    
 def run_instant_ngp(page):
     global instant_ngp_prefs, prefs
     def prt(line):
@@ -28971,7 +29091,7 @@ def run_dall_e(page, from_list=False):
 
 loaded_kandinsky_task = ""
 def run_kandinsky(page, from_list=False, with_params=False):
-    global kandinsky_prefs, pipe_kandinsky, pipe_kandinsky_prior, prefs, loaded_kandinsky_task
+    global kandinsky_prefs, pipe_kandinsky, pipe_kadinsky_prior, prefs, loaded_kandinsky_task
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
@@ -29037,17 +29157,17 @@ def run_kandinsky(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    installer = Installing("Installing Kandinsky 2.1 Engine & Models... See console log for progress.")
+    installer = Installing("Installing Kandinsky 2.2 Engine & Models... See console log for progress.")
     prt(installer)
     clear_pipes("kandinsky")
     import requests
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
-    from diffusers import DiffusionPipeline
-    installer.set_details("...kandinsky-2-1-prior Pipeline")
+    from diffusers import KandinskyV22PriorPipeline
+    installer.set_details("...kandinsky-2-2-prior Pipeline")
     if pipe_kandinsky_prior == None:
-        pipe_kandinsky_prior = DiffusionPipeline.from_pretrained("kandinsky-community/kandinsky-2-1-prior", torch_dtype=torch.float16)
+        pipe_kandinsky_prior = KandinskyV22PriorPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-prior", torch_dtype=torch.float16)
         pipe_kandinsky_prior.to("cuda")
     #save_dir = os.path.join(root_dir, 'kandinsky_inputs')
     for pr in kandinsky_prompts:
@@ -29086,7 +29206,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
             #mask_img.save(mask_file)
         #print(f'Resize to {width}x{height}')
         task_type = "inpainting" if bool(pr['init_image']) and bool(pr['mask_image']) else "img2img" if bool(pr['init_image']) and not bool(pr['mask_image']) else "text2img"
-        installer.set_details(f"...kandinsky-2-1 {task_type} Pipeline")
+        installer.set_details(f"...kandinsky-2-2 {task_type} Pipeline")
         if pipe_kandinsky == None or loaded_kandinsky_task != task_type:
             clear_pipes('kandinsky_prior')
             try:
@@ -29094,14 +29214,14 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 #    pipe_kandinsky = get_kandinsky2('cuda', task_type='img2img', model_version='2.1', use_flash_attention=False, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_kandinsky = get_kandinsky2('cuda', task_type=task_type, model_version='2.1', use_flash_attention=False, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if task_type == "text2img":
-                    from diffusers import DiffusionPipeline
-                    pipe_kandinsky = DiffusionPipeline.from_pretrained("kandinsky-community/kandinsky-2-1", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    from diffusers import KandinskyV22Pipeline
+                    pipe_kandinsky = KandinskyV22Pipeline.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "img2img":
-                    from diffusers import KandinskyImg2ImgPipeline
-                    pipe_kandinsky = KandinskyImg2ImgPipeline.from_pretrained("kandinsky-community/kandinsky-2-1", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    from diffusers import KandinskyV22Img2ImgPipeline
+                    pipe_kandinsky = KandinskyV22Img2ImgPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "inpainting":
-                    from diffusers import KandinskyInpaintPipeline
-                    pipe_kandinsky = KandinskyInpaintPipeline.from_pretrained("kandinsky-community/kandinsky-2-1-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    from diffusers import KandinskyV22InpaintPipeline
+                    pipe_kandinsky = KandinskyV22InpaintPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if prefs['enable_torch_compile']:
                     pipe_kandinsky.unet.to(memory_format=torch.channels_last)
                     pipe_kandinsky.unet = torch.compile(pipe_kandinsky.unet, mode="reduce-overhead", fullgraph=True)
@@ -29116,13 +29236,13 @@ def run_kandinsky(page, from_list=False, with_params=False):
         else:
             clear_pipes('kandinsky')
         clear_last()
-        prt("Generating your Kandinsky 2.1 Image...")
+        prt("Generating your Kandinsky 2.2 Image...")
         prt(progress)
         autoscroll(False)
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         try:
-            image_embeds, negative_image_embeds = pipe_kandinsky_prior(pr['prompt'], pr['negative_prompt'], guidance_scale=1.0).to_tuple()
+            image_embeds, negative_image_embeds = pipe_kandinsky_prior(pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=5, guidance_scale=1.0, generator=generator).to_tuple()
             #negative_image_embeds = pipe_kandinsky_prior(pr['negative_prompt'], guidance_scale=2.0, num_inference_steps=25, generator=generator, negative_prompt=pr['negative_prompt']).images
             #guidance_scale=pr['guidance_scale'], num_inference_steps=pr['steps']
             if task_type == "text2img":
@@ -29132,7 +29252,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 #images = pipe_kandinsky.generate_img2img(kandinsky_prefs['prompt'], init_img, strength=kandinsky_prefs['strength'], batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], prior_cf_scale=kandinsky_prefs['prior_cf_scale'], prior_steps=str(kandinsky_prefs['prior_steps']), sampler=kandinsky_prefs['sampler'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 #images = pipe_kandinsky.mix_images(images_texts, weights, batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], prior_cf_scale=kandinsky_prefs['prior_cf_scale'], prior_steps=str(kandinsky_prefs['prior_steps']), sampler=kandinsky_prefs['sampler'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 images = pipe_kandinsky(
-                    pr['prompt'],
+                    #pr['prompt'],
                     image_embeds=image_embeds,
                     negative_image_embeds=negative_image_embeds,
                     num_images_per_prompt=pr['num_images'],
@@ -29147,7 +29267,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 #images = pipe_kandinsky.generate_inpainting(kandinsky_prefs['prompt'], init_img, mask_img, batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], denoised_type=kandinsky_prefs['denoised_type'], dynamic_threshold_v=kandinsky_prefs['dynamic_threshold_v'], sampler=kandinsky_prefs['sampler'], ddim_eta=kandinsky_prefs['ddim_eta'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 #images = pipe_kandinsky.generate_inpainting(kandinsky_prefs['prompt'], init_img, mask_img, batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], prior_cf_scale=kandinsky_prefs['prior_cf_scale'], prior_steps=str(kandinsky_prefs['prior_steps']), sampler=kandinsky_prefs['sampler'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 images = pipe_kandinsky(
-                    pr['prompt'],
+                    #pr['prompt'],
                     image=init_img,
                     strength=pr['strength'],
                     image_embeds=image_embeds,
@@ -29164,7 +29284,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 #images = pipe_kandinsky.generate_text2img(kandinsky_prefs['prompt'], batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], denoised_type=kandinsky_prefs['denoised_type'], dynamic_threshold_v=kandinsky_prefs['dynamic_threshold_v'], sampler=kandinsky_prefs['sampler'], ddim_eta=kandinsky_prefs['ddim_eta'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 #images = pipe_kandinsky.generate_text2img(kandinsky_prefs['prompt'], batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], prior_cf_scale=kandinsky_prefs['prior_cf_scale'], prior_steps=str(kandinsky_prefs['prior_steps']), sampler=kandinsky_prefs['sampler'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 images = pipe_kandinsky(
-                    pr['prompt'],
+                    #pr['prompt'],
                     image=init_img,
                     mask_image=mask_img,
                     strength=pr['strength'],
@@ -29514,16 +29634,15 @@ def run_kandinsky_fuse(page):
       progress.update()
     clear_list()
     autoscroll(True)
-    prt(Installing("Installing Kandinsky 2.1 Engine & Models... See console log for progress."))
+    prt(Installing("Installing Kandinsky 2.2 Engine & Models... See console log for progress."))
     clear_pipes("kandinsky")
     import requests
     from io import BytesIO
     from PIL import ImageOps
-    from diffusers import KandinskyPriorPipeline
-    from diffusers import KandinskyPipeline
+    from diffusers import KandinskyV22PriorPipeline, KandinskyV22Pipeline
     if pipe_kandinsky_prior == None:
-        pipe_kandinsky_prior = KandinskyPriorPipeline.from_pretrained(
-            "kandinsky-community/kandinsky-2-1-prior", torch_dtype=torch.float16
+        pipe_kandinsky_prior = KandinskyV22PriorPipeline.from_pretrained(
+            "kandinsky-community/kandinsky-2-2-prior", torch_dtype=torch.float16
         )
         pipe_kandinsky_prior.to("cuda")
     #save_dir = os.path.join(root_dir, 'kandinsky_fuse_inputs')
@@ -29557,7 +29676,7 @@ def run_kandinsky_fuse(page):
         clear_pipes('kandinsky_prior')
         try:
             #pipe_kandinsky = get_kandinsky2('cuda', task_type='text2img', model_version='2.1', use_flash_attention=False, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            pipe_kandinsky = KandinskyPipeline.from_pretrained("kandinsky-community/kandinsky-2-1", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_kandinsky = KandinskyV22Pipeline.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             if prefs['enable_torch_compile']:
                 pipe_kandinsky.unet.to(memory_format=torch.channels_last)
                 pipe_kandinsky.unet = torch.compile(pipe_kandinsky.unet, mode="reduce-overhead", fullgraph=True)
@@ -29571,7 +29690,7 @@ def run_kandinsky_fuse(page):
     else:
         clear_pipes("kandinsky")
     clear_last()
-    prt("Generating your Kandinsky 2.1 Fused Image...")
+    prt("Generating your Kandinsky 2.2 Fused Image...")
     prt(progress)
     autoscroll(False)
     random_seed = int(kandinsky_fuse_prefs['seed']) if int(kandinsky_fuse_prefs['seed']) > 0 else rnd.randint(0,4294967295)
@@ -30096,7 +30215,7 @@ def main(page: Page):
     def close_credits_dlg(e):
         credits_dlg.open = False
         page.update()
-    credits_markdown = '''This toolkit is an Open-Source side project by [Skquark, Inc.](https://Skquark.com), primarily created by Alan Bedian for fun and full-feature functionality.
+    credits_markdown = '''This toolkit is an Open-Source side project by [Skquark, Inc.](https://Skquark.com), primarily created by Alan Bedian for fun and full-feature functionality.  Official website is [DiffusionDeluxe.com](https://DiffusionDeluxe.com) for more info.
 
 The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the [Diffusers Pipelines](https://github.com/huggingface/diffusers). The HuggingFace Diffusers team includes Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj & Thomas Wolf.
 

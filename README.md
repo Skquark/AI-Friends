@@ -8,7 +8,7 @@ A collection of handy helpers for AI art generation, AI writing and other experi
 
 
 ---
-### Designed by [**Skquark**, Inc.](https://www.Skquark.com) 😋
+### Designed by [**Skquark**, Inc.](https://www.Skquark.com) 😋 - Project at [DiffusionDeluxe.com](https://DiffusionDeluxe.com)
 <p align=center>
 <a href="https://github.com/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb"><img src="https://badgen.net/badge/icon/github?icon=github&label" alt="Github"></a> <a href="https://github.com/Skquark/AI-Friends"><img src="https://badgen.net/github/release/Skquark/AI-Friends/stable" alt="Release version"></a>
 <a href="https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb"><img src="https://img.shields.io/badge/Open-in%20Colab-brightgreen?logo=google-colab&style=flat-square" alt="Open in Google Colab"/></a>
@@ -19,7 +19,7 @@ A collection of handy helpers for AI art generation, AI writing and other experi
 *   Run a batch list of prompts at once, so queue many and walk away
 *   Option to override any parameter per prompt in queue
 *   Option to use Stability-API tokens for more samplers, bigger size & CPU runtime
-*   Use Stable Diffusion [1.5 Checkpoint Model File](https://huggingface.co/runwayml/stable-diffusion-v1-5), or the [1.4 models](https://huggingface.co/CompVis/stable-diffusion-v1-4)
+*   Use Stable Diffusion [XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-0.9), [2.1](https://huggingface.co/stabilityai/stable-diffusion-2-1), [2.0](https://huggingface.co/stabilityai/stable-diffusion-2), [1.5 ](https://huggingface.co/runwayml/stable-diffusion-v1-5), or [1.4](https://huggingface.co/CompVis/stable-diffusion-v1-4) Checkpoint Model File
 *   Supports Stable Diffusion image2image to use an init_image
 *   Supports Stable Diffusion [Inpaint](https://huggingface.co/runwayml/stable-diffusion-inpainting) mask_image layer
 *   Supports Negative Prompts to specify what you don't want
