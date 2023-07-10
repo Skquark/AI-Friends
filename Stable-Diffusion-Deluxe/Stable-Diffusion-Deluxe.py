@@ -340,6 +340,8 @@ def load_settings_file():
       'enlarge_scale': 1.5,
       'face_enhance':False,
       'display_upscaled_image': False,
+      'negatives': ["Blurry"],
+      'custom_negatives': "",
       'prompt_list': [],
       'prompt_generator': {
           'phrase': '',
@@ -567,6 +569,7 @@ def buildPromptHelpers(page):
     page.remixer = buildPromptRemixer(page)
     page.brainstormer = buildPromptBrainstormer(page)
     page.writer = buildPromptWriter(page)
+    page.negatives = buildNegatives(page)
     page.Image2Text = buildImage2Text(page)
     page.MagicPrompt = buildMagicPrompt(page)
     page.DistilGPT2 = buildDistilGPT2(page)
@@ -579,6 +582,7 @@ def buildPromptHelpers(page):
             Tab(text="Prompt Generator", content=page.generator, icon=icons.CLOUD),
             Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
             Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
+            Tab(text="Negatives", content=page.negatives, icon=icons.REMOVE_CIRCLE),
             Tab(text="Image2Text", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="Magic Prompt", content=page.MagicPrompt, icon=icons.AUTO_FIX_HIGH),
             Tab(text="Distil GPT-2", content=page.DistilGPT2, icon=icons.FILTER_ALT),
@@ -851,6 +855,8 @@ if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "N
 if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
 if 'enable_tome' not in prefs: prefs['enable_tome'] = False
 if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
+if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
+if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
 
 def initState(page):
     global status, current_tab
@@ -983,13 +989,13 @@ def buildSettings(page):
         Header("⚙️   Deluxe Stable Diffusion Settings & Preferences"),
         ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
         #VerticalDivider(thickness=2),
-        Row([file_prefix, file_suffix_seed]) if (page.window_width or page.width) > 500 else Column([file_prefix, file_suffix_seed]),
+        Row([file_prefix, file_suffix_seed]) if (page.width if page.web else page.window_width) > 500 else Column([file_prefix, file_suffix_seed]),
         Row([file_max_length, file_allowSpace]),
         file_datetime,
         #Row([disable_nsfw_filter, retry_attempts]),
         #VerticalDivider(thickness=2, width=1),
         save_image_metadata,
-        Row([meta_ArtistName, meta_Copyright]) if (page.window_width or page.width) > 712 else Column([meta_ArtistName, meta_Copyright]),
+        Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window_width) > 712 else Column([meta_ArtistName, meta_Copyright]),
         Row([save_config_in_metadata, save_config_json]),
         Row([theme_mode, theme_color]),
         Row([enable_sounds, start_in_installation]),
@@ -1050,7 +1056,7 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=Fal
         pass
       okay_button = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
       if content == None: content = Container(content=None)
-      page.alert_dlg = AlertDialog(title=Text(msg), content=Column([content], scroll=ScrollMode.AUTO), actions=[okay_button], actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.window_width or page.width) - 200)
+      page.alert_dlg = AlertDialog(title=Text(msg), content=Column([content], scroll=ScrollMode.AUTO), actions=[okay_button], actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
       try:
@@ -1189,7 +1195,7 @@ def buildInstallers(page):
   memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   if version.parse(torch.__version__) < version.parse("2.0.0"):
       memory_optimization.options.append(dropdown.Option("Xformers Mem Efficient Attention"))
-  higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision but takes longer & uses much more GPU memory. Not recommended.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
+  higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision & uses much more GPU memory. Not recommended unless you have >16GB VRAM.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
   sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
   enable_vae_tiling = Checkbox(label="Enable VAE Tiling", tooltip="The VAE will split the input tensor into tiles to compute decoding and encoding in several steps. This is useful to save a large amount of memory and to allow the processing of larger images.", value=prefs['vae_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_tiling'))
@@ -1323,7 +1329,7 @@ def buildInstallers(page):
           page.banner.content.controls = []
         if show_progress:
           page.banner.content.controls.append(Row([Stack([Icon(icons.DOWNLOADING, color=colors.AMBER, size=48), Container(content=ProgressRing(), padding=padding.only(top=6, left=6), alignment=alignment.center)]), Container(content=Text("  " + msg.strip() , weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)) ]))
-          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center if (page.window_width or page.width) > 768 else alignment.center_right)]))
+          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center if (page.width if page.web else page.window_width) > 768 else alignment.center_right)]))
           #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center)]))
           #page.banner.content.controls.append(Row([Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.GREEN_600), ProgressRing()]))
         else:
@@ -2145,13 +2151,13 @@ def editPrompt(e):
         e.page.update()
         #del edit_dlg
         #e.page.dialog = None
-    def open_dlg():
+    def open_dlg(e):
         nonlocal edit_dlg
         e.page.dialog = edit_dlg
         edit_dlg.open = True
         e.page.update()
     def save_dlg(e):
-        nonlocal arg, open_dream
+        nonlocal arg, open_dream, edit_dlg
         dream = open_dream #e.control.data
         dream.prompt = edit_text.value
         arg['batch_size'] = int(batch_size.value)
@@ -2274,7 +2280,7 @@ def editPrompt(e):
     init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(arg['init_image_strength']), expand=True)
     strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
     img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    img_block.height = None if (status['installed_txt2img'] or status['installed_stability']) else 0
+    img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_SDXL']) else 0
     use_clip_guided_model = Switcher(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=arg['use_clip_guided_model'], on_change=toggle_clip)
     clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=arg['clip_guidance_scale'], expand=True)
     clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
@@ -2304,9 +2310,9 @@ def editPrompt(e):
           width_slider, height_slider, img_block,
           use_clip_guided_model, clip_block,
           #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
-        ], alignment=MainAxisAlignment.START, width=(e.page.window_width or e.page.width) - 200, height=(e.page.window_height or e.page.height) - 100, scroll=ScrollMode.AUTO), width=(e.page.window_width or e.page.width) - 200, height=(e.page.window_height or e.page.height) - 100),
+        ], alignment=MainAxisAlignment.START, width=(e.page.width if e.page.web else e.page.window_width) - 200, height=(e.page.height if e.page.web else e.page.window_height) - 100, scroll=ScrollMode.AUTO), width=(e.page.width if e.page.web else e.page.window_width) - 200, height=(e.page.height if e.page.web else e.page.window_height) - 100),
         actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
-    open_dlg()
+    open_dlg(e)
     #e.page.dialog = edit_dlg
     #edit_dlg.open = True
     #e.page.update()
@@ -2352,7 +2358,7 @@ def buildPromptsList(page):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, filled=True, min_lines=30, multiline=True, autofocus=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Add to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100, scroll="none"), width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Add to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_paste
       dlg_paste.open = True
       page.update()
@@ -2371,7 +2377,7 @@ def buildPromptsList(page):
           p = d.prompt[0] if type(d.prompt) == list else d.prompt if bool(d.prompt) else d['prompt'] if 'prompt' in d else d.arg['prompt'] if 'prompt' in d.arg else ''
           text_list += f"{p}\n"
       enter_text = TextField(label="Prompts on multiple lines", value=text_list.strip(), expand=True, filled=True, multiline=True, autofocus=True)
-      dlg_copy = AlertDialog(modal=False, title=Text("📝  Prompts List as Plain Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Prompts List to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_prompts_list(text_list))], actions_alignment=MainAxisAlignment.END)
+      dlg_copy = AlertDialog(modal=False, title=Text("📝  Prompts List as Plain Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100, scroll="none"), width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Prompts List to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_prompts_list(text_list))], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_copy
       dlg_copy.open = True
       page.update()
@@ -2614,7 +2620,7 @@ def buildPromptsList(page):
   page.prompts_list = prompts_list
   prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, filled=True, multiline=True, max_lines=6, on_submit=add_prompt, col={'lg':9})
   negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", filled=True, multiline=True, max_lines=4, suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
-  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.window_width or page.width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
+  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.width if page.web else page.window_width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   copy_prompts_button = IconButton(icons.COPY_ALL, tooltip="Save Prompts as Plain-Text List", on_click=copy_prompts)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Load Prompts from Plain-Text List", on_click=paste_prompts)
@@ -3167,6 +3173,73 @@ So in Subject try something like: `A _color_ _noun-general_ that is _adj-beauty_
     instruction_alert.open = True
     page.update()
 
+negatives = {
+    'Blurry': 'blurry, blur, out of focus, jpeg artifacts, pixelated',
+    'Text': 'text, words, signature, watermark',
+    'Bad Quality': 'bad quality, low-res, worst quality, grainy',
+    'Ugly': 'ugly, deformed, distorted, poorly drawn',
+    'Black & White': 'black and white, monochrome, monotone, colorless',
+    'Bad Hands': 'bad hands, deformed fingers, fewer digits, fused fingers',
+    'Bad Body': 'bad body, disfigured, amputation, wrong anatomy, missing limbs, extra limbs',
+    'Bad Eyes': 'bad eyes, deformed iris, deformed pupils, unclear eyes, cross-eyed',
+    'Bad Legs': 'bad legs, missing legs, extra legs, missing feet, imperfect feet, bad knee, fused calf',
+    'Mutilated': 'mutilated, mutilation, mutated, morbid, bad anatomy',
+    'Proportion': 'bad proportions, gross proportions, long neck, long body, malformed',
+    'Saturation': 'over saturated, unsaturated, washed out, bad saturation',
+    'Contrast': 'hight contrast, low contrast, High pass filter',
+    'Boring': 'boring, unappealing, tasteless, tacky, lackluster',
+    'Simple': 'simple, simplistic, sketch, amateur, plain background',
+    'Unrealistic': 'unrealistic, vector, cartoon',
+    'Cropped': 'cropped, crop, out of frame, cut off',
+    'NSFW': 'NSFW, nude, naked, censored, censor_bar, nipples',
+}
+
+def buildNegatives(page):
+    global prefs, negatives
+    def change_neg(e):
+        if e.control.data in prefs['negatives']:
+            prefs['negatives'].remove(e.control.data)
+        else:
+            prefs['negatives'].append(e.control.data)
+        update_negs()
+    negs = ""
+    def changed_custom(e):
+        nonlocal negs
+        prefs['custom_negatives'] = e.control.value
+        cust = f", {prefs['custom_negatives']}"
+        neg_text.value = negs + (cust if bool(prefs['custom_negatives']) else '')
+        neg_text.update()
+    def update_negs(update=True):
+        nonlocal negs
+        negs_list = []
+        for n in prefs['negatives']:
+            negs_list.append(negatives[n])
+        negs = ', '.join(negs_list)
+        cust = f", {prefs['custom_negatives']}"
+        neg_text.value = negs + (cust if bool(prefs['custom_negatives']) else '')
+        if update: neg_text.update()
+    def copy_clip(e):
+        page.set_clipboard(neg_text.value)
+        page.snack_bar = SnackBar(content=Text(f"📋  Copied to clipboard... Paste into your Negative Prompt Text."))
+        page.snack_bar.open = True
+        page.update()
+    neg_list = ResponsiveRow(controls=[])
+    for k, v in negatives.items():
+        neg_list.controls.append(Checkbox(label=k, tooltip=v, data=k, value=k in prefs['negatives'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=change_neg, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    custom_negatives = TextField(label="Custom Negative Text", value=prefs['custom_negatives'], on_change=changed_custom)
+    neg_text = Text(negs, size=18, color=colors.ON_SECONDARY_CONTAINER, selectable=True)
+    update_negs(False)
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🚫   Negative Prompt Builder", "Generate your Negatives with ease to subtract what you don't want in your images."),
+        neg_list,
+        custom_negatives,
+        ElevatedButton(content=Text("➖  Copy Negs to Clipboard", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=copy_clip),
+        Container(neg_text, bgcolor=colors.SECONDARY_CONTAINER, padding=10, border_radius=border_radius.all(12), alignment = alignment.center, margin=margin.only(top=10)),#], alignment=CrossAxisAlignment.CENTER),
+      ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
 
 ESRGAN_prefs = {
     'enlarge_scale': 1.5,
@@ -8121,7 +8194,7 @@ def buildStableAnimation(page):
       stable_animation_prefs['animation_prompts'] = {str(k):v for k,v in stable_animation_prefs['animation_prompts'].items()}
       text_list = json.dumps(stable_animation_prefs, indent = 4)
       enter_text = TextField(label="Stable Animation Preset JSON", value=text_list.strip(), expand=True, filled=True, multiline=True, autofocus=True)
-      dlg_copy = AlertDialog(modal=False, title=Text("📝   Stable Animation as JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Preset JSON to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_preset(text_list))], actions_alignment=MainAxisAlignment.END)
+      dlg_copy = AlertDialog(modal=False, title=Text("📝   Stable Animation as JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100, scroll="none"), width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Preset JSON to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_preset(text_list))], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_copy
       dlg_copy.open = True
       page.update()
@@ -8146,7 +8219,7 @@ def buildStableAnimation(page):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Stable Animation Preset JSON", expand=True, filled=True, min_lines=30, multiline=True, autofocus=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste Saved Preset JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100, scroll="none"), width=(page.window_width or page.width) - 180, height=(page.window_height or page.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), TextButton(content=Text("📋  Paste from Clipboard", size=18), on_click=paste_clipboard), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Load Preset JSON Values ", size=19, weight=FontWeight.BOLD), on_click=save_preset)], actions_alignment=MainAxisAlignment.END)
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste Saved Preset JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100, scroll="none"), width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), TextButton(content=Text("📋  Paste from Clipboard", size=18), on_click=paste_clipboard), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Load Preset JSON Values ", size=19, weight=FontWeight.BOLD), on_click=save_preset)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_paste
       dlg_paste.open = True
       page.update()
@@ -8261,7 +8334,7 @@ def buildStableAnimation(page):
       editing_prompt = TextField(label="Keyframe Prompt Animation", expand=True, multiline=True, value=edit_prompt, autofocus=True)
       dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ Edit Prompt Keyframe"), content=Container(Column([
           Row([editing_frame, editing_prompt])
-      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width or page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
+      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
       page.dialog = dlg_edit
       dlg_edit.open = True
       page.update()
@@ -8831,7 +8904,7 @@ def buildDiT(page):
       alert_msg(page, "ImageNET Class List", content=Container(Column([ResponsiveRow(
         controls=classes,
         expand=True,
-      )], spacing=0), width=(page.window_width or page.width) - 150), okay="😲  That's a lot...", sound=False)
+      )], spacing=0), width=(page.width if page.web else page.window_width) - 150), okay="😲  That's a lot...", sound=False)
     guidance_scale = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=DiT_prefs, key='guidance_scale')
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
@@ -9653,7 +9726,7 @@ def buildKandinskyFuse(page):
         prompt_text = TextField(label="Fuse Prompt Text", value=prompt_value, multiline=True, visible=layer_type == "prompt")
         image_mix = TextField(label="Fuse Image Path", value=image_value, visible=layer_type == "image", height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_image))
         edit_weights = SliderRow(label="Weight/Strength", min=0, max=1, divisions=20, round=1, pref=data, key='weight', tooltip="Indicates how much each individual concept should influence the overall guidance. If no weights are provided all concepts are applied equally.")
-        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.window_width or page.width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window_width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
         page.dialog = dlg_edit
         dlg_edit.open = True
         page.update()
@@ -9988,7 +10061,7 @@ def buildKandinsky2Fuse(page):
         prompt_text = TextField(label="Fuse Prompt Text", value=prompt_value, multiline=True, visible=layer_type == "prompt")
         image_mix = TextField(label="Fuse Image Path", value=image_value, visible=layer_type == "image", height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_image))
         edit_weights = SliderRow(label="Weight/Strength", min=0, max=1, divisions=20, round=1, pref=data, key='weight', tooltip="Indicates how much each individual concept should influence the overall guidance. If no weights are provided all concepts are applied equally.")
-        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.window_width or page.width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window_width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
         page.dialog = dlg_edit
         dlg_edit.open = True
         page.update()
@@ -10419,7 +10492,7 @@ def buildSemanticGuidance(page):
         reverse_editing_direction = Checkbox(label="Reverse Editing Direction", value=semantic_prompt['reverse_editing_direction'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed_p(e,'reverse_editing_direction'), tooltip="Whether the corresponding prompt in `editing_prompt` should be increased or decreased.")
         dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Semantic Prompt"), content=Container(Column([
             semantic_editing_prompt, edit_warmup_steps, edit_guidance_scale, edit_threshold, edit_weights, reverse_editing_direction,
-        ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width or page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_semantic_prompt)], actions_alignment=MainAxisAlignment.END)
+        ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_semantic_prompt)], actions_alignment=MainAxisAlignment.END)
         page.dialog = dlg_edit
         dlg_edit.open = True
         page.update()
@@ -12922,6 +12995,7 @@ finetuned_models = [
     {"name": "Dreamlike Diffusion v1", "path": "dreamlike-art/dreamlike-diffusion-1.0", "prefix": "dreamlikeart "},
     {"name": "Dreamlike Photoreal 2", "path": "dreamlike-art/dreamlike-photoreal-2.0", "prefix": ""},
     {"name": "DreamShaper", "path": "Lykon/DreamShaper", "prefix": ""},
+    {"name": "DreamShaper 7", "path": "digiplay/DreamShaper_7", "prefix": ""},
     {"name": "Absolute Reality", "path": "Lykon/AbsoluteReality", "prefix": ""},
     {"name": "Glitch", "path": "BakkerHenk/glitch", "prefix": "a photo in sks glitched style "},
     {"name": "Knollingcase", "path": "Aybeeceedee/knollingcase", "prefix": "knollingcase "},
@@ -13104,6 +13178,7 @@ def get_diffusers(page):
         #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
         #if install_xformers(page):
         status['installed_xformers'] = True
+    run_sp("pip install --no-deps invisible-watermark", realtime=False)
     try:
         import accelerate
     except ModuleNotFoundError:
@@ -13483,8 +13558,10 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True):
+def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True, model_offload=False):
     global prefs, status
+    if model_offload:
+      p.enable_model_cpu_offload()
     if prefs['memory_optimization'] == 'Attention Slicing':
       #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
       if prefs['sequential_cpu_offload'] and not no_cpu:
@@ -13508,7 +13585,7 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
     if prefs['sequential_cpu_offload'] and not no_cpu:
       p.enable_sequential_cpu_offload()
     else:
-      if to_gpu and not (prefs['enable_torch_compile'] and torch_compile):
+      if to_gpu and not (prefs['enable_torch_compile'] and torch_compile) and not model_offload:
         p = p.to(torch_device)
     if prefs['enable_torch_compile'] and torch_compile:
       p.unet.to(memory_format=torch.channels_last)
@@ -13919,9 +13996,9 @@ def get_SDXL_pipe():
   from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   try:
-      import invisible_watermark
-  except ImportError:
-      run_sp("pip install invisible-watermark>=2.0", realtime=False)
+      from imwatermark import WatermarkEncoder
+  except ModuleNotFoundError:
+      run_sp("pip install --no-deps invisible-watermark>=2.0", realtime=False)
       pass
   model_id = "stabilityai/stable-diffusion-xl-base-0.9"
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-0.9"
@@ -13939,15 +14016,27 @@ def get_SDXL_pipe():
       use_safetensors=True,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
   )
+  if prefs['higher_vram_mode']:
+      pipe_SDXL.to(torch_device)
+  else:
+      pipe_SDXL.enable_model_cpu_offload()
+  if prefs['enable_torch_compile']:
+      pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
+  pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+  #pipe_SDXL = optimize_pipe(pipe_SDXL, model_offload=not prefs['higher_vram_mode'])
+  pipe_SDXL.set_progress_bar_config(disable=True)
   pipe_SDXL_img2img = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
   )
-  pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-  pipe_SDXL = optimize_pipe(pipe_SDXL)
-  pipe_SDXL.set_progress_bar_config(disable=True)
+  if prefs['higher_vram_mode']:
+      pipe_SDXL_img2img.to(torch_device)
+  else:
+      pipe_SDXL_img2img.enable_model_cpu_offload()
+  if prefs['enable_torch_compile']:
+      pipe_SDXL_img2img.unet = torch.compile(pipe_SDXL_img2img.unet, mode="reduce-overhead", fullgraph=True)
   pipe_SDXL_img2img = pipeline_scheduler(pipe_SDXL_img2img)
-  pipe_SDXL_img2img = optimize_pipe(pipe_SDXL_img2img)
+  #pipe_SDXL_img2img = optimize_pipe(pipe_SDXL_img2img, model_offload=not prefs['higher_vram_mode'])
   pipe_SDXL_img2img.set_progress_bar_config(disable=True)
   return pipe_SDXL
 
@@ -15179,9 +15268,12 @@ def start_diffusion(page):
       pass
 # Why getting Exception: control with ID '_3607' not found when re-running after error
   #page.Images.content.controls = []
+  if int(status['cpu_memory']) <= 12 and prefs['use_SDXL'] and status['installed_SDXL'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run SD XL with ESRGAN Upscale. Either Change runtime type to High-RAM mode and restart or disable Upscaling.")
+      return
   clear_image_output()
   #pb = ProgressBar(bar_height=8)
-  pb.width=(page.window_width or page.width) - 50
+  pb.width=(page.width if page.web else page.window_width) - 50
   #prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
   prt(Header("▶️   Running Stable Diffusion on Batch Prompts List", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)]))
   import string, shutil, random, gc, io, json
@@ -15940,6 +16032,7 @@ def start_diffusion(page):
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Image-to-Image"
                 images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Image-to-Image"
                 with torch.autocast("cuda"):
@@ -16055,7 +16148,8 @@ def start_diffusion(page):
                 pipe_used = "Stable Diffusion XL Text-to-Image"
                 #TODO: Figure out batch num_images_per_prompt + option to not refine
                 image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images[0]
-                images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=image[None, :], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=image[None, :], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
                 with torch.autocast("cuda"):
@@ -16350,7 +16444,7 @@ def start_diffusion(page):
             out_file.SetContentFile(os.path.join(stable_dir, json_file))
             out_file.Upload()
         output_files.append(os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file))
-        if (prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']) or not prefs['apply_ESRGAN_upscale']:
+        if (prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']):
           upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           #time.sleep(0.4)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(upscaled_path), width=arg['width'] * float(prefs["enlarge_scale"]), height=arg['height'] * float(prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True), data=upscaled_path, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
@@ -16363,6 +16457,10 @@ def start_diffusion(page):
         #else:
           #time.sleep(0.4)
           #prt(Row([Img(src=new_file, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        elif not prefs['apply_ESRGAN_upscale'] or not status['installed_ESRGAN']:
+          upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
+          prt(Row([ImageButton(src=upscaled_path, width=arg['width'], height=arg['height'], data=upscaled_path, subtitle=pr[0] if type(pr) == list else pr, page=page)], alignment=MainAxisAlignment.CENTER))
+
         prt(Row([Text(fpath.rpartition(slash)[2])], alignment=MainAxisAlignment.CENTER))
         idx += 1
         if abort_run:
@@ -16567,8 +16665,12 @@ def run_prompt_generator(page):
   try:
     import openai
   except:
+    page.prompt_generator_list.controls.append(Installing("Installing OpenAI Library..."))
+    page.prompt_generator_list.update()
     run_sp("pip install --upgrade openai")
     import openai
+    del page.prompt_generator_list.controls[-1]
+    page.prompt_generator_list.update()
     pass
   try:
     openai.api_key = prefs['OpenAI_api_key']
@@ -16616,6 +16718,8 @@ def run_prompt_generator(page):
       elif '.' in pr: # Sometimes got 1. 2.
         pr = pr.partition('.')[2].strip()
       if '"' in pr: pr = pr.replace('"', '')
+      if pr.endswith("."):
+        pr = pr[:(-1)]
       prompt_results.append(pr)
   #print(f"Request mode influence: {request_modes[prefs['prompt_generator']['request_mode']]}\n")
   page.prompt_generator_list.controls.append(Installing("Requesting Prompts from the AI..."))
@@ -16640,10 +16744,12 @@ def run_prompt_generator(page):
     if not prefs['prompt_generator']['phrase_as_subject'] and n == 1:
       p = prefs['prompt_generator']['phrase'] + " " + p
     text_prompt = p
+    if prefs['prompt_generator']['random_artists'] > 0 or prefs['prompt_generator']['random_styles'] > 0:
+      prompts_gen.append(text_prompt)
     if prefs['prompt_generator']['random_artists'] > 0: text_prompt += f", by {artist}"
     if prefs['prompt_generator']['random_styles'] > 0: text_prompt += f", style of {style}"
-    if prefs['prompt_generator']['random_styles'] != 0 and prefs['prompt_generator']['permutate_artists']:
-      prompts_gen.append(text_prompt)
+    #if prefs['prompt_generator']['random_styles'] != 0 and prefs['prompt_generator']['permutate_artists']:
+    #  prompts_gen.append(text_prompt)
     if prefs['prompt_generator']['permutate_artists']:
 
       for a in list_variations(random_artist):
@@ -20252,7 +20358,7 @@ def run_dance_diffusion(page):
     random_seed = int(dance_prefs['seed']) if int(dance_prefs['seed']) > 0 else random.randint(0,4294967295)
     dance_generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     clear_last()
-    pb.width=(page.window_width or page.width) - 50
+    pb.width=(page.width if page.web else page.window_width) - 50
     prt(pb)
     if prefs['higher_vram_mode']:
       output = dance_pipe(generator=dance_generator, batch_size=int(dance_prefs['batch_size']), num_inference_steps=int(dance_prefs['inference_steps']), audio_length_in_s=float(dance_prefs['audio_length_in_s']))
@@ -22230,6 +22336,7 @@ def run_LoRA_dreambooth(page):
         seed=random_seed,
         with_prior_preservation=LoRA_dreambooth_prefs['prior_preservation'],
         prior_loss_weight=LoRA_dreambooth_prefs['prior_loss_weight'],
+        rank=4,#LoRA_dreambooth_prefs['rank'], TODO: "The dimension of the LoRA update matrices."
         sample_batch_size=LoRA_dreambooth_prefs['sample_batch_size'],
         #class_data_dir=LoRA_dreambooth_prefs['class_data_dir'],
         #class_prompt=LoRA_dreambooth_prefs['class_prompt'],
@@ -22757,19 +22864,24 @@ def run_converter(page):
     #TODO: Add this to UI to use
     #if bool(converter_prefs['vae_path']): #"Set to a path, hub id to an already converted vae to not convert it again."
     #  run_cmd += f' --vae_path {converter_prefs["vae_path"]}'
-    prt(f"Running {run_cmd}")
-    try:
-      run_sp(run_cmd, cwd=scripts_dir, realtime=True)
-      #run_process(run_cmd, page=page, cwd=scripts_dir, show=True)
-    except Exception as e:
+    if converter_prefs['from_format'] == converter_prefs["to_format"]:
+      out_file = os.path.join(custom_path, f"{format_filename(model_name, use_dash=True)}.{converter_prefs['to_format']}")
+      print(f"From and To Formats are the same. Using file without conversion to {out_file}")
+      shutil.move(checkpoint_file, out_file)
+    else:
+      prt(f"Running {run_cmd}")
+      try:
+        run_sp(run_cmd, cwd=scripts_dir, realtime=True)
+        #run_process(run_cmd, page=page, cwd=scripts_dir, show=True)
+      except Exception as e:
+        clear_last()
+        alert_msg(page, "Error Running convert_original_stable_diffusion_to_diffusers", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+      if len(os.listdir(custom_path)) == 0:
+        prt(f"Problem converting your model. Check console and source checkpoint and try again...")
+        os.rmdir(custom_path)
+        return
       clear_last()
-      alert_msg(page, "Error Running convert_original_stable_diffusion_to_diffusers", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
-      return
-    if len(os.listdir(custom_path)) == 0:
-      prt(f"Problem converting your model. Check console and source checkpoint and try again...")
-      os.rmdir(custom_path)
-      return
-    clear_last()
     clear_last()
     clear_last()
     prt(f"Done Converting... Saved locally at {custom_path}")
@@ -24018,7 +24130,7 @@ def run_voice_fixer(page):
             #page.overlay.append(a_out)
             #page.update()
             #display_name = output_file
-            #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))    
+            #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     except Exception as e:
         alert_msg(page, f"ERROR: Couldn't Restore audio for some reason. Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         clear_last()
@@ -28772,7 +28884,7 @@ def run_shap_e(page):
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
 
-    
+
 def run_instant_ngp(page):
     global instant_ngp_prefs, prefs
     def prt(line):
@@ -30267,8 +30379,8 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     else:
       page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
     app_icon_color = colors.AMBER_800
-    space = " "  if (page.window_width or page.width) >= 1024 else ""
-    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if (page.window_width or page.width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
+    space = " "  if (page.width if page.web else page.window_width) >= 1024 else ""
+    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if (page.width if page.web else page.window_width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
       center_title=True,
       bgcolor=colors.SURFACE,
       leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
@@ -30392,7 +30504,7 @@ class ImageButton(UserControl):
         if self.width == None:
             self.image = Img(src=self.src, fit=self.fit, gapless_playback=True)
         else:
-            self.width, self.height = scale_width(self.width, self.height, (self.page.window_width or self.page.width) - 28)
+            self.width, self.height = scale_width(self.width, self.height, (self.page.width if self.page.web else self.page.window_width) - 28)
             self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
         self.column = Column([Row([PopupMenuButton(
             items = [
