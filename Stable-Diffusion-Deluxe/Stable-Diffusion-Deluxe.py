@@ -281,6 +281,7 @@ def load_settings_file():
       'use_SAG': False,
       'sag_scale': 0.75,
       'use_panorama': False,
+      'panorama_circular_padding': False,
       'panorama_width': 2048,
       'use_upscale': False,
       'upscale_noise_level': 20,
@@ -695,6 +696,7 @@ def buildVideoAIs(page):
     page.Potat1 = buildPotat1(page)
     page.StableAnimation = buildStableAnimation(page)
     page.ControlNet = buildControlNet(page)
+    page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.Roop = buildROOP(page)
 
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
@@ -704,6 +706,7 @@ def buildVideoAIs(page):
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
+            Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
         ],
@@ -843,6 +846,7 @@ if 'install_SDXL' not in prefs: prefs['install_SDXL'] = False
 if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
+if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] = False
 if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
 if 'AI_engine' not in prefs['prompt_generator']: prefs['prompt_generator']['AI_engine'] = 'OpenAI GPT-3'
 if 'AI_engine' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AI_engine'] = 'OpenAI GPT-3'
@@ -1951,6 +1955,7 @@ def buildParameters(page):
   page.use_composable = Switcher(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], on_change=lambda e:changed(e,'use_composable', apply=False), tooltip="Allows conjunction and negation operators for compositional generation with conditional diffusion models")
   page.use_composable.visible = bool(status['installed_composable'])
   page.use_panorama = Column([Switcher(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], on_change=lambda e:changed(e,'use_panorama', apply=False), tooltip="Fuses together images to make extra-wide 2048x512"),
+                              Checkbox(label="Use Circular Padding to remove stitching artifacts", value=prefs['panorama_circular_padding'], tooltip="To seamlessly generate a transition from the right to left, maintaining consistency in a 360-degree sense.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'panorama_circular_padding', apply=False)),
                               Row([Text("Panoramic Width x 512:"), Slider(min=1024, max=4608, divisions=28, label="{value}px", expand=True, value=prefs['panorama_width'], on_change=lambda e:changed(e, 'panorama_width', asInt=True, apply=False))])])
   page.use_panorama.visible = status['installed_panorama']
   page.use_safe = Switcher(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], on_change=lambda e:changed(e,'use_safe', apply=False), tooltip="Models trained only on Safe images")
@@ -3186,7 +3191,7 @@ negatives = {
     'Mutilated': 'mutilated, mutilation, mutated, morbid, bad anatomy',
     'Proportion': 'bad proportions, gross proportions, long neck, long body, malformed',
     'Saturation': 'over saturated, unsaturated, washed out, bad saturation',
-    'Contrast': 'hight contrast, low contrast, High pass filter',
+    'Contrast': 'high contrast, low contrast, High pass filter',
     'Boring': 'boring, unappealing, tasteless, tacky, lackluster',
     'Simple': 'simple, simplistic, sketch, amateur, plain background',
     'Unrealistic': 'unrealistic, vector, cartoon',
@@ -3195,13 +3200,14 @@ negatives = {
 }
 
 def buildNegatives(page):
-    global prefs, negatives
+    global prefs, negatives, status
     def change_neg(e):
         if e.control.data in prefs['negatives']:
             prefs['negatives'].remove(e.control.data)
         else:
             prefs['negatives'].append(e.control.data)
         update_negs()
+        status['changed_prompt_generator'] = True
     negs = ""
     def changed_custom(e):
         nonlocal negs
@@ -7310,6 +7316,197 @@ def buildControlNet(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+controlnet_video2video_prefs = {
+    'init_video': '',
+    'prompt': '',
+    'negative_prompt': '',
+    'control_task': 'Depth21',
+    'controlnet_strength': 1.0,
+    'init_image_strength': 0.5,
+    'feedthrough_strength': 0.0,
+    'motion_alpha': 0.1,
+    'motion_sigma': 0.3,
+    'color_fix': 'Lab', #'none', 'rgb', 'hsv', 'lab'
+    'color_amount': 0.0,
+    'max_size': 768,
+    'low_threshold': 100, #1-255 canny
+    'high_threshold': 200, #1-255
+    'mlsd_score_thr': 0.1, #mlsd line detector v threshold
+    'mlsd_dist_thr': 0.1, #mlsd line detector d threshold
+    'steps': 25,
+    'prompt_strength': 7.5,
+    'start_time': 0.0,
+    'end_time': 0.0,
+    'duration': 0.0,
+    'max_dimension': 832,
+    'min_dimension': 512,
+    'round_dims_to': 64,
+    'no_audio': False,
+    'skip_dumped_frames': False,
+    'file_prefix': 'controlnet-',
+    'output_name': '',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildControlNet_Video2Video(page):
+    global controlnet_video2video_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            controlnet_video2video_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            controlnet_video2video_prefs[pref] = float(e.control.value)
+          else:
+            controlnet_video2video_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.controlnet_video2video_output.controls = []
+      page.controlnet_video2video_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def controlnet_video2video_help(e):
+      def close_controlnet_video2video_dlg(e):
+        nonlocal controlnet_video2video_help_dlg
+        controlnet_video2video_help_dlg.open = False
+        page.update()
+      controlnet_video2video_help_dlg = AlertDialog(title=Text("💁   Help with ControlNet Video2Video"), content=Column([
+          Text("Can apply Stable Diffusion to a video, while maintaining frame-to-frame consistency. It is based on the Stable Diffusion img2img model, but adds a motion estimator and motion compensator to maintain consistency between frames. It will process each input frame with some preprocessing (motion transfer/compensation of the output feedback), followed by a detector and diffusion models in a pipeline configured by the ControlNet Type option."),
+          Text("Feedback strength, set with init-image-strength controls frame-to-frame consistency, by changing how much the motion-compensated previous output frame is fed into the next frame's diffusion pipeline in place of initial latent noise, a la img2img latent diffusion (citation needed). Values around 0.3 to 0.5 and sometimes much higher (closer to 1.0, the maximum which means no noise is added and no denoising steps will be run)."),
+          Markdown("This is an interface for running the [ControlNet Video codebase](https://github.com/un1tz3r0/controlnetvideo) by [Victor Condino](un1tz3r0@gmail.com).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text('ControlNet is a neural network structure to control diffusion models by adding extra conditions. It copys the weights of neural network blocks into a "locked" copy and a "trainable" copy. The "trainable" one learns your condition. The "locked" one preserves your model. Thanks to this, training with small dataset of image pairs will not destroy the production-ready diffusion models. The "zero convolution" is 1×1 convolution with both weight and bias initialized as zeros. Before training, all zero convolutions output zeros, and ControlNet will not cause any distortion.  No layer is trained from scratch. You are still fine-tuning. Your original model is safe.  This allows training on small-scale or even personal devices. This is also friendly to merge/replacement/offsetting of models/weights/blocks/layers.'),
+          Text("Aesthetic - Uses image features extracted using a Canny edge detector trained on a large aesthetic dataset."),
+          Text("Canny Map Edge - A monochrome image with white edges on a black background."),
+          Text("OpenPose - A OpenPose bone image."),
+          Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
+          Text("HED - A monochrome image with white soft edges on a black background."),
+          Text("M-LSD - A monochrome image composed only of white straight lines on a black background."),
+          Text("Normal Map - A normal mapped image."),
+          Text("LineArt - An image with line art, usually black lines on a white background."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😸  Could get crazy... ", on_click=close_controlnet_video2video_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = controlnet_video2video_help_dlg
+      controlnet_video2video_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          controlnet_video2video_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          controlnet_video2video_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        if pick_type == "video":
+          init_video.value = fname
+          init_video.update()
+          controlnet_video2video_prefs['init_video'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    def pick_video(e):
+        nonlocal pick_type
+        pick_type = "video"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        controlnet_video2video_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_task(e):
+        changed(e,'control_task')
+        canny_threshold.height = None if controlnet_video2video_prefs['control_task'] == "Canny" or controlnet_video2video_prefs['control_task'] == "Canny21" else 0
+        canny_threshold.update()
+        mlsd_threshold.height = None if controlnet_video2video_prefs['control_task'] == "MLSD" else 0
+        mlsd_threshold.update()
+    prompt = TextField(label="Prompt Text", value=controlnet_video2video_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_video2video_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    #'aesthetic', 'lineart21', 'hed', 'hed21', 'canny', 'canny21', 'openpose', 'openpose21', 'depth', 'depth21', 'normal', 'mlsd'
+    control_task = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option("Aesthetic"), dropdown.Option("Lineart21"), dropdown.Option("HED"), dropdown.Option("HED21"), dropdown.Option("HED"), dropdown.Option("Canny"), dropdown.Option("Canny21"), dropdown.Option("OpenPose"), dropdown.Option("OpenPose21"), dropdown.Option("Depth"), dropdown.Option("Depth21"), dropdown.Option("Normal"), dropdown.Option("MLSD")], value=controlnet_video2video_prefs['control_task'], on_change=change_task)
+    #conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_video2video_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_video2video_conditioning_scale` before they are added to the residual in the original unet.")
+    controlnet_strength = SliderRow(label="ControlNet Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_video2video_prefs, key='controlnet_strength', tooltip="How much influence the controlnet annotator's output is used to guide the denoising process.")
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_video2video_prefs, key='init_image_strength', tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    feedthrough_strength = SliderRow(label="Feedthrough Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_video2video_prefs, key='feedthrough_strength', tooltip="The ratio of input to motion compensated prior output to feed through to the next frame.")
+    init_video = TextField(label="Init Video Clip", value=controlnet_video2video_prefs['init_video'], expand=True, on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    #fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_video2video_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    start_time = TextField(label="Start Time (s)", value=controlnet_video2video_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=controlnet_video2video_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    duration = TextField(label="Duration (0 for all)", value=controlnet_video2video_prefs['duration'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'duration', ptype="float"))
+    vid_params = Container(content=Column([Row([start_time, end_time, duration])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=5))
+    num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_video2video_prefs, key='steps', tooltip="Number of inference steps, depends on the scheduler, trades off speed for quality.")
+    prompt_strength = SliderRow(label="Prompt Strength", min=0, max=30, divisions=60, round=1, pref=controlnet_video2video_prefs, key='prompt_strength', tooltip="How much influence the prompt has on the output. Guidance Scale.")
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_video2video_prefs, key='low_threshold', expand=True, col={'lg':6})
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_video2video_prefs, key='high_threshold', expand=True, col={'lg':6})
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    canny_threshold.height = None if controlnet_video2video_prefs['control_task'] == "Canny Map Edge" else 0
+    mlsd_score_thr = SliderRow(label="MLSD Score Threshold", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='mlsd_score_thr', expand=True, col={'lg':6})
+    mlsd_dist_thr = SliderRow(label="MLSD Dist Threshold", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='mlsd_dist_thr', expand=True, col={'lg':6})
+    mlsd_threshold = Container(ResponsiveRow([mlsd_score_thr, mlsd_dist_thr]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    mlsd_threshold.height = None if controlnet_video2video_prefs['control_task'] == "MLSD" else 0
+    motion_alpha = SliderRow(label="Motion Alpha", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='motion_alpha', expand=True, col={'lg':6}, tooltip="Smooth the motion vectors over time, 0.0 is no smoothing, 1.0 is maximum smoothing.")
+    motion_sigma = SliderRow(label="Motion Sigma", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='motion_sigma', expand=True, col={'lg':6}, tooltip="Smooth the motion estimate spatially, 0.0 is no smoothing, used as sigma for gaussian blur.")
+    max_dimension = SliderRow(label="Max Dimension", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=controlnet_video2video_prefs, key='max_dimension', expand=True, col={'lg':6})
+    min_dimension = SliderRow(label="Mix Dimension", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=controlnet_video2video_prefs, key='min_dimension', expand=True, col={'lg':6})
+    color_fix = Dropdown(label="Color Fix", width=150, options=[dropdown.Option("None"), dropdown.Option("RGB"), dropdown.Option("HSV"), dropdown.Option("Lab")], value=controlnet_video2video_prefs['color_fix'], on_change=lambda e:changed(e,'color_fix'), tooltip="Prevent color from drifting due to feedback and model bias by fixing the histogram to the first frame. Specify colorspace for histogram matching")
+    color_amount = SliderRow(label="Color Amount", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='color_amount', expand=True, tooltip="Blend between the original color and the color matched version.")
+    #max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_video2video_prefs, key='max_size')
+    no_audio = Switcher(label="No Audio", value=controlnet_video2video_prefs['no_audio'], tooltip="Don't include audio in the output video, even if the input video has audio", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'no_audio'))
+    skip_dumped_frames = Switcher(label="Skip Dumped Frames", value=controlnet_video2video_prefs['skip_dumped_frames'], tooltip="Read dumped frames from a previous run instead of processing the input video.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'skip_dumped_frames'))
+    file_prefix = TextField(label="Filename Prefix",  value=controlnet_video2video_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    output_name = TextField(label="Output Name", value=controlnet_video2video_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_video2video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_video2video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_video2video_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_video2video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    page.controlnet_video2video_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.controlnet_video2video_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🤪  ControlNet Video2Video", "Apply Stable Diffusion to a video, while maintaining frame-to-frame consistency with motion estimator & compensator...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Vid2Vid Settings", on_click=controlnet_video2video_help)]),
+        ResponsiveRow([prompt, negative_prompt]),
+        Row([control_task, init_video]),
+        canny_threshold,
+        mlsd_threshold,
+        vid_params,
+        controlnet_strength,
+        init_image_strength,
+        feedthrough_strength,
+        prompt_strength,
+        num_inference_row,
+        Row([color_fix, color_amount]),
+        ResponsiveRow([motion_alpha, motion_sigma]),
+        ResponsiveRow([max_dimension, min_dimension]),
+        Row([no_audio, skip_dumped_frames]),
+        Row([output_name, batch_folder_name, file_prefix]),
+        page.ESRGAN_block_controlnet,
+        Row([ElevatedButton(content=Text("🍃  Run ControlNet Vid2Vid", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_video2video(page))]),
+        page.controlnet_video2video_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 deepfloyd_prefs = {
     'prompt': '',
     'negative_prompt': '',
@@ -9113,7 +9310,7 @@ kandinsky_prefs = {
     "batch_folder_name": '',
     "file_prefix": "kandinsky-",
     "num_images": 1,
-    "steps":100,
+    "steps":25,
     #"ddim_eta":0.05,
     "width": 512,
     "height":512,
@@ -9470,7 +9667,7 @@ kandinsky_fuse_prefs = {
     "file_prefix": "kandinsky-",
     "num_images": 1,
     "mixes": [],
-    "steps":100,
+    "steps":25,
     "width": 512,
     "height":512,
     "guidance_scale":8,
@@ -9564,7 +9761,7 @@ def buildKandinskyFuse(page):
       kandinsky_help_dlg = AlertDialog(title=Text("🙅   Help with Kandinsky Fuse Pipeline"), content=Column([
           #Text("NOTE: Right now, installing this may be incompatible with Diffusers packages, so it may not work if you first installed HuggingFace & Stable Diffusion. It's recommended to run this on a fresh runtime, only installing ESRGAN to upscale. We hope to fix this soon, but works great."),
           Text("This variation lets you fuse together many images together with multiple text prompts to create a mix. Set the weights of the prompts and images to adjust the amount of influence it has on the generated style. Get experimental"),
-          Text("Kandinsky 2.1 inherits best practicies from Dall-E 2 and Latent diffusion, while introducing some new ideas."),
+          Text("Kandinsky 2.2 inherits best practicies from Dall-E 2 and Latent diffusion, while introducing some new ideas."),
           Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
           Markdown("[Kandinsky GitHub](https://github.com/ai-forever/Kandinsky-2) | [Kandinsky 2.1 Blog](https://habr.com/ru/companies/sberbank/articles/725282/) | [FusionBrain Demo](https://fusionbrain.ai/diffusion)"),
@@ -9772,13 +9969,13 @@ def buildKandinskyFuse(page):
     page.ESRGAN_block_kandinsky_fuse.height = None if status['installed_ESRGAN'] else 0
     if not kandinsky_fuse_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="💥   Run Kandinsky 2.1 Fuser", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_fuse(page))
+    parameters_button = ElevatedButton(content=Text(value="💥   Run Kandinsky 2.2 Fuser", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_fuse(page))
 
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.kandinsky_fuse_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("💣  Kandinsky 2.1 Fuse", "Mix multiple Images and Prompts together to Interpolate. A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
+            Header("💣  Kandinsky 2.2 Fuse", "Mix multiple Images and Prompts together to Interpolate. A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
             prompt_row,
             image_row,
             weight_slider,
@@ -13581,7 +13778,9 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
       p.unet = torch.compile(p.unet)
     if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
-      p.unet.load_attn_procs(lora['path'])
+      p.load_lora_weights(lora['path'])
+      #TODO: , weight_name=lora_filename
+      #p.unet.load_attn_procs(lora['path'])
     if prefs['sequential_cpu_offload'] and not no_cpu:
       p.enable_sequential_cpu_offload()
     else:
@@ -14024,8 +14223,13 @@ def get_SDXL_pipe():
       pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
   pipe_SDXL = pipeline_scheduler(pipe_SDXL)
   #pipe_SDXL = optimize_pipe(pipe_SDXL, model_offload=not prefs['higher_vram_mode'])
+  if prefs['use_LoRA_model']:
+      lora = get_LoRA_model(prefs['LoRA_model'])
+      pipe_SDXL.load_lora_weights(lora['path'])
   pipe_SDXL.set_progress_bar_config(disable=True)
   pipe_SDXL_img2img = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
+      text_encoder_2=pipe_SDXL.text_encoder_2,
+      vae=pipe_SDXL.vae,
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
   )
@@ -14756,6 +14960,7 @@ def get_conceptualizer(page):
 def flush():
     gc.collect()
     torch.cuda.empty_cache()
+    #torch.cuda.clear_autocast_cache()
 
 def clear_img2img_pipe():
   global pipe_img2img
@@ -16146,9 +16351,10 @@ def start_diffusion(page):
                 images = pipe_composable(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], weights=weights, generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Text-to-Image"
-                #TODO: Figure out batch num_images_per_prompt + option to not refine
-                image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images[0]
-                images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=image[None, :], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                high_noise_frac = 0.7
+                #TODO: Figure out batch num_images_per_prompt + option to not refine , image[None, :]
+                image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
@@ -16193,7 +16399,7 @@ def start_diffusion(page):
                 pipe_used = "MultiDiffusion Panorama Text-to-Image"
                 arg['width'] = prefs['panorama_width']
                 arg['height'] = 512
-                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, circular_padding=prefs['panorama_circular_padding']).images
               elif prefs['use_safe'] and status['installed_safe']:
                 from diffusers.pipelines.stable_diffusion_safe import SafetyConfig
                 s = prefs['safety_config']
@@ -16514,7 +16720,7 @@ def start_diffusion(page):
           #p_count = f'[{img_idx + 1} of {(len(walk_prompts) -1) * int(prefs['num_interpolation_steps'])}]  '
           #prt(Divider(height=6, thickness=2))
           #prt(Row([Text(p_count), Text(walk_prompts[img_idx], expand=True, weight=FontWeight.BOLD), Text(f'seed: {walk_seeds[img_idx]}')]))
-          prt(Row([Img(src=event.src_path, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([Img(src=event.src_path, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
           prt(Row([ImageButton(src=event.src_path, data=event.src_path, width=arg['width'], height=arg['height'], subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
           page.update()
@@ -22868,6 +23074,7 @@ def run_converter(page):
       out_file = os.path.join(custom_path, f"{format_filename(model_name, use_dash=True)}.{converter_prefs['to_format']}")
       print(f"From and To Formats are the same. Using file without conversion to {out_file}")
       shutil.move(checkpoint_file, out_file)
+      custom_path = out_file
     else:
       prt(f"Running {run_cmd}")
       try:
@@ -23222,10 +23429,10 @@ def run_tortoise_tts(page):
         custom_voice_folder = os.path.join(root_dir, "tortoise-tts", 'tortoise', 'voices', CUSTOM_VOICE_NAME)
         os.makedirs(custom_voice_folder, exist_ok=True)
         for i, f in enumerate(tortoise_prefs['custom_wavs']):
-            if f.tolower().endswith('mp3'):
+            if f.lower().endswith('mp3'):
               sound = pydub.AudioSpegment.from_mp3(f)
               sound.export(os.path.join(custom_voice_folder, f'{i+1}.wav'), format="wav", bitrate="22050")
-            elif f.tolower().endswith('wav'):
+            elif f.lower().endswith('wav'):
               sound = pydub.AudioSpegment.from_wav(f)
               sound.export(os.path.join(custom_voice_folder, f'{i+1}.wav'), format="wav", bitrate="22050")
             else:
@@ -26211,6 +26418,216 @@ def run_controlnet_tile_upscale(page, source_image, prompt="best quality", scale
                 num_inference_steps=32,
                 ).images[0]
     return image
+
+def run_controlnet_video2video(page):
+    global controlnet_video2video_prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.ControlNet_Video2Video.controls.append(line)
+      page.ControlNet_Video2Video.update()
+    def clear_last():
+      del page.ControlNet_Video2Video.controls[-1]
+      page.ControlNet_Video2Video.update()
+    def autoscroll(scroll=True):
+        page.ControlNet_Video2Video.auto_scroll = scroll
+        page.ControlNet_Video2Video.update()
+    if not bool(controlnet_video2video_prefs['init_video']):
+        alert_msg(page, "You must provide a target init video...")
+        return
+    if not bool(controlnet_video2video_prefs['prompt']):
+        alert_msg(page, "You must provide an interesting prompt to guide the video...")
+        return
+    page.ControlNet_Video2Video.controls = page.ControlNet_Video2Video.controls[:1]
+    autoscroll()
+    installer = Installing("Installing ControlNet Video2Video Libraries...")
+    prt(installer)
+    controlnet_video2video_dir = os.path.join(root_dir, "controlnetvideo")
+    if not os.path.exists(controlnet_video2video_dir):
+        try:
+            installer.set_details("...cloning un1tz3r0/controlnetvideo.git")
+            run_sp("git clone https://github.com/un1tz3r0/controlnetvideo.git", cwd=root_dir, realtime=False)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing ControlNet Video Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    try:
+        import ffmpeg
+    except ImportError as e:
+        installer.set_details("...installing ffmpeg")
+        run_sp("pip install -q ffmpeg", realtime=False)
+        pass
+    try:
+        import cv2
+    except ModuleNotFoundError:
+        run_sp("pip install opencv-python", realtime=False)
+        import cv2
+        pass
+    try:
+        import click
+    except ImportError as e:
+        installer.set_details("...installing click")
+        run_sp("pip install -q click", realtime=False)
+        pass
+    try:
+        import moviepy
+    except ImportError as e:
+        installer.set_details("...installing moviepy")
+        run_sp("pip install -q moviepy", realtime=False)
+        pass
+    try:
+        import xformers
+    except ModuleNotFoundError:
+        installer.set_details("...installing FaceBook's Xformers")
+        #run_sp("pip install --pre -U triton", realtime=False)
+        run_sp("pip install -U xformers", realtime=False)
+        status['installed_xformers'] = True
+        pass
+    try:
+        import mediapipe
+    except ImportError as e:
+        installer.set_details("...installing mediapipe")
+        run_sp("pip install -q mediapipe", realtime=False)
+        pass
+    try:
+        import controlnet_aux
+    except ImportError as e:
+        installer.set_details("...installing controlnet-aux")
+        run_sp("pip install -q controlnet-aux", realtime=False)
+        pass
+    try:
+        import watchdog
+    except ImportError as e:
+        installer.set_details("...installing watchdog")
+        run_sp("pip install -q watchdog", realtime=False)
+        pass
+    clear_pipes()
+
+    from PIL import ImageOps
+    if bool(controlnet_video2video_prefs['output_name']):
+        fname = format_filename(controlnet_video2video_prefs['output_name'], force_underscore=True)
+    elif bool(controlnet_video2video_prefs['prompt']):
+        fname = format_filename(controlnet_video2video_prefs['prompt'], force_underscore=True)
+    elif bool(controlnet_video2video_prefs['batch_folder_name']):
+        fname = format_filename(controlnet_video2video_prefs['batch_folder_name'], force_underscore=True)
+    else: fname = "output"
+    if bool(controlnet_video2video_prefs['file_prefix']):
+        fname = f"{controlnet_video2video_prefs['file_prefix']}{fname}"
+    #TODO: might not need batch_output folder
+    if bool(controlnet_video2video_prefs['batch_folder_name']):
+        batch_output = os.path.join(stable_dir, controlnet_video2video_prefs['batch_folder_name'])
+    else: batch_output = stable_dir
+    if not os.path.exists(batch_output):
+        os.makedirs(batch_output)
+    output_path = os.path.join(prefs['image_output'], controlnet_video2video_prefs['batch_folder_name'])
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    init_vid = controlnet_video2video_prefs['init_video']
+    if init_vid.startswith('http'):
+        init_vid = download_file(init_vid, batch_output)
+    else:
+        if not os.path.isfile(init_vid):
+            alert_msg(page, f"ERROR: Couldn't find your init_video {init_vid}")
+            return
+    clear_last()
+    progress = ProgressBar(bar_height=8)
+    prt(f"Generating your ControlNet Video...")
+    #prt(progress)
+    autoscroll(False)
+    total_steps = controlnet_video2video_prefs['steps']
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
+    output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
+    #output_file = os.path.join(output_path, f"{fname}{'.mp4' if is_video else '.png'}")
+    cmd = f'python3 controlnetvideo.py "{init_vid}" --controlnet {controlnet_video2video_prefs["control_task"].lower()}'
+    cmd += f' --prompt "{controlnet_video2video_prefs["prompt"]}"'
+    if bool(controlnet_video2video_prefs["negative_prompt"]):
+      cmd += f' --negative-prompt "{controlnet_video2video_prefs["negative_prompt"]}"'
+    cmd += f" --prompt-strength {controlnet_video2video_prefs['prompt_strength']}"
+    cmd += f" --num-inference-steps {controlnet_video2video_prefs['steps']}"
+    cmd += f" --init-image-strength {controlnet_video2video_prefs['init_image_strength']}"
+    cmd += f" --controlnet-strength {controlnet_video2video_prefs['controlnet_strength']}"
+    cmd += f" --feedthrough-strength {controlnet_video2video_prefs['feedthrough_strength']}"
+    cmd += f" --motion-alpha {controlnet_video2video_prefs['motion_alpha']} --motion-sigma {controlnet_video2video_prefs['motion_sigma']}"
+    cmd += f" --color-amount {controlnet_video2video_prefs['color_amount']}"
+    cmd += f" --color-fix {controlnet_video2video_prefs['color_fix'].lower()}"
+    cmd += f" --start-time {controlnet_video2video_prefs['start_time']}"
+    if controlnet_video2video_prefs["end_time"] != 0.0:
+      cmd += f" --end-time {controlnet_video2video_prefs['end_time']}"
+    if controlnet_video2video_prefs["duration"] != 0.0:
+      cmd += f" --duration {controlnet_video2video_prefs['duration']}"
+    cmd += f" --canny-low-thr {controlnet_video2video_prefs['low_threshold']} --canny-high-thr {controlnet_video2video_prefs['high_threshold']}"
+    cmd += f" --mlsd-score-thr {controlnet_video2video_prefs['mlsd_score_thr']} --mlsd-dist-thr {controlnet_video2video_prefs['mlsd_dist_thr']}"
+    cmd += f" --max-dimension {controlnet_video2video_prefs['max_dimension']} --min-dimension {controlnet_video2video_prefs['min_dimension']}"
+    cmd += f" --round-dims-to {controlnet_video2video_prefs['round_dims_to']}"
+    if controlnet_video2video_prefs['no_audio']: cmd += " --no-audio"
+    if controlnet_video2video_prefs['skip_dumped_frames']: cmd += " --skip-dumped-frames"
+    frames = os.path.join(output_path, '{n:08d}.png') #TODO Add fname
+    cmd += f" --dump-frames '{frames}'"
+    cmd += f' "{output_file}"'
+    w = 0
+    h = 0
+    img_idx = 0
+    from watchdog.observers import Observer
+    from watchdog.events import LoggingEventHandler, FileSystemEventHandler
+    class Handler(FileSystemEventHandler):
+      def __init__(self):
+        super().__init__()
+      def on_created(self, event):
+        nonlocal img_idx, w, h
+        if event.is_directory:
+          return None
+        elif event.event_type == 'created' and event.src_path.endswith("png"):
+          autoscroll(True)
+          if w == 0:
+            frame = PILImage.open(event.src_path)
+            w, h = frame.size
+            clear_last()
+          clear_last()
+          #prt(Divider(height=6, thickness=2))
+          prt(Row([ImageButton(src=event.src_path, data=event.src_path, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
+          page.update()
+          prt(progress)
+          time.sleep(0.2)
+          autoscroll(False)
+          img_idx += 1
+    image_handler = Handler()
+    observer = Observer()
+    observer.schedule(image_handler, output_path, recursive=True)
+    observer.start()
+    prt(f"Running {cmd}")
+    prt(progress)
+    try:
+        run_sp(cmd, cwd=controlnet_video2video_dir, realtime=True)
+    except Exception as e:
+        clear_last()
+        observer.stop()
+        alert_msg(page, "Error running controlnetvideo.py!", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    clear_last()
+    observer.stop()
+    #clear_last()
+    autoscroll(True)
+    #TODO: Upscale Image
+    if os.path.isfile(output_file):
+        prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
+        #prt(Row([VideoPlayer(video_file=output_file, width=width, height=height)], alignment=MainAxisAlignment.CENTER))
+    else:
+        prt("Error Generating Output File! Maybe NSFW Image detected?")
+    prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_deepfloyd(page, from_list=False):
     global deepfloyd_prefs, prefs, status, pipe_deepfloyd, pipe_deepfloyd2, pipe_deepfloyd3
@@ -30802,7 +31219,7 @@ class AudioPlayer(UserControl):
     def state_changed(self, e):
         self.state = e.data
         #print(self.state)
-        if e.data == "completed":
+        if e.data == "completed" or e.data == "paused":
             self.icon = icons.PLAY_CIRCLE_FILLED
         if e.data == "playing":
             self.icon = icons.PAUSE
@@ -30810,7 +31227,11 @@ class AudioPlayer(UserControl):
         self.button.update()
     def did_mount(self):
         self.page.update()
-        duration = self.audio.get_duration()
+        try:
+            duration = self.audio.get_duration()
+        except Exception:
+            duration = 0
+            pass
         #print(duration)
         if duration > 0:
             dt = datetime.datetime.fromtimestamp(duration / 1000)
