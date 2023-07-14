@@ -617,6 +617,7 @@ def buildImageAIs(page):
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page)
+    page.KandinskyControlNet = buildKandinskyControlNet(page)
     page.DiT = buildDiT(page)
     page.DreamFusion = buildDreamFusion(page)
     page.Point_E = buildPoint_E(page)
@@ -628,6 +629,7 @@ def buildImageAIs(page):
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
             Tab(text="Kandinsky", content=page.Kandinsky, icon=icons.TOLL),
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
+            Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
@@ -1525,6 +1527,7 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky_fuse.height = None
         page.ESRGAN_block_kandinsky2.height = None
         page.ESRGAN_block_kandinsky2_fuse.height = None
+        page.ESRGAN_block_kandinsky_controlnet.height = None
         page.ESRGAN_block_deepfloyd.height = None
         page.ESRGAN_block_reference.height = None
         page.ESRGAN_block_unCLIP.height = None
@@ -1551,6 +1554,7 @@ def buildInstallers(page):
         page.ESRGAN_block_dalle.update()
         page.ESRGAN_block_kandinsky.update()
         page.ESRGAN_block_kandinsky_fuse.update()
+        page.ESRGAN_block_kandinsky_controlnet.update()
         page.ESRGAN_block_kandinsky2.update()
         page.ESRGAN_block_kandinsky2_fuse.update()
         page.ESRGAN_block_deepfloyd.update()
@@ -7343,6 +7347,7 @@ controlnet_video2video_prefs = {
     'round_dims_to': 64,
     'no_audio': False,
     'skip_dumped_frames': False,
+    'save_frames': False,
     'file_prefix': 'controlnet-',
     'output_name': '',
     'batch_folder_name': '',
@@ -7468,6 +7473,7 @@ def buildControlNet_Video2Video(page):
     #max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_video2video_prefs, key='max_size')
     no_audio = Switcher(label="No Audio", value=controlnet_video2video_prefs['no_audio'], tooltip="Don't include audio in the output video, even if the input video has audio", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'no_audio'))
     skip_dumped_frames = Switcher(label="Skip Dumped Frames", value=controlnet_video2video_prefs['skip_dumped_frames'], tooltip="Read dumped frames from a previous run instead of processing the input video.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'skip_dumped_frames'))
+    save_frames = Switcher(label="Save all Frames", value=controlnet_video2video_prefs['save_frames'], tooltip="Save the dumped frames to images_out batch folder. Otherwise only saves final video, keeping pngs in temp folder.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames'))
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_video2video_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     output_name = TextField(label="Output Name", value=controlnet_video2video_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_video2video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -7497,7 +7503,7 @@ def buildControlNet_Video2Video(page):
         Row([color_fix, color_amount]),
         ResponsiveRow([motion_alpha, motion_sigma]),
         ResponsiveRow([max_dimension, min_dimension]),
-        Row([no_audio, skip_dumped_frames]),
+        Row([no_audio, skip_dumped_frames, save_frames]),
         Row([output_name, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet,
         Row([ElevatedButton(content=Text("🍃  Run ControlNet Vid2Vid", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_video2video(page))]),
@@ -9430,7 +9436,7 @@ def buildKandinsky(page):
     #ddim_eta = TextField(label="DDIM ETA", value=kandinsky_prefs['ddim_eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'ddim_eta', ptype="float"))
     #dynamic_threshold_v = TextField(label="Dynamic Threshold", value=kandinsky_prefs['dynamic_threshold_v'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'dynamic_threshold_v', ptype="float"))
     #sampler = Dropdown(label="Sampler", width=200, options=[dropdown.Option("ddim_sampler"), dropdown.Option("p_sampler")], value=kandinsky_prefs['sampler'], on_change=lambda e:changed(e,'sampler'), col={'xs':12, 'md':6})
-    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_fuse_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
     #param_rows = ResponsiveRow([Column([batch_folder_name, n_images], col={'xs':12, 'md':6}),
                       #Column([file_prefix, sampler], col={'xs':12, 'md':6})
                       #Column([steps, ddim_eta, dynamic_threshold_v], col={'xs':12, 'md':6})
@@ -10325,6 +10331,177 @@ def buildKandinsky2Fuse(page):
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.kandinsky2_fuse_output
+        ],
+    ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, ddim_eta, seed,
+    return c
+
+kandinsky_controlnet_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "kandinsky-",
+    "num_images": 1,
+    "batch_size": 1,
+    "steps": 50,
+    "prior_steps": 25,
+    #"ddim_eta":0.05,
+    "width": 768,
+    "height":768,
+    "guidance_scale":4,
+    "init_image": '',
+    "strength": 0.5,
+    "prior_strength": 0.8,
+    #"mask_image": '',
+    #"invert_mask": False,
+    "seed": 0,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildKandinskyControlNet(page):
+    global prefs, kandinsky_controlnet_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            kandinsky_controlnet_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            kandinsky_controlnet_prefs[pref] = float(e.control.value)
+          else:
+            kandinsky_controlnet_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def kandinsky_controlnet_help(e):
+      def close_kandinsky_controlnet_dlg(e):
+        nonlocal kandinsky_controlnet_help_dlg
+        kandinsky_controlnet_help_dlg.open = False
+        page.update()
+      kandinsky_controlnet_help_dlg = AlertDialog(title=Text("🙅   Help with Kandinsky ControlNet Pipeline"), content=Column([
+          #Text("NOTE: Right now, installing this may be incompatible with Diffusers packages, so it may not work if you first installed HuggingFace & Stable Diffusion. It's recommended to run this on a fresh runtime, only installing ESRGAN to upscale. We hope to fix this soon, but works great."),
+          Text("Kandinsky 2.2 includes KandinskyV22ControlnetImg2ImgPipeline that will allow you to add control to the image generation process with both the image and its depth map. This pipeline works really well with KandinskyV22PriorEmb2EmbPipeline, which generates image embeddings based on both a text prompt and an image. For our robot cat example, we will pass the prompt and cat image together to the prior pipeline to generate an image embedding. We will then use that image embedding and the depth map of the cat to further control the image generation process."),
+          Markdown("Kandinsky 2.2 inherits best practices from [DALL-E 2](https://arxiv.org/abs/2204.06125) and [Latent Diffusion](https://huggingface.co/docs/diffusers/api/pipelines/latent_diffusion), while introducing some new ideas.\nIt uses [CLIP](https://huggingface.co/docs/transformers/model_doc/clip) for encoding images and text, and a diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach enhances the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation.\nThe Kandinsky model is created by [Arseniy Shakhmatov](https://github.com/cene555), [Anton Razzhigaev](https://github.com/razzant), [Aleksandr Nikolich](https://github.com/AlexWortega), [Igor Pavlov](https://github.com/boomb0om), [Andrey Kuznetsov](https://github.com/kuznetsoffandrey) and [Denis Dimitrov](https://github.com/denndimitrov) and the original codebase can be found [here](https://github.com/ai-forever/Kandinsky-2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
+          Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky_controlnet_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = kandinsky_controlnet_help_dlg
+      kandinsky_controlnet_help_dlg.open = True
+      page.update()
+    def pick_files_result(e: FilePickerResultEvent):
+        if e.files:
+            img = e.files
+            uf = []
+            fname = img[0]
+            #print(", ".join(map(lambda f: f.name, e.files)))
+            src_path = page.get_upload_url(fname.name, 600)
+            uf.append(FilePickerUploadFile(fname.name, upload_url=src_path))
+            pick_files_dialog.upload(uf)
+            #print(str(src_path))
+            #src_path = ''.join(src_path)
+            #print(str(uf[0]))
+            dst_path = os.path.join(root_dir, fname.name)
+            #print(f'Copy {src_path} to {dst_path}')
+            #shutil.copy(src_path, dst_path)
+            # TODO: is init or mask?
+            init_image.value = dst_path
+    pick_files_dialog = FilePicker(on_result=pick_files_result)
+    page.overlay.append(pick_files_dialog)
+    #selected_files = Text()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+            upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+        nonlocal pick_type
+        if e.progress == 1:
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+            else:
+              fname = e.file_name
+            if pick_type == "init":
+                init_image.value = fname
+                init_image.update()
+                kandinsky_controlnet_prefs['init_image'] = fname
+            page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    #page.overlay.append(pick_files_dialog)
+    def pick_init(e):
+        nonlocal pick_type
+        pick_type = "init"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=kandinsky_controlnet_prefs['prompt'], multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=kandinsky_controlnet_prefs['negative_prompt'], multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=kandinsky_controlnet_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    #n_iterations = TextField(label="Number of Iterations", value=kandinsky_controlnet_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
+    steps = TextField(label="Number of Steps", value=kandinsky_controlnet_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    #sampler = Dropdown(label="Sampler", width=200, options=[dropdown.Option("ddim_sampler"), dropdown.Option("p_sampler")], value=kandinsky_controlnet_prefs['sampler'], on_change=lambda e:changed(e,'sampler'), col={'xs':12, 'md':6})
+    batch_size = NumberPicker(label="Batch Size", min=1, max=6, step=1, value=kandinsky_controlnet_prefs['batch_size'], on_change=lambda e:changed(e,'batch_size', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_controlnet_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    #param_rows = ResponsiveRow([Column([batch_folder_name, n_images], col={'xs':12, 'md':6}),
+                      #Column([file_prefix, sampler], col={'xs':12, 'md':6})
+                      #Column([steps, ddim_eta, dynamic_threshold_v], col={'xs':12, 'md':6})
+                      #], vertical_alignment=CrossAxisAlignment.START)
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=kandinsky_controlnet_prefs, key='steps')
+    prior_steps = SliderRow(label="Number of Prior Steps", min=0, max=200, divisions=200, pref=kandinsky_controlnet_prefs, key='prior_steps')
+    #prior_cf_scale = SliderRow(label="Prior CF Scale", min=0, max=10, divisions=10, pref=kandinsky_controlnet_prefs, key='prior_cf_scale')
+    #prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, pref=kandinsky_controlnet_prefs, key='prior_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kandinsky_controlnet_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_controlnet_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_controlnet_prefs, key='height')
+    init_image = TextField(label="Init Image", value=kandinsky_controlnet_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
+    #mask_image = TextField(label="Mask Image", value=kandinsky_controlnet_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
+    strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_controlnet_prefs, key='strength', tooltip="Indicates how much to transform the reference image.")
+    prior_strength_slider = SliderRow(label="Prior Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_controlnet_prefs, key='prior_strength', tooltip="Indicates how much to transform the reference text embeddings.")
+    #img_block = Container(Column([init_image, strength_slider, prior_strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    seed = TextField(label="Seed", width=90, value=str(kandinsky_controlnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_controlnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_controlnet_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_controlnet_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_controlnet_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kandinsky_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kandinsky_controlnet.height = None if status['installed_ESRGAN'] else 0
+    if not kandinsky_controlnet_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🌷   Run Kandinsky ControlNet", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.kandinsky_controlnet_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🏩  Kandinsky 2.2 ControlNet Text+Image-to-Image", "Image-to-Image Generation with ControlNet Conditioning and depth-estimation from transformers.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_controlnet_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            init_image, strength_slider, prior_strength_slider,
+            #img_block,
+            #param_rows, #dropdown_row,
+            steps,
+            prior_steps,
+            #prior_cf_scale,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            #Row([batch_folder_name, file_prefix]),
+            ResponsiveRow([Row([n_images, batch_size, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_kandinsky_controlnet,
+            #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
+            parameters_row,
+            page.kandinsky_controlnet_output
         ],
     ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, ddim_eta, seed,
     return c
@@ -13113,9 +13290,11 @@ pipe_distil_gpt2 = None
 pipe_background_remover = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
+depth_estimator = None
 pipe_reference = None
 pipe_controlnet_qr = None
 pipe_controlnet_segment = None
+pipe_kandinsky_controlnet_prior = None
 pipe_controlnet = None
 controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
@@ -13375,7 +13554,7 @@ def get_diffusers(page):
         #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
         #if install_xformers(page):
         status['installed_xformers'] = True
-    run_sp("pip install --no-deps invisible-watermark", realtime=False)
+    run_sp("pip install --no-deps invisible-watermark>=0.2.0", realtime=False)
     try:
         import accelerate
     except ModuleNotFoundError:
@@ -14197,7 +14376,7 @@ def get_SDXL_pipe():
   try:
       from imwatermark import WatermarkEncoder
   except ModuleNotFoundError:
-      run_sp("pip install --no-deps invisible-watermark>=2.0", realtime=False)
+      run_sp("pip install --no-deps invisible-watermark>=0.2.0", realtime=False)
       pass
   model_id = "stabilityai/stable-diffusion-xl-base-0.9"
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-0.9"
@@ -14960,7 +15139,7 @@ def get_conceptualizer(page):
 def flush():
     gc.collect()
     torch.cuda.empty_cache()
-    #torch.cuda.clear_autocast_cache()
+    torch.cuda.clear_autocast_cache()
 
 def clear_img2img_pipe():
   global pipe_img2img
@@ -15262,13 +15441,19 @@ def clear_DiT_pipe():
     flush()
     pipe_DiT = None
 def clear_kandinsky_pipe(all=True):
-  global pipe_kandinsky, pipe_kandinsky_prior, loaded_kandinsky_task
+  global pipe_kandinsky, pipe_kandinsky_prior, pipe_kandinsky_controlnet_prior, loaded_kandinsky_task, depth_estimator
   if pipe_kandinsky is not None:
     del pipe_kandinsky
-    if all: del pipe_kandinsky_prior
+    if all:
+      del pipe_kandinsky_prior
+      del pipe_kandinsky_controlnet_prior
+      del depth_estimator
     flush()
     pipe_kandinsky = None
-    if all: pipe_kandinsky_prior = None
+    if all:
+      pipe_kandinsky_prior = None
+      pipe_kandinsky_controlnet_prior = None
+      depth_estimator = None
     loaded_kandinsky_task = ""
 def clear_tortoise_tts_pipe():
   global pipe_tortoise_tts
@@ -15362,7 +15547,7 @@ def clear_pipes(allbut=None):
     if not 'DiT' in but: clear_DiT_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'panorama' in but: clear_panorama_pipe()
-    if not 'kandinsky' in but: clear_kandinsky_pipe(all=(not 'kandinsky_prior' in but))
+    if not 'kandinsky' in but: clear_kandinsky_pipe(all=not ('kandinsky_prior' in but or 'kandinsky_controlnet_prior' in but))
     if not 'dance' in but: clear_dance_pipe()
     if not 'riffusion' in but: clear_riffusion_pipe()
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
@@ -26516,7 +26701,6 @@ def run_controlnet_video2video(page):
     else: fname = "output"
     if bool(controlnet_video2video_prefs['file_prefix']):
         fname = f"{controlnet_video2video_prefs['file_prefix']}{fname}"
-    #TODO: might not need batch_output folder
     if bool(controlnet_video2video_prefs['batch_folder_name']):
         batch_output = os.path.join(stable_dir, controlnet_video2video_prefs['batch_folder_name'])
     else: batch_output = stable_dir
@@ -26571,7 +26755,7 @@ def run_controlnet_video2video(page):
     cmd += f" --round-dims-to {controlnet_video2video_prefs['round_dims_to']}"
     if controlnet_video2video_prefs['no_audio']: cmd += " --no-audio"
     if controlnet_video2video_prefs['skip_dumped_frames']: cmd += " --skip-dumped-frames"
-    frames = os.path.join(output_path, '{n:08d}.png') #TODO Add fname
+    frames = os.path.join(batch_output, '{n:08d}.png') #TODO Add fname
     cmd += f" --dump-frames '{frames}'"
     cmd += f' "{output_file}"'
     w = 0
@@ -26593,22 +26777,32 @@ def run_controlnet_video2video(page):
             w, h = frame.size
             clear_last()
           clear_last()
+          if controlnet_video2video_prefs['save_frames']:
+            fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+          else:
+            fpath = event.src_path
           #prt(Divider(height=6, thickness=2))
-          prt(Row([ImageButton(src=event.src_path, data=event.src_path, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
           page.update()
           prt(progress)
+          if controlnet_video2video_prefs['save_frames']:
+            fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+            shutil.copy(event.src_path, fpath)
           time.sleep(0.2)
           autoscroll(False)
           img_idx += 1
     image_handler = Handler()
     observer = Observer()
-    observer.schedule(image_handler, output_path, recursive=True)
+    observer.schedule(image_handler, batch_output, recursive=True)
     observer.start()
     prt(f"Running {cmd}")
     prt(progress)
     try:
-        run_sp(cmd, cwd=controlnet_video2video_dir, realtime=True)
+        os.chdir(controlnet_video2video_dir)
+        os.system(f'cd {controlnet_video2video_dir};{cmd}', cwd=controlnet_video2video_dir, realtime=True)
+        #run_sp(cmd, cwd=controlnet_video2video_dir, realtime=True)
+        os.chdir(root_dir)
     except Exception as e:
         clear_last()
         observer.stop()
@@ -29620,7 +29814,7 @@ def run_dall_e(page, from_list=False):
 
 loaded_kandinsky_task = ""
 def run_kandinsky(page, from_list=False, with_params=False):
-    global kandinsky_prefs, pipe_kandinsky, pipe_kadinsky_prior, prefs, loaded_kandinsky_task
+    global kandinsky_prefs, pipe_kandinsky, pipe_kandinsky_prior, prefs, loaded_kandinsky_task
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
@@ -29908,7 +30102,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                     #metadata.add_text("title", kandinsky_prefs['file_name'])
                     # TODO: Merge Metadata with pr[]
                     config_json = kandinsky_prefs.copy()
-                    config_json['model_path'] = "kandinsky-community/kandinsky-2-1"
+                    config_json['model_path'] = "kandinsky-community/kandinsky-2-2-decoder"
                     config_json['seed'] = random_seed
                     del config_json['num_images']
                     del config_json['display_upscaled_image']
@@ -30467,6 +30661,272 @@ def run_kandinsky2_fuse(page):
             shutil.copy(image_path, os.path.join(out_path, new_file))
         # TODO: Add Metadata
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_kandinsky_controlnet(page, from_list=False, with_params=False):
+    global kandinsky_controlnet_prefs, pipe_kandinsky, pipe_kandinsky_controlnet_prior, prefs, loaded_kandinsky_task, depth_estimator
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    kandinsky_controlnet_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            kandinsky_controlnet_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':kandinsky_controlnet_prefs['init_image'], 'guidance_scale':kandinsky_controlnet_prefs['guidance_scale'], 'steps':kandinsky_controlnet_prefs['steps'], 'width':kandinsky_controlnet_prefs['width'], 'height':kandinsky_controlnet_prefs['height'], 'strength':kandinsky_controlnet_prefs['strength'], 'num_images':kandinsky_controlnet_prefs['num_images'], 'batch_size':kandinsky_controlnet_prefs['batch_size'], 'seed':kandinsky_controlnet_prefs['seed']})
+        else:
+            kandinsky_controlnet_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':p['init_image'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'strength':p['init_image_strength'], 'num_images':p['n_iterations'], 'batch_size':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(kandinsky_controlnet_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      kandinsky_controlnet_prompts.append({'prompt': kandinsky_controlnet_prefs['prompt'], 'negative_prompt':kandinsky_controlnet_prefs['negative_prompt'], 'init_image':kandinsky_controlnet_prefs['init_image'], 'guidance_scale':kandinsky_controlnet_prefs['guidance_scale'], 'steps':kandinsky_controlnet_prefs['steps'], 'width':kandinsky_controlnet_prefs['width'], 'height':kandinsky_controlnet_prefs['height'], 'strength':kandinsky_controlnet_prefs['strength'], 'num_images':kandinsky_controlnet_prefs['num_images'], 'batch_size':kandinsky_controlnet_prefs['batch_size'], 'seed':kandinsky_controlnet_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.KandinskyControlNet.controls.append(line)
+        if update:
+          page.KandinskyControlNet.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.KandinskyControlNet.controls[-1]
+        page.KandinskyControlNet.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.KandinskyControlNet.auto_scroll = scroll
+        page.KandinskyControlNet.update()
+      else:
+        page.KandinskyControlNet.auto_scroll = scroll
+        page.KandinskyControlNet.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.KandinskyControlNet.controls = page.KandinskyControlNet.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = kandinsky_controlnet_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Kandinsky 2.2 Engine & Models... See console log for progress.")
+    prt(installer)
+    clear_pipes("kandinsky")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    from diffusers import KandinskyV22PriorEmb2EmbPipeline, KandinskyV22ControlnetImg2ImgPipeline
+    from transformers import pipeline
+    if pipe_kandinsky_controlnet_prior == None:
+        installer.set_details("...kandinsky-2-2-prior Emb2Emb Pipeline")
+        pipe_kandinsky_controlnet_prior = KandinskyV22PriorEmb2EmbPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-prior",torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_kandinsky_controlnet_prior.to("cuda")
+    task_type = "controlnet"
+    if pipe_kandinsky == None or loaded_kandinsky_task != task_type:
+        installer.set_details(f"...kandinsky-2-2 {task_type} Pipeline")
+        clear_pipes('kandinsky_controlnet_prior')
+        try:
+            if task_type == "controlnet":
+                pipe_kandinsky = KandinskyV22ControlnetImg2ImgPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-controlnet-depth", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['enable_torch_compile']:
+                installer.set_details(f"...run torch compile")
+                pipe_kandinsky.unet.to(memory_format=torch.channels_last)
+                pipe_kandinsky.unet = torch.compile(pipe_kandinsky.unet, mode="reduce-overhead", fullgraph=True)
+                pipe_kandinsky = pipe_kandinsky.to("cuda")
+            elif int(status['cpu_memory']) <= 12:
+                installer.set_details(f"...enable_model_cpu_offload")
+                pipe_kandinsky.enable_model_cpu_offload()
+            else:
+                pipe_kandinsky.to("cuda")
+            loaded_kandinsky_task = task_type
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing KandinskyV22ControlnetImg2ImgPipeline...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+    else:
+        clear_pipes('kandinsky')
+    #save_dir = os.path.join(root_dir, 'kandinsky_controlnet_inputs')
+    def make_hint(image, depth_estimator):
+        image = depth_estimator(image)['depth']
+        image = np.array(image)
+        image = image[:, :, None]
+        image = np.concatenate([image, image, image], axis=2)
+        detected_map = torch.from_numpy(image).float() / 255.0
+        hint = detected_map.permute(2, 0, 1)
+        return hint
+    # step1: create models and pipelines
+    if depth_estimator == None:
+        installer.set_details("...depth-estimation Pipeline")
+        depth_estimator = pipeline('depth-estimation')
+    clear_last()
+    for pr in kandinsky_controlnet_prompts:
+        init_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            #init_file = os.path.join(save_dir, fname)
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            #init_img.save(init_file)
+        #clear_last()
+        prt("Generating your Kandinsky 2.2 ControlNet Image...")
+        prt(progress)
+        autoscroll(False)
+        hint = make_hint(init_img, depth_estimator).unsqueeze(0).half().to('cuda')
+        for num in range(pr['num_images']):
+            random_seed = int(pr['seed'] + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device="cuda").manual_seed(random_seed)
+            try:
+                image_embeds = pipe_kandinsky_controlnet_prior(prompt=pr['prompt'], image=init_img, strength=kandinsky_controlnet_prefs['prior_strength'], num_inference_steps = kandinsky_controlnet_prefs['prior_steps'], generator=generator)
+                negative_image_embeds = pipe_kandinsky_controlnet_prior(prompt=pr['negative_prompt'], image=init_img, strength=1, num_inference_steps=kandinsky_controlnet_prefs['prior_steps'], generator=generator)
+                #image_embeds, negative_image_embeds = pipe_kandinsky_controlnet_prior(pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=5, guidance_scale=1.0, generator=generator).to_tuple()
+                #if task_type == "controlnet":
+                images = pipe_kandinsky(
+                    #pr['prompt'],
+                    image=init_img,
+                    image_embeds=image_embeds.image_embeds,
+                    negative_image_embeds=negative_image_embeds.image_embeds,
+                    hint=hint,
+                    strength=pr['strength'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    num_images_per_prompt=pr['batch_size'],
+                    generator=generator,
+                    #callback=callback_fnc,
+                ).images
+                
+            except Exception as e:
+                clear_last()
+                clear_last()
+                alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Text(str(e)))
+                return
+            clear_last()
+            clear_last()
+            autoscroll(True)
+            txt2img_output = stable_dir
+            batch_output = prefs['image_output']
+            txt2img_output = stable_dir
+            if bool(kandinsky_controlnet_prefs['batch_folder_name']):
+                txt2img_output = os.path.join(stable_dir, kandinsky_controlnet_prefs['batch_folder_name'])
+            if not os.path.exists(txt2img_output):
+                os.makedirs(txt2img_output)
+            #print(str(images))
+            if images is None:
+                prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+                return
+            idx = 0
+            for image in images:
+                fname = format_filename(pr['prompt'])
+                #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+                fname = f'{kandinsky_controlnet_prefs["file_prefix"]}{fname}'
+                image_path = available_file(txt2img_output, fname, 1)
+                image.save(image_path)
+                output_file = image_path.rpartition(slash)[2]
+                if not kandinsky_controlnet_prefs['display_upscaled_image'] or not kandinsky_controlnet_prefs['apply_ESRGAN_upscale']:
+                    #prt(Row([Img(src=image_path, width=kandinsky_controlnet_prefs['width'], height=kandinsky_controlnet_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                #if save_to_GDrive:
+                batch_output = os.path.join(prefs['image_output'], kandinsky_controlnet_prefs['batch_folder_name'])
+                if not os.path.exists(batch_output):
+                    os.makedirs(batch_output)
+                if storage_type == "PyDrive Google Drive":
+                    newFolder = gdrive.CreateFile({'title': kandinsky_controlnet_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                    newFolder.Upload()
+                    batch_output = newFolder
+                #out_path = batch_output# if save_to_GDrive else txt2img_output
+                out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
+
+                if kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                    upload_folder = 'upload'
+                    result_folder = 'results'
+                    if os.path.isdir(upload_folder):
+                        shutil.rmtree(upload_folder)
+                    if os.path.isdir(result_folder):
+                        shutil.rmtree(result_folder)
+                    os.mkdir(upload_folder)
+                    os.mkdir(result_folder)
+                    short_name = f'{fname[:80]}-{idx}.png'
+                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                    #print(f'Moving {fpath} to {dst_path}')
+                    #shutil.move(fpath, dst_path)
+                    shutil.copy(image_path, dst_path)
+                    faceenhance = ' --face_enhance' if kandinsky_controlnet_prefs["face_enhance"] else ''
+                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {kandinsky_controlnet_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                    out_file = short_name.rpartition('.')[0] + '_out.png'
+                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                    image_path = upscaled_path
+                    os.chdir(stable_dir)
+                    if kandinsky_controlnet_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                #else:
+                #    time.sleep(1.2)
+                #    shutil.copy(image_path, os.path.join(out_path, output_file))
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_controlnet_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", f"Kandinsky 2.1 {task_type}")
+                    if prefs['save_config_in_metadata']:
+                        #metadata.add_text("title", kandinsky_controlnet_prefs['file_name'])
+                        # TODO: Merge Metadata with pr[]
+                        config_json = kandinsky_controlnet_prefs.copy()
+                        config_json['model_path'] = "kandinsky-community/kandinsky-2-2-controlnet-depth"
+                        config_json['seed'] = random_seed
+                        del config_json['num_images']
+                        del config_json['display_upscaled_image']
+                        del config_json['batch_folder_name']
+                        if not config_json['apply_ESRGAN_upscale']:
+                            del config_json['enlarge_scale']
+                            del config_json['apply_ESRGAN_upscale']
+                        metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], kandinsky_controlnet_prefs['batch_folder_name']), fname, 0)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], kandinsky_controlnet_prefs['batch_folder_name']), fname, 0)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
