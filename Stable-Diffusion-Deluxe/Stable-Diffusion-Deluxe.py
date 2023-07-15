@@ -454,6 +454,7 @@ status = {
     'loaded_scheduler': '',
     'loaded_model': '',
     'loaded_controlnet': '',
+    'loaded_SDXL': '',
     'changed_settings': False,
     'changed_installers': False,
     'changed_parameters': False,
@@ -1211,7 +1212,7 @@ def buildInstallers(page):
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
   SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-0.9)", on_tap_link=lambda e: e.page.launch_url(e.data))
-  install_SDXL = Switcher(label="Install Stable Diffusion XL 0.9 text2image & image2image Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=lambda e:changed(e, 'install_SDXL'), tooltip="Latest SDXL v0.9 trained on 1080p images.")
+  install_SDXL = Switcher(label="Install Stable Diffusion XL 0.9 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=lambda e:changed(e, 'install_SDXL'), tooltip="Latest SDXL v0.9 trained on 1080p images.")
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
   install_interpolation = Switcher(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'), tooltip="Create multiple tween images between prompts latent space. Almost animation.")
@@ -1397,7 +1398,7 @@ def buildInstallers(page):
         page.img_block.height = None
         page.img_block.update()'''
       if prefs['install_SDXL'] and prefs['install_diffusers']:
-        console_msg("Installing Stable Diffusion XL text2image & image2image Pipeline...")
+        console_msg("Installing Stable Diffusion XL Text2Image, Image2Image & Inpaint Pipeline...")
         if get_SDXL(page):
           status['installed_SDXL'] = True
           page.img_block.height = None
@@ -1405,7 +1406,7 @@ def buildInstallers(page):
           page.use_SDXL.visible = True
           page.use_SDXL.update()
       if prefs['install_alt_diffusion'] and prefs['install_diffusers']:
-        console_msg("Installing AltDiffusion text2image & image2image Pipeline...")
+        console_msg("Installing AltDiffusion Text2Image & Image2Image Pipeline...")
         get_alt_diffusion(page)
         status['installed_alt_diffusion'] = True
         page.use_alt_diffusion.visible = True
@@ -1450,19 +1451,19 @@ def buildInstallers(page):
         page.use_depth2img.visible = True
         page.use_depth2img.update()
       if prefs['install_SAG'] and prefs['install_diffusers']:
-        console_msg("Installing Stable Diffusion Self-Attention Guidance text2image Pipeline...")
+        console_msg("Installing Stable Diffusion Self-Attention Guidance Text2Image Pipeline...")
         get_SAG(page)
         status['installed_SAG'] = True
         page.use_SAG.visible = True
         page.use_SAG.update()
       if prefs['install_attend_and_excite'] and prefs['install_diffusers']:
-        console_msg("Installing Stable Diffusion Attend and Excite text2image Pipeline...")
+        console_msg("Installing Stable Diffusion Attend and Excite Text2Image Pipeline...")
         get_attend_and_excite(page)
         status['installed_attend_and_excite'] = True
         page.use_attend_and_excite.visible = True
         page.use_attend_and_excite.update()
       if prefs['install_imagic'] and prefs['install_diffusers']:
-        console_msg("Installing Stable Diffusion iMagic image2image Pipeline...")
+        console_msg("Installing Stable Diffusion iMagic Image2Image Pipeline...")
         get_imagic(page)
         status['installed_imagic'] = True
         if not status['installed_txt2img']:
@@ -1471,13 +1472,13 @@ def buildInstallers(page):
         page.use_imagic.visible = True
         page.use_imagic.update()
       if prefs['install_composable'] and prefs['install_diffusers']:
-        console_msg("Installing Stable Diffusion Composable text2image Pipeline...")
+        console_msg("Installing Stable Diffusion Composable Text2Image Pipeline...")
         get_composable(page)
         status['installed_composable'] = True
         page.use_composable.visible = True
         page.use_composable.update()
       if prefs['install_versatile'] and prefs['install_diffusers']:
-        console_msg("Installing Stable Diffusion Versatile text2image, Variation & Inpaint Pipeline...")
+        console_msg("Installing Stable Diffusion Versatile Text2Image, Variation & Inpaint Pipeline...")
         get_versatile(page)
         status['installed_versatile'] = True
         if not status['installed_txt2img']:
@@ -1486,13 +1487,13 @@ def buildInstallers(page):
         page.use_versatile.visible = True
         page.use_versatile.update()
       if prefs['install_safe'] and prefs['install_diffusers']:
-        console_msg("Installing Stable Diffusion Safe text2image Pipeline...")
+        console_msg("Installing Stable Diffusion Safe Text2Image Pipeline...")
         get_safe(page)
         status['installed_safe'] = True
         page.use_safe.visible = True
         page.use_safe.update()
       if prefs['install_panorama'] and prefs['install_diffusers']:
-        console_msg("Installing MultiDiffusion Panorama text2image Pipeline...")
+        console_msg("Installing MultiDiffusion Panorama Text2Image Pipeline...")
         get_panorama(page)
         status['installed_panorama'] = True
         page.use_panorama.visible = True
@@ -7348,6 +7349,8 @@ controlnet_video2video_prefs = {
     'no_audio': False,
     'skip_dumped_frames': False,
     'save_frames': False,
+    'show_console': True,
+    'fix_orientation': True,
     'file_prefix': 'controlnet-',
     'output_name': '',
     'batch_folder_name': '',
@@ -7474,6 +7477,8 @@ def buildControlNet_Video2Video(page):
     no_audio = Switcher(label="No Audio", value=controlnet_video2video_prefs['no_audio'], tooltip="Don't include audio in the output video, even if the input video has audio", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'no_audio'))
     skip_dumped_frames = Switcher(label="Skip Dumped Frames", value=controlnet_video2video_prefs['skip_dumped_frames'], tooltip="Read dumped frames from a previous run instead of processing the input video.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'skip_dumped_frames'))
     save_frames = Switcher(label="Save all Frames", value=controlnet_video2video_prefs['save_frames'], tooltip="Save the dumped frames to images_out batch folder. Otherwise only saves final video, keeping pngs in temp folder.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames'))
+    fix_orientation = Switcher(label="Fix Orientation", value=controlnet_video2video_prefs['fix_orientation'], tooltip="Resize videos shot in portrait mode on some devices to fix incorrect aspect ratio bug.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'fix_orientation'))
+    show_console = Switcher(label="Show Console Output", value=controlnet_video2video_prefs['show_console'], tooltip="Outputs the progress run log in the console window. Gets messy, but useful.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'show_console'))
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_video2video_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     output_name = TextField(label="Output Name", value=controlnet_video2video_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_video2video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -7503,7 +7508,7 @@ def buildControlNet_Video2Video(page):
         Row([color_fix, color_amount]),
         ResponsiveRow([motion_alpha, motion_sigma]),
         ResponsiveRow([max_dimension, min_dimension]),
-        Row([no_audio, skip_dumped_frames, save_frames]),
+        Row([no_audio, skip_dumped_frames, save_frames, fix_orientation, show_console]),
         Row([output_name, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet,
         Row([ElevatedButton(content=Text("🍃  Run ControlNet Vid2Vid", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_video2video(page))]),
@@ -7633,9 +7638,10 @@ def buildDeepFloyd(page):
         eta_value.value = f" {deepfloyd_prefs['eta']}"
         eta_value.update()
         eta_row.update()
-
-    init_image = TextField(label="Original Image (optional)", value=deepfloyd_prefs['init_image'], expand=True, on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
-    mask_image = TextField(label="Mask Image (optional)", value=deepfloyd_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
+    init_image = FileInput(label="Original Image (optional)", pref=deepfloyd_prefs, key='init_image', expand=True, page=page)
+    #init_image = TextField(label="Original Image (optional)", value=deepfloyd_prefs['init_image'], expand=True, on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    mask_image = FileInput(label="Mask Image (optional)", pref=deepfloyd_prefs, key='mask_image', expand=1, page=page)
+    #mask_image = TextField(label="Mask Image (optional)", value=deepfloyd_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=deepfloyd_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     alpha_mask = Checkbox(label="Alpha Mask", value=deepfloyd_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
 
@@ -13238,7 +13244,7 @@ unet = None
 pipe = None
 pipe_img2img = None
 pipe_SDXL = None
-pipe_SDXL_img2img = None
+pipe_SDXL_refiner = None
 pipe_interpolation = None
 pipe_clip_guided = None
 pipe_conceptualizer = None
@@ -14369,8 +14375,8 @@ def get_SDXL(page):
                 content=Markdown(f'[{model_url}]({model_url})<br>{er}', on_tap_link=open_url))
       return False
 
-def get_SDXL_pipe():
-  global pipe_SDXL, pipe_SDXL_img2img, prefs
+def get_SDXL_pipe(task="text2image"):
+  global pipe_SDXL, pipe_SDXL_refiner, prefs, status
   from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   try:
@@ -14380,47 +14386,115 @@ def get_SDXL_pipe():
       pass
   model_id = "stabilityai/stable-diffusion-xl-base-0.9"
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-0.9"
-  if pipe_SDXL is not None:
-      if prefs['scheduler_mode'] != status['loaded_scheduler']:
-        pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-        return pipe_SDXL
+  if task != status['loaded_SDXL']:
+      clear_pipes()
+  if task ==" text2image":
+      status['loaded_SDXL'] = task
+      if pipe_SDXL is not None:
+          if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+            return pipe_SDXL
+          else:
+            return pipe_SDXL
+      pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
+          model_id,
+          variant="fp16",
+          torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
+          use_safetensors=True,
+          cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+      )
+      if prefs['higher_vram_mode']:
+          pipe_SDXL.to(torch_device)
       else:
-        return pipe_SDXL
-  pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
-      model_id,
-      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-      variant="fp16",
-      torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
-      use_safetensors=True,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
-  )
-  if prefs['higher_vram_mode']:
-      pipe_SDXL.to(torch_device)
-  else:
-      pipe_SDXL.enable_model_cpu_offload()
-  if prefs['enable_torch_compile']:
-      pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
-  pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-  #pipe_SDXL = optimize_pipe(pipe_SDXL, model_offload=not prefs['higher_vram_mode'])
-  if prefs['use_LoRA_model']:
-      lora = get_LoRA_model(prefs['LoRA_model'])
-      pipe_SDXL.load_lora_weights(lora['path'])
-  pipe_SDXL.set_progress_bar_config(disable=True)
-  pipe_SDXL_img2img = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
-      text_encoder_2=pipe_SDXL.text_encoder_2,
-      vae=pipe_SDXL.vae,
-      cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
-  )
-  if prefs['higher_vram_mode']:
-      pipe_SDXL_img2img.to(torch_device)
-  else:
-      pipe_SDXL_img2img.enable_model_cpu_offload()
-  if prefs['enable_torch_compile']:
-      pipe_SDXL_img2img.unet = torch.compile(pipe_SDXL_img2img.unet, mode="reduce-overhead", fullgraph=True)
-  pipe_SDXL_img2img = pipeline_scheduler(pipe_SDXL_img2img)
-  #pipe_SDXL_img2img = optimize_pipe(pipe_SDXL_img2img, model_offload=not prefs['higher_vram_mode'])
-  pipe_SDXL_img2img.set_progress_bar_config(disable=True)
+          pipe_SDXL.enable_model_cpu_offload()
+      if prefs['enable_torch_compile']:
+          pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
+      pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+      #pipe_SDXL = optimize_pipe(pipe_SDXL, model_offload=not prefs['higher_vram_mode'])
+      if prefs['use_LoRA_model']:
+          lora = get_LoRA_model(prefs['LoRA_model'])
+          pipe_SDXL.load_lora_weights(lora['path'])
+      pipe_SDXL.set_progress_bar_config(disable=True)
+      pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
+          text_encoder_2=pipe_SDXL.text_encoder_2,
+          vae=pipe_SDXL.vae,
+          cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+      )
+      if prefs['higher_vram_mode']:
+          pipe_SDXL_refiner.to(torch_device)
+      else:
+          pipe_SDXL_refiner.enable_model_cpu_offload()
+      if prefs['enable_torch_compile']:
+          pipe_SDXL_refiner.unet = torch.compile(pipe_SDXL_refiner.unet, mode="reduce-overhead", fullgraph=True)
+      pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
+      #pipe_SDXL_refiner = optimize_pipe(pipe_SDXL_refiner, model_offload=not prefs['higher_vram_mode'])
+      pipe_SDXL_refiner.set_progress_bar_config(disable=True)
+  elif task == "image2image":
+      status['loaded_SDXL'] = task
+      if pipe_SDXL_refiner is not None:
+          if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
+            return pipe_SDXL_refiner
+          else:
+            return pipe_SDXL_refiner
+      pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
+          refiner_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+      )
+      if prefs['higher_vram_mode']:
+          pipe_SDXL_refiner.to(torch_device)
+      else:
+          pipe_SDXL_refiner.enable_model_cpu_offload()
+      if prefs['enable_torch_compile']:
+          pipe_SDXL_refiner.unet = torch.compile(pipe_SDXL_refiner.unet, mode="reduce-overhead", fullgraph=True)
+      pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
+      #pipe_SDXL_refiner = optimize_pipe(pipe_SDXL_refiner, model_offload=not prefs['higher_vram_mode'])
+      pipe_SDXL_refiner.set_progress_bar_config(disable=True)
+  elif task == "inpainting":
+      status['loaded_SDXL'] = task
+      from diffusers import StableDiffusionXLInpaintPipeline
+      if pipe_SDXL is not None:
+          if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+            return pipe_SDXL
+          else:
+            return pipe_SDXL
+      pipe_SDXL = StableDiffusionXLInpaintPipeline.from_pretrained(
+          model_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+      )
+      if prefs['higher_vram_mode']:
+          pipe_SDXL.to(torch_device)
+      else:
+          pipe_SDXL.enable_model_cpu_offload()
+      if prefs['enable_torch_compile']:
+          pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
+      pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+      #pipe_SDXL = optimize_pipe(pipe_SDXL_refiner, model_offload=not prefs['higher_vram_mode'])
+      pipe_SDXL.set_progress_bar_config(disable=True)
+      pipe_SDXL_refiner = StableDiffusionXLInpaintPipeline.from_pretrained(
+          refiner_id,
+          text_encoder_2=pipe_SDXL.text_encoder_2,
+          vae=pipe_SDXL.vae,
+          torch_dtype=torch.float16,
+          use_safetensors=True,
+          variant="fp16",
+          cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+      )
+      if prefs['higher_vram_mode']:
+          pipe_SDXL_refiner.to(torch_device)
+      else:
+          pipe_SDXL_refiner.enable_model_cpu_offload()
+      if prefs['enable_torch_compile']:
+          pipe_SDXL_refiner.unet = torch.compile(pipe_SDXL_refiner.unet, mode="reduce-overhead", fullgraph=True)
+      pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
+      #pipe_SDXL_refiner = optimize_pipe(pipe_SDXL_refiner, model_offload=not prefs['higher_vram_mode'])
+      pipe_SDXL_refiner.set_progress_bar_config(disable=True)
   return pipe_SDXL
 
 def get_versatile(page):
@@ -15163,15 +15237,15 @@ def clear_unet_pipe():
     flush()
     unet = None
 def clear_SDXL_pipe():
-  global pipe_SDXL, pipe_SDXL_img2img
+  global pipe_SDXL, pipe_SDXL_refiner
   if pipe_SDXL is not None:
     del pipe_SDXL
     flush()
     pipe_SDXL = None
-  if pipe_SDXL_img2img is not None:
-    del pipe_SDXL_img2img
+  if pipe_SDXL_refiner is not None:
+    del pipe_SDXL_refiner
     flush()
-    pipe_SDXL_img2img = None
+    pipe_SDXL_refiner = None
 def clear_clip_guided_pipe():
   global pipe_clip_guided
   if pipe_clip_guided is not None:
@@ -15603,7 +15677,7 @@ def available_folder(folder, name, idx):
 #import asyncio
 #async
 def start_diffusion(page):
-  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale, pipe_SDXL, pipe_SDXL_img2img
+  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale, pipe_SDXL, pipe_SDXL_refiner
   global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
   def prt(line, update=True):
     if type(line) == str:
@@ -16273,6 +16347,15 @@ def start_diffusion(page):
                   prt(Installing("Initializing Inpaint Pipeline..."))
                   pipe_img2img = get_img2img_pipe()
                   clear_last()
+              elif prefs['use_SDXL'] and status['installed_SDXL']:
+                if status['loaded_SDXL'] == "inpainting":
+                  clear_pipes("SDXL")
+                else:
+                  clear_pipes()
+                if pipe_SDXL is None:
+                  prt(Installing("Initializing Stable Diffusion XL Inpainting Pipeline..."))
+                  get_SDXL_pipe("inpainting")
+                  clear_last()
               else:
                 clear_pipes("txt2img")
                 if pipe is None:
@@ -16331,6 +16414,13 @@ def start_diffusion(page):
               if prefs['use_inpaint_model'] and status['installed_img2img']:
                 pipe_used = "Diffusers Inpaint"
                 images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_SDXL'] and status['installed_SDXL']:
+                pipe_used = "Stable Diffusion XL Inpainting"
+                high_noise_frac = 0.7
+                image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                flush()
               else:
                 pipe_used = "Long Prompt Weight Inpaint"
                 images = pipe.inpaint(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -16354,10 +16444,13 @@ def start_diffusion(page):
                     pipe_versatile_variation = get_versatile_variation_pipe()
                     clear_last()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
-                clear_pipes("SDXL")
-                if pipe_SDXL_img2img is None:
+                if status['loaded_SDXL'] == "image2image":
+                  clear_pipes("SDXL")
+                else:
+                  clear_pipes()
+                if pipe_SDXL_refiner is None:
                   prt(Installing("Initializing Stable Diffusion XL Image2Image Pipeline..."))
-                  pipe_SDXL = get_SDXL_pipe()
+                  get_SDXL_pipe("image2image")
                   clear_last()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion_img2img")
@@ -16421,7 +16514,8 @@ def start_diffusion(page):
                   images = pipe_versatile_variation(negative_prompt=arg['negative_prompt'], image=init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Image-to-Image"
-                images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                #TODO: Add refiner step for img2img
+                images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Image-to-Image"
@@ -16539,7 +16633,7 @@ def start_diffusion(page):
                 high_noise_frac = 0.7
                 #TODO: Figure out batch num_images_per_prompt + option to not refine , image[None, :]
                 image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
-                images = pipe_SDXL_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
@@ -26749,6 +26843,8 @@ def run_controlnet_video2video(page):
       cmd += f" --end-time {controlnet_video2video_prefs['end_time']}"
     if controlnet_video2video_prefs["duration"] != 0.0:
       cmd += f" --duration {controlnet_video2video_prefs['duration']}"
+    if not controlnet_video2video_prefs["fix_orientation"]:
+      cmd += f" --no-fix-orientation"
     cmd += f" --canny-low-thr {controlnet_video2video_prefs['low_threshold']} --canny-high-thr {controlnet_video2video_prefs['high_threshold']}"
     cmd += f" --mlsd-score-thr {controlnet_video2video_prefs['mlsd_score_thr']} --mlsd-dist-thr {controlnet_video2video_prefs['mlsd_dist_thr']}"
     cmd += f" --max-dimension {controlnet_video2video_prefs['max_dimension']} --min-dimension {controlnet_video2video_prefs['min_dimension']}"
@@ -26773,9 +26869,13 @@ def run_controlnet_video2video(page):
         elif event.event_type == 'created' and event.src_path.endswith("png"):
           autoscroll(True)
           if w == 0:
-            frame = PILImage.open(event.src_path)
-            w, h = frame.size
-            clear_last()
+            time.sleep(0.8)
+            try:
+              frame = PILImage.open(event.src_path)
+              w, h = frame.size
+              clear_last()
+            except Exception:
+              pass
           clear_last()
           if controlnet_video2video_prefs['save_frames']:
             fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
@@ -26799,10 +26899,14 @@ def run_controlnet_video2video(page):
     prt(f"Running {cmd}")
     prt(progress)
     try:
-        os.chdir(controlnet_video2video_dir)
-        os.system(f'cd {controlnet_video2video_dir};{cmd}', cwd=controlnet_video2video_dir, realtime=True)
-        #run_sp(cmd, cwd=controlnet_video2video_dir, realtime=True)
-        os.chdir(root_dir)
+        #os.system(f'cd {controlnet_video2video_dir};{cmd}')
+        #if is_Colab:
+        #  os.chdir(controlnet_video2video_dir)
+        #  $cmd
+        #  os.chdir(root_dir)
+        #else:
+        #TODO: Parse output to get percent current for progress callback_fnc
+        run_sp(cmd, cwd=controlnet_video2video_dir, realtime=controlnet_video2video_prefs['show_console'])
     except Exception as e:
         clear_last()
         observer.stop()
@@ -31311,10 +31415,11 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     #page.add (Text ("Enhanced Stable Diffusion Deluxe by Skquark, Inc."))
 
 class Header(UserControl):
-    def __init__(self, title="", subtitle="", actions=[], divider=True):
+    def __init__(self, title="", subtitle="", value="", actions=[], divider=True):
         super().__init__()
         self.title = title
         self.subtitle = subtitle
+        self.value = value
         self.actions = actions
         self.divider = divider
         self.build()
@@ -31322,6 +31427,75 @@ class Header(UserControl):
         #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
         self.column = Column([Row([Column([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Text(self.subtitle, style="titleSmall", color=colors.TERTIARY) if bool(self.subtitle) else Container(content=None)], spacing=4, expand=True), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=1, vertical_alignment=CrossAxisAlignment.END), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT) if self.divider else Container(content=None), Container(content=None, height=3)], spacing=2)
         return self.column
+
+class FileInput(UserControl):
+    def __init__(self, label="Initial Image", type="image", pref="", key="", expand=False, col=None, max_size=None, output_dir=None, page=None):
+        super().__init__()
+        self.label = label
+        self.type = type
+        self.pref = pref
+        self.key = key
+        self.expand = expand
+        self.col = col
+        self.max_size = max_size
+        self.output_dir = output_dir
+        self.page = page
+        self.build()
+    def build(self):
+        def upload_files(e):
+            uf = []
+            if self.file_picker.result != None and self.file_picker.result.files != None:
+                for f in self.file_picker.result.files:
+                  if self.page.web:
+                    uf.append(FilePickerUploadFile(f.name, upload_url=self.page.get_upload_url(f.name, 600)))
+                  else:
+                    on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                self.file_picker.upload(uf)
+        def file_picker_result(e: FilePickerResultEvent):
+            if e.files != None:
+              upload_files(e)
+        def on_upload_progress(e: FilePickerUploadEvent):
+            if e.progress == 1:
+              if self.output_dir == None:
+                save_dir = root_dir
+              else:
+                save_dir = self.output_dir
+                if not os.path.exists(save_dir):
+                  os.mkdir(save_dir)
+              if not slash in e.file_name:
+                fname = os.path.join(stable_dir, e.file_name)
+                fpath = os.path.join(save_dir, e.file_name)
+                self.pref[self.key] = e.file_name.rpartition('.')[0]
+              else:
+                fname = e.file_name
+                self.pref[self.key] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+              if self.max_size != None:
+                original_img = PILImage.open(fname)
+                width, height = original_img.size
+                width, height = scale_dimensions(width, height, self.max_size)
+                original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+                original_img.save(fpath)
+              self.textfield.value = fname
+              self.textfield.update()
+              self.pref[self.key] = fname
+              self.page.update()
+            else:
+              percent = int(e.progress * 10)
+              self.textfield.value = f"  {percent}%"
+              self.textfield.update()
+        def pick_file(e):
+            img_ext = ["png", "PNG", "jpg", "jpeg"]
+            vid_ext = ["mp4", "avi", "MP4", "AVI"]
+            aud_ext = ["mp3", "wav", "MP3", "WAV"]
+            ext = img_ext if self.type == "image" else vid_ext if self.type == "video" else aud_ext if self.type == "audio" else vid_ext+aud_ext if self.type == "media" else vid_ext+img_ext if self.type == "picture" else img_ext
+            name = self.key.replace("_", " ").title()
+            self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
+        def changed(e):
+            self.pref[self.key] = e.control.value
+        self.file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+        self.page.overlay.append(self.file_picker)
+        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
+        return self.textfield
 
 class ImageButton(UserControl):
     def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, fit=ImageFit.SCALE_DOWN, show_subtitle=False, page=None):
