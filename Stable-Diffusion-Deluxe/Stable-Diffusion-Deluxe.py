@@ -682,8 +682,8 @@ def buildTrainers(page):
     page.CheckpointMerger = buildCheckpointMerger(page)
     trainersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
-            Tab(text="LoRA", content=page.LoRA, icon=icons.SETTINGS_SYSTEM_DAYDREAM),
             Tab(text="LoRA DreamBooth", content=page.LoRA_Dreambooth, icon=icons.SETTINGS_BRIGHTNESS),
+            Tab(text="LoRA", content=page.LoRA, icon=icons.SETTINGS_SYSTEM_DAYDREAM),
             Tab(text="DreamBooth", content=page.DreamBooth, icon=icons.PHOTO),
             Tab(text="Texual-Inversion", content=page.TexualInversion, icon=icons.PHOTO_ALBUM),
             Tab(text="Model Converter", content=page.Converter, icon=icons.PUBLISHED_WITH_CHANGES),
@@ -701,6 +701,7 @@ def buildVideoAIs(page):
     page.ControlNet = buildControlNet(page)
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.Roop = buildROOP(page)
+    page.AnimateDiff = buildAnimateDiff(page)
 
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
@@ -709,6 +710,7 @@ def buildVideoAIs(page):
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
+            Tab(text="AnimateDiff", content=page.AnimateDiff, icon=icons.AUTO_MODE),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
@@ -7325,7 +7327,7 @@ controlnet_video2video_prefs = {
     'init_video': '',
     'prompt': '',
     'negative_prompt': '',
-    'control_task': 'Depth21',
+    'control_task': 'Canny21',
     'controlnet_strength': 1.0,
     'init_image_strength': 0.5,
     'feedthrough_strength': 0.0,
@@ -8873,7 +8875,205 @@ def buildROOP(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+animate_diff_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'steps': 25,
+    'guidance_scale': 7.5,
+    'editing_prompts': [],
+    'dreambooth_lora': 'None',
+    'seed': 0,
+    'video_length': 16,
+    'width': 512,
+    'height': 512,
+    'num_images': 1,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
 
+animate_diff_loras = [
+    {'name': 'toonyou_beta3', 'file': 'toonyou_beta3.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/toonyou_beta3.safetensors'},
+    {'name': 'CounterfeitV30_v30', 'file': 'CounterfeitV30_v30.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/CounterfeitV30_v30.safetensors'},
+    {'name': 'FilmVelvia2', 'file': 'FilmVelvia2.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/FilmVelvia2.safetensors'},
+    {'name': 'Pyramid lora_Ghibli_n3', 'file': 'Pyramid%20lora_Ghibli_n3.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/Pyramid%20lora_Ghibli_n3.safetensors'},
+    {'name': 'TUSUN', 'file': 'TUSUN.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/TUSUN.safetensors'},
+    {'name': 'lyriel_v16', 'file': 'lyriel_v16.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/lyriel_v16.safetensors'},
+    {'name': 'majicmixRealistic_v5Preview', 'file': 'majicmixRealistic_v5Preview.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/majicmixRealistic_v5Preview.safetensors'},
+    {'name': 'moonfilm_filmGrain10', 'file': 'moonfilm_filmGrain10.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/moonfilm_filmGrain10.safetensors'},
+    {'name': 'moonfilm_reality20', 'file': 'moonfilm_reality20.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/moonfilm_reality20.safetensors'},
+    {'name': 'rcnzCartoon3d_v10', 'file': 'rcnzCartoon3d_v10.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/rcnzCartoon3d_v10.safetensors'},
+    {'name': 'realisticVisionV40_v20Novae', 'file': 'realisticVisionV40_v20Novae.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/realisticVisionV40_v20Novae.safetensors'},
+]
+def buildAnimateDiff(page):
+    global animate_diff_prefs, prefs, pipe_animate_diff, editing_prompt
+    editing_prompt = {'prompt':'', 'negative_prompt':'', 'seed':0}
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            animate_diff_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            animate_diff_prefs[pref] = float(e.control.value)
+          else:
+            animate_diff_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_animate_diff_output(o):
+      page.animate_diff_output.controls.append(o)
+      page.animate_diff_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.animate_diff_output.controls = []
+      page.animate_diff_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def animate_diff_help(e):
+      def close_animate_diff_dlg(e):
+        nonlocal animate_diff_help_dlg
+        animate_diff_help_dlg.open = False
+        page.update()
+      animate_diff_help_dlg = AlertDialog(title=Text("💁   Help with AnimateDiff"), content=Column([
+          Text("With the advance of text-to-image models (e.g., Stable Diffusion) and corresponding personalization techniques such as DreamBooth and LoRA, everyone can manifest their imagination into high-quality images at an affordable cost. Subsequently, there is a great demand for image animation techniques to further combine generated static images with motion dynamics. In this report, we propose a practical framework to animate most of the existing personalized text-to-image models once and for all, saving efforts in model-specific tuning. At the core of the proposed framework is to insert a newly initialized motion modeling module into the frozen text-to-image model and train it on video clips to distill reasonable motion priors. Once trained, by simply injecting this motion modeling module, all personalized versions derived from the same base T2I readily become text-driven models that produce diverse and personalized animated images. We conduct our evaluation on several public representative personalized text-to-image models across anime pictures and realistic photographs, and demonstrate that our proposed framework helps these models generate temporally smooth animation clips while preserving the domain and diversity of their outputs."),
+          Text("Credits: Yuwei Guo, Ceyuan Yang, Anyi Rao, Yaohui Wang, Yu Qiao, Dahua Lin, Bo Dai. Also Camenduru and UI by Alan Bedian"),
+          Markdown("[GitHub Code](https://github.com/guoyww/animatediff/) - [Project Page](https://animatediff.github.io/) - [Arxiv Paper](https://arxiv.org/abs/2307.04725)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧞  Make a Wish... ", on_click=close_animate_diff_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = animate_diff_help_dlg
+      animate_diff_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        animate_diff_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def animate_diff_tile(animate_prompt):
+        params = []
+        for k, v in animate_prompt.items():
+            if k == 'prompt': continue
+            params.append(f'{to_title(k)}: {v}')
+        sub = ', '.join(params)
+        return ListTile(title=Text(animate_prompt['prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=animate_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[PopupMenuItem(icon=icons.EDIT, text="Edit Animation Prompt", on_click=lambda e: edit_animate_diff(animate_prompt), data=animate_prompt),
+                 PopupMenuItem(icon=icons.DELETE, text="Delete Animation Prompt", on_click=lambda e: del_animate_diff(animate_prompt), data=animate_prompt)]), on_click=lambda e: edit_animate_diff(animate_prompt))
+    def edit_animate_diff(edit=None):
+        animate_diff_prompt = edit if bool(edit) else editing_prompt.copy()
+        edit_prompt = edit['prompt'] if bool(edit) else animate_diff_prefs['prompt']
+        #negative_prompt = edit['negative_prompt'] if bool(edit) else animate_diff_prefs['negative_prompt']
+        if not bool(edit):
+            animate_diff_prompt['prompt'] = animate_diff_prefs['prompt']
+            animate_diff_prompt['negative_prompt'] = animate_diff_prefs['negative_prompt']
+            animate_diff_prompt['seed'] = animate_diff_prefs['seed']
+        def close_dlg(e):
+            dlg_edit.open = False
+            page.update()
+        def changed_p(e, pref=None):
+            if pref is not None:
+                animate_diff_prompt[pref] = e.control.value
+        def save_animate_diff_prompt(e):
+            if edit == None:
+                animate_diff_prefs['editing_prompts'].append(animate_diff_prompt)
+                page.animate_diff_prompts.controls.append(animate_diff_tile(animate_diff_prompt))
+                page.animate_diff_prompts.update()
+            else:
+                for s in animate_diff_prefs['editing_prompts']:
+                    if s['prompt'] == edit_prompt:
+                        s = animate_diff_prompt
+                        break
+                for t in page.animate_diff_prompts.controls:
+                    if t.data['prompt'] == edit_prompt:
+                        params = []
+                        for k, v in animate_diff_prompt.items():
+                            if k == 'prompt': continue
+                            params.append(f'{to_title(k)}: {v}')
+                        sub = ', '.join(params)
+                        t.title = Text(animate_diff_prompt['prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE)
+                        t.subtitle = Text(sub)
+                        t.data = animate_diff_prompt
+                        t.update()
+                        break
+            dlg_edit.open = False
+            e.control.update()
+            page.update()
+        animate_diff_editing_prompt = TextField(label="AnimateDiff Prompt Modifier", value=animate_diff_prompt['prompt'], autofocus=True, on_change=lambda e:changed_p(e,'prompt'))
+        animate_diff_negative_prompt = TextField(label="Negative Prompt", value=animate_diff_prompt['negative_prompt'], autofocus=True, on_change=lambda e:changed_p(e,'negative_prompt'))
+        animate_diff_seed = TextField(label="Seed", width=90, value=str(animate_diff_prompt['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed_p(e,'seed'), col={'md':1})
+        #reverse_editing_direction = Checkbox(label="Reverse Editing Direction", value=animate_diff_prompt['reverse_editing_direction'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed_p(e,'reverse_editing_direction'), tooltip="Whether the corresponding prompt in `editing_prompt` should be increased or decreased.")
+        dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Semantic Prompt"), content=Container(Column([
+            animate_diff_editing_prompt,
+            animate_diff_negative_prompt, animate_diff_seed,
+        ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_animate_diff_prompt)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = dlg_edit
+        dlg_edit.open = True
+        page.update()
+    def del_animate_diff(edit=None):
+        for s in animate_diff_prefs['editing_prompts']:
+            if s['prompt'] == edit['prompt']:
+                animate_diff_prefs['editing_prompts'].remove(s)
+                break
+        for t in page.animate_diff_prompts.controls:
+            if t.data['prompt'] == edit['prompt']:
+                page.animate_diff_prompts.controls.remove(t)
+                break
+        page.animate_diff_prompts.update()
+        if prefs['enable_sounds']: page.snd_delete.play()
+    def clear_animate_diff_prompts(e):
+        animate_diff_prefs['editing_prompts'].clear()
+        page.animate_diff_prompts.controls.clear()
+        page.animate_diff_prompts.update()
+        if prefs['enable_sounds']: page.snd_delete.play()
+    prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    seed = TextField(label="Seed", width=90, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
+    video_length = SliderRow(label="Video Length", min=1, max=150, divisions=149, pref=animate_diff_prefs, key='video_length', tooltip="The number of frames to animate.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=animate_diff_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=animate_diff_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
+    dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("None")], value=animate_diff_prefs['dreambooth_lora'], on_change=lambda e: changed(e, 'dreambooth_lora'))
+    for lora in animate_diff_loras:
+        dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
+    batch_folder_name = TextField(label="Batch Folder Name", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animate_diff_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=animate_diff_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=animate_diff_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_animate_diff = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_animate_diff.height = None if status['installed_ESRGAN'] else 0
+    page.animate_diff_prompts = Column([], spacing=0)
+    page.animate_diff_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.animate_diff_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("👫  AnimateDiff - Under Construction but should mostly work", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        ResponsiveRow([prompt, negative_prompt, seed]),
+        Row([Text("Animation Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
+                    Row([ft.FilledTonalButton("Clear Prompts", on_click=clear_animate_diff_prompts), ft.FilledButton("Add Diff Prompt", on_click=lambda e: edit_animate_diff(None))])], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        page.animate_diff_prompts,
+        Divider(thickness=2, height=4),
+        num_inference_row,
+        guidance,
+        width_slider, height_slider,
+        video_length,
+        Row([dreambooth_lora, batch_folder_name]),
+        page.ESRGAN_block_animate_diff,
+        #Row([jump_length, jump_n_sample, seed]),
+        Row([
+            ElevatedButton(content=Text("💚  Run AnimateDiff", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animate_diff(page)),
+             #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animate_diff(page, from_list=True))
+        ]),
+        page.animate_diff_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 materialdiffusion_prefs = {
     "material_prompt": '',
@@ -11469,6 +11669,7 @@ LoRA_prefs = {
     'validation_prompt': '', #A prompt that is sampled during training for inference.
     'num_validation_images': 4, #Number of images that should be generated during validation with `validation_prompt`.
     'validation_epochs': 1, #Run fine-tuning validation every X epochs. The validation process consists of running the prompt
+    'use_SDXL': False,
     'name_of_your_model': '',
     'save_model': True,
     'where_to_save_model': 'Public HuggingFace',
@@ -11655,8 +11856,8 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     lr_num_cycles = Tooltip(message="Number of hard resets of the lr in cosine_with_restarts scheduler.", content=TextField(label="LR Number of Cycles", value=LoRA_dreambooth_prefs['lr_num_cycles'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_num_cycles', ptype='int'), width = 160))
     lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=LoRA_dreambooth_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
     seed = Tooltip(message="0 or -1 for Random. Pick any number.", content=TextField(label="Seed", value=LoRA_dreambooth_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160))
-    save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_dreambooth_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
-    save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switcher(label="Save Model to HuggingFace    ", value=LoRA_dreambooth_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
+    #save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_dreambooth_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
+    save_model = Switcher(label="Save Model to HuggingFace", value=LoRA_dreambooth_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save, tooltip="Requires WRITE access on API Key to Upload Checkpoint")
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_dreambooth_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_dreambooth_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     readme_description = TextField(label="Extra README Description", value=LoRA_dreambooth_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
@@ -14377,7 +14578,7 @@ def get_SDXL(page):
 
 def get_SDXL_pipe(task="text2image"):
   global pipe_SDXL, pipe_SDXL_refiner, prefs, status
-  from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline
+  from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, AutoencoderKL
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   try:
       from imwatermark import WatermarkEncoder
@@ -14388,6 +14589,7 @@ def get_SDXL_pipe(task="text2image"):
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-0.9"
   if task != status['loaded_SDXL']:
       clear_pipes()
+  vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16, force_upcast=False)
   if task ==" text2image":
       status['loaded_SDXL'] = task
       if pipe_SDXL is not None:
@@ -14407,6 +14609,7 @@ def get_SDXL_pipe(task="text2image"):
       if prefs['higher_vram_mode']:
           pipe_SDXL.to(torch_device)
       else:
+          pipe_SDXL.vae = vae
           pipe_SDXL.enable_model_cpu_offload()
       if prefs['enable_torch_compile']:
           pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
@@ -14425,6 +14628,7 @@ def get_SDXL_pipe(task="text2image"):
       if prefs['higher_vram_mode']:
           pipe_SDXL_refiner.to(torch_device)
       else:
+          pipe_SDXL_refiner.vae = vae
           pipe_SDXL_refiner.enable_model_cpu_offload()
       if prefs['enable_torch_compile']:
           pipe_SDXL_refiner.unet = torch.compile(pipe_SDXL_refiner.unet, mode="reduce-overhead", fullgraph=True)
@@ -22796,9 +23000,10 @@ def run_LoRA_dreambooth(page):
     name_of_your_model = LoRA_dreambooth_prefs['name_of_your_model']
     from argparse import Namespace
     LoRA_dreambooth_args = Namespace(
-        pretrained_model_name_or_path=model_path,
+        pretrained_model_name_or_path=model_path if not LoRA_dreambooth_prefs['use_SDXL'] else "diffusers/stable-diffusion-xl-base-0.9",
         resolution=LoRA_dreambooth_prefs['resolution'],
         center_crop=True,
+        mixed_precision="fp16",
         #train_data_dir=save_path,
         #caption_column=LoRA_dreambooth_prefs['instance_prompt'].strip(),
         instance_data_dir=save_path,
@@ -22830,7 +23035,10 @@ def run_LoRA_dreambooth(page):
     )
     output_dir = LoRA_dreambooth_args.output_dir
     if not os.path.exists(os.path.join(root_dir, "LoRA-model")): os.makedirs(os.path.join(root_dir, "LoRA-model"))
-    arg_str = "launch train_dreambooth_lora.py"
+    if LoRA_dreambooth_prefs['use_SDXL']:
+      arg_str = "launch train_dreambooth_lora_sdxl.py"
+    else:
+      arg_str = "launch train_dreambooth_lora.py"
     #arg_str = 'accelerate --mixed_precision="fp16" launch train_text_to_image_lora.py'
     for k, v in vars(LoRA_dreambooth_args).items():
       if isinstance(v, str):
@@ -28808,6 +29016,224 @@ def run_roop(page):
     else:
         prt("Error Generating Output File! A NSFW Image may have been detected.")
     prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_animate_diff(page):
+    global animate_diff_prefs, prefs, status, pipe_animate_diff, model_path
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.AnimateDiff.controls.append(line)
+      page.AnimateDiff.update()
+    def clear_last():
+      del page.AnimateDiff.controls[-1]
+      page.AnimateDiff.update()
+    def autoscroll(scroll=True):
+      page.AnimateDiff.auto_scroll = scroll
+      page.AnimateDiff.update()
+    def clear_list():
+      page.AnimateDiff.controls = page.AnimateDiff.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = animate_diff_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing AnimateDiff Requirements...")
+    prt(installer)
+    animatediff_dir = os.path.join(root_dir, 'animatediff')
+    if not os.path.exists(animatediff_dir):
+        installer.set_details("...clone guoyww/animatediff")
+        run_process("git clone -b v1.0 https://github.com/guoyww/animatediff", page=page, cwd=root_dir)
+        run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
+    try:
+        import omegaconf
+    except Exception:
+        installer.set_details("...installing omegaconf & einops")
+        run_sp("pip install omegaconf einops", realtime=False)
+        pass
+    try:
+        import xformers
+    except ModuleNotFoundError:
+        installer.set_details("...installing FaceBook's Xformers")
+        run_sp("pip install --pre -U triton", realtime=False)
+        run_sp("pip install -U xformers", realtime=False)
+        status['installed_xformers'] = True
+        pass
+    run_sp("apt -y install -qq aria2", realtime=False)
+    sd_models = os.path.join(animatediff_dir, 'models', 'StableDiffusion')
+    motion_module = os.path.join(animatediff_dir, 'models', 'Motion_Module')
+    prompts
+    run_sp(f"rm -rf {sd_models}", realtime=False)
+    run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
+    run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt -d {motion_module} -o mm_sd_v14.ckpt", realtime=False)
+    run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt -d {motion_module} -o mm_sd_v15.ckpt", realtime=False)
+    lora_model = {'name': 'None', 'file': '', 'path': ''}
+    lora_dir = os.path.join(animatediff_dir, 'models', 'DreamBooth_LoRA')
+    lora_path = ""
+    if animate_diff_prefs['dreambooth_lora'] != "None":
+        for lora in animate_diff_loras:
+            if lora['name'] == animate_diff_prefs['dreambooth_lora']:
+                lora_model = lora
+                break
+        lora_path = os.path.join(lora_dir, lora_model['file'])
+        if not os.path.isfile(lora_path):
+            installer.set_details(f"...downloading {lora_model['name']}")
+            run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M {lora_model['path']} -d {lora_dir} -o {lora_model['file']}", realtime=False)
+            
+    clear_pipes()
+
+    clear_last()
+    prt("Generating AnimateDiff of your Prompts...")
+    prt(progress)
+    autoscroll(False)
+    batch_output = os.path.join(stable_dir, animate_diff_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    editing_prompts = []
+    negative_prompts = []
+    seeds = []
+    
+    for ep in animate_diff_prefs['editing_prompts']:
+        editing_prompts.append(ep['prompt'])
+        negative_prompts.append(ep['negative_prompt'])
+        random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
+        seeds.append(random_seed)
+    prompts_yaml = f'''
+NewModel:
+  path: "{lora_path}"
+  base: ""
+
+  motion_module:
+    - "{os.path.join(motion_module, "mm_sd_v14.ckpt")}
+    - "{os.path.join(motion_module, "mm_sd_v15.ckpt")}
+    
+  seeds:          [{", ".join(seeds)}]
+  steps:          {int(animate_diff_prefs['steps'])}
+  guidance_scale: {float(animate_diff_prefs['guidance_scale'])}
+
+  prompt:
+'''
+    for p in editing_prompts:
+        prompts_yaml += f'''
+    - "{p}"
+'''
+    prompts_yaml += f'''
+  n_prompt:
+'''
+    for n in negative_prompts:
+        prompts_yaml += f'''
+    - "{n}"
+'''
+    yaml_file = os.path.join(animatediff_dir, "configs", "prompts", "prompt.yaml")
+    prompts_file = open(yaml_file, "w")
+    prompts_file.write(prompts_yaml)#(readme_text)
+    prompts_file.close()
+    cmd = f"python -m scripts.animate --config {yaml_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
+    cmd += f" --L {animate_diff_prefs['video_length']} --W {animate_diff_prefs['width']} --H {animate_diff_prefs['height']}"
+    
+    try:
+        run_sp(cmd, cwd=animatediff_dir, realtime=True)
+      #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
+      #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+    except Exception as e:
+      clear_last()
+      alert_msg(page, f"ERROR: Couldn't AnimateDiff your image for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    clear_last()
+    clear_last()
+    filename = f"{format_filename(editing_prompts[0]['prompt'])}"
+    #filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    num = 0
+    
+    '''
+    for image in images:
+        random_seed += num
+        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+        image_path = available_file(os.path.join(stable_dir, animate_diff_prefs['batch_folder_name']), fname, num)
+        unscaled_path = image_path
+        output_file = image_path.rpartition(slash)[2]
+        image.save(image_path)
+        out_path = image_path.rpartition(slash)[0]
+        upscaled_path = os.path.join(out_path, output_file)
+        if not animate_diff_prefs['display_upscaled_image'] or not animate_diff_prefs['apply_ESRGAN_upscale']:
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+        if animate_diff_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{num}.png'
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+            #print(f'Moving {fpath} to {dst_path}')
+            #shutil.move(fpath, dst_path)
+            shutil.copy(image_path, dst_path)
+            #faceenhance = ' --face_enhance' if animate_diff_prefs["face_enhance"] else ''
+            faceenhance = ''
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {animate_diff_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            image_path = upscaled_path
+            os.chdir(stable_dir)
+            if animate_diff_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(animate_diff_prefs["enlarge_scale"]), height=height * float(animate_diff_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if prefs['save_image_metadata']:
+            img = PILImage.open(image_path)
+            metadata = PngInfo()
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+            metadata.add_text("copyright", prefs['meta_Copyright'])
+            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {animate_diff_prefs['enlarge_scale']}x with ESRGAN" if animate_diff_prefs['apply_ESRGAN_upscale'] else "")
+            metadata.add_text("pipeline", "AnimateDiff")
+            if prefs['save_config_in_metadata']:
+              config_json = animate_diff_prefs.copy()
+              config_json['model_path'] = model_path
+              config_json['scheduler_mode'] = prefs['scheduler_mode']
+              config_json['seed'] = random_seed
+              del config_json['num_images']
+              del config_json['width']
+              del config_json['height']
+              del config_json['display_upscaled_image']
+              del config_json['batch_folder_name']
+              if not config_json['apply_ESRGAN_upscale']:
+                del config_json['enlarge_scale']
+                del config_json['apply_ESRGAN_upscale']
+              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+            img.save(image_path, pnginfo=metadata)
+        #TODO: PyDrive
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        num += 1
+        '''
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
