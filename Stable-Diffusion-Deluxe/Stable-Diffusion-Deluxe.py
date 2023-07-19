@@ -85,11 +85,16 @@ def ng():
   _ng = rnd.choice(ng_list).partition('_')
   return _ng[2]+_ng[1]+_ng[0]
 
-def download_file(url, to=None):
-    local_filename = url.split('/')[-1]
-    if '?' in local_filename:
-        local_filename = local_filename.rpartition('?')[0]
+def download_file(url, to=None, filename=None):
+    if filename != None:
+        local_filename = filename
+    else:
+        local_filename = url.split('/')[-1]
+        if '?' in local_filename:
+            local_filename = local_filename.rpartition('?')[0]
     local_filename = os.path.join(to if to != None else root_dir, local_filename)
+    if os.path.isfile(local_filename):
+        return local_filename
     with requests.get(url, stream=True) as r:
         with open(local_filename, 'wb') as f:
             shutil.copyfileobj(r.raw, f)
@@ -13762,16 +13767,16 @@ def get_diffusers(page):
         #if install_xformers(page):
         status['installed_xformers'] = True
     run_sp("pip install --no-deps invisible-watermark>=0.2.0", realtime=False)
-    try:
+    '''try:
         import accelerate
     except ModuleNotFoundError:
         page.console_msg("Installing Hugging Face Accelerate Package...")
-        run_process("pip install --upgrade accelerate~=0.18 -q", page=page)
+        run_process("pip install --upgrade accelerate -q", page=page) #~=0.18
         #run_process("pip install --upgrade git+https://github.com/huggingface/accelerate.git -q", page=page)
         #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
         from accelerate.utils import write_basic_config
         #write_basic_config(mixed_precision='fp16')
-        pass
+        pass'''
     page.console_msg("Installing Hugging Face Diffusers Pipeline...")
     try:
         import transformers
@@ -14589,8 +14594,9 @@ def get_SDXL_pipe(task="text2image"):
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-0.9"
   if task != status['loaded_SDXL']:
       clear_pipes()
+  low_ram = int(status['cpu_memory']) <= 12
   vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16, force_upcast=False)
-  if task ==" text2image":
+  if task == "text2image":
       status['loaded_SDXL'] = task
       if pipe_SDXL is not None:
           if prefs['scheduler_mode'] != status['loaded_scheduler']:
@@ -14601,15 +14607,16 @@ def get_SDXL_pipe(task="text2image"):
       pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
           model_id,
           variant="fp16",
-          torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
+          torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
+          vae=vae,
           use_safetensors=True,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode']:
+      if prefs['higher_vram_mode'] or low_ram:
           pipe_SDXL.to(torch_device)
       else:
-          pipe_SDXL.vae = vae
+          #pipe_SDXL.vae = vae
           pipe_SDXL.enable_model_cpu_offload()
       if prefs['enable_torch_compile']:
           pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
@@ -14621,14 +14628,14 @@ def get_SDXL_pipe(task="text2image"):
       pipe_SDXL.set_progress_bar_config(disable=True)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
           text_encoder_2=pipe_SDXL.text_encoder_2,
-          vae=pipe_SDXL.vae,
+          vae=vae,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode']:
+      if prefs['higher_vram_mode'] or low_ram:
           pipe_SDXL_refiner.to(torch_device)
       else:
-          pipe_SDXL_refiner.vae = vae
+          #pipe_SDXL_refiner.vae = vae
           pipe_SDXL_refiner.enable_model_cpu_offload()
       if prefs['enable_torch_compile']:
           pipe_SDXL_refiner.unet = torch.compile(pipe_SDXL_refiner.unet, mode="reduce-overhead", fullgraph=True)
@@ -14648,7 +14655,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode']:
+      if prefs['higher_vram_mode'] or low_ram:
           pipe_SDXL_refiner.to(torch_device)
       else:
           pipe_SDXL_refiner.enable_model_cpu_offload()
@@ -14671,7 +14678,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode']:
+      if prefs['higher_vram_mode'] or low_ram:
           pipe_SDXL.to(torch_device)
       else:
           pipe_SDXL.enable_model_cpu_offload()
@@ -14690,7 +14697,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode']:
+      if prefs['higher_vram_mode'] or low_ram:
           pipe_SDXL_refiner.to(torch_device)
       else:
           pipe_SDXL_refiner.enable_model_cpu_offload()
@@ -15417,7 +15424,7 @@ def get_conceptualizer(page):
 def flush():
     gc.collect()
     torch.cuda.empty_cache()
-    torch.cuda.clear_autocast_cache()
+    #torch.cuda.clear_autocast_cache()
 
 def clear_img2img_pipe():
   global pipe_img2img
@@ -15936,8 +15943,8 @@ def start_diffusion(page):
       pass
 # Why getting Exception: control with ID '_3607' not found when re-running after error
   #page.Images.content.controls = []
-  if int(status['cpu_memory']) <= 12 and prefs['use_SDXL'] and status['installed_SDXL'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run SD XL with ESRGAN Upscale. Either Change runtime type to High-RAM mode and restart or disable Upscaling.")
+  if int(status['cpu_memory']) <= 8 and prefs['use_SDXL'] and status['installed_SDXL']: # and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run SD XL. Either Change runtime type to High-RAM mode and restart or use other pipelines.")
       return
   clear_image_output()
   #pb = ProgressBar(bar_height=8)
@@ -16621,7 +16628,9 @@ def start_diffusion(page):
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Inpainting"
                 high_noise_frac = 0.7
+                total_steps = arg['steps'] * high_noise_frac
                 image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                total_steps = arg['steps'] * (1 - high_noise_frac)
                 images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
@@ -16706,6 +16715,7 @@ def start_diffusion(page):
               #init_image = preprocess(init_img)
               #white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
               prt(pb)
+              time.sleep(0.4)
               page.auto_scrolling(False)
               #with autocast("cuda"):
               #images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -16772,7 +16782,7 @@ def start_diffusion(page):
                 clear_pipes("SDXL")
                 if pipe_SDXL is None:
                   prt(Installing("Initializing Stable Diffusion XL Pipeline..."))
-                  pipe_SDXL = get_SDXL_pipe()
+                  get_SDXL_pipe("text2image")
                   clear_last()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion")
@@ -16836,7 +16846,9 @@ def start_diffusion(page):
                 pipe_used = "Stable Diffusion XL Text-to-Image"
                 high_noise_frac = 0.7
                 #TODO: Figure out batch num_images_per_prompt + option to not refine , image[None, :]
+                total_steps = arg['steps'] * high_noise_frac
                 image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                total_steps = arg['steps'] * (1 -high_noise_frac)
                 images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -29055,7 +29067,7 @@ def run_animate_diff(page):
     animatediff_dir = os.path.join(root_dir, 'animatediff')
     if not os.path.exists(animatediff_dir):
         installer.set_details("...clone guoyww/animatediff")
-        run_process("git clone -b v1.0 https://github.com/guoyww/animatediff", page=page, cwd=root_dir)
+        run_sp("git clone https://github.com/guoyww/animatediff", realtime=False, cwd=root_dir)
         run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
     try:
         import omegaconf
@@ -29064,10 +29076,16 @@ def run_animate_diff(page):
         run_sp("pip install omegaconf einops", realtime=False)
         pass
     try:
+        import cudatoolkit
+    except Exception:
+        installer.set_details("...installing cudatoolkit")
+        run_sp("pip install cudatoolkit", realtime=False) #=11.3
+        pass
+    try:
         import xformers
     except ModuleNotFoundError:
         installer.set_details("...installing FaceBook's Xformers")
-        run_sp("pip install --pre -U triton", realtime=False)
+        #run_sp("pip install --pre -U triton", realtime=False)
         run_sp("pip install -U xformers", realtime=False)
         status['installed_xformers'] = True
         pass
@@ -29076,9 +29094,14 @@ def run_animate_diff(page):
     motion_module = os.path.join(animatediff_dir, 'models', 'Motion_Module')
     prompts
     run_sp(f"rm -rf {sd_models}", realtime=False)
+    installer.set_details("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
-    run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt -d {motion_module} -o mm_sd_v14.ckpt", realtime=False)
-    run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt -d {motion_module} -o mm_sd_v15.ckpt", realtime=False)
+    installer.set_details("...downloading motion_module-v1-4")
+    download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
+    installer.set_details("...downloading motion_module-v1-5")
+    download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
+    #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt -d {motion_module} -o mm_sd_v14.ckpt", realtime=False)
+    #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt -d {motion_module} -o mm_sd_v15.ckpt", realtime=False)
     lora_model = {'name': 'None', 'file': '', 'path': ''}
     lora_dir = os.path.join(animatediff_dir, 'models', 'DreamBooth_LoRA')
     lora_path = ""
@@ -29090,17 +29113,20 @@ def run_animate_diff(page):
         lora_path = os.path.join(lora_dir, lora_model['file'])
         if not os.path.isfile(lora_path):
             installer.set_details(f"...downloading {lora_model['name']}")
-            run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M {lora_model['path']} -d {lora_dir} -o {lora_model['file']}", realtime=False)
+            download_file(lora_model['path'], to=lora_dir)
+            #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M {lora_model['path']} -d {lora_dir} -o {lora_model['file']}", realtime=False)
             
     clear_pipes()
 
     clear_last()
     prt("Generating AnimateDiff of your Prompts...")
     prt(progress)
+    time.sleep(0.6)
     autoscroll(False)
-    batch_output = os.path.join(stable_dir, animate_diff_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    samples_dir = os.path.join(animatediff_dir, 'samples')
+    #batch_output = os.path.join(stable_dir, animate_diff_prefs['batch_folder_name'])
+    #if not os.path.isdir(batch_output):
+    #  os.makedirs(batch_output)
     batch_output = os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
@@ -29122,7 +29148,7 @@ NewModel:
     - "{os.path.join(motion_module, "mm_sd_v14.ckpt")}
     - "{os.path.join(motion_module, "mm_sd_v15.ckpt")}
     
-  seeds:          [{", ".join(seeds)}]
+  seeds:          [{", ".join(map(str, seeds))}]
   steps:          {int(animate_diff_prefs['steps'])}
   guidance_scale: {float(animate_diff_prefs['guidance_scale'])}
 
@@ -29130,15 +29156,12 @@ NewModel:
 '''
     for p in editing_prompts:
         prompts_yaml += f'''
-    - "{p}"
-'''
+    - "{p}"'''
     prompts_yaml += f'''
-  n_prompt:
-'''
+  n_prompt:'''
     for n in negative_prompts:
         prompts_yaml += f'''
-    - "{n}"
-'''
+    - "{n}"'''
     yaml_file = os.path.join(animatediff_dir, "configs", "prompts", "prompt.yaml")
     prompts_file = open(yaml_file, "w")
     prompts_file.write(prompts_yaml)#(readme_text)
@@ -29156,7 +29179,7 @@ NewModel:
       return
     clear_last()
     clear_last()
-    filename = f"{format_filename(editing_prompts[0]['prompt'])}"
+    #filename = f"{format_filename(editing_prompts[0]['prompt'])}"
     #filename = filename[:int(prefs['file_max_length'])]
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
     autoscroll(True)
