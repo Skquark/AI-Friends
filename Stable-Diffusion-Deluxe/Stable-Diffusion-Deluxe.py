@@ -277,6 +277,7 @@ def load_settings_file():
       'safety_config': 'Strong',
       'use_imagic': False,
       'use_SDXL': False,
+      'SDXL_high_noise_frac': 0.7,
       'use_composable': False,
       'use_safe': False,
       'use_versatile': False,
@@ -854,6 +855,7 @@ if 'use_SAG' not in prefs: prefs['use_SAG'] = False
 if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
 if 'install_SDXL' not in prefs: prefs['install_SDXL'] = False
 if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
+if 'SDXL_high_noise_frac' not in prefs: prefs['SDXL_high_noise_frac'] = 0.7
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] = False
@@ -1412,6 +1414,8 @@ def buildInstallers(page):
           page.img_block.update()
           page.use_SDXL.visible = True
           page.use_SDXL.update()
+          page.SDXL_params.visible = True
+          page.SDXL_params.update()
       if prefs['install_alt_diffusion'] and prefs['install_diffusers']:
         console_msg("Installing AltDiffusion Text2Image & Image2Image Pipeline...")
         get_alt_diffusion(page)
@@ -1848,6 +1852,10 @@ def buildParameters(page):
       strength_value.update()
       guidance.update()
       changed(e, 'init_image_strength')
+  def toggle_SDXL(e):
+      changed(e,'use_SDXL', apply=False)
+      page.SDXL_params.height = None if e.control.value else 0
+      page.SDXL_params.update()
   def toggle_conceptualizer(e):
       if e.control.value:
         page.img_block.height = 0
@@ -1895,8 +1903,10 @@ def buildParameters(page):
   init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=prefs['init_image_strength'], on_change=change_strength, expand=True)
   strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight=FontWeight.BOLD)
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
-  page.use_SDXL = Switcher(label="Use Stable Diffusion XL Model/Pipeline Instead", tooltip="The latest SDXL base model, with img2img Refiner. It's tasty..", value=prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL', apply=False))
+  page.use_SDXL = Switcher(label="Use Stable Diffusion XL Model/Pipeline Instead", tooltip="The latest SDXL base model, with img2img Refiner. It's tasty..", value=prefs['use_SDXL'], on_change=toggle_SDXL)
   page.use_SDXL.visible = status['installed_SDXL']
+  SDXL_high_noise_frac = SliderRow(label="SDXL High Noise Fraction", min=0, max=1, divisions=20, round=1, pref=prefs, key='SDXL_high_noise_frac', tooltip="Percentage of Steps to use Base model, then Refiner model. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac'))
+  page.SDXL_params = Container(Column([SDXL_high_noise_frac]), padding=padding.only(top=5, left=10), height=None if prefs['use_SDXL'] else 0, visible=status['installed_SDXL'], animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.use_inpaint_model = Switcher(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], on_change=lambda e:changed(e,'use_inpaint_model', apply=False))
   page.use_inpaint_model.visible = status['installed_img2img']
   page.use_alt_diffusion = Switcher(label="Use AltDiffusion Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Supports 9 different languages for text2image & image2image")
@@ -2019,7 +2029,7 @@ def buildParameters(page):
         guidance,
         eta,
         width_slider, height_slider, #Divider(height=9, thickness=2),
-        page.interpolation_block, page.img_block, page.use_safe, page.use_SDXL, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
+        page.interpolation_block, page.img_block, page.use_safe, page.use_SDXL, page.SDXL_params, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
         Row([use_LoRA_model, LoRA_block]), page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
         #parameters_row,
@@ -16044,8 +16054,8 @@ def start_diffusion(page):
       else: prt(f"Unknown object {type(p)} in the prompt list")
       if arg['batch_size'] > 1:
         pr = [pr] * arg['batch_size']
-        if bool(arg['negative_prompt']):
-          arg['negative_prompt'] = [arg['negative_prompt']] * arg['batch_size']
+        #if bool(arg['negative_prompt']):
+        arg['negative_prompt'] = [arg['negative_prompt']] * arg['batch_size']
       if last_seed != arg['seed']:
         if arg['seed'] < 1 or arg['seed'] is None:
           rand_seed = random.randint(0,2147483647)
@@ -16623,10 +16633,10 @@ def start_diffusion(page):
                 images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Inpainting"
-                high_noise_frac = 0.7
-                total_steps = arg['steps'] * high_noise_frac
+                high_noise_frac = prefs['SDXL_high_noise_frac']
+                total_steps = int(arg['steps'] * high_noise_frac)
                 image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
-                total_steps = arg['steps'] * (1 - high_noise_frac)
+                total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
@@ -16840,11 +16850,13 @@ def start_diffusion(page):
                 images = pipe_composable(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], weights=weights, generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Text-to-Image"
-                high_noise_frac = 0.7
-                #TODO: Figure out batch num_images_per_prompt + option to not refine , image[None, :]
-                total_steps = arg['steps'] * high_noise_frac
+                if arg['batch_size'] > 1:
+                    neg_prompts = [arg['negative_prompt']] * 3
+                high_noise_frac = prefs['SDXL_high_noise_frac']
+                #TODO: Figure out batch num_images_per_prompt + option to not refine , image[None, :] , num_images_per_prompt=arg['batch_size']
+                total_steps = int(arg['steps'] * high_noise_frac)
                 image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
-                total_steps = arg['steps'] * (1 -high_noise_frac)
+                total_steps = int(arg['steps'] * (1 -high_noise_frac))
                 images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -17364,7 +17376,7 @@ def run_prompt_generator(page):
   except:
     page.prompt_generator_list.controls.append(Installing("Installing OpenAI Library..."))
     page.prompt_generator_list.update()
-    run_sp("pip install --upgrade openai")
+    run_sp("pip install --upgrade openai", realtime=False)
     import openai
     del page.prompt_generator_list.controls[-1]
     page.prompt_generator_list.update()
@@ -30500,6 +30512,9 @@ def run_kandinsky(page, from_list=False, with_params=False):
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
+    if int(status['cpu_memory']) <= 12:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 2.2 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
+      return
     kandinsky_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -31011,6 +31026,9 @@ def run_kandinsky_fuse(page):
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
+    if int(status['cpu_memory']) <= 12:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 2.2 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
+      return
     if len(kandinsky_fuse_prefs['mixes']) < 1:
       alert_msg(page, "You must provide layers to fuse to process your image generation...")
       return
@@ -31350,6 +31368,9 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
     global kandinsky_controlnet_prefs, pipe_kandinsky, pipe_kandinsky_controlnet_prior, prefs, loaded_kandinsky_task, depth_estimator
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if int(status['cpu_memory']) <= 12:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 2.2 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
       return
     kandinsky_controlnet_prompts = []
     if from_list:
