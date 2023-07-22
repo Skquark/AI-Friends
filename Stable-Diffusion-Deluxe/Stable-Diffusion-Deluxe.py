@@ -2641,7 +2641,7 @@ def buildPromptsList(page):
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   copy_prompts_button = IconButton(icons.COPY_ALL, tooltip="Save Prompts as Plain-Text List", on_click=copy_prompts)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Load Prompts from Plain-Text List", on_click=paste_prompts)
-  prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True), add_prompt_button])
+  prompt_row = Row([ResponsiveRow([prompt_text, negative_prompt_text], expand=True, vertical_alignment=CrossAxisAlignment.START), add_prompt_button])
   #diffuse_prompts_button = ElevatedButton(content=Text(value="▶️    Run Diffusion on Prompts ", size=20), on_click=run_diffusion)
   clear_prompts_button = ElevatedButton(content=Text("❌   Clear Prompts List", size=18), on_click=clear_list)
   prompts_buttons = Row([clear_prompts_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
@@ -8989,7 +8989,8 @@ def buildAnimateDiff(page):
                         s = animate_diff_prompt
                         break
                 for t in page.animate_diff_prompts.controls:
-                    if t.data['prompt'] == edit_prompt:
+                    #print(f"{t.data['prompt']} == {edit_prompt} - {t.title.value}")
+                    if t.title.value == edit_prompt: #t.data['prompt']
                         params = []
                         for k, v in animate_diff_prompt.items():
                             if k == 'prompt': continue
@@ -9000,20 +9001,23 @@ def buildAnimateDiff(page):
                         t.data = animate_diff_prompt
                         t.update()
                         break
-            dlg_edit.open = False
-            e.control.update()
-            page.update()
+                dlg_edit.open = False
+                e.control.update()
+                page.update()
         animate_diff_editing_prompt = TextField(label="AnimateDiff Prompt Modifier", value=animate_diff_prompt['prompt'], autofocus=True, on_change=lambda e:changed_p(e,'prompt'))
         animate_diff_negative_prompt = TextField(label="Negative Prompt", value=animate_diff_prompt['negative_prompt'], autofocus=True, on_change=lambda e:changed_p(e,'negative_prompt'))
         animate_diff_seed = TextField(label="Seed", width=90, value=str(animate_diff_prompt['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed_p(e,'seed'), col={'md':1})
         #reverse_editing_direction = Checkbox(label="Reverse Editing Direction", value=animate_diff_prompt['reverse_editing_direction'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed_p(e,'reverse_editing_direction'), tooltip="Whether the corresponding prompt in `editing_prompt` should be increased or decreased.")
-        dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Semantic Prompt"), content=Container(Column([
-            animate_diff_editing_prompt,
-            animate_diff_negative_prompt, animate_diff_seed,
-        ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_animate_diff_prompt)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = dlg_edit
-        dlg_edit.open = True
-        page.update()
+        if edit != None:
+            dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Animated Prompt"), content=Container(Column([
+                animate_diff_editing_prompt,
+                animate_diff_negative_prompt, animate_diff_seed,
+            ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_animate_diff_prompt)], actions_alignment=MainAxisAlignment.END)
+            page.dialog = dlg_edit
+            dlg_edit.open = True
+            page.update()
+        else:
+            save_animate_diff_prompt(None)
     def del_animate_diff(edit=None):
         for s in animate_diff_prefs['editing_prompts']:
             if s['prompt'] == edit['prompt']:
@@ -9056,7 +9060,7 @@ def buildAnimateDiff(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👫  AnimateDiff - Under Construction but should mostly work", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
+        Header("👫  AnimateDiff - Under Construction but almost works", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt, seed]),
         Row([Text("Animation Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
@@ -14192,6 +14196,40 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
     status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
 
+def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False):
+    global prefs, status
+    low_ram = int(status['cpu_memory']) <= 12
+    to_gpu = True
+    if model_offload and not low_ram:
+      p.enable_model_cpu_offload()
+      to_gpu = False
+    elif prefs['sequential_cpu_offload'] and not no_cpu:
+      p.enable_sequential_cpu_offload()
+      to_gpu = False
+    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention' and status['installed_xformers']:
+      #p.set_use_memory_efficient_attention_xformers(True)
+      p.enable_xformers_memory_efficient_attention()
+    if prefs['vae_slicing'] and vae:
+      p.enable_vae_slicing()
+    if prefs['vae_tiling'] and vae_tiling:
+      p.enable_vae_tiling()
+    if prefs['use_LoRA_model']:
+      lora = get_LoRA_model(prefs['LoRA_model'])
+      p.load_lora_weights(lora['path'])
+      #TODO: , weight_name=lora_filename
+      #p.unet.load_attn_procs(lora['path'])
+    #if to_gpu and not (prefs['enable_torch_compile'] and torch_compile) and not model_offload:
+    if prefs['enable_torch_compile'] and torch_compile:
+      #p.unet.to(memory_format=torch.channels_last)
+      p.unet = torch.compile(p.unet, mode="reduce-overhead", fullgraph=True)
+    if to_gpu:
+      p = p.to(torch_device)
+    p = pipeline_scheduler(p)
+    status['loaded_scheduler'] = prefs['scheduler_mode']
+    status['loaded_model'] = "stabilityai/stable-diffusion-xl-base-0.9" #get_model(prefs['model_ckpt'])['path']
+    p.set_progress_bar_config(disable=True)
+    return p
+
 def install_xformers(page):
     ''' No longer needed, they finally updated to make it easier'''
     run_process("pip install -U --pre trito", page=page)
@@ -14595,7 +14633,7 @@ def get_SDXL_pipe(task="text2image"):
   if task != status['loaded_SDXL']:
       clear_pipes()
   low_ram = int(status['cpu_memory']) <= 12
-  vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16, force_upcast=False)
+  vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae", torch_dtype=torch.float16, force_upcast=False)
   if task == "text2image":
       status['loaded_SDXL'] = task
       if pipe_SDXL is not None:
@@ -14613,35 +14651,15 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode'] or low_ram:
-          pipe_SDXL.to(torch_device)
-      else:
-          #pipe_SDXL.vae = vae
-          pipe_SDXL.enable_model_cpu_offload()
-      if prefs['enable_torch_compile']:
-          pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
-      pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-      #pipe_SDXL = optimize_pipe(pipe_SDXL, model_offload=not prefs['higher_vram_mode'])
-      if prefs['use_LoRA_model']:
-          lora = get_LoRA_model(prefs['LoRA_model'])
-          pipe_SDXL.load_lora_weights(lora['path'])
-      pipe_SDXL.set_progress_bar_config(disable=True)
+      pipe_SDXL = optimize_SDXL(pipe_SDXL)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
           text_encoder_2=pipe_SDXL.text_encoder_2,
           vae=vae,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode'] or low_ram:
-          pipe_SDXL_refiner.to(torch_device)
-      else:
-          #pipe_SDXL_refiner.vae = vae
-          pipe_SDXL_refiner.enable_model_cpu_offload()
-      if prefs['enable_torch_compile']:
-          pipe_SDXL_refiner.unet = torch.compile(pipe_SDXL_refiner.unet, mode="reduce-overhead", fullgraph=True)
-      pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
-      #pipe_SDXL_refiner = optimize_pipe(pipe_SDXL_refiner, model_offload=not prefs['higher_vram_mode'])
-      pipe_SDXL_refiner.set_progress_bar_config(disable=True)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
+      
   elif task == "image2image":
       status['loaded_SDXL'] = task
       if pipe_SDXL_refiner is not None:
@@ -14655,15 +14673,8 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode'] or low_ram:
-          pipe_SDXL_refiner.to(torch_device)
-      else:
-          pipe_SDXL_refiner.enable_model_cpu_offload()
-      if prefs['enable_torch_compile']:
-          pipe_SDXL_refiner.unet = torch.compile(pipe_SDXL_refiner.unet, mode="reduce-overhead", fullgraph=True)
-      pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
-      #pipe_SDXL_refiner = optimize_pipe(pipe_SDXL_refiner, model_offload=not prefs['higher_vram_mode'])
-      pipe_SDXL_refiner.set_progress_bar_config(disable=True)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
+      
   elif task == "inpainting":
       status['loaded_SDXL'] = task
       from diffusers import StableDiffusionXLInpaintPipeline
@@ -14678,15 +14689,8 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode'] or low_ram:
-          pipe_SDXL.to(torch_device)
-      else:
-          pipe_SDXL.enable_model_cpu_offload()
-      if prefs['enable_torch_compile']:
-          pipe_SDXL.unet = torch.compile(pipe_SDXL.unet, mode="reduce-overhead", fullgraph=True)
-      pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-      #pipe_SDXL = optimize_pipe(pipe_SDXL_refiner, model_offload=not prefs['higher_vram_mode'])
-      pipe_SDXL.set_progress_bar_config(disable=True)
+      pipe_SDXL = optimize_SDXL(pipe_SDXL)
+
       pipe_SDXL_refiner = StableDiffusionXLInpaintPipeline.from_pretrained(
           refiner_id,
           text_encoder_2=pipe_SDXL.text_encoder_2,
@@ -14697,15 +14701,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
-      if prefs['higher_vram_mode'] or low_ram:
-          pipe_SDXL_refiner.to(torch_device)
-      else:
-          pipe_SDXL_refiner.enable_model_cpu_offload()
-      if prefs['enable_torch_compile']:
-          pipe_SDXL_refiner.unet = torch.compile(pipe_SDXL_refiner.unet, mode="reduce-overhead", fullgraph=True)
-      pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
-      #pipe_SDXL_refiner = optimize_pipe(pipe_SDXL_refiner, model_offload=not prefs['higher_vram_mode'])
-      pipe_SDXL_refiner.set_progress_bar_config(disable=True)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
   return pipe_SDXL
 
 def get_versatile(page):
@@ -26479,7 +26475,7 @@ def run_controlnet(page, from_list=False):
           pass
         from controlnet_aux import MLSDdetector
         from controlnet_aux import OpenposeDetector
-        from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
+        from diffusers import StableDiffusionControlNetPipeline, StableDiffusionXLControlNetPipeline, ControlNetModel
         #run_sp("pip install scikit-image", realtime=False)
     except Exception as e:
         clear_last()
@@ -26745,6 +26741,8 @@ def run_controlnet(page, from_list=False):
     model = get_model(prefs['model_ckpt'])
     model_path = model['path']
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
+        #if controlnet_prefs["use_SDXL"]:
+        #TODO: pipe_controlnet = StableDiffusionXLControlNetPipeline
         pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
         pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True)
@@ -30048,6 +30046,137 @@ def run_shap_e(page):
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
 
+pipe_shap_e = None
+def run_shap_e2(page):
+    global shap_e_prefs, pipe_shap_e, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.shap_e_output.controls.append(line)
+      page.shap_e_output.update()
+    def prt_status(text):
+        nonlocal status_txt
+        status_txt.value = text
+        status_txt.update()
+    def clear_last(update=True):
+      #page.shap_e_output.controls = []
+      del page.shap_e_output.controls[-1]
+      if update: page.shap_e_output.update()
+    if not bool(shap_e_prefs["prompt_text"].strip()):
+      alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
+      return
+    page.shap_e_output.controls = []
+    page.shap_e_output.update()
+    shap_e_dir = os.path.join(root_dir, "shap-e")
+    installer = Installing("Installing OpenAI Shap-E 3D Libraries...")
+    prt(installer)
+    from diffusers import DiffusionPipeline
+    from diffusers.utils import export_to_ply
+    repo = "openai/shap-e"
+    clear_pipes()
+    try:
+        pipe_shap_e = DiffusionPipeline.from_pretrained(repo, torch_dtype=torch.float16, variant="fp16")
+        pipe_shap_e = pipe_shap_e.to(torch_device)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error Installing Shap-E Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    from PIL import ImageOps
+    try:
+      import trimesh
+    except Exception:
+      run_sp("pip install trimesh", realtime=False)
+      import trimesh
+      pass
+    if bool(shap_e_prefs['prompt_text']):
+        fname = format_filename(shap_e_prefs['prompt_text'])
+    elif bool(shap_e_prefs['init_image']):
+        fname = format_filename(shap_e_prefs['init_image'].rpartition(slash)[1].rparition('.')[0])
+    elif bool(shap_e_prefs['batch_folder_name']):
+        fname = format_filename(shap_e_prefs['batch_folder_name'], force_underscore=True)
+    else:
+        alert_msg(page, "If you're not using Prompt Text, provide a name for your 3D Model.")
+        return
+
+    #filename = format_filename(shap_e_prefs['prompt_text'])
+    #fname = f"{shap_e_prefs['file_prefix']}{fname}"
+    shap_e_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'shap_e', shap_e_prefs['batch_folder_name'])
+    #if bool(shap_e_prefs['batch_folder_name']):
+    #    shap_e_out = os.path.join(shap_e_dir, shap_e_prefs['batch_folder_name'])
+    #else:
+    #    shap_e_out = shap_e_dir
+    if not os.path.exists(shap_e_out):
+        os.makedirs(shap_e_out)
+    #shap_e_out = os.path.join(shap_e_out, fname)
+    #estimate = convert(int(shap_e_prefs["training_iters"] * 0.7))
+    init_img = None
+    if bool(shap_e_prefs['init_image']):
+        if shap_e_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(shap_e_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(shap_e_prefs['init_image']):
+                init_img = PILImage.open(shap_e_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {shap_e_prefs['init_image']}")
+                if not bool(shap_e_prefs['prompt_text']):
+                    return
+        if init_img != None:
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, 512)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+
+    status_txt = Text("Generating your 3D model... See console for progress.")
+    progress = ProgressBar(bar_height=8)
+    total_steps = shap_e_prefs['karras_steps']
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
+    clear_last(update=False)
+    prt(status_txt)
+    prt(progress)
+    if init_img == None:
+        model_kwargs = dict(texts=[shap_e_prefs['prompt_text']] * shap_e_prefs['batch_size'])
+    else:
+        model_kwargs = dict(images=[init_img] * shap_e_prefs['batch_size'])
+    try:
+        images = pipe_shap_e(shap_e_prefs['prompt_text'], num_images_per_prompt=shap_e_prefs['batch_size'], guidance_scale=shap_e_prefs['guidance_scale'], num_inference_steps=shap_e_prefs['karras_steps'], frame_size=shap_e_prefs['size'], output_type="mesh").images
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error running Shap-E sample_latents.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    prt_status("Generating Shap-E 3D Models...") #images=[img]
+    step = 0
+    if shap_e_prefs['save_frames']:
+        imgs = []
+        for i, img in enumerate(images):
+            img_file = os.path.join(shap_e_out, f'{fname}_{i}.png')
+            img.save(img_file)
+            #imgs.append(imageio.imread(np.asarray(img)))
+    gif_file = os.path.join(shap_e_out, f'{fname}.gif')
+    ply_file = os.path.join(shap_e_out, f'{fname}.ply')
+    glb_file = os.path.join(shap_e_out, f'{fname}.glb')
+    #imageio.mimsave(gif_file, imgs, 'GIF', duration=100, loop=0)
+    images[0].save(gif_file, save_all=True, append_images=images[1:], duration=100, loop=0)
+
+    prt_status('Saving PLY mesh file...')
+    ply_path = export_to_ply(images[0], ply_file)
+    print(f"saved to folder: {ply_path}")
+    mesh = trimesh.load(ply_path)
+    mesh.export(glb_file, file_type="glb")
+    
+    flush()
+    clear_last(update=False)
+    clear_last(update=False)
+    prt(ImageButton(src=gif_file, width=shap_e_prefs['size'], height=shap_e_prefs['size'], data=gif_file, subtitle=pc_file, page=page))
+    prt("Finished generating Shap-E Mesh... Hope it's good.")
+    if prefs['enable_sounds']: page.snd_alert.play()
+    os.chdir(root_dir)
 
 def run_instant_ngp(page):
     global instant_ngp_prefs, prefs
