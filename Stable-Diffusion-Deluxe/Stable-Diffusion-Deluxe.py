@@ -8897,10 +8897,16 @@ animate_diff_prefs = {
     'guidance_scale': 7.5,
     'editing_prompts': [],
     'dreambooth_lora': 'None',
+    'lora_alpha': 0.8,
+    'custom_lora': '',
+    'motion_module': 'mm_sd_v15',
     'seed': 0,
     'video_length': 16,
     'width': 512,
     'height': 512,
+    'save_frames': True,
+    'save_video': True,
+    'save_gif': True,
     'num_images': 1,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -9052,9 +9058,11 @@ def buildAnimateDiff(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=animate_diff_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
+    motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=150, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("None")], value=animate_diff_prefs['dreambooth_lora'], on_change=lambda e: changed(e, 'dreambooth_lora'))
     for lora in animate_diff_loras:
         dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
+    lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     batch_folder_name = TextField(label="Batch Folder Name", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animate_diff_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -9081,7 +9089,8 @@ def buildAnimateDiff(page):
         guidance,
         width_slider, height_slider,
         video_length,
-        Row([dreambooth_lora, batch_folder_name]),
+        Row([dreambooth_lora, lora_alpha]),
+        Row([motion_module, batch_folder_name]),
         page.ESRGAN_block_animate_diff,
         #Row([jump_length, jump_n_sample, seed]),
         Row([
@@ -14242,7 +14251,7 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
 
 def install_xformers(page):
     ''' No longer needed, they finally updated to make it easier'''
-    run_process("pip install -U --pre trito", page=page)
+    run_process("pip install -U --pre triton", page=page)
     from subprocess import getoutput
 
     s = getoutput('nvidia-smi')
@@ -14669,7 +14678,7 @@ def get_SDXL_pipe(task="text2image"):
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
-      
+
   elif task == "image2image":
       status['loaded_SDXL'] = task
       if pipe_SDXL_refiner is not None:
@@ -14684,7 +14693,7 @@ def get_SDXL_pipe(task="text2image"):
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
-      
+
   elif task == "inpainting":
       status['loaded_SDXL'] = task
       from diffusers import StableDiffusionXLInpaintPipeline
@@ -29043,9 +29052,9 @@ def run_roop(page):
 
 def run_animate_diff(page):
     global animate_diff_prefs, prefs, status, pipe_animate_diff, model_path
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    #if not status['installed_diffusers']:
+    #  alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+    #  return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -29074,22 +29083,35 @@ def run_animate_diff(page):
     autoscroll(True)
     installer = Installing("Installing AnimateDiff Requirements...")
     prt(installer)
-    animatediff_dir = os.path.join(root_dir, 'animatediff')
+    animatediff_dir = os.path.join(root_dir, 'animatediff-cli')
     if not os.path.exists(animatediff_dir):
         installer.set_details("...clone guoyww/animatediff")
-        run_sp("git clone https://github.com/guoyww/animatediff", realtime=False, cwd=root_dir)
+        run_sp("git clone https://github.com/neggles/animatediff-cli", realtime=False, cwd=root_dir)
+        os.chdir(animatediff_dir)
         run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
+    try:
+        import diffusers
+    except ModuleNotFoundError:
+        installer.set_details("...installing diffusers")
+        run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+        pass
+    try:
+        import transformers
+    except ModuleNotFoundError:
+        installer.set_details("...installing transformers==4.30.2")
+        run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
+        pass
     try:
         import omegaconf
     except Exception:
         installer.set_details("...installing omegaconf & einops")
-        run_sp("pip install omegaconf einops", realtime=False)
+        run_sp("pip install omegaconf einops cmake", realtime=False)
         pass
     try:
-        import cudatoolkit
+        import colorama
     except Exception:
-        installer.set_details("...installing cudatoolkit")
-        run_sp("pip install cudatoolkit", realtime=False) #=11.3
+        installer.set_details("...installing colorama, rich, ninja")
+        run_sp("pip install colorama rich ninja pydantic shellingham typer", realtime=False) #=11.3
         pass
     try:
         import xformers
@@ -29099,21 +29121,73 @@ def run_animate_diff(page):
         run_sp("pip install -U xformers", realtime=False)
         status['installed_xformers'] = True
         pass
-    run_sp("apt -y install -qq aria2", realtime=False)
+    try:
+        import imageio
+    except Exception:
+        installer.set_details("...installing imageio")
+        run_sp("pip install imageio==2.27.0", realtime=False)
+        pass
+    try:
+        import ffmpeg
+    except ImportError as e:
+        installer.set_details("...installing ffmpeg")
+        run_sp("pip install -q ffmpeg-python", realtime=False)
+        pass
+    try:
+        import sentencepiece
+    except Exception:
+        installer.set_details("...installing sentencepiece")
+        run_sp("pip install sentencepiece>=0.1.99", realtime=False)
+        pass
+    try:
+        import safetensors
+    except ModuleNotFoundError:
+        installer.set_details("...installing safetensors")
+        run_process("pip install --upgrade safetensors", page=page)
+        import safetensors
+        from safetensors import safe_open
+        pass
+    try:
+        installer.set_details("...installing AnimateDiff Requirements")
+        run_sp("pip install -e '.[dev]'", cwd=animatediff_dir, realtime=True)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Couldn't Install AnimateDiff Requirements for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    try:
+        import watchdog
+    except ImportError as e:
+        installer.set_details("...installing watchdog")
+        run_sp("pip install -q watchdog", realtime=False)
+        pass
+    try:
+        from diffusers.modeling_utils import ModelMixin
+    except Exception:
+        print("Cannot see from diffusers.modeling_utils import ModelMixin")
+        pass
+    output_path = os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name'])
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    #run_sp("apt -y install -qq aria2", realtime=False)
     sd_models = os.path.join(animatediff_dir, 'models', 'StableDiffusion')
     motion_module = os.path.join(animatediff_dir, 'models', 'Motion_Module')
-    prompts
+    if not os.path.isdir(motion_module):
+        os.makedirs(motion_module)
     run_sp(f"rm -rf {sd_models}", realtime=False)
     installer.set_details("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
-    installer.set_details("...downloading motion_module-v1-4")
-    download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
-    installer.set_details("...downloading motion_module-v1-5")
-    download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
-    #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt -d {motion_module} -o mm_sd_v14.ckpt", realtime=False)
-    #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt -d {motion_module} -o mm_sd_v15.ckpt", realtime=False)
+    if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
+        installer.set_details("...downloading motion_module-v1-4")
+        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
+    if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
+        installer.set_details("...downloading motion_module-v1-5")
+        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
+    #sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': ''}
-    lora_dir = os.path.join(animatediff_dir, 'models', 'DreamBooth_LoRA')
+    lora_dir = os.path.join(animatediff_dir, 'data', 'models')
+    #lora_dir = os.path.join(animatediff_dir, 'models', 'DreamBooth_LoRA')
+    if not os.path.isdir(lora_dir):
+        os.makedirs(lora_dir)
     lora_path = ""
     if animate_diff_prefs['dreambooth_lora'] != "None":
         for lora in animate_diff_loras:
@@ -29125,13 +29199,12 @@ def run_animate_diff(page):
             installer.set_details(f"...downloading {lora_model['name']}")
             download_file(lora_model['path'], to=lora_dir)
             #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M {lora_model['path']} -d {lora_dir} -o {lora_model['file']}", realtime=False)
-            
-    clear_pipes()
 
+    clear_pipes()
     clear_last()
     prt("Generating AnimateDiff of your Prompts...")
     prt(progress)
-    time.sleep(0.6)
+    time.sleep(0.5)
     autoscroll(False)
     samples_dir = os.path.join(animatediff_dir, 'samples')
     #batch_output = os.path.join(stable_dir, animate_diff_prefs['batch_folder_name'])
@@ -29143,12 +29216,26 @@ def run_animate_diff(page):
     editing_prompts = []
     negative_prompts = []
     seeds = []
-    
+
     for ep in animate_diff_prefs['editing_prompts']:
         editing_prompts.append(ep['prompt'])
         negative_prompts.append(ep['negative_prompt'])
         random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
         seeds.append(random_seed)
+    prompts_json = {
+        'name': 'NewModel',
+        'path': lora_path,
+        'base': "",
+        'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
+        'seed': seeds,
+        'steps': int(animate_diff_prefs['steps']),
+        'guidance_scale': float(animate_diff_prefs['guidance_scale']),
+        #'lora_alpha': float(animate_diff_prefs['lora_alpha']),
+        'prompt': editing_prompts,
+        'n_prompt': negative_prompts,
+    }
+    #if bool(lora_path):
+    #    prompts_json['lora_alpha'] = animate_diff_prefs['lora_alpha']
     prompts_yaml = f'''
 NewModel:
   path: "{lora_path}"
@@ -29157,7 +29244,7 @@ NewModel:
   motion_module:
     - "{os.path.join(motion_module, "mm_sd_v14.ckpt")}
     - "{os.path.join(motion_module, "mm_sd_v15.ckpt")}
-    
+
   seeds:          [{", ".join(map(str, seeds))}]
   steps:          {int(animate_diff_prefs['steps'])}
   guidance_scale: {float(animate_diff_prefs['guidance_scale'])}
@@ -29172,29 +29259,82 @@ NewModel:
     for n in negative_prompts:
         prompts_yaml += f'''
     - "{n}"'''
-    yaml_file = os.path.join(animatediff_dir, "configs", "prompts", "prompt.yaml")
+    yaml_file = os.path.join(animatediff_dir, "config", "prompts", "prompt.yaml")
+    json_file = os.path.join(animatediff_dir, "config", "prompts", "prompt.json")
+    cli_file = os.path.join(animatediff_dir, "src", "animatediff")
+    out_dir = os.path.join(animatediff_dir, "output")
     prompts_file = open(yaml_file, "w")
     prompts_file.write(prompts_yaml)#(readme_text)
     prompts_file.close()
-    cmd = f"python -m scripts.animate --config {yaml_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
-    cmd += f" --L {animate_diff_prefs['video_length']} --W {animate_diff_prefs['width']} --H {animate_diff_prefs['height']}"
-    
+    with open(json_file, "w") as outfile:
+        json.dump(prompts_json, outfile, indent=4)
+    #cmd = f"python -m scripts.animate --config {yaml_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
+    cmd2 = f"python -m cli --config-path {json_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
+    cmd2 += f" --L {animate_diff_prefs['video_length']} --W {animate_diff_prefs['width']} --H {animate_diff_prefs['height']}"
+    cmd = f"animatediff generate --config-path {json_file} --model-path {sd_models}"
+    cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} --save-merged"
+    w = 0
+    h = 0
+    img_idx = 0
+    from watchdog.observers import Observer
+    from watchdog.events import LoggingEventHandler, FileSystemEventHandler
+    class Handler(FileSystemEventHandler):
+      def __init__(self):
+        super().__init__()
+      def on_created(self, event):
+        nonlocal img_idx, w, h
+        if event.is_directory:
+          return None
+        elif event.event_type == 'created' and event.src_path.endswith("png"):
+          autoscroll(True)
+          if w == 0:
+            time.sleep(0.8)
+            try:
+              frame = PILImage.open(event.src_path)
+              w, h = frame.size
+              clear_last()
+            except Exception:
+              pass
+          clear_last()
+          if animate_diff_prefs['save_frames']:
+            fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+          else:
+            fpath = event.src_path
+          #prt(Divider(height=6, thickness=2))
+          prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
+          page.update()
+          prt(progress)
+          if animate_diff_prefs['save_frames']:
+            fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+            shutil.copy(event.src_path, fpath)
+          time.sleep(0.2)
+          autoscroll(False)
+          img_idx += 1
+    image_handler = Handler()
+    observer = Observer()
+    observer.schedule(image_handler, out_dir, recursive=True)
+    observer.start()
+    #prt(f"Running {cmd}")
     try:
+        #run_sp(cmd, cwd=cli_file, realtime=True)
         run_sp(cmd, cwd=animatediff_dir, realtime=True)
       #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
       #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
     except Exception as e:
       clear_last()
+      observer.stop()
       alert_msg(page, f"ERROR: Couldn't AnimateDiff your image for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
       return
     clear_last()
     clear_last()
+    observer.stop()
     #filename = f"{format_filename(editing_prompts[0]['prompt'])}"
     #filename = filename[:int(prefs['file_max_length'])]
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
     autoscroll(True)
     num = 0
-    
+
     '''
     for image in images:
         random_seed += num
@@ -29267,6 +29407,7 @@ NewModel:
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1
         '''
+    os.chdir(root_dir)
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -30181,7 +30322,7 @@ def run_shap_e2(page):
     print(f"saved to folder: {ply_path}")
     mesh = trimesh.load(ply_path)
     mesh.export(glb_file, file_type="glb")
-    
+
     flush()
     clear_last(update=False)
     clear_last(update=False)
@@ -31529,7 +31670,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     generator=generator,
                     #callback=callback_fnc,
                 ).images
-                
+
             except Exception as e:
                 clear_last()
                 clear_last()
@@ -32800,7 +32941,7 @@ elif tunnel_type == "localtunnel":
   else:
     import re
     #print(run_sp('lt -p 80', realtime=False))
-    localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
+    localtunnel = subprocess.Popen(['lt', '--port', '8000', 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
     public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
 else: public_url=""
@@ -32850,6 +32991,6 @@ if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
   if newest_flet:
-    ft.app(target=main, view=ft.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir, use_color_emoji=True)
+    ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir, use_color_emoji=True)
   else:
-    ft.app(target=main, view=ft.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir)
+    ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir)
