@@ -93,6 +93,9 @@ def download_file(url, to=None, filename=None):
         if '?' in local_filename:
             local_filename = local_filename.rpartition('?')[0]
     local_filename = os.path.join(to if to != None else root_dir, local_filename)
+    if to != None:
+        if not os.path.exists(to):
+            os.makedirs(to)
     if os.path.isfile(local_filename):
         return local_filename
     with requests.get(url, stream=True) as r:
@@ -192,9 +195,12 @@ else:
     image_output = '/content/drive/MyDrive/AI/Stable_Diffusion/images_out'
 saved_settings_json = os.path.join(root_dir, "sdd-settings.json")
 favicon = os.path.join(root_dir, "favicon.png")
+loading_animation = os.path.join(root_dir, "loading_animation.png")
 assets = os.path.join(root_dir, "assets")
 if not os.path.isfile(favicon):
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/favicon.png?raw=true")
+if not os.path.isfile(loading_animation):
+    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/loading_animation.png?raw=true")
 if not os.path.exists(assets):
     os.makedirs(assets)
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-alert.mp3?raw=true", to=assets)
@@ -1220,8 +1226,8 @@ def buildInstallers(page):
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
-  SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-0.9)", on_tap_link=lambda e: e.page.launch_url(e.data))
-  install_SDXL = Switcher(label="Install Stable Diffusion XL 0.9 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=lambda e:changed(e, 'install_SDXL'), tooltip="Latest SDXL v0.9 trained on 1080p images.")
+  SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data))
+  install_SDXL = Switcher(label="Install Stable Diffusion XL 1.0 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=lambda e:changed(e, 'install_SDXL'), tooltip="Latest SDXL v1.0 trained on 1080p images.")
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
   install_interpolation = Switcher(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'), tooltip="Create multiple tween images between prompts latent space. Almost animation.")
@@ -1320,7 +1326,7 @@ def buildInstallers(page):
       page.update()
   install_AIHorde = Switcher(label="Install AIHorde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'], on_change=toggle_AIHorde, tooltip="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.")
   use_AIHorde = Checkbox(label="Use Stable Horde API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_AIHorde_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_AIHorde_api'))
-  AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("3DKX"), dropdown.Option("Abyss OrangeMix"), dropdown.Option("AbyssOrangeMix-AfterDark"), dropdown.Option("ACertainThing"), dropdown.Option("AIO Pixel Art"), dropdown.Option("Analog Diffusion"), dropdown.Option("Anime Pencil Diffusion"), dropdown.Option("Anygen"), dropdown.Option("Anything Diffusion"), dropdown.Option("Anything v3"), dropdown.Option("App Icon Diffusion"), dropdown.Option("Arcane Diffusion"), dropdown.Option("Archer Diffusion"), dropdown.Option("Asim Simpsons"), dropdown.Option("A to Zovya RPG"), dropdown.Option("Balloon Art"), dropdown.Option("Borderlands"), dropdown.Option("BPModel"), dropdown.Option("BubblyDubbly"), dropdown.Option("Char"), dropdown.Option("CharHelper"), dropdown.Option("Cheese Daddys Landscape Mix"), dropdown.Option("ChilloutMix"), dropdown.Option("ChromaV5"), dropdown.Option("Classic Animation Diffusion"), dropdown.Option("Clazy"), dropdown.Option("Colorful"), dropdown.Option("Coloring Book"), dropdown.Option("Comic-Diffusion"), dropdown.Option("Concept Sheet"), dropdown.Option("Counterfeit"), dropdown.Option("Cyberpunk Anime Diffusion"), dropdown.Option("CyriousMix"), dropdown.Option("Dan Mumford Style"), dropdown.Option("Darkest Diffusion"), dropdown.Option("Dark Victorian Diffusion"), dropdown.Option("Deliberate"), dropdown.Option("DGSpitzer Art Diffusion"), dropdown.Option("Disco Elysium"), dropdown.Option("DnD Item"), dropdown.Option("Double Exposure Diffusion"), dropdown.Option("Dreamlike Diffusion"), dropdown.Option("Dreamlike Photoreal"), dropdown.Option("DreamLikeSamKuvshinov"), dropdown.Option("Dreamshaper"), dropdown.Option("DucHaiten"), dropdown.Option("DucHaiten Classic Anime"), dropdown.Option("Dungeons and Diffusion"), dropdown.Option("Dungeons n Waifus"), dropdown.Option("Eimis Anime Diffusion"), dropdown.Option("Elden Ring Diffusion"), dropdown.Option("Elldreth's Lucid Mix"), dropdown.Option("Elldreths Retro Mix"), dropdown.Option("Epic Diffusion"), dropdown.Option("Eternos"), dropdown.Option("Experience"), dropdown.Option("ExpMix Line"), dropdown.Option("FaeTastic"), dropdown.Option("Fantasy Card Diffusion"), dropdown.Option("FKing SciFi"), dropdown.Option("Funko Diffusion"), dropdown.Option("Furry Epoch"), dropdown.Option("Future Diffusion"), dropdown.Option("Ghibli Diffusion"), dropdown.Option("GorynichMix"), dropdown.Option("Grapefruit Hentai"), dropdown.Option("Graphic-Art"), dropdown.Option("GTA5 Artwork Diffusion"), dropdown.Option("GuoFeng"), dropdown.Option("Guohua Diffusion"), dropdown.Option("HASDX"), dropdown.Option("Hassanblend"), dropdown.Option("Healy's Anime Blend"), dropdown.Option("Hentai Diffusion"), dropdown.Option("HRL"), dropdown.Option("iCoMix"), dropdown.Option("Illuminati Diffusion"), dropdown.Option("Inkpunk Diffusion"), dropdown.Option("Jim Eidomode"), dropdown.Option("JWST Deep Space Diffusion"), dropdown.Option("Kenshi"), dropdown.Option("Knollingcase"), dropdown.Option("Korestyle"), dropdown.Option("kurzgesagt"), dropdown.Option("Laolei New Berry Protogen Mix"), dropdown.Option("Lawlas's yiff mix"), dropdown.Option("Liberty"), dropdown.Option("Marvel Diffusion"), dropdown.Option("Mega Merge Diffusion"), dropdown.Option("Microcasing"), dropdown.Option("Microchars"), dropdown.Option("Microcritters"), dropdown.Option("Microscopic"), dropdown.Option("Microworlds"), dropdown.Option("Midjourney Diffusion"), dropdown.Option("Midjourney PaintArt"), dropdown.Option("Min Illust Background"), dropdown.Option("ModernArt Diffusion"), dropdown.Option("mo-di-diffusion"), dropdown.Option("Moedel"), dropdown.Option("MoistMix"), dropdown.Option("Movie Diffusion"), dropdown.Option("NeverEnding Dream"), dropdown.Option("Nitro Diffusion"), dropdown.Option("Openniji"), dropdown.Option("OrbAI"), dropdown.Option("Papercutcraft"), dropdown.Option("Papercut Diffusion"), dropdown.Option("Pastel Mix"), dropdown.Option("Perfect World"), dropdown.Option("PFG"), dropdown.Option("pix2pix"), dropdown.Option("PIXHELL"), dropdown.Option("Poison"), dropdown.Option("Pokemon3D"), dropdown.Option("PortraitPlus"), dropdown.Option("PPP"), dropdown.Option("Pretty 2.5D"), dropdown.Option("PRMJ"), dropdown.Option("Project Unreal Engine 5"), dropdown.Option("ProtoGen"), dropdown.Option("Protogen Anime"), dropdown.Option("Protogen Infinity"), dropdown.Option("Pulp Vector Art"), dropdown.Option("PVC"), dropdown.Option("Rachel Walker Watercolors"), dropdown.Option("Rainbowpatch"), dropdown.Option("Ranma Diffusion"), dropdown.Option("RCNZ Dumb Monkey"), dropdown.Option("RCNZ Gorilla With A Brick"), dropdown.Option("RealBiter"), dropdown.Option("Realism Engine"), dropdown.Option("Realistic Vision"), dropdown.Option("Redshift Diffusion"), dropdown.Option("Rev Animated"), dropdown.Option("Robo-Diffusion"), dropdown.Option("Rodent Diffusion"), dropdown.Option("RPG"), dropdown.Option("Samdoesarts Ultmerge"), dropdown.Option("Sci-Fi Diffusion"), dropdown.Option("SD-Silicon"), dropdown.Option("Seek.art MEGA"), dropdown.Option("Smoke Diffusion"), dropdown.Option("Something"), dropdown.Option("Sonic Diffusion"), dropdown.Option("Spider-Verse Diffusion"), dropdown.Option("Squishmallow Diffusion"), dropdown.Option("stable_diffusion"), dropdown.Option("stable_diffusion_2.1"), dropdown.Option("stable_diffusion_inpainting"), dropdown.Option("Supermarionation"), dropdown.Option("Sygil-Dev Diffusion"), dropdown.Option("Synthwave"), dropdown.Option("SynthwavePunk"), dropdown.Option("TrexMix"), dropdown.Option("trinart"), dropdown.Option("Trinart Characters"), dropdown.Option("Tron Legacy Diffusion"), dropdown.Option("T-Shirt Diffusion"), dropdown.Option("T-Shirt Print Designs"), dropdown.Option("Uhmami"), dropdown.Option("Ultraskin"), dropdown.Option("UMI Olympus"), dropdown.Option("Unstable Ink Dream"), dropdown.Option("URPM"), dropdown.Option("Valorant Diffusion"), dropdown.Option("Van Gogh Diffusion"), dropdown.Option("Vector Art"), dropdown.Option("vectorartz"), dropdown.Option("Vintedois Diffusion"), dropdown.Option("VinteProtogenMix"), dropdown.Option("Vivid Watercolors"), dropdown.Option("Voxel Art Diffusion"), dropdown.Option("waifu_diffusion"), dropdown.Option("Wavyfusion"), dropdown.Option("Woop-Woop Photo"), dropdown.Option("Xynthii-Diffusion"), dropdown.Option("Yiffy"), dropdown.Option("Zack3D"), dropdown.Option("Zeipher Female Model"), dropdown.Option("Zelda BOTW")], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
+  AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("3DKX"), dropdown.Option("Abyss OrangeMix"), dropdown.Option("AbyssOrangeMix-AfterDark"), dropdown.Option("ACertainThing"), dropdown.Option("AIO Pixel Art"), dropdown.Option("Analog Diffusion"), dropdown.Option("Anime Pencil Diffusion"), dropdown.Option("Anygen"), dropdown.Option("Anything Diffusion"), dropdown.Option("Anything v3"), dropdown.Option("App Icon Diffusion"), dropdown.Option("Arcane Diffusion"), dropdown.Option("Archer Diffusion"), dropdown.Option("Asim Simpsons"), dropdown.Option("A to Zovya RPG"), dropdown.Option("Balloon Art"), dropdown.Option("Borderlands"), dropdown.Option("BPModel"), dropdown.Option("BubblyDubbly"), dropdown.Option("Char"), dropdown.Option("CharHelper"), dropdown.Option("Cheese Daddys Landscape Mix"), dropdown.Option("ChilloutMix"), dropdown.Option("ChromaV5"), dropdown.Option("Classic Animation Diffusion"), dropdown.Option("Clazy"), dropdown.Option("Colorful"), dropdown.Option("Coloring Book"), dropdown.Option("Comic-Diffusion"), dropdown.Option("Concept Sheet"), dropdown.Option("Counterfeit"), dropdown.Option("Cyberpunk Anime Diffusion"), dropdown.Option("CyriousMix"), dropdown.Option("Dan Mumford Style"), dropdown.Option("Darkest Diffusion"), dropdown.Option("Dark Victorian Diffusion"), dropdown.Option("Deliberate"), dropdown.Option("DGSpitzer Art Diffusion"), dropdown.Option("Disco Elysium"), dropdown.Option("DnD Item"), dropdown.Option("Double Exposure Diffusion"), dropdown.Option("Dreamlike Diffusion"), dropdown.Option("Dreamlike Photoreal"), dropdown.Option("DreamLikeSamKuvshinov"), dropdown.Option("Dreamshaper"), dropdown.Option("DucHaiten"), dropdown.Option("DucHaiten Classic Anime"), dropdown.Option("Dungeons and Diffusion"), dropdown.Option("Dungeons n Waifus"), dropdown.Option("Eimis Anime Diffusion"), dropdown.Option("Elden Ring Diffusion"), dropdown.Option("Elldreth's Lucid Mix"), dropdown.Option("Elldreths Retro Mix"), dropdown.Option("Epic Diffusion"), dropdown.Option("Eternos"), dropdown.Option("Experience"), dropdown.Option("ExpMix Line"), dropdown.Option("FaeTastic"), dropdown.Option("Fantasy Card Diffusion"), dropdown.Option("FKing SciFi"), dropdown.Option("Funko Diffusion"), dropdown.Option("Furry Epoch"), dropdown.Option("Future Diffusion"), dropdown.Option("Ghibli Diffusion"), dropdown.Option("GorynichMix"), dropdown.Option("Grapefruit Hentai"), dropdown.Option("Graphic-Art"), dropdown.Option("GTA5 Artwork Diffusion"), dropdown.Option("GuoFeng"), dropdown.Option("Guohua Diffusion"), dropdown.Option("HASDX"), dropdown.Option("Hassanblend"), dropdown.Option("Healy's Anime Blend"), dropdown.Option("Hentai Diffusion"), dropdown.Option("HRL"), dropdown.Option("iCoMix"), dropdown.Option("Illuminati Diffusion"), dropdown.Option("Inkpunk Diffusion"), dropdown.Option("Jim Eidomode"), dropdown.Option("JWST Deep Space Diffusion"), dropdown.Option("Kenshi"), dropdown.Option("Knollingcase"), dropdown.Option("Korestyle"), dropdown.Option("kurzgesagt"), dropdown.Option("Laolei New Berry Protogen Mix"), dropdown.Option("Lawlas's yiff mix"), dropdown.Option("Liberty"), dropdown.Option("Marvel Diffusion"), dropdown.Option("Mega Merge Diffusion"), dropdown.Option("Microcasing"), dropdown.Option("Microchars"), dropdown.Option("Microcritters"), dropdown.Option("Microscopic"), dropdown.Option("Microworlds"), dropdown.Option("Midjourney Diffusion"), dropdown.Option("Midjourney PaintArt"), dropdown.Option("Min Illust Background"), dropdown.Option("ModernArt Diffusion"), dropdown.Option("mo-di-diffusion"), dropdown.Option("Moedel"), dropdown.Option("MoistMix"), dropdown.Option("Movie Diffusion"), dropdown.Option("NeverEnding Dream"), dropdown.Option("Nitro Diffusion"), dropdown.Option("Openniji"), dropdown.Option("OrbAI"), dropdown.Option("Papercutcraft"), dropdown.Option("Papercut Diffusion"), dropdown.Option("Pastel Mix"), dropdown.Option("Perfect World"), dropdown.Option("PFG"), dropdown.Option("pix2pix"), dropdown.Option("PIXHELL"), dropdown.Option("Poison"), dropdown.Option("Pokemon3D"), dropdown.Option("PortraitPlus"), dropdown.Option("PPP"), dropdown.Option("Pretty 2.5D"), dropdown.Option("PRMJ"), dropdown.Option("Project Unreal Engine 5"), dropdown.Option("ProtoGen"), dropdown.Option("Protogen Anime"), dropdown.Option("Protogen Infinity"), dropdown.Option("Pulp Vector Art"), dropdown.Option("PVC"), dropdown.Option("Rachel Walker Watercolors"), dropdown.Option("Rainbowpatch"), dropdown.Option("Ranma Diffusion"), dropdown.Option("RCNZ Dumb Monkey"), dropdown.Option("RCNZ Gorilla With A Brick"), dropdown.Option("RealBiter"), dropdown.Option("Realism Engine"), dropdown.Option("Realistic Vision"), dropdown.Option("Redshift Diffusion"), dropdown.Option("Rev Animated"), dropdown.Option("Robo-Diffusion"), dropdown.Option("Rodent Diffusion"), dropdown.Option("RPG"), dropdown.Option("Samdoesarts Ultmerge"), dropdown.Option("Sci-Fi Diffusion"), dropdown.Option("SD-Silicon"), dropdown.Option("Seek.art MEGA"), dropdown.Option("Smoke Diffusion"), dropdown.Option("Something"), dropdown.Option("Sonic Diffusion"), dropdown.Option("Spider-Verse Diffusion"), dropdown.Option("Squishmallow Diffusion"), dropdown.Option("SDXL_beta"), dropdown.Option("stable_diffusion"), dropdown.Option("stable_diffusion_2.1"), dropdown.Option("stable_diffusion_inpainting"), dropdown.Option("Supermarionation"), dropdown.Option("Sygil-Dev Diffusion"), dropdown.Option("Synthwave"), dropdown.Option("SynthwavePunk"), dropdown.Option("TrexMix"), dropdown.Option("trinart"), dropdown.Option("Trinart Characters"), dropdown.Option("Tron Legacy Diffusion"), dropdown.Option("T-Shirt Diffusion"), dropdown.Option("T-Shirt Print Designs"), dropdown.Option("Uhmami"), dropdown.Option("Ultraskin"), dropdown.Option("UMI Olympus"), dropdown.Option("Unstable Ink Dream"), dropdown.Option("URPM"), dropdown.Option("Valorant Diffusion"), dropdown.Option("Van Gogh Diffusion"), dropdown.Option("Vector Art"), dropdown.Option("vectorartz"), dropdown.Option("Vintedois Diffusion"), dropdown.Option("VinteProtogenMix"), dropdown.Option("Vivid Watercolors"), dropdown.Option("Voxel Art Diffusion"), dropdown.Option("waifu_diffusion"), dropdown.Option("Wavyfusion"), dropdown.Option("Woop-Woop Photo"), dropdown.Option("Xynthii-Diffusion"), dropdown.Option("Yiffy"), dropdown.Option("Zack3D"), dropdown.Option("Zeipher Female Model"), dropdown.Option("Zelda BOTW")], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
   AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
   AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=350, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
   AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, AIHorde_model, AIHorde_sampler, AIHorde_post_processing]))
@@ -1905,8 +1911,8 @@ def buildParameters(page):
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
   page.use_SDXL = Switcher(label="Use Stable Diffusion XL Model/Pipeline Instead", tooltip="The latest SDXL base model, with img2img Refiner. It's tasty..", value=prefs['use_SDXL'], on_change=toggle_SDXL)
   page.use_SDXL.visible = status['installed_SDXL']
-  SDXL_high_noise_frac = SliderRow(label="SDXL High Noise Fraction", min=0, max=1, divisions=20, round=1, pref=prefs, key='SDXL_high_noise_frac', tooltip="Percentage of Steps to use Base model, then Refiner model. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac'))
-  page.SDXL_params = Container(Column([SDXL_high_noise_frac]), padding=padding.only(top=5, left=10), height=None if prefs['use_SDXL'] else 0, visible=status['installed_SDXL'], animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  SDXL_high_noise_frac = SliderRow(label="SDXL High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=prefs, key='SDXL_high_noise_frac', tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac', apply=False))
+  page.SDXL_params = Container(Column([SDXL_high_noise_frac]), padding=padding.only(top=5, left=20), height=None if prefs['use_SDXL'] else 0, visible=status['installed_SDXL'], animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.use_inpaint_model = Switcher(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], on_change=lambda e:changed(e,'use_inpaint_model', apply=False))
   page.use_inpaint_model.visible = status['installed_img2img']
   page.use_alt_diffusion = Switcher(label="Use AltDiffusion Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Supports 9 different languages for text2image & image2image")
@@ -6928,6 +6934,7 @@ instruct_pix2pix_prefs = {
     'start_time': 0,
     'end_time': 0,
     'control_v': 'v1.1',
+    'use_SDXL':False,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -8900,6 +8907,7 @@ animate_diff_prefs = {
     'lora_alpha': 0.8,
     'custom_lora': '',
     'motion_module': 'mm_sd_v15',
+    'scheduler': 'k_dpmpp',
     'seed': 0,
     'video_length': 16,
     'width': 512,
@@ -9058,6 +9066,7 @@ def buildAnimateDiff(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=animate_diff_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
+    scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp"), dropdown.Option("k_dpmpp"), dropdown.Option("unipc")], width=150, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=150, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("None")], value=animate_diff_prefs['dreambooth_lora'], on_change=lambda e: changed(e, 'dreambooth_lora'))
     for lora in animate_diff_loras:
@@ -9090,7 +9099,7 @@ def buildAnimateDiff(page):
         width_slider, height_slider,
         video_length,
         Row([dreambooth_lora, lora_alpha]),
-        Row([motion_module, batch_folder_name]),
+        Row([motion_module, scheduler, batch_folder_name]),
         page.ESRGAN_block_animate_diff,
         #Row([jump_length, jump_n_sample, seed]),
         Row([
@@ -9555,6 +9564,8 @@ kandinsky_prefs = {
     "width": 512,
     "height":512,
     "guidance_scale":4,
+    'prior_guidance_scale': 4.0,
+    'prior_steps': 25,
     "init_image": '',
     "strength": 0.3,
     "mask_image": '',
@@ -9678,8 +9689,8 @@ def buildKandinsky(page):
     #denoised_type = Dropdown(label="Denoised Type", width=180, options=[dropdown.Option("dynamic_threshold"), dropdown.Option("clip_denoised")], value=kandinsky_prefs['denoised_type'], on_change=lambda e:changed(e,'denoised_type'), col={'xs':12, 'md':6})
     #dropdown_row = ResponsiveRow([sampler])#, denoised_type])
     steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=kandinsky_prefs, key='steps')
-    #prior_cf_scale = SliderRow(label="Prior CF Scale", min=0, max=10, divisions=10, pref=kandinsky_prefs, key='prior_cf_scale')
-    #prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, pref=kandinsky_prefs, key='prior_steps')
+    prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=kandinsky_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
+    prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, expand=True, pref=kandinsky_prefs, key='prior_steps', col={'xs':12, 'md':6})
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kandinsky_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=kandinsky_prefs, key='height')
@@ -9709,8 +9720,8 @@ def buildKandinsky(page):
             Header("🎎  Kandinsky 2.2", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages, made in Russia.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #param_rows, #dropdown_row,
+            ResponsiveRow([prior_steps, prior_guidance_scale]),
             steps,
-            #prior_steps, prior_cf_scale,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
             #Row([batch_folder_name, file_prefix]),
@@ -14245,7 +14256,7 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
       p = p.to(torch_device)
     p = pipeline_scheduler(p)
     status['loaded_scheduler'] = prefs['scheduler_mode']
-    status['loaded_model'] = "stabilityai/stable-diffusion-xl-base-0.9" #get_model(prefs['model_ckpt'])['path']
+    status['loaded_model'] = "stabilityai/stable-diffusion-xl-base-1.0" #get_model(prefs['model_ckpt'])['path']
     p.set_progress_bar_config(disable=True)
     return p
 
@@ -14633,7 +14644,7 @@ def get_SDXL(page):
       pipe_SDXL = get_SDXL_pipe()
       return True
     except Exception as er:
-      model_url = f"https://huggingface.co/stabilityai/stable-diffusion-xl-base-0.9"
+      model_url = f"https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0"
       alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace Stable Diffusion XL Model Card to use Checkpoint',
                 content=Markdown(f'[{model_url}]({model_url})<br>{er}', on_tap_link=open_url))
       return False
@@ -14647,8 +14658,8 @@ def get_SDXL_pipe(task="text2image"):
   except ModuleNotFoundError:
       run_sp("pip install --no-deps invisible-watermark>=0.2.0", realtime=False)
       pass
-  model_id = "stabilityai/stable-diffusion-xl-base-0.9"
-  refiner_id = "stabilityai/stable-diffusion-xl-refiner-0.9"
+  model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+  refiner_id = "stabilityai/stable-diffusion-xl-refiner-1.0"
   if task != status['loaded_SDXL']:
       clear_pipes()
   low_ram = int(status['cpu_memory']) <= 12
@@ -17118,7 +17129,7 @@ def start_diffusion(page):
         config_json['scheduler_mode'] = sampler_str
         config_json['model_path'] = model_path
         if prefs['use_SDXL'] and status['installed_SDXL']:
-          config_json['model_path'] = "stabilityai/stable-diffusion-xl-base-0.9"
+          config_json['model_path'] = "stabilityai/stable-diffusion-xl-base-1.0"
         if prefs['save_image_metadata']:
           img = PILImage.open(fpath)
           metadata = PngInfo()
@@ -23029,7 +23040,7 @@ def run_LoRA_dreambooth(page):
     name_of_your_model = LoRA_dreambooth_prefs['name_of_your_model']
     from argparse import Namespace
     LoRA_dreambooth_args = Namespace(
-        pretrained_model_name_or_path=model_path if not LoRA_dreambooth_prefs['use_SDXL'] else "diffusers/stable-diffusion-xl-base-0.9",
+        pretrained_model_name_or_path=model_path if not LoRA_dreambooth_prefs['use_SDXL'] else "stabilityai/stable-diffusion-xl-base-1.0",
         resolution=LoRA_dreambooth_prefs['resolution'],
         center_crop=True,
         mixed_precision="fp16",
@@ -26185,12 +26196,18 @@ def run_instruct_pix2pix(page, from_list=False):
     torch.cuda.reset_max_memory_allocated()
     torch.cuda.reset_peak_memory_stats()
     model_id = "timbrooks/instruct-pix2pix"
+    model_id_SDXL = "timbrooks/instructpix2pix-clip-filtered"
     if pipe_instruct_pix2pix is None:
-      from diffusers import StableDiffusionInstructPix2PixPipeline
-      from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-      pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-      pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
-      #pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
+      if instruct_pix2pix_prefs['use_SDXL']:
+        from diffusers import StableDiffusionXLInstructPix2PixPipeline
+        pipe_instruct_pix2pix = StableDiffusionXLInstructPix2PixPipeline.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
+      else:
+        from diffusers import StableDiffusionInstructPix2PixPipeline
+        from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+        pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
+        #pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
     pipeline_scheduler(pipe_instruct_pix2pix)
     clear_last()
     prt("Generating Instruct-Pix2Pix of your Image...")
@@ -29111,7 +29128,7 @@ def run_animate_diff(page):
         import colorama
     except Exception:
         installer.set_details("...installing colorama, rich, ninja")
-        run_sp("pip install colorama rich ninja pydantic shellingham typer", realtime=False) #=11.3
+        run_sp("pip install colorama rich ninja pydantic shellingham typer gdown", realtime=False) #=11.3
         pass
     try:
         import xformers
@@ -29149,7 +29166,7 @@ def run_animate_diff(page):
         pass
     try:
         installer.set_details("...installing AnimateDiff Requirements")
-        run_sp("pip install -e '.[dev]'", cwd=animatediff_dir, realtime=True)
+        run_sp("pip install -e .", cwd=animatediff_dir, realtime=True) #'.[dev]'
     except Exception as e:
         clear_last()
         alert_msg(page, f"ERROR: Couldn't Install AnimateDiff Requirements for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -29174,15 +29191,15 @@ def run_animate_diff(page):
     if not os.path.isdir(motion_module):
         os.makedirs(motion_module)
     run_sp(f"rm -rf {sd_models}", realtime=False)
-    installer.set_details("...downloading stable-diffusion-v1-5")
-    run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
+    #installer.set_details("...downloading stable-diffusion-v1-5")
+    #run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
     if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
         installer.set_details("...downloading motion_module-v1-4")
         download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
     if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
         installer.set_details("...downloading motion_module-v1-5")
         download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
-    #sd_models = "runwayml/stable-diffusion-v1-5"
+    sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': ''}
     lora_dir = os.path.join(animatediff_dir, 'data', 'models')
     #lora_dir = os.path.join(animatediff_dir, 'models', 'DreamBooth_LoRA')
@@ -29228,6 +29245,7 @@ def run_animate_diff(page):
         'base': "",
         'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
         'seed': seeds,
+        'scheduler': animate_diff_prefs['scheduler'],
         'steps': int(animate_diff_prefs['steps']),
         'guidance_scale': float(animate_diff_prefs['guidance_scale']),
         #'lora_alpha': float(animate_diff_prefs['lora_alpha']),
@@ -29275,6 +29293,7 @@ NewModel:
     cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} --save-merged"
     w = 0
     h = 0
+    output_dir = ""
     img_idx = 0
     from watchdog.observers import Observer
     from watchdog.events import LoggingEventHandler, FileSystemEventHandler
@@ -29282,8 +29301,9 @@ NewModel:
       def __init__(self):
         super().__init__()
       def on_created(self, event):
-        nonlocal img_idx, w, h
+        nonlocal img_idx, w, h, output_dir
         if event.is_directory:
+          output_dir = event.src_path
           return None
         elif event.event_type == 'created' and event.src_path.endswith("png"):
           autoscroll(True)
@@ -29333,8 +29353,17 @@ NewModel:
     #filename = filename[:int(prefs['file_max_length'])]
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
     autoscroll(True)
+    if animate_diff_prefs['save_video']:
+        interpolate_cmd = f"animatediff rife interpolate --temporal-tta --uhd {output_dir}" #--out_file --codec h264
+        try:
+          run_sp(interpolate_cmd, cwd=animatediff_dir, realtime=True)
+          #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
+          #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+        except Exception as e:
+          #clear_last()
+          alert_msg(page, f"ERROR: Couldn't interpolate video from AnimateDiff for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+          return
     num = 0
-
     '''
     for image in images:
         random_seed += num
@@ -30653,7 +30682,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
-    if int(status['cpu_memory']) <= 12:
+    if int(status['cpu_memory']) <= 10:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 2.2 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
       return
     kandinsky_prompts = []
@@ -30725,12 +30754,13 @@ def run_kandinsky(page, from_list=False, with_params=False):
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
-    from diffusers import KandinskyV22PriorPipeline
-    installer.set_details("...kandinsky-2-2-prior Pipeline")
-    if pipe_kandinsky_prior == None:
-        pipe_kandinsky_prior = KandinskyV22PriorPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-prior", torch_dtype=torch.float16)
-        pipe_kandinsky_prior.to("cuda")
+    #from diffusers import KandinskyV22PriorPipeline
+    #installer.set_details("...kandinsky-2-2-prior Pipeline")
+    #if pipe_kandinsky_prior == None:
+    #    pipe_kandinsky_prior = KandinskyV22PriorPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-prior", torch_dtype=torch.float16)
+    #    pipe_kandinsky_prior.to("cuda")
     #save_dir = os.path.join(root_dir, 'kandinsky_inputs')
+    cpu_offload = False
     for pr in kandinsky_prompts:
         init_img = None
         if bool(pr['init_image']):
@@ -30774,7 +30804,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 #if bool(kandinsky_prefs['init_image']) and not bool(kandinsky_prefs['mask_image']):
                 #    pipe_kandinsky = get_kandinsky2('cuda', task_type='img2img', model_version='2.1', use_flash_attention=False, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_kandinsky = get_kandinsky2('cuda', task_type=task_type, model_version='2.1', use_flash_attention=False, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                if task_type == "text2img":
+                '''if task_type == "text2img":
                     from diffusers import KandinskyV22Pipeline
                     pipe_kandinsky = KandinskyV22Pipeline.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "img2img":
@@ -30783,10 +30813,23 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 elif task_type == "inpainting":
                     from diffusers import KandinskyV22InpaintPipeline
                     pipe_kandinsky = KandinskyV22InpaintPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                '''
+                if task_type == "text2img":
+                    from diffusers import AutoPipelineForTextToImage
+                    pipe_kandinsky = AutoPipelineForTextToImage.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                elif task_type == "img2img":
+                    from diffusers import AutoPipelineForImage2Image
+                    pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                elif task_type == "inpainting":
+                    from diffusers import AutoPipelineForInpainting
+                    pipe_kandinsky = AutoPipelineForInpainting.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if prefs['enable_torch_compile']:
+                    installer.set_details(f"...Torch compiling unet")
                     pipe_kandinsky.unet.to(memory_format=torch.channels_last)
                     pipe_kandinsky.unet = torch.compile(pipe_kandinsky.unet, mode="reduce-overhead", fullgraph=True)
                     pipe_kandinsky = pipe_kandinsky.to("cuda")
+                elif cpu_offload:
+                    pipe_kandinsky.enable_model_cpu_offload()
                 else:
                     pipe_kandinsky.to("cuda")
                 loaded_kandinsky_task = task_type
@@ -30803,7 +30846,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         try:
-            image_embeds, negative_image_embeds = pipe_kandinsky_prior(pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=5, guidance_scale=1.0, generator=generator).to_tuple()
+            #image_embeds, negative_image_embeds = pipe_kandinsky_prior(pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=5, guidance_scale=1.0, generator=generator).to_tuple()
             #negative_image_embeds = pipe_kandinsky_prior(pr['negative_prompt'], guidance_scale=2.0, num_inference_steps=25, generator=generator, negative_prompt=pr['negative_prompt']).images
             #guidance_scale=pr['guidance_scale'], num_inference_steps=pr['steps']
             if task_type == "text2img":
@@ -30813,51 +30856,57 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 #images = pipe_kandinsky.generate_img2img(kandinsky_prefs['prompt'], init_img, strength=kandinsky_prefs['strength'], batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], prior_cf_scale=kandinsky_prefs['prior_cf_scale'], prior_steps=str(kandinsky_prefs['prior_steps']), sampler=kandinsky_prefs['sampler'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 #images = pipe_kandinsky.mix_images(images_texts, weights, batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], prior_cf_scale=kandinsky_prefs['prior_cf_scale'], prior_steps=str(kandinsky_prefs['prior_steps']), sampler=kandinsky_prefs['sampler'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 images = pipe_kandinsky(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    prior_guidance_scale=kandinsky_prefs['prior_guidance_scale'], prior_num_inference_steps=kandinsky_prefs['prior_steps'],
                     #pr['prompt'],
-                    image_embeds=image_embeds,
-                    negative_image_embeds=negative_image_embeds,
+                    #image_embeds=image_embeds,
+                    #negative_image_embeds=negative_image_embeds,
                     num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
                     num_inference_steps=pr['steps'],
                     guidance_scale=pr['guidance_scale'],
                     generator=generator,
-                    #callback=callback_fnc,
+                    callback=callback_fnc,
                 ).images
             elif task_type == "img2img":
                 #images = pipe_kandinsky.generate_inpainting(kandinsky_prefs['prompt'], init_img, mask_img, batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], denoised_type=kandinsky_prefs['denoised_type'], dynamic_threshold_v=kandinsky_prefs['dynamic_threshold_v'], sampler=kandinsky_prefs['sampler'], ddim_eta=kandinsky_prefs['ddim_eta'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 #images = pipe_kandinsky.generate_inpainting(kandinsky_prefs['prompt'], init_img, mask_img, batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], prior_cf_scale=kandinsky_prefs['prior_cf_scale'], prior_steps=str(kandinsky_prefs['prior_steps']), sampler=kandinsky_prefs['sampler'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 images = pipe_kandinsky(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    prior_guidance_scale=kandinsky_prefs['prior_guidance_scale'], prior_num_inference_steps=kandinsky_prefs['prior_steps'],
                     #pr['prompt'],
                     image=init_img,
                     strength=pr['strength'],
-                    image_embeds=image_embeds,
-                    negative_image_embeds=negative_image_embeds,
+                    #image_embeds=image_embeds,
+                    #negative_image_embeds=negative_image_embeds,
                     num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
                     num_inference_steps=pr['steps'],
                     guidance_scale=pr['guidance_scale'],
                     generator=generator,
-                    #callback=callback_fnc,
+                    callback=callback_fnc,
                 ).images
             elif task_type == "inpainting":
                 #images = pipe_kandinsky.generate_text2img(kandinsky_prefs['prompt'], batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], denoised_type=kandinsky_prefs['denoised_type'], dynamic_threshold_v=kandinsky_prefs['dynamic_threshold_v'], sampler=kandinsky_prefs['sampler'], ddim_eta=kandinsky_prefs['ddim_eta'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 #images = pipe_kandinsky.generate_text2img(kandinsky_prefs['prompt'], batch_size=kandinsky_prefs['num_images'], w=kandinsky_prefs['width'], h=kandinsky_prefs['height'], num_steps=kandinsky_prefs['steps'], prior_cf_scale=kandinsky_prefs['prior_cf_scale'], prior_steps=str(kandinsky_prefs['prior_steps']), sampler=kandinsky_prefs['sampler'], guidance_scale=kandinsky_prefs['guidance_scale'])
                 images = pipe_kandinsky(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    prior_guidance_scale=kandinsky_prefs['prior_guidance_scale'], prior_num_inference_steps=kandinsky_prefs['prior_steps'],
                     #pr['prompt'],
                     image=init_img,
                     mask_image=mask_img,
                     strength=pr['strength'],
-                    image_embeds=image_embeds,
-                    negative_image_embeds=negative_image_embeds,
+                    #image_embeds=image_embeds,
+                    #negative_image_embeds=negative_image_embeds,
                     num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
                     num_inference_steps=pr['steps'],
                     guidance_scale=pr['guidance_scale'],
                     generator=generator,
-                    #callback=callback_fnc,
+                    callback=callback_fnc,
                 ).images
         except Exception as e:
             clear_last()
