@@ -284,6 +284,7 @@ def load_settings_file():
       'use_imagic': False,
       'use_SDXL': False,
       'SDXL_high_noise_frac': 0.7,
+      'SDXL_compel': False,
       'use_composable': False,
       'use_safe': False,
       'use_versatile': False,
@@ -862,6 +863,7 @@ if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
 if 'install_SDXL' not in prefs: prefs['install_SDXL'] = False
 if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
 if 'SDXL_high_noise_frac' not in prefs: prefs['SDXL_high_noise_frac'] = 0.7
+if 'SDXL_compel' not in prefs: prefs['SDXL_compel'] = False
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] = False
@@ -1187,6 +1189,10 @@ def buildInstallers(page):
       changed(e, 'install_safe')
       safety_config.visible = e.control.value
       safety_config.update()
+  def toggle_SDXL(e):
+      changed(e, 'install_SDXL')
+      SDXL_params.height = None if e.control.value else 0
+      SDXL_params.update()
   model = get_model(prefs['model_ckpt'])
   model_path = model['path']
   model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[
@@ -1227,7 +1233,10 @@ def buildInstallers(page):
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
   SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data))
-  install_SDXL = Switcher(label="Install Stable Diffusion XL 1.0 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=lambda e:changed(e, 'install_SDXL'), tooltip="Latest SDXL v1.0 trained on 1080p images.")
+  install_SDXL = Switcher(label="Install Stable Diffusion XL 1.0 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=toggle_SDXL, tooltip="Latest SDXL v1.0 trained on 1080p images.")
+  SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
+  SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=5, left=20), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
   install_interpolation = Switcher(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'), tooltip="Create multiple tween images between prompts latent space. Almost animation.")
@@ -1301,7 +1310,7 @@ def buildInstallers(page):
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
                                  Row([enable_tome, enable_torch_compile]),
                                  ]), padding=padding.only(left=32, top=4)),
-                                         install_text2img, Row([install_SDXL, SDXL_model_card]), install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
+                                         install_text2img, Row([install_SDXL, SDXL_model_card]), SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
                                          install_versatile, install_SAG, install_attend_and_excite, install_panorama, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
@@ -1684,7 +1693,7 @@ def buildInstallers(page):
 
 def update_parameters(page):
   #page.img_block.height = None if status['installed_img2img'] or status['installed_megapipe'] or status['installed_stability'] else 0
-  page.img_block.height = None if (status['installed_txt2img'] or status['installed_stability']) and not (status['installed_clip'] and prefs['use_clip_guided_model']) else 0
+  page.img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_SDXL']) and not (status['installed_clip'] and prefs['use_clip_guided_model']) else 0
   page.clip_block.height = None if status['installed_clip']  and prefs['use_clip_guided_model'] else 0
   page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
   page.img_block.update()
@@ -1911,6 +1920,7 @@ def buildParameters(page):
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
   page.use_SDXL = Switcher(label="Use Stable Diffusion XL Model/Pipeline Instead", tooltip="The latest SDXL base model, with img2img Refiner. It's tasty..", value=prefs['use_SDXL'], on_change=toggle_SDXL)
   page.use_SDXL.visible = status['installed_SDXL']
+  #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_high_noise_frac = SliderRow(label="SDXL High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=prefs, key='SDXL_high_noise_frac', tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac', apply=False))
   page.SDXL_params = Container(Column([SDXL_high_noise_frac]), padding=padding.only(top=5, left=20), height=None if prefs['use_SDXL'] else 0, visible=status['installed_SDXL'], animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.use_inpaint_model = Switcher(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], on_change=lambda e:changed(e,'use_inpaint_model', apply=False))
@@ -8912,6 +8922,9 @@ animate_diff_prefs = {
     'video_length': 16,
     'width': 512,
     'height': 512,
+    'overlap': 12,
+    'stride': 4,
+    'context': 16,
     'save_frames': True,
     'save_video': True,
     'save_gif': True,
@@ -8934,6 +8947,7 @@ animate_diff_loras = [
     {'name': 'moonfilm_reality20', 'file': 'moonfilm_reality20.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/moonfilm_reality20.safetensors'},
     {'name': 'rcnzCartoon3d_v10', 'file': 'rcnzCartoon3d_v10.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/rcnzCartoon3d_v10.safetensors'},
     {'name': 'realisticVisionV40_v20Novae', 'file': 'realisticVisionV40_v20Novae.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/realisticVisionV40_v20Novae.safetensors'},
+    #{'name': 'Custom', 'file': '', 'path': ''},
 ]
 def buildAnimateDiff(page):
     global animate_diff_prefs, prefs, pipe_animate_diff, editing_prompt
@@ -8969,12 +8983,16 @@ def buildAnimateDiff(page):
         page.update()
       animate_diff_help_dlg = AlertDialog(title=Text("💁   Help with AnimateDiff"), content=Column([
           Text("With the advance of text-to-image models (e.g., Stable Diffusion) and corresponding personalization techniques such as DreamBooth and LoRA, everyone can manifest their imagination into high-quality images at an affordable cost. Subsequently, there is a great demand for image animation techniques to further combine generated static images with motion dynamics. In this report, we propose a practical framework to animate most of the existing personalized text-to-image models once and for all, saving efforts in model-specific tuning. At the core of the proposed framework is to insert a newly initialized motion modeling module into the frozen text-to-image model and train it on video clips to distill reasonable motion priors. Once trained, by simply injecting this motion modeling module, all personalized versions derived from the same base T2I readily become text-driven models that produce diverse and personalized animated images. We conduct our evaluation on several public representative personalized text-to-image models across anime pictures and realistic photographs, and demonstrate that our proposed framework helps these models generate temporally smooth animation clips while preserving the domain and diversity of their outputs."),
-          Text("Credits: Yuwei Guo, Ceyuan Yang, Anyi Rao, Yaohui Wang, Yu Qiao, Dahua Lin, Bo Dai. Also Camenduru and UI by Alan Bedian"),
+          Text("Credits: Yuwei Guo, Ceyuan Yang, Anyi Rao, Yaohui Wang, Yu Qiao, Dahua Lin, Bo Dai. Also Neggles for refactoring, Camenduru and UI by Alan Bedian"),
           Markdown("[GitHub Code](https://github.com/guoyww/animatediff/) - [Project Page](https://animatediff.github.io/) - [Arxiv Paper](https://arxiv.org/abs/2307.04725)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧞  Make a Wish... ", on_click=close_animate_diff_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = animate_diff_help_dlg
       animate_diff_help_dlg.open = True
       page.update()
+    def changed_lora(e):
+      animate_diff_prefs['dreambooth_lora'] = e.control.value
+      custom_lora.visible = e.control.value == "Custom"
+      custom_lora.update()
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         animate_diff_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -9061,16 +9079,19 @@ def buildAnimateDiff(page):
     prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
-    video_length = SliderRow(label="Video Length", min=1, max=150, divisions=149, pref=animate_diff_prefs, key='video_length', tooltip="The number of frames to animate.")
+    video_length = SliderRow(label="Video Length", min=1, max=500, divisions=499, pref=animate_diff_prefs, key='video_length', tooltip="The number of frames to animate.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=animate_diff_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=animate_diff_prefs, key='guidance_scale')
+    context = SliderRow(label="Frames to Condition Context", min=1, max=24, divisions=23, pref=animate_diff_prefs, key='context', expand=True, col={'md': 6}, tooltip="Number of frames to condition on. Drop to 8 on cards with less than 8GB VRAM, can raise it to 20-24 on cards with more. (default: max of <length> or 24)")
+    stride = SliderRow(label="Max Motion Stride", min=1, max=8, divisions=7, pref=animate_diff_prefs, key='stride', expand=True, col={'md': 6}, tooltip="Max motion stride as a power of 2 (default: 4)")
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
     scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp"), dropdown.Option("k_dpmpp"), dropdown.Option("unipc")], width=150, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=150, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
-    dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("None")], value=animate_diff_prefs['dreambooth_lora'], on_change=lambda e: changed(e, 'dreambooth_lora'))
+    dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("None"), dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
+    custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
     for lora in animate_diff_loras:
-        dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
+        dreambooth_lora.options.insert(2, dropdown.Option(lora['name']))
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     batch_folder_name = TextField(label="Batch Folder Name", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
@@ -9098,7 +9119,9 @@ def buildAnimateDiff(page):
         guidance,
         width_slider, height_slider,
         video_length,
+        ResponsiveRow([context, stride]),
         Row([dreambooth_lora, lora_alpha]),
+        custom_lora,
         Row([motion_module, scheduler, batch_folder_name]),
         page.ESRGAN_block_animate_diff,
         #Row([jump_length, jump_n_sample, seed]),
@@ -13485,6 +13508,8 @@ pipe = None
 pipe_img2img = None
 pipe_SDXL = None
 pipe_SDXL_refiner = None
+compel_base = None
+compel_refiner = None
 pipe_interpolation = None
 pipe_clip_guided = None
 pipe_conceptualizer = None
@@ -13800,7 +13825,7 @@ def get_diffusers(page):
         #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
         #if install_xformers(page):
         status['installed_xformers'] = True
-    run_sp("pip install --no-deps invisible-watermark>=0.2.0", realtime=False)
+    run_sp("pip install invisible-watermark", realtime=False) #pip install --no-deps invisible-watermark>=0.2.0
     '''try:
         import accelerate
     except ModuleNotFoundError:
@@ -14650,7 +14675,7 @@ def get_SDXL(page):
       return False
 
 def get_SDXL_pipe(task="text2image"):
-  global pipe_SDXL, pipe_SDXL_refiner, prefs, status
+  global pipe_SDXL, pipe_SDXL_refiner, prefs, status, compel_base, compel_refiner
   from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, AutoencoderKL
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   try:
@@ -14658,10 +14683,17 @@ def get_SDXL_pipe(task="text2image"):
   except ModuleNotFoundError:
       run_sp("pip install --no-deps invisible-watermark>=0.2.0", realtime=False)
       pass
+  if prefs['SDXL_compel']:
+      try:
+          from compel import Compel
+      except ModuleNotFoundError:
+          run_sp("pip install --upgrade compel", realtime=False)
+          pass
   model_id = "stabilityai/stable-diffusion-xl-base-1.0"
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-1.0"
   if task != status['loaded_SDXL']:
       clear_pipes()
+  watermark = False
   low_ram = int(status['cpu_memory']) <= 12
   vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae", torch_dtype=torch.float16, force_upcast=False)
   if task == "text2image":
@@ -14669,15 +14701,14 @@ def get_SDXL_pipe(task="text2image"):
       if pipe_SDXL is not None:
           if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-            return pipe_SDXL
-          else:
-            return pipe_SDXL
+          return pipe_SDXL
       pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
           model_id,
           variant="fp16",
           torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
           vae=vae,
           use_safetensors=True,
+          add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
@@ -14685,6 +14716,7 @@ def get_SDXL_pipe(task="text2image"):
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
           text_encoder_2=pipe_SDXL.text_encoder_2,
           vae=vae,
+          add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
@@ -14700,6 +14732,7 @@ def get_SDXL_pipe(task="text2image"):
             return pipe_SDXL_refiner
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
           refiner_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
@@ -14716,6 +14749,7 @@ def get_SDXL_pipe(task="text2image"):
             return pipe_SDXL
       pipe_SDXL = StableDiffusionXLInpaintPipeline.from_pretrained(
           model_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
@@ -14728,10 +14762,16 @@ def get_SDXL_pipe(task="text2image"):
           torch_dtype=torch.float16,
           use_safetensors=True,
           variant="fp16",
+          add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
       )
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
+  if prefs['SDXL_compel']:
+      from compel import Compel, ReturnedEmbeddingsType
+      compel_base = Compel(truncate_long_prompts=True, tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2] , text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      compel_refiner = Compel(truncate_long_prompts=True, tokenizer=pipe_SDXL_refiner.tokenizer, text_encoder=pipe_SDXL_refiner.text_encoder, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED)
+
   return pipe_SDXL
 
 def get_versatile(page):
@@ -15474,7 +15514,12 @@ def clear_unet_pipe():
     flush()
     unet = None
 def clear_SDXL_pipe():
-  global pipe_SDXL, pipe_SDXL_refiner
+  global pipe_SDXL, pipe_SDXL_refiner, compel_base, compel_refiner
+  if prefs['SDXL_compel']:
+    if compel_base is not None:
+      del compel_base, compel_refiner
+      compel_base = None
+      compel_refiner = None
   if pipe_SDXL is not None:
     del pipe_SDXL
     flush()
@@ -15483,6 +15528,7 @@ def clear_SDXL_pipe():
     del pipe_SDXL_refiner
     flush()
     pipe_SDXL_refiner = None
+
 def clear_clip_guided_pipe():
   global pipe_clip_guided
   if pipe_clip_guided is not None:
@@ -15915,7 +15961,7 @@ def available_folder(folder, name, idx):
 #async
 def start_diffusion(page):
   global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale, pipe_SDXL, pipe_SDXL_refiner
-  global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps
+  global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps, compel_base, compel_refiner
   def prt(line, update=True):
     if type(line) == str:
       line = Text(line)
@@ -16655,9 +16701,21 @@ def start_diffusion(page):
                 pipe_used = "Stable Diffusion XL Inpainting"
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 total_steps = int(arg['steps'] * high_noise_frac)
-                image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                if prefs['SDXL_compel']:
+                  prompt_embed, pooled = compel_base(pr)
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
+                  [prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                else:
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
-                images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                if prefs['SDXL_compel']:
+                  prompt_embed = compel_refiner(pr)
+                  negative_embed = compel_refiner(arg['negative_prompt'])
+                  [prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                else:
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
@@ -16870,14 +16928,29 @@ def start_diffusion(page):
                 images = pipe_composable(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], weights=weights, generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Text-to-Image"
-                if arg['batch_size'] > 1:
-                    neg_prompts = [arg['negative_prompt']] * 3
+                #if arg['batch_size'] > 1:
+                #    neg_prompts = [arg['negative_prompt']] * arg['batch_size']
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 #TODO: Figure out batch num_images_per_prompt + option to not refine , image[None, :] , num_images_per_prompt=arg['batch_size']
                 total_steps = int(arg['steps'] * high_noise_frac)
-                image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
-                total_steps = int(arg['steps'] * (1 -high_noise_frac))
-                images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                if prefs['SDXL_compel']:
+                  print(f"pr:{pr} - neg: {arg['negative_prompt']}")
+                  prompt_embed, pooled = compel_base(pr)
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
+                  [prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  del pooled, negative_pooled
+                else:
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                total_steps = int(arg['steps'] * (1 - high_noise_frac))
+                if prefs['SDXL_compel']:
+                  prompt_embed = compel_refiner(pr)
+                  negative_embed = compel_refiner(arg['negative_prompt'])
+                  [prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  del prompt_embed, negative_embed
+                else:
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
@@ -16945,12 +17018,14 @@ def start_diffusion(page):
           clear_last()
           if 'out of memory' in str(e):
             alert_msg(page, f"CRITICAL ERROR: GPU ran out of memory! Flushing memory to save session... Try reducing image size.", content=Text(str(e).strip()))
+            clear_pipes()
             pass
           else:
             alert_msg(page, f"RUNTIME ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
             pass
         except Exception as e:
           alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+          abort_run = True
           pass
         finally:
           gc.collect()
@@ -21306,7 +21381,12 @@ def run_music_gen(page):
     installer = Installing("Downloading MusicGen Pipeline...")
     prt(installer)
     music_gen_dir = os.path.join(root_dir, "music_gen")
-
+    try:
+        import sentencepiece
+    except ModuleNotFoundError: #>=0.1.99
+        run_sp("pip install --upgrade sentencepiece~=0.1", realtime=False)
+        import sentencepiece
+        pass
     try:
         import audiocraft
         #from audiocraft.models import musicgen
@@ -29103,7 +29183,7 @@ def run_animate_diff(page):
     animatediff_dir = os.path.join(root_dir, 'animatediff-cli')
     if not os.path.exists(animatediff_dir):
         installer.set_details("...clone guoyww/animatediff")
-        run_sp("git clone https://github.com/neggles/animatediff-cli", realtime=False, cwd=root_dir)
+        run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
         os.chdir(animatediff_dir)
         run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
     try:
@@ -29129,6 +29209,12 @@ def run_animate_diff(page):
     except Exception:
         installer.set_details("...installing colorama, rich, ninja")
         run_sp("pip install colorama rich ninja pydantic shellingham typer gdown", realtime=False) #=11.3
+        pass
+    try:
+        import black
+    except Exception:
+        installer.set_details("...installing black, ruff, setuptools-scm")
+        run_sp("pip install black ruff setuptools-scm", realtime=False)
         pass
     try:
         import xformers
@@ -29177,36 +29263,55 @@ def run_animate_diff(page):
         installer.set_details("...installing watchdog")
         run_sp("pip install -q watchdog", realtime=False)
         pass
-    try:
-        from diffusers.modeling_utils import ModelMixin
-    except Exception:
-        print("Cannot see from diffusers.modeling_utils import ModelMixin")
-        pass
+    if animate_diff_prefs['save_video']:
+        import platform
+        rife_dir = animatediff_dir.joinpath('data', 'rife')
+        if len(os.listdir(rife_dir)) == 0:
+            installer.set_details("...downloading RiFE")
+            if platform.system() == 'Linux':
+                rife_zip = download_file("https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-ubuntu.zip")
+            elif platform.system() == 'Windows':
+                rife_zip = download_file("https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-windows.zip")
+            elif platform.system() == 'Darwin':
+                rife_zip = download_file("https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-macos.zip")
+            installer.set_details("...extracting RiFE")
+            shutil.unpack_archive(rife_zip, rife_dir)
+            os.remove(rife_zip)
     output_path = os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name'])
     if not os.path.exists(output_path):
         os.makedirs(output_path)
     #run_sp("apt -y install -qq aria2", realtime=False)
-    sd_models = os.path.join(animatediff_dir, 'models', 'StableDiffusion')
-    motion_module = os.path.join(animatediff_dir, 'models', 'Motion_Module')
+    sd_models = os.path.join(animatediff_dir, 'data', 'models', 'StableDiffusion')
+    motion_module = os.path.join(animatediff_dir, 'data', 'models', 'motion-module')
     if not os.path.isdir(motion_module):
         os.makedirs(motion_module)
     run_sp(f"rm -rf {sd_models}", realtime=False)
-    #installer.set_details("...downloading stable-diffusion-v1-5")
-    #run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
+    installer.set_details("...downloading stable-diffusion-v1-5")
+    run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
     if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
         installer.set_details("...downloading motion_module-v1-4")
         download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
     if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
         installer.set_details("...downloading motion_module-v1-5")
         download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
-    sd_models = "runwayml/stable-diffusion-v1-5"
+    #sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': ''}
-    lora_dir = os.path.join(animatediff_dir, 'data', 'models')
+    lora_dir = os.path.join(animatediff_dir, 'data', 'models', 'sd')
     #lora_dir = os.path.join(animatediff_dir, 'models', 'DreamBooth_LoRA')
     if not os.path.isdir(lora_dir):
         os.makedirs(lora_dir)
     lora_path = ""
-    if animate_diff_prefs['dreambooth_lora'] != "None":
+    if animate_diff_prefs['dreambooth_lora'] == "Custom":
+        lora = animate_diff_prefs['custom_lora']
+        if lora.startswith("http"):
+            installer.set_details(f"...downloading Custom LoRA")
+            lora_file = download_file(lora_model['path'], to=lora_dir)
+            if os.path.isfile(lora_file):
+                lora_path = lora_file
+        else:
+            if os.path.isfile(lora):
+                lora_path = lora
+    elif animate_diff_prefs['dreambooth_lora'] != "None":
         for lora in animate_diff_loras:
             if lora['name'] == animate_diff_prefs['dreambooth_lora']:
                 lora_model = lora
@@ -29240,9 +29345,9 @@ def run_animate_diff(page):
         random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
         seeds.append(random_seed)
     prompts_json = {
-        'name': 'NewModel',
-        'path': lora_path,
+        'name': 'SDD',
         'base': "",
+        'path': lora_path,
         'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
         'seed': seeds,
         'scheduler': animate_diff_prefs['scheduler'],
@@ -29278,7 +29383,7 @@ NewModel:
         prompts_yaml += f'''
     - "{n}"'''
     yaml_file = os.path.join(animatediff_dir, "config", "prompts", "prompt.yaml")
-    json_file = os.path.join(animatediff_dir, "config", "prompts", "prompt.json")
+    json_file = os.path.join(animatediff_dir, "config", "prompts", "sdd_prompt.json")
     cli_file = os.path.join(animatediff_dir, "src", "animatediff")
     out_dir = os.path.join(animatediff_dir, "output")
     prompts_file = open(yaml_file, "w")
@@ -29290,7 +29395,8 @@ NewModel:
     cmd2 = f"python -m cli --config-path {json_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
     cmd2 += f" --L {animate_diff_prefs['video_length']} --W {animate_diff_prefs['width']} --H {animate_diff_prefs['height']}"
     cmd = f"animatediff generate --config-path {json_file} --model-path {sd_models}"
-    cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} --save-merged"
+    cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} -C {animate_diff_prefs['context']} -S {animate_diff_prefs['stride']} --save-merged"
+    #cmd += f" -O {animate_diff_prefs['overlap']}"
     w = 0
     h = 0
     output_dir = ""
@@ -29337,17 +29443,16 @@ NewModel:
     observer.start()
     #prt(f"Running {cmd}")
     try:
-        #run_sp(cmd, cwd=cli_file, realtime=True)
-        run_sp(cmd, cwd=animatediff_dir, realtime=True)
+      run_sp(cmd, cwd=animatediff_dir, realtime=True)
       #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
       #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
     except Exception as e:
       clear_last()
       observer.stop()
-      alert_msg(page, f"ERROR: Couldn't AnimateDiff your image for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      alert_msg(page, f"ERROR: Couldn't run AnimateDiff for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
       return
     clear_last()
-    clear_last()
+    #clear_last()
     observer.stop()
     #filename = f"{format_filename(editing_prompts[0]['prompt'])}"
     #filename = filename[:int(prefs['file_max_length'])]
@@ -30748,7 +30853,6 @@ def run_kandinsky(page, from_list=False, with_params=False):
     clear_list()
     autoscroll(True)
     installer = Installing("Installing Kandinsky 2.2 Engine & Models... See console log for progress.")
-    prt(installer)
     clear_pipes("kandinsky")
     import requests
     from io import BytesIO
@@ -30762,6 +30866,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
     #save_dir = os.path.join(root_dir, 'kandinsky_inputs')
     cpu_offload = False
     for pr in kandinsky_prompts:
+        prt(installer)
         init_img = None
         if bool(pr['init_image']):
             fname = pr['init_image'].rpartition(slash)[2]
@@ -30815,8 +30920,8 @@ def run_kandinsky(page, from_list=False, with_params=False):
                     pipe_kandinsky = KandinskyV22InpaintPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 '''
                 if task_type == "text2img":
-                    from diffusers import AutoPipelineForTextToImage
-                    pipe_kandinsky = AutoPipelineForTextToImage.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    from diffusers import AutoPipelineForText2Image
+                    pipe_kandinsky = AutoPipelineForText2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "img2img":
                     from diffusers import AutoPipelineForImage2Image
                     pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
@@ -30843,6 +30948,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
         prt("Generating your Kandinsky 2.2 Image...")
         prt(progress)
         autoscroll(False)
+        total_steps = pr['steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         try:
