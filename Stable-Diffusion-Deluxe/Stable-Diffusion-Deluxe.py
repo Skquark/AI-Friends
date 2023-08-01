@@ -29265,7 +29265,7 @@ def run_animate_diff(page):
         pass
     if animate_diff_prefs['save_video']:
         import platform
-        rife_dir = animatediff_dir.joinpath('data', 'rife')
+        rife_dir = os.path.join(animatediff_dir, 'data', 'rife')
         if len(os.listdir(rife_dir)) == 0:
             installer.set_details("...downloading RiFE")
             if platform.system() == 'Linux':
@@ -29288,12 +29288,12 @@ def run_animate_diff(page):
     run_sp(f"rm -rf {sd_models}", realtime=False)
     installer.set_details("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
-    if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
-        installer.set_details("...downloading motion_module-v1-4")
-        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
-    if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
-        installer.set_details("...downloading motion_module-v1-5")
-        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
+    #if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
+    installer.set_details("...downloading motion_module-v1-4")
+    download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
+    #if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
+    installer.set_details("...downloading motion_module-v1-5")
+    download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
     #sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': ''}
     lora_dir = os.path.join(animatediff_dir, 'data', 'models', 'sd')
@@ -29321,7 +29321,9 @@ def run_animate_diff(page):
             installer.set_details(f"...downloading {lora_model['name']}")
             download_file(lora_model['path'], to=lora_dir)
             #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M {lora_model['path']} -d {lora_dir} -o {lora_model['file']}", realtime=False)
-
+    if bool(lora_path):
+        fname = lora_path.rpartition(slash)[2]
+        lora_path = f"models{slash}sd{slash}{fname}"
     clear_pipes()
     clear_last()
     prt("Generating AnimateDiff of your Prompts...")
@@ -29348,7 +29350,8 @@ def run_animate_diff(page):
         'name': 'SDD',
         'base': "",
         'path': lora_path,
-        'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
+        'motion_module': f"models{slash}motion-module{slash}{animate_diff_prefs['motion_module']}.ckpt",
+        #'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
         'seed': seeds,
         'scheduler': animate_diff_prefs['scheduler'],
         'steps': int(animate_diff_prefs['steps']),
