@@ -719,11 +719,11 @@ def buildVideoAIs(page):
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
+            Tab(text="AnimateDiff", content=page.AnimateDiff, icon=icons.AUTO_MODE),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
-            Tab(text="AnimateDiff", content=page.AnimateDiff, icon=icons.AUTO_MODE),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
@@ -8913,7 +8913,7 @@ animate_diff_prefs = {
     'steps': 25,
     'guidance_scale': 7.5,
     'editing_prompts': [],
-    'dreambooth_lora': 'None',
+    'dreambooth_lora': 'realisticVisionV40_v20Novae',
     'lora_alpha': 0.8,
     'custom_lora': '',
     'motion_module': 'mm_sd_v15',
@@ -8984,7 +8984,7 @@ def buildAnimateDiff(page):
       animate_diff_help_dlg = AlertDialog(title=Text("💁   Help with AnimateDiff"), content=Column([
           Text("With the advance of text-to-image models (e.g., Stable Diffusion) and corresponding personalization techniques such as DreamBooth and LoRA, everyone can manifest their imagination into high-quality images at an affordable cost. Subsequently, there is a great demand for image animation techniques to further combine generated static images with motion dynamics. In this report, we propose a practical framework to animate most of the existing personalized text-to-image models once and for all, saving efforts in model-specific tuning. At the core of the proposed framework is to insert a newly initialized motion modeling module into the frozen text-to-image model and train it on video clips to distill reasonable motion priors. Once trained, by simply injecting this motion modeling module, all personalized versions derived from the same base T2I readily become text-driven models that produce diverse and personalized animated images. We conduct our evaluation on several public representative personalized text-to-image models across anime pictures and realistic photographs, and demonstrate that our proposed framework helps these models generate temporally smooth animation clips while preserving the domain and diversity of their outputs."),
           Text("Credits: Yuwei Guo, Ceyuan Yang, Anyi Rao, Yaohui Wang, Yu Qiao, Dahua Lin, Bo Dai. Also Neggles for refactoring, Camenduru and UI by Alan Bedian"),
-          Markdown("[GitHub Code](https://github.com/guoyww/animatediff/) - [Project Page](https://animatediff.github.io/) - [Arxiv Paper](https://arxiv.org/abs/2307.04725)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Neggles GitHub Code](https://github.com/neggles/animatediff-cli) - [Original GitHub Code](https://github.com/guoyww/animatediff/) - [Project Page](https://animatediff.github.io/) - [Arxiv Paper](https://arxiv.org/abs/2307.04725)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧞  Make a Wish... ", on_click=close_animate_diff_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = animate_diff_help_dlg
       animate_diff_help_dlg.open = True
@@ -9076,9 +9076,9 @@ def buildAnimateDiff(page):
         page.animate_diff_prompts.controls.clear()
         page.animate_diff_prompts.update()
         if prefs['enable_sounds']: page.snd_delete.play()
-    prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    seed = TextField(label="Seed", width=90, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
+    prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    seed = TextField(label="Seed", width=90, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, filled=True, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
     video_length = SliderRow(label="Video Length", min=1, max=500, divisions=499, pref=animate_diff_prefs, key='video_length', tooltip="The number of frames to animate.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=animate_diff_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=animate_diff_prefs, key='guidance_scale')
@@ -9088,11 +9088,14 @@ def buildAnimateDiff(page):
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
     scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp"), dropdown.Option("k_dpmpp"), dropdown.Option("unipc")], width=150, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=150, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
-    dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("None"), dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
+    dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
     custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
     for lora in animate_diff_loras:
-        dreambooth_lora.options.insert(2, dropdown.Option(lora['name']))
+        dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    save_frames = Switcher(label="Save Frames", value=animate_diff_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
+    save_gif = Switcher(label="Save Animated GIF", value=animate_diff_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
+    save_video = Switcher(label="Save Video", value=animate_diff_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
     batch_folder_name = TextField(label="Batch Folder Name", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animate_diff_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -9108,10 +9111,10 @@ def buildAnimateDiff(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👫  AnimateDiff - Under Construction but almost works", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
+        Header("👫  AnimateDiff Text-to-Video", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt, seed]),
-        Row([Text("Animation Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
+        Row([Text("AnimateDiff Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
                     Row([ft.FilledTonalButton("Clear Prompts", on_click=clear_animate_diff_prompts), ft.FilledButton("Add Diff Prompt", on_click=lambda e: edit_animate_diff(None))])], alignment=MainAxisAlignment.SPACE_BETWEEN),
         page.animate_diff_prompts,
         Divider(thickness=2, height=4),
@@ -9123,6 +9126,7 @@ def buildAnimateDiff(page):
         Row([dreambooth_lora, lora_alpha]),
         custom_lora,
         Row([motion_module, scheduler, batch_folder_name]),
+        Row([save_frames, save_gif, save_video]),
         page.ESRGAN_block_animate_diff,
         #Row([jump_length, jump_n_sample, seed]),
         Row([
@@ -12732,6 +12736,7 @@ bark_prefs = {
     'acoustic_prompt': 'Unconditional',
     'n_iterations': 1,
     'seed': 0,
+    'use_bettertransformer': False,
     'batch_folder_name': '',
     'file_prefix': 'bark-',
 }
@@ -12787,6 +12792,7 @@ def buildBark(page):
     file_prefix = TextField(label="Filename Prefix", value=bark_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     n_iterations = Tooltip(message="Make multiple for quality control. Generates candidates and choose the best.", content=NumberPicker(label="Number of Iterations:   ", min=1, max=10, value=bark_prefs['n_iterations'], on_change=lambda e: changed(e, 'n_iterations')))
     seed = TextField(label="Seed", value=bark_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    use_bettertransformer = Switcher(label="Use Optimum BetterTransformer", value=bark_prefs['use_bettertransformer'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_bettertransformer'), tooltip="Enables HuggingFace Optimum Transformers to go 25% faster.")
     page.bark_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.bark_output.controls) > 0
@@ -12800,6 +12806,7 @@ def buildBark(page):
         Row([acoustic_prompt, n_iterations]),
         #Row([n_iterations, seed]),
         Row([batch_folder_name, file_prefix]),
+        use_bettertransformer,
         ElevatedButton(content=Text("🐕  Run Bark", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_bark(page)),
         page.bark_output,
         clear_button,
@@ -24225,10 +24232,12 @@ def run_bark(page):
       alert_msg(page, "Provide Text for the AI to create the sound of...")
       return
     progress = ProgressBar(bar_height=8)
-    prt(Installing("Downloading Bark Packages..."))
+    installer = Installing("Downloading Bark Packages...")
+    prt(installer)
     try:
         import scipy
     except ModuleNotFoundError:
+        installer.set_details("...installing scipy")
         run_process("pip install -qq --upgrade scipy", page=page)
         pass
     from scipy.io.wavfile import write as write_wav
@@ -24238,6 +24247,7 @@ def run_bark(page):
         from bark import SAMPLE_RATE, generate_audio, preload_models
         if force_updates: raise ImportError("Forcing update")
     except Exception:
+        installer.set_details("...installing suno-ai/bark")
         try:
             run_process("pip install git+https://github.com/suno-ai/bark.git", page=page)
         except Exception as e:
@@ -24247,9 +24257,25 @@ def run_bark(page):
         pass
     finally:
         from bark import SAMPLE_RATE, generate_audio, preload_models
+    if bark_prefs['use_bettertransformer']:
+      #https://colab.research.google.com/drive/1XO0RhINg4ZZCdJJmPeJ9lOQs98skJ8h_
+        try:
+            from optimum.bettertransformer import BetterTransformer
+        except ModuleNotFoundError:
+            installer.set_details("...installing Optimum BetterTransformer")
+            run_process("pip install --upgrade git+https://github.com/huggingface/optimum.git", page=page)
+            from optimum.bettertransformer import BetterTransformer
+            pass
+        from transformers import BarkModel, set_seed, AutoProcessor
+        installer.set_details("...initializing suno/bark model")
+        bark_model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float16).to(torch_device)
+        installer.set_details("...initializing suno/bark processor")
+        processor = AutoProcessor.from_pretrained("suno/bark")
+        installer.set_details("...initializing BetterTransformer model")
+        bark_model = BetterTransformer.transform(bark_model, keep_original_model=False)
     import soundfile as sf
     clear_pipes()
-    preload_models()
+    if not bark_prefs['use_bettertransformer']: preload_models()
     clear_last()
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(bark_prefs['batch_folder_name']):
@@ -24265,7 +24291,14 @@ def run_bark(page):
         prt(progress)
         #random_seed = int(bark_prefs['seed']) if int(bark_prefs['seed']) > 0 else rnd.randint(0,4294967295)
         try:
-            audio_array = generate_audio(bark_prefs['text'], history_prompt=history_prompt, text_temp=bark_prefs['text_temp'], waveform_temp=bark_prefs['waveform_temp'])
+            if not bark_prefs['use_bettertransformer']:
+                audio_array = generate_audio(bark_prefs['text'], history_prompt=history_prompt, text_temp=bark_prefs['text_temp'], waveform_temp=bark_prefs['waveform_temp'])
+            else:
+                set_seed(0)
+                inputs = processor(bark_prefs['text'], voice_preset=history_prompt).to(torch_device)
+                audio_array = bark_model.generate(**inputs, do_sample = True, fine_temperature=bark_prefs['text_temp'], coarse_temperature=bark_prefs['waveform_temp'])
+                audio_array = audio_array.cpu().numpy().squeeze()
+                sample_rate = bark_model.generation_config.sample_rate
         except Exception as e:
             clear_last()
             alert_msg(page, "Error generating Bark waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
@@ -24276,7 +24309,7 @@ def run_bark(page):
         audio_name = f'{file_prefix}-{fname}'
         audio_name = audio_name[:int(prefs['file_max_length'])]
         fname = available_file(audio_out, audio_name, i, ext="wav")
-        write_wav(fname, SAMPLE_RATE, audio_array)
+        write_wav(fname, SAMPLE_RATE if not bark_prefs['use_bettertransformer'] else sample_rate, audio_array)
         clear_last()
         clear_last()
         #a_out = Audio(src=fname, autoplay=False)
@@ -29277,6 +29310,12 @@ def run_animate_diff(page):
             installer.set_details("...extracting RiFE")
             shutil.unpack_archive(rife_zip, rife_dir)
             os.remove(rife_zip)
+            for folder_name in os.listdir(rife_dir):
+                if os.path.isdir(os.path.join(rife_dir, folder_name)):
+                    rife_folder = os.path.join(rife_dir, folder_name)
+                    break
+            for file_name in os.listdir(rife_folder):
+                shutil.move(os.path.join(rife_folder, file_name), rife_dir)
     output_path = os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name'])
     if not os.path.exists(output_path):
         os.makedirs(output_path)
@@ -29340,12 +29379,21 @@ def run_animate_diff(page):
     editing_prompts = []
     negative_prompts = []
     seeds = []
-
-    for ep in animate_diff_prefs['editing_prompts']:
-        editing_prompts.append(ep['prompt'])
-        negative_prompts.append(ep['negative_prompt'])
-        random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
-        seeds.append(random_seed)
+    if len(animate_diff_prefs['editing_prompts']) == 0:
+        if not bool(animate_diff_prefs['prompt']):
+            alert_msg(page, "Error: You must provide at least one Prompt to render...")
+            return
+        else:
+            editing_prompts.append(animate_diff_prefs['prompt'])
+            negative_prompts.append(animate_diff_prefs['negative_prompt'])
+            random_seed = int(animate_diff_prefs['seed']) if int(animate_diff_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            seeds.append(random_seed)
+    else:
+        for ep in animate_diff_prefs['editing_prompts']:
+            editing_prompts.append(ep['prompt'])
+            negative_prompts.append(ep['negative_prompt'])
+            random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
+            seeds.append(random_seed)
     prompts_json = {
         'name': 'SDD',
         'base': "",
@@ -29399,11 +29447,14 @@ NewModel:
     cmd2 = f"python -m cli --config-path {json_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
     cmd2 += f" --L {animate_diff_prefs['video_length']} --W {animate_diff_prefs['width']} --H {animate_diff_prefs['height']}"
     cmd = f"animatediff generate --config-path {json_file} --model-path {sd_models}"
-    cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} -C {context} -S {animate_diff_prefs['stride']} --save-merged"
+    cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} -C {context} -S {animate_diff_prefs['stride']}"
+    if animate_diff_prefs['save_gif']:
+        cmd += " --save-merged"
     #cmd += f" -O {animate_diff_prefs['overlap']}"
     w = 0
     h = 0
     output_dir = ""
+    output_dirs = []
     img_idx = 0
     from watchdog.observers import Observer
     from watchdog.events import LoggingEventHandler, FileSystemEventHandler
@@ -29414,6 +29465,7 @@ NewModel:
         nonlocal img_idx, w, h, output_dir
         if event.is_directory:
           output_dir = event.src_path
+          output_dirs.append(event.src_path)
           return None
         elif event.event_type == 'created' and (event.src_path.endswith("png") or event.src_path.endswith("gif")):
           autoscroll(True)
@@ -29463,17 +29515,44 @@ NewModel:
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
     autoscroll(True)
     if animate_diff_prefs['save_video']:
-        interpolate_cmd = f"animatediff rife interpolate --temporal-tta --uhd {output_dir}" #--out_file --codec h264
-        try:
-          run_sp(interpolate_cmd, cwd=animatediff_dir, realtime=True)
-          #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
-          #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
-        except Exception as e:
-          #clear_last()
-          alert_msg(page, f"ERROR: Couldn't interpolate video from AnimateDiff for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-          return
-    num = 0
+        class VidHandler(FileSystemEventHandler):
+          def __init__(self):
+            super().__init__()
+          def on_created(self, event):
+            nonlocal w, h, output_dir
+            if event.event_type == 'created' and (event.src_path.endswith("mp4") or event.src_path.endswith("avi")):
+              autoscroll(True)
+              #clear_last()
+              prt(Divider(height=6, thickness=2))
+              fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+              time.sleep(1)
+              shutil.copy(event.src_path, fpath)
+              prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
+              #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+              #prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
+              page.update()
+              #prt(progress)
+              time.sleep(0.2)
+              autoscroll(False)
+        video_handler = VidHandler()
+        vidobserver = Observer()
+        vidobserver.schedule(video_handler, out_dir, recursive=True)
+        vidobserver.start()
+        for dir in output_dirs:
+            if len(os.listdir(dir)) < 4:
+                continue
+            interpolate_cmd = f"animatediff rife interpolate --temporal-tta --uhd {dir}" #--out_file --codec h264
+            try:
+              run_sp(interpolate_cmd, cwd=animatediff_dir, realtime=True)
+              #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
+              #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
+            except Exception as e:
+              #clear_last()
+              alert_msg(page, f"ERROR: Couldn't interpolate video from AnimateDiff for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+              return
+        vidobserver.stop()
     '''
+    num = 0
     for image in images:
         random_seed += num
         fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
