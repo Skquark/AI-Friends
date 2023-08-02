@@ -9082,7 +9082,7 @@ def buildAnimateDiff(page):
     video_length = SliderRow(label="Video Length", min=1, max=500, divisions=499, pref=animate_diff_prefs, key='video_length', tooltip="The number of frames to animate.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=animate_diff_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=animate_diff_prefs, key='guidance_scale')
-    context = SliderRow(label="Frames to Condition Context", min=1, max=24, divisions=23, pref=animate_diff_prefs, key='context', expand=True, col={'md': 6}, tooltip="Number of frames to condition on. Drop to 8 on cards with less than 8GB VRAM, can raise it to 20-24 on cards with more. (default: max of <length> or 24)")
+    context = SliderRow(label="Context Frames to Condition", min=1, max=24, divisions=23, pref=animate_diff_prefs, key='context', expand=True, col={'md': 6}, tooltip="Number of frames to condition on. Drop to 8 on cards with less than 8GB VRAM, can raise it to 20-24 on cards with more. (default: max of <length> or 24)")
     stride = SliderRow(label="Max Motion Stride", min=1, max=8, divisions=7, pref=animate_diff_prefs, key='stride', expand=True, col={'md': 6}, tooltip="Max motion stride as a power of 2 (default: 4)")
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
@@ -14715,7 +14715,7 @@ def get_SDXL_pipe(task="text2image"):
       pipe_SDXL = optimize_SDXL(pipe_SDXL)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
           text_encoder_2=pipe_SDXL.text_encoder_2,
-          vae=vae,
+          vae=pipe_SDXL.vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
@@ -14770,7 +14770,7 @@ def get_SDXL_pipe(task="text2image"):
   if prefs['SDXL_compel']:
       from compel import Compel, ReturnedEmbeddingsType
       compel_base = Compel(truncate_long_prompts=True, tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2] , text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-      compel_refiner = Compel(truncate_long_prompts=True, tokenizer=pipe_SDXL_refiner.tokenizer, text_encoder=pipe_SDXL_refiner.text_encoder, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED)
+      compel_refiner = Compel(truncate_long_prompts=True, tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
 
   return pipe_SDXL
 
@@ -16702,8 +16702,8 @@ def start_diffusion(page):
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 total_steps = int(arg['steps'] * high_noise_frac)
                 if prefs['SDXL_compel']:
-                  prompt_embed, pooled = compel_base(pr)
-                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
+                  prompt_embed, pooled = compel_base.build_conditioning_tensor(pr)
+                  negative_embed, negative_pooled = compel_base.build_conditioning_tensor(arg['negative_prompt'])
                   [prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 else:
@@ -16935,8 +16935,8 @@ def start_diffusion(page):
                 total_steps = int(arg['steps'] * high_noise_frac)
                 if prefs['SDXL_compel']:
                   print(f"pr:{pr} - neg: {arg['negative_prompt']}")
-                  prompt_embed, pooled = compel_base(pr)
-                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
+                  prompt_embed, pooled = compel_base.build_conditioning_tensor(pr)
+                  negative_embed, negative_pooled = compel_base.build_conditioning_tensor(arg['negative_prompt'])
                   [prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                   del pooled, negative_pooled
@@ -16944,8 +16944,8 @@ def start_diffusion(page):
                   image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
-                  prompt_embed = compel_refiner(pr)
-                  negative_embed = compel_refiner(arg['negative_prompt'])
+                  prompt_embed = compel_refiner.build_conditioning_tensor(pr)
+                  negative_embed = compel_refiner.build_conditioning_tensor(arg['negative_prompt'])
                   [prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                   del prompt_embed, negative_embed
@@ -29252,7 +29252,7 @@ def run_animate_diff(page):
         pass
     try:
         installer.set_details("...installing AnimateDiff Requirements")
-        run_sp("pip install -e .", cwd=animatediff_dir, realtime=True) #'.[dev]'
+        run_sp("pip install -e .", cwd=animatediff_dir, realtime=False) #'.[dev]'
     except Exception as e:
         clear_last()
         alert_msg(page, f"ERROR: Couldn't Install AnimateDiff Requirements for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -29266,7 +29266,7 @@ def run_animate_diff(page):
     if animate_diff_prefs['save_video']:
         import platform
         rife_dir = os.path.join(animatediff_dir, 'data', 'rife')
-        if len(os.listdir(rife_dir)) == 0:
+        if len(os.listdir(rife_dir)) <= 1:
             installer.set_details("...downloading RiFE")
             if platform.system() == 'Linux':
                 rife_zip = download_file("https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-ubuntu.zip")
@@ -29289,11 +29289,11 @@ def run_animate_diff(page):
     installer.set_details("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
     #if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
-    installer.set_details("...downloading motion_module-v1-4")
-    download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
+    #installer.set_details("...downloading motion_module-v1-4")
+    #download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
     #if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
-    installer.set_details("...downloading motion_module-v1-5")
-    download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
+    #installer.set_details("...downloading motion_module-v1-5")
+    #download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
     #sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': ''}
     lora_dir = os.path.join(animatediff_dir, 'data', 'models', 'sd')
@@ -29326,7 +29326,7 @@ def run_animate_diff(page):
         lora_path = f"models{slash}sd{slash}{fname}"
     clear_pipes()
     clear_last()
-    prt("Generating AnimateDiff of your Prompts...")
+    prt("Generating AnimateDiff of your Prompts... See console for progress.")
     prt(progress)
     time.sleep(0.5)
     autoscroll(False)
@@ -29394,11 +29394,12 @@ NewModel:
     prompts_file.close()
     with open(json_file, "w") as outfile:
         json.dump(prompts_json, outfile, indent=4)
+    context = min(animate_diff_prefs['video_length'], animate_diff_prefs['context'])
     #cmd = f"python -m scripts.animate --config {yaml_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
     cmd2 = f"python -m cli --config-path {json_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
     cmd2 += f" --L {animate_diff_prefs['video_length']} --W {animate_diff_prefs['width']} --H {animate_diff_prefs['height']}"
     cmd = f"animatediff generate --config-path {json_file} --model-path {sd_models}"
-    cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} -C {animate_diff_prefs['context']} -S {animate_diff_prefs['stride']} --save-merged"
+    cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} -C {context} -S {animate_diff_prefs['stride']} --save-merged"
     #cmd += f" -O {animate_diff_prefs['overlap']}"
     w = 0
     h = 0
@@ -29414,7 +29415,7 @@ NewModel:
         if event.is_directory:
           output_dir = event.src_path
           return None
-        elif event.event_type == 'created' and event.src_path.endswith("png"):
+        elif event.event_type == 'created' and (event.src_path.endswith("png") or event.src_path.endswith("gif")):
           autoscroll(True)
           if w == 0:
             time.sleep(0.8)
