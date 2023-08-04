@@ -14683,7 +14683,7 @@ def get_SDXL(page):
 
 def get_SDXL_pipe(task="text2image"):
   global pipe_SDXL, pipe_SDXL_refiner, prefs, status, compel_base, compel_refiner
-  from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, AutoencoderKL
+  from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, AutoencoderKL # , AutoencoderTiny
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   try:
       from imwatermark import WatermarkEncoder
@@ -14702,6 +14702,7 @@ def get_SDXL_pipe(task="text2image"):
       clear_pipes()
   watermark = False
   low_ram = int(status['cpu_memory']) <= 12
+  #vae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=torch.float16)
   vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae", torch_dtype=torch.float16, force_upcast=False)
   if task == "text2image":
       status['loaded_SDXL'] = task
@@ -14776,9 +14777,9 @@ def get_SDXL_pipe(task="text2image"):
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
   if prefs['SDXL_compel']:
       from compel import Compel, ReturnedEmbeddingsType
-      compel_base = Compel(truncate_long_prompts=True, tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2] , text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-      compel_refiner = Compel(truncate_long_prompts=True, tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-
+      compel_base = Compel(tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2] , text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      compel_refiner = Compel(tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      #truncate_long_prompts=True, 
   return pipe_SDXL
 
 def get_versatile(page):
@@ -15344,6 +15345,12 @@ def get_alt_diffusion_img2img_pipe():
     pipe_alt_diffusion_img2img = optimize_pipe(pipe_alt_diffusion_img2img)
     pipe_alt_diffusion_img2img.set_progress_bar_config(disable=True)
     return pipe_alt_diffusion_img2img
+
+def postprocess_latent(pipe, latent):
+    vae_output = pipe.vae.decode(
+        latent.images / pipe.vae.config.scaling_factor, return_dict=False
+    )[0].detach()
+    return pipe.image_processor.postprocess(vae_output, output_type="pil")[0]
 
 SD_sampler = None
 def get_stability(page):
@@ -16711,7 +16718,7 @@ def start_diffusion(page):
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_base.build_conditioning_tensor(pr)
                   negative_embed, negative_pooled = compel_base.build_conditioning_tensor(arg['negative_prompt'])
-                  [prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 else:
                   image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
@@ -16719,7 +16726,7 @@ def start_diffusion(page):
                 if prefs['SDXL_compel']:
                   prompt_embed = compel_refiner(pr)
                   negative_embed = compel_refiner(arg['negative_prompt'])
-                  [prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 else:
                   images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -16942,8 +16949,8 @@ def start_diffusion(page):
                 total_steps = int(arg['steps'] * high_noise_frac)
                 if prefs['SDXL_compel']:
                   print(f"pr:{pr} - neg: {arg['negative_prompt']}")
-                  prompt_embed, pooled = compel_base.build_conditioning_tensor(pr)
-                  negative_embed, negative_pooled = compel_base.build_conditioning_tensor(arg['negative_prompt'])
+                  prompt_embed, pooled = compel_base(pr)
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   [prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                   del pooled, negative_pooled
@@ -16951,11 +16958,12 @@ def start_diffusion(page):
                   image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
-                  prompt_embed = compel_refiner.build_conditioning_tensor(pr)
-                  negative_embed = compel_refiner.build_conditioning_tensor(arg['negative_prompt'])
-                  [prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  del prompt_embed, negative_embed
+                  prompt_embed_refiner = compel_refiner(pr)
+                  negative_embed_refiner = compel_refiner(arg['negative_prompt'])
+                  #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
+                  #images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, negative_prompt_embeds=negative_embed, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  del prompt_embed_refiner, negative_embed_refiner
                 else:
                   images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
@@ -29249,14 +29257,15 @@ def run_animate_diff(page):
         installer.set_details("...installing black, ruff, setuptools-scm")
         run_sp("pip install black ruff setuptools-scm", realtime=False)
         pass
-    try:
-        import xformers
-    except ModuleNotFoundError:
-        installer.set_details("...installing FaceBook's Xformers")
-        #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers", realtime=False)
-        status['installed_xformers'] = True
-        pass
+    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+        try:
+            import xformers
+        except ModuleNotFoundError:
+            installer.set_details("...installing FaceBook's Xformers")
+            #run_sp("pip install --pre -U triton", realtime=False)
+            run_sp("pip install -U xformers", realtime=False)
+            status['installed_xformers'] = True
+            pass
     try:
         import imageio
     except Exception:
@@ -29285,7 +29294,7 @@ def run_animate_diff(page):
         pass
     try:
         installer.set_details("...installing AnimateDiff Requirements")
-        run_sp("pip install -e .", cwd=animatediff_dir, realtime=False) #'.[dev]'
+        run_sp("pip install -e .[dev]", cwd=animatediff_dir, realtime=False) #'.[dev]'
     except Exception as e:
         clear_last()
         alert_msg(page, f"ERROR: Couldn't Install AnimateDiff Requirements for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -29408,8 +29417,8 @@ def run_animate_diff(page):
         'prompt': editing_prompts,
         'n_prompt': negative_prompts,
     }
-    #if bool(lora_path):
-    #    prompts_json['lora_alpha'] = animate_diff_prefs['lora_alpha']
+    if bool(lora_path):
+        prompts_json['lora_scale'] = animate_diff_prefs['lora_alpha']
     prompts_yaml = f'''
 NewModel:
   path: "{lora_path}"
@@ -29498,7 +29507,23 @@ NewModel:
     observer.schedule(image_handler, out_dir, recursive=True)
     observer.start()
     #prt(f"Running {cmd}")
+    #console = RunConsole(show_progress=False)
+    #prt(console)
+    #from animatediff import get_dir
+    #from animatediff.cli import generate, logger
     try:
+      '''out_dir = generate(
+          config_path=json_file,
+          model_name_or_path=sd_models,
+          width=animate_diff_prefs['width'],
+          height=animate_diff_prefs['height'],
+          length=animate_diff_prefs['length'],
+          context=context,
+          stride=animate_diff_prefs['stride'],
+          save_merged=animate_diff_prefs['save_gif'],
+          use_xformers=status['installed_xformers'],
+      )'''
+      #console.run_process(cmd, cwd=animatediff_dir)
       run_sp(cmd, cwd=animatediff_dir, realtime=True)
       #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
       #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
@@ -29527,7 +29552,8 @@ NewModel:
               fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
               time.sleep(1)
               shutil.copy(event.src_path, fpath)
-              prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
+              prt(Row([VideoContainer(event.src_path)], alignment=MainAxisAlignment.CENTER))
+              #prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
               #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
               #prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
               page.update()
@@ -32770,6 +32796,51 @@ class Switcher(UserControl):
         else:
             return self.switch
 
+class RunConsole(UserControl):
+    def __init__(self, title="", height=300, show_progress=True):
+        super().__init__()
+        self.title = title
+        self.height = height
+        self.show_progress = show_progress
+        self.build()
+    def add_text(self, text):
+        self.column.controls.append(Text(text, style="titleSmall", color=colors.ON_SURFACE_VARIANT))
+        self.column.update()
+    def clear_last(self):
+        del self.column.controls[-1]
+        self.column.update()
+    def clear(self):
+        self.main_column.controls.clear()
+        self.main_column.update()
+    def run_process(self, cmd_str, cwd=None):
+        cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
+        if cwd is None:
+          process = subprocess.Popen(cmd_str, shell = True, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' )
+        else:
+          process = subprocess.Popen(cmd_str, shell = True, cwd=cwd, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' )
+        while True:
+          realtime_output = process.stdout.readline()
+          if realtime_output == '' and process.poll() is not None:
+            break
+          if "Downloading" in realtime_output:
+              self.clear_last()
+          self.add_text(realtime_output.strip())
+          #self.column.controls.append(Text(realtime_output.strip(), style="titleSmall", color=colors.TERTIARY))
+          #self.column.update()
+          sys.stdout.flush()
+        self.clear()
+    def build(self):
+        #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
+        self.column = Column([], spacing=1, scroll=ScrollMode.AUTO, auto_scroll=True) #, width=(page.width if page.web else page.window_width) - 20
+        self.container = Container(content=self.column, border_radius=ft.border_radius.all(16), height=self.height, bgcolor=colors.SURFACE_VARIANT, padding=ft.padding.symmetric(10, 12))
+        self.main_column = Column([])
+        if bool(self.title):
+            self.main_column.controls.append(Text(self.title, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3))
+        self.main_column.controls.append(self.container)
+        if self.show_progress:
+            self.main_column.controls.append(ProgressBar(bar_height=8))
+        return self.main_column
+      
 class VideoPlayer(UserControl):
     def __init__(self, video_file="", width=500, height=500):
         super().__init__()
