@@ -1191,8 +1191,9 @@ def buildInstallers(page):
       safety_config.update()
   def toggle_SDXL(e):
       changed(e, 'install_SDXL')
-      SDXL_params.height = None if e.control.value else 0
-      SDXL_params.update()
+      #TODO: Reenable when Compel works right
+      #SDXL_params.height = None if e.control.value else 0
+      #SDXL_params.update()
   model = get_model(prefs['model_ckpt'])
   model_path = model['path']
   model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[
@@ -1236,7 +1237,8 @@ def buildInstallers(page):
   install_SDXL = Switcher(label="Install Stable Diffusion XL 1.0 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=toggle_SDXL, tooltip="Latest SDXL v1.0 trained on 1080p images.")
   SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=5, left=20), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-
+  # Temporary
+  SDXL_params.visible = False
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
   install_interpolation = Switcher(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'), tooltip="Create multiple tween images between prompts latent space. Almost animation.")
@@ -1321,7 +1323,7 @@ def buildInstallers(page):
       page.update()
   install_Stability_api = Switcher(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], on_change=toggle_stability, tooltip="Use DreamStudio.com servers without your GPU to create images on CPU.")
   use_Stability_api = Checkbox(label="Use Stability-ai API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
-  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-xl-1024-v0-9"), dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
+  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-xl-1024-v1-0"), dropdown.Option("stable-diffusion-xl-1024-v0-9"), dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
   clip_guidance_preset = Dropdown(label="Clip Guidance Preset", width=350, options=[dropdown.Option("SIMPLE"), dropdown.Option("FAST_BLUE"), dropdown.Option("FAST_GREEN"), dropdown.Option("SLOW"), dropdown.Option("SLOWER"), dropdown.Option("SLOWEST"), dropdown.Option("NONE")], value=prefs['clip_guidance_preset'], autofocus=False, on_change=lambda e:changed(e, 'clip_guidance_preset'))
   #generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM"), dropdown.Option("K_EULER"), dropdown.Option("K_EULER_ANCESTRAL"), dropdown.Option("K_HEUN"), dropdown.Option("K_DPMPP_2M"), dropdown.Option("K_DPM_2_ANCESTRAL"), dropdown.Option("K_LMS"), dropdown.Option("K_DPMPP_2S_ANCESTRAL"), dropdown.Option("K_DPM_2")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
@@ -1707,7 +1709,7 @@ if is_Colab:
 
 #LoRA_models = [{'name': 'Von Platen LoRA', 'path': 'patrickvonplaten/lora'}, {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'Trauter LoRAs', 'path': 'YoungMasterFromSect/Trauter_LoRAs'}, {'name': 'Capitalize T5', 'path': 'ShengdingHu/Capitalize_T5-LoRA'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}]
 #[{'name': 'sample-dog', 'path': 'lora-library/lora-dreambooth-sample-dog', 'prefix': 'sksdog'}, {'name': 'kdekuni', 'path': 'lora-library/kdekuni', 'prefix': 'a kdekuni golden funkopop'}, {'name': 'yarosnnv', 'path': 'lora-library/yarosnnv', 'prefix': 'yarosnnv'}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, ]
-LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}, {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''}, {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '}]
+LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}, {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''}, {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '}, {'name': 'LogoLoraForSDXL', 'path': 'artificialguybr/LogoRedmond-LogoLoraForSDXL', 'prefix':'LogoRedAF'}]
 
 def buildParameters(page):
   global prefs, status, args
@@ -2008,7 +2010,7 @@ def buildParameters(page):
   display_upscaled_image = Checkbox(label="Display Upscaled Image", value=prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image', apply=False))
   ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.ESRGAN_block = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-  page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
+  #page.img_block.height = None if status['installed_txt2img'] or status['installed_stability'] else 0
   page.use_clip_guided_model.visible = status['installed_clip']
   page.clip_block.height = None if status['installed_clip'] and prefs['use_clip_guided_model'] else 0
   page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
@@ -2355,10 +2357,10 @@ def editPrompt(e):
           #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
         ], alignment=MainAxisAlignment.START, width=(e.page.width if e.page.web else e.page.window_width) - 200, height=(e.page.height if e.page.web else e.page.window_height) - 100, scroll=ScrollMode.AUTO), width=(e.page.width if e.page.web else e.page.window_width) - 200, height=(e.page.height if e.page.web else e.page.window_height) - 100),
         actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
-    open_dlg(e)
-    #e.page.dialog = edit_dlg
-    #edit_dlg.open = True
-    #e.page.update()
+    #open_dlg(e)
+    e.page.dialog = edit_dlg
+    edit_dlg.open = True
+    e.page.update()
 
 def buildPromptsList(page):
   parameter = Ref[ListTile]()
@@ -8917,7 +8919,7 @@ animate_diff_prefs = {
     'lora_alpha': 0.8,
     'custom_lora': '',
     'motion_module': 'mm_sd_v15',
-    'scheduler': 'k_dpmpp',
+    'scheduler': 'k_dpmpp_2m',
     'seed': 0,
     'video_length': 16,
     'width': 512,
@@ -8925,6 +8927,7 @@ animate_diff_prefs = {
     'overlap': 12,
     'stride': 4,
     'context': 16,
+    'clip_skip': 1,
     'save_frames': True,
     'save_video': True,
     'save_gif': True,
@@ -9084,9 +9087,10 @@ def buildAnimateDiff(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=animate_diff_prefs, key='guidance_scale')
     context = SliderRow(label="Context Frames to Condition", min=1, max=24, divisions=23, pref=animate_diff_prefs, key='context', expand=True, col={'md': 6}, tooltip="Number of frames to condition on. Drop to 8 on cards with less than 8GB VRAM, can raise it to 20-24 on cards with more. (default: max of <length> or 24)")
     stride = SliderRow(label="Max Motion Stride", min=1, max=8, divisions=7, pref=animate_diff_prefs, key='stride', expand=True, col={'md': 6}, tooltip="Max motion stride as a power of 2 (default: 4)")
+    clip_skip = SliderRow(label="Clip Skip", min=0, max=4, divisions=4, pref=animate_diff_prefs, key='clip_skip', expand=True, col={'md': 6}, tooltip="Skips part of the image generation process, leading to slightly different results from the CLIP model.")
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
-    scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp"), dropdown.Option("k_dpmpp"), dropdown.Option("unipc")], width=150, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
+    scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=162, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=150, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
     custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
@@ -14778,8 +14782,9 @@ def get_SDXL_pipe(task="text2image"):
   if prefs['SDXL_compel']:
       from compel import Compel, ReturnedEmbeddingsType
       compel_base = Compel(tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2] , text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-      compel_refiner = Compel(tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-      #truncate_long_prompts=True, 
+      compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer, pipe_SDXL_refiner.tokenizer_2] , text_encoder=[pipe_SDXL_refiner.text_encoder, pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      #compel_refiner = Compel(tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      #truncate_long_prompts=True,
   return pipe_SDXL
 
 def get_versatile(page):
@@ -16469,15 +16474,17 @@ def start_diffusion(page):
         elapsed_seconds = 0
         try:
           while True:
+            if abort_run: break
             check_response = requests.get(api_check_url + q_id)
             check = json.loads(check_response.content)
-            div = check['wait_time'] + elapsed_seconds
-            if div == 0: continue
             try:
+              div = check['wait_time'] + elapsed_seconds
               percentage = (1 - check['wait_time'] / div)
             except Exception:
+              div = 0
               continue
               pass
+            if div == 0: continue
             pb.value = percentage
             pb.update()
             status_txt = f"Stable Horde API Diffusion - Queued Position: {check['queue_position']} - Waiting: {check['waiting']} - Wait Time: {check['wait_time']}"
@@ -29225,8 +29232,8 @@ def run_animate_diff(page):
     if not os.path.exists(animatediff_dir):
         installer.set_details("...clone guoyww/animatediff")
         run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
-        os.chdir(animatediff_dir)
         run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
+    os.chdir(animatediff_dir)
     try:
         import diffusers
     except ModuleNotFoundError:
@@ -29236,7 +29243,7 @@ def run_animate_diff(page):
     try:
         import transformers
     except ModuleNotFoundError:
-        installer.set_details("...installing transformers==4.30.2")
+        installer.set_details("...installing transformers")
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
     try:
@@ -29257,15 +29264,15 @@ def run_animate_diff(page):
         installer.set_details("...installing black, ruff, setuptools-scm")
         run_sp("pip install black ruff setuptools-scm", realtime=False)
         pass
-    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-        try:
-            import xformers
-        except ModuleNotFoundError:
-            installer.set_details("...installing FaceBook's Xformers")
-            #run_sp("pip install --pre -U triton", realtime=False)
-            run_sp("pip install -U xformers", realtime=False)
-            status['installed_xformers'] = True
-            pass
+    #if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    try:
+        import xformers
+    except ModuleNotFoundError:
+        installer.set_details("...installing FaceBook's Xformers")
+        #run_sp("pip install --pre -U triton", realtime=False)
+        run_sp("pip install -U xformers", realtime=False)
+        status['installed_xformers'] = True
+        pass
     try:
         import imageio
     except Exception:
@@ -29293,12 +29300,15 @@ def run_animate_diff(page):
         from safetensors import safe_open
         pass
     try:
-        installer.set_details("...installing AnimateDiff Requirements")
-        run_sp("pip install -e .[dev]", cwd=animatediff_dir, realtime=False) #'.[dev]'
-    except Exception as e:
-        clear_last()
-        alert_msg(page, f"ERROR: Couldn't Install AnimateDiff Requirements for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-        return
+        from animatediff.cli import generate
+    except ModuleNotFoundError:
+        try:
+            installer.set_details("...installing AnimateDiff Requirements")
+            run_sp("pip install -e .[dev]", cwd=animatediff_dir, realtime=False) #'.[dev]'
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Couldn't Install AnimateDiff Requirements for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
     try:
         import watchdog
     except ImportError as e:
@@ -29325,6 +29335,8 @@ def run_animate_diff(page):
                     break
             for file_name in os.listdir(rife_folder):
                 shutil.move(os.path.join(rife_folder, file_name), rife_dir)
+            run_sp(f"chmod 777 {os.path.join(rife_dir, 'rife-ncnn-vulkan')}", realtime=False)
+    from pathlib import Path
     output_path = os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name'])
     if not os.path.exists(output_path):
         os.makedirs(output_path)
@@ -29417,8 +29429,8 @@ def run_animate_diff(page):
         'prompt': editing_prompts,
         'n_prompt': negative_prompts,
     }
-    if bool(lora_path):
-        prompts_json['lora_scale'] = animate_diff_prefs['lora_alpha']
+    #if bool(lora_path):
+    #    prompts_json['lora_scale'] = animate_diff_prefs['lora_alpha']
     prompts_yaml = f'''
 NewModel:
   path: "{lora_path}"
@@ -29507,24 +29519,38 @@ NewModel:
     observer.schedule(image_handler, out_dir, recursive=True)
     observer.start()
     #prt(f"Running {cmd}")
-    #console = RunConsole(show_progress=False)
-    #prt(console)
-    #from animatediff import get_dir
-    #from animatediff.cli import generate, logger
+    console = RunConsole(show_progress=False)
+    prt(console)
+    '''try:
+        #from animatediff import get_dir
+        from animatediff.cli import generate, logger
+    except ModuleNotFoundError:
+        prt(f"Running {cmd}")
+        pass'''
     try:
-      '''out_dir = generate(
-          config_path=json_file,
-          model_name_or_path=sd_models,
-          width=animate_diff_prefs['width'],
-          height=animate_diff_prefs['height'],
-          length=animate_diff_prefs['length'],
-          context=context,
-          stride=animate_diff_prefs['stride'],
-          save_merged=animate_diff_prefs['save_gif'],
-          use_xformers=status['installed_xformers'],
-      )'''
-      #console.run_process(cmd, cwd=animatediff_dir)
-      run_sp(cmd, cwd=animatediff_dir, realtime=True)
+      '''try:
+          from animatediff.cli import generate, logger
+          from animatediff import get_dir
+          os.chdir(animatediff_dir)
+          config_dir = get_dir("config")
+          config_path = config_dir.joinpath("prompts/sdd_prompt.json")
+          out_dir = generate(
+              config_path=config_path,#json_file),
+              #model_name_or_path=Path("models/StableDiffusion"),#sd_models),
+              width=animate_diff_prefs['width'],
+              height=animate_diff_prefs['height'],
+              length=animate_diff_prefs['video_length'],
+              context=context,
+              stride=animate_diff_prefs['stride'],
+              save_merged=animate_diff_prefs['save_gif'],
+              use_xformers=status['installed_xformers'],
+          )
+      except ModuleNotFoundError:'''
+      print(f"Running {cmd}")
+      #run_sp(cmd, cwd=animatediff_dir, realtime=True)
+      #    pass
+      console.run_process(cmd, cwd=animatediff_dir)
+      #run_sp(cmd, cwd=animatediff_dir, realtime=True)
       #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
       #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
     except Exception as e:
@@ -29567,7 +29593,7 @@ NewModel:
         for dir in output_dirs:
             if len(os.listdir(dir)) < 4:
                 continue
-            interpolate_cmd = f"animatediff rife interpolate --temporal-tta --uhd {dir}" #--out_file --codec h264
+            interpolate_cmd = f"animatediff rife interpolate --temporal-tta --uhd {Path(dir)}" #--out_file --codec VideoCodec.h264
             try:
               run_sp(interpolate_cmd, cwd=animatediff_dir, realtime=True)
               #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
@@ -32797,7 +32823,7 @@ class Switcher(UserControl):
             return self.switch
 
 class RunConsole(UserControl):
-    def __init__(self, title="", height=300, show_progress=True):
+    def __init__(self, title="", height=200, show_progress=True):
         super().__init__()
         self.title = title
         self.height = height
@@ -32840,7 +32866,7 @@ class RunConsole(UserControl):
         if self.show_progress:
             self.main_column.controls.append(ProgressBar(bar_height=8))
         return self.main_column
-      
+
 class VideoPlayer(UserControl):
     def __init__(self, video_file="", width=500, height=500):
         super().__init__()
