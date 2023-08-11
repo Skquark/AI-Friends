@@ -251,7 +251,7 @@ def load_settings_file():
       'scheduler_mode': "DDIM",
       'higher_vram_mode': False,
       'enable_attention_slicing': True,
-      'memory_optimization': "Attention Slicing",
+      'memory_optimization': "None",
       'sequential_cpu_offload': False,
       'vae_slicing': True,
       'vae_tiling': False,
@@ -576,10 +576,6 @@ def buildTabs(page):
     return t
 
 def buildPromptHelpers(page):
-    def changed(e, pref=None):
-      if pref is not None:
-        prefs[pref] = e.control.value
-      status['changed_prompt_helpers'] = True
     page.generator = buildPromptGenerator(page)
     page.remixer = buildPromptRemixer(page)
     page.brainstormer = buildPromptBrainstormer(page)
@@ -626,6 +622,7 @@ def buildImageAIs(page):
     page.PaintByExample = buildPaintByExample(page)
     page.InstructPix2Pix = buildInstructPix2Pix(page)
     page.ControlNet = buildControlNet(page)
+    page.ControlNetXL = buildControlNetXL(page)
     page.DeepFloyd = buildDeepFloyd(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
@@ -641,6 +638,7 @@ def buildImageAIs(page):
         tabs=[
             Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
+            Tab(text="ControlNet SDXL", content=page.ControlNetXL, icon=icons.PEST_CONTROL),
             Tab(text="Kandinsky", content=page.Kandinsky, icon=icons.TOLL),
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
@@ -814,7 +812,7 @@ if 'file_datetime' not in prefs: prefs['file_datetime'] = False
 if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
 if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
 if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
-if 'memory_optimization' not in prefs: prefs['memory_optimization'] = 'Attention Slicing'
+if 'memory_optimization' not in prefs: prefs['memory_optimization'] = 'None'
 if 'sequential_cpu_offload' not in prefs: prefs['sequential_cpu_offload'] = False
 if 'vae_slicing' not in prefs: prefs['vae_slicing'] = True
 if 'vae_tiling' not in prefs: prefs['vae_tiling'] = False
@@ -1134,12 +1132,12 @@ def buildInstallers(page):
             else:
               eta.visible = show
               eta.update()
-  scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the generated noise", width=200,
+  scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the generated noise", width=220,
             options=[
                 dropdown.Option("DDIM"),
                 dropdown.Option("LMS Discrete"),
                 dropdown.Option("PNDM"),
-                #dropdown.Option("DDPM"),
+                dropdown.Option("IPMDM"),
                 dropdown.Option("DPM Solver"),
                 dropdown.Option("DPM Solver++"),
                 dropdown.Option("DPM Solver Inverse"),
@@ -1221,7 +1219,7 @@ def buildInstallers(page):
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
   model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
-  memory_optimization = Dropdown(label="Enable Memory Optimization", width=320, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
+  memory_optimization = Dropdown(label="Enable Memory Optimization", width=220, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   if version.parse(torch.__version__) < version.parse("2.0.0"):
       memory_optimization.options.append(dropdown.Option("Xformers Mem Efficient Attention"))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision & uses much more GPU memory. Not recommended unless you have >16GB VRAM.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
@@ -7334,7 +7332,7 @@ def buildControlNet(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🕸️  ControlNet Image+Text2Image+Video2Video", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
+        Header("🕸️  ControlNet Image+Text-to-Image+Video-to-Video", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
         Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
         Row([control_guidance_start, control_guidance_end]),
@@ -7356,6 +7354,259 @@ def buildControlNet(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+controlnet_xl_prefs = {
+    'original_image': '',
+    'prompt': '',
+    'negative_prompt': 'lowres, text, watermark, cropped, low quality',
+    'control_task': 'Canny Map Edge',
+    'conditioning_scale': 1.0,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
+    'multi_controlnets': [],
+    'batch_size': 1,
+    'max_size': 1024,
+    'low_threshold': 100, #1-255
+    'high_threshold': 200, #1-255
+    'steps': 50, #100
+    'guidance_scale': 7.5, #30
+    'seed': 0,
+    'eta': 0,
+    'use_init_video': False,
+    'init_video': '',
+    'fps': 12,
+    'start_time': 0,
+    'end_time': 0,
+    'file_prefix': 'controlnet-',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildControlNetXL(page):
+    global controlnet_xl_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            controlnet_xl_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            controlnet_xl_prefs[pref] = float(e.control.value)
+          else:
+            controlnet_xl_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_controlnet_xl_output(o):
+      page.controlnet_xl_output.controls.append(o)
+      page.controlnet_xl_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.controlnet_xl_output.controls = []
+      page.controlnet_xl_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def controlnet_xl_help(e):
+      def close_controlnet_xl_dlg(e):
+        nonlocal controlnet_xl_help_dlg
+        controlnet_xl_help_dlg.open = False
+        page.update()
+      controlnet_xl_help_dlg = AlertDialog(title=Text("💁   Help with ControlNet SDXL"), content=Column([
+          Text('ControlNet-XL is a neural network structure to control diffusion models by adding extra conditions, using the latest StableDiffusion XL models. It copys the weights of neural network blocks into a "locked" copy and a "trainable" copy. The "trainable" one learns your condition. The "locked" one preserves your model. Thanks to this, training with small dataset of image pairs will not destroy the production-ready diffusion models. The "zero convolution" is 1×1 convolution with both weight and bias initialized as zeros. Before training, all zero convolutions output zeros, and ControlNetXL will not cause any distortion.  No layer is trained from scratch. You are still fine-tuning. Your original model is safe.  This allows training on small-scale or even personal devices. This is also friendly to merge/replacement/offsetting of models/weights/blocks/layers.'),
+          Markdown("This is an interface for running the [official codebase](https://github.com/lllyasviel/ControlNet#readme) for models described in [Adding Conditional Control to Text-to-Image Diffusion Models](https://arxiv.org/abs/2302.05543).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          #Text("Scribble - A hand-drawn monochrome image with white outlines on a black background."),
+          Text("Canny Map Edge - A monochrome image with white edges on a black background."),
+          #Text("OpenPose - A OpenPose bone image."),
+          Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
+          Text("Softedge - A monochrome image with white soft edges on a black background."),
+          #Text("M-LSD - A monochrome image composed only of white straight lines on a black background."),
+          #Text("Normal Map - A normal mapped image."),
+          Text("Segmented - An ADE20K's semantic segmentation protocol image."),
+          Text("LineArt - An image with line art, usually black lines on a white background."),
+          #Text("Shuffle - An image with shuffled patches or regions."),
+          #Text("Brightness - An image based on brightness of init."),
+          #Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Too much control... ", on_click=close_controlnet_xl_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = controlnet_xl_help_dlg
+      controlnet_xl_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          controlnet_xl_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          controlnet_xl_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        if pick_type == "image":
+          original_image.value = fname
+          original_image.update()
+          controlnet_xl_prefs['original_image'] = fname
+        elif pick_type == "video":
+          init_video.value = fname
+          init_video.update()
+          controlnet_xl_prefs['init_video'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    def pick_original(e):
+        nonlocal pick_type
+        pick_type = "image"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def pick_video(e):
+        nonlocal pick_type
+        pick_type = "video"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        controlnet_xl_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_task(e):
+        task = e.control.value
+        show = task.startswith("Video")# or task == "Video OpenPose"
+        update = controlnet_xl_prefs['use_init_video'] != show
+        changed(e,'control_task')
+        threshold.height = None if controlnet_xl_prefs['control_task'] == "Canny Map Edge" or controlnet_xl_prefs['control_task'] == "Video Canny Edge" else 0
+        threshold.update()
+        if update:
+            original_image.visible = not show
+            original_image.update()
+            init_video.visible = show
+            init_video.update()
+            vid_params.height = None if show else 0
+            vid_params.update()
+            conditioning_scale.visible = not show
+            conditioning_scale.update()
+            add_layer_btn.visible = not show
+            add_layer_btn.update()
+            multi_layers.visible = not show
+            multi_layers.update()
+            run_prompt_list.visible = not show
+            run_prompt_list.update()
+            controlnet_xl_prefs['use_init_video'] = show
+    def change_eta(e):
+        changed(e, 'eta', ptype="float")
+        eta_value.value = f" {controlnet_xl_prefs['eta']}"
+        eta_value.update()
+        eta_row.update()
+    def add_layer(e):
+        layer = {'control_task': controlnet_xl_prefs['control_task'], 'original_image': controlnet_xl_prefs['original_image'], 'conditioning_scale': controlnet_xl_prefs['conditioning_scale'], 'control_guidance_start': controlnet_xl_prefs['control_guidance_start'], 'control_guidance_end': controlnet_xl_prefs['control_guidance_end'], 'use_init_video': False}
+        if controlnet_xl_prefs['control_task'] == "Video Canny Edge" or controlnet_xl_prefs['control_task'] == "Video OpenPose":
+          layer['use_init_video'] = True
+          layer['init_video'] = controlnet_xl_prefs['init_video']
+          layer['fps'] = controlnet_xl_prefs['fps']
+          layer['start_time'] = controlnet_xl_prefs['start_time']
+          layer['end_time'] = controlnet_xl_prefs['end_time']
+          controlnet_xl_prefs['init_video'] = ""
+          init_video.value = ""
+          original_image.update()
+        controlnet_xl_prefs['multi_controlnets'].append(layer)
+        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['init_video'] if layer['use_init_video'] else layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+          ]), data=layer))
+        multi_layers.update()
+        controlnet_xl_prefs['original_image'] = ""
+        original_image.value = ""
+        original_image.update()
+    def delete_layer(e):
+        controlnet_xl_prefs['multi_controlnets'].remove(e.control.data)
+        for c in multi_layers.controls:
+          if c.data['original_image'] == e.control.data['original_image']:
+             multi_layers.controls.remove(c)
+             break
+        multi_layers.update()
+    def delete_all_layers(e):
+        controlnet_xl_prefs['multi_controlnets'].clear()
+        multi_layers.controls.clear()
+        multi_layers.update()
+    original_image = TextField(label="Original Drawing", value=controlnet_xl_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    control_task = Dropdown(label="ControlNet-SDXL Task", width=200, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge") ], value=controlnet_xl_prefs['control_task'], on_change=change_task)
+    #, dropdown.Option("OpenPose"), dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_xl_conditioning_scale` before they are added to the residual in the original unet.")
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
+    #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNetXL Layer", on_click=add_layer)
+    add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
+    multi_layers = Column([], spacing=0)
+    seed = TextField(label="Seed", width=90, value=str(controlnet_xl_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    #use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switcher(label="Use Init Video", value=controlnet_xl_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
+    init_video = TextField(label="Init Video Clip", value=controlnet_xl_prefs['init_video'], expand=True, visible=controlnet_xl_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_xl_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    start_time = TextField(label="Start Time (s)", value=controlnet_xl_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=controlnet_xl_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_xl_prefs['use_init_video'] else 0)
+
+    num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_xl_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_xl_prefs, key='guidance_scale')
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='low_threshold')
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='high_threshold')
+    threshold = Container(Column([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold.height = None if controlnet_xl_prefs['control_task'] == "Canny Map Edge" else 0
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_xl_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta_value = Text(f" {controlnet_xl_prefs['eta']}", weight=FontWeight.BOLD)
+    eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
+    page.etas.append(eta_row)
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_xl_prefs, key='max_size')
+    file_prefix = TextField(label="Filename Prefix",  value=controlnet_xl_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_xl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_xl_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_xl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    page.controlnet_xl_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.controlnet_xl_output.controls) > 0
+    run_prompt_list = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_xl(page, from_list=True))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🕷  ControlNet SDXL Image+Text-to-Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetXL Settings", on_click=controlnet_xl_help)]),
+        Row([control_task, original_image, init_video, add_layer_btn]),
+        conditioning_scale,
+        Row([control_guidance_start, control_guidance_end]),
+        multi_layers,
+        vid_params,
+        Divider(thickness=2, height=4),
+        ResponsiveRow([prompt, negative_prompt]),
+        threshold,
+        num_inference_row,
+        guidance,
+        eta_row,
+        max_row,
+        Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xl_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
+        page.ESRGAN_block_controlnet,
+        Row([ElevatedButton(content=Text("🛃  Run ControlNet-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_xl(page)),
+             run_prompt_list]),
+        page.controlnet_xl_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 controlnet_video2video_prefs = {
     'init_video': '',
@@ -8929,8 +9180,8 @@ animate_diff_prefs = {
     'context': 16,
     'clip_skip': 1,
     'save_frames': True,
-    'save_video': True,
     'save_gif': True,
+    'save_video': False,
     'num_images': 1,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -13580,6 +13831,7 @@ pipe_kandinsky_controlnet_prior = None
 pipe_controlnet = None
 controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
+controlnet_xl_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 stability_api = None
 
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -13626,6 +13878,7 @@ finetuned_models = [
     {"name": "Realistic Vision v3", "path": "SG161222/Realistic_Vision_V3.0", "prefix": ""},
     {"name": "Redshift Renderer (Cinema4D)", "path": "nitrosocke/redshift-diffusion", "prefix": "redshift style "},
     {"name": "Reliberate", "path": "sinkinai/reliberate_v10", "prefix": ""},
+    {"name": "Swizz8", "path": "Pr0-SD/Swizz8", "prefix": ""},
     {"name": "Waifu Diffusion", "path": "hakurei/waifu-diffusion", "prefix": "", "revision": "fp16"},
     {"name": "Ultima Waifu Diffusion", "path": "AdamOswald1/Ultima-Waifu-Diffusion", "prefix": ""},
     #{"name": "TrinArt Waifu 50-50", "path": "doohickey/trinart-waifu-diffusion-50-50", "prefix": ""},
@@ -13706,9 +13959,10 @@ finetuned_models = [
     {"name": "PaperCut", "path": "Fictiverse/Stable_Diffusion_PaperCut_Model", "prefix": "PaperCut "},
     {"name": "Complex Lineart", "path": "Conflictx/Complex-Lineart", "prefix": "ComplexLA style "},
     {"name": "GuoFeng3", "path": "xiaolxl/GuoFeng3", "prefix": ""},
-    {"name": "Portrait+", "path": "wavymulder/portraitplus", "prefix": "portrait+ style"},
+    {"name": "Portrait+", "path": "wavymulder/portraitplus", "prefix": "portrait+ style "},
     {"name": "ACertainThing", "path": "JosephusCheung/ACertainThing", "prefix": ""},
     {"name": "Hassan Blend", "path": "hassanblend/HassanBlend1.5.1.2", "prefix": ""},
+    {"name": "Segmind Small-SD", "path": "segmind/small-sd", "prefix": ""},
     #{"name": "", "path": "", "prefix": ""},
     #{"name": "Latent Labs 360", "path": "AlanB/LatentLabs360", "prefix": ""},
     #{"name": "Rodent Diffusion 1.5", "path": "NerdyRodent/rodent-diffusion-1-5", "prefix": ""},
@@ -14713,6 +14967,7 @@ def get_SDXL_pipe(task="text2image"):
       if pipe_SDXL is not None:
           if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+            pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
           return pipe_SDXL
       pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
           model_id,
@@ -14736,12 +14991,20 @@ def get_SDXL_pipe(task="text2image"):
 
   elif task == "image2image":
       status['loaded_SDXL'] = task
-      if pipe_SDXL_refiner is not None:
+      if pipe_SDXL is not None:
           if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_SDXL = pipeline_scheduler(pipe_SDXL)
             pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
-            return pipe_SDXL_refiner
+            return pipe_SDXL
           else:
-            return pipe_SDXL_refiner
+            return pipe_SDXL
+      pipe_SDXL = StableDiffusionXLImg2ImgPipeline.from_pretrained(
+          model_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          add_watermarker=watermark,
+          cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+      )
+      pipe_SDXL = optimize_SDXL(pipe_SDXL)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
           refiner_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
           add_watermarker=watermark,
@@ -14756,6 +15019,7 @@ def get_SDXL_pipe(task="text2image"):
       if pipe_SDXL is not None:
           if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+            pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
             return pipe_SDXL
           else:
             return pipe_SDXL
@@ -14781,8 +15045,9 @@ def get_SDXL_pipe(task="text2image"):
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
   if prefs['SDXL_compel']:
       from compel import Compel, ReturnedEmbeddingsType
-      compel_base = Compel(tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2] , text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
-      compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer, pipe_SDXL_refiner.tokenizer_2] , text_encoder=[pipe_SDXL_refiner.text_encoder, pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      compel_base = Compel(tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2], text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer_2], text_encoder=[pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[True])
+      #compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer, pipe_SDXL_refiner.tokenizer_2] , text_encoder=[pipe_SDXL_refiner.text_encoder, pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
       #compel_refiner = Compel(tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
       #truncate_long_prompts=True,
   return pipe_SDXL
@@ -15862,7 +16127,7 @@ def clear_background_remover_pipe():
     flush()
     pipe_background_remover = None
 def clear_controlnet_pipe():
-  global pipe_controlnet, controlnet, controlnet_models, status
+  global pipe_controlnet, controlnet, controlnet_models, controlnet_xl_models, status
   if pipe_controlnet is not None:
     del pipe_controlnet
     del controlnet
@@ -15870,6 +16135,10 @@ def clear_controlnet_pipe():
       if v != None:
         del v
         controlnet_models[k] = None
+    for k, v in controlnet_xl_models.items():
+      if v != None:
+        del v
+        controlnet_xl_models[k] = None
     flush()
     pipe_controlnet = None
     controlnet = None
@@ -16731,10 +17000,11 @@ def start_diffusion(page):
                   image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
-                  prompt_embed = compel_refiner(pr)
-                  negative_embed = compel_refiner(arg['negative_prompt'])
+                  prompt_embed, pooled = compel_refiner(pr)
+                  negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  del prompt_embed, negative_embed, pooled, negative_pooled
                 else:
                   images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -16833,8 +17103,26 @@ def start_diffusion(page):
                   images = pipe_versatile_variation(negative_prompt=arg['negative_prompt'], image=init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Image-to-Image"
-                #TODO: Add refiner step for img2img
-                images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                high_noise_frac = prefs['SDXL_high_noise_frac']
+                total_steps = int(arg['steps'] * high_noise_frac)
+                if prefs['SDXL_compel']:
+                  prompt_embed, pooled = compel_base.build_conditioning_tensor(pr)
+                  negative_embed, negative_pooled = compel_base.build_conditioning_tensor(arg['negative_prompt'])
+                  #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                else:
+                  #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                total_steps = int(arg['steps'] * (1 - high_noise_frac))
+                if prefs['SDXL_compel']:
+                  prompt_embed, pooled = compel_refiner(pr)
+                  negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
+                  #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  del prompt_embed, negative_embed, pooled, negative_pooled
+                else:
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                #images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Image-to-Image"
@@ -16958,19 +17246,19 @@ def start_diffusion(page):
                   print(f"pr:{pr} - neg: {arg['negative_prompt']}")
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
-                  [prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                   del pooled, negative_pooled
                 else:
                   image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
-                  prompt_embed_refiner = compel_refiner(pr)
-                  negative_embed_refiner = compel_refiner(arg['negative_prompt'])
+                  prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
+                  negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
-                  #images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, negative_prompt_embeds=negative_embed, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  del prompt_embed_refiner, negative_embed_refiner
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
                 else:
                   images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
@@ -27040,6 +27328,536 @@ def run_controlnet(page, from_list=False):
     del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_controlnet_xl(page, from_list=False):
+    global controlnet_xl_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_xl_models
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if not bool(controlnet_xl_prefs['original_image']) and len(controlnet_xl_prefs['multi_controlnets']) == 0:
+      alert_msg(page, "You must provide the Original Image to process...")
+      return
+    if not bool(controlnet_xl_prefs['prompt']) and not from_list:
+      alert_msg(page, "You must provide a Prompt to paint in your image...")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.ControlNetXL.controls.append(line)
+        #page.controlnet_xl_output.controls.append(line)
+        if update:
+          page.ControlNetXL.update()
+          #page.controlnet_xl_output.update()
+    def clear_last():
+      if from_list:
+        if len(page.imageColumn.controls) == 0: return
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        if len(page.ControlNetXL.controls) == 1: return
+        del page.ControlNetXL.controls[-1]
+        page.ControlNetXL.update()
+        #if len(page.controlnet_xl_output.controls) == 0: return
+        #del page.controlnet_xl_output.controls[-1]
+        #page.controlnet_xl_output.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.ControlNetXL.controls = page.ControlNetXL.controls[:1]
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.ControlNetXL.auto_scroll = scroll
+        page.ControlNetXL.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = controlnet_xl_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    controlnet_xl_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_xl_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_xl_prefs['original_image'], 'conditioning_scale': controlnet_xl_prefs['conditioning_scale'], 'control_guidance_start': controlnet_xl_prefs['control_guidance_start'], 'control_guidance_end': controlnet_xl_prefs['control_guidance_end'], 'seed': p['seed']}
+        controlnet_xl_prompts.append(control)
+      page.tabs.selected_index = 4
+      page.tabs.update()
+      #page.controlnet_xl_output.controls.clear()
+    else:
+      if not bool(controlnet_xl_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      original = controlnet_xl_prefs['original_image']
+      conditioning_scale = controlnet_xl_prefs['conditioning_scale']
+      control_guidance_start = controlnet_xl_prefs['control_guidance_start']
+      control_guidance_end = controlnet_xl_prefs['control_guidance_end']
+      if len(controlnet_xl_prefs['multi_controlnets']) > 0:
+        original = []
+        conditioning_scale = []
+        control_guidance_start = []
+        control_guidance_end = []
+        for c in controlnet_xl_prefs['multi_controlnets']:
+          original.append(c['original_image'])
+          conditioning_scale.append(c['conditioning_scale'])
+          control_guidance_start.append(c['control_guidance_start'])
+          control_guidance_end.append(c['control_guidance_end'])
+      control = {'prompt':controlnet_xl_prefs['prompt'], 'negative_prompt': controlnet_xl_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'control_guidance_start':control_guidance_start, 'control_guidance_end': control_guidance_end, 'seed': controlnet_xl_prefs['seed']}
+      if controlnet_xl_prefs['use_init_video']:
+        control['init_video'] = controlnet_xl_prefs['init_video']
+        control['start_time'] = controlnet_xl_prefs['start_time']
+        control['end_time'] = controlnet_xl_prefs['end_time']
+        control['fps'] = controlnet_xl_prefs['fps']
+      controlnet_xl_prompts.append(control)
+      #page.controlnet_xl_output.controls.clear()
+    autoscroll(True)
+    clear_list()
+    prt(Divider(thickness=2, height=4))
+    prt(Installing("Installing ControlNetXL Packages..."))
+    if status['loaded_controlnet'] == controlnet_xl_prefs["control_task"]:
+        clear_pipes('controlnet')
+    else:
+        clear_pipes()
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    from PIL.PngImagePlugin import PngInfo
+    try:
+        try:
+          import cv2
+        except ModuleNotFoundError:
+          run_sp("pip install opencv-contrib-python", realtime=False)
+          import cv2
+          pass
+        try:
+          from controlnet_aux import MLSDdetector
+        except ModuleNotFoundError:
+          run_sp("pip install --upgrade controlnet-aux", realtime=False)
+          #run_sp("pip install git+https://github.com/patrickvonplaten/controlnet_aux.git")
+          pass
+        from controlnet_aux import MLSDdetector
+        from controlnet_aux import OpenposeDetector
+        from diffusers import StableDiffusionXLControlNetPipeline, ControlNetModel, AutoencoderKL
+        #run_sp("pip install scikit-image", realtime=False)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR Installing Required Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        flush()
+        return
+    canny_checkpoint = "diffusers/controlnet-canny-sdxl-1.0"
+    depth_checkpoint = "SargeZT/controlnet-v1e-sdxl-depth"
+    seg_checkpoint = "SargeZT/sdxl-controlnet-seg"
+    softedge_checkpoint = "SargeZT/sdxl-controlnet-softedge"
+    lineart_checkpoint = "zbulrush/controlnet-sd-xl-1.0-lineart"
+    scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
+    openpose_checkpoint = "lllyasviel/control_v11p_sd15_openpose"
+    HED_checkpoint = "lllyasviel/control_v11p_sd15_softedge"
+    mlsd_checkpoint = "lllyasviel/control_v11p_sd15_mlsd"
+    normal_checkpoint = "lllyasviel/control_v11p_sd15_normalbae"
+    ip2p_checkpoint = "lllyasviel/control_v11e_sd15_ip2p"
+    shuffle_checkpoint = "lllyasviel/control_v11e_sd15_shuffle"
+    tile_checkpoint = "lllyasviel/control_v11f1e_sd15_tile"
+    brightness_checkpoint = "ioclab/control_v1p_sd15_brightness"
+    hed = None
+    openpose = None
+    depth_estimator = None
+    mlsd = None
+    image_processor = None
+    image_segmentor = None
+    normal = None
+    lineart = None
+    shuffle = None
+    def get_controlnet(task):
+        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        if controlnet_xl_models[task] != None:
+            return controlnet_xl_models[task]
+        if task == "Canny Map Edge" or task == "Video Canny Edge":
+            task = "Canny Map Edge"
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Scribble":
+            from controlnet_aux import HEDdetector
+            hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "OpenPose" or task == "Video OpenPose":
+            task = "OpenPose"
+            from controlnet_aux import OpenposeDetector
+            openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNetXL')
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Depth":
+            from transformers import pipeline
+            depth_estimator = pipeline('depth-estimation')
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Kandinsky Depth":
+            from transformers import pipeline
+            from diffusers import KandinskyV22PriorPipeline, KandinskyV22ControlnetPipeline
+            depth_estimator = pipeline('depth-estimation')
+            #controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_xl_models[task] = KandinskyV22ControlnetPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-controlnet-depth", torch_dtype=torch.float16).to(torch_device)
+        elif task == "Softedge":
+            from controlnet_aux import HEDdetector, PidiNetDetector
+            hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+            hed = PidiNetDetector.from_pretrained('lllyasviel/Annotators') #pidi_net
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(softedge_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "HED":
+            from controlnet_aux import HEDdetector
+            hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+            #pidi_net = PidiNetDetector.from_pretrained('lllyasviel/Annotators')
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(HED_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "M-LSD":
+            from controlnet_aux import MLSDdetector
+            mlsd = MLSDdetector.from_pretrained('lllyasviel/ControlNetXL')
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(mlsd_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Normal Map":
+            #from transformers import pipeline
+            #depth_estimator = pipeline("depth-estimation", model ="Intel/dpt-hybrid-midas")
+            from controlnet_aux import NormalBaeDetector
+            normal = NormalBaeDetector.from_pretrained("lllyasviel/Annotators")
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(normal_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Segmented":
+            from transformers import AutoImageProcessor, UperNetForSemanticSegmentation
+            from controlnet_utils import ade_palette
+            image_processor = AutoImageProcessor.from_pretrained("openmmlab/upernet-convnext-small")
+            image_segmentor = UperNetForSemanticSegmentation.from_pretrained("openmmlab/upernet-convnext-small")
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(seg_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "LineArt":
+            from controlnet_aux import LineartDetector
+            lineart = LineartDetector.from_pretrained("lllyasviel/Annotators")
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(lineart_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Shuffle":
+            from controlnet_aux import ContentShuffleDetector
+            shuffle = ContentShuffleDetector()
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(shuffle_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Tile":
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(tile_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Brightness":
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.float16, use_safetensors=True)
+        elif task == "Instruct Pix2Pix":
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.float16).to(torch_device)
+
+        return controlnet_xl_models[task]
+    width, height = 0, 0
+    def resize_for_condition_image(input_image: PILImage, resolution: int):
+        input_image = input_image.convert("RGB")
+        W, H = input_image.size
+        k = float(resolution) / min(H, W)
+        H *= k
+        W *= k
+        H = int(round(H / 64.0)) * 64
+        W = int(round(W / 64.0)) * 64
+        img = input_image.resize((W, H), resample=PILImage.LANCZOS)
+        return img
+    def prep_image(task, img):
+        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        nonlocal width, height
+        if isinstance(img, str):
+          if img.startswith('http'):
+              #response = requests.get(controlnet_xl_prefs['original_image'])
+              #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+              original_img = PILImage.open(requests.get(img, stream=True).raw)
+          else:
+              if os.path.isfile(img):
+                  original_img = PILImage.open(img)
+              else:
+                  alert_msg(page, f"ERROR: Couldn't find your original_image {img}")
+                  return
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, controlnet_xl_prefs['max_size'])
+          #print(f"Size: {width}x{height}")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        #return original_img
+        try:
+            if task == "Canny Map Edge" or task == "Video Canny Edge":
+                input_image = np.array(original_img)
+                input_image = cv2.Canny(input_image, controlnet_xl_prefs['low_threshold'], controlnet_xl_prefs['high_threshold'])
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                original_img = PILImage.fromarray(input_image)
+            elif task == "Scribble":
+                original_img = hed(original_img, scribble=True)
+            elif task == "OpenPose" or task == "Video OpenPose":
+                original_img = openpose(original_img, hand_and_face=True)
+            elif task == "Depth":
+                original_img = depth_estimator(original_img)['depth']
+                input_image = np.array(original_img)
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                original_img = PILImage.fromarray(input_image)
+            elif task == "Kandinsky Depth":
+                original_img = depth_estimator(original_img)['depth']
+                input_image = np.array(original_img)
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                detected_map = torch.from_numpy(input_image).float() / 255.0
+                original_img = detected_map.permute(2, 0, 1).unsqueeze(0).half().to("cuda")
+                #original_img = PILImage.fromarray(input_image)
+            elif task == "Softedge":
+                original_img = hed(original_img, safe=True)
+            elif task == "HED":
+                original_img = hed(original_img, safe=True)
+            elif task == "M-LSD":
+                original_img = mlsd(original_img)
+            elif task == "Normal Map":
+                #depth_estimator = pipeline("depth-estimation", model="Intel/dpt-hybrid-midas" )
+                '''original_img = depth_estimator(original_img)['predicted_depth'][0]
+                input_image = original_img.numpy()
+                image_depth = input_image.copy()
+                image_depth -= np.min(image_depth)
+                image_depth /= np.max(image_depth)
+                bg_threhold = 0.4
+                x = cv2.Sobel(input_image, cv2.CV_32F, 1, 0, ksize=3)
+                x[image_depth < bg_threhold] = 0
+                y = cv2.Sobel(input_image, cv2.CV_32F, 0, 1, ksize=3)
+                y[image_depth < bg_threhold] = 0
+                z = np.ones_like(x) * np.pi * 2.0
+                input_image = np.stack([x, y, z], axis=2)
+                input_image /= np.sum(input_image ** 2.0, axis=2, keepdims=True) ** 0.5
+                input_image = (input_image * 127.5 + 127.5).clip(0, 255).astype(np.uint8)
+                original_img = PILImage.fromarray(input_image)'''
+                original_img = normal(original_img)
+            elif task == "Segmented":
+                from controlnet_utils import ade_palette
+                pixel_values = image_processor(original_img, return_tensors="pt").pixel_values
+                with torch.no_grad():
+                  outputs = image_segmentor(pixel_values)
+                seg = image_processor.post_process_semantic_segmentation(outputs, target_sizes=[original_img.size[::-1]])[0]
+                color_seg = np.zeros((seg.shape[0], seg.shape[1], 3), dtype=np.uint8) # height, width, 3
+                palette = np.array(ade_palette())
+                for label, color in enumerate(palette):
+                    color_seg[seg == label, :] = color
+                color_seg = color_seg.astype(np.uint8)
+                original_img = PILImage.fromarray(color_seg)
+            elif task == "LineArt":
+                original_img = lineart(original_img)
+            elif task == "Shuffle":
+                original_img = shuffle(original_img)
+            elif task == "Tile":
+                original_img = resize_for_condition_image(original_img, 1024)
+            elif task == "Brightness":
+                original_img = PILImage.fromarray(original_img).convert('L')
+            return original_img
+        except Exception as e:
+            #clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR Preparing ControlNetXL {controlnet_xl_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
+    def prep_video(vid):
+        nonlocal width, height
+        if vid.startswith('http'):
+            init_vid = download_file(vid, stable_dir)
+        else:
+            if os.path.isfile(vid):
+                init_vid = vid
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_video {vid}")
+                return
+        try:
+            start_time = float(controlnet_xl_prefs['start_time'])
+            end_time = float(controlnet_xl_prefs['end_time'])
+            fps = int(controlnet_xl_prefs['fps'])
+            max_size = controlnet_xl_prefs['max_size']
+        except Exception:
+            alert_msg(page, "Make sure your Numbers are actual numbers...")
+            return
+        prt("Extracting Frames from Video Clip")
+        try:
+            cap = cv2.VideoCapture(init_vid)
+        except Exception as e:
+            alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
+            clear_last()
+            return
+        count = 0
+        video = []
+        frames = []
+        width = height = 0
+        cap.set(cv2.CAP_PROP_FPS, fps)
+        video_length = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        start_frame = int(start_time * fps)
+        if end_time == 0 or end_time == 0.0:
+            end_frame = int(video_length)
+        else:
+            end_frame = int(end_time * fps)
+        total = end_frame - start_frame
+        for i in range(start_frame, end_frame):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            success, image = cap.read()
+            if success:
+                #filename = os.path.join(output_dir, f'{file_prefix}{count}.png')
+                if width == 0:
+                    shape = image.shape
+                    width, height = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
+                image = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
+                #cv2.imwrite(os.path.join(output_dir, filename), image)
+                image = prep_image(controlnet_xl_prefs['control_task'], PILImage.fromarray(image))
+                video.append(image)
+                count += 1
+        cap.release()
+        clear_last()
+        return video
+    loaded_controlnet = None
+    if len(controlnet_xl_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_xl_prefs['use_init_video']:
+        controlnet = []
+        loaded_controlnet = []
+        for c in controlnet_xl_prefs['multi_controlnets']:
+            controlnet.append(get_controlnet(c['control_task']))
+            loaded_controlnet.append(c['control_task'])
+    else:
+        controlnet = get_controlnet(controlnet_xl_prefs['control_task'])
+        loaded_controlnet = controlnet_xl_prefs['control_task']
+    for k, v in controlnet_xl_models.items():
+      if v != None and k in loaded_controlnet:
+        del v
+        controlnet_xl_models[k] = None
+    #model = get_model(prefs['model_ckpt'])
+    model_path = "stabilityai/stable-diffusion-xl-base-1.0"
+    if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_xl_prefs["control_task"]:
+        #if controlnet_xl_prefs["use_SDXL"]:
+        #TODO: pipe_controlnet = StableDiffusionXLControlNetPipeline
+        vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+        pipe_controlnet = StableDiffusionXLControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        #pipe_controlnet.enable_model_cpu_offload()
+        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True)
+        status['loaded_controlnet'] = loaded_controlnet #controlnet_xl_prefs["control_task"]
+    #else:
+        #pipe_controlnet.controlnet=controlnet
+    pipe_controlnet = pipeline_scheduler(pipe_controlnet)
+    if controlnet_xl_prefs['use_init_video']:
+        from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
+        pipe_controlnet.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+        pipe_controlnet.controlnet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+    clear_last()
+    prt(f"Generating ControlNetXL {controlnet_xl_prefs['control_task']} of your Image...")
+    batch_output = os.path.join(stable_dir, controlnet_xl_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], controlnet_xl_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in controlnet_xl_prompts:
+        prt(progress)
+        autoscroll(False)
+        if len(controlnet_xl_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_xl_prefs['use_init_video']:
+            original_img = []
+            for c in controlnet_xl_prefs['multi_controlnets']:
+                original_img.append(prep_image(c['control_task'], c['original_image']))
+        elif not controlnet_xl_prefs['use_init_video']:
+            original_img = prep_image(controlnet_xl_prefs['control_task'], pr['original_image'])
+        else:
+            video_img = prep_video(pr['original_image'])
+            latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
+        try:
+            random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            if not controlnet_xl_prefs['use_init_video']:
+                images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_xl_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+            else:
+                images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_xl_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+        except Exception as e:
+            #clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR Generating ControlNetXL {controlnet_xl_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
+        clear_pipes('controlnet')
+        clear_last()
+        #clear_last()
+        autoscroll(True)
+        #filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
+        filename = f"{controlnet_xl_prefs['file_prefix']}{format_filename(pr['prompt'])}"
+        filename = filename[:int(prefs['file_max_length'])]
+        #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+        num = 0
+        for image in images:
+            random_seed += num
+            fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+            image_path = available_file(os.path.join(stable_dir, controlnet_xl_prefs['batch_folder_name']), fname, num)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            #PILImage.fromarray(image).save(image_path)
+            image.save(image_path)
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+            new_file = available_file(batch_output, fname, num)
+            if not controlnet_xl_prefs['display_upscaled_image'] or not controlnet_xl_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if controlnet_xl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{num}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                #print(f'Moving {fpath} to {dst_path}')
+                #shutil.move(fpath, dst_path)
+                shutil.copy(image_path, dst_path)
+                #faceenhance = ' --face_enhance' if controlnet_xl_prefs["face_enhance"] else ''
+                faceenhance = ''
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {controlnet_xl_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+
+            if prefs['save_image_metadata']:
+                task = and_list(controlnet_xl_prefs['control_task']) if isinstance(controlnet_xl_prefs['control_task'], list) else controlnet_xl_prefs['control_task']
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {controlnet_xl_prefs['enlarge_scale']}x with ESRGAN" if controlnet_xl_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", "ControlNetXL " + task)
+                if prefs['save_config_in_metadata']:
+                  config_json = controlnet_xl_prefs.copy()
+                  config_json['model_path'] = model_path
+                  config_json['seed'] = random_seed
+                  config_json['prompt'] = pr['prompt']
+                  config_json['negative_prompt'] = pr['negative_prompt']
+                  del config_json['batch_size']
+                  del config_json['max_size']
+                  del config_json['display_upscaled_image']
+                  del config_json['batch_folder_name']
+                  if not config_json['apply_ESRGAN_upscale']:
+                    del config_json['enlarge_scale']
+                    del config_json['apply_ESRGAN_upscale']
+                  metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            #TODO: PyDrive
+            if storage_type == "Colab Google Drive":
+                #new_file = available_file(output_path, fname, num)
+                #out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                #new_file = available_file(output_path, fname, num)
+                #out_path = new_file
+                shutil.copy(image_path, new_file)
+            if controlnet_xl_prefs['display_upscaled_image']:
+                prt(Row([ImageButton(src=new_file, data=new_file, width=width * float(controlnet_xl_prefs["enlarge_scale"]), height=height * float(controlnet_xl_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            num += 1
+    autoscroll(False)
+    del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+
 def run_controlnet_tile_upscale(page, source_image, prompt="best quality", scale_factor=2.5):
     global controlnet_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_models
     if not status['installed_diffusers']:
@@ -27551,7 +28369,7 @@ def run_deepfloyd(page, from_list=False):
                     install.set_details("...text_encoder T5EncoderModel")
                     text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, variant="8bit", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     install.set_details("...DiffusionPipeline")
-                    pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, text_encoder=text_encoder, unet=None, device_map=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, text_encoder=text_encoder, unet=None, use_safetensors=True, device_map=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     # Still getting errors here! WTF?
                     #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
                     install.set_details("...encode_prompts")
@@ -27609,7 +28427,7 @@ def run_deepfloyd(page, from_list=False):
                     prt(Installing("Stage 2: Installing DeepFloyd Super Resolution Pipeline..."))
                     #IFSuperResolutionPipeline
                     if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "text2image":
-                        pipe_deepfloyd2 = DiffusionPipeline.from_pretrained(model_id_II, text_encoder=None, variant="fp16", torch_dtype=torch.float16)
+                        pipe_deepfloyd2 = DiffusionPipeline.from_pretrained(model_id_II, text_encoder=None, variant="fp16", use_safetensors=True, torch_dtype=torch.float16)
                         if not deepfloyd_prefs['low_memory']:
                             pipe_deepfloyd2.enable_model_cpu_offload()
                     clear_last()
@@ -27629,7 +28447,7 @@ def run_deepfloyd(page, from_list=False):
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Image2Image Pipeline..."))
                     # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
                     if deepfloyd_prefs['low_memory']:
-                        pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                         #pipe_deepfloyd.enable_model_cpu_offload()
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "image2image"):
@@ -27670,7 +28488,7 @@ def run_deepfloyd(page, from_list=False):
                     prt(Installing("Stage 2: Installing DeepFloyd Img2Img Super Resolution Pipeline..."))
                     from diffusers import IFImg2ImgSuperResolutionPipeline
                     if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "image2image":
-                        pipe_deepfloyd2 = IFImg2ImgSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map="auto")
+                        pipe_deepfloyd2 = IFImg2ImgSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", use_safetensors=True, torch_dtype=torch.float16, device_map="auto")
                         if not deepfloyd_prefs['low_memory']:
                             pipe_deepfloyd2.enable_model_cpu_offload()
                     clear_last()
@@ -27692,7 +28510,7 @@ def run_deepfloyd(page, from_list=False):
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Inpainting Pipeline..."))
                     # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
                     if deepfloyd_prefs['low_memory']:
-                        pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                         pipe_deepfloyd.enable_model_cpu_offload()
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "inpainting"):
@@ -27733,7 +28551,7 @@ def run_deepfloyd(page, from_list=False):
                     prt(Installing("Stage 2: Installing DeepFloyd Inpainting Super Resolution Pipeline..."))
                     from diffusers import IFInpaintingSuperResolutionPipeline
                     if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "inpainting":
-                        pipe_deepfloyd2 = IFInpaintingSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", torch_dtype=torch.float16, device_map=None)
+                        pipe_deepfloyd2 = IFInpaintingSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, use_safetensors=True, variant="fp16", torch_dtype=torch.float16, device_map=None)
                         if not deepfloyd_prefs['low_memory']:
                             pipe_deepfloyd2.enable_model_cpu_offload()
                     total_steps = deepfloyd_prefs['superres_num_inference_steps']
@@ -27759,7 +28577,7 @@ def run_deepfloyd(page, from_list=False):
                     pipe_deepfloyd2 = None
                 prt(Installing("Stage 3: Installing Stable Diffusion X4 Upscaler Pipeline..."))
                 if pipe_deepfloyd3 == None:
-                    pipe_deepfloyd3 = DiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-x4-upscaler", **safety_modules, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_deepfloyd3 = DiffusionPipeline.from_pretrained("stabilityai/stable-diffusion-x4-upscaler", **safety_modules, use_safetensors=True, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     pipe_deepfloyd3.enable_model_cpu_offload()
                 total_steps = deepfloyd_prefs['upscale_num_inference_steps']
                 clear_last()
@@ -29335,7 +30153,10 @@ def run_animate_diff(page):
                     break
             for file_name in os.listdir(rife_folder):
                 shutil.move(os.path.join(rife_folder, file_name), rife_dir)
-            run_sp(f"chmod 777 {os.path.join(rife_dir, 'rife-ncnn-vulkan')}", realtime=False)
+            run_sp(f"chmod 755 {rife_dir}", realtime=False)
+            run_sp(f"chmod 755 {os.path.join(rife_dir, 'rife-ncnn-vulkan')}", realtime=False)
+            os.chmod(os.path.join(rife_dir, 'rife-ncnn-vulkan'), 0o777)
+            run_sp("apt-get install libvulkan-dev", realtime=False)
     from pathlib import Path
     output_path = os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name'])
     if not os.path.exists(output_path):
@@ -32830,8 +33651,11 @@ class RunConsole(UserControl):
         self.show_progress = show_progress
         self.build()
     def add_text(self, text):
-        self.column.controls.append(Text(text, style="titleSmall", color=colors.ON_SURFACE_VARIANT))
-        self.column.update()
+        try:
+          self.column.controls.append(Text(text, style="titleSmall", color=colors.ON_SURFACE_VARIANT))
+          self.column.update()
+        except Exception:
+          pass
     def clear_last(self):
         del self.column.controls[-1]
         self.column.update()
@@ -33322,6 +34146,9 @@ def show_port(adr, height=500):
 #ft.app(target=main, view=flet.WEB_BROWSER, port=80, host=public_url.public_url)
 #ft.app(target=main, view=flet.WEB_BROWSER, port=port, host="0.0.0.0")
 #ft.app(target=main, view=ft.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
+#import logging
+#logging.getLogger("flet_core").setLevel(logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
