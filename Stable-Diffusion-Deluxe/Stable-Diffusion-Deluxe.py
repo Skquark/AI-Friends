@@ -1190,8 +1190,8 @@ def buildInstallers(page):
   def toggle_SDXL(e):
       changed(e, 'install_SDXL')
       #TODO: Reenable when Compel works right
-      #SDXL_params.height = None if e.control.value else 0
-      #SDXL_params.update()
+      SDXL_params.height = None if e.control.value else 0
+      SDXL_params.update()
   model = get_model(prefs['model_ckpt'])
   model_path = model['path']
   model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[
@@ -1235,8 +1235,7 @@ def buildInstallers(page):
   install_SDXL = Switcher(label="Install Stable Diffusion XL 1.0 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=toggle_SDXL, tooltip="Latest SDXL v1.0 trained on 1080p images.")
   SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=5, left=20), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-  # Temporary
-  SDXL_params.visible = False
+  #SDXL_params.visible = False
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
   install_interpolation = Switcher(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'), tooltip="Create multiple tween images between prompts latent space. Almost animation.")
@@ -7585,12 +7584,12 @@ def buildControlNetXL(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🕷  ControlNet SDXL Image+Text-to-Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetXL Settings", on_click=controlnet_xl_help)]),
-        Row([control_task, original_image, init_video, add_layer_btn]),
+        Row([control_task, original_image, init_video]), #, add_layer_btn
         conditioning_scale,
         Row([control_guidance_start, control_guidance_end]),
         multi_layers,
         vid_params,
-        Divider(thickness=2, height=4),
+        #Divider(thickness=2, height=4),
         ResponsiveRow([prompt, negative_prompt]),
         threshold,
         num_inference_row,
@@ -16400,10 +16399,16 @@ def start_diffusion(page):
       usable_image = True
       arg = {}
       if type(p) == list or type(p) == str:
-        pr = model['prefix'] + p
+        if (status['installed_stability'] and prefs['use_Stability_api']) or (status['installed_AIHorde'] and prefs['use_AIHorde_api']):
+          pr = p
+        else:
+          pr = model['prefix'] + p
         arg = args.copy()
       elif isinstance(p, Dream):
-        pr = model['prefix'] + p.prompt
+        if (status['installed_stability'] and prefs['use_Stability_api']) or (status['installed_AIHorde'] and prefs['use_AIHorde_api']):
+          pr = model['prefix'] + p.prompt
+        else:
+          pr = p.prompt
         arg = merge_dict(args, p.arg)
       else: prt(f"Unknown object {type(p)} in the prompt list")
       if arg['batch_size'] > 1:
@@ -16441,7 +16446,7 @@ def start_diffusion(page):
       total_steps = arg['steps']
       #if prefs['use_Stability_api'] or bool(arg['use_Stability'] or (not status['installed_diffusers'] and status['installed_stability'])):
       if status['installed_stability'] and (not status['installed_diffusers'] or prefs['use_Stability_api']) and not (status['installed_AIHorde'] and prefs['use_AIHorde_api']):
-        print('use_Stability_api')
+        #print('use_Stability_api')
         if not status['installed_stability']:
           alert_msg(page, f"ERROR: To use Stability-API, you must run the install it first and have proper API key")
           return
@@ -16587,7 +16592,7 @@ def start_diffusion(page):
           if answers != None:
             for resp in answers:
               for artifact in resp.artifacts:
-                #print("Artifact reason: " + str(artifact.finish_reason))
+                print("Artifact reason: " + str(artifact.finish_reason))
                 if artifact.finish_reason == generation.FILTER:
                   usable_image = False
                 if artifact.finish_reason == generation.ARTIFACT_TEXT:
@@ -16992,8 +16997,8 @@ def start_diffusion(page):
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 total_steps = int(arg['steps'] * high_noise_frac)
                 if prefs['SDXL_compel']:
-                  prompt_embed, pooled = compel_base.build_conditioning_tensor(pr)
-                  negative_embed, negative_pooled = compel_base.build_conditioning_tensor(arg['negative_prompt'])
+                  prompt_embed, pooled = compel_base(pr)
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 else:
@@ -17106,8 +17111,8 @@ def start_diffusion(page):
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 total_steps = int(arg['steps'] * high_noise_frac)
                 if prefs['SDXL_compel']:
-                  prompt_embed, pooled = compel_base.build_conditioning_tensor(pr)
-                  negative_embed, negative_pooled = compel_base.build_conditioning_tensor(arg['negative_prompt'])
+                  prompt_embed, pooled = compel_base(pr)
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 else:
@@ -17256,7 +17261,7 @@ def start_diffusion(page):
                   prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
                   negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                   #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                   del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
                 else:
@@ -17421,7 +17426,7 @@ def start_diffusion(page):
           last_image = os.path.join(root_dir, 'init_images', f'{fname}-{num}.png')
         page.auto_scrolling(True)
         #if (not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']) and prefs['apply_ESRGAN_upscale']:
-        if not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']:
+        if not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
           #print(f"Image path:{image_path}")
           upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           #time.sleep(0.2)
@@ -28234,34 +28239,34 @@ def run_deepfloyd(page, from_list=False):
         pass
     try:
         import sentencepiece
-    except ModuleNotFoundError:
-        install.set_details("...SentencePiece v0.1")
-        run_sp("pip install --upgrade sentencepiece~=0.1", realtime=False)
+    except ImportError:
+        install.set_details("...SentencePiece")
+        run_sp("pip install --upgrade sentencepiece", realtime=False) #~=0.1
         import sentencepiece
         pass
     try:
         import accelerate
         #TODO: Uninstall other version first
-    except ModuleNotFoundError:
+    except ImportError:
         install.set_details("...Accelerate v0.18")
-        run_process("pip install --upgrade accelerate~=0.18", page=page)
+        run_process("pip install --upgrade accelerate~=0.18.0", page=page)
         pass
     install.set_message("Installing DeepFloyd IF Required Packages...")
     if deepfloyd_prefs['low_memory']:
         #clear_last(update=False)
         #prt(Installing("Installing DeepFloyd IF Required Packages..."))
-        #try:
-        #  import bitsandbytes
-        #except Exception:
-        install.set_details("...BitsandBytes v0.38")
-        os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
-        #run_sp("export LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH", realtime=False)
-        if sys.platform.startswith("win"):
-            run_sp("pip install bitsandbytes-windows", realtime=False)
-        else:
-            run_sp("pip install --upgrade bitsandbytes~=0.38", realtime=False)
-        # import bitsandbytes
-        #  pass
+        try:
+          import bitsandbytes
+        except ImportError:
+          install.set_details("...BitsandBytes")
+          os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+          #run_sp("export LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH", realtime=False)
+          if sys.platform.startswith("win"):
+              run_sp("pip install bitsandbytes-windows", realtime=False)
+          else:
+              run_sp("pip install --upgrade bitsandbytes", realtime=False) #~=0.38
+          import bitsandbytes
+          pass
     try:
         import torch
     except ModuleNotFoundError:
@@ -28366,8 +28371,8 @@ def run_deepfloyd(page, from_list=False):
                 prt(install)
                 if deepfloyd_prefs['low_memory']:
                     #, load_in_8bit=True
-                    install.set_details("...text_encoder T5EncoderModel")
-                    text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, variant="8bit", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    install.set_details("...text_encoder T5EncoderModel") #, variant="8bit"
+                    text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     install.set_details("...DiffusionPipeline")
                     pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, text_encoder=text_encoder, unet=None, use_safetensors=True, device_map=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     # Still getting errors here! WTF?
@@ -30381,6 +30386,7 @@ NewModel:
       return
     clear_last()
     #clear_last()
+    time.sleep(3)
     observer.stop()
     #filename = f"{format_filename(editing_prompts[0]['prompt'])}"
     #filename = filename[:int(prefs['file_max_length'])]
@@ -30423,6 +30429,7 @@ NewModel:
               #clear_last()
               alert_msg(page, f"ERROR: Couldn't interpolate video from AnimateDiff for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
               return
+        time.sleep(2)
         vidobserver.stop()
     '''
     num = 0
