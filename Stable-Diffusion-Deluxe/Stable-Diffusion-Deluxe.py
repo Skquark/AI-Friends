@@ -85,7 +85,7 @@ def ng():
   _ng = rnd.choice(ng_list).partition('_')
   return _ng[2]+_ng[1]+_ng[0]
 
-def download_file(url, to=None, filename=None):
+def download_file(url, to=None, filename=None, raw=True):
     if filename != None:
         local_filename = filename
     else:
@@ -100,8 +100,14 @@ def download_file(url, to=None, filename=None):
         return local_filename
     with requests.get(url, stream=True) as r:
         with open(local_filename, 'wb') as f:
-            shutil.copyfileobj(r.raw, f)
+            if raw:
+              shutil.copyfileobj(r.raw, f)
+            else:
+              f.write(r.content)
     return local_filename
+def wget(url, to):
+    res = subprocess.run(['wget', '-q', url, '-O', to], stdout=subprocess.PIPE).stdout.decode('utf-8')
+
 try:
   import flet
 except ImportError as e:
@@ -208,7 +214,11 @@ if not os.path.exists(assets):
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-error.mp3?raw=true", to=assets)
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-done.mp3?raw=true", to=assets)
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-drop.mp3?raw=true", to=assets)
-
+sdd_utils_py = os.path.join(root_dir, "sdd_utils.py")
+if not os.path.exists(sdd_utils_py):
+    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False)
+#sys.path.append(sdd_utils_py)
+import sdd_utils
 clear_output()
 
 import json
@@ -294,7 +304,6 @@ def load_settings_file():
       'use_SAG': False,
       'sag_scale': 0.75,
       'use_panorama': False,
-      'panorama_circular_padding': False,
       'panorama_width': 2048,
       'use_upscale': False,
       'upscale_noise_level': 20,
@@ -356,6 +365,8 @@ def load_settings_file():
       'display_upscaled_image': False,
       'negatives': ["Blurry"],
       'custom_negatives': "",
+      'prompt_styler': '',
+      'prompt_style': 'cinematic-default',
       'prompt_list': [],
       'prompt_generator': {
           'phrase': '',
@@ -410,7 +421,6 @@ import flet as ft
 from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, FilledButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
 from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, KeyboardType, TextThemeStyle, AnimationCurve
 from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
-#from flet import OptionalNumber
 from flet import BlendMode
 from flet import Image as Img
 try:
@@ -581,6 +591,7 @@ def buildPromptHelpers(page):
     page.brainstormer = buildPromptBrainstormer(page)
     page.writer = buildPromptWriter(page)
     page.negatives = buildNegatives(page)
+    page.styler = buildPromptStyler(page)
     page.Image2Text = buildImage2Text(page)
     page.MagicPrompt = buildMagicPrompt(page)
     page.DistilGPT2 = buildDistilGPT2(page)
@@ -594,6 +605,7 @@ def buildPromptHelpers(page):
             Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
             Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
             Tab(text="Negatives", content=page.negatives, icon=icons.REMOVE_CIRCLE),
+            Tab(text="Styler", content=page.styler, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="Image2Text", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="Magic Prompt", content=page.MagicPrompt, icon=icons.AUTO_FIX_HIGH),
             Tab(text="Distil GPT-2", content=page.DistilGPT2, icon=icons.FILTER_ALT),
@@ -879,6 +891,8 @@ if 'enable_tome' not in prefs: prefs['enable_tome'] = False
 if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
 if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
 if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
+if 'prompt_style' not in prefs: prefs['prompt_style'] = "cinematic-default"
+if 'prompt_styler' not in prefs: prefs['prompt_styler'] = ""
 
 def initState(page):
     global status, current_tab
@@ -3283,6 +3297,76 @@ def buildNegatives(page):
       ],
     ))], scroll=ScrollMode.AUTO)
     return c
+
+def buildPromptStyler(page):
+    global prefs, status
+    def styler_help(e):
+        def close_styler_dlg(e):
+          nonlocal styler_help_dlg
+          styler_help_dlg.open = False
+          page.update()
+        styler_help_dlg = AlertDialog(title=Text("💁   Help with Prompt Styler"), content=Column([
+            Text("This allows you to take a simple base prompt and apply a preset style to the the positive and negative prompt variables.  You can then add that stylized prompt to your Prompts List, or copy/paste it for other Image Generators."),
+            Markdown("Credit goes to [Fooocus UI](https://github.com/lllyasviel/Fooocus) by Illyasviel for the Styler presets, which is a pretty good GUI alternative for easy SDXL generation. Launch [Fooocus Colab](https://colab.research.google.com/github/camenduru/Fooocus-colab/blob/main/Fooocus_colab.ipynb) and read this [Fooocus Style Reference Doc](https://docs.google.com/spreadsheets/d/1AF5bd-fALxlu0lguZQiQVn1yZwxUiBJGyh2eyJJWl74/edit#gid=0)...", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("💅  So Stylish... ", on_click=close_styler_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = styler_help_dlg
+        styler_help_dlg.open = True
+        page.update()
+    def change_style(e):
+        prefs['prompt_style'] = e.control.value
+        update_style()
+        status['changed_prompt_generator'] = True
+    negative = ""
+    prompt = ""
+    def changed_custom(e):
+        nonlocal prompt
+        prefs['prompt_styler'] = e.control.value
+        styler = sdd_utils.prompt_styles[prefs['prompt_style']]
+        prompt = styler[0].replace("{prompt}", prefs['prompt_styler'])
+        prompt_text.value = prompt
+        prompt_text.update()
+        status['changed_prompt_generator'] = True
+    def update_style(update=True):
+        nonlocal negative, prompt
+        styler = sdd_utils.prompt_styles[prefs['prompt_style']]
+        prompt = styler[0].replace("{prompt}", prefs['prompt_styler'])
+        negative = styler[1]
+        prompt_text.value = prompt
+        neg_text.value = negative
+        if update:
+          prompt_text.update()
+          neg_text.update()
+    def add_to_prompts(e):
+        nonlocal negative, prompt
+        page.add_to_prompts(prompt, {'negative_prompt': negative})
+        if prefs['enable_sounds']: page.snd_drop.play()
+    def copy_clip(e):
+        page.set_clipboard(neg_text.value)
+        page.snack_bar = SnackBar(content=Text(f"📋  Copied to clipboard... Paste into your Negative Prompt Text."))
+        page.snack_bar.open = True
+        page.update()
+    style_list = ResponsiveRow(controls=[], run_spacing=0)
+    for k in sdd_utils.style_keys:
+        style_list.controls.append(ft.Radio(label=k, value=k, fill_color=colors.PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    prompt_styler = TextField(label="Subject Prompt Text", value=prefs['prompt_styler'], on_change=changed_custom)
+    prompt_text = Text(prompt, size=18, color=colors.ON_SECONDARY_CONTAINER, selectable=True)
+    neg_text = Text(negative, size=18, color=colors.ON_SECONDARY_CONTAINER, selectable=True)
+    update_style(False)
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("👓   Prompt Styler", "Generate your Prompts with Premade Style Templates.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Prompt Styler", on_click=styler_help)]),
+        ft.RadioGroup(content=style_list, value=prefs['prompt_style'], on_change=change_style),
+        prompt_styler,
+        ElevatedButton(content=Text("➕  Add to Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_prompts),
+        ResponsiveRow([
+          Container(prompt_text, bgcolor=colors.SECONDARY_CONTAINER, padding=10, border_radius=border_radius.all(12), margin=margin.only(top=10), col={'md': 8}),
+          Container(neg_text, bgcolor=colors.SECONDARY_CONTAINER, padding=10, border_radius=border_radius.all(12), margin=margin.only(top=10), col={'md': 4}),
+        ], vertical_alignment=CrossAxisAlignment.START),
+      ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 ESRGAN_prefs = {
     'enlarge_scale': 1.5,
@@ -17697,12 +17781,6 @@ def start_diffusion(page):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
-
-def wget(url, output):
-    import subprocess
-    res = subprocess.run(['wget', '-q', url, '-O', output], stdout=subprocess.PIPE).stdout.decode('utf-8')
-    print(res)
-
 nspterminology = None
 
 def nsp_parse(prompt):
@@ -27462,7 +27540,7 @@ def run_controlnet_xl(page, from_list=False):
         flush()
         return
     canny_checkpoint = "diffusers/controlnet-canny-sdxl-1.0"
-    depth_checkpoint = "SargeZT/controlnet-v1e-sdxl-depth"
+    depth_checkpoint = "diffusers/controlnet-depth-sdxl-1.0"
     seg_checkpoint = "SargeZT/sdxl-controlnet-seg"
     softedge_checkpoint = "SargeZT/sdxl-controlnet-softedge"
     lineart_checkpoint = "zbulrush/controlnet-sd-xl-1.0-lineart"
@@ -27478,6 +27556,7 @@ def run_controlnet_xl(page, from_list=False):
     hed = None
     openpose = None
     depth_estimator = None
+    feature_extractor = None
     mlsd = None
     image_processor = None
     image_segmentor = None
@@ -27501,9 +27580,10 @@ def run_controlnet_xl(page, from_list=False):
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNetXL')
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Depth":
-            from transformers import pipeline
-            depth_estimator = pipeline('depth-estimation')
-            controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            from transformers import DPTFeatureExtractor, DPTForDepthEstimation
+            depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
+            feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
         elif task == "Kandinsky Depth":
             from transformers import pipeline
             from diffusers import KandinskyV22PriorPipeline, KandinskyV22ControlnetPipeline
@@ -27594,11 +27674,21 @@ def run_controlnet_xl(page, from_list=False):
             elif task == "OpenPose" or task == "Video OpenPose":
                 original_img = openpose(original_img, hand_and_face=True)
             elif task == "Depth":
-                original_img = depth_estimator(original_img)['depth']
-                input_image = np.array(original_img)
-                input_image = input_image[:, :, None]
-                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
-                original_img = PILImage.fromarray(input_image)
+                original_img = feature_extractor(images=original_img, return_tensors="pt").pixel_values.to("cuda")
+                with torch.no_grad(), torch.autocast("cuda"):
+                    depth_map = depth_estimator(original_img).predicted_depth
+                depth_map = torch.nn.functional.interpolate(
+                    depth_map.unsqueeze(1),
+                    size=(1024, 1024),
+                    mode="bicubic",
+                    align_corners=False,
+                )
+                depth_min = torch.amin(depth_map, dim=[1, 2, 3], keepdim=True)
+                depth_max = torch.amax(depth_map, dim=[1, 2, 3], keepdim=True)
+                depth_map = (depth_map - depth_min) / (depth_max - depth_min)
+                original_img = torch.cat([depth_map] * 3, dim=1)
+                original_img = original_img.permute(0, 2, 3, 1).cpu().numpy()[0]
+                original_img = PILImage.fromarray((original_img * 255.0).clip(0, 255).astype(np.uint8))
             elif task == "Kandinsky Depth":
                 original_img = depth_estimator(original_img)['depth']
                 input_image = np.array(original_img)
@@ -29831,7 +29921,7 @@ def run_roop(page):
             installer.set_details("...installing requirements")
             #run_process("pip install -r requirements.txt", cwd=roop_dir)
             installer.set_details("...downloading roop inswapper")
-            wget("https://huggingface.co/camenduru/roop/resolve/main/inswapper_128.onnx", roop_dir)
+            download_file("https://huggingface.co/camenduru/roop/resolve/main/inswapper_128.onnx", to=roop_dir)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Point-E Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -29944,7 +30034,7 @@ def run_roop(page):
     if roop_prefs['target_image'].startswith('http'):
         if is_video:
             installer.set_details("...downloading target video")
-            wget(roop_prefs['target_image'], batch_output)
+            download_file(roop_prefs['target_image'], batch_output)
             target_path = os.path.join(batch_output, target_name)
         else:
             installer.set_details("...downloading target image")
