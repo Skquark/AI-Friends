@@ -893,7 +893,11 @@ if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
 if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
 if 'prompt_style' not in prefs: prefs['prompt_style'] = "cinematic-default"
 if 'prompt_styler' not in prefs: prefs['prompt_styler'] = ""
-
+if bool(prefs['init_image']):
+    if not os.path.isfile(prefs['init_image']): prefs['init_image'] = ""
+if bool(prefs['mask_image']):
+    if not os.path.isfile(prefs['mask_image']): prefs['mask_image'] = ""
+    
 def initState(page):
     global status, current_tab
     if os.path.isdir(os.path.join(root_dir, 'Real-ESRGAN')):
@@ -1706,7 +1710,7 @@ def buildInstallers(page):
 
 def update_parameters(page):
   #page.img_block.height = None if status['installed_img2img'] or status['installed_megapipe'] or status['installed_stability'] else 0
-  page.img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_SDXL']) and not (status['installed_clip'] and prefs['use_clip_guided_model']) else 0
+  page.img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_AIHorde'] or status['installed_SDXL']) and not (status['installed_clip'] and prefs['use_clip_guided_model']) else 0
   page.clip_block.height = None if status['installed_clip']  and prefs['use_clip_guided_model'] else 0
   page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
   page.img_block.update()
@@ -15083,6 +15087,7 @@ def get_SDXL_pipe(task="text2image"):
             return pipe_SDXL
       pipe_SDXL = StableDiffusionXLImg2ImgPipeline.from_pretrained(
           model_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
@@ -15090,6 +15095,7 @@ def get_SDXL_pipe(task="text2image"):
       pipe_SDXL = optimize_SDXL(pipe_SDXL)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
           refiner_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          vae=pipe_SDXL.vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
@@ -15108,6 +15114,7 @@ def get_SDXL_pipe(task="text2image"):
             return pipe_SDXL
       pipe_SDXL = StableDiffusionXLInpaintPipeline.from_pretrained(
           model_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
@@ -17174,7 +17181,8 @@ def start_diffusion(page):
               else:
                 if os.path.isfile(arg['init_image']):
                   init_img = PILImage.open(arg['init_image']).convert("RGB")
-                else: alert_msg(page, f"ERROR: Couldn't find your init_image {arg['init_image']}")
+                else:
+                  alert_msg(page, f"ERROR: Couldn't find your init_image {arg['init_image']}")
               init_img = init_img.resize((arg['width'], arg['height']))
               #init_image = preprocess(init_img)
               #white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
