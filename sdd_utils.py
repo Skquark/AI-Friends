@@ -524,7 +524,6 @@ prompt_styles = [
 ]
 
 prompt_styles = {k['name']: (k['prompt'], k['negative_prompt']) for k in prompt_styles}
-default_style = prompt_styles['None']
 style_keys = list(prompt_styles.keys())
 
 
