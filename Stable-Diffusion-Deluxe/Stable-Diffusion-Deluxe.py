@@ -604,8 +604,8 @@ def buildPromptHelpers(page):
             Tab(text="Prompt Generator", content=page.generator, icon=icons.CLOUD),
             Tab(text="Prompt Remixer", content=page.remixer, icon=icons.CLOUD_SYNC_ROUNDED),
             Tab(text="Prompt Brainstormer", content=page.brainstormer, icon=icons.CLOUDY_SNOWING),
+            Tab(text="Prompt Styler", content=page.styler, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="Negatives", content=page.negatives, icon=icons.REMOVE_CIRCLE),
-            Tab(text="Styler", content=page.styler, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="Image2Text", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="Magic Prompt", content=page.MagicPrompt, icon=icons.AUTO_FIX_HIGH),
             Tab(text="Distil GPT-2", content=page.DistilGPT2, icon=icons.FILTER_ALT),
@@ -747,6 +747,7 @@ def buildAudioAIs(page):
     page.DanceDiffusion = buildDanceDiffusion(page)
     page.AudioDiffusion = buildAudioDiffusion(page)
     page.AudioLDM = buildAudioLDM(page)
+    page.AudioLDM2 = buildAudioLDM2(page)
     page.Bark = buildBark(page)
     page.Riffusion = buildRiffusion(page)
     page.Mubert = buildMubert(page)
@@ -757,6 +758,7 @@ def buildAudioAIs(page):
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
             Tab(text="MusicGen", content=page.MusicGen, icon=icons.MUSIC_NOTE),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
+            Tab(text="AudioLDM-2", content=page.AudioLDM2, icon=icons.NOISE_CONTROL_OFF),
             Tab(text="Bark", content=page.Bark, icon=icons.PETS),
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
@@ -2160,9 +2162,10 @@ def format_filename(s, force_underscore=False, use_dash=False, max_length=None):
         if not prefs['file_allowSpace'] or force_underscore: filename = filename.replace(' ','_')
     return filename[:file_max_length]
 
-def to_title(s, sentence=False):
-    s = s.replace('_',' ')
-    s = s.replace('-',' ')
+def to_title(s, sentence=False, clean=True):
+    if clean:
+        s = s.replace('_',' ')
+        s = s.replace('-',' ')
     if sentence:
         sentences = s.split(". ")
         sentences2 = [sentence[0].capitalize() + sentence[1:] for sentence in sentences]
@@ -2507,11 +2510,13 @@ def buildPromptsList(page):
         add_to_prompts(positive_prompt)
   def add_to_prompts(p, arg=None):
       global prompts
+      update_args()
       dream = Dream(p)
       if arg is not None:
         if 'prompt' in arg: del arg['prompt']
         arg = merge_dict(args, arg)
         dream.arg = arg
+      #if prefs['']
       prompts.append(dream)
       prompts_list.controls.append(ListTile(title=Text(p, max_lines=6, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=editPrompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[
@@ -3327,6 +3332,7 @@ def buildPromptStyler(page):
         prefs['prompt_styler'] = e.control.value
         styler = sdd_utils.prompt_styles[prefs['prompt_style']]
         prompt = styler[0].replace("{prompt}", prefs['prompt_styler'])
+        prompt = to_title(prompt, sentence=True, clean=False)
         prompt_text.value = prompt
         prompt_text.update()
         status['changed_prompt_generator'] = True
@@ -3334,6 +3340,7 @@ def buildPromptStyler(page):
         nonlocal negative, prompt
         styler = sdd_utils.prompt_styles[prefs['prompt_style']]
         prompt = styler[0].replace("{prompt}", prefs['prompt_styler'])
+        prompt = to_title(prompt, sentence=True, clean=False)
         negative = styler[1]
         prompt_text.value = prompt
         neg_text.value = negative
@@ -13071,6 +13078,95 @@ def buildAudioLDM(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+audioLDM2_prefs = {
+    'text': '',
+    'transcription': '',
+    'model_name': 'audioldm2-full',
+    'duration': 10.0,
+    'guidance_scale': 3.5,
+    'n_candidates': 3,#This number control the number of candidates (e.g., generate three audios and choose the best to show you). A Larger value usually lead to better quality with heavier computation
+    'seed': 0,
+    'wav_path': '',
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'file_prefix': 'ldm2-',
+}
+
+def buildAudioLDM2(page):
+    global prefs, audioLDM2_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              audioLDM2_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              audioLDM2_prefs[pref] = float(e.control.value)
+            else:
+              audioLDM2_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_audioLDM2_output(o):
+        page.audioLDM2_output.controls.append(o)
+        page.audioLDM2_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.audioLDM2_output.controls = []
+        page.audioLDM2_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def audioLDM2_help(e):
+        def close_audioLDM2_dlg(e):
+          nonlocal audioLDM2_help_dlg
+          audioLDM2_help_dlg.open = False
+          page.update()
+        audioLDM2_help_dlg = AlertDialog(title=Text("💁   Help with Audio-LDM 2"), content=Column([
+            Text("AudioLDM-2 is a novel and versatile audio generation model that capable of performing conditional audio, music, and intelligible speech generation. The proposed method is based on a universal representation of audio, which enables large-scale self-supervised pretraining of the core latent diffusion model without audio annotation and helps to combine the advantages of both the auto-regressive and the latent diffusion model. AudioLDM 2 achieves state-of-the-art performance in text-to-audio and text-to-music generation, while also delivering competitive results in text-to-speech generation, comparable to the current SoTA."),
+            Text("Although audio generation shares commonalities across different types of audio, such as speech, music, and sound effects, designing models for each type requires careful consideration of specific objectives and biases that can significantly differ from those of other types. To bring us closer to a unified perspective of audio generation, this paper proposes a framework that utilizes the same learning method for speech, music, and sound effect generation. Our framework introduces a general representation of audio, called 'language of audio' (LOA). Any audio can be translated into LOA based on AudioMAE, a self-supervised pre-trained representation learning model. In the generation process, we translate any modalities into LOA by using a GPT-2 model, and we perform self-supervised audio generation learning with a latent diffusion model conditioned on LOA. The proposed framework naturally brings advantages such as in-context learning abilities and reusable self-supervised pretrained AudioMAE and latent diffusion models. Experiments on the major benchmarks of text-to-audio, text-to-music, and text-to-speech demonstrate new state-of-the-art or competitive performance to previous approaches."),
+            Markdown("[Project Page](https://audioldm.github.io/audioldm2/) | [Paper](https://arxiv.org/abs/2308.05734) | [GitHub Code](https://github.com/haoheliu/audioldm2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🔔  Good to hear... ", on_click=close_audioLDM2_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = audioLDM2_help_dlg
+        audioLDM2_help_dlg.open = True
+        page.update()
+    def change_model(e):
+        changed(e, 'model_name')
+        if 'speech' in audioLDM2_prefs['model_name']:
+            transcription.visible = True
+        else:
+            transcription.visible = False
+        transcription.update()
+    model_name = Dropdown(label="Audio-LDM2 Model", width=350, options=[dropdown.Option("audioldm2-full"), dropdown.Option("audioldm2-full-large-1150k"), dropdown.Option("audioldm2-music-665k"), dropdown.Option("audioldm2-speech-gigaspeech"), dropdown.Option("audioldm2-speech-ljspeech")], value=audioLDM2_prefs['model_name'], on_change=change_model)
+    duration_row = SliderRow(label="Duration", min=1, max=20, divisions=38, round=1, suffix="s", pref=audioLDM2_prefs, key='duration')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=5, divisions=10, round=1, pref=audioLDM2_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
+    text = TextField(label="Text Prompt to Auditorialize", value=audioLDM2_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
+    transcription = TextField(label="Text Transcript to Speak", value=audioLDM2_prefs['transcription'], multiline=True, min_lines=1, max_lines=8, visible=False, on_change=lambda e:changed(e,'transcription'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=audioLDM2_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=audioLDM2_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:   ", min=1, max=5, value=audioLDM2_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
+    batch_size = NumberPicker(label="Batch Size:   ", min=1, max=5, value=audioLDM2_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    seed = TextField(label="Seed", value=audioLDM2_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.audioLDM2_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.audioLDM2_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("📢  Audio LDM-2 Modeling", "Holistic Audio Generation with Self-supervised Pretraining...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM2_help)]),
+        text,
+        transcription,
+        model_name,
+        duration_row,
+        guidance,
+        Row([n_candidates, seed]),#, batch_size
+        Row([batch_folder_name, file_prefix]),
+        ElevatedButton(content=Text("🎙  Run AudioLDM 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_audio_ldm2(page)),
+        page.audioLDM2_output,
+        clear_button,
+        #AudioPlayer(audio_file=os.path.join(assets, "snd-drop.mp3"), display="tester", page=page)
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 bark_prefs = {
     'text': '',
     'text_temp': 0.7,
@@ -13895,6 +13991,7 @@ pipe_kandinsky = None
 pipe_kandinsky_prior = None
 pipe_tortoise_tts = None
 pipe_audio_ldm = None
+pipe_audio_ldm2 = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_music_gen = None
@@ -16198,6 +16295,12 @@ def clear_audio_ldm_pipe():
     del pipe_audio_ldm
     flush()
     pipe_audio_ldm = None
+def clear_audio_ldm2_pipe():
+  global pipe_audio_ldm2
+  if pipe_audio_ldm2 is not None:
+    del pipe_audio_ldm2
+    flush()
+    pipe_audio_ldm2 = None
 def clear_gpt2_pipe():
   global pipe_gpt2
   if pipe_gpt2 is not None:
@@ -16293,6 +16396,7 @@ def clear_pipes(allbut=None):
     if not 'video_to_video' in but: clear_video_to_video_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
+    if not 'audio_ldm2' in but: clear_audio_ldm2_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
@@ -17269,9 +17373,12 @@ def start_diffusion(page):
                   pipe_composable = get_composable_pipe()
                   clear_last()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
-                clear_pipes("SDXL")
+                if status['loaded_SDXL'] == "text2image":
+                  clear_pipes("SDXL")
+                else:
+                  clear_pipes()
                 if pipe_SDXL is None:
-                  prt(Installing("Initializing Stable Diffusion XL Pipeline..."))
+                  prt(Installing("Initializing Stable Diffusion XL Text2Image Pipeline..."))
                   get_SDXL_pipe("text2image")
                   clear_last()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -24587,6 +24694,134 @@ def run_audio_ldm(page):
     fname = format_filename(audioLDM_prefs['text'])
     if fname[-1] == '.': fname = fname[:-1]
     file_prefix = audioLDM_prefs['file_prefix']
+    audio_name = f'{file_prefix}-{fname}'
+    audio_name = audio_name[:int(prefs['file_max_length'])]
+    fname = available_file(save_dir, audio_name, 0, ext="wav")
+    for i in range(waveform.shape[0]):
+        sf.write(fname, waveform[i, 0], samplerate=16000)
+    #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
+    #IPython.display.Audio('generated.wav')
+    clear_last()
+    clear_last()
+    #a_out = Audio(src=fname, autoplay=False)
+    #page.overlay.append(a_out)
+    #page.update()
+    display_name = fname
+    #a.tofile(f"/content/dance-{i}.wav")
+    if storage_type == "Colab Google Drive":
+      audio_save = available_file(audio_out, audio_name, 0, ext='wav')
+      shutil.copy(fname, audio_save)
+      display_name = audio_save
+    #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_audio_ldm2(page):
+    global audioLDM2_prefs, pipe_audio_ldm2, prefs, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.audioLDM2_output.controls.append(line)
+      page.audioLDM2_output.update()
+    def clear_last():
+      if len(page.audioLDM2_output.controls) < 1: return
+      del page.audioLDM2_output.controls[-1]
+      page.audioLDM2_output.update()
+    if not bool(audioLDM2_prefs['text']):
+      alert_msg(page, "Provide Text for the AI to create the sound of...")
+      return
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    progress = ProgressBar(bar_height=8)
+    installer = Installing("Downloading Audio LDM-2 Packages...")
+    prt(installer)
+    audioLDM2_dir = os.path.join(root_dir, "AudioLDM2")
+    #voice_dir = os.path.join(audioLDM2_dir, 'audioldm2', 'voices')
+    if not os.path.isdir(audioLDM2_dir):
+      os.chdir(root_dir)
+      installer.set_details("...clone haoheliu/AudioLDM2")
+      run_process("git clone https://github.com/haoheliu/AudioLDM2", page=page)
+    os.chdir(audioLDM2_dir)
+    import sys
+    sys.path.append(os.path.join(audioLDM2_dir, 'audioldm2'))
+    try:
+        from audioldm2 import text_to_audio, build_model
+    except Exception:
+        try:
+            installer.set_details("...install einops")
+            run_process("pip install einops", page=page)
+            installer.set_details("...install pyyaml")
+            run_process("pip install -q pyyaml", page=page)
+            installer.set_details("...install soundfile")
+            run_process("pip install -q soundfile", page=page)
+            installer.set_details("...install chardet")
+            run_process("pip install -q librosa chardet", page=page)
+            installer.set_details("...install scipy")
+            run_process("pip install -q pandas scipy", page=page)
+            installer.set_details("...install gradio")
+            run_process("pip install -q gradio", page=page)
+            installer.set_details("...install torchlibrosa")
+            run_process("pip install -q torchlibrosa", page=page)
+            installer.set_details("...install unidecode phonemizer ftfy timm")
+            run_process("pip install -q unidecode phonemizer ftfy timm", page=page)
+            installer.set_details("...install haoheliu/AudioLDM2.git")
+            run_process("pip install git+https://github.com/haoheliu/AudioLDM2.git", page=page)
+            #sudo apt-get install espeak
+            #export PHONEMIZER_ESPEAK_LIBRARY=$(find /opt/homebrew/Cellar/espeak -name "libespeak.dylib" | sort -r | head -n 1)
+            os.environ["TOKENIZERS_PARALLELISM"] = "true"
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing AudioLDM-2 requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
+            return
+        pass
+    finally:
+        from audioldm2 import text_to_audio, build_model
+    import soundfile as sf
+    model_id=audioLDM2_prefs['model_name']
+    if 'loaded_ldm2' not in status:
+        status['loaded_ldm2'] = ""
+    if status['loaded_ldm2'] == model_id:
+        clear_pipes('audio_ldm2')
+    else:
+        clear_pipes()
+    # This will download all the models used by Audio LDM from the HuggingFace hub.
+    if pipe_audio_ldm2 == None:
+      try:
+        installer.set_details("...building model")
+        pipe_audio_ldm2 = build_model(model_name=model_id)
+        installer.set_details("...torch compile")
+        pipe_audio_ldm2 = torch.compile(pipe_audio_ldm2)
+        torch.set_float32_matmul_precision("high")
+        status['loaded_ldm2'] = model_id
+      except Exception as e:
+        clear_last()
+        alert_msg(page, "Error downloading Audio LDM 2 model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    clear_last()
+    prt(Text("  Generating AudioLDM-2 Sounds...", weight=FontWeight.BOLD))
+    prt(progress)
+    random_seed = int(audioLDM2_prefs['seed']) if int(audioLDM2_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    try:#audioLDM2_prefs['duration']
+      waveform = text_to_audio(pipe_audio_ldm2, audioLDM2_prefs['text'], random_seed, duration=10, guidance_scale=audioLDM2_prefs['guidance_scale'], n_candidate_gen_per_text=int(audioLDM2_prefs['n_candidates']), batchsize=int(audioLDM2_prefs['batch_size']), transcript=audioLDM2_prefs['transcription'] if 'speech' in model_id else "")
+    except Exception as e:
+      clear_last()
+      alert_msg(page, "Error generating text_to_audio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+      return
+    save_dir = os.path.join(root_dir, 'audio_out', audioLDM2_prefs['batch_folder_name'])
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir, exist_ok=True)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(audioLDM2_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, audioLDM2_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm2-tts", 'audioldm2', 'voices'))
+    #print(str(voice_dirs))
+    # waveform = [(16000, np.random.randn(16000)), (16000, np.random.randn(16000))]
+    #TODO: batch
+    fname = format_filename(audioLDM2_prefs['text'])
+    if fname[-1] == '.': fname = fname[:-1]
+    file_prefix = audioLDM2_prefs['file_prefix']
     audio_name = f'{file_prefix}-{fname}'
     audio_name = audio_name[:int(prefs['file_max_length'])]
     fname = available_file(save_dir, audio_name, 0, ext="wav")
