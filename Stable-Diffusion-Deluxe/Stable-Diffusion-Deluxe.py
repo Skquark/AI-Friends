@@ -3348,7 +3348,7 @@ def buildPromptStyler(page):
     style_list = ResponsiveRow(controls=[], run_spacing=0)
     for k in sdd_utils.style_keys:
         style_list.controls.append(ft.Radio(label=k, value=k, fill_color=colors.PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
-    prompt_styler = TextField(label="Subject Prompt Text", value=prefs['prompt_styler'], on_change=changed_custom)
+    prompt_styler = TextField(label="Subject Prompt Text", value=prefs['prompt_styler'], filled=True, on_change=changed_custom)
     prompt_text = Text(prompt, size=18, color=colors.ON_SECONDARY_CONTAINER, selectable=True)
     neg_text = Text(negative, size=18, color=colors.ON_SECONDARY_CONTAINER, selectable=True)
     update_style(False)
@@ -14747,12 +14747,12 @@ def get_lpw_pipe():
     else:
       if prefs['disable_nsfw_filter']:
         if 'from_ckpt' in model:
-          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+          pipe = DiffusionPipeline.from_single_file(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
         else:
           pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
       else:
         if 'from_ckpt' in model:
-          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+          pipe = DiffusionPipeline.from_single_file(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
         else:
           pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
