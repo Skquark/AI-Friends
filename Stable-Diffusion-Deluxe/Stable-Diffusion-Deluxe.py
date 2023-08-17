@@ -1726,7 +1726,7 @@ if is_Colab:
 
 #LoRA_models = [{'name': 'Von Platen LoRA', 'path': 'patrickvonplaten/lora'}, {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'Trauter LoRAs', 'path': 'YoungMasterFromSect/Trauter_LoRAs'}, {'name': 'Capitalize T5', 'path': 'ShengdingHu/Capitalize_T5-LoRA'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}]
 #[{'name': 'sample-dog', 'path': 'lora-library/lora-dreambooth-sample-dog', 'prefix': 'sksdog'}, {'name': 'kdekuni', 'path': 'lora-library/kdekuni', 'prefix': 'a kdekuni golden funkopop'}, {'name': 'yarosnnv', 'path': 'lora-library/yarosnnv', 'prefix': 'yarosnnv'}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, {'name': '', 'path': '', 'prefix': ''}, ]
-LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}, {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''}, {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '}, {'name': 'LogoLoraForSDXL', 'path': 'artificialguybr/LogoRedmond-LogoLoraForSDXL', 'prefix':'LogoRedAF'}]
+LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}, {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''}, {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '}, {'name': 'Analog.Redmond', 'path': 'artificialguybr/analogredmond', 'prefix':'AnalogRedmAF'}, {'name': 'LogoLoraForSDXL', 'path': 'artificialguybr/LogoRedmond-LogoLoraForSDXL', 'prefix':'LogoRedAF'}]
 
 def buildParameters(page):
   global prefs, status, args
@@ -7679,12 +7679,12 @@ def buildControlNetXL(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🕷  ControlNet SDXL Image+Text-to-Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetXL Settings", on_click=controlnet_xl_help)]),
-        Row([control_task, original_image, init_video]), #, add_layer_btn
+        Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
         Row([control_guidance_start, control_guidance_end]),
         multi_layers,
         vid_params,
-        #Divider(thickness=2, height=4),
+        Divider(thickness=2, height=4),
         ResponsiveRow([prompt, negative_prompt]),
         threshold,
         num_inference_row,
@@ -27785,7 +27785,7 @@ def run_controlnet_xl(page, from_list=False):
     canny_checkpoint = "diffusers/controlnet-canny-sdxl-1.0"
     depth_checkpoint = "diffusers/controlnet-depth-sdxl-1.0"
     seg_checkpoint = "SargeZT/sdxl-controlnet-seg"
-    softedge_checkpoint = "SargeZT/sdxl-controlnet-softedge"
+    softedge_checkpoint = "SargeZT/controlnet-sd-xl-1.0-softedge-dexined"#"SargeZT/sdxl-controlnet-softedge"
     lineart_checkpoint = "zbulrush/controlnet-sd-xl-1.0-lineart"
     scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
     openpose_checkpoint = "lllyasviel/control_v11p_sd15_openpose"
@@ -27807,7 +27807,7 @@ def run_controlnet_xl(page, from_list=False):
     lineart = None
     shuffle = None
     def get_controlnet(task):
-        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
         if controlnet_xl_models[task] != None:
             return controlnet_xl_models[task]
         if task == "Canny Map Edge" or task == "Video Canny Edge":
@@ -27887,7 +27887,7 @@ def run_controlnet_xl(page, from_list=False):
         img = input_image.resize((W, H), resample=PILImage.LANCZOS)
         return img
     def prep_image(task, img):
-        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
         nonlocal width, height
         if isinstance(img, str):
           if img.startswith('http'):
@@ -27988,7 +27988,7 @@ def run_controlnet_xl(page, from_list=False):
         except Exception as e:
             #clear_last()
             clear_last()
-            alert_msg(page, f"ERROR Preparing ControlNetXL {controlnet_xl_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Preparing ControlNet-XL {controlnet_xl_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             flush()
             return
     def prep_video(vid):
@@ -28076,7 +28076,7 @@ def run_controlnet_xl(page, from_list=False):
         pipe_controlnet.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
         pipe_controlnet.controlnet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
     clear_last()
-    prt(f"Generating ControlNetXL {controlnet_xl_prefs['control_task']} of your Image...")
+    prt(f"Generating ControlNet-XL {controlnet_xl_prefs['control_task']} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_xl_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
@@ -28105,7 +28105,7 @@ def run_controlnet_xl(page, from_list=False):
         except Exception as e:
             #clear_last()
             clear_last()
-            alert_msg(page, f"ERROR Generating ControlNetXL {controlnet_xl_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Generating ControlNet-XL {controlnet_xl_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             flush()
             return
         clear_pipes('controlnet')
@@ -28192,7 +28192,7 @@ def run_controlnet_xl(page, from_list=False):
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             num += 1
     autoscroll(False)
-    del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+    del hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
     if prefs['enable_sounds']: page.snd_alert.play()
 
 
@@ -28542,22 +28542,22 @@ def run_deepfloyd(page, from_list=False):
     clear_list()
     prt(Divider(thickness=2, height=4))
     #if not status['installed_diffusers']:
-    install = Installing("Installing Diffusers & Required Packages...")
-    prt(install)
+    installer = Installing("Installing Diffusers & Required Packages...")
+    prt(installer)
     try:
         import diffusers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        install.set_details("...HuggingFace Diffusers v0.16")
-        run_process("pip install --upgrade diffusers~=0.16", page=page)
+        installer.set_details("...HuggingFace Diffusers")
+        #run_process("pip install --upgrade diffusers~=0.16", page=page)
         #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
-        #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+        run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         pass
     try:
         import transformers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        install.set_details("...Transformers v4.28")
+        installer.set_details("...Transformers v4.28")
         #run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
         run_process("pip install --upgrade transformers~=4.28", page=page)
         pass
@@ -28565,7 +28565,7 @@ def run_deepfloyd(page, from_list=False):
         import safetensors
         from safetensors import safe_open
     except ModuleNotFoundError:
-        install.set_details("...SafeTensors v0.3")
+        installer.set_details("...SafeTensors v0.3")
         run_process("pip install --upgrade safetensors~=0.3", page=page)
         import safetensors
         from safetensors import safe_open
@@ -28573,7 +28573,7 @@ def run_deepfloyd(page, from_list=False):
     try:
         import sentencepiece
     except ImportError:
-        install.set_details("...SentencePiece")
+        installer.set_details("...SentencePiece")
         run_sp("pip install --upgrade sentencepiece", realtime=False) #~=0.1
         import sentencepiece
         pass
@@ -28581,17 +28581,17 @@ def run_deepfloyd(page, from_list=False):
         import accelerate
         #TODO: Uninstall other version first
     except ImportError:
-        install.set_details("...Accelerate v0.18")
+        installer.set_details("...Accelerate v0.18")
         run_process("pip install --upgrade accelerate~=0.18.0", page=page)
         pass
-    install.set_message("Installing DeepFloyd IF Required Packages...")
+    installer.set_message("Installing DeepFloyd IF Required Packages...")
     if deepfloyd_prefs['low_memory']:
         #clear_last(update=False)
         #prt(Installing("Installing DeepFloyd IF Required Packages..."))
         try:
           import bitsandbytes
         except ImportError:
-          install.set_details("...BitsandBytes")
+          installer.set_details("...BitsandBytes")
           os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
           #run_sp("export LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH", realtime=False)
           if sys.platform.startswith("win"):
@@ -28603,14 +28603,14 @@ def run_deepfloyd(page, from_list=False):
     try:
         import torch
     except ModuleNotFoundError:
-        install.set_details("...Torch v2.0")
+        installer.set_details("...Torch v2.0")
         run_process("pip install --upgrade torch~=2.0", page=page)
         import torch
         pass
     try:
         from huggingface_hub import notebook_login, HfFolder, login
     except ModuleNotFoundError:
-        install.set_details("...HuggingFace Hub")
+        installer.set_details("...HuggingFace Hub")
         run_process("pip install huggingface_hub --upgrade", page=page)
         import torch
         pass
@@ -28700,22 +28700,22 @@ def run_deepfloyd(page, from_list=False):
             random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator().manual_seed(random_seed)
             try:
-                install = Installing("Running DeepFloyd-IF Text Encoder...")
-                prt(install)
+                installer = Installing("Running DeepFloyd-IF Text Encoder...")
+                prt(installer)
                 if deepfloyd_prefs['low_memory']:
                     #, load_in_8bit=True
-                    install.set_details("...text_encoder T5EncoderModel") #, variant="8bit"
+                    installer.set_details("...text_encoder T5EncoderModel") #, variant="8bit"
                     text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                    install.set_details("...DiffusionPipeline")
+                    installer.set_details("...DiffusionPipeline")
                     pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, text_encoder=text_encoder, unet=None, use_safetensors=True, device_map=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     # Still getting errors here! WTF?
                     #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
-                    install.set_details("...encode_prompts")
+                    installer.set_details("...encode_prompts")
                     prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     del text_encoder
                     del pipe_deepfloyd
                     pipe_deepfloyd = None
-                install.set_details("...clearing pipes")
+                installer.set_details("...clearing pipes")
                 flush()
                 clear_last(update=False)
                 safety_modules = {}
