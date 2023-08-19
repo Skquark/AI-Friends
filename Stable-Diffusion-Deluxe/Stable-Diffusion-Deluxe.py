@@ -975,9 +975,12 @@ def buildSettings(page):
     page.update()
     status['changed_settings'] = True
   def toggle_nsfw(e):
+    #TODO: Add Popup alert with disclaimer, age verification and I Accept the Terms
+    global safety
     retry_attempts.width = 0 if e.control.value else None
     retry_attempts.update()
     changed(e, 'disable_nsfw_filter')
+    safety = {'safety_checker':None, 'requires_safety_checker':False, 'feature_extractor':None} if prefs['disable_nsfw_filter'] else {}
   def default_cache_dir(e):
     default_dir = prefs['image_output'].strip()
     if default_dir.endswith(slash):
@@ -1013,7 +1016,7 @@ def buildSettings(page):
   theme_color = Dropdown(label="Accent Color", width=200, options=[dropdown.Option("Green"), dropdown.Option("Blue"), dropdown.Option("Red"), dropdown.Option("Indigo"), dropdown.Option("Purple"), dropdown.Option("Orange"), dropdown.Option("Amber"), dropdown.Option("Brown"), dropdown.Option("Teal"), dropdown.Option("Yellow")], value=prefs['theme_color'], on_change=change_theme_color)
   enable_sounds = Checkbox(label="Enable UI Sound Effects    ", tooltip="Turn on for audible errors, deletes and generation done notifications", value=prefs['enable_sounds'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_sounds'))
   start_in_installation = Checkbox(label="Start in Installation Page", tooltip="When launching app, switch to Installer tab. Saves time..", value=prefs['start_in_installation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'start_in_installation'))
-  disable_nsfw_filter = Checkbox(label="Disable NSFW Filters", value=prefs['disable_nsfw_filter'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
+  disable_nsfw_filter = Checkbox(label="Disable NSFW Filters for Uncensored Images", value=prefs['disable_nsfw_filter'], tooltip="If you're over 18 & promise not to abuse, allow Not Safe For Work. Otherwise, will filter mature content...", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
   retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
   api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
@@ -1028,13 +1031,13 @@ def buildSettings(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("⚙️   Deluxe Stable Diffusion Settings & Preferences"),
+        Header("⚙️   Stable Diffusion Deluxe Settings & Preferences"),
         ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
         #VerticalDivider(thickness=2),
         Row([file_prefix, file_suffix_seed]) if (page.width if page.web else page.window_width) > 500 else Column([file_prefix, file_suffix_seed]),
         Row([file_max_length, file_allowSpace]),
         file_datetime,
-        #Row([disable_nsfw_filter, retry_attempts]),
+        Row([disable_nsfw_filter, retry_attempts]),
         #VerticalDivider(thickness=2, width=1),
         save_image_metadata,
         Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window_width) > 712 else Column([meta_ArtistName, meta_Copyright]),
@@ -1239,7 +1242,7 @@ def buildInstallers(page):
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
   model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
-  memory_optimization = Dropdown(label="Enable Memory Optimization", width=220, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
+  memory_optimization = Dropdown(label="Enable Memory Optimization", width=290, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   if version.parse(torch.__version__) < version.parse("2.0.0"):
       memory_optimization.options.append(dropdown.Option("Xformers Mem Efficient Attention"))
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision & uses much more GPU memory. Not recommended unless you have >16GB VRAM.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
@@ -7514,7 +7517,7 @@ def buildControlNetXL(page):
           Markdown("This is an interface for running the [official codebase](https://github.com/lllyasviel/ControlNet#readme) for models described in [Adding Conditional Control to Text-to-Image Diffusion Models](https://arxiv.org/abs/2302.05543).", on_tap_link=lambda e: e.page.launch_url(e.data)),
           #Text("Scribble - A hand-drawn monochrome image with white outlines on a black background."),
           Text("Canny Map Edge - A monochrome image with white edges on a black background."),
-          #Text("OpenPose - A OpenPose bone image."),
+          Text("OpenPose - A OpenPose bone image."),
           Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
           Text("Softedge - A monochrome image with white soft edges on a black background."),
           #Text("M-LSD - A monochrome image composed only of white straight lines on a black background."),
@@ -7636,8 +7639,8 @@ def buildControlNetXL(page):
     prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet-SDXL Task", width=200, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge") ], value=controlnet_xl_prefs['control_task'], on_change=change_task)
-    #, dropdown.Option("OpenPose"), dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
+    control_task = Dropdown(label="ControlNet-SDXL Task", width=200, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
+    #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_xl_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
@@ -14017,7 +14020,7 @@ controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 controlnet_xl_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 stability_api = None
-
+safety = {'safety_checker':None, 'requires_safety_checker':False, 'feature_extractor':None} if prefs['disable_nsfw_filter'] else {}
 model_path = "CompVis/stable-diffusion-v1-4"
 inpaint_model = "stabilityai/stable-diffusion-2-inpainting"
 #"runwayml/stable-diffusion-inpainting"
@@ -14229,14 +14232,14 @@ def get_dreambooth_model(name):
   return {'name':'', 'path':'', 'prefix':''}
 def get_LoRA_model(name):
   if name == "Custom LoRA Path":
-      return {'name':"Custom LoRA Model", 'path':prefs['custom_LoRA_model']}
+      return {'name':"Custom LoRA Model", 'path':prefs['custom_LoRA_model'], 'weight_name':None}
   for mod in LoRA_models:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path']}
+        return {'name':mod['name'], 'path':mod['path'], 'weight_name':None if 'weight_name' in mod else mod['weight_name']}
   if len(prefs['custom_LoRA_models']) > 0:
     for mod in prefs['custom_LoRA_models']:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path']}
+        return {'name':mod['name'], 'path':mod['path'], 'weight_name':None if 'weight_name' in mod else mod['weight_name']}
   return {'name':'', 'path':''}
 
 def get_diffusers(page):
@@ -14677,7 +14680,10 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
       p.unet = torch.compile(p.unet)
     if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
-      p.load_lora_weights(lora['path'])
+      if bool(lora['weight_name']):
+        p.load_lora_weights(lora['path'], weight_name=lora['weight_name'])
+      else:
+        p.load_lora_weights(lora['path'])
       #TODO: , weight_name=lora_filename
       #p.unet.load_attn_procs(lora['path'])
     if prefs['sequential_cpu_offload'] and not no_cpu:
@@ -14719,8 +14725,10 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
       p.enable_vae_tiling()
     if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
-      p.load_lora_weights(lora['path'])
-      #TODO: , weight_name=lora_filename
+      if bool(lora['weight_name']):
+        p.load_lora_weights(lora['path'], weight_name=lora['weight_name'])
+      else:
+        p.load_lora_weights(lora['path'])
       #p.unet.load_attn_procs(lora['path'])
     #if to_gpu and not (prefs['enable_torch_compile'] and torch_compile) and not model_offload:
     if prefs['enable_torch_compile'] and torch_compile:
@@ -14838,24 +14846,18 @@ def get_lpw_pipe():
     else:
       return pipe
   if 'revision' in model:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, **safety)
   else:
     if 'vae' in model:
       from diffusers import AutoencoderKL, UNet2DConditionModel
       vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
       unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
-      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
     else:
-      if prefs['disable_nsfw_filter']:
-        if 'from_ckpt' in model:
-          pipe = DiffusionPipeline.from_single_file(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
-        else:
-          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+      if 'from_ckpt' in model:
+        pipe = DiffusionPipeline.from_single_file(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
       else:
-        if 'from_ckpt' in model:
-          pipe = DiffusionPipeline.from_single_file(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
-        else:
-          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
@@ -14898,24 +14900,18 @@ def get_compel_pipe():
     else:
       return pipe
   if 'revision' in model:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, **safety)
   else:
     if 'vae' in model:
       from diffusers import AutoencoderKL, UNet2DConditionModel
       vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
       unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
-      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'])
+      pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", vae=vae, unet=unet, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
     else:
-      if prefs['disable_nsfw_filter']:
-        if 'from_ckpt' in model:
-          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
-        else:
-          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None, requires_safety_checker=False, feature_extractor=None)
+      if 'from_ckpt' in model:
+        pipe = DiffusionPipeline.from_single_file(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
       else:
-        if 'from_ckpt' in model:
-          pipe = DiffusionPipeline.from_ckpt(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
-        else:
-          pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, requires_safety_checker=True)
+        pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
@@ -14935,9 +14931,9 @@ def get_unet_pipe():
   tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
   text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
   if prefs['higher_vram_mode']:
-    unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", feature_extractor=None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
+    unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", **safety, device_map="auto")
   else:
-    unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", feature_extractor=None, torch_dtype=torch.float16, subfolder="unet", safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), device_map="auto")
+    unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", torch_dtype=torch.float16, subfolder="unet", **safety, device_map="auto")
   vae = vae.to(torch_device)
   text_encoder = text_encoder.to(torch_device)
   #if enable_attention_slicing:
@@ -14978,9 +14974,9 @@ def get_interpolation_pipe():
       else:
         return pipe_interpolation
     if 'revision' in model:
-      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
     else:
-      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+      pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
     #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe_interpolation = pipe_interpolation.to(torch_device)
     pipe_interpolation = pipeline_scheduler(pipe_interpolation)
@@ -15027,7 +15023,7 @@ def get_img2img_pipe():
         custom_pipeline="img2img_inpainting",
         #scheduler=model_scheduler(inpaint_model),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+        **safety
     )
   else:
       pipe_img2img = DiffusionPipeline.from_pretrained(
@@ -15037,7 +15033,7 @@ def get_img2img_pipe():
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       revision="fp16",
       torch_dtype=torch.float16,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+      **safety)
   #pipe_img2img.to(torch_device)
   #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
   pipe_img2img = pipeline_scheduler(pipe_img2img)
@@ -15066,9 +15062,9 @@ def get_imagic_pipe():
       else:
         return pipe_imagic
   if True:
-    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", use_auth_token=True, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", use_auth_token=True, **safety)
   else:
-    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", revision="fp16", torch_dtype=torch.float16, **safety)
   #pipe_imagic = pipe_imagic.to(torch_device)
   def dummy(images, **kwargs):
     return images, False
@@ -15161,7 +15157,7 @@ def get_SDXL_pipe(task="text2image"):
           use_safetensors=True,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+          **safety,
       )
       pipe_SDXL = optimize_SDXL(pipe_SDXL)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
@@ -15169,7 +15165,7 @@ def get_SDXL_pipe(task="text2image"):
           vae=pipe_SDXL.vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+          **safety,
       )
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
 
@@ -15187,7 +15183,7 @@ def get_SDXL_pipe(task="text2image"):
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+          **safety,
       )
       pipe_SDXL = optimize_SDXL(pipe_SDXL)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
@@ -15195,7 +15191,7 @@ def get_SDXL_pipe(task="text2image"):
           vae=pipe_SDXL.vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+          **safety,
       )
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
 
@@ -15214,7 +15210,7 @@ def get_SDXL_pipe(task="text2image"):
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+          **safety,
       )
       pipe_SDXL = optimize_SDXL(pipe_SDXL)
 
@@ -15227,7 +15223,7 @@ def get_SDXL_pipe(task="text2image"):
           variant="fp16",
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+          **safety,
       )
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
   if prefs['SDXL_compel']:
@@ -15268,7 +15264,7 @@ def get_versatile_pipe(): # Mega was taking up too much vram and crashing the sy
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       #revision="fp16",
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+      **safety
   )
   #pipe_versatile.to(torch_device)
   pipe_versatile = pipeline_scheduler(pipe_versatile)
@@ -15293,7 +15289,7 @@ def get_versatile_text2img_pipe():
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       #revision="fp16",
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+      **safety
   )
   #pipe_versatile_text2img.to(torch_device)
   pipe_versatile_text2img = pipeline_scheduler(pipe_versatile_text2img)
@@ -15317,7 +15313,7 @@ def get_versatile_variation_pipe():
         model_id,
         #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+        **safety
     )
   else:
     pipe_versatile_variation = VersatileDiffusionImageVariationPipeline.from_pretrained(
@@ -15326,7 +15322,7 @@ def get_versatile_variation_pipe():
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         #revision="fp16",
         torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+        **safety
     )
   #pipe_versatile_variation.to(torch_device)
   pipe_versatile_variation = pipeline_scheduler(pipe_versatile_variation)
@@ -15350,7 +15346,7 @@ def get_versatile_dualguided_pipe():
         model_id,
         #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+        **safety
     )
   else:
     pipe_versatile_dualguided = VersatileDiffusionDualGuidedPipeline.from_pretrained(
@@ -15359,7 +15355,7 @@ def get_versatile_dualguided_pipe():
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         #revision="fp16",
         torch_dtype=torch.float16,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+        **safety
     )
   #pipe_versatile_dualguided.to(torch_device)
   pipe_versatile_dualguided = pipeline_scheduler(pipe_versatile_dualguided)
@@ -15398,7 +15394,7 @@ def get_safe_pipe():
         model_id,
         #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None# if prefs['disable_nsfw_filter'] else SafeStableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+        **safety,
     )
   else:
       pipe_safe = StableDiffusionPipelineSafe.from_pretrained(
@@ -15407,7 +15403,7 @@ def get_safe_pipe():
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         revision="fp16",
         torch_dtype=torch.float16,
-        safety_checker=None# if prefs['disable_nsfw_filter'] else SafeStableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+        **safety
       )
   #pipe_safe.to(torch_device)
   pipe_safe = pipeline_scheduler(pipe_safe)
@@ -15437,7 +15433,7 @@ def get_SAG_pipe():
         model_path,
         #scheduler=model_scheduler(model_path, big3=True),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+        **safety
     )
   else:
       pipe_SAG = StableDiffusionSAGPipeline.from_pretrained(
@@ -15445,7 +15441,7 @@ def get_SAG_pipe():
       #scheduler=model_scheduler(model_path, big3=True),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None)
+      **safety)
   pipe_SAG = pipeline_scheduler(pipe_SAG, big3=True)
   pipe_SAG = optimize_pipe(pipe_SAG, vae=False)
   pipe_SAG.set_progress_bar_config(disable=True)
@@ -15473,7 +15469,7 @@ def get_attend_and_excite_pipe():
         model_path,
         #scheduler=model_scheduler(model_path),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+        **safety
     )
   else:
       pipe_attend_and_excite = StableDiffusionAttendAndExcitePipeline.from_pretrained(
@@ -15481,7 +15477,7 @@ def get_attend_and_excite_pipe():
       #scheduler=model_scheduler(model_path),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+      **safety)
   pipe_attend_and_excite = pipeline_scheduler(pipe_attend_and_excite)
   pipe_attend_and_excite = optimize_pipe(pipe_attend_and_excite, vae=True)
   pipe_attend_and_excite.set_progress_bar_config(disable=True)
@@ -15509,7 +15505,7 @@ def get_panorama_pipe():
         model_path,
         #scheduler=model_scheduler(model_path, big3=True),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+        **safety
     )
   else:
       pipe_panorama = StableDiffusionPanoramaPipeline.from_pretrained(
@@ -15517,7 +15513,7 @@ def get_panorama_pipe():
       #scheduler=model_scheduler(model_path, big3=True),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
-      safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+      **safety)
   pipe_panorama = pipeline_scheduler(pipe_panorama)
   pipe_panorama = optimize_pipe(pipe_panorama, vae=True)
   pipe_panorama.set_progress_bar_config(disable=True)
@@ -15747,8 +15743,7 @@ def get_alt_diffusion_pipe():
           model_id,
           #scheduler=model_scheduler(model_id),
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          requires_safety_checker = not prefs['disable_nsfw_filter'],
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+          **safety
       )
     else:
       pipe_alt_diffusion = StableDiffusionPipeline.from_pretrained(
@@ -15756,8 +15751,7 @@ def get_alt_diffusion_pipe():
           #scheduler=model_scheduler(model_id),
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           torch_dtype=torch.float16,
-          requires_safety_checker = not prefs['disable_nsfw_filter'],
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker")
+          **safety
       )
     #pipe_alt_diffusion.to(torch_device)
     pipe_alt_diffusion = pipeline_scheduler(pipe_alt_diffusion)
@@ -15785,8 +15779,7 @@ def get_alt_diffusion_img2img_pipe():
           model_id,
           #scheduler=model_scheduler(model_id),
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          requires_safety_checker = not prefs['disable_nsfw_filter'],
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+          **safety
       )
     else:
       pipe_alt_diffusion_img2img = StableDiffusionImg2ImgPipeline.from_pretrained(
@@ -15794,8 +15787,7 @@ def get_alt_diffusion_img2img_pipe():
           #scheduler=model_scheduler(model_id),
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           torch_dtype=torch.float16,
-          requires_safety_checker = not prefs['disable_nsfw_filter'],
-          safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"), feature_extractor=None
+          **safety
       )
     #pipe_alt_diffusion_img2img.to(torch_device)
     pipe_alt_diffusion_img2im = pipeline_scheduler(pipe_alt_diffusion_img2im)
@@ -15950,7 +15942,7 @@ def get_conceptualizer(page):
         text_encoder=text_encoder,
         tokenizer=tokenizer,
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
+        **safety,
     )
     pipe_conceptualizer = pipeline_scheduler(pipe_conceptualizer)
     pipe_conceptualizer = optimize_pipe(pipe_conceptualizer)
@@ -21035,7 +21027,7 @@ def run_semantic(page):
     clear_pipes('semantic')
     if pipe_semantic is None:
         from diffusers import SemanticStableDiffusionPipeline
-        pipe_semantic = SemanticStableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
+        pipe_semantic = SemanticStableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         pipe_semantic = pipeline_scheduler(pipe_semantic)
         pipe_semantic = optimize_pipe(pipe_semantic, vae=False)
         pipe_semantic.set_progress_bar_config(disable=True)
@@ -22429,8 +22421,8 @@ def run_dreambooth(page):
                 unet=accelerator.unwrap_model(unet),
                 tokenizer=tokenizer,
                 scheduler=PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", skip_prk_steps=True),
-                safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
                 feature_extractor=CLIPFeatureExtractor.from_pretrained("openai/clip-vit-base-patch32"),
+                **safety,
             )
             pipeline.save_pretrained(dreambooth_args.output_dir)
 
@@ -23340,8 +23332,8 @@ def run_textualinversion2(page):
                 unet=unet,
                 tokenizer=tokenizer,
                 scheduler=PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", skip_prk_steps=True),
-                safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
                 feature_extractor=CLIPFeatureExtractor.from_pretrained("openai/clip-vit-base-patch32"),
+                **safety,
             )
             pipeline.save_pretrained(output_dir)
             # Also save the newly trained embeddings
@@ -26942,12 +26934,12 @@ def run_instruct_pix2pix(page, from_list=False):
     if pipe_instruct_pix2pix is None:
       if instruct_pix2pix_prefs['use_SDXL']:
         from diffusers import StableDiffusionXLInstructPix2PixPipeline
-        pipe_instruct_pix2pix = StableDiffusionXLInstructPix2PixPipeline.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_instruct_pix2pix = StableDiffusionXLInstructPix2PixPipeline.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
       else:
         from diffusers import StableDiffusionInstructPix2PixPipeline
         from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-        pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device), requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
         #pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
     pipeline_scheduler(pipe_instruct_pix2pix)
@@ -27787,8 +27779,8 @@ def run_controlnet_xl(page, from_list=False):
     seg_checkpoint = "SargeZT/sdxl-controlnet-seg"
     softedge_checkpoint = "SargeZT/controlnet-sd-xl-1.0-softedge-dexined"#"SargeZT/sdxl-controlnet-softedge"
     lineart_checkpoint = "zbulrush/controlnet-sd-xl-1.0-lineart"
+    openpose_checkpoint = "thibaud/controlnet-openpose-sdxl-1.0"
     scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
-    openpose_checkpoint = "lllyasviel/control_v11p_sd15_openpose"
     HED_checkpoint = "lllyasviel/control_v11p_sd15_softedge"
     mlsd_checkpoint = "lllyasviel/control_v11p_sd15_mlsd"
     normal_checkpoint = "lllyasviel/control_v11p_sd15_normalbae"
@@ -27820,7 +27812,7 @@ def run_controlnet_xl(page, from_list=False):
         elif task == "OpenPose" or task == "Video OpenPose":
             task = "OpenPose"
             from controlnet_aux import OpenposeDetector
-            openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNetXL')
+            openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Depth":
             from transformers import DPTFeatureExtractor, DPTForDepthEstimation
@@ -28725,14 +28717,14 @@ def run_deepfloyd(page, from_list=False):
                     total_steps = pr['num_inference_steps']
                     #clear_last()
                     if deepfloyd_prefs['low_memory']:
-                        pipe_deepfloyd = IFPipeline.from_pretrained(model_id, text_encoder=None, device_map="sequential", use_safetensors=True, variant="fp16", torch_dtype=torch.float16, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        pipe_deepfloyd = IFPipeline.from_pretrained(model_id, text_encoder=None, device_map="sequential", use_safetensors=True, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                         #pipe_deepfloyd.enable_model_cpu_offload()
                         #pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
                         #pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "text2image"):
                             #install.set_details("...DiffusionPipeline")
-                            pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                            pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
@@ -28783,14 +28775,13 @@ def run_deepfloyd(page, from_list=False):
                     status['last_deepfloyd_mode'] = "text2image"
                 elif init_img != None and mask_img == None:
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Image2Image Pipeline..."))
-                    # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
                     if deepfloyd_prefs['low_memory']:
-                        pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                         #pipe_deepfloyd.enable_model_cpu_offload()
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "image2image"):
                             #install.set_details("...DiffusionPipeline")
-                            pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                            pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
@@ -28848,12 +28839,12 @@ def run_deepfloyd(page, from_list=False):
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Inpainting Pipeline..."))
                     # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
                     if deepfloyd_prefs['low_memory']:
-                        pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                        pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                         pipe_deepfloyd.enable_model_cpu_offload()
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "inpainting"):
                             #install.set_details("...DiffusionPipeline")
-                            pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, safety_checker=None, requires_safety_checker=not prefs['disable_nsfw_filter'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                            pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
@@ -30514,7 +30505,7 @@ def run_animate_diff(page):
     #installer.set_details("...downloading motion_module-v1-5")
     #download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
     #sd_models = "runwayml/stable-diffusion-v1-5"
-    lora_model = {'name': 'None', 'file': '', 'path': ''}
+    lora_model = {'name': 'None', 'file': '', 'path': '', 'weight_name': None}
     lora_dir = os.path.join(animatediff_dir, 'data', 'models', 'sd')
     #lora_dir = os.path.join(animatediff_dir, 'models', 'DreamBooth_LoRA')
     if not os.path.isdir(lora_dir):
