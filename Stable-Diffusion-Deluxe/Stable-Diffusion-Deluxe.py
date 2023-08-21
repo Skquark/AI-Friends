@@ -423,6 +423,7 @@ from flet import icons, dropdown, colors, padding, margin, alignment, border_rad
 from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
 from flet import BlendMode
 from flet import Image as Img
+from sdd_utils import finetuned_models, dreambooth_models, styles, artists
 try:
     import PIL
 except ModuleNotFoundError:
@@ -549,7 +550,7 @@ def tab_on_change (e):
       e.page.Parameters.update()
       e.page.show_apply_fab(len(prompts) > 0 and status['changed_parameters'])
     if current_tab == 3:
-      e.page.show_run_diffusion_fab(len(prompts) > 0, p=e.page)
+      e.page.show_run_diffusion_fab(True, p=e.page) #len(prompts) > 0
     e.page.update()
 
 def buildTabs(page):
@@ -2674,6 +2675,11 @@ def buildPromptsList(page):
       if prefs['use_interpolation'] and prefs['install_interpolation'] and not status['installed_interpolation']:
         alert_msg(e.page, "You must Install Walk Interpolation Pipeline first...")
         return
+      if len(prompts) < 1:
+        if not bool(prompt_text.value):
+          alert_msg(p, "Add some Prompts to the Batch List before running, or at least fill in Prompt Text first.")
+          return
+        add_prompt(e)
       page.tabs.selected_index = 4
       page.tabs.update()
       show_run_diffusion_fab(False)
@@ -2713,7 +2719,7 @@ def buildPromptsList(page):
           pass
 
   page.show_run_diffusion_fab = show_run_diffusion_fab
-  show_run_diffusion_fab(len(prompts_list.controls) > 0)
+  show_run_diffusion_fab(False)#(len(prompts_list.controls) > 0)
   #page.load_prompts()
   if len(prompts_list.controls) < 1:
     prompts_buttons.visible=False
@@ -3319,7 +3325,7 @@ def buildPromptStyler(page):
           page.update()
         styler_help_dlg = AlertDialog(title=Text("💁   Help with Prompt Styler"), content=Column([
             Text("This allows you to take a simple base prompt and apply a preset style to the the positive and negative prompt variables.  You can then add that stylized prompt to your Prompts List, or copy/paste it for other Image Generators."),
-            Markdown("Credit goes to [Fooocus UI](https://github.com/lllyasviel/Fooocus) by Illyasviel for the Styler presets, which is a pretty good GUI alternative for easy SDXL generation. Launch [Fooocus Colab](https://colab.research.google.com/github/camenduru/Fooocus-colab/blob/main/Fooocus_colab.ipynb) and read this [Fooocus Style Reference Doc](https://docs.google.com/spreadsheets/d/1AF5bd-fALxlu0lguZQiQVn1yZwxUiBJGyh2eyJJWl74/edit#gid=0)...", on_tap_link=lambda e: e.page.launch_url(e.data)),
+            Markdown("Credit goes to [Prompt Styler](https://github.com/twri/sdxl_prompt_styler) by twri and [Fooocus UI](https://github.com/lllyasviel/Fooocus) by Illyasviel for the Styler presets, which is a pretty good GUI alternative for easy SDXL generation. Launch [Fooocus Colab](https://colab.research.google.com/github/camenduru/Fooocus-colab/blob/main/Fooocus_colab.ipynb) and read this [Fooocus Style Reference Doc](https://docs.google.com/spreadsheets/d/1AF5bd-fALxlu0lguZQiQVn1yZwxUiBJGyh2eyJJWl74/edit#gid=0)...", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("💅  So Stylish... ", on_click=close_styler_dlg)], actions_alignment=MainAxisAlignment.END)
         page.dialog = styler_help_dlg
         styler_help_dlg.open = True
@@ -7217,6 +7223,7 @@ controlnet_prefs = {
     'guidance_scale': 9, #30
     'seed': 0,
     'eta': 0,
+    'show_processed_image': False,
     'use_init_video': False,
     'init_video': '',
     'fps': 12,
@@ -7379,7 +7386,6 @@ def buildControlNet(page):
              multi_layers.controls.remove(c)
              break
         multi_layers.update()
-
     def delete_all_layers(e):
         controlnet_prefs['multi_controlnets'].clear()
         multi_layers.controls.clear()
@@ -7402,7 +7408,6 @@ def buildControlNet(page):
     start_time = TextField(label="Start Time (s)", value=controlnet_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=controlnet_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
     vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_prefs['use_init_video'] else 0)
-
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='low_threshold')
@@ -7415,6 +7420,7 @@ def buildControlNet(page):
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_prefs, key='max_size')
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_prefs, key='enlarge_scale')
@@ -7442,6 +7448,7 @@ def buildControlNet(page):
         guidance,
         eta_row,
         max_row,
+        show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet,
         Row([ElevatedButton(content=Text("🏸  Run ControlNet", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet(page)),
@@ -7469,6 +7476,7 @@ controlnet_xl_prefs = {
     'guidance_scale': 7.5, #30
     'seed': 0,
     'eta': 0,
+    'show_processed_image': False,
     'use_init_video': False,
     'init_video': '',
     'fps': 12,
@@ -7580,7 +7588,7 @@ def buildControlNetXL(page):
         show = task.startswith("Video")# or task == "Video OpenPose"
         update = controlnet_xl_prefs['use_init_video'] != show
         changed(e,'control_task')
-        threshold.height = None if controlnet_xl_prefs['control_task'] == "Canny Map Edge" or controlnet_xl_prefs['control_task'] == "Video Canny Edge" else 0
+        threshold.height = None if "Canny" in controlnet_xl_prefs['control_task'] else 0
         threshold.update()
         if update:
             original_image.visible = not show
@@ -7639,7 +7647,7 @@ def buildControlNetXL(page):
     prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet-SDXL Task", width=200, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_xl_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
@@ -7667,6 +7675,7 @@ def buildControlNetXL(page):
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_xl_prefs, key='max_size')
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_xl_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_xl_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_xl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_xl_prefs, key='enlarge_scale')
@@ -7694,6 +7703,7 @@ def buildControlNetXL(page):
         guidance,
         eta_row,
         max_row,
+        show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xl_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet,
         Row([ElevatedButton(content=Text("🛃  Run ControlNet-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_xl(page)),
@@ -14030,167 +14040,6 @@ if is_Colab:
   from google.colab import output
   output.enable_custom_widget_manager()
 
-finetuned_models = [
-    #{"name": "Stable Diffusion v1.5", "path": "runwayml/stable-diffusion-v1-5", "prefix": "", "revision": "fp16"},
-    #{"name": "Stable Diffusion v1.4", "path": "CompVis/stable-diffusion-v1-4", "prefix": "", "revision": "fp16"},
-    {"name": "Midjourney v4 style", "path": "prompthero/midjourney-v4-diffusion", "prefix": "mdjrny-v4 style "},
-    {"name": "Openjourney", "path": "prompthero/openjourney", "prefix": "mdjrny-v4 style "},
-    {"name": "Openjourney LoRA", "path": "prompthero/openjourney-lora", "prefix": ""},
-    {"name": "Openjourney v2", "path": "prompthero/openjourney-v2", "prefix": ""},
-    {"name": "Future Diffusion", "path": "nitrosocke/Future-Diffusion", "prefix": "future style "},
-    #{"name": "Anything v3.0", "path": "Linaqruf/anything-v3.0", "prefix": ""},
-    {"name": "Anything v3.0", "path": "ckpt/anything-v3.0", "prefix": ""},
-    #{"name": "Anything v4.0", "path": "andite/anything-v4.0", "prefix": ""},
-    {"name": "Anything v4.5", "path": "ckpt/anything-v4.5", "prefix": ""},
-    {"name": "Analog Diffusion", "path": "wavymulder/Analog-Diffusion", "prefix": "analog style "},
-    {"name": "Architecture Diffusers", "path": "rrustom/stable-architecture-diffusers", "prefix": ""},
-    {"name": "Arcane", "path":"nitrosocke/Arcane-Diffusion", "prefix":"arcane style "},
-    {"name": "Archer Diffusion", "path":"nitrosocke/archer-diffusion", "prefix":"archer style "},
-    {"name": "Nitro Diffusion", "path":"nitrosocke/nitro-diffusion", "prefix":"archer style, arcane style, modern disney style "},
-    {"name": "Beeple Diffusion", "path": "riccardogiorato/beeple-diffusion", "prefix": "beeple style "},
-    {"name": "Protogen v5.8", "path": "darkstorm2150/Protogen_x5.8_Official_Release", "prefix": ""},
-    {"name": "Protogen Eclipse", "path": "darkstorm2150/Protogen_Eclipse_Official_Release", "prefix": ""},
-    #{"name": "Protogen Infinity", "path": "darkstorm2150/Protogen_Infinity_Official_Release", "prefix": ""},
-    #{"name": "Protogen Nova", "path": "darkstorm2150/Protogen_Nova_Official_Release", "prefix": ""},
-    {"name": "Protogen Dragon", "path": "darkstorm2150/Protogen_Dragon_Official_Release", "prefix": ""},
-    {"name": "Deliberate", "path": "XpucT/Deliberate", "prefix":""},
-    {"name": "Deliberate 2", "path": "SdValar/deliberate2", "prefix":""},
-    {"name": "di.FFUSION.ai", "path": "FFusion/di.FFUSION.ai-v2.1-768-BaSE-alpha", "prefix":""},
-    {"name": "Elden Ring", "path": "nitrosocke/elden-ring-diffusion", "prefix":"elden ring style "},
-    {"name": "Freedom", "path": "artificialguybr/freedom", "prefix":""},
-    {"name": "Modern Disney", "path": "nitrosocke/mo-di-diffusion", "prefix": "modern disney style "},
-    {"name": "Classic Disney", "path": "nitrosocke/classic-anim-diffusion", "prefix": "classic disney style "},
-    {"name": "Loving Vincent (Van Gogh)", "path": "dallinmackay/Van-Gogh-diffusion", "prefix": "lvngvncnt "},
-    {"name": "Realistic Vision v1.4", "path": "SG161222/Realistic_Vision_V1.4", "prefix": ""},
-    {"name": "Realistic Vision v3", "path": "SG161222/Realistic_Vision_V3.0", "prefix": ""},
-    {"name": "Redshift Renderer (Cinema4D)", "path": "nitrosocke/redshift-diffusion", "prefix": "redshift style "},
-    {"name": "Reliberate", "path": "sinkinai/reliberate_v10", "prefix": ""},
-    {"name": "Swizz8", "path": "Pr0-SD/Swizz8", "prefix": ""},
-    {"name": "Waifu Diffusion", "path": "hakurei/waifu-diffusion", "prefix": "", "revision": "fp16"},
-    {"name": "Ultima Waifu Diffusion", "path": "AdamOswald1/Ultima-Waifu-Diffusion", "prefix": ""},
-    #{"name": "TrinArt Waifu 50-50", "path": "doohickey/trinart-waifu-diffusion-50-50", "prefix": ""},
-    {"name": "WikiArt v2", "path": "valhalla/sd-wikiart-v2", "prefix": ""},
-    {"name": "Jak's Woolitize", "path": "plasmo/woolitize", "prefix": "woolitize "},
-    {"name": "Inkpunk Diffusion", "path": "Envvi/Inkpunk-Diffusion", "prefix": "nvinkpunk "},
-    {"name": "Simpsons Model", "path": "Norod78/sd-simpsons-model", "prefix":""},
-    {"name": "Spider-Verse", "path": "nitrosocke/spider-verse-diffusion", "prefix":"spiderverse style "},
-    {"name": "Pokémon", "path": "lambdalabs/sd-pokemon-diffusers", "prefix": ""},
-    {"name": "Pony Diffusion", "path": "AstraliteHeart/pony-diffusion", "prefix": ""},
-    {"name": "Robo Diffusion", "path": "nousr/robo-diffusion", "prefix": ""},
-    {"name": "Dungeons & Diffusion", "path": "0xJustin/Dungeons-and-Diffusion", "prefix": ""},
-    {"name": "Cyberpunk Anime", "path": "DGSpitzer/Cyberpunk-Anime-Diffusion", "prefix": "dgs illustration style "},
-    {"name": "Tron Legacy", "path": "dallinmackay/Tron-Legacy-diffusion", "prefix": "trnlgcy "},
-    {"name": "Guohua Diffusion", "path": "Langboat/Guohua-Diffusion", "prefix": "guohua style "},
-    {"name": "Trin-sama TrinArt", "path": "naclbit/trinart_stable_diffusion_v2", "prefix": "", "revision": "diffusers-115k"},
-    {"name": "Naruto Diffusers", "path": "lambdalabs/sd-naruto-diffusers", "prefix": ""},
-    {"name": "Zelda: Breath of The Wild", "path": "s3nh/zelda-botw-stable-diffusion", "prefix": "botw style "},
-    {"name": "JWST Deep Space Diffusion", "path": "dallinmackay/JWST-Deep-Space-diffusion", "prefix": "JWST "},
-    #{"name": "LinkedIn-diffusion", "path": "prompthero/linkedin-diffusion", "prefix": "lnkdn photography "},
-    {"name": "Bloodborne Diffusion", "path": "Guizmus/BloodborneDiffusion", "prefix": "Bloodborne Style "},
-    {"name": "Cats the Musical", "path": "dallinmackay/Cats-Musical-diffusion", "prefix": "ctsmscl "},
-    {"name": "Anon v1", "path": "TheMindExpansionNetwork/anonv1", "prefix": "AnonV1 "},
-    {"name": "Avatar", "path": "Jersonm89/Avatar", "prefix": "avatar style "},
-    {"name": "Dreamlike Diffusion v1", "path": "dreamlike-art/dreamlike-diffusion-1.0", "prefix": "dreamlikeart "},
-    {"name": "Dreamlike Photoreal 2", "path": "dreamlike-art/dreamlike-photoreal-2.0", "prefix": ""},
-    {"name": "DreamShaper", "path": "Lykon/DreamShaper", "prefix": ""},
-    {"name": "DreamShaper 7", "path": "digiplay/DreamShaper_7", "prefix": ""},
-    {"name": "Absolute Reality", "path": "Lykon/AbsoluteReality", "prefix": ""},
-    {"name": "Glitch", "path": "BakkerHenk/glitch", "prefix": "a photo in sks glitched style "},
-    {"name": "Knollingcase", "path": "Aybeeceedee/knollingcase", "prefix": "knollingcase "},
-    {"name": "Wavy Diffusion", "path": "wavymulder/wavyfusion", "prefix": "wa-vy style "},
-    {"name": "TARDISfusion Classic Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Classic Tardis style "},
-    {"name": "TARDISfusion Modern Tardis", "path": "Guizmus/Tardisfusion", "prefix": "Modern Tardis style "},
-    {"name": "TARDISfusion Tardis Box", "path": "Guizmus/Tardisfusion", "prefix": "Tardis Box style "},
-    {"name": "Rick-Roll Style", "path": "TheLastBen/rick-roll-style", "prefix": "rckrll "},
-    {"name": "Filmation MOTU", "path": "zuleo/filmation-motu", "prefix": ""},
-    {"name": "Char Helper", "path": "ManglerFTW/CharHelper", "prefix": ""},
-    {"name": "Maxwell the Cat", "path": "kabachuha/maxwell-the-cat-diffusion", "prefix": ""},
-    {"name": "Glitch Embedding", "path": "joachimsallstrom/Glitch-Embedding", "prefix": "glitch "},
-    {"name": "Pokemon 3D", "path": "Timmahw/SD2.1_Pokemon3D", "prefix": ""},
-    {"name": "Nephos", "path": "RomeroRZ/Nephos", "prefix": ""},
-    {"name": "NeverEnding Dream", "path": "Lykon/NeverEnding-Dream", "prefix": ""},
-    {"name": "effeffIX Concept", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 "},
-    {"name": "effeffIX Woman", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 woman "},
-    {"name": "effeffIX Man", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 man "},
-    {"name": "effeffIX Creature", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 creature "},
-    {"name": "effeffIX Architecture", "path": "zuleo/effeffIX-concept-diffusion", "prefix": "effeff9 architecture "},
-    {"name": "Double-Exposure-Diffusion", "path": "joachimsallstrom/Double-Exposure-Diffusion", "prefix": "dublex style "},
-    #{"name": "Illuminati Diffusion", "path": "IlluminatiAI/Illuminati_Diffusion_v1.0", "prefix": ""},
-    {"name": "ChillOutMix", "path": "windwhinny/chilloutmix", "prefix": ""},
-    {"name": "Colorful-v4.5", "path": "Manseo/Colorful-v4.5", "prefix": ""},
-    {"name": "Cool Japan Diffusion", "path": "aipicasso/cool-japan-diffusion-2-1-2-beta", "prefix": ""},
-    {"name": "Fantasy Mix", "path": "theintuitiveye/FantasyMix-v1", "prefix": ""},
-    {"name": "Roughness Painter", "path": "AIARTCHAN/roughnessPainter_v1.0", "prefix": ""},
-    {"name": "Isometric Dreams", "path": "Duskfallcrew/isometric-dreams-sd-1-5", "prefix": ""},
-    {"name": "Photography & Landscapes", "path": "Duskfallcrew/photography-and-landscapes", "prefix": "phtdzk1 "},
-    {"name": "Sygil Diffusion", "path": "Sygil/Sygil-Diffusion", "prefix": ""},
-    {"name": "Flat Icons", "path": "viba98/flat-icons", "prefix": ""},
-    {"name": "No Branch Repo", "path": "huggingface/the-no-branch-repo", "prefix": ""},
-    {"name": "Isometric Floating Icons", "path": "viba98/isometric-floating-icons", "prefix": ""},
-    {"name": "Dilbert Diffusion", "path": "CSAle/DilbertDiffusion2", "prefix": "dilbert "},
-    {"name": "Sketchstyle", "path": "Cosk/sketchstyle-cutesexyrobutts", "prefix": "sketchstyle "},
-    {"name": "Midjourney Shatter", "path": "ShadoWxShinigamI/Midjourney-Shatter", "prefix": "mdjrny-shttr "},
-    {"name": "Midjourney PaperCut", "path": "ShadoWxShinigamI/MidJourney-PaperCut", "prefix": "mdjrny-pprct eagle "},
-    {"name": "Midjourney Graffiti", "path": "ShadoWxShinigamI/midjourney-graffiti", "prefix": "in the style of mdjrny-grfft "},
-    {"name": "MJStyle", "path": "ShadoWxShinigamI/mjstyle", "prefix": "mjstyle "},
-    {"name": "Xpero End1ess", "path": "sakistriker/XperoEnd1essModel", "prefix": ""},
-    {"name": "Pepe Diffuser", "path": "Dipl0/pepe-diffuser", "prefix": ""},
-    {"name": "Pastel Mix", "path": "andite/pastel-mix", "prefix": ""},
-    {"name": "Counterfeit v2.5", "path": "gsdf/Counterfeit-V2.5", "prefix": ""},
-    {"name": "Basil Mix", "path": "nuigurumi/basil_mix", "prefix": ""},
-    {"name": "Inkpunk Diffusion", "path": "Envvi/Inkpunk-Diffusion", "prefix": "nvinkpunk "},
-    {"name": "Ghibli Diffusion", "path": "nitrosocke/Ghibli-Diffusion", "prefix": "ghibli style "},
-    {"name": "7th Layer", "path": "syaimu/7th_Layer", "prefix": ""},
-    {"name": "Comic-Diffusion", "path": "ogkalu/Comic-Diffusion", "prefix": ""},
-    {"name": "Vintedois Diffusion", "path": "22h/vintedois-diffusion-v0-1", "prefix": ""},
-    {"name": "PaperCut", "path": "Fictiverse/Stable_Diffusion_PaperCut_Model", "prefix": "PaperCut "},
-    {"name": "Complex Lineart", "path": "Conflictx/Complex-Lineart", "prefix": "ComplexLA style "},
-    {"name": "GuoFeng3", "path": "xiaolxl/GuoFeng3", "prefix": ""},
-    {"name": "Portrait+", "path": "wavymulder/portraitplus", "prefix": "portrait+ style "},
-    {"name": "ACertainThing", "path": "JosephusCheung/ACertainThing", "prefix": ""},
-    {"name": "Hassan Blend", "path": "hassanblend/HassanBlend1.5.1.2", "prefix": ""},
-    {"name": "Segmind Small-SD", "path": "segmind/small-sd", "prefix": ""},
-    #{"name": "", "path": "", "prefix": ""},
-    #{"name": "Latent Labs 360", "path": "AlanB/LatentLabs360", "prefix": ""},
-    #{"name": "Rodent Diffusion 1.5", "path": "NerdyRodent/rodent-diffusion-1-5", "prefix": ""},
-    #{"name": "Laxpeint", "path": "EldritchAdam/laxpeint", "prefix": ""},
-    #{"name": "HeartArt", "path": "spaablauw/HeartArt", "prefix": ""},
-    #{"name": "ConceptArt", "path": "SatyamSSJ10/ConceptArt", "prefix": ""},
-    #{"name": "Modern Buildings", "path": "smereces/2.1-SD-Modern-Buildings-Style-MD", "prefix": ""},
-    #{"name": "Floral Marbles", "path": "N75242/FloralMarbles_Model", "prefix": ""},
-    #{"name": "Gemini_Anime", "path": "Cryonicus/Gemini_Anime", "prefix": ""},
-    #{"name": "Disco Difland", "path": "DarkBeam/discodifland", "prefix": ""},
-    #{"name": "Princess Jai Lee", "path": "zuleo/princess-jai-lee", "prefix": ""},
-    #{"name": "Style Goblinmode", "path": "TheAllyPrompts/Style-Goblinmode", "prefix": ""},
-    #{"name": "Joe87-Vibe", "path": "Joe87/joe87-vibe", "prefix": "joe87-vibe "},
-    #{"name": "Microwaist", "path": "SweetTalk/Microwaist", "prefix": ""},
-    #{"name": "Sci-Fi Diffusion", "path": "Corruptlake/Sci-Fi-Diffusion", "prefix": ""},
-    #{"name": "ParchArt", "path": "EldritchAdam/ParchArt", "prefix": ""},
-    #{"name": "Classipeint", "path": "EldritchAdam/classipeint", "prefix": ""},
-    #{"name": "Cyberpunked", "path": "GeneralAwareness/Cyberpunked", "prefix": ""},
-    #{"name": "Mangaka Boichi", "path": "Akumetsu971/SD_Boichi_Art_Style", "prefix": ""},
-    #{"name": "Samurai Anime", "path": "Akumetsu971/SD_Samurai_Anime_Style", "prefix": ""},
-    #{"name": "Cmodel", "path": "jinofcoolnes/CmodelSDV2", "prefix": "cmodel "},
-    #{"name": "Cyberware", "path": "Eppinette/Cyberware", "prefix": "-cyberware style "},
-    #{"name": "OldJourney", "path": "StarwingDigital/Oldjourney", "prefix": ""},
-    #{"name": "Hyper Smoke", "path": "spaablauw/HyperSmoke", "prefix": ""},
-    #{"name": "Fantasy Diffusion", "path": "IceChes/fantasydiffusionembedding", "prefix": ""},
-    #{"name": "Double-Exposure", "path": "joachimsallstrom/Double-Exposure-Embedding", "prefix": "dblx "},
-    #{"name": "Studio Ghibli", "path": "flax/StudioGhibli", "prefix": "", "vae": True},
-    #{"name": "Picture of the Week", "path": "Guizmus/SD_PoW_Collection", "prefix": "PoW Style ", "vae": True},
-    #{"name": "PoW Bendstract ", "path": "Guizmus/SD_PoW_Collection", "prefix": "Bendstract Style ", "vae": True},
-    #{"name": "PoW BendingReality", "path": "Guizmus/SD_PoW_Collection", "prefix": "BendingReality Style ", "vae": True},
-    #{"name": "3d Illustration", "path": "aidystark/3Dillustration-stable-diffusion", "prefix": "3d illustration style ", "vae": True},
-    #{"name": "megaPals Vintage", "path": "elRivx/megaPals", "prefix": "megaPals style "},
-    #{"name": "Epic Space Machine", "path": "rabidgremlin/sd-db-epic-space-machine", "prefix": "EpicSpaceMachine "},
-    #{"name": "Ouroboros", "path": "Eppinette/Ouroboros", "prefix": "m_ouroboros style "},
-    #{"name": "Neko Girls", "path": "Nerfgun3/NekoModel", "prefix": "neko "},
-    #{"name": "New Horror Fantasy", "path": "elRivx/sd-newhorrorfantasy_style", "prefix": "newhorrorfantasy_style "},
-    #{"name": "DCAU Batman", "path": "IShallRiseAgain/DCAU", "prefix": "Batman_the_animated_series "},
-    #{"name": "Smoke Diffusion", "path": "guumaster/smoke-diffusion", "prefix": "ssmoky "},
-    #{"name": "reasonableDrink Dreams", "path": "elRivx/reasonableDrink", "prefix": "reasonableDrink "},
-]
-dreambooth_models = [{'name': 'disco-diffusion-style', 'token': 'a photo of ddfusion style'}, {'name': 'cat-toy', 'token': 'a photo of sks toy'}, {'name': 'herge-style', 'token': 'a photo of sks herge_style'}, {'name': 'alberto-pablo', 'token': 'a photo of sks Alberto'}, {'name': 'noggles-sd15-800-4e6', 'token': 'someone wearing sks glasses'}, {'name': 'spacecat', 'token': 'a photo of sks spacecat'}, {'name': 'pikachu', 'token': 'pikachu'}, {'name': 'kaltsit', 'token': 'kaltsit'}, {'name': 'robeez-baby-girl-water-shoes', 'token': 'a photo of sks  shoes'}, {'name': 'mertgunhan', 'token': 'mertgunhan'}, {'name': 'soydavidtapia', 'token': 'a photo of david tapia'}, {'name': 'spacecat0001', 'token': 'a photo of sks spacecat'}, {'name': 'noggles-glasses-600', 'token': 'a photo of a person wearing sks glasses'}, {'name': 'mario-action-figure', 'token': 'a photo of sks action figure'}, {'name': 'tattoo-design', 'token': 'line art sks tattoo design'}, {'name': 'danielveneco2', 'token': 'danielveneco'}, {'name': 'scarlet-witch-two', 'token': 'a photo of scarletwi person'}, {'name': 'angus-mcbride-style', 'token': 'angus mcbride style'}, {'name': 'mirtha-legrand', 'token': 'a photo of sks mirtha legrand'}, {'name': 'kiril', 'token': 'kiril'}, {'name': 'mr-potato-head', 'token': 'a photo of sks mr potato head'}, {'name': 'homelander', 'token': 'a photo of homelander guy'}, {'name': 'king-dog-sculpture', 'token': 'a photo of sks king dog sculpture'}, {'name': 'pedrocastillodonkey', 'token': 'a photo of PedroCastilloDonkey'}, {'name': 'xogren', 'token': 'a photo of xogren'}, {'name': 'emily-carroll-style', 'token': 'a detailed digital matte illustration by sks'}, {'name': 'sneaker', 'token': 'a photo of sks sneaker'}, {'name': 'rajj', 'token': 'a photo of sks man face'}, {'name': 'puuung', 'token': 'Puuung'}, {'name': 'partis', 'token': 'a photo of sks partis'}, {'name': 'alien-coral', 'token': 'a photo of sks alien coral'}, {'name': 'hensley-art-style', 'token': 'a painting in style of sks'}, {'name': 'tails-from-sonic', 'token': 'tails'}, {'name': 'ba-shiroko', 'token': 'a photo of sks shiroko'}, {'name': 'marina', 'token': 'marina'}, {'name': 'noggles-glasses-1200', 'token': 'a photo of a person wearing sks glasses'}, {'name': 'a-hat-in-time-girl', 'token': 'a render of sks'}, {'name': 'axolotee', 'token': 'a photo of sks Axolote'}, {'name': 'transparent-90s-console', 'token': 'a photo of sks handheld gaming console'}, {'name': 'andynsane', 'token': 'a photo of sks andynsane'}, {'name': 'tanidareal-v1', 'token': 'tanidareal'}, {'name': 'adventure-time-style', 'token': 'advtime style'}, {'name': 'sks-rv', 'token': 'a photo of sks rv'}, {'name': 'neff-voice-amp-2', 'token': 'a photo of sks neff voice amp #1'}, {'name': '27-from-mayonnaise-salesmen', 'token': 'a drawing of 27 from Mayonnaise SalesMen'}, {'name': 'baracus', 'token': 'b.a. baracus mr t'}, {'name': 'tahdig-rice', 'token': 'tahmricdig'}, {'name': 'angus-mcbride-style-v4', 'token': 'mcbride_style'}, {'name': 'the-witcher-game-ciri', 'token': 'a photo of a sks woman with white hair'}, {'name': 'paolo-bonolis', 'token': 'a photo of sks paolo bonolis'}, {'name': 'the-child', 'token': 'a photo of a mini australian shepherd with a slight underbite sks'}, {'name': 'gomber', 'token': 'a photo of sks toy'}, {'name': 'backpack', 'token': 'a photo of sks backpack'}, {'name': 'ricky-fort', 'token': 'a photo of sks ricky fort'}, {'name': 'mate', 'token': 'a photo of sks mate'}, {'name': 'zombie-head', 'token': 'a photo of sks zombie'}, {'name': 'leone-from-akame-ga-kill-v2', 'token': 'an anime woman character of sks'}, {'name': 'face2contra', 'token': 'a photo of sks face2contra'}, {'name': 'yakuza-0-kiryu-kazuma', 'token': 'photo of sks kiryu'}, {'name': 'gemba-cat', 'token': 'a photo of sks cat'}, {'name': 'angus-mcbride-v-3', 'token': 'angus mcbride style'}, {'name': 'california-gurls-music-video', 'token': 'caligurls'}, {'name': 'solo-levelling-art-style', 'token': 'sololeveling'}, {'name': 'blue-lightsaber-toy', 'token': 'a photo of sks toy'}, {'name': 'dmt-entity', 'token': 'a photo of sks DMT Entity'}, {'name': 'yingdream', 'token': 'a photo of an anime girl'}, {'name': 'kamenridergeats', 'token': 'a photo of kamenridergeats'}, {'name': 'quino', 'token': 'a photo of sks quino'}, {'name': 'digimon-adventure-anime-background-style', 'token': 'a landscape in sks style'}, {'name': 'evangelion-mech-unit-01', 'token': 'rendering of sks evangelion mech'}, {'name': 'elvis', 'token': 'elvis'}, {'name': 'musical-isotope', 'token': 'mi'}, {'name': 'tempa', 'token': 'a photo of sks Tempa'}, {'name': 'tempa2', 'token': 'a photo of sks Tempa'}, {'name': 'froggewut', 'token': 'a painting in the style of sks'}, {'name': 'smiling-friends-cartoon-style', 'token': 'a photo in style of sks'}, {'name': 'smario-world-map', 'token': 'a map in style of sks'}, {'name': 'edd', 'token': 'sks boy smiles'}, {'name': 'fang-yuan-002', 'token': 'an anime art of sks Fang_Yuan'}, {'name': 'langel', 'token': 'Langel'}, {'name': 'arthur-leywin', 'token': 'a photo of sks guy'}, {'name': 'kid-chameleon-character', 'token': 'kid-chameleon-character'}, {'name': 'road-to-ruin', 'token': 'starry night. sks themed level design. tiki ruins, stone statues, night sky and black silhouettes'}, {'name': 'vaporfades', 'token': 'an image in the style of sks'}, {'name': 'beard-oil-big-sur', 'token': 'a photo of sks beard oil'}, {'name': 'monero', 'token': 'a logo of sks'}, {'name': 'yagami-taichi-from-digimon-adventure-1999', 'token': 'an anime boy character of sks'}, {'name': 'duregar', 'token': 'a painting of sks character'}, {'name': 'pathfinder-iconics', 'token': 'drawing in the style of sks'}, {'name': 'tyxxxszv', 'token': 'tyxxxszv'}, {'name': 'Origtron', 'token': 'Entry not found'}, {'name': 'oleg-kog', 'token': 'oleg'}, {'name': 'mau-cat', 'token': 'a photo of sks cat'}, {'name': 'justinkrane-artwork', 'token': 'art by sks JustinKrane'}, {'name': 'little-mario-jumping', 'token': 'a screenshot of tiny sks character'}, {'name': 'blue-moo-moo', 'token': 'an image of sks creature'}, {'name': 'noggles-render-1k', 'token': 'a render of sks'}, {'name': 'metahuman-rkr', 'token': 'a photo of sks rkr'}, {'name': 'taras', 'token': 'photo of sks taras'}, {'name': 'rollerbeetle', 'token': 'a photo of rollerbeetle mount'}, {'name': 'joseph-russel-ammen', 'token': 'Joseph Russel Ammen'}, {'name': 'manybearsx', 'token': 'a photo of sks drawing'}, {'name': 'mexican-concha', 'token': 'a photo of sks Mexican Concha'}, {'name': 'angus-mcbride-style-v2', 'token': 'angus mcbride style'}, {'name': 'magikarp-pokemon', 'token': 'a photo of sks pokemon'}, {'name': 'seraphm', 'token': 'serphm'}, {'name': 'estelle-sims-style', 'token': '3D render from a videogame in sks style'}, {'name': 'iman-maleki-morteza-koutzian', 'token': 'imamk'}, {'name': 'abstract-patterns-in-nature', 'token': 'abnapa'}, {'name': 'retro3d', 'token': 'trsldamrl'}, {'name': 'glitched', 'token': 'trsldamrl'}, {'name': 'dulls', 'token': '<dulls-avatar> face'}, {'name': 'nasa-space-v2-768', 'token': 'Nasa style'}, {'name': 'avocado-toy', 'token': '<avocado-toy> toy'}, {'name': 'crisimsestelle', 'token': '3d render in <cri-sims> style'}, {'name': 'sally-whitemanev', 'token': 'whitemanedb'}, {'name': 'taylorswift', 'token': 'indexaa.png'}, {'name': 'house-emblem', 'token': 'a photo of sks house-emblem'}, {'name': 'skshikakinotonoderugomi', 'token': 'sksHikakinotonoderugomi'}, {'name': 'sksbinjousoudayo', 'token': 'sksBinjouSoudayo'}, {'name': 'sksseisupusyamuzero', 'token': 'ダウンロード'}, {'name': 'sksuminaoshishimabu', 'token': 'ダウンロード'}, {'name': 'hog-rider', 'token': 'a photo of sks character'}, {'name': 'harvard-beating-yale-ii', 'token': 'a photo of sks Harvard beating Yale'}, {'name': 'hockey-player', 'token': 'a photo of sks hockey'}, {'name': 'christiano-ronaldo', 'token': 'a photo of sks'}, {'name': 'colorful-ball', 'token': 'a photo of sks ball'}, {'name': 'american-flag-cowboy-hat', 'token': 'a photo of sks hat'}, {'name': 'pranav', 'token': 'a photo of sks person'}, {'name': 'top-gun-jacket-stable-diffusion', 'token': 'a photo of sks jacket'}, {'name': 'english-bulldog-1', 'token': 'a photo of sks an english bulldog'}, {'name': 'danreynolds', 'token': 'a photo of sks dan reynolds'}, {'name': 'persona-5-shigenori-style', 'token': 'descarga'}, {'name': 'original-character-cyclps', 'token': 'cyclps'}, {'name': 'zlnsky', 'token': 'zlnsky'}, {'name': 'true-guweiz-style', 'token': 'descarga'}, {'name': 'noggles-widescreen-4e6-800', 'token': 'noggles'}, {'name': 'conf', 'token': 'AWCDJG'}, {'name': 'dtv-pkmn-monster-style', 'token': 'image'}, {'name': 'xmasvibes', 'token': 'xmasvibes'}, {'name': 'blue-lightsaber-toy', 'token': 'a photo of sks toy'}, {'name': 'adventure-time-style', 'token': 'advtime style'}, {'name': 'brime', 'token': 'prplbrime'}, {'name': 'angus-mcbride-style-v4', 'token': 'mcbride_style'}, {'name': 'oleg-kog', 'token': 'oleg'}, {'name': 'tanidareal-v1', 'token': 'tanidareal'}, {'name': 'mertgunhan', 'token': 'mertgunhan'}, {'name': 'solo-levelling-art-style', 'token': 'sololeveling'}, {'name': 'tyxxxszv', 'token': 'tyxxxszv'}, {'name': 'california-gurls-music-video', 'token': 'caligurls'}, {'name': 'mario-action-figure', 'token': 'a photo of sks action figure'}, {'name': 'tahdig-rice', 'token': 'tahmricdig'}, {'name': 'pathfinder-iconics', 'token': 'drawing in the style of sks'}, {'name': 'angus-mcbride-v-3', 'token': 'angus mcbride style'}, {'name': 'angus-mcbride-style-v2', 'token': 'angus mcbride style'}, {'name': 'angus-mcbride-style', 'token': 'angus mcbride style'}, {'name': 'danielveneco2', 'token': 'danielveneco'}, {'name': 'emily-carroll-style', 'token': 'a detailed digital matte illustration by sks'}, {'name': 'noggles-sd15-800-4e6', 'token': 'someone wearing sks glasses'}, {'name': 'alberto-pablo', 'token': 'a photo of sks Alberto'}, {'name': 'marina', 'token': 'marina'}, {'name': 'kiril', 'token': 'kiril'}, {'name': 'spacecat0001', 'token': 'a photo of sks spacecat'}, {'name': 'baracus', 'token': 'b.a. baracus mr t'}, {'name': 'gemba-cat', 'token': 'a photo of sks cat'}, {'name': 'xogren', 'token': 'a photo of xogren'}, {'name': 'musical-isotope', 'token': 'mi'}, {'name': 'spacecat', 'token': 'a photo of sks spacecat'}, {'name': 'soydavidtapia', 'token': 'a photo of david tapia'}, {'name': 'yakuza-0-kiryu-kazuma', 'token': 'photo of sks kiryu'}, {'name': 'pedrocastillodonkey', 'token': 'a photo of PedroCastilloDonkey'}, {'name': 'rajj', 'token': 'a photo of sks man face'}, {'name': 'tails-from-sonic', 'token': 'tails'}, {'name': 'pikachu', 'token': 'pikachu'}, {'name': '27-from-mayonnaise-salesmen', 'token': 'a drawing of 27 from Mayonnaise SalesMen'}, {'name': 'vaporfades', 'token': 'an image in the style of sks'}, {'name': 'sally-whitemanev', 'token': 'whitemanedb'} ]
 
 def get_model(name):
   #dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4", dropdown.Option("Community Finetuned Model", dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")
@@ -16535,6 +16384,7 @@ def start_diffusion(page):
   last_image = None
   updated_prompts = []
   model = get_model(prefs['model_ckpt'])
+      
   if not (prefs["use_interpolation"] and status['installed_interpolation']):
     for p in prompts:
       pr = None
@@ -17938,10 +17788,6 @@ def nsp_parse(prompt):
     else:
         return
 
-
-artists = ( "Ivan Aivazovsky", "Beeple", "Zdzislaw Beksinski", "Albert Bierstadt", "Noah Bradley", "Jim Burns", "John Harris", "John Howe", "Thomas Kinkade", "Gediminas Pranckevicius", "Andreas Rocha", "Marc Simonetti", "Simon Stalenhag", "Yuumei", "Asher Brown Durand", "Tyler Edlin", "Jesper Ejsing", "Peter Mohrbacher", "RHADS", "Greg Rutkowski", "H.P. Lovecraft", "George Lucas", "Benoit B. Mandelbrot", "Edwin Austin Abbey", "Ansel Adams", "Arthur Adams", "Charles Addams", "Alena Aenami", "Pieter Aertsen", "Hilma af Klint", "Affandi", "Leonid Afremov", "Eileen Agar", "Ivan Aivazovsky", "Anni Albers", "Josef Albers", "Ivan Albright", "Yoshitaka Amano", "Cuno Amiet", "Sophie Anderson", "Wes Anderson", "Esao Andrews", "Charles Angrand", "Sofonisba Anguissola", "Hirohiko Araki", "Nobuyoshi Araki", "Shinji Aramaki", "Diane Arbus", "Giuseppe Arcimboldo", "Steve Argyle", "Jean Arp", "Artgerm", "John James Audubon", "Frank Auerbach", "Milton Avery", "Tex Avery", "Harriet Backer", "Francis Bacon", "Peter Bagge", "Tom Bagshaw", "Karol Bak", "Christopher Balaskas", "Hans Baldung", "Ronald Balfour", "Giacomo Balla", "Banksy", "Cicely Mary Barker", "Carl Barks", "Wayne Barlowe", "Jean-Michel Basquiat", "Jules Bastien-Lepage", "David Bates", "John Bauer", "Aubrey Beardsley", "Jasmine Becket-Griffith", "Max Beckmann", "Beeple", "Zdzislaw Beksinski", "Zdzisław Beksiński", "Julie Bell", "Hans Bellmer", "John Berkey", "Émile Bernard", "Elsa Beskow", "Albert Bierstadt", "Enki Bilal", "Ivan Bilibin", "Simon Bisley", "Charles Blackman", "Thomas Blackshear", "Mary Blair", "Quentin Blake", "William Blake", "Antoine Blanchard", "John Blanche", "Pascal Blanché", "Karl Blossfeldt", "Don Bluth", "Umberto Boccioni", "Arnold Böcklin", "Chesley Bonestell", "Franklin Booth", "Guido Borelli da Caluso", "Marius Borgeaud", "Hieronymous Bosch", "Hieronymus Bosch", "Sam Bosma", "Johfra Bosschart", "Sandro Botticelli", "William-Adolphe Bouguereau", "Louise Bourgeois", "Eleanor Vere Boyle", "Noah Bradley", "Victor Brauner", "Austin Briggs", "Raymond Briggs", "Mark Briscoe", "Romero Britto", "Gerald Brom", "Mark Brooks", "Patrick Brown", "Pieter Bruegel the Elder", "Bernard Buffet", "Laurel Burch", "Charles E. Burchfield", "David Burdeny", "Richard Burlet", "David Burliuk", "Edward Burne-Jones", "Jim Burns", "William S. Burroughs", "Gaston Bussière", "Kaethe Butcher", "Jack Butler Yeats", "Bob Byerley", "Alexandre Cabanel", "Ray Caesar", "Claude Cahun", "Zhichao Cai", "Randolph Caldecott", "Alexander Milne Calder", "Clyde Caldwell", "Eddie Campbell", "Pascale Campion", "Canaletto", "Caravaggio", "Annibale Carracci", "Carl Gustav Carus", "Santiago Caruso", "Mary Cassatt", "Paul Cézanne", "Marc Chagall", "Marcel Chagall", "Yanjun Cheng", "Sandra Chevrier", "Judy Chicago", "James C. Christensen", "Frederic Church", "Mikalojus Konstantinas Ciurlionis", "Pieter Claesz", "Amanda Clark", "Harry Clarke", "Thomas Cole", "Mat Collishaw", "John Constable", "Cassius Marcellus Coolidge", "Richard Corben", "Lovis Corinth", "Joseph Cornell", "Camille Corot", "cosmic nebulae", "Gustave Courbet", "Lucas Cranach the Elder", "Walter Crane", "Craola", "Gregory Crewdson", "Henri-Edmond Cross", "Robert Crumb", "Tivadar Csontváry Kosztka", "Krenz Cushart", "Leonardo da Vinci", "Richard Dadd", "Louise Dahl-Wolfe", "Salvador Dalí", "Farel Dalrymple", "Geof Darrow", "Honoré Daumier", "Jack Davis", "Marc Davis", "Stuart Davis", "Craig Davison", "Walter Percy Day", "Pierre Puvis de Chavannes", "Giorgio de Chirico", "Pieter de Hooch", "Elaine de Kooning", "Willem de Kooning", "Evelyn De Morgan", "Henri de Toulouse-Lautrec", "Richard Deacon", "Roger Dean", "Michael Deforge", "Edgar Degas", "Lise Deharme", "Eugene Delacroix", "Beauford Delaney", "Sonia Delaunay", "Nicolas Delort", "Paul Delvaux", "Jean Delville", "Martin Deschambault", "Brian Despain", "Vincent Di Fate", "Steve Dillon", "Walt Disney", "Tony DiTerlizzi", "Steve Ditko", "Anna Dittmann", "Otto Dix", "Óscar Domínguez", "Russell Dongjun Lu", "Stanley Donwood", "Gustave Doré", "Dave Dorman", "Arthur Dove", "Richard Doyle", "Tim Doyle", "Philippe Druillet", "Joseph Ducreux", "Edmund Dulac", "Asher Brown Durand", "Albrecht Dürer", "Thomas Eakins", "Eyvind Earle", "Jeff Easley", "Tyler Edlin", "Jason Edmiston", "Les Edwards", "Bob Eggleton", "Jesper Ejsing", "El Greco", "Olafur Eliasson", "Harold Elliott", "Dean Ellis", "Larry Elmore", "Peter Elson", "Ed Emshwiller", "Kilian Eng", "James Ensor", "Max Ernst", "Elliott Erwitt", "M.C. Escher", "Richard Eurich", "Glen Fabry", "Anton Fadeev", "Shepard Fairey", "John Philip Falter", "Lyonel Feininger", "Joe Fenton", "Agustín Fernández", "Roberto Ferri", "Hugh Ferriss", "David Finch", "Virgil Finlay", "Howard Finster", "Anton Otto Fischer", "Paul Gustav Fischer", "Paul Gustave Fischer", "Art Fitzpatrick", "Dan Flavin", "Kaja Foglio", "Phil Foglio", "Chris Foss", "Hal Foster", "Jean-Honoré Fragonard", "Victoria Francés", "Lisa Frank", "Frank Frazetta", "Kelly Freas", "Lucian Freud", "Caspar David Friedrich", "Brian Froud", "Wendy Froud", "Ernst Fuchs", "Goro Fujita", "Henry Fuseli", "Thomas Gainsborough", "Emile Galle", "Stephen Gammell", "Hope Gangloff", "Antoni Gaudi", "Antoni Gaudí", "Jack Gaughan", "Paul Gauguin", "Giovanni Battista Gaulli", "Nikolai Ge", "Emma Geary", "Anne Geddes", "Jeremy Geddes", "Artemisia Gentileschi", "Justin Gerard", "Jean-Leon Gerome", "Jean-Léon Gérôme", "Atey Ghailan", "Alberto Giacometti", "Donato Giancola", "Dave Gibbons", "H. R. Giger", "James Gilleard", "Jean Giraud", "Milton Glaser", "Warwick Goble", "Andy Goldsworthy", "Hendrick Goltzius", "Natalia Goncharova", "Rob Gonsalves", "Josan Gonzalez", "Edward Gorey", "Arshile Gorky", "Francisco Goya", "J. J. Grandville", "Jane Graverol", "Mab Graves", "Laurie Greasley", "Kate Greenaway", "Alex Grey", "Peter Gric", "Carne Griffiths", "John Atkinson Grimshaw", "Henriette Grindat", "Matt Groening", "William Gropper", "George Grosz", "Matthias Grünewald", "Rebecca Guay", "James Gurney", "Philip Guston", "Sir James Guthrie", "Zaha Hadid", "Ernst Haeckel", "Sydney Prior Hall", "Asaf Hanuka", "Tomer Hanuka", "David A. Hardy", "Keith Haring", "John Harris", "Lawren Harris", "Marsden Hartley", "Ryohei Hase", "Jacob Hashimoto", "Martin Johnson Heade", "Erich Heckel", "Michael Heizer", "Steve Henderson", "Patrick Heron", "Ryan Hewett", "Jamie Hewlett", "Brothers Hildebrandt", "Greg Hildebrandt", "Tim Hildebrandt", "Miho Hirano", "Adolf Hitler", "Hannah Hoch", "David Hockney", "Filip Hodas", "Howard Hodgkin", "Ferdinand Hodler", "William Hogarth", "Katsushika Hokusai", "Carl Holsoe", "Winslow Homer", "Edward Hopper", "Aaron Horkey", "Kati Horna", "Ralph Horsley", "John Howe", "John Hoyland", "Arthur Hughes", "Edward Robert Hughes", "Friedensreich Regentag Dunkelbunt Hundertwasser", "Hundertwasser", "William Henry Hunt", "Louis Icart", "Ismail Inceoglu", "Bjarke Ingels", "George Inness", "Shotaro Ishinomori", "Junji Ito", "Johannes Itten", "Ub Iwerks", "Alexander Jansson", "Jarosław Jaśnikowski", "James Jean", "Ruan Jia", "Martine Johanna", "Richard S. Johnson", "Jeffrey Catherine Jones", "Peter Andrew Jones", "Kim Jung Gi", "Joe Jusko", "Frida Kahlo", "M.W. Kaluta", "Wassily Kandinsky", "Terada Katsuya", "Audrey Kawasaki", "Hasui Kawase", "Zhang Kechun", "Felix Kelly", "John Frederick Kensett", "Rockwell Kent", "Hendrik Kerstens", "Brian Kesinger", "Jeremiah Ketner", "Adonna Khare", "Kitty Lange Kielland", "Thomas Kinkade", "Jack Kirby", "Ernst Ludwig Kirchner", "Tatsuro Kiuchi", "Mati Klarwein", "Jon Klassen", "Paul Klee", "Yves Klein", "Heinrich Kley", "Gustav Klimt", "Daniel Ridgway Knight", "Nick Knight", "Daniel Ridgway Knights", "Ayami Kojima", "Oskar Kokoschka", "Käthe Kollwitz", "Satoshi Kon", "Jeff Koons", "Konstantin Korovin", "Leon Kossoff", "Hugh Kretschmer", "Barbara Kruger", "Alfred Kubin", "Arkhyp Kuindzhi", "Kengo Kuma", "Yasuo Kuniyoshi", "Yayoi Kusama", "Ilya Kuvshinov", "Chris LaBrooy", "Raphael Lacoste", "Wilfredo Lam", "Mikhail Larionov", "Abigail Larson", "Jeffrey T. Larson", "Carl Larsson", "Dorothy Lathrop", "John Lavery", "Edward Lear", "André Leblanc", "Bastien Lecouffe-Deharme", "Alan Lee", "Jim Lee", "Heinrich Lefler", "Paul Lehr", "Edmund Leighton", "Frederick Lord Leighton", "Jeff Lemire", "Isaac Levitan", "J.C. Leyendecker", "Roy Lichtenstein", "Rob Liefeld", "Malcolm Liepke", "Jeremy Lipking", "Filippino Lippi", "Laurie Lipton", "Michal Lisowski", "Scott Listfield", "Cory Loftis", "Travis Louie", "George Luks", "Dora Maar", "August Macke", "Margaret Macdonald Mackintosh", "Clive Madgwick", "Lee Madgwick", "Rene Magritte", "Don Maitz", "Kazimir Malevich", "Édouard Manet", "Jeremy Mann", "Sally Mann", "Franz Marc", "Chris Mars", "Otto Marseus van Schrieck", "John Martin", "Masaaki Masamoto", "André Masson", "Henri Matisse", "Leiji Matsumoto", "Taiyō Matsumoto", "Roberto Matta", "Rodney Matthews", "David B. Mattingly", "Peter Max", "Marco Mazzoni", "Robert McCall", "Todd McFarlane", "Ryan McGinley", "Dave McKean", "Kelly McKernan", "Angus McKie", "Ralph McQuarrie", "Ian McQue", "Syd Mead", "Józef Mehoffer", "Eddie Mendoza", "Adolph Menzel", "Maria Sibylla Merian", "Daniel Merriam", "Jean Metzinger", "Michelangelo", "Mike Mignola", "Frank Miller", "Ian Miller", "Russ Mills", "Victor Adame Minguez", "Joan Miro", "Kentaro Miura", "Paula Modersohn-Becker", "Amedeo Modigliani", "Moebius", "Peter Mohrbacher", "Piet Mondrian", "Claude Monet", "Jean-Baptiste Monge", "Kent Monkman", "Alyssa Monks", "Sailor Moon", "Chris Moore", "Gustave Moreau", "William Morris", "Igor Morski", "John Kenn Mortensen", "Victor Moscoso", "Grandma Moses", "Robert Motherwell", "Alphonse Mucha", "Craig Mullins", "Augustus Edwin Mulready", "Dan Mumford", "Edvard Munch", "Gabriele Münter", "Gerhard Munthe", "Takashi Murakami", "Patrice Murciano", "Go Nagai", "Hiroshi Nagai", "Tibor Nagy", "Ted Nasmith", "Alice Neel", "Odd Nerdrum", "Mikhail Nesterov", "C. R. W. Nevinson", "Helmut Newton", "Victo Ngai",
-           "Dustin Nguyen", "Kay Nielsen", "Tsutomu Nihei", "Yasushi Nirasawa", "Sidney Nolan", "Emil Nolde", "Sven Nordqvist", "Earl Norem", "Marianne North", "Georgia O'Keeffe", "Terry Oakes", "Takeshi Obata", "Eiichiro Oda", "Koson Ohara", "Noriyoshi Ohrai", "Marek Okon", "Méret Oppenheim", "Katsuhiro Otomo", "Shohei Otomo", "Siya Oum", "Ida Rentoul Outhwaite", "James Paick", "David Palumbo", "Michael Parkes", "Keith Parkinson", "Maxfield Parrish", "Alfred Parsons", "Max Pechstein", "Agnes Lawrence Pelton", "Bruce Pennington", "John Perceval", "Gaetano Pesce", "Coles Phillips", "Francis Picabia", "Pablo Picasso", "Mauro Picenardi", "Anton Pieck", "Bonnard Pierre", "Yuri Ivanovich Pimenov", "Robert Antoine Pinchon", "Giovanni Battista Piranesi", "Camille Pissarro", "Patricia Polacco", "Jackson Pollock", "Lyubov Popova", "Candido Portinari", "Beatrix Potter", "Beatrix Potter", "Gediminas Pranckevicius", "Dod Procter", "Howard Pyle", "Arthur Rackham", "Alice Rahon", "Paul Ranson", "Raphael", "Robert Rauschenberg", "Man Ray", "Odilon Redon", "Pierre-Auguste Renoir", "Ilya Repin", "RHADS", "Gerhard Richter", "Diego Rivera", "Hubert Robert", "Andrew Robinson", "Charles Robinson", "W. Heath Robinson", "Andreas Rocha", "Norman Rockwell", "Nicholas Roerich", "Conrad Roset", "Bob Ross", "Jessica Rossier", "Ed Roth", "Mark Rothko", "Georges Rouault", "Henri Rousseau", "Luis Royo", "Jakub Rozalski", "Joao Ruas", "Peter Paul Rubens", "Mark Ryden", "Jan Pietersz Saenredam", "Pieter Jansz Saenredam", "Kay Sage", "Apollonia Saintclair", "John Singer Sargent", "Martiros Saryan", "Masaaki Sasamoto", "Thomas W Schaller", "Miriam Schapiro", "Yohann Schepacz", "Egon Schiele", "Karl Schmidt-Rottluff", "Charles Schulz", "Charles Schulz", "Carlos Schwabe", "Sean Scully", "Franz Sedlacek", "Maurice Sendak", "Zinaida Serebriakova", "Georges Seurat", "Ben Shahn", "Barclay Shaw", "E. H. Shepard", "Cindy Sherman", "Makoto Shinkai", "Yoji Shinkawa", "Chiharu Shiota", "Masamune Shirow", "Ivan Shishkin", "Bill Sienkiewicz", "Greg Simkins", "Marc Simonetti", "Kevin Sloan", "Adrian Smith", "Douglas Smith", "Jeffrey Smith", "Pamela Coleman Smith", "Zack Snyder", "Simeon Solomon", "Joaquín Sorolla", "Ettore Sottsass", "Chaïm Soutine", "Austin Osman Spare", "Sparth ", "Art Spiegelman", "Simon Stalenhag", "Ralph Steadman", "William Steig", "Joseph Stella", "Irma Stern", "Anne Stokes", "James Stokoe", "William Stout", "George Stubbs", "Tatiana Suarez", "Ken Sugimori", "Hiroshi Sugimoto", "Brian Sum", "Matti Suuronen", "Raymond Swanland", "Naoko Takeuchi", "Rufino Tamayo", "Shaun Tan", "Yves Tanguay", "Henry Ossawa Tanner", "Dorothea Tanning", "Ben Templesmith", "theCHAMBA", "Tom Thomson", "Storm Thorgerson", "Bridget Bate Tichenor", "Louis Comfort Tiffany", "Tintoretto", "James Tissot", "Titian", "Akira Toriyama", "Ross Tran", "Clovis Trouille", "J.M.W. Turner", "James Turrell", "Daniela Uhlig", "Boris Vallejo", "Gustave Van de Woestijne", "Frits Van den Berghe", "Anthony van Dyck", "Jan van Eyck", "Vincent Van Gogh", "Willem van Haecht", "Rembrandt van Rijn", "Jacob van Ruisdael", "Salomon van Ruysdael", "Theo van Rysselberghe", "Remedios Varo", "Viktor Vasnetsov", "Kuno Veeber", "Diego Velázquez", "Giovanni Battista Venanzi", "Johannes Vermeer", "Alexej von Jawlensky", "Marianne von Werefkin", "Hendrick Cornelisz Vroom", "Mikhail Vrubel", "Louis Wain", "Ron Walotsky", "Andy Warhol", "John William Waterhouse", "Jean-Antoine Watteau", "George Frederic Watts", "Max Weber", "Gerda Wegener", "Edward Weston", "Michael Whelan", "James Abbott McNeill Whistler", "Tim White", "Coby Whitmore", "John Wilhelm", "Robert Williams", "Al Williamson", "Carel Willink", "Mike Winkelmann", "Franz Xaver Winterhalter", "Klaus Wittmann", "Liam Wong", "Paul Wonner", "Ashley Wood", "Grant Wood", "Patrick Woodroffe", "Frank Lloyd Wright", "Bernie Wrightson", "Andrew Wyeth", "Qian Xuan", "Takato Yamamoto", "Liu Ye", "Jacek Yerka", "Akihiko Yoshida", "Hiroshi Yoshida", "Skottie Young", "Konstantin Yuon", "Yuumei", "Amir Zand", "Fenghua Zhong", "Nele Zirnite", "Anders Zorn")
-styles = ( "1970s era", "2001: A Space Odyssey", "60s kitsch and psychedelia", "Aaahh!!! Real Monsters", "abstract illusionism", "afrofuturism", "alabaster", "alhambresque", "ambrotype", "american romanticism", "amethyst", "amigurumi", "anaglyph effect", "anaglyph filter", "Ancient Egyptian", "ancient Greek architecture", "anime", "art nouveau", "astrophotography", "at dawn", "at dusk", "at high noon", "at night", "atompunk", "aureolin", "avant-garde", "Avatar The Last Airbender", "Babylonian", "Baker-Miller pink", "Baroque", "Bauhaus", "biopunk", "bismuth", "Blade Runner 2049", "blueprint", "bokeh", "bonsai", "bright", "bronze", "brutalism", "burgundy", "Byzantine", "calotype", "Cambrian", "camcorder effect", "carmine", "cassette futurism", "cassettepunk", "catholicpunk", "cerulean", "chalk art", "chartreuse", "chiaroscuro", "chillwave", "chromatic aberration", "chrome", "Cirque du Soleil", "claymation", "clockpunk", "cloudpunk", "cobalt", "colored pencil art", "Concept Art World", "copper patina", "copper verdigris", "Coraline", "cosmic horror", "cottagecore", "crayon art", "crimson", "CryEngine", "crystalline lattice", "cubic zirconia", "cubism", "cyanotype", "cyber noir", "cyberpunk", "cyclopean masonry", "daguerreotype", "Danny Phantom", "dark academia", "dark pastel", "dark rainbow", "DayGlo", "decopunk", "Dexter's Lab", "diamond", "dieselpunk", "Digimon", "digital art", "doge", "dollpunk", "Doom engine", "Dreamworks", "dutch golden age", "Egyptian", "eldritch", "emerald", "empyrean", "Eraserhead", "ethereal", "expressionism", "Fantastic Planet", "Fendi", "figurativism", "fire", "fisheye lens", "fluorescent", "forestpunk", "fractal manifold", "fractalism", "fresco", "fuchsia", "futuresynth", "Game of Thrones", "german romanticism", "glitch art", "glittering", "golden", "golden hour", "gothic", "gothic art", "graffiti", "graphite", "grim dark", "Harry Potter", "holography", "Howl’s Moving Castle", "hygge", "hyperrealism", "icy", "ikebana", "impressionism", "in Ancient Egypt", "in Egypt", "in Italy", "in Japan", "in the Central African Republic", "in the desert", "in the jungle", "in the swamp", "in the tundra", "incandescent", "indigo", "infrared", "Interstellar", "inverted colors", "iridescent", "iron", "islandpunk", "isotype", "Kai Fine Art", "khaki", "kokedama", "Korean folk art", "lapis lazuli", "Lawrence of Arabia", "leather", "leopard print", "lilac", "liminal space", "long exposure", "Lord of the Rings", "Louis Vuitton", "Lovecraftian", "low poly", "mac and cheese", "macro lens", "magenta", "magic realism", "manga", "mariachi", "marimekko", "maroon", "Medieval", "Mediterranean", "modernism", "Monster Rancher", "moonstone", "Moulin Rouge!", "multiple exposure", "Myst", "nacreous", "narrative realism", "naturalism", "neon", "Nosferatu", "obsidian", "oil and canvas", "opalescent", "optical illusion", "optical art", "organometallics", "ossuary", "outrun", "Paleolithic", "Pan's Labyrinth", "pastel", "patina", "pearlescent", "pewter", "Pixar", "Play-Doh", "pointillism", "Pokemon", "polaroid", "porcelain", "positivism", "postcyberpunk", "Pride & Prejudice", "prismatic", "pyroclastic flow", "Quake engine", "quartz", "rainbow", "reflective", "Renaissance", "retrowave", "Rococo", "rococopunk", "ruby", "rusty", "Salad Fingers", "sapphire", "scarlet", "shimmering", "silk", "sketched", "Slenderman", "smoke", "snakeskin", "Spaceghost Coast to Coast", "stained glass", "Star Wars", "steampunk", "steel", "steelpunk", "still life", "stonepunk", "Stranger Things", "street art", "stuckism", "Studio Ghibli", "Sumerian", "surrealism", "symbolism", "synthwave", "telephoto lens", "thalassophobia", "thangka", "the matrix", "tiger print", "tilt-shift", "tintype", "tonalism", "Toonami", "turquoise", "Ukiyo-e", "ultramarine", "ultraviolet", "umber", "underwater photography", "Unreal Engine", "vantablack", "vaporwave", "verdigris", "Versacci", "viridian", "wabi-sabi", "watercolor painting", "wooden", "x-ray photography", "minimalist", "dadaist", "neo-expressionist", "post-impressionist", "hyper real", "Art brut", "3D rendering", "uncanny valley", "fractal landscape", "fractal flames", "Mandelbulb", "inception dream", "waking life", "occult inscriptions", "barr relief", "marble sculpture", "wood carving", "church stained glass", "Japanese jade", "Zoetrope", "beautiful", "wide-angle", "Digital Painting", "glossy reflections", "cinematic", "spooky", "Digital paint concept art", "dramatic", "global illumination", "immaculate", "woods", )
 
 #Code a function in Python programming language named list_variations, which takes a list and returns a set of lists with possible permutations of the list. Example list_variations([1,2,3]) returns [[1,2,3],[1,2],[1,3],[2,3],[1],[2],[3]] */
 def list_variations(lst):
@@ -27537,12 +27383,24 @@ def run_controlnet(page, from_list=False):
     for pr in controlnet_prompts:
         prt(progress)
         autoscroll(False)
+        filename = f"{controlnet_prefs['file_prefix']}{format_filename(pr['prompt'])}"
+        filename = filename[:int(prefs['file_max_length'])]
         if len(controlnet_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_prefs['use_init_video']:
             original_img = []
             for c in controlnet_prefs['multi_controlnets']:
                 original_img.append(prep_image(c['control_task'], c['original_image']))
+                if controlnet_prefs['show_processed_image']:
+                    processed_img = available_file(batch_output, f"{filename}-{c['control_task'].partition(' ')[0]}", 0, no_num=True)
+                    w, h = original_img[-1].size
+                    original_img[-1].save(processed_img)
+                    prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
         elif not controlnet_prefs['use_init_video']:
             original_img = prep_image(controlnet_prefs['control_task'], pr['original_image'])
+            if controlnet_prefs['show_processed_image']:
+                processed_img = available_file(batch_output, f"{filename}-{controlnet_prefs['control_task'].partition(' ')[0]}", 0, no_num=True)
+                w, h = original_img.size
+                original_img.save(processed_img)
+                prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
@@ -27564,8 +27422,6 @@ def run_controlnet(page, from_list=False):
         #clear_last()
         autoscroll(True)
         #filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
-        filename = f"{controlnet_prefs['file_prefix']}{format_filename(pr['prompt'])}"
-        filename = filename[:int(prefs['file_max_length'])]
         #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
         num = 0
         for image in images:
@@ -27775,7 +27631,11 @@ def run_controlnet_xl(page, from_list=False):
         flush()
         return
     canny_checkpoint = "diffusers/controlnet-canny-sdxl-1.0"
+    canny_small_checkpoint = "diffusers/controlnet-canny-sdxl-1.0-small"
+    canny_mid_checkpoint = "diffusers/controlnet-canny-sdxl-1.0-mid"
     depth_checkpoint = "diffusers/controlnet-depth-sdxl-1.0"
+    depth_small_checkpoint = "diffusers/controlnet-depth-sdxl-1.0-small"
+    depth_mid_checkpoint = "diffusers/controlnet-depth-sdxl-1.0-mid"
     seg_checkpoint = "SargeZT/sdxl-controlnet-seg"
     softedge_checkpoint = "SargeZT/controlnet-sd-xl-1.0-softedge-dexined"#"SargeZT/sdxl-controlnet-softedge"
     lineart_checkpoint = "zbulrush/controlnet-sd-xl-1.0-lineart"
@@ -27798,13 +27658,14 @@ def run_controlnet_xl(page, from_list=False):
     normal = None
     lineart = None
     shuffle = None
+    original_img = None
     def get_controlnet(task):
         nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
         if controlnet_xl_models[task] != None:
             return controlnet_xl_models[task]
-        if task == "Canny Map Edge" or task == "Video Canny Edge":
+        if "Canny Map" in task or task == "Video Canny Edge":
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(canny_mid_checkpoint if 'mid' in task else canny_small_checkpoint if 'small' in task else canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
             task = "Canny Map Edge"
-            controlnet_xl_models[task] = ControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Scribble":
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
@@ -27814,17 +27675,17 @@ def run_controlnet_xl(page, from_list=False):
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
-        elif task == "Depth":
-            from transformers import DPTFeatureExtractor, DPTForDepthEstimation
-            depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
-            feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
-            controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
         elif task == "Kandinsky Depth":
             from transformers import pipeline
             from diffusers import KandinskyV22PriorPipeline, KandinskyV22ControlnetPipeline
             depth_estimator = pipeline('depth-estimation')
             #controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
             controlnet_xl_models[task] = KandinskyV22ControlnetPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-controlnet-depth", torch_dtype=torch.float16).to(torch_device)
+        elif "Depth" in task:
+            from transformers import DPTFeatureExtractor, DPTForDepthEstimation
+            depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
+            feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_mid_checkpoint if 'mid' in task else depth_small_checkpoint if 'small' in task else depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
         elif task == "Softedge":
             from controlnet_aux import HEDdetector, PidiNetDetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
@@ -27898,7 +27759,7 @@ def run_controlnet_xl(page, from_list=False):
           original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
         #return original_img
         try:
-            if task == "Canny Map Edge" or task == "Video Canny Edge":
+            if 'Canny' in task: # == "Canny Map Edge" or task == "Video Canny Edge":
                 input_image = np.array(original_img)
                 input_image = cv2.Canny(input_image, controlnet_xl_prefs['low_threshold'], controlnet_xl_prefs['high_threshold'])
                 input_image = input_image[:, :, None]
@@ -27908,7 +27769,15 @@ def run_controlnet_xl(page, from_list=False):
                 original_img = hed(original_img, scribble=True)
             elif task == "OpenPose" or task == "Video OpenPose":
                 original_img = openpose(original_img, hand_and_face=True)
-            elif task == "Depth":
+            elif task == "Kandinsky Depth":
+                original_img = depth_estimator(original_img)['depth']
+                input_image = np.array(original_img)
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                detected_map = torch.from_numpy(input_image).float() / 255.0
+                original_img = detected_map.permute(2, 0, 1).unsqueeze(0).half().to("cuda")
+                #original_img = PILImage.fromarray(input_image)
+            elif "Depth" in task:
                 original_img = feature_extractor(images=original_img, return_tensors="pt").pixel_values.to("cuda")
                 with torch.no_grad(), torch.autocast("cuda"):
                     depth_map = depth_estimator(original_img).predicted_depth
@@ -27924,14 +27793,6 @@ def run_controlnet_xl(page, from_list=False):
                 original_img = torch.cat([depth_map] * 3, dim=1)
                 original_img = original_img.permute(0, 2, 3, 1).cpu().numpy()[0]
                 original_img = PILImage.fromarray((original_img * 255.0).clip(0, 255).astype(np.uint8))
-            elif task == "Kandinsky Depth":
-                original_img = depth_estimator(original_img)['depth']
-                input_image = np.array(original_img)
-                input_image = input_image[:, :, None]
-                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
-                detected_map = torch.from_numpy(input_image).float() / 255.0
-                original_img = detected_map.permute(2, 0, 1).unsqueeze(0).half().to("cuda")
-                #original_img = PILImage.fromarray(input_image)
             elif task == "Softedge":
                 original_img = hed(original_img, safe=True)
             elif task == "HED":
@@ -28078,15 +27939,28 @@ def run_controlnet_xl(page, from_list=False):
     for pr in controlnet_xl_prompts:
         prt(progress)
         autoscroll(False)
+        filename = f"{controlnet_xl_prefs['file_prefix']}{format_filename(pr['prompt'])}"
+        filename = filename[:int(prefs['file_max_length'])]
         if len(controlnet_xl_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_xl_prefs['use_init_video']:
             original_img = []
             for c in controlnet_xl_prefs['multi_controlnets']:
                 original_img.append(prep_image(c['control_task'], c['original_image']))
+                if controlnet_xl_prefs['show_processed_image']:
+                    processed_img = available_file(batch_output, f"{filename}-{c['control_task'].partition(' ')[0]}", 0, no_num=True)
+                    w, h = original_img[-1].size
+                    original_img[-1].save(processed_img)
+                    prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
         elif not controlnet_xl_prefs['use_init_video']:
             original_img = prep_image(controlnet_xl_prefs['control_task'], pr['original_image'])
+            if controlnet_xl_prefs['show_processed_image']:
+                processed_img = available_file(batch_output, f"{filename}-{controlnet_xl_prefs['control_task'].partition(' ')[0]}", 0, no_num=True)
+                w, h = original_img.size
+                original_img.save(processed_img)
+                prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
+   
         try:
             random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
@@ -28105,8 +27979,7 @@ def run_controlnet_xl(page, from_list=False):
         #clear_last()
         autoscroll(True)
         #filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
-        filename = f"{controlnet_xl_prefs['file_prefix']}{format_filename(pr['prompt'])}"
-        filename = filename[:int(prefs['file_max_length'])]
+        
         #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
         num = 0
         for image in images:
