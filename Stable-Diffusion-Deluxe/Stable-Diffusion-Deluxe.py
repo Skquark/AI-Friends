@@ -13093,16 +13093,18 @@ def buildAudioLDM(page):
 
 audioLDM2_prefs = {
     'text': '',
+    'negative_prompt':'',
     'transcription': '',
-    'model_name': 'audioldm2-full',
+    'model_name': 'cvssp/audioldm2',
     'duration': 10.0,
+    'steps': 200,
     'guidance_scale': 3.5,
     'n_candidates': 3,#This number control the number of candidates (e.g., generate three audios and choose the best to show you). A Larger value usually lead to better quality with heavier computation
     'seed': 0,
-    'wav_path': '',
     'batch_size': 1,
     'batch_folder_name': '',
     'file_prefix': 'ldm2-',
+    'save_mp3': False,
 }
 
 def buildAudioLDM2(page):
@@ -13148,15 +13150,18 @@ def buildAudioLDM2(page):
         else:
             transcription.visible = False
         transcription.update()
-    model_name = Dropdown(label="Audio-LDM2 Model", width=350, options=[dropdown.Option("audioldm2-full"), dropdown.Option("audioldm2-full-large-1150k"), dropdown.Option("audioldm2-music-665k"), dropdown.Option("audioldm2-speech-gigaspeech"), dropdown.Option("audioldm2-speech-ljspeech")], value=audioLDM2_prefs['model_name'], on_change=change_model)
-    duration_row = SliderRow(label="Duration", min=1, max=20, divisions=38, round=1, suffix="s", pref=audioLDM2_prefs, key='duration')
-    guidance = SliderRow(label="Guidance Scale", min=0, max=5, divisions=10, round=1, pref=audioLDM2_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
-    text = TextField(label="Text Prompt to Auditorialize", value=audioLDM2_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
+    model_name = Dropdown(label="Audio-LDM2 Model", width=350, options=[dropdown.Option("cvssp/audioldm2"), dropdown.Option("cvssp/audioldm2-music"), dropdown.Option("cvssp/audioldm2-large")], value=audioLDM2_prefs['model_name'], on_change=change_model)
+    duration_row = SliderRow(label="Duration", min=1, max=240, divisions=239, round=1, suffix="s", pref=audioLDM2_prefs, key='duration')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=audioLDM2_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
+    steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=audioLDM2_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    text = TextField(label="Text Prompt to Auditorialize", value=audioLDM2_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=audioLDM2_prefs['negative_prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
     transcription = TextField(label="Text Transcript to Speak", value=audioLDM2_prefs['transcription'], multiline=True, min_lines=1, max_lines=8, visible=False, on_change=lambda e:changed(e,'transcription'))
+    save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=audioLDM2_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
     batch_folder_name = TextField(label="Batch Folder Name", value=audioLDM2_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=audioLDM2_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:   ", min=1, max=5, value=audioLDM2_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
-    batch_size = NumberPicker(label="Batch Size:   ", min=1, max=5, value=audioLDM2_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    batch_size = NumberPicker(label="Batch Size:  ", min=1, max=10, value=audioLDM2_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
     seed = TextField(label="Seed", value=audioLDM2_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
     page.audioLDM2_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -13165,17 +13170,17 @@ def buildAudioLDM2(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("📢  Audio LDM-2 Modeling", "Holistic Audio Generation with Self-supervised Pretraining...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM2_help)]),
-        text,
+        ResponsiveRow([text, negative_prompt]),
         transcription,
         model_name,
         duration_row,
         guidance,
-        Row([n_candidates, seed]),#, batch_size
+        steps_row,
+        Row([batch_size, seed, save_mp3]),
         Row([batch_folder_name, file_prefix]),
-        ElevatedButton(content=Text("🎙  Run AudioLDM 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_audio_ldm2(page)),
+        ElevatedButton(content=Text("🎙  Run AudioLDM-2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_audio_ldm2(page)),
         page.audioLDM2_output,
         clear_button,
-        #AudioPlayer(audio_file=os.path.join(assets, "snd-drop.mp3"), display="tester", page=page)
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -24572,9 +24577,19 @@ def run_audio_ldm2(page):
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
     progress = ProgressBar(bar_height=8)
-    installer = Installing("Downloading Audio LDM-2 Packages...")
+    total_steps = audioLDM2_prefs['steps'] * audioLDM2_prefs['batch_size']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    installer = Installing("Loading Audio LDM-2 Packages...")
     prt(installer)
-    audioLDM2_dir = os.path.join(root_dir, "AudioLDM2")
+    
+    '''audioLDM2_dir = os.path.join(root_dir, "AudioLDM2")
     #voice_dir = os.path.join(audioLDM2_dir, 'audioldm2', 'voices')
     if not os.path.isdir(audioLDM2_dir):
       os.chdir(root_dir)
@@ -24615,8 +24630,31 @@ def run_audio_ldm2(page):
         pass
     finally:
         from audioldm2 import text_to_audio, build_model
-    import soundfile as sf
-    model_id=audioLDM2_prefs['model_name']
+    '''
+    try:
+        import soundfile as sf
+    except ImportError:
+        installer.set_details("...install soundfile")
+        run_process("pip install -q soundfile", page=page)
+        import soundfile as sf
+        pass
+    try:
+        import scipy
+    except ImportError:
+        installer.set_details("...install scipy")
+        run_process("pip install -q pandas scipy", page=page)
+        import scipy
+        pass
+    if audioLDM2_prefs['save_mp3']:
+        try:
+            import ffmpeg
+        except ImportError as e:
+            installer.set_details("...installing ffmpeg")
+            run_sp("pip install -q ffmpeg", realtime=False)
+            import ffmpeg
+            pass
+    from diffusers import AudioLDM2Pipeline
+    model_id = audioLDM2_prefs['model_name']
     if 'loaded_ldm2' not in status:
         status['loaded_ldm2'] = ""
     if status['loaded_ldm2'] == model_id:
@@ -24626,25 +24664,45 @@ def run_audio_ldm2(page):
     # This will download all the models used by Audio LDM from the HuggingFace hub.
     if pipe_audio_ldm2 == None:
       try:
-        installer.set_details("...building model")
-        pipe_audio_ldm2 = build_model(model_name=model_id)
-        installer.set_details("...torch compile")
-        pipe_audio_ldm2 = torch.compile(pipe_audio_ldm2)
-        torch.set_float32_matmul_precision("high")
+        installer.set_details("...loading pipeline")
+        pipe_audio_ldm2 = AudioLDM2Pipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)#build_model(model_name=model_id)
+        pipe_audio_ldm2 = pipeline_scheduler(pipe_audio_ldm2)
+        status['loaded_scheduler'] = prefs['scheduler_mode']
+        #pipe_audio_ldm2.scheduler = LMSDiscreteScheduler.from_config(pipe_audio_ldm2.scheduler.config)
+        if prefs['enable_torch_compile']:
+            installer.set_details("...torch compile")
+            pipe_audio_ldm2 = torch.compile(pipe_audio_ldm2)
+            #torch.set_float32_matmul_precision("high")
+        pipe_audio_ldm2 = pipe_audio_ldm2.to(torch_device)
+        pipe_audio_ldm2.set_progress_bar_config(disable=True)
         status['loaded_ldm2'] = model_id
       except Exception as e:
         clear_last()
         alert_msg(page, "Error downloading Audio LDM 2 model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
         return
+    elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+        installer.set_details(f"...scheduler {prefs['scheduler_mode']}")
+        pipe_audio_ldm2 = pipeline_scheduler(pipe_audio_ldm2)
+      
     clear_last()
     prt(Text("  Generating AudioLDM-2 Sounds...", weight=FontWeight.BOLD))
     prt(progress)
     random_seed = int(audioLDM2_prefs['seed']) if int(audioLDM2_prefs['seed']) > 0 else rnd.randint(0,4294967295)
-    try:#audioLDM2_prefs['duration']
-      waveform = text_to_audio(pipe_audio_ldm2, audioLDM2_prefs['text'], random_seed, duration=10, guidance_scale=audioLDM2_prefs['guidance_scale'], n_candidate_gen_per_text=int(audioLDM2_prefs['n_candidates']), batchsize=int(audioLDM2_prefs['batch_size']), transcript=audioLDM2_prefs['transcription'] if 'speech' in model_id else "")
+    generator = torch.Generator("cuda").manual_seed(random_seed)
+    try:
+      audios = pipe_audio_ldm2(audioLDM2_prefs['text'],
+          negative_prompt=audioLDM2_prefs['negative_prompt'],
+          num_inference_steps=audioLDM2_prefs['steps'],
+          guidance_scale=audioLDM2_prefs['guidance_scale'],
+          audio_length_in_s=audioLDM2_prefs['duration'],
+          num_waveforms_per_prompt=audioLDM2_prefs['batch_size'],
+          generator=generator,
+          callback=callback_fnc,
+      ).audios
+      #waveform = text_to_audio(pipe_audio_ldm2, audioLDM2_prefs['text'], random_seed, duration=10, guidance_scale=audioLDM2_prefs['guidance_scale'], n_candidate_gen_per_text=int(audioLDM2_prefs['n_candidates']), batchsize=int(audioLDM2_prefs['batch_size']), transcript=audioLDM2_prefs['transcription'] if 'speech' in model_id else "")
     except Exception as e:
       clear_last()
-      alert_msg(page, "Error generating text_to_audio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+      alert_msg(page, "Error generating AudioLDM2 waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
       return
     save_dir = os.path.join(root_dir, 'audio_out', audioLDM2_prefs['batch_folder_name'])
     if not os.path.exists(save_dir):
@@ -24656,30 +24714,54 @@ def run_audio_ldm2(page):
     #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm2-tts", 'audioldm2', 'voices'))
     #print(str(voice_dirs))
     # waveform = [(16000, np.random.randn(16000)), (16000, np.random.randn(16000))]
-    #TODO: batch
-    fname = format_filename(audioLDM2_prefs['text'])
-    if fname[-1] == '.': fname = fname[:-1]
-    file_prefix = audioLDM2_prefs['file_prefix']
-    audio_name = f'{file_prefix}-{fname}'
-    audio_name = audio_name[:int(prefs['file_max_length'])]
-    fname = available_file(save_dir, audio_name, 0, ext="wav")
-    for i in range(waveform.shape[0]):
-        sf.write(fname, waveform[i, 0], samplerate=16000)
-    #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
-    #IPython.display.Audio('generated.wav')
     clear_last()
     clear_last()
-    #a_out = Audio(src=fname, autoplay=False)
-    #page.overlay.append(a_out)
-    #page.update()
-    display_name = fname
-    #a.tofile(f"/content/dance-{i}.wav")
-    if storage_type == "Colab Google Drive":
-      audio_save = available_file(audio_out, audio_name, 0, ext='wav')
-      shutil.copy(fname, audio_save)
-      display_name = audio_save
-    #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
-    prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+    num = 0
+    for audio in audios:
+        fname = format_filename(audioLDM2_prefs['text'])
+        if fname[-1] == '.': fname = fname[:-1]
+        file_prefix = audioLDM2_prefs['file_prefix']
+        audio_name = f'{file_prefix}-{fname}'
+        audio_name = audio_name[:int(prefs['file_max_length'])]
+        audio_metadata = {
+          "sample_rate": 16000,
+          "artist": prefs['meta_ArtistName'],
+          "copyright": prefs['meta_Copyright'],
+          "software": "Stable Diffusion Deluxe",
+        }
+        if prefs['save_config_in_metadata']:
+          config_json = audioLDM2_prefs.copy()
+          del config_json['batch_size']
+          del config_json['n_candidates']
+          del config_json['file_prefix']
+          config_json['seed'] = random_seed + num
+          config_json['sceduler'] = status['loaded_scheduler']
+          audio_metadata["config"] = config_json
+        fname = available_file(save_dir, audio_name, 0, ext="wav")
+        scipy.io.wavfile.write(fname, data=audio, rate=16000)#, audio_metadata
+        #for i in range(waveform.shape[0]):
+        #    sf.write(fname, waveform[i, 0], samplerate=16000)
+        #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
+        if audioLDM2_prefs['save_mp3']:
+          wav_file = ffmpeg.input(fname)
+          metadata = wav_file.metadata
+          metadata.update(audio_metadata)
+          mp3_name = available_file(audio_out, audio_name, 0, ext="mp3")
+          mp3_file = ffmpeg.output(wav_file, mp3_name, metadata=metadata)
+          mp3_file.run()
+          os.remove(fname)
+          fname = mp3_name
+          display_name = fname
+        else:
+        #if storage_type == "Colab Google Drive":
+          audio_save = available_file(audio_out, audio_name, 0, ext='wav')
+          shutil.move(fname, audio_save)
+          fname = audio_save
+          display_name = audio_save
+        #display_name = fname
+        #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+        prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+        num += 1
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_bark(page):
