@@ -5478,6 +5478,7 @@ reference_prefs = {
     'width': 960,
     'height': 768,
     'last_model': '',
+    'use_SDXL': False,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 4.0,
@@ -5559,6 +5560,7 @@ def buildReference(page):
         reference_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
     ref_image = TextField(label="Reference Image", value=reference_prefs['ref_image'], on_change=lambda e:changed(e,'ref_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    use_SDXL = Switcher(label="Use Stable Diffusion XL Reference Pipeline", value=reference_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="Otherwise use standard Model Checkpoint set in Installation.")
     seed = TextField(label="Seed", width=90, value=str(reference_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=reference_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=reference_prefs, key='guidance_scale')
@@ -5594,6 +5596,7 @@ def buildReference(page):
         Header("🎩  Reference-Only Image with Prompt", "ControlNet Pipeline for Transfering Ref Subject to new images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Reference Settings", on_click=reference_help)]),
         ref_image,
         ResponsiveRow([prompt, negative_prompt]),
+        use_SDXL,
         num_inference_row,
         guidance,
         eta,
@@ -19438,6 +19441,9 @@ def run_reference(page, from_list=False):
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
+    if not reference_prefs['reference_attn'] and not reference_prefs['reference_adain']:
+      alert_msg(page, "Reference Attention and/or Reference Adain must be set to True... ")
+      return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -19503,7 +19509,10 @@ def run_reference(page, from_list=False):
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
-    model = get_model(prefs['model_ckpt'])['path']
+    if reference_prefs['use_SDXL']:
+        model = "stabilityai/stable-diffusion-xl-base-1.0"
+    else:
+        model = get_model(prefs['model_ckpt'])['path']
     if reference_prefs['last_model'] == model:
         clear_pipes('reference')
     else:
@@ -19518,13 +19527,20 @@ def run_reference(page, from_list=False):
         if not os.path.exists(diffusers_dir):
           run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
         sys.path.append(os.path.join(diffusers_dir, "examples", "community"))
-        from stable_diffusion_reference import StableDiffusionReferencePipeline
         try:
-            pipe_reference = StableDiffusionReferencePipeline.from_pretrained(model, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            #pipe_reference.to(torch_device)
-            pipe_reference = pipeline_scheduler(pipe_reference)
-            pipe_reference = optimize_pipe(pipe_reference)
-            pipe_reference.set_progress_bar_config(disable=True)
+            if reference_prefs['use_SDXL']:
+                from stable_diffusion_xl_reference import StableDiffusionXLReferencePipeline
+                pipe_reference = StableDiffusionXLReferencePipeline.from_pretrained(model, torch_dtype=torch.float16, use_safetensors=True, variant="fp16", safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_reference = pipeline_scheduler(pipe_reference)
+                pipe_reference = optimize_SDXL(pipe_reference)
+                pipe_reference.set_progress_bar_config(disable=True)
+            else:
+                from stable_diffusion_reference import StableDiffusionReferencePipeline
+                pipe_reference = StableDiffusionReferencePipeline.from_pretrained(model, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                #pipe_reference.to(torch_device)
+                pipe_reference = pipeline_scheduler(pipe_reference)
+                pipe_reference = optimize_pipe(pipe_reference)
+                pipe_reference.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Reference Pipeline", content=Text(str(e)))
@@ -33891,6 +33907,24 @@ class SliderRow(UserControl):
     def update_slider(self):
         self.slider.update()
 
+class Switcher(UserControl):
+    def __init__(self, label="", value=False, tooltip=None, disabled=False, on_change=None, active_color=None, active_track_color=None):
+        super().__init__()
+        self.label = label
+        self.value = value
+        self.tooltip = tooltip
+        self.disabled = disabled
+        self.on_change = on_change
+        self.active_color = active_color if active_color != None else colors.PRIMARY_CONTAINER
+        self.active_track_color = active_track_color if active_track_color != None else colors.PRIMARY
+        self.build()
+    def build(self):
+        self.switch = Switch(label=f"  {self.label} ", value=self.value, disabled=self.disabled, active_color=self.active_color, active_track_color=self.active_track_color, on_change=self.on_change)
+        if self.tooltip != None:
+            return Tooltip(message=self.tooltip, content=self.switch)
+        else:
+            return self.switch
+
 class Installing(UserControl):
     def __init__(self, message=""):
         super().__init__()
@@ -33911,23 +33945,30 @@ class Installing(UserControl):
         self.progress.visible = show
         self.progress.update()
 
-class Switcher(UserControl):
-    def __init__(self, label="", value=False, tooltip=None, disabled=False, on_change=None, active_color=None, active_track_color=None):
-        super().__init__()
-        self.label = label
-        self.value = value
-        self.tooltip = tooltip
-        self.disabled = disabled
-        self.on_change = on_change
-        self.active_color = active_color if active_color != None else colors.PRIMARY_CONTAINER
-        self.active_track_color = active_track_color if active_track_color != None else colors.PRIMARY
-        self.build()
-    def build(self):
-        self.switch = Switch(label=f"  {self.label} ", value=self.value, disabled=self.disabled, active_color=self.active_color, active_track_color=self.active_track_color, on_change=self.on_change)
-        if self.tooltip != None:
-            return Tooltip(message=self.tooltip, content=self.switch)
-        else:
-            return self.switch
+def pip_install(packages, installer=None, print=False, prt=None, cwd=None):
+    for package in packages.split():
+        try:
+            if '==' in package:
+                pkg = package.split('==')[0]
+            else: pkg = package
+            if '-' in pkg: pkg = pkg.replace('-', '_')
+            exec(f"import {pkg}")
+        except ImportError:
+            if installer != None:
+                installer.set_details(f"...installing {package}")
+            try:
+                if prt == None:
+                    run_sp(f"pip install {package}", realtime=print, cwd=cwd)
+                else:
+                    console = RunConsole(show_progress=False)
+                    prt(console)
+                    console.run_process(f"pip install {package}", cwd=cwd)
+            except Exception as e:
+                print(f"Error Installing {package}: {e}")
+                if installer != None:
+                    installer.set_details(f"...error installing {package}")
+                pass
+            pass
 
 class RunConsole(UserControl):
     def __init__(self, title="", height=200, show_progress=True):
@@ -33976,6 +34017,10 @@ class RunConsole(UserControl):
         if self.show_progress:
             self.main_column.controls.append(ProgressBar(bar_height=8))
         return self.main_column
+
+def elapsed(start_time):
+    end_time = time.time()
+    return f"{end_time-start_time:.0f}s"
 
 class VideoPlayer(UserControl):
     def __init__(self, video_file="", width=500, height=500):
