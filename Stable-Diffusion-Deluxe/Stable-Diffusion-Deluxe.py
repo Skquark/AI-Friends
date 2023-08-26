@@ -367,6 +367,8 @@ def load_settings_file():
       'custom_negatives': "",
       'prompt_styler': '',
       'prompt_style': 'cinematic-default',
+      'prompt_styles': ['cinematic-default'],
+      'prompt_styler_multi': False,
       'prompt_list': [],
       'prompt_generator': {
           'phrase': '',
@@ -749,6 +751,7 @@ def buildAudioAIs(page):
     page.AudioDiffusion = buildAudioDiffusion(page)
     page.AudioLDM = buildAudioLDM(page)
     page.AudioLDM2 = buildAudioLDM2(page)
+    page.MusicLDM = buildMusicLDM(page)
     page.Bark = buildBark(page)
     page.Riffusion = buildRiffusion(page)
     page.Mubert = buildMubert(page)
@@ -758,6 +761,7 @@ def buildAudioAIs(page):
         tabs=[
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
             Tab(text="MusicGen", content=page.MusicGen, icon=icons.MUSIC_NOTE),
+            Tab(text="MusicLDM", content=page.MusicLDM, icon=icons.EARBUDS),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
             Tab(text="AudioLDM-2", content=page.AudioLDM2, icon=icons.NOISE_CONTROL_OFF),
             Tab(text="Bark", content=page.Bark, icon=icons.PETS),
@@ -895,7 +899,9 @@ if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
 if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
 if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
 if 'prompt_style' not in prefs: prefs['prompt_style'] = "cinematic-default"
+if 'prompt_styles' not in prefs: prefs['prompt_styles'] = ["cinematic-default"]
 if 'prompt_styler' not in prefs: prefs['prompt_styler'] = ""
+if 'prompt_styler_multi' not in prefs: prefs['prompt_styler_multi'] = False
 if bool(prefs['init_image']):
     if not os.path.isfile(prefs['init_image']): prefs['init_image'] = ""
 if bool(prefs['mask_image']):
@@ -3330,6 +3336,13 @@ def buildPromptStyler(page):
         page.dialog = styler_help_dlg
         styler_help_dlg.open = True
         page.update()
+    def toggle_multi(e):
+        prefs['prompt_styler_multi'] = e.control.value
+        styler_radio_container.visible=not prefs['prompt_styler_multi']
+        styler_checkbox_container.visible=prefs['prompt_styler_multi']
+        styler_checkbox_container.update()
+        styler_radio_container.update()
+        status['changed_prompt_generator'] = True
     def change_style(e):
         prefs['prompt_style'] = e.control.value
         update_style()
@@ -3344,6 +3357,13 @@ def buildPromptStyler(page):
         prompt = to_title(prompt, sentence=True, clean=False)
         prompt_text.value = prompt
         prompt_text.update()
+        status['changed_prompt_generator'] = True
+    def changed_checkbox(e):
+        on = e.control.value
+        if e.control.data in prefs['prompt_styles']:
+            prefs['prompt_styles'].remove(e.control.data)
+        else:
+            prefs['prompt_styles'].append(e.control.data)
         status['changed_prompt_generator'] = True
     def update_style(update=True):
         nonlocal negative, prompt
@@ -3365,24 +3385,79 @@ def buildPromptStyler(page):
         page.snack_bar = SnackBar(content=Text(f"📋  Copied to clipboard... Paste into your Negative Prompt Text."))
         page.snack_bar.open = True
         page.update()
+    def add_to_prompt_list(e):
+        styler = sdd_utils.prompt_styles[e.control.data]
+        pr = styler[0].replace("{prompt}", prefs['prompt_styler'])
+        pr = to_title(pr, sentence=True, clean=False)
+        negative = styler[1]
+        arg = {'negative_prompt': negative}
+        page.add_to_prompts(pr, arg)
+        if prefs['enable_sounds']: page.snd_drop.play()
+    def add_to_list(e):
+        if prefs['enable_sounds']: page.snd_drop.play()
+        for s in prefs['prompt_styles']:
+            styler = sdd_utils.prompt_styles[s]
+            pr = styler[0].replace("{prompt}", prefs['prompt_styler'])
+            pr = to_title(pr, sentence=True, clean=False)
+            negative = styler[1]
+            arg = {'negative_prompt': negative}
+            page.add_to_prompts(pr, arg)
+    def clear_prompts(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        styler_results.controls.clear()
+        styler_results.update()
+    def generate_styles(e):
+        styler_results.controls.clear()
+        for s in prefs['prompt_styles']:
+            styler = sdd_utils.prompt_styles[s]
+            pr = styler[0].replace("{prompt}", prefs['prompt_styler'])
+            pr = to_title(pr, sentence=True, clean=False)
+            negative = styler[1]
+            styler_results.controls.append(ListTile(title=Text(pr, max_lines=3, style=TextThemeStyle.BODY_LARGE), subtitle=Text(f"Negative: {negative}", max_lines=3), data=s, dense=True, on_click=add_to_prompt_list))
+        styler_list_buttons = Row([
+            ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
+            add_all_to_prompts_btn,
+        ], alignment=MainAxisAlignment.SPACE_BETWEEN)
+        styler_results.controls.append(styler_list_buttons)
+        styler_results.update()
     style_list = ResponsiveRow(controls=[], run_spacing=0)
+    style_checkboxes = ResponsiveRow(controls=[], run_spacing=0)
     for k in sdd_utils.style_keys:
         style_list.controls.append(ft.Radio(label=k, value=k, fill_color=colors.PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+        style_checkboxes.controls.append(Checkbox(label=k, data=k, value=k in prefs['prompt_styles'], on_change=changed_checkbox, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    prompt_styler_multi = Switcher(label="Multi-Select ", value=prefs['prompt_styler_multi'], tooltip="Toggle between Single Style Selection to Multiple Prompt Generator.", label_position=ft.LabelPosition.LEFT, on_change=toggle_multi)
     prompt_styler = TextField(label="Subject Prompt Text", value=prefs['prompt_styler'], filled=True, on_change=changed_custom)
     prompt_text = Text(prompt, size=18, color=colors.ON_SECONDARY_CONTAINER, selectable=True)
     neg_text = Text(negative, size=18, color=colors.ON_SECONDARY_CONTAINER, selectable=True)
+    style_radio = ft.RadioGroup(content=style_list, value=prefs['prompt_style'], on_change=change_style)
+    styler_results = Column([], tight=True, spacing=0)
+    generate_styles_btn = ElevatedButton(content=Text("👗  Generate Styles", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=generate_styles)
+    add_all_to_prompts_btn = FilledButton(content=Text("➕  Add to Prompts List", size=20), height=45, on_click=add_to_list)
+    add_to_prompts_btn = ElevatedButton(content=Text("➕  Add to Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_prompts)
+    styler_result = ResponsiveRow([
+          Container(prompt_text, bgcolor=colors.SECONDARY_CONTAINER, padding=10, border_radius=border_radius.all(12), margin=margin.only(top=10), col={'md': 8}),
+          Container(neg_text, bgcolor=colors.SECONDARY_CONTAINER, padding=10, border_radius=border_radius.all(12), margin=margin.only(top=10), col={'md': 4}),
+        ], vertical_alignment=CrossAxisAlignment.START)
+    styler_checkbox_container = Container(Column([
+      style_checkboxes,
+      prompt_styler,
+      generate_styles_btn,
+      styler_results,
+    ]), visible=prefs['prompt_styler_multi'])
+    styler_radio_container = Container(Column([
+      style_radio,
+      prompt_styler,
+      add_to_prompts_btn,
+      styler_result,
+    ]), visible=not prefs['prompt_styler_multi'])
     update_style(False)
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👓   Prompt Styler", "Generate your Prompts with Premade Style Templates.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Prompt Styler", on_click=styler_help)]),
-        ft.RadioGroup(content=style_list, value=prefs['prompt_style'], on_change=change_style),
-        prompt_styler,
-        ElevatedButton(content=Text("➕  Add to Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=add_to_prompts),
-        ResponsiveRow([
-          Container(prompt_text, bgcolor=colors.SECONDARY_CONTAINER, padding=10, border_radius=border_radius.all(12), margin=margin.only(top=10), col={'md': 8}),
-          Container(neg_text, bgcolor=colors.SECONDARY_CONTAINER, padding=10, border_radius=border_radius.all(12), margin=margin.only(top=10), col={'md': 4}),
-        ], vertical_alignment=CrossAxisAlignment.START),
+        Header("👓   Prompt Styler", "Generate your Prompts with Premade Style Templates.", actions=[prompt_styler_multi, IconButton(icon=icons.HELP, tooltip="Help with Prompt Styler", on_click=styler_help)]),
+        #prompt_styler_multi,
+        styler_checkbox_container,
+        styler_radio_container,
       ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -4489,11 +4564,11 @@ music_gen_prefs = {
     'file_name': '',
     'audio_model': 'medium',
     'duration': 30,
-    'top_k': 250,
-    'top_p': 0,
-    'temperature': 1,
+    'top_k': 280,
+    'top_p': 1150,
+    'temperature': 0.7,
     'guidance': 5,
-    'overlap': 5,
+    'overlap': 2,
     'dimension': 1,
     #'recondition': False,
     'harmony_only': False,
@@ -4582,7 +4657,7 @@ def buildMusicGen(page):
     guidance = SliderRow(label="Classifier Free Guidance", min=0, max=10, divisions=20, round=1, pref=music_gen_prefs, key='guidance', tooltip="Large => better quality and relavancy to text; Small => better diversity", col={'lg':6})
     temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, pref=music_gen_prefs, key='temperature', tooltip="Softmax value used to module the next token probabilities", col={'lg':6})
     top_k = SliderRow(label="Top-K Samples", min=0, max=300, divisions=299, round=0, pref=music_gen_prefs, key='top_k', tooltip="Number of highest probability vocabulary tokens to keep for top-k-filtering", col={'lg':6})
-    top_p = SliderRow(label="Top-P Samples", min=0, max=1, divisions=11, round=1, pref=music_gen_prefs, key='top_p', tooltip="Percent of highest probability vocabulary tokens to keep, , when set to 0 top_k is used", col={'lg':6})
+    top_p = SliderRow(label="Top-P Samples", min=0, max=1500, divisions=1499, round=0, pref=music_gen_prefs, key='top_p', tooltip="Highest probability vocabulary tokens to keep, when set to 0 top_k is used", col={'lg':6})
     #recondition = Checkbox(label="Recondition Chunks over 30s", tooltip="Condition next chunks with the first chunk.", value=music_gen_prefs['recondition'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'recondition'), col={'lg':6})
     harmony_only = Checkbox(label="Harmony Only", tooltip="Remove Drums?", value=music_gen_prefs['harmony_only'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'harmony_only'), col={'lg':6})
     #harmony_only = gr.Radio(label="Harmony Only",choices=["No", "Yes"], value="No", interactive=True, info="Remove Drums?")
@@ -13154,7 +13229,7 @@ def buildAudioLDM2(page):
             transcription.visible = False
         transcription.update()
     model_name = Dropdown(label="Audio-LDM2 Model", width=350, options=[dropdown.Option("cvssp/audioldm2"), dropdown.Option("cvssp/audioldm2-music"), dropdown.Option("cvssp/audioldm2-large")], value=audioLDM2_prefs['model_name'], on_change=change_model)
-    duration_row = SliderRow(label="Duration", min=1, max=240, divisions=239, round=1, suffix="s", pref=audioLDM2_prefs, key='duration')
+    duration_row = SliderRow(label="Duration", min=1, max=320, divisions=319, round=1, suffix="s", pref=audioLDM2_prefs, key='duration')
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=audioLDM2_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
     steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=audioLDM2_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     text = TextField(label="Text Prompt to Auditorialize", value=audioLDM2_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
@@ -13183,6 +13258,93 @@ def buildAudioLDM2(page):
         Row([batch_folder_name, file_prefix]),
         ElevatedButton(content=Text("🎙  Run AudioLDM-2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_audio_ldm2(page)),
         page.audioLDM2_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+musicLDM_prefs = {
+    'text': '',
+    'negative_prompt':'',
+    'model_name': 'cvssp/musicldm',
+    'duration': 10.0,
+    'steps': 200,
+    'guidance_scale': 3.5,
+    'n_candidates': 3,#This number control the number of candidates (e.g., generate three audios and choose the best to show you). A Larger value usually lead to better quality with heavier computation
+    'seed': 0,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'file_prefix': 'ldm-',
+    'save_mp3': False,
+}
+
+def buildMusicLDM(page):
+    global prefs, musicLDM_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              musicLDM_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              musicLDM_prefs[pref] = float(e.control.value)
+            else:
+              musicLDM_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def add_to_musicLDM_output(o):
+        page.musicLDM_output.controls.append(o)
+        page.musicLDM_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.musicLDM_output.controls = []
+        page.musicLDM_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    def musicLDM_help(e):
+        def close_musicLDM_dlg(e):
+          nonlocal musicLDM_help_dlg
+          musicLDM_help_dlg.open = False
+          page.update()
+        musicLDM_help_dlg = AlertDialog(title=Text("💁   Help with Music-LDM"), content=Column([
+            Text("MusicLDM takes a text prompt as input and predicts the corresponding music sample. Inspired by Stable Diffusion and AudioLDM, MusicLDM is a text-to-music latent diffusion model (LDM) that learns continuous audio representations from CLAP latents. MusicLDM is trained on a corpus of 466 hours of music data. Beat-synchronous data augmentation strategies are applied to the music samples, both in the time domain and in the latent space. Using beat-synchronous data augmentation strategies encourages the model to interpolate between the training samples, but stay within the domain of the training data. The result is generated music that is more diverse while staying faithful to the corresponding style."),
+            Text("It was proposed in MusicLDM: Enhancing Novelty in Text-to-Music Generation Using Beat-Synchronous Mixup Strategies by Ke Chen, Yusong Wu, Haohe Liu, Marianna Nezhurina, Taylor Berg-Kirkpatrick, Shlomo Dubnov."),
+            Markdown("[Paper](https://huggingface.co/papers/2308.01546) | [GitHub Code](https://github.com/haoheliu/musicldm)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🪨  Let's Rock... ", on_click=close_musicLDM_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = musicLDM_help_dlg
+        musicLDM_help_dlg.open = True
+        page.update()
+    def change_model(e):
+        changed(e, 'model_name') #dropdown.Option("cvssp/audioldm-s-full-v2"), 
+    model_name = Dropdown(label="Music-LDM Model", width=350, options=[dropdown.Option("cvssp/musicldm"), dropdown.Option("sanchit-gandhi/musicldm-full")], value=musicLDM_prefs['model_name'], on_change=change_model)
+    duration_row = SliderRow(label="Duration", min=1, max=320, divisions=319, round=1, suffix="s", pref=musicLDM_prefs, key='duration')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=musicLDM_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
+    steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=musicLDM_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    text = TextField(label="Text Prompt to Describe Music", value=musicLDM_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=musicLDM_prefs['negative_prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    #transcription = TextField(label="Text Transcript to Speak", value=musicLDM_prefs['transcription'], multiline=True, min_lines=1, max_lines=8, visible=False, on_change=lambda e:changed(e,'transcription'))
+    save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=musicLDM_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=musicLDM_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=musicLDM_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:   ", min=1, max=5, value=musicLDM_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
+    batch_size = NumberPicker(label="Batch Size:  ", min=1, max=10, value=musicLDM_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    seed = TextField(label="Seed", value=musicLDM_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.musicLDM_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.musicLDM_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎸  MusicLDM Song Modeling", "Text-to-Music Generation: Enhancing Novelty in Beat-Synchronous Mixup...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Music LDM-TTS Settings", on_click=musicLDM_help)]),
+        ResponsiveRow([text, negative_prompt]),
+        model_name,
+        duration_row,
+        guidance,
+        steps_row,
+        Row([batch_size, seed, save_mp3]),
+        Row([batch_folder_name, file_prefix]),
+        ElevatedButton(content=Text("🤘  Run MusicLDM", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_music_ldm(page)),
+        page.musicLDM_output,
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO)
@@ -14013,6 +14175,7 @@ pipe_kandinsky_prior = None
 pipe_tortoise_tts = None
 pipe_audio_ldm = None
 pipe_audio_ldm2 = None
+pipe_music_ldm = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_music_gen = None
@@ -14879,6 +15042,7 @@ def get_img2img_pipe():
         inpaint_model,
         custom_pipeline="img2img_inpainting",
         #scheduler=model_scheduler(inpaint_model),
+        use_safetensors=True,
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         **safety
     )
@@ -14889,6 +15053,7 @@ def get_img2img_pipe():
       #scheduler=model_scheduler(inpaint_model),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
       revision="fp16",
+      use_safetensors=True, variant="fp16",
       torch_dtype=torch.float16,
       **safety)
   #pipe_img2img.to(torch_device)
@@ -16150,6 +16315,12 @@ def clear_audio_ldm2_pipe():
     del pipe_audio_ldm2
     flush()
     pipe_audio_ldm2 = None
+def clear_music_ldm_pipe():
+  global pipe_music_ldm
+  if pipe_music_ldm is not None:
+    del pipe_music_ldm
+    flush()
+    pipe_music_ldm = None
 def clear_gpt2_pipe():
   global pipe_gpt2
   if pipe_gpt2 is not None:
@@ -16246,6 +16417,7 @@ def clear_pipes(allbut=None):
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
     if not 'audio_ldm2' in but: clear_audio_ldm2_pipe()
+    if not 'music_ldm' in but: clear_music_ldm_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
@@ -17047,6 +17219,9 @@ def start_diffusion(page):
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 else:
+                  if arg['batch_size'] > 1:
+                    init_img = [init_img] * arg['batch_size']
+                    mask_img = [mask_img] * arg['batch_size']
                   image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
@@ -17148,7 +17323,7 @@ def start_diffusion(page):
               if prefs['use_versatile'] and status['installed_versatile']:
                 if len(pr.strip()) > 2:
                   pipe_used = "Versatile Dual-Guided"
-                  images = pipe_versatile_dualguided(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, text_to_image_strength= arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_versatile_dualguided(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, text_to_image_strength=1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 else:
                   pipe_used = "Versatile Variation"
                   images = pipe_versatile_variation(negative_prompt=arg['negative_prompt'], image=init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -17160,10 +17335,12 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 else:
+                  if arg['batch_size'] > 1:
+                    init_img = [init_img] * arg['batch_size']
                   #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_refiner(pr)
@@ -17181,7 +17358,7 @@ def start_diffusion(page):
                   images = pipe_alt_diffusion_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_depth2img'] and status['installed_depth2img']:
                 pipe_used = "Depth-to-Image"
-                images = pipe_depth(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_depth(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               elif prefs['use_inpaint_model'] and status['installed_img2img']:
                 pipe_used = "Diffusers Inpaint Image-to-Image"
                 white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
@@ -21751,7 +21928,8 @@ def run_music_gen(page):
     try:
         import sentencepiece
     except ModuleNotFoundError: #>=0.1.99
-        run_sp("pip install --upgrade sentencepiece~=0.1", realtime=False)
+        #run_sp("pip install --upgrade sentencepiece~=0.1", realtime=False)
+        run_sp("pip install sentencepiece", realtime=True)
         import sentencepiece
         pass
     try:
@@ -21769,6 +21947,13 @@ def run_music_gen(page):
         from audiocraft.data.audio import audio_write
         from audiocraft.data.audio_utils import apply_fade, apply_tafade
         from audiocraft.utils.extend import generate_music_segments, add_settings_to_image, INTERRUPTING
+    try:
+        import librosa
+    except ImportError:
+        installer.set_details("...installing librosa")
+        run_sp("pip install -q librosa", realtime=False)
+        run_sp("pip install -q torchlibrosa", realtime=False)
+        pass
     text = music_gen_prefs['prompt']
     init = music_gen_prefs['audio_file']
     model_id = music_gen_prefs['audio_model'] if not bool(init) else "melody"
@@ -21801,7 +21986,7 @@ def run_music_gen(page):
                 melody = init
             else:
                 melody = None
-        if melody is None:
+        if melody is not None:
             melody = get_melody(melody)
         duration = music_gen_prefs['duration']
         overlap = music_gen_prefs['overlap']
@@ -21864,7 +22049,7 @@ def run_music_gen(page):
                             descriptions=[text],
                             melody_wavs=melody,
                             melody_sample_rate=sr,
-                            progress=True
+                            progress=False
                         )
                     # All output_segments are populated, so we can break the loop or set duration to 0
                     break
@@ -21886,11 +22071,11 @@ def run_music_gen(page):
                     duration -= segment_duration'''
                 else:
                     if not output_segments:
-                        next_segment = pipe_music_gen.generate(descriptions=[text], progress=True)
+                        next_segment = pipe_music_gen.generate(descriptions=[text], progress=False)
                         duration -= segment_duration
                     else:
                         last_chunk = output_segments[-1][:, :, -overlap*pipe_music_gen.sample_rate:]
-                        next_segment = pipe_music_gen.generate_continuation(last_chunk, pipe_music_gen.sample_rate, descriptions=[text], progress=False)
+                        next_segment = pipe_music_gen.generate_continuation(last_chunk, pipe_music_gen.sample_rate, descriptions=[text], progress=True)
                         duration -= segment_duration - overlap
                     output_segments.append(next_segment)
                     '''if output is None:
@@ -24593,7 +24778,7 @@ def run_audio_ldm2(page):
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
     progress = ProgressBar(bar_height=8)
-    total_steps = audioLDM2_prefs['steps'] * audioLDM2_prefs['batch_size']
+    total_steps = audioLDM2_prefs['steps']# * audioLDM2_prefs['batch_size']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
@@ -24668,6 +24853,13 @@ def run_audio_ldm2(page):
             installer.set_details("...installing ffmpeg")
             run_sp("pip install -q ffmpeg", realtime=False)
             import ffmpeg
+            pass
+        try:
+            import pydub
+        except ImportError:
+            installer.set_details("...installing pydub")
+            run_sp("pip install -q pydub", realtime=False)
+            import pydub
             pass
     from diffusers import AudioLDM2Pipeline
     model_id = audioLDM2_prefs['model_name']
@@ -24759,12 +24951,177 @@ def run_audio_ldm2(page):
         #    sf.write(fname, waveform[i, 0], samplerate=16000)
         #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
         if audioLDM2_prefs['save_mp3']:
-          wav_file = ffmpeg.input(fname)
-          metadata = wav_file.metadata
-          metadata.update(audio_metadata)
+          wav_file = pydub.AudioSegment.from_wav(fname)
+          #tags = pydub.utils.mediainfo(wav_file).get('TAG', {})
           mp3_name = available_file(audio_out, audio_name, 0, ext="mp3")
-          mp3_file = ffmpeg.output(wav_file, mp3_name, metadata=metadata)
-          mp3_file.run()
+          mp3_file = wav_file.export(mp3_name, format="mp3", tags=audio_metadata)
+          os.remove(fname)
+          fname = mp3_name
+          display_name = fname
+        else:
+        #if storage_type == "Colab Google Drive":
+          audio_save = available_file(audio_out, audio_name, 0, ext='wav')
+          shutil.move(fname, audio_save)
+          fname = audio_save
+          display_name = audio_save
+        #display_name = fname
+        #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+        prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+        num += 1
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_music_ldm(page):
+    global musicLDM_prefs, pipe_music_ldm, prefs, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.musicLDM_output.controls.append(line)
+      page.musicLDM_output.update()
+    def clear_last():
+      if len(page.musicLDM_output.controls) < 1: return
+      del page.musicLDM_output.controls[-1]
+      page.musicLDM_output.update()
+    if not bool(musicLDM_prefs['text']):
+      alert_msg(page, "Provide Text for the AI to create the music of...")
+      return
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
+    progress = ProgressBar(bar_height=8)
+    total_steps = musicLDM_prefs['steps']# * musicLDM_prefs['batch_size']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    installer = Installing("Loading Music LDM Packages...")
+    prt(installer)
+    try:
+        import soundfile as sf
+    except ImportError:
+        installer.set_details("...install soundfile")
+        run_process("pip install -q soundfile", page=page)
+        import soundfile as sf
+        pass
+    try:
+        import scipy
+    except ImportError:
+        installer.set_details("...install scipy")
+        run_process("pip install -q pandas scipy", page=page)
+        import scipy
+        pass
+    if musicLDM_prefs['save_mp3']:
+        try:
+            import ffmpeg
+        except ImportError as e:
+            installer.set_details("...installing ffmpeg")
+            run_sp("pip install -q ffmpeg", realtime=False)
+            import ffmpeg
+            pass
+        try:
+            import pydub
+        except ImportError:
+            installer.set_details("...installing pydub")
+            run_sp("pip install -q pydub", realtime=False)
+            import pydub
+            pass
+    from diffusers import MusicLDMPipeline, PNDMScheduler
+    model_id = musicLDM_prefs['model_name']
+    if 'loaded_ldm' not in status:
+        status['loaded_ldm'] = ""
+    if status['loaded_ldm'] == model_id:
+        clear_pipes('music_ldm')
+    else:
+        clear_pipes()
+    if pipe_music_ldm == None:
+      try:
+        installer.set_details("...loading pipeline")
+        scheduler = PNDMScheduler(skip_prk_steps=True)
+        pipe_music_ldm = MusicLDMPipeline.from_pretrained(model_id, torch_dtype=torch.float16, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)#build_model(model_name=model_id)
+        #pipe_music_ldm = pipeline_scheduler(pipe_music_ldm, big_3=True)
+        #status['loaded_scheduler'] = prefs['scheduler_mode']
+        #pipe_music_ldm.scheduler = LMSDiscreteScheduler.from_config(pipe_music_ldm.scheduler.config)
+        if prefs['enable_torch_compile']:
+            installer.set_details("...torch compile")
+            pipe_music_ldm = torch.compile(pipe_music_ldm)
+            #torch.set_float32_matmul_precision("high")
+        pipe_music_ldm = pipe_music_ldm.to(torch_device)
+        pipe_music_ldm.set_progress_bar_config(disable=True)
+        status['loaded_ldm'] = model_id
+      except Exception as e:
+        clear_last()
+        alert_msg(page, "Error downloading MusicLDM model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    #elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+    #    installer.set_details(f"...scheduler {prefs['scheduler_mode']}")
+    #    pipe_music_ldm = pipeline_scheduler(pipe_music_ldm)
+      
+    clear_last()
+    prt(Text("  Generating MusicLDM Songs...", weight=FontWeight.BOLD))
+    prt(progress)
+    random_seed = int(musicLDM_prefs['seed']) if int(musicLDM_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator("cuda").manual_seed(random_seed)
+    try:
+      audios = pipe_music_ldm(musicLDM_prefs['text'],
+          negative_prompt=musicLDM_prefs['negative_prompt'],
+          num_inference_steps=musicLDM_prefs['steps'],
+          guidance_scale=musicLDM_prefs['guidance_scale'],
+          audio_length_in_s=musicLDM_prefs['duration'],
+          num_waveforms_per_prompt=musicLDM_prefs['batch_size'],
+          generator=generator,
+          callback=callback_fnc,
+      ).audios
+      #waveform = text_to_audio(pipe_music_ldm, musicLDM_prefs['text'], random_seed, duration=10, guidance_scale=musicLDM_prefs['guidance_scale'], n_candidate_gen_per_text=int(musicLDM_prefs['n_candidates']), batchsize=int(musicLDM_prefs['batch_size']), transcript=musicLDM_prefs['transcription'] if 'speech' in model_id else "")
+    except Exception as e:
+      clear_last()
+      alert_msg(page, "Error generating MusicLDM waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+      return
+    save_dir = os.path.join(root_dir, 'audio_out', musicLDM_prefs['batch_folder_name'])
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir, exist_ok=True)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(musicLDM_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, musicLDM_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    #voice_dirs = os.listdir(os.path.join(root_dir, "musicldm-tts", 'musicldm', 'voices'))
+    #print(str(voice_dirs))
+    # waveform = [(16000, np.random.randn(16000)), (16000, np.random.randn(16000))]
+    clear_last()
+    clear_last()
+    num = 0
+    for audio in audios:
+        fname = format_filename(musicLDM_prefs['text'])
+        if fname[-1] == '.': fname = fname[:-1]
+        file_prefix = musicLDM_prefs['file_prefix']
+        audio_name = f'{file_prefix}-{fname}'
+        audio_name = audio_name[:int(prefs['file_max_length'])]
+        audio_metadata = {
+          "sample_rate": 16000,
+          "artist": prefs['meta_ArtistName'],
+          "copyright": prefs['meta_Copyright'],
+          "software": "Stable Diffusion Deluxe",
+        }
+        if prefs['save_config_in_metadata']:
+          config_json = musicLDM_prefs.copy()
+          del config_json['batch_size']
+          del config_json['n_candidates']
+          del config_json['file_prefix']
+          config_json['seed'] = random_seed + num
+          config_json['sceduler'] = status['loaded_scheduler']
+          audio_metadata["config"] = config_json
+        fname = available_file(save_dir, audio_name, 0, ext="wav")
+        scipy.io.wavfile.write(fname, data=audio, rate=16000)#, audio_metadata
+        #for i in range(waveform.shape[0]):
+        #    sf.write(fname, waveform[i, 0], samplerate=16000)
+        #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
+        if musicLDM_prefs['save_mp3']:
+          wav_file = pydub.AudioSegment.from_wav(fname)
+          #tags = pydub.utils.mediainfo(wav_file).get('TAG', {})
+          mp3_name = available_file(audio_out, audio_name, 0, ext="mp3")
+          mp3_file = wav_file.export(mp3_name, format="mp3", tags=audio_metadata)
           os.remove(fname)
           fname = mp3_name
           display_name = fname
@@ -33908,18 +34265,19 @@ class SliderRow(UserControl):
         self.slider.update()
 
 class Switcher(UserControl):
-    def __init__(self, label="", value=False, tooltip=None, disabled=False, on_change=None, active_color=None, active_track_color=None):
+    def __init__(self, label="", value=False, tooltip=None, disabled=False, on_change=None, active_color=None, active_track_color=None, label_position=ft.LabelPosition.RIGHT):
         super().__init__()
         self.label = label
         self.value = value
         self.tooltip = tooltip
+        self.label_position=label_position
         self.disabled = disabled
         self.on_change = on_change
         self.active_color = active_color if active_color != None else colors.PRIMARY_CONTAINER
         self.active_track_color = active_track_color if active_track_color != None else colors.PRIMARY
         self.build()
     def build(self):
-        self.switch = Switch(label=f"  {self.label} ", value=self.value, disabled=self.disabled, active_color=self.active_color, active_track_color=self.active_track_color, on_change=self.on_change)
+        self.switch = Switch(label=f"  {self.label} ", value=self.value, disabled=self.disabled, active_color=self.active_color, active_track_color=self.active_track_color, label_position=self.label_position, on_change=self.on_change)
         if self.tooltip != None:
             return Tooltip(message=self.tooltip, content=self.switch)
         else:
