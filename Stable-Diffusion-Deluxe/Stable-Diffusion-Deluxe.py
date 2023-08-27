@@ -294,6 +294,7 @@ def load_settings_file():
       'use_imagic': False,
       'use_SDXL': False,
       'SDXL_high_noise_frac': 0.7,
+      'SDXL_negative_conditions': False,
       'SDXL_compel': False,
       'use_composable': False,
       'use_safe': False,
@@ -881,6 +882,7 @@ if 'install_SDXL' not in prefs: prefs['install_SDXL'] = False
 if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
 if 'SDXL_high_noise_frac' not in prefs: prefs['SDXL_high_noise_frac'] = 0.7
 if 'SDXL_compel' not in prefs: prefs['SDXL_compel'] = False
+if 'SDXL_negative_conditions' not in prefs: prefs['SDXL_negative_conditions'] = False
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] = False
@@ -1951,7 +1953,8 @@ def buildParameters(page):
   page.use_SDXL.visible = status['installed_SDXL']
   #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_high_noise_frac = SliderRow(label="SDXL High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=prefs, key='SDXL_high_noise_frac', tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac', apply=False))
-  page.SDXL_params = Container(Column([SDXL_high_noise_frac]), padding=padding.only(top=5, left=20), height=None if prefs['use_SDXL'] else 0, visible=status['installed_SDXL'], animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  SDXL_negative_conditions = Switcher(label="Use Negative Conditions on Image Size", tooltip="Pass negative conditions about an image's size and position to avoid undesirable cropping behavior in the generated image, and improve image resolution.", value=prefs['SDXL_negative_conditions'], on_change=lambda e:changed(e,'SDXL_negative_conditions', apply=False))
+  page.SDXL_params = Container(Column([SDXL_high_noise_frac, SDXL_negative_conditions]), padding=padding.only(top=5, left=20), height=None if prefs['use_SDXL'] else 0, visible=status['installed_SDXL'], animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   page.use_inpaint_model = Switcher(label="Use Specialized Inpaint Model Instead", tooltip="When using init_image and/or mask, use the newer pipeline for potentially better results", value=prefs['use_inpaint_model'], on_change=lambda e:changed(e,'use_inpaint_model', apply=False))
   page.use_inpaint_model.visible = status['installed_img2img']
   page.use_alt_diffusion = Switcher(label="Use AltDiffusion Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Supports 9 different languages for text2image & image2image")
@@ -17030,6 +17033,7 @@ def start_diffusion(page):
       else:
         #from torch.amp.autocast_mode import autocast
         #precision_scope = autocast if prefs['precision']=="autocast" else nullcontext
+        SDXL_negative_conditions = {'negative_original_size':(512, 512), 'negative_crops_coords_top_left':(0, 0), 'negative_target_size':(1024, 1024)} if not prefs['SDXL_negative_conditions'] else {}
         try:
           if use_custom_scheduler and not bool(arg['init_image']) and not bool(arg['mask_image']) and not bool(arg['prompt2']):
             # Not implemented correctly anymore, old code but might reuse custom
@@ -17208,7 +17212,7 @@ def start_diffusion(page):
               #with autocast("cuda"):
               if prefs['use_inpaint_model'] and status['installed_img2img']:
                 pipe_used = "Diffusers Inpaint"
-                images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Inpainting"
                 high_noise_frac = prefs['SDXL_high_noise_frac']
@@ -17217,12 +17221,12 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_refiner(pr)
@@ -17335,21 +17339,21 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                   #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_refiner(pr)
                   negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
                   del prompt_embed, negative_embed, pooled, negative_pooled
                 else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
                 #images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -17478,20 +17482,20 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                   del pooled, negative_pooled
                 else:
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
                   negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
                   #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                   del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
                 else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
