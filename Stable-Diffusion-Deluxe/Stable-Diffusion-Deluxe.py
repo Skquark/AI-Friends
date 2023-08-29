@@ -13,7 +13,7 @@ tunnel_type = "desktop" #@param ["localtunnel", "ngrok"]
 auto_launch_website = False #@param {'type': 'boolean'}
 force_updates = False
 SDD_version = "v1.9.0"
-import os, subprocess, sys, shutil
+import os, subprocess, sys, shutil, re
 import random as rnd
 root_dir = '/content/'
 dist_dir = root_dir
@@ -126,6 +126,7 @@ try:
 except Exception:
   run_sp("pip install -q requests", realtime=False)
   import requests
+  pass
 try:
   from IPython.display import clear_output
 except Exception:
@@ -3873,7 +3874,6 @@ def buildImage2Text(page):
           os.mkdir(save_dir)
         image2text_prefs['folder_path'] = save_dir
         if image_path.value.startswith('http'):
-          import requests
           from io import BytesIO
           response = requests.get(image_path.value)
           fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
@@ -9351,12 +9351,16 @@ def buildROOP(page):
 animate_diff_prefs = {
     'prompt': '',
     'negative_prompt': '',
+    'use_prompt_map': False,
+    'frame': '0',
     'steps': 25,
     'guidance_scale': 7.5,
     'editing_prompts': [],
+    'prompt_map': {},
     'dreambooth_lora': 'realisticVisionV40_v20Novae',
     'lora_alpha': 0.8,
     'custom_lora': '',
+    'lora_map': {},
     'motion_module': 'mm_sd_v15',
     'scheduler': 'k_dpmpp_2m',
     'seed': 0,
@@ -9370,6 +9374,18 @@ animate_diff_prefs = {
     'save_frames': True,
     'save_gif': True,
     'save_video': False,
+    'compile': False,
+    'control_task': 'Canny',
+    'conditioning_scale': 1.0,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
+    'control_scale_list': '0.5,0.4,0.3,0.2,0.1',
+    'ref_image': '',
+    'controlnet_image': '',
+    'controlnet_layers': [],
+    'controlnet_tile': False, 'controlnet_ip2p': False, 'controlnet_lineart_anime': False, 'controlnet_openpose': False, 'controlnet_softedge': False, 'controlnet_shuffle': False, 'controlnet_depth': False, 'controlnet_canny': False, 'controlnet_inpaint': False, 'controlnet_lineart': False, 'controlnet_mlsd': False, 'controlnet_normalbae': False, 'controlnet_': False, 'controlnet_scribble': False, 'controlnet_seg': False,
+    'upscale_tile': False, 'upscale_ip2p': False, 'upscale_lineart_anime': False, 'upscale_ip2p': False, 'upscale_ref': False,
+    'upscale_steps': 20, 'upscale_strength': 0.5, 'upscale_guidance_scale': 10,
     'num_images': 1,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -9529,7 +9545,7 @@ def buildAnimateDiff(page):
     clip_skip = SliderRow(label="Clip Skip", min=0, max=4, divisions=4, pref=animate_diff_prefs, key='clip_skip', expand=True, col={'md': 6}, tooltip="Skips part of the image generation process, leading to slightly different results from the CLIP model.")
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
-    scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=162, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
+    scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=170, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=150, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
     custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
@@ -18530,7 +18546,6 @@ def run_magic_prompt(page):
     except:
         run_sp("pip install -q sentencepiece")
         pass
-    import re
     ideas = os.path.join(root_dir, "ideas.txt")
     if not os.path.exists(ideas):
         download_file("https://huggingface.co/spaces/Gustavosta/MagicPrompt-Stable-Diffusion/raw/main/ideas.txt")
@@ -18700,7 +18715,6 @@ def run_upscaling(page):
     if not status['installed_ESRGAN']:
       alert_msg(page, "You must Install Real-ESRGAN first")
       return
-    import re
     from collections import Counter
     enlarge_scale = ESRGAN_prefs['enlarge_scale']
     face_enhance = ESRGAN_prefs['face_enhance']
@@ -30707,10 +30721,12 @@ def run_animate_diff(page):
     autoscroll(True)
     installer = Installing("Installing AnimateDiff Requirements...")
     prt(installer)
-    animatediff_dir = os.path.join(root_dir, 'animatediff-cli')
+    animatediff_dir = os.path.join(root_dir, 'animatediff-cli-prompt-travel')
     if not os.path.exists(animatediff_dir):
         installer.set_details("...clone guoyww/animatediff")
-        run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
+        run_sp("git clone https://github.com/s9roll7/animatediff-cli-prompt-travel", realtime=False, cwd=root_dir)
+        #run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
+        installer.set_details("...install animatediff")
         run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
     os.chdir(animatediff_dir)
     try:
@@ -30725,6 +30741,7 @@ def run_animate_diff(page):
         installer.set_details("...installing transformers")
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
+    pip_install("omegaconf einops cmake colorama rich ninja pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib imageio==2.27.0", installer=installer)
     try:
         import omegaconf
     except Exception:
@@ -30769,6 +30786,13 @@ def run_animate_diff(page):
     except Exception:
         installer.set_details("...installing sentencepiece")
         run_sp("pip install sentencepiece>=0.1.99", realtime=False)
+        pass
+    
+    try:
+        import controlnet_aux
+    except Exception:
+        installer.set_details("...installing controlnet_aux")
+        run_sp("pip install controlnet_aux matplotlib", realtime=False)
         pass
     try:
         import safetensors
@@ -30880,6 +30904,7 @@ def run_animate_diff(page):
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
     editing_prompts = []
+    prompt_map = {}
     negative_prompts = []
     seeds = []
     if len(animate_diff_prefs['editing_prompts']) == 0:
@@ -30887,19 +30912,23 @@ def run_animate_diff(page):
             alert_msg(page, "Error: You must provide at least one Prompt to render...")
             return
         else:
-            editing_prompts.append(animate_diff_prefs['prompt'])
+            #editing_prompts.append(animate_diff_prefs['prompt'])
+            prompt_map["0"] = animate_diff_prefs['prompt']
             negative_prompts.append(animate_diff_prefs['negative_prompt'])
             random_seed = int(animate_diff_prefs['seed']) if int(animate_diff_prefs['seed']) > 0 else rnd.randint(0,4294967295)
             seeds.append(random_seed)
     else:
+        num = 0
         for ep in animate_diff_prefs['editing_prompts']:
-            editing_prompts.append(ep['prompt'])
+            #editing_prompts.append(ep['prompt'])
+            prompt_map[str(int(num * (animate_diff_prefs['video_length'] / len(animate_diff_prefs['editing_prompts']))))] = animate_diff_prefs['prompt']
             negative_prompts.append(ep['negative_prompt'])
             random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
             seeds.append(random_seed)
+            num += 1
     prompts_json = {
         'name': 'SDD',
-        'base': "",
+        #'base': "",
         'path': lora_path,
         'motion_module': f"models{slash}motion-module{slash}{animate_diff_prefs['motion_module']}.ckpt",
         #'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
@@ -30908,9 +30937,182 @@ def run_animate_diff(page):
         'steps': int(animate_diff_prefs['steps']),
         'guidance_scale': float(animate_diff_prefs['guidance_scale']),
         #'lora_alpha': float(animate_diff_prefs['lora_alpha']),
-        'prompt': editing_prompts,
+        #'prompt': editing_prompts,
+        'prompt_map': prompt_map,
         'n_prompt': negative_prompts,
     }
+    controlnet_map = {
+      "input_image_dir" : f"controlnet_image{slash}test",
+      "max_samples_on_vram": 999,
+      "save_detectmap": True,
+      "preprocess_on_gpu": True,
+      "controlnet_tile":{
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_ip2p":{
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_lineart_anime":{
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_openpose":{
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_softedge":{
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_shuffle": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_depth": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_canny": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_inpaint": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_lineart": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_mlsd": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_normalbae": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_scribble": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_seg": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      }
+    }
+    upscale_config = {
+      "scheduler": animate_diff_prefs['scheduler'],
+      "steps": animate_diff_prefs['upscale_steps'],
+      "strength": animate_diff_prefs['upscale_strength'],
+      "guidance_scale": animate_diff_prefs['upscale_guidance_scale'],
+      "controlnet_tile": {
+        "enable": animate_diff_prefs['upscale_tile'],
+        "controlnet_conditioning_scale": 1.0,
+        "guess_mode": False,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0
+      },
+      "controlnet_line_anime": {
+        "enable": animate_diff_prefs['upscale_lineart_anime'],
+        "controlnet_conditioning_scale": 1.0,
+        "guess_mode": False,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0
+      },
+      "controlnet_ip2p": {
+        "enable": animate_diff_prefs['upscale_ip2p'],
+        "controlnet_conditioning_scale": 0.5,
+        "guess_mode": False,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0
+      },
+      "controlnet_ref": {
+        "enable": bool(animate_diff_prefs['ref_image']),
+        "use_frame_as_ref_image": False,
+        "use_1st_frame_as_ref_image": True,
+        "ref_image": animate_diff_prefs['ref_image'],
+        "attention_auto_machine_weight": 1.0,
+        "gn_auto_machine_weight": 1.0,
+        "style_fidelity": 0.25,
+        "reference_attn": True,
+        "reference_adain": False
+      }
+    }
+    prompts_json['controlnet_map'] = controlnet_map
+    prompts_json['upscale_config'] = upscale_config
     #if bool(lora_path):
     #    prompts_json['lora_scale'] = animate_diff_prefs['lora_alpha']
     prompts_yaml = f'''
@@ -31001,8 +31203,8 @@ NewModel:
     observer.schedule(image_handler, out_dir, recursive=True)
     observer.start()
     #prt(f"Running {cmd}")
-    console = RunConsole(show_progress=False)
-    prt(console)
+    #console = RunConsole(show_progress=False)
+    #prt(console)
     '''try:
         #from animatediff import get_dir
         from animatediff.cli import generate, logger
@@ -31029,9 +31231,9 @@ NewModel:
           )
       except ModuleNotFoundError:'''
       print(f"Running {cmd}")
-      #run_sp(cmd, cwd=animatediff_dir, realtime=True)
+      run_sp(cmd, cwd=animatediff_dir, realtime=True)
       #    pass
-      console.run_process(cmd, cwd=animatediff_dir)
+      #console.run_process(cmd, cwd=animatediff_dir)
       #run_sp(cmd, cwd=animatediff_dir, realtime=True)
       #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
       #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
@@ -31083,8 +31285,8 @@ NewModel:
               #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
             except Exception as e:
               #clear_last()
-              alert_msg(page, f"ERROR: Couldn't interpolate video from AnimateDiff for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-              return
+              alert_msg(page, f"ERROR: Couldn't interpolate video from AnimateDiff, but frames & gif still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+              pass
         time.sleep(2)
         vidobserver.stop()
     '''
@@ -33772,7 +33974,6 @@ def main(page: Page):
         elif 'V100' in s: gpu = 'V100'
         elif 'A100' in s: gpu = 'A100'
         else:
-            import re
             gpu = re.sub(r"\([^()]*\)", "", s).strip()
         status['cpu_used'] = psutil.virtual_memory().used / (1024 * 1024 * 1024)
         #memory_stats = torch.cuda.memory_stats(device=torch.device("cuda"))
@@ -34310,8 +34511,9 @@ class Installing(UserControl):
 def pip_install(packages, installer=None, print=False, prt=None, cwd=None):
     for package in packages.split():
         try:
-            if '==' in package:
-                pkg = package.split('==')[0]
+            if '=' in package:
+                pkg = re.split('[=~]|>=|<=', package)[0]
+                #pkg = package.split('==')[0]
             else: pkg = package
             if '-' in pkg: pkg = pkg.replace('-', '_')
             exec(f"import {pkg}")
