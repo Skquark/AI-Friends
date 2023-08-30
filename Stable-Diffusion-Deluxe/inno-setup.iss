@@ -4,7 +4,7 @@
 #define MyAppName "Stable Diffusion Deluxe"
 #define MyAppVersion "1.9"
 #define MyAppPublisher "Skquark, Inc."
-#define MyAppURL "https://www.StableDiffusionDeluxe.com/"
+#define MyAppURL "https://www.DiffusionDeluxe.com/"
 #define MyAppExeName "sdd-venv.bat"
 
 [Setup]

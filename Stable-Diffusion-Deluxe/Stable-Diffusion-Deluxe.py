@@ -123,8 +123,8 @@ except ModuleNotFoundError:
   pass'''
 try:
   import requests
-except Exception:
-  run_sp("pip install -q requests", realtime=False)
+except ModuleNotFoundError:
+  run_sp("pip install -q requests", realtime=True)
   import requests
   pass
 try:
@@ -151,7 +151,6 @@ if tunnel_type == "ngrok":
     pass
 elif tunnel_type == "localtunnel":
   if not bool(url):
-    import re
     run_sp("npm install -g -q localtunnel")
     localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
@@ -14642,7 +14641,7 @@ try:
 except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
     print("Installing PyTorch 2.0.1 with CUDA 1.18")
-    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118", realtime=False)
+    run_sp("pip install -U --force-reinstall torch==2.0.1 torchvision==0.15.2 torchaudio --index-url https://download.pytorch.org/whl/cu118", realtime=False)
     #pip install --pre torch torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/nightly/cu118
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
@@ -21648,7 +21647,7 @@ def run_dance_diffusion(page):
           if not os.path.exists(v_diffusion_pytorch):
             run_sp("git clone --recursive https://github.com/crowsonkb/v-diffusion-pytorch", cwd=root_dir, realtime=False)
           run_sp(f"pip install {v_diffusion_pytorch}", cwd=v_diffusion_pytorch, realtime=False)
-          run_sp(f"python3 {os.path.join(diffusers_dir, 'scripts', 'convert_dance_diffusion_to_diffusers.py')} --model_path {dance_model_file} --checkpoint_path {model_out}", cwd=os.path.join(sample_generator, 'audio_diffusion'))#os.path.join(diffusers_dir, 'scripts'))
+          run_sp(f"python {os.path.join(diffusers_dir, 'scripts', 'convert_dance_diffusion_to_diffusers.py')} --model_path {dance_model_file} --checkpoint_path {model_out}", cwd=os.path.join(sample_generator, 'audio_diffusion'))#os.path.join(diffusers_dir, 'scripts'))
           clear_last()
           dance_model_file = model_out
           #run_sp(f'gdown {community['download']} {dance_model_file}')
@@ -21680,7 +21679,7 @@ def run_dance_diffusion(page):
       if not os.path.exists(v_diffusion_pytorch):
         run_sp("git clone --recursive https://github.com/crowsonkb/v-diffusion-pytorch", cwd=root_dir, realtime=False)
       run_sp(f"pip install {v_diffusion_pytorch}", cwd=v_diffusion_pytorch, realtime=False)
-      run_cmd = "python3 " + os.path.join(sample_generator, 'train_uncond.py')
+      run_cmd = "python " + os.path.join(sample_generator, 'train_uncond.py')
       custom_name = format_filename(dance_prefs['custom_name'], use_dash=True)
       output_dir = os.path.join(dance_audio, custom_name)
       output_dir = output_dir.replace(f" ", f"\ ")
@@ -24220,9 +24219,9 @@ def run_converter(page):
     prt(progress)
 
     if converter_prefs['from_format'] == "lora_safetensors":
-      run_cmd = f"python3 {os.path.join(scripts_dir, 'convert_lora_safetensor_to_diffusers.py')}"
+      run_cmd = f"python {os.path.join(scripts_dir, 'convert_lora_safetensor_to_diffusers.py')}"
     else:
-      run_cmd = f"python3 {os.path.join(scripts_dir, 'convert_original_stable_diffusion_to_diffusers.py')}"
+      run_cmd = f"python {os.path.join(scripts_dir, 'convert_original_stable_diffusion_to_diffusers.py')}"
     if converter_prefs['from_format'] == "safetensors":
       run_cmd += f' --from_safetensors'
     if converter_prefs['from_format'] == "controlnet":
@@ -24557,8 +24556,8 @@ def run_tortoise_tts(page):
     except Exception:
       installer.set_details("...installing all requirements")
       try:
-        run_process("pip3 install -r requirements.txt", page=page, cwd=tortoise_dir)
-        run_process("python3 setup.py install", page=page, cwd=tortoise_dir)
+        run_process("pip install -r requirements.txt", page=page, cwd=tortoise_dir)
+        run_process("python setup.py install", page=page, cwd=tortoise_dir)
       except Exception as e:
         clear_last()
         alert_msg(page, "Error Installing Tortoise TextToSpeech requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
@@ -28704,7 +28703,7 @@ def run_controlnet_video2video(page):
       progress.update()
     output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
     #output_file = os.path.join(output_path, f"{fname}{'.mp4' if is_video else '.png'}")
-    cmd = f'python3 controlnetvideo.py "{init_vid}" --controlnet {controlnet_video2video_prefs["control_task"].lower()}'
+    cmd = f'python controlnetvideo.py "{init_vid}" --controlnet {controlnet_video2video_prefs["control_task"].lower()}'
     cmd += f' --prompt "{controlnet_video2video_prefs["prompt"]}"'
     if bool(controlnet_video2video_prefs["negative_prompt"]):
       cmd += f' --negative-prompt "{controlnet_video2video_prefs["negative_prompt"]}"'
