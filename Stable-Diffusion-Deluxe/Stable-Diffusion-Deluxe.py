@@ -9355,6 +9355,7 @@ animate_diff_prefs = {
     'steps': 25,
     'guidance_scale': 7.5,
     'editing_prompts': [],
+    'animation_prompts': {},
     'prompt_map': {},
     'dreambooth_lora': 'realisticVisionV40_v20Novae',
     'lora_alpha': 0.8,
@@ -9375,6 +9376,7 @@ animate_diff_prefs = {
     'save_video': False,
     'compile': False,
     'control_task': 'Canny',
+    'original_image': '',    
     'conditioning_scale': 1.0,
     'control_guidance_start': 0.0,
     'control_guidance_end': 1.0,
@@ -9533,11 +9535,125 @@ def buildAnimateDiff(page):
         page.animate_diff_prompts.controls.clear()
         page.animate_diff_prompts.update()
         if prefs['enable_sounds']: page.snd_delete.play()
-    prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    seed = TextField(label="Seed", width=90, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, filled=True, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
+    def edit_prompt(e):
+      nonlocal animation_prompts
+      f = int(e.control.data)
+      edit_prompt = animate_diff_prefs['animation_prompts'][str(f)]
+      def close_dlg(e):
+        dlg_edit.open = False
+        page.update()
+      def save_prompt(e):
+        fr = int(editing_frame.value)
+        pline = f'{fr}: "{editing_prompt.value}"'
+        for p in animation_prompts.controls:
+          if p.data == f:
+            p.title.value = pline
+            p.data = fr
+            for button in p.trailing.items:
+              button.data = fr
+            break
+        animate_diff_prefs['animation_prompts'][str(editing_frame.value)] = editing_prompt.value.strip()
+        if f != int(editing_frame.value):
+          del animate_diff_prefs['animation_prompts'][str(f)]
+          sorted_dict = {}
+          for key in sorted(animate_diff_prefs['animation_prompts'].keys()):
+              sorted_dict[key] = animate_diff_prefs['animation_prompts'][key]
+          animate_diff_prefs['animation_prompts'] = sorted_dict
+          animation_prompts.controls = sorted(animation_prompts.controls, key=lambda tile: tile.data)
+        animation_prompts.update()
+        close_dlg(e)
+      editing_frame = TextField(label="Frame", width=90, value=str(f), keyboard_type=KeyboardType.NUMBER, tooltip="")
+      editing_prompt = TextField(label="Keyframe Prompt Animation", expand=True, multiline=True, value=edit_prompt, autofocus=True)
+      dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ Edit Prompt Keyframe"), content=Container(Column([
+          Row([editing_frame, editing_prompt])
+      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = dlg_edit
+      dlg_edit.open = True
+      page.update()
+    def del_prompt(e):
+      f = e.control.data
+      for i, p in enumerate(animation_prompts.controls):
+        if p.data == f:
+          del animation_prompts.controls[i]
+          break
+      animation_prompts.update()
+      del animate_diff_prefs['animation_prompts'][str(f)]
+      if prefs['enable_sounds']: page.snd_delete.play()
+    def clear_prompts(e):
+      animation_prompts.controls.clear()
+      animation_prompts.update()
+      animate_diff_prefs['animation_prompts'] = {}
+      clear_prompt(e)
+      if prefs['enable_sounds']: page.snd_delete.play()
+    def clear_prompt(e):
+      prompt.value = ""
+      prompt.update()
+    def copy_prompt(e):
+      p = animate_diff_prefs['animation_prompts'][str(e.control.data)]
+      page.set_clipboard(p)
+      page.snack_bar = SnackBar(content=Text(f"📋  Prompt Text copied to clipboard..."))
+      page.snack_bar.open = True
+      page.update()
+    def add_prompt(e, f=None, p=None, sound=True):
+      if (not bool(prompt.value) or not bool(frame.value)) and f == None: return
+      if f == None: f = int(frame.value)
+      if p == None: p = prompt.value.strip()
+      pline = f'{f}: "{p}"'
+      if str(f) in animate_diff_prefs['animation_prompts']:
+        for i, p in enumerate(animation_prompts.controls):
+          if p.data == f:
+            p.title.value = pline
+      else:
+        animation_prompts.controls.append(ListTile(title=Text(pline, size=14), data=f, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+            items=[PopupMenuItem(icon=icons.EDIT, text="Edit Animation Prompt", on_click=edit_prompt, data=f),
+                  PopupMenuItem(icon=icons.COPY, text="Copy Prompt Text", on_click=copy_prompt, data=f),
+                  PopupMenuItem(icon=icons.DELETE, text="Delete Animation Prompt", on_click=del_prompt, data=f), PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Prompts", on_click=clear_prompts)]), dense=True, on_click=edit_prompt))
+      animate_diff_prefs['animation_prompts'][str(f)] = p
+      #animate_diff_prefs['animation_prompts'] = {int(k):v for k,v in animate_diff_prefs['animation_prompts'].items()}
+      #animate_diff_prefs['animation_prompts'] = sorted(animate_diff_prefs['animation_prompts'].keys())
+      #animate_diff_prefs['animation_prompts'] = {i: animate_diff_prefs['animation_prompts'][i] for i in list(animate_diff_prefs['animation_prompts'].keys()).sort()}
+      sorted_dict = {}
+      for key in sorted(animate_diff_prefs['animation_prompts'].keys()):
+          sorted_dict[key] = animate_diff_prefs['animation_prompts'][key]
+      animate_diff_prefs['animation_prompts'] = sorted_dict
+      animation_prompts.controls = sorted(animation_prompts.controls, key=lambda tile: tile.data)
+      animation_prompts.update()
+      if prefs['enable_sounds'] and sound: page.snd_drop.play()
+    def add_layer(e):
+        for l in animate_diff_prefs['controlnet_layers']:
+            if l['control_task'] == animate_diff_prefs['control_task']:
+                alert_msg(e.page, f"{l['control_task']} Control Task already exists...")
+                return
+        layer = {'control_task': animate_diff_prefs['control_task'], 'original_image': animate_diff_prefs['original_image'], 'control_scale_list': animate_diff_prefs['control_scale_list'], 'conditioning_scale': animate_diff_prefs['conditioning_scale'], 'control_guidance_start': animate_diff_prefs['control_guidance_start'], 'control_guidance_end': animate_diff_prefs['control_guidance_end'], 'use_init_video': False}
+        animate_diff_prefs['controlnet_layers'].append(layer)
+        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{layer['original_image']} - ") if bool(layer['original_image']) else Container(content=None), Text(f"Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+          ]), data=layer))
+        multi_layers.update()
+        animate_diff_prefs['original_image'] = ""
+        original_image.value = ""
+        original_image.update()
+    def delete_layer(e):
+        animate_diff_prefs['controlnet_layers'].remove(e.control.data)
+        for c in multi_layers.controls:
+          if c.data['original_image'] == e.control.data['original_image']:
+             multi_layers.controls.remove(c)
+             break
+        multi_layers.update()
+    def delete_all_layers(e):
+        animate_diff_prefs['controlnet_layers'].clear()
+        multi_layers.controls.clear()
+        multi_layers.update()
+    
+    prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], filled=True, expand=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], expand=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    seed = TextField(label="Seed", width=90, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
+    frame = TextField(label="Frame", width=76, value="0", filled=True, keyboard_type=KeyboardType.NUMBER, tooltip="")
+    add_prompt_keyframe = ft.FilledButton("➕  Add Keyframe", on_click=add_prompt)
     video_length = SliderRow(label="Video Length", min=1, max=500, divisions=499, pref=animate_diff_prefs, key='video_length', tooltip="The number of frames to animate.")
-    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=animate_diff_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    num_inference_row = SliderRow(label="Inference Steps", min=1, max=150, divisions=149, pref=animate_diff_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=animate_diff_prefs, key='guidance_scale')
     context = SliderRow(label="Context Frames to Condition", min=1, max=24, divisions=23, pref=animate_diff_prefs, key='context', expand=True, col={'md': 6}, tooltip="Number of frames to condition on. Drop to 8 on cards with less than 8GB VRAM, can raise it to 20-24 on cards with more. (default: max of <length> or 24)")
     stride = SliderRow(label="Max Motion Stride", min=1, max=8, divisions=7, pref=animate_diff_prefs, key='stride', expand=True, col={'md': 6}, tooltip="Max motion stride as a power of 2 (default: 4)")
@@ -9547,13 +9663,31 @@ def buildAnimateDiff(page):
     scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=170, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=150, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
-    custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
+    custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], expand=True, visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
     for lora in animate_diff_loras:
         dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     save_frames = Switcher(label="Save Frames", value=animate_diff_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
     save_gif = Switcher(label="Save Animated GIF", value=animate_diff_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
     save_video = Switcher(label="Save Video", value=animate_diff_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
+    control_task = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
+    original_image = FileInput(label="Original Image", pref=animate_diff_prefs, key='original_image', expand=True, page=page)
+    #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, expand=True, pref=animate_diff_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_xl_conditioning_scale` before they are added to the residual in the original unet.")
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
+    ref_image = FileInput(label="Reference Image (optional)", pref=animate_diff_prefs, key='ref_image', page=page)
+    control_scale_list  = TextField(label="Control Scale List", value=animate_diff_prefs['control_scale_list'], on_change=lambda e:changed(e,'control_scale_list'))
+    #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNetXL Layer", on_click=add_layer)
+    add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
+    multi_layers = Column([], spacing=0)
+    upscale_tile = Switcher(label="Upscale Tile", value=animate_diff_prefs['upscale_tile'], on_change=lambda e:changed(e,'upscale_tile'))
+    upscale_ip2p = Switcher(label="Upscale IP2P", value=animate_diff_prefs['upscale_ip2p'], on_change=lambda e:changed(e,'upscale_ip2p'))
+    upscale_lineart_anime = Switcher(label="Upscale LineArt Anime", value=animate_diff_prefs['upscale_lineart_anime'], on_change=lambda e:changed(e,'upscale_lineart_anime'))
+    upscale_steps = SliderRow(label="Upscale Steps", min=1, max=50, divisions=49, pref=animate_diff_prefs, key='upscale_steps', col={'md': 6, 'lg':4}, tooltip="")
+    upscale_strength = SliderRow(label="Upscale Strength", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='upscale_strength', col={'md': 6, 'lg':4}, tooltip="")
+    upscale_guidance_scale = SliderRow(label="Upscale Guidance", min=0, max=20, divisions=40, round=1, pref=animate_diff_prefs, col={'md': 12, 'lg':4}, key='upscale_guidance_scale')
+    
     batch_folder_name = TextField(label="Batch Folder Name", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animate_diff_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -9566,23 +9700,35 @@ def buildAnimateDiff(page):
     page.animate_diff_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.animate_diff_output.controls) > 0
+    animation_prompts = Column([], spacing=0)
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👫  AnimateDiff Text-to-Video", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
+        Header("👫  AnimateDiff Enhanced Text-to-Video", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
-        ResponsiveRow([prompt, negative_prompt, seed]),
-        Row([Text("AnimateDiff Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
-                    Row([ft.FilledTonalButton("Clear Prompts", on_click=clear_animate_diff_prompts), ft.FilledButton("Add Diff Prompt", on_click=lambda e: edit_animate_diff(None))])], alignment=MainAxisAlignment.SPACE_BETWEEN),
-        page.animate_diff_prompts,
+        #ResponsiveRow([prompt, negative_prompt, seed]),
+        #Row([Text("AnimateDiff Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
+        #            Row([ft.FilledTonalButton("Clear Prompts", on_click=clear_animate_diff_prompts), ft.FilledButton("Add Diff Prompt", on_click=lambda e: edit_animate_diff(None))])], alignment=MainAxisAlignment.SPACE_BETWEEN),
+        #page.animate_diff_prompts,
+        Row([frame, prompt, add_prompt_keyframe]),
+        animation_prompts,
         Divider(thickness=2, height=4),
+        Row([negative_prompt, seed]),
         num_inference_row,
         guidance,
         width_slider, height_slider,
         video_length,
-        ResponsiveRow([context, stride]),
-        Row([dreambooth_lora, lora_alpha]),
-        custom_lora,
+        ResponsiveRow([context, stride, clip_skip]),
+        Row([dreambooth_lora, custom_lora]),#, lora_alpha
+        Row([control_task, original_image, add_layer_btn]),
+        Row([control_scale_list,
+        conditioning_scale]),
+        Row([control_guidance_start, control_guidance_end]),
+        multi_layers,
+        Divider(thickness=2, height=4),
+        ref_image,
+        Row([upscale_tile, upscale_ip2p, upscale_lineart_anime]),
+        ResponsiveRow([upscale_steps, upscale_strength, upscale_guidance_scale]),
         Row([motion_module, scheduler, batch_folder_name]),
         Row([save_frames, save_gif, save_video]),
         page.ESRGAN_block_animate_diff,
@@ -30741,24 +30887,6 @@ def run_animate_diff(page):
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
     pip_install("omegaconf einops cmake colorama rich ninja pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib imageio==2.27.0", installer=installer)
-    try:
-        import omegaconf
-    except Exception:
-        installer.set_details("...installing omegaconf & einops")
-        run_sp("pip install omegaconf einops cmake", realtime=False)
-        pass
-    try:
-        import colorama
-    except Exception:
-        installer.set_details("...installing colorama, rich, ninja")
-        run_sp("pip install colorama rich ninja pydantic shellingham typer gdown", realtime=False) #=11.3
-        pass
-    try:
-        import black
-    except Exception:
-        installer.set_details("...installing black, ruff, setuptools-scm")
-        run_sp("pip install black ruff setuptools-scm", realtime=False)
-        pass
     #if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
     try:
         import xformers
@@ -30767,12 +30895,6 @@ def run_animate_diff(page):
         #run_sp("pip install --pre -U triton", realtime=False)
         run_sp("pip install -U xformers", realtime=False)
         status['installed_xformers'] = True
-        pass
-    try:
-        import imageio
-    except Exception:
-        installer.set_details("...installing imageio")
-        run_sp("pip install imageio==2.27.0", realtime=False)
         pass
     try:
         import ffmpeg
@@ -30785,13 +30907,6 @@ def run_animate_diff(page):
     except Exception:
         installer.set_details("...installing sentencepiece")
         run_sp("pip install sentencepiece>=0.1.99", realtime=False)
-        pass
-    
-    try:
-        import controlnet_aux
-    except Exception:
-        installer.set_details("...installing controlnet_aux")
-        run_sp("pip install controlnet_aux matplotlib", realtime=False)
         pass
     try:
         import safetensors
@@ -30906,7 +31021,7 @@ def run_animate_diff(page):
     prompt_map = {}
     negative_prompts = []
     seeds = []
-    if len(animate_diff_prefs['editing_prompts']) == 0:
+    '''if len(animate_diff_prefs['editing_prompts']) == 0:
         if not bool(animate_diff_prefs['prompt']):
             alert_msg(page, "Error: You must provide at least one Prompt to render...")
             return
@@ -30924,7 +31039,28 @@ def run_animate_diff(page):
             negative_prompts.append(ep['negative_prompt'])
             random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
             seeds.append(random_seed)
-            num += 1
+            num += 1'''
+    if len(animate_diff_prefs['animation_prompts']) == 0:
+        if not bool(animate_diff_prefs['prompt']):
+            alert_msg(page, "Error: You must provide at least one Prompt to render...")
+            return
+        else:
+            #editing_prompts.append(animate_diff_prefs['prompt'])
+            prompt_map["0"] = animate_diff_prefs['prompt']
+    else:
+        prompt_map = animate_diff_prefs['animation_prompts']
+    negative_prompts.append(animate_diff_prefs['negative_prompt'])
+    random_seed = int(animate_diff_prefs['seed']) if int(animate_diff_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    seeds.append(random_seed)
+    '''else:
+        num = 0
+        for ep in animate_diff_prefs['animation_prompts']:
+            #editing_prompts.append(ep['prompt'])
+            prompt_map[ep[frame]] = animate_diff_prefs['prompt']
+            negative_prompts.append(ep['negative_prompt'])
+            random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
+            seeds.append(random_seed)
+            num += 1'''
     prompts_json = {
         'name': 'SDD',
         #'base': "",
@@ -30935,14 +31071,17 @@ def run_animate_diff(page):
         'scheduler': animate_diff_prefs['scheduler'],
         'steps': int(animate_diff_prefs['steps']),
         'guidance_scale': float(animate_diff_prefs['guidance_scale']),
+        'clip_skip': int(animate_diff_prefs['clip_skip']),
         #'lora_alpha': float(animate_diff_prefs['lora_alpha']),
         #'prompt': editing_prompts,
         'prompt_map': prompt_map,
         'n_prompt': negative_prompts,
     }
+    
     controlnet_map = {
       "input_image_dir" : f"controlnet_image{slash}test",
-      "max_samples_on_vram": 999,
+      "max_samples_on_vram": 200,
+      "max_models_on_vram" : 3,
       "save_detectmap": True,
       "preprocess_on_gpu": True,
       "controlnet_tile":{
@@ -31072,6 +31211,35 @@ def run_animate_diff(page):
         "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
       }
     }
+    for l in animate_diff_prefs['controlnet_layers']:
+        controlnet_task = f"controlnet_{l['control_task'].lower()}"
+        try:
+            scale_list = [float(x.strip()) for x in l['control_scale_list']]
+        except Exception:
+            print(f"Error converting Scale List {l['control_scale_list']} to list of floats. Using default..")
+            scale_list = [0.5,0.4,0.3,0.2,0.1]
+            pass
+        if bool(l['original_image']):
+            input_image_dir = os.path.join(animatediff_dir, 'data', 'controlnet_image', 'test', controlnet_task)
+            img_name = l['original_image'].rpartition(slash)[2]
+            #TODO: Resize image
+            if os.path.isfile(l['original_image']):
+                shutil.copy(l['original_image'], os.path.join(input_image_dir, img_name))
+            elif l['original_image'].startswith('https://drive'):
+                img_name = l['original_image'].rpartition('/')[2]
+                gdown.download(l['original_image'], os.path.join(input_image_dir, img_name), quiet=True)
+            elif l['original_image'].startswith('http'):
+                img_name = l['original_image'].rpartition('/')[2]
+                download_file(l['original_image'], os.path.join(input_image_dir, img_name))
+        controlnet_map[controlnet_task] = {
+          "enable": True,
+          "use_preprocessor":True,
+          "guess_mode":False,
+          "controlnet_conditioning_scale": float(l['conditioning_scale']),
+          "control_guidance_start": float(l['control_guidance_start']),
+          "control_guidance_end": float(l['control_guidance_end']),
+          "control_scale_list":scale_list,
+        }
     upscale_config = {
       "scheduler": animate_diff_prefs['scheduler'],
       "steps": animate_diff_prefs['upscale_steps'],
@@ -31114,36 +31282,9 @@ def run_animate_diff(page):
     prompts_json['upscale_config'] = upscale_config
     #if bool(lora_path):
     #    prompts_json['lora_scale'] = animate_diff_prefs['lora_alpha']
-    prompts_yaml = f'''
-NewModel:
-  path: "{lora_path}"
-  base: ""
-
-  motion_module:
-    - "{os.path.join(motion_module, "mm_sd_v14.ckpt")}
-    - "{os.path.join(motion_module, "mm_sd_v15.ckpt")}
-
-  seeds:          [{", ".join(map(str, seeds))}]
-  steps:          {int(animate_diff_prefs['steps'])}
-  guidance_scale: {float(animate_diff_prefs['guidance_scale'])}
-
-  prompt:
-'''
-    for p in editing_prompts:
-        prompts_yaml += f'''
-    - "{p}"'''
-    prompts_yaml += f'''
-  n_prompt:'''
-    for n in negative_prompts:
-        prompts_yaml += f'''
-    - "{n}"'''
-    yaml_file = os.path.join(animatediff_dir, "config", "prompts", "prompt.yaml")
     json_file = os.path.join(animatediff_dir, "config", "prompts", "sdd_prompt.json")
     cli_file = os.path.join(animatediff_dir, "src", "animatediff")
     out_dir = os.path.join(animatediff_dir, "output")
-    prompts_file = open(yaml_file, "w")
-    prompts_file.write(prompts_yaml)#(readme_text)
-    prompts_file.close()
     with open(json_file, "w") as outfile:
         json.dump(prompts_json, outfile, indent=4)
     context = min(animate_diff_prefs['video_length'], animate_diff_prefs['context'])
@@ -31284,7 +31425,7 @@ NewModel:
               #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
             except Exception as e:
               #clear_last()
-              alert_msg(page, f"ERROR: Couldn't interpolate video from AnimateDiff, but frames & gif still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+              alert_msg(page, f"ERROR: Couldn't interpolate video with RiFE, but frames & gif still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
               pass
         time.sleep(2)
         vidobserver.stop()
