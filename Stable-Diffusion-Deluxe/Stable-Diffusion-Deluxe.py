@@ -31070,7 +31070,6 @@ def run_animate_diff(page):
         'steps': int(animate_diff_prefs['steps']),
         'guidance_scale': float(animate_diff_prefs['guidance_scale']),
         'clip_skip': int(animate_diff_prefs['clip_skip']),
-        'is_loop': animate_diff_prefs['is_loop'],
         #'lora_alpha': float(animate_diff_prefs['lora_alpha']),
         #'prompt': editing_prompts,
         'prompt_map': prompt_map,
@@ -31083,6 +31082,7 @@ def run_animate_diff(page):
       "max_models_on_vram" : 3,
       "save_detectmap": True,
       "preprocess_on_gpu": True,
+      "is_loop": animate_diff_prefs['is_loop'],
       "controlnet_tile":{
         "enable": False,
         "use_preprocessor":True,
