@@ -492,7 +492,13 @@ status = {
     'changed_prompt_writer': False,
     'initialized': False,
 }
-
+update_time = False
+if 'last_updated' in prefs:
+    last_time = datetime.datetime.strptime(prefs['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
+    #diff = datetime.datetime.now() - last_time
+    if last_time >  datetime.datetime.now() - datetime.timedelta(days=5):
+        update_time = True
+prefs['last_updated'] = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 def save_settings_file(page, change_icon=True):
   if change_icon:
     page.app_icon_save()
@@ -9377,6 +9383,7 @@ animate_diff_prefs = {
     'is_loop': False,
     'compile': False,
     'control_task': 'Canny',
+    'control_frame': '0',
     'original_image': '',    
     'conditioning_scale': 1.0,
     'control_guidance_start': 0.0,
@@ -9621,17 +9628,31 @@ def buildAnimateDiff(page):
       animation_prompts.update()
       if prefs['enable_sounds'] and sound: page.snd_drop.play()
     def add_layer(e):
+        control_images = {str(int(animate_diff_prefs['control_frame'])): animate_diff_prefs['original_image']}
+        updating = False
         for l in animate_diff_prefs['controlnet_layers']:
             if l['control_task'] == animate_diff_prefs['control_task']:
-                alert_msg(e.page, f"{l['control_task']} Control Task already exists...")
-                return
-        layer = {'control_task': animate_diff_prefs['control_task'], 'original_image': animate_diff_prefs['original_image'], 'control_scale_list': animate_diff_prefs['control_scale_list'], 'conditioning_scale': animate_diff_prefs['conditioning_scale'], 'control_guidance_start': animate_diff_prefs['control_guidance_start'], 'control_guidance_end': animate_diff_prefs['control_guidance_end'], 'use_init_video': False}
+                control_images = merge_dict(l['control_images'], control_images)
+                updating = True
+                #alert_msg(e.page, f"{l['control_task']} Control Task already exists...")
+                #return
+        layer = {'control_task': animate_diff_prefs['control_task'], 'control_images': control_images, 'control_frame': animate_diff_prefs['control_frame'], 'original_image': animate_diff_prefs['original_image'], 'control_scale_list': animate_diff_prefs['control_scale_list'], 'conditioning_scale': animate_diff_prefs['conditioning_scale'], 'control_guidance_start': animate_diff_prefs['control_guidance_start'], 'control_guidance_end': animate_diff_prefs['control_guidance_end'], 'use_init_video': False}
         animate_diff_prefs['controlnet_layers'].append(layer)
-        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{layer['original_image']} - ") if bool(layer['original_image']) else Container(content=None), Text(f"Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
-          items=[
-              PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
-              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
-          ]), data=layer))
+        images = ""
+        for f, img in control_images.items():
+            images += f"{f}: {img} - "
+        if updating:
+            for l in multi_layers.controls:
+                if l.data['control_task'] == animate_diff_prefs['control_task']:
+                    l.title = Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")])
+                    l.update()
+                    l.data = layer
+        else:
+            multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+              items=[
+                  PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
+                  PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+              ]), data=layer))
         multi_layers.update()
         animate_diff_prefs['original_image'] = ""
         original_image.value = ""
@@ -9674,6 +9695,7 @@ def buildAnimateDiff(page):
     is_loop = Switcher(label="Loop", value=animate_diff_prefs['is_loop'], on_change=lambda e:changed(e,'is_loop'))
     control_task = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
     original_image = FileInput(label="Original Image", pref=animate_diff_prefs, key='original_image', expand=True, page=page)
+    control_frame = TextField(label="Frame", width=76, value="0", keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'control_frame', ptype='int'))
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, expand=True, pref=animate_diff_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_xl_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
@@ -9723,7 +9745,7 @@ def buildAnimateDiff(page):
         ResponsiveRow([context, stride, clip_skip]),
         Row([dreambooth_lora, custom_lora]),#, lora_alpha
         Divider(thickness=4, height=4),
-        Row([control_task, original_image, add_layer_btn]),
+        Row([control_task, control_frame, original_image, add_layer_btn]),
         Row([control_scale_list,
         conditioning_scale]),
         Row([control_guidance_start, control_guidance_end]),
@@ -31218,18 +31240,20 @@ def run_animate_diff(page):
             print(f"Error converting Scale List {l['control_scale_list']} to list of floats. Using default..")
             scale_list = [0.5,0.4,0.3,0.2,0.1]
             pass
-        if bool(l['original_image']):
-            input_image_dir = os.path.join(animatediff_dir, 'data', 'controlnet_image', 'test', controlnet_task)
-            img_name = '0000.png'#l['original_image'].rpartition(slash)[2]
-            #TODO: Resize image
-            if os.path.isfile(l['original_image']):
-                shutil.copy(l['original_image'], os.path.join(input_image_dir, img_name))
-            elif l['original_image'].startswith('https://drive'):
-                #img_name = l['original_image'].rpartition('/')[2]
-                gdown.download(l['original_image'], os.path.join(input_image_dir, img_name), quiet=True)
-            elif l['original_image'].startswith('http'):
-                #img_name = l['original_image'].rpartition('/')[2]
-                download_file(l['original_image'], os.path.join(input_image_dir, img_name))
+        input_image_dir = os.path.join(animatediff_dir, 'data', 'controlnet_image', 'test', controlnet_task)
+        for old in os.listdir(input_image_dir):
+            os.remove(os.path.join(input_image_dir, old))
+        control_images = l['control_images']
+        for f, original_image in l['control_images'].items():
+            if bool(original_image):
+                img_path = os.path.join(input_image_dir, f'{str(f).zfill(4)}.png')
+                #TODO: Resize image
+                if os.path.isfile(original_image):
+                    shutil.copy(original_image, img_path)
+                elif original_image.startswith('https://drive'):
+                    gdown.download(original_image, img_path, quiet=True)
+                elif original_image.startswith('http'):
+                    download_file(original_image, img_path)
         controlnet_map[controlnet_task] = {
           "enable": True,
           "use_preprocessor":True,
