@@ -9374,6 +9374,7 @@ animate_diff_prefs = {
     'save_frames': True,
     'save_gif': True,
     'save_video': False,
+    'is_loop': False,
     'compile': False,
     'control_task': 'Canny',
     'original_image': '',    
@@ -9670,6 +9671,7 @@ def buildAnimateDiff(page):
     save_frames = Switcher(label="Save Frames", value=animate_diff_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
     save_gif = Switcher(label="Save Animated GIF", value=animate_diff_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
     save_video = Switcher(label="Save Video", value=animate_diff_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
+    is_loop = Switcher(label="Loop", value=animate_diff_prefs['is_loop'], on_change=lambda e:changed(e,'is_loop'))
     control_task = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
     original_image = FileInput(label="Original Image", pref=animate_diff_prefs, key='original_image', expand=True, page=page)
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
@@ -9720,6 +9722,7 @@ def buildAnimateDiff(page):
         video_length,
         ResponsiveRow([context, stride, clip_skip]),
         Row([dreambooth_lora, custom_lora]),#, lora_alpha
+        Divider(thickness=4, height=4),
         Row([control_task, original_image, add_layer_btn]),
         Row([control_scale_list,
         conditioning_scale]),
@@ -9730,7 +9733,7 @@ def buildAnimateDiff(page):
         Row([upscale_tile, upscale_ip2p, upscale_lineart_anime]),
         ResponsiveRow([upscale_steps, upscale_strength, upscale_guidance_scale]),
         Row([motion_module, scheduler, batch_folder_name]),
-        Row([save_frames, save_gif, save_video]),
+        Row([is_loop, save_frames, save_gif, save_video]),
         page.ESRGAN_block_animate_diff,
         #Row([jump_length, jump_n_sample, seed]),
         Row([
@@ -30886,7 +30889,7 @@ def run_animate_diff(page):
         installer.set_details("...installing transformers")
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
-    pip_install("omegaconf einops cmake colorama rich ninja pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib imageio==2.27.0", installer=installer)
+    pip_install("omegaconf einops cmake colorama rich ninja copier==8.1.0 pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib watchdog imageio==2.27.0", installer=installer)
     #if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
     try:
         import xformers
@@ -30926,12 +30929,6 @@ def run_animate_diff(page):
             clear_last()
             alert_msg(page, f"ERROR: Couldn't Install AnimateDiff Requirements for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    try:
-        import watchdog
-    except ImportError as e:
-        installer.set_details("...installing watchdog")
-        run_sp("pip install -q watchdog", realtime=False)
-        pass
     if animate_diff_prefs['save_video']:
         import platform
         rife_dir = os.path.join(animatediff_dir, 'data', 'rife')
@@ -30965,7 +30962,8 @@ def run_animate_diff(page):
     motion_module = os.path.join(animatediff_dir, 'data', 'models', 'motion-module')
     if not os.path.isdir(motion_module):
         os.makedirs(motion_module)
-    run_sp(f"rm -rf {sd_models}", realtime=False)
+    #run_sp(f"rm -rf {sd_models}", realtime=False)
+    shutil.rmtree(sd_models)
     installer.set_details("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
     #if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
@@ -31072,6 +31070,7 @@ def run_animate_diff(page):
         'steps': int(animate_diff_prefs['steps']),
         'guidance_scale': float(animate_diff_prefs['guidance_scale']),
         'clip_skip': int(animate_diff_prefs['clip_skip']),
+        'is_loop': animate_diff_prefs['is_loop'],
         #'lora_alpha': float(animate_diff_prefs['lora_alpha']),
         #'prompt': editing_prompts,
         'prompt_map': prompt_map,
@@ -31221,15 +31220,15 @@ def run_animate_diff(page):
             pass
         if bool(l['original_image']):
             input_image_dir = os.path.join(animatediff_dir, 'data', 'controlnet_image', 'test', controlnet_task)
-            img_name = l['original_image'].rpartition(slash)[2]
+            img_name = '0000.png'#l['original_image'].rpartition(slash)[2]
             #TODO: Resize image
             if os.path.isfile(l['original_image']):
                 shutil.copy(l['original_image'], os.path.join(input_image_dir, img_name))
             elif l['original_image'].startswith('https://drive'):
-                img_name = l['original_image'].rpartition('/')[2]
+                #img_name = l['original_image'].rpartition('/')[2]
                 gdown.download(l['original_image'], os.path.join(input_image_dir, img_name), quiet=True)
             elif l['original_image'].startswith('http'):
-                img_name = l['original_image'].rpartition('/')[2]
+                #img_name = l['original_image'].rpartition('/')[2]
                 download_file(l['original_image'], os.path.join(input_image_dir, img_name))
         controlnet_map[controlnet_task] = {
           "enable": True,
