@@ -42,6 +42,7 @@ Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\refresh.bat";
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\debug-venv.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\run-sdd.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\sdd-local.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\sdd-noupdate.bat"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

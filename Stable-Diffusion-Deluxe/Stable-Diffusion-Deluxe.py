@@ -129,7 +129,7 @@ except ModuleNotFoundError:
   pass
 try:
   from IPython.display import clear_output
-except Exception:
+except ModuleNotFoundError:
   run_sp("pip install -q ipython")
   from IPython.display import clear_output
   pass
@@ -352,6 +352,9 @@ def load_settings_file():
       'LoRA_model': 'Von Platen LoRA',
       'custom_LoRA_models': [],
       'custom_LoRA_model': "",
+      'SDXL_LoRA_model': 'Papercut SDXL',
+      'custom_SDXL_LoRA_models': [],
+      'custom_SDXL_LoRA_model': "",
       'use_interpolation': False,
       'num_interpolation_steps': 22,
       'use_clip_guided_model': False,
@@ -426,7 +429,7 @@ from flet import icons, dropdown, colors, padding, margin, alignment, border_rad
 from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
 from flet import BlendMode
 from flet import Image as Img
-from sdd_utils import finetuned_models, dreambooth_models, styles, artists
+from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists
 try:
     import PIL
 except ModuleNotFoundError:
@@ -492,13 +495,15 @@ status = {
     'changed_prompt_writer': False,
     'initialized': False,
 }
-update_time = False
+
 if 'last_updated' in prefs:
     last_time = datetime.datetime.strptime(prefs['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
     #diff = datetime.datetime.now() - last_time
-    if last_time >  datetime.datetime.now() - datetime.timedelta(days=5):
-        update_time = True
-prefs['last_updated'] = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    if last_time >  datetime.datetime.now() - datetime.timedelta(days=4):
+        force_updates = True
+else:
+    force_updates = True
+
 def save_settings_file(page, change_icon=True):
   if change_icon:
     page.app_icon_save()
@@ -876,6 +881,9 @@ if 'use_LoRA_model' not in prefs: prefs['use_LoRA_model'] = False
 if 'LoRA_model' not in prefs: prefs['LoRA_model'] = "Von Platen LoRA"
 if 'custom_LoRA_models' not in prefs: prefs['custom_LoRA_models'] = []
 if 'custom_LoRA_model' not in prefs: prefs['custom_LoRA_model'] = ''
+if 'SDXL_LoRA_model' not in prefs: prefs['SDXL_LoRA_model'] = "Papercut SDXL"
+if 'custom_SDXL_LoRA_models' not in prefs: prefs['custom_SDXL_LoRA_models'] = []
+if 'custom_SDXL_LoRA_model' not in prefs: prefs['custom_SDXL_LoRA_model'] = ''
 if 'custom_dance_diffusion_models' not in prefs: prefs['custom_dance_diffusion_models'] = []
 if 'negative_prompt' not in prefs['prompt_writer']: prefs['prompt_writer']['negative_prompt'] = ''
 if 'install_attend_and_excite' not in prefs: prefs['install_attend_and_excite'] = False
@@ -1675,7 +1683,9 @@ def buildInstallers(page):
       update_parameters(page)
       page.Parameters.controls[0].content.update()
       #page.Parameters.updater()
-      force_updates = False
+      if force_updates:
+          prefs['last_updated'] = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+          force_updates = False
       if current_tab==1:
         page.Installers.controls[0].content.update()
         page.Installers.update()
@@ -1927,7 +1937,10 @@ def buildParameters(page):
       changed(e, 'LoRA_model', apply=False)
       custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
       custom_LoRA_model.update()
-
+  def changed_SDXL_LoRA(e):
+      changed(e, 'SDXL_LoRA_model', apply=False)
+      custom_SDXL_LoRA_model.visible = True if prefs['SDXL_LoRA_model'] == "Custom SDXL LoRA Path" else False
+      custom_SDXL_LoRA_model.update()
   batch_folder_name = TextField(label="Batch Folder Name", value=prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name', apply=False))
   #batch_size = TextField(label="Batch Size", value=prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'batch_size'))
   #n_iterations = TextField(label="Number of Iterations", value=prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations'))
@@ -1968,17 +1981,27 @@ def buildParameters(page):
   page.use_versatile = Switcher(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Dual Guided between prompt & image, or create Image Variation.")
   page.use_versatile.visible = status['installed_versatile']
   use_LoRA_model = Switcher(label="Use LoRA Model Adapter Layer ", value=prefs['use_LoRA_model'], on_change=toggle_LoRA, tooltip="Applies custom trained weighted attention model on top of loaded model")
-  page.LoRA_model = Dropdown(label="LoRA Model Weights", width=200, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
+  page.LoRA_model = Dropdown(label="LoRA Model Weights", width=220, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
   if len(prefs['custom_LoRA_models']) > 0:
     for l in prefs['custom_LoRA_models']:
       page.LoRA_model.options.append(dropdown.Option(l['name']))
   for m in LoRA_models:
       page.LoRA_model.options.append(dropdown.Option(m['name']))
   page.LoRA_model.options.append(dropdown.Option("Custom LoRA Path"))
-
   custom_LoRA_model = TextField(label="Custom LoRA Model Path", value=prefs['custom_LoRA_model'], width=370, on_change=lambda e:changed(e, 'custom_LoRA_model', apply=False))
   custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
-  LoRA_block = Container(Row([page.LoRA_model, custom_LoRA_model]), padding=padding.only(top=3), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  
+  page.SDXL_LoRA_model = Dropdown(label="SDXL LoRA Model Weights", width=220, options=[], value=prefs['SDXL_LoRA_model'], on_change=changed_SDXL_LoRA)
+  if len(prefs['custom_SDXL_LoRA_models']) > 0:
+    for l in prefs['custom_SDXL_LoRA_models']:
+      page.SDXL_LoRA_model.options.append(dropdown.Option(l['name']))
+  for m in SDXL_LoRA_models:
+      page.SDXL_LoRA_model.options.append(dropdown.Option(m['name']))
+  page.SDXL_LoRA_model.options.append(dropdown.Option("Custom SDXL LoRA Path"))
+  custom_SDXL_LoRA_model = TextField(label="Custom SDXL LoRA Model Path", value=prefs['custom_SDXL_LoRA_model'], width=370, on_change=lambda e:changed(e, 'custom_SDXL_LoRA_model', apply=False))
+  custom_SDXL_LoRA_model.visible = True if prefs['SDXL_LoRA_model'] == "Custom SDXL LoRA Path" else False
+
+  LoRA_block = Container(Row([page.LoRA_model, custom_LoRA_model, page.SDXL_LoRA_model, custom_SDXL_LoRA_model]), padding=padding.only(top=3), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   LoRA_block.width = None if prefs['use_LoRA_model'] else 0
   centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
   use_interpolation = Switcher(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
@@ -9381,7 +9404,7 @@ animate_diff_prefs = {
     'save_gif': True,
     'save_video': False,
     'is_loop': False,
-    'compile': False,
+    'compile': prefs['enable_torch_compile'],
     'control_task': 'Canny',
     'control_frame': '0',
     'original_image': '',    
@@ -14052,8 +14075,8 @@ def buildCustomModelManager(page):
     def title_header(title, type):
         return Row([Text(title, style=TextThemeStyle.BODY_LARGE),
                     ft.FilledButton(f"Add {type} Model", on_click=lambda e: add_model(type))], alignment=MainAxisAlignment.SPACE_BETWEEN)
-    def model_tile(name, path, token, type):
-        return ListTile(title=Row([Text(name, weight=FontWeight.BOLD), Text(path), Text(token)], alignment=MainAxisAlignment.SPACE_BETWEEN), data=type, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+    def model_tile(name, path, token, type, weights=""):
+        return ListTile(title=Row([Text(name, weight=FontWeight.BOLD), Text(path + (f" - {weights}" if bool(weights) else "")), Text(token)], alignment=MainAxisAlignment.SPACE_BETWEEN), data=type, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[PopupMenuItem(icon=icons.EDIT, text="Edit Custom Model", on_click=lambda e: edit_model(e, name), data=type),
                  PopupMenuItem(icon=icons.DELETE, text="Delete Custom Model", on_click=lambda e: del_model(e, name), data=type)]), on_click=lambda e: edit_model(e, name))
     def load_customs():
@@ -14066,8 +14089,13 @@ def buildCustomModelManager(page):
         #custom_models.update()
         for mod in prefs['custom_LoRA_models']:
             token = mod['prefix'] if 'prefix' in mod else ""
-            custom_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], token, "LoRA"))
+            weights = mod['weights'] if 'weights' in mod else ""
+            custom_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], token, "LoRA", weights=weights))
         #custom_LoRA_models.update()
+        for mod in prefs['custom_SDXL_LoRA_models']:
+            token = mod['prefix'] if 'prefix' in mod else ""
+            weights = mod['weights'] if 'weights' in mod else ""
+            custom_SDXL_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], token, "SDXL LoRA", weights=weights))
         for mod in prefs['custom_dance_diffusion_models']:
             token = mod['prefix'] if 'prefix' in mod else ""
             custom_dance_diffusion_models.controls.append(model_tile(mod['name'], mod['path'], token, "DanceDiffusion"))
@@ -14081,6 +14109,8 @@ def buildCustomModelManager(page):
             return prefs["custom_models"]
         elif type == "LoRA":
             return prefs["custom_LoRA_models"]
+        elif type == "SDXL LoRA":
+            return prefs["custom_SDXL_LoRA_models"]
         elif type == "DanceDiffusion":
             return prefs["custom_dance_diffusion_models"]
         elif type == "Tortoise":
@@ -14096,11 +14126,15 @@ def buildCustomModelManager(page):
                 break
         if mod is None: return
         path = mod['path' if type != "Tortoise" else 'folder']
+        if 'LoRA' in type:
+            weights = mod['weights'] if 'LoRA' in type and 'weights' in mod else ""
+        else: weights = None
         #print(str(mod))
         def close_dlg(e):
             dlg_edit.open = False
             page.update()
         def save_model(e):
+            nonlocal weights
             if type == "Finetuned":
                 for m in custom_models.controls:
                     if m.title.controls[0].value == name:
@@ -14112,6 +14146,14 @@ def buildCustomModelManager(page):
                     if m.title.controls[0].value == name:
                         m.title.controls[0].value = model_name.value
                         m.title.controls[1].value = model_path.value
+                        m.title.controls[2].value = model_weights.value
+                        m.update()
+            elif type == "SDXL LoRA":
+                for m in custom_SDXL_LoRA_models.controls:
+                    if m.title.controls[0].value == name:
+                        m.title.controls[0].value = model_name.value
+                        m.title.controls[1].value = model_path.value
+                        m.title.controls[2].value = model_weights.value
                         m.update()
             elif type == "DanceDiffusion":
                 for m in custom_dance_diffusion_models.controls:
@@ -14127,12 +14169,15 @@ def buildCustomModelManager(page):
                         m.update()
             mod['name'] = model_name.value
             mod['path' if type != "Tortoise" else 'folder'] = model_path.value
+            if weights != None:
+                mod['weights'] = model_weights.value
             dlg_edit.open = False
             e.control.update()
             page.update()
         model_name = TextField(label="Custom Model Name", value=name)
         model_path = TextField(label="Model Path", value=path)
-        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit {type} Model Info"), content=Container(Column([model_name, model_path], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
+        model_weights = TextField(label="Model Weights (safetensor)", value=weights or "")
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit {type} Model Info"), content=Container(Column([model_name, model_path, model_weights if weights != None else Container(content=None)], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
         page.dialog = dlg_edit
         dlg_edit.open = True
         page.update()
@@ -14142,14 +14187,21 @@ def buildCustomModelManager(page):
             dlg_edit.open = False
             page.update()
         def save_model(e):
-            mod = {'name': model_name.value, 'path': model_path.value}
+            mod = {'name': model_name.value, 'path' if type != "Tortoise" else 'folder': model_path.value}
+            if 'LoRA' in type:
+                mod['weights'] = model_weights.value
             mod_list.append(mod)
             if type == "Finetuned":
                 custom_models.controls.append(model_tile(mod['name'], mod['path'], "", "Finetuned"))
                 custom_models.update()
             elif type == "LoRA":
-                custom_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], "", "LoRA"))
+                weights = mod['weights'] if 'weights' in mod else ""
+                custom_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], "", "LoRA", weights=weights))
                 custom_LoRA_models.update()
+            elif type == "SDXL LoRA":
+                weights = mod['weights'] if 'weights' in mod else ""
+                custom_SDXL_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], "", "SDXL LoRA", weights=weights))
+                custom_SDXL_LoRA_models.update()
             elif type == "DanceDiffusion":
                 custom_dance_diffusion_models.controls.append(model_tile(mod['name'], mod['path'], "", "DanceDiffusion"))
                 custom_dance_diffusion_models.update()
@@ -14161,7 +14213,8 @@ def buildCustomModelManager(page):
             page.update()
         model_name = TextField(label="Custom Model Name")
         model_path = TextField(label="Model Path")
-        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Add Custom {type} Model"), content=Container(Column([model_name, model_path], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
+        model_weights = TextField(label="Model Weights (safetensor)")
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Add Custom {type} Model"), content=Container(Column([model_name, model_path, model_weights if 'LoRA' in type else Container(content=None)], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
         page.dialog = dlg_edit
         dlg_edit.open = True
         page.update()
@@ -14184,6 +14237,12 @@ def buildCustomModelManager(page):
                 if l.title.controls[0].value == name:
                     del custom_LoRA_models.controls[i]
                     custom_LoRA_models.update()
+                    break
+        elif type == "SDXL LoRA":
+            for i, l in enumerate(custom_SDXL_LoRA_models.controls):
+                if l.title.controls[0].value == name:
+                    del custom_LoRA_SDXL_models.controls[i]
+                    custom_LoRA_SDXL_models.update()
                     break
         elif type == "DanceDiffusion":
             for i, l in enumerate(custom_dance_diffusion_models.controls):
@@ -14214,6 +14273,14 @@ def buildCustomModelManager(page):
         page.LoRA_model.options.append(dropdown.Option("Custom LoRA Path"))
         try: page.LoRA_model.update()
         except: pass
+        page.SDXL_LoRA_model.options.clear()
+        for cust in model_list("SDXL LoRA"):
+            page.SDXL_LoRA_model.options.append(dropdown.Option(cust["name"]))
+        for mod in SDXL_LoRA_models:
+            page.SDXL_LoRA_model.options.append(dropdown.Option(mod["name"]))
+        page.SDXL_LoRA_model.options.append(dropdown.Option("Custom SDXL LoRA Path"))
+        try: page.SDXL_LoRA_model.update()
+        except: pass
         page.community_dance_diffusion_model.options.clear()
         for cust in model_list("DanceDiffusion"):
             page.community_dance_diffusion_model.options.append(dropdown.Option(cust["name"]))
@@ -14233,6 +14300,7 @@ def buildCustomModelManager(page):
         if prefs['enable_sounds']: page.snd_drop.play()
     custom_models = Column([], spacing=0)
     custom_LoRA_models = Column([], spacing=0)
+    custom_SDXL_LoRA_models = Column([], spacing=0)
     custom_dance_diffusion_models = Column([], spacing=0)
     tortoise_custom_voices = Column([], spacing=0)
     load_customs()
@@ -14244,6 +14312,8 @@ def buildCustomModelManager(page):
         custom_models,
         title_header("Custom LoRA Models", "LoRA"),
         custom_LoRA_models,
+        title_header("Custom SDXL LoRA Models", "SDXL LoRA"),
+        custom_SDXL_LoRA_models,
         title_header("Custom Tortoise Voice Models", "Tortoise"),
         tortoise_custom_voices,
         title_header("Custom Dance Diffusion Models", "DanceDiffusion"),
@@ -14441,14 +14511,25 @@ def get_dreambooth_model(name):
   return {'name':'', 'path':'', 'prefix':''}
 def get_LoRA_model(name):
   if name == "Custom LoRA Path":
-      return {'name':"Custom LoRA Model", 'path':prefs['custom_LoRA_model'], 'weight_name':None}
+      return {'name':"Custom LoRA Model", 'path':prefs['custom_LoRA_model'], 'weights':None}
   for mod in LoRA_models:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path'], 'weight_name':None if 'weight_name' in mod else mod['weight_name']}
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
   if len(prefs['custom_LoRA_models']) > 0:
     for mod in prefs['custom_LoRA_models']:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path'], 'weight_name':None if 'weight_name' in mod else mod['weight_name']}
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
+  return {'name':'', 'path':''}
+def get_SDXL_LoRA_model(name):
+  if name == "Custom SDXL LoRA Path":
+      return {'name':"Custom SDXL LoRA Model", 'path':prefs['custom_SDXL_LoRA_model'], 'weights':None}
+  for mod in SDXL_LoRA_models:
+      if mod['name'] == name:
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
+  if len(prefs['custom_SDXL_LoRA_models']) > 0:
+    for mod in prefs['custom_SDXL_LoRA_models']:
+      if mod['name'] == name:
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
   return {'name':'', 'path':''}
 
 def get_diffusers(page):
@@ -14889,8 +14970,8 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
       p.unet = torch.compile(p.unet)
     if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
-      if bool(lora['weight_name']):
-        p.load_lora_weights(lora['path'], weight_name=lora['weight_name'])
+      if bool(lora['weights']):
+        p.load_lora_weights(lora['path'], weight_name=lora['weights'])
       else:
         p.load_lora_weights(lora['path'])
       #TODO: , weight_name=lora_filename
@@ -14933,9 +15014,9 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
     if prefs['vae_tiling'] and vae_tiling:
       p.enable_vae_tiling()
     if prefs['use_LoRA_model']:
-      lora = get_LoRA_model(prefs['LoRA_model'])
-      if bool(lora['weight_name']):
-        p.load_lora_weights(lora['path'], weight_name=lora['weight_name'])
+      lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
+      if bool(lora['weights']):
+        p.load_lora_weights(lora['path'], weight_name=lora['weights'])
       else:
         p.load_lora_weights(lora['path'])
       #p.unet.load_attn_procs(lora['path'])
@@ -16795,10 +16876,22 @@ def start_diffusion(page):
           new_dream.arg['n_iterations'] = 1
           #prompts.insert(p_idx+1, new_dream)
           updated_prompts.append(new_dream)
-
+    prefix = ""
     if bool(model['prefix']):
       if model['prefix'][-1] != ' ':
         model['prefix'] = model['prefix'] + ' '
+      prefix = model['prefix']
+    if prefs['use_LoRA_model']:
+      if prefs['use_SDXL'] and status['installed_SDXL']:
+        lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
+      else:
+        lora = get_LoRA_model(prefs['LoRA_model'])
+      if 'prefix' in lora:
+        if bool(lora['prefix']):
+          prefix += lora['prefix']
+          if prefix[-1] != ' ':
+            prefix += ' '
+
     for p in updated_prompts:
       pr = ""
       images = None
@@ -16808,11 +16901,11 @@ def start_diffusion(page):
         if (status['installed_stability'] and prefs['use_Stability_api']) or (status['installed_AIHorde'] and prefs['use_AIHorde_api']):
           pr = p
         else:
-          pr = model['prefix'] + p
+          pr = prefix + p
         arg = args.copy()
       elif isinstance(p, Dream):
         if (status['installed_stability'] and prefs['use_Stability_api']) or (status['installed_AIHorde'] and prefs['use_AIHorde_api']):
-          pr = model['prefix'] + p.prompt
+          pr = prefix + p.prompt
         else:
           pr = p.prompt
         arg = merge_dict(args, p.arg)
@@ -30995,7 +31088,7 @@ def run_animate_diff(page):
     #installer.set_details("...downloading motion_module-v1-5")
     #download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
     #sd_models = "runwayml/stable-diffusion-v1-5"
-    lora_model = {'name': 'None', 'file': '', 'path': '', 'weight_name': None}
+    lora_model = {'name': 'None', 'file': '', 'path': '', 'weights': None}
     lora_dir = os.path.join(animatediff_dir, 'data', 'models', 'sd')
     #lora_dir = os.path.join(animatediff_dir, 'models', 'DreamBooth_LoRA')
     if not os.path.isdir(lora_dir):
@@ -31087,6 +31180,7 @@ def run_animate_diff(page):
         'path': lora_path,
         'motion_module': f"models{slash}motion-module{slash}{animate_diff_prefs['motion_module']}.ckpt",
         #'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
+        'compile': prefs['enable_torch_compile'],
         'seed': seeds,
         'scheduler': animate_diff_prefs['scheduler'],
         'steps': int(animate_diff_prefs['steps']),
