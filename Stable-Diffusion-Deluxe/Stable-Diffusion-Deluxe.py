@@ -9657,29 +9657,33 @@ def buildAnimateDiff(page):
             if l['control_task'] == animate_diff_prefs['control_task']:
                 control_images = merge_dict(l['control_images'], control_images)
                 updating = True
-                #alert_msg(e.page, f"{l['control_task']} Control Task already exists...")
-                #return
         layer = {'control_task': animate_diff_prefs['control_task'], 'control_images': control_images, 'control_frame': animate_diff_prefs['control_frame'], 'original_image': animate_diff_prefs['original_image'], 'control_scale_list': animate_diff_prefs['control_scale_list'], 'conditioning_scale': animate_diff_prefs['conditioning_scale'], 'control_guidance_start': animate_diff_prefs['control_guidance_start'], 'control_guidance_end': animate_diff_prefs['control_guidance_end'], 'use_init_video': False}
-        animate_diff_prefs['controlnet_layers'].append(layer)
         images = ""
         for f, img in control_images.items():
             images += f"{f}: {img} - "
         if updating:
+            for i, cn in enumerate(animate_diff_prefs['controlnet_layers']):
+                if cn['control_task'] == animate_diff_prefs['control_task']:
+                    animate_diff_prefs['controlnet_layers'][i] = layer
             for l in multi_layers.controls:
                 if l.data['control_task'] == animate_diff_prefs['control_task']:
-                    l.title = Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")])
+                    l.title = Markdown(f"**{layer['control_task']}** - {images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")
+                    #l.title = Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")])
                     l.update()
                     l.data = layer
         else:
-            multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+            animate_diff_prefs['controlnet_layers'].append(layer)
+            title = Markdown(f"**{layer['control_task']}** - {images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")
+            #multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+            multi_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
               items=[
                   PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
                   PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
               ]), data=layer))
         multi_layers.update()
-        animate_diff_prefs['original_image'] = ""
-        original_image.value = ""
-        original_image.update()
+        #animate_diff_prefs['original_image'] = ""
+        #original_image.value = ""
+        #original_image.update()
     def delete_layer(e):
         animate_diff_prefs['controlnet_layers'].remove(e.control.data)
         for c in multi_layers.controls:
