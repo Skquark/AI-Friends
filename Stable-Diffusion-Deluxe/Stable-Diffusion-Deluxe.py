@@ -9721,14 +9721,14 @@ def buildAnimateDiff(page):
     save_video = Switcher(label="Save Video", value=animate_diff_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
     is_loop = Switcher(label="Loop", value=animate_diff_prefs['is_loop'], on_change=lambda e:changed(e,'is_loop'))
     control_task = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
-    original_image = FileInput(label="Original Image", pref=animate_diff_prefs, key='original_image', expand=True, page=page)
+    original_image = FileInput(label="Original Image or Video Clip", pref=animate_diff_prefs, key='original_image', ftype="picture", expand=True, page=page)
     control_frame = TextField(label="Frame", width=76, value="0", keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'control_frame', ptype='int'))
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, expand=True, pref=animate_diff_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_xl_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
     ref_image = FileInput(label="Reference Image (optional)", pref=animate_diff_prefs, key='ref_image', page=page)
-    control_scale_list  = TextField(label="Control Scale List", value=animate_diff_prefs['control_scale_list'], on_change=lambda e:changed(e,'control_scale_list'))
+    control_scale_list  = TextField(label="Control Scale List", width=236, value=animate_diff_prefs['control_scale_list'], on_change=lambda e:changed(e,'control_scale_list'))
     #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNetXL Layer", on_click=add_layer)
     add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
     multi_layers = Column([], spacing=0)
@@ -19750,31 +19750,31 @@ def run_background_remover(page):
     try:
         from huggingface_hub import hf_hub_download
     except ModuleNotFoundError:
-        installer.set_details("...HuggingFace Hub")
+        installer.status("...HuggingFace Hub")
         run_process("pip install huggingface_hub --upgrade", page=page)
         from huggingface_hub import hf_hub_download
         pass
     try:
         import cv2
     except ModuleNotFoundError:
-        installer.set_details("...installing opencv")
+        installer.status("...installing opencv")
         run_sp("pip install opencv-python", realtime=False)
         import cv2
         pass
     try:
         import onnx
     except ImportError as e:
-        installer.set_details("...installing onnx")
+        installer.status("...installing onnx")
         run_sp("pip install -q onnx==1.14.0", realtime=False)
         pass
     try:
         import onnxruntime
     except ImportError as e:
-        installer.set_details("...installing onnxruntime")
+        installer.status("...installing onnxruntime")
         run_sp("pip install -q onnxruntime-gpu==1.15.0", realtime=False)
         pass
     if pipe_background_remover == None:
-        installer.set_details("...downloading model")
+        installer.status("...downloading model")
         pipe_background_remover = hf_hub_download('nateraw/background-remover-files', 'modnet.onnx', repo_type='dataset')
     from io import BytesIO
     from PIL import ImageOps
@@ -19799,7 +19799,7 @@ def run_background_remover(page):
         y_scale_factor = im_rh / im_h
         return x_scale_factor, y_scale_factor
     if background_remover_prefs['init_image'].startswith('http'):
-        installer.set_details("...downloading image")
+        installer.status("...downloading image")
         init_file = background_remover_prefs['init_image'].rpartition("/")[2].rpartition(".")[0]
         init_img = PILImage.open(requests.get(background_remover_prefs['init_image'], stream=True).raw)
     else:
@@ -20463,16 +20463,16 @@ def run_controlnet_segment(page, from_list=False):
     try:
         from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
     except ModuleNotFoundError:
-        installer.set_details("...facebookresearch/segment-anything")
+        installer.status("...facebookresearch/segment-anything")
         run_sp("pip install git+https://github.com/facebookresearch/segment-anything.git", realtime=False)
         from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
         pass
     SAM_URL = "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
     SAM_dir = os.path.join(root_dir, "sam_vit_h_4b8939.pth")
     if not os.path.exists(SAM_dir):
-        installer.set_details("...Downloading SAM Weights")
+        installer.status("...Downloading SAM Weights")
         r = requests.get(SAM_URL, allow_redirects=True)
-        installer.set_details("...Writing SAM Weights")
+        installer.status("...Writing SAM Weights")
         with open(SAM_dir, "wb") as sam_weights:
             sam_weights.write(r.content)
         del r
@@ -20486,9 +20486,9 @@ def run_controlnet_segment(page, from_list=False):
     #prt(installer)
     if pipe_controlnet_segment == None:
         try:
-            installer.set_details(f"...ControlNet Model {controlnet_model}")
+            installer.status(f"...ControlNet Model {controlnet_model}")
             pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16).to(torch_device)
-            installer.set_details(f"...SD Model {model_name}")
+            installer.status(f"...SD Model {model_name}")
             pipe_controlnet_segment = StableDiffusionControlNetPipeline.from_pretrained(model, controlnet=pipe_controlnet, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             pipe_controlnet_segment = pipeline_scheduler(pipe_controlnet_segment)
             pipe_controlnet_segment = optimize_pipe(pipe_controlnet_segment)
@@ -22065,7 +22065,7 @@ def run_audio_diffusion(page):
     try:
         import mel
     except ModuleNotFoundError:
-        installer.set_details("...installing mel")
+        installer.status("...installing mel")
         try:
             run_process("pip install -q mel", page=page, show=True, print=True)
         except Exception as e:
@@ -22083,7 +22083,7 @@ def run_audio_diffusion(page):
     else:
       clear_pipes('audio_diffusion')
     if pipe_audio_diffusion == None:
-      installer.set_details("...initializing audio_diffusion pipe")
+      installer.status("...initializing audio_diffusion pipe")
       try:
           # TODO: Switch DDPM
         a_scheduler = DDIMScheduler()
@@ -22097,7 +22097,7 @@ def run_audio_diffusion(page):
         return
     init = audio_diffusion_prefs['audio_file']
     if init.startswith('http'):
-        installer.set_details("...downloading audio file")
+        installer.status("...downloading audio file")
         init_audio = download_file(init)
     else:
         if os.path.isfile(init):
@@ -22221,7 +22221,7 @@ def run_music_gen(page):
         import audiocraft
         #from audiocraft.models import musicgen
     except ModuleNotFoundError:
-        installer.set_details("...facebookresearch/audiocraft")
+        installer.status("...facebookresearch/audiocraft")
         run_sp("pip install -U ffmpeg", realtime=False)
         #run_sp("pip install -U audiocraft", realtime=True)
         #run_sp("pip install -U git+https://github.com/facebookresearch/audiocraft#egg=audiocraft", realtime=False)
@@ -22235,7 +22235,7 @@ def run_music_gen(page):
     try:
         import librosa
     except ImportError:
-        installer.set_details("...installing librosa")
+        installer.status("...installing librosa")
         run_sp("pip install -q librosa", realtime=False)
         run_sp("pip install -q torchlibrosa", realtime=False)
         pass
@@ -22243,12 +22243,12 @@ def run_music_gen(page):
     init = music_gen_prefs['audio_file']
     model_id = music_gen_prefs['audio_model'] if not bool(init) else "melody"
     if music_gen_prefs['loaded_model'] != model_id:
-        installer.set_details("...clear_pipes")
+        installer.status("...clear_pipes")
         clear_pipes()
     else:
       clear_pipes('music_gen')
     if pipe_music_gen == None:
-        installer.set_details(f"...MusicGen pretrained {model_id}")
+        installer.status(f"...MusicGen pretrained {model_id}")
         try:
             pipe_music_gen = musicgen.MusicGen.get_pretrained(model_id, device='cuda')
             music_gen_prefs['loaded_model'] = model_id
@@ -22264,7 +22264,7 @@ def run_music_gen(page):
         return melody
     for num in range(music_gen_prefs['num_samples']):
         if init.startswith('http'):
-            installer.set_details("...download audio_file")
+            installer.status("...download audio_file")
             melody = download_file(init)
         else:
             if os.path.isfile(init):
@@ -24807,14 +24807,14 @@ def run_tortoise_tts(page):
     tortoise_dir = os.path.join(root_dir, "tortoise-tts")
     voice_dir = os.path.join(tortoise_dir, 'tortoise', 'voices')
     if not os.path.isdir(tortoise_dir):
-      installer.set_details("...cloning jnorberg/toroise-tts")
+      installer.status("...cloning jnorberg/toroise-tts")
       os.chdir(root_dir)
       run_process("git clone https://github.com/jnordberg/tortoise-tts.git", page=page)
     os.chdir(tortoise_dir)
     try:
       import pydub
     except Exception:
-      installer.set_details("...installing ffmpeg & pydub")
+      installer.status("...installing ffmpeg & pydub")
       run_process("pip install -q ffmpeg", page=page)
       run_process("pip install -q pydub", page=page)
       import pydub
@@ -24822,7 +24822,7 @@ def run_tortoise_tts(page):
     try:
       from tortoise.api import TextToSpeech
     except Exception:
-      installer.set_details("...installing all requirements")
+      installer.status("...installing all requirements")
       try:
         run_process("pip install -r requirements.txt", page=page, cwd=tortoise_dir)
         run_process("python setup.py install", page=page, cwd=tortoise_dir)
@@ -24840,7 +24840,7 @@ def run_tortoise_tts(page):
     clear_pipes('tortoise_tts')
     # This will download all the models used by Tortoise from the HuggingFace hub.
     if pipe_tortoise_tts == None:
-      installer.set_details("...initialize TextToSpeech pipe")
+      installer.status("...initialize TextToSpeech pipe")
       try:
         pipe_tortoise_tts = TextToSpeech()
       except Exception as e:
@@ -25079,7 +25079,7 @@ def run_audio_ldm2(page):
     #voice_dir = os.path.join(audioLDM2_dir, 'audioldm2', 'voices')
     if not os.path.isdir(audioLDM2_dir):
       os.chdir(root_dir)
-      installer.set_details("...clone haoheliu/AudioLDM2")
+      installer.status("...clone haoheliu/AudioLDM2")
       run_process("git clone https://github.com/haoheliu/AudioLDM2", page=page)
     os.chdir(audioLDM2_dir)
     import sys
@@ -25088,23 +25088,23 @@ def run_audio_ldm2(page):
         from audioldm2 import text_to_audio, build_model
     except Exception:
         try:
-            installer.set_details("...install einops")
+            installer.status("...install einops")
             run_process("pip install einops", page=page)
-            installer.set_details("...install pyyaml")
+            installer.status("...install pyyaml")
             run_process("pip install -q pyyaml", page=page)
-            installer.set_details("...install soundfile")
+            installer.status("...install soundfile")
             run_process("pip install -q soundfile", page=page)
-            installer.set_details("...install chardet")
+            installer.status("...install chardet")
             run_process("pip install -q librosa chardet", page=page)
-            installer.set_details("...install scipy")
+            installer.status("...install scipy")
             run_process("pip install -q pandas scipy", page=page)
-            installer.set_details("...install gradio")
+            installer.status("...install gradio")
             run_process("pip install -q gradio", page=page)
-            installer.set_details("...install torchlibrosa")
+            installer.status("...install torchlibrosa")
             run_process("pip install -q torchlibrosa", page=page)
-            installer.set_details("...install unidecode phonemizer ftfy timm")
+            installer.status("...install unidecode phonemizer ftfy timm")
             run_process("pip install -q unidecode phonemizer ftfy timm", page=page)
-            installer.set_details("...install haoheliu/AudioLDM2.git")
+            installer.status("...install haoheliu/AudioLDM2.git")
             run_process("pip install git+https://github.com/haoheliu/AudioLDM2.git", page=page)
             #sudo apt-get install espeak
             #export PHONEMIZER_ESPEAK_LIBRARY=$(find /opt/homebrew/Cellar/espeak -name "libespeak.dylib" | sort -r | head -n 1)
@@ -25120,14 +25120,14 @@ def run_audio_ldm2(page):
     try:
         import soundfile as sf
     except ImportError:
-        installer.set_details("...install soundfile")
+        installer.status("...install soundfile")
         run_process("pip install -q soundfile", page=page)
         import soundfile as sf
         pass
     try:
         import scipy
     except ImportError:
-        installer.set_details("...install scipy")
+        installer.status("...install scipy")
         run_process("pip install -q pandas scipy", page=page)
         import scipy
         pass
@@ -25135,14 +25135,14 @@ def run_audio_ldm2(page):
         try:
             import ffmpeg
         except ImportError as e:
-            installer.set_details("...installing ffmpeg")
+            installer.status("...installing ffmpeg")
             run_sp("pip install -q ffmpeg", realtime=False)
             import ffmpeg
             pass
         try:
             import pydub
         except ImportError:
-            installer.set_details("...installing pydub")
+            installer.status("...installing pydub")
             run_sp("pip install -q pydub", realtime=False)
             import pydub
             pass
@@ -25157,13 +25157,13 @@ def run_audio_ldm2(page):
     # This will download all the models used by Audio LDM from the HuggingFace hub.
     if pipe_audio_ldm2 == None:
       try:
-        installer.set_details("...loading pipeline")
+        installer.status("...loading pipeline")
         pipe_audio_ldm2 = AudioLDM2Pipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)#build_model(model_name=model_id)
         pipe_audio_ldm2 = pipeline_scheduler(pipe_audio_ldm2)
         status['loaded_scheduler'] = prefs['scheduler_mode']
         #pipe_audio_ldm2.scheduler = LMSDiscreteScheduler.from_config(pipe_audio_ldm2.scheduler.config)
         if prefs['enable_torch_compile']:
-            installer.set_details("...torch compile")
+            installer.status("...torch compile")
             pipe_audio_ldm2 = torch.compile(pipe_audio_ldm2)
             #torch.set_float32_matmul_precision("high")
         pipe_audio_ldm2 = pipe_audio_ldm2.to(torch_device)
@@ -25174,7 +25174,7 @@ def run_audio_ldm2(page):
         alert_msg(page, "Error downloading Audio LDM 2 model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
         return
     elif prefs['scheduler_mode'] != status['loaded_scheduler']:
-        installer.set_details(f"...scheduler {prefs['scheduler_mode']}")
+        installer.status(f"...scheduler {prefs['scheduler_mode']}")
         pipe_audio_ldm2 = pipeline_scheduler(pipe_audio_ldm2)
       
     clear_last()
@@ -25287,14 +25287,14 @@ def run_music_ldm(page):
     try:
         import soundfile as sf
     except ImportError:
-        installer.set_details("...install soundfile")
+        installer.status("...install soundfile")
         run_process("pip install -q soundfile", page=page)
         import soundfile as sf
         pass
     try:
         import scipy
     except ImportError:
-        installer.set_details("...install scipy")
+        installer.status("...install scipy")
         run_process("pip install -q pandas scipy", page=page)
         import scipy
         pass
@@ -25302,14 +25302,14 @@ def run_music_ldm(page):
         try:
             import ffmpeg
         except ImportError as e:
-            installer.set_details("...installing ffmpeg")
+            installer.status("...installing ffmpeg")
             run_sp("pip install -q ffmpeg", realtime=False)
             import ffmpeg
             pass
         try:
             import pydub
         except ImportError:
-            installer.set_details("...installing pydub")
+            installer.status("...installing pydub")
             run_sp("pip install -q pydub", realtime=False)
             import pydub
             pass
@@ -25323,14 +25323,14 @@ def run_music_ldm(page):
         clear_pipes()
     if pipe_music_ldm == None:
       try:
-        installer.set_details("...loading pipeline")
+        installer.status("...loading pipeline")
         scheduler = PNDMScheduler(skip_prk_steps=True)
         pipe_music_ldm = MusicLDMPipeline.from_pretrained(model_id, torch_dtype=torch.float16, scheduler=scheduler, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)#build_model(model_name=model_id)
         #pipe_music_ldm = pipeline_scheduler(pipe_music_ldm, big_3=True)
         #status['loaded_scheduler'] = prefs['scheduler_mode']
         #pipe_music_ldm.scheduler = LMSDiscreteScheduler.from_config(pipe_music_ldm.scheduler.config)
         if prefs['enable_torch_compile']:
-            installer.set_details("...torch compile")
+            installer.status("...torch compile")
             pipe_music_ldm = torch.compile(pipe_music_ldm)
             #torch.set_float32_matmul_precision("high")
         pipe_music_ldm = pipe_music_ldm.to(torch_device)
@@ -25341,7 +25341,7 @@ def run_music_ldm(page):
         alert_msg(page, "Error downloading MusicLDM model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
         return
     #elif prefs['scheduler_mode'] != status['loaded_scheduler']:
-    #    installer.set_details(f"...scheduler {prefs['scheduler_mode']}")
+    #    installer.status(f"...scheduler {prefs['scheduler_mode']}")
     #    pipe_music_ldm = pipeline_scheduler(pipe_music_ldm)
       
     clear_last()
@@ -25444,7 +25444,7 @@ def run_bark(page):
     try:
         import scipy
     except ModuleNotFoundError:
-        installer.set_details("...installing scipy")
+        installer.status("...installing scipy")
         run_process("pip install -qq --upgrade scipy", page=page)
         pass
     from scipy.io.wavfile import write as write_wav
@@ -25454,7 +25454,7 @@ def run_bark(page):
         from bark import SAMPLE_RATE, generate_audio, preload_models
         if force_updates: raise ImportError("Forcing update")
     except Exception:
-        installer.set_details("...installing suno-ai/bark")
+        installer.status("...installing suno-ai/bark")
         try:
             run_process("pip install git+https://github.com/suno-ai/bark.git", page=page)
         except Exception as e:
@@ -25469,16 +25469,16 @@ def run_bark(page):
         try:
             from optimum.bettertransformer import BetterTransformer
         except ModuleNotFoundError:
-            installer.set_details("...installing Optimum BetterTransformer")
+            installer.status("...installing Optimum BetterTransformer")
             run_process("pip install --upgrade git+https://github.com/huggingface/optimum.git", page=page)
             from optimum.bettertransformer import BetterTransformer
             pass
         from transformers import BarkModel, set_seed, AutoProcessor
-        installer.set_details("...initializing suno/bark model")
+        installer.status("...initializing suno/bark model")
         bark_model = BarkModel.from_pretrained("suno/bark", torch_dtype=torch.float16).to(torch_device)
-        installer.set_details("...initializing suno/bark processor")
+        installer.status("...initializing suno/bark processor")
         processor = AutoProcessor.from_pretrained("suno/bark")
-        installer.set_details("...initializing BetterTransformer model")
+        installer.status("...initializing BetterTransformer model")
         bark_model = BetterTransformer.transform(bark_model, keep_original_model=False)
     import soundfile as sf
     clear_pipes()
@@ -25849,35 +25849,35 @@ def run_whisper(page):
     try:
         import whisper
     except Exception as e:
-        installer.set_details("...openai/whisper.git")
+        installer.status("...openai/whisper.git")
         run_sp("pip install git+https://github.com/openai/whisper.git -q", realtime=False)
         import whisper
         pass
-    installer.set_details(f"...load_model {whisper_prefs['model_size']}")
+    installer.status(f"...load_model {whisper_prefs['model_size']}")
     whisper_model = whisper.load_model(whisper_prefs['model_size'])
     from_language = ""
     def transcribe(audio):
         nonlocal installer, from_language
-        installer.set_details("...load_audio")
+        installer.status("...load_audio")
         audio = whisper.load_audio(audio)
         if whisper_prefs['trim_audio']:
-            installer.set_details("...pad_or_trim audio")
+            installer.status("...pad_or_trim audio")
             audio = whisper.pad_or_trim(audio)
         if whisper_prefs['simple_transcribe']:
-            installer.set_details("...Whisper transcribe")
+            installer.status("...Whisper transcribe")
             options = {
                 "task": "transcribe"
             }
             result = whisper.transcribe(whisper_model, audio, **options)
         else:
-            installer.set_details("...log_mel_spectrogram")
+            installer.status("...log_mel_spectrogram")
             mel = whisper.log_mel_spectrogram(audio).to(whisper_model.device)
             if whisper_prefs['detect_language'] or whisper_prefs['translate']:
-                installer.set_details("...detect_language")
+                installer.status("...detect_language")
                 _, probs = whisper_model.detect_language(mel)
                 from_language = max(probs, key=probs.get)
                 prt(f"Detected language: {from_language}")
-            installer.set_details("...DecodingOptions")
+            installer.status("...DecodingOptions")
             options = whisper.DecodingOptions(fp16 = False)
             result = whisper.decode(whisper_model, mel, options)
         return result.text
@@ -25888,13 +25888,13 @@ def run_whisper(page):
             try:
                 import ffmpeg
             except ImportError as e:
-                installer.set_details("...installing ffmpeg")
+                installer.status("...installing ffmpeg")
                 run_sp("pip install -q ffmpeg", realtime=False)
                 pass
             try:
                 import yt_dlp
             except ImportError as e:
-                installer.set_details("...installing yt_dlp")
+                installer.status("...installing yt_dlp")
                 run_sp("pip install yt_dlp", realtime=False)
                 import yt_dlp
                 pass
@@ -25908,7 +25908,7 @@ def run_whisper(page):
                         progress.update()
                 else:
                     f_name = d['filename']
-            installer.set_details("...getting YouTube file")
+            installer.status("...getting YouTube file")
             prt(progress)
             ydl_opts = {
                 'format': 'm4a/bestaudio/best',
@@ -25936,12 +25936,12 @@ def run_whisper(page):
             #f_name = yt.safe_filename()
             #.download(convert='mp3')
             #file_object = yt.download() #b variable stores the filename and meta(if available) as object of Output class.
-            #installer.set_details("...converting to mp3")
+            #installer.status("...converting to mp3")
             #local_path = AudioSegment.from_file(file_object).export(f"{f_name}.mp3", format="mp3")
             #extras.Convert(file_object,'mp3',add_meta=True)
             #local_path = file_object.file_path
         else:
-            installer.set_details("...downloading file")
+            installer.status("...downloading file")
             local_path = download_file(audio_path)
     else:
         local_path = audio_path
@@ -25951,7 +25951,7 @@ def run_whisper(page):
     if not os.path.exists(local_path):
         alert_msg(page, f"ERROR: File not found...")
         return
-    installer.set_details("")
+    installer.status("")
     installer.show_progress(False)
     installer.set_message("Running Whisper-AI on your Recording...")
     prt(progress)
@@ -25963,7 +25963,7 @@ def run_whisper(page):
         alert_msg(page, f"ERROR: Couldn't Transcribe audio for some reason. Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         return
     clear_last()
-    installer.set_details("")
+    installer.status("")
     installer.set_message("Generated Whisper-AI Transcription:")
     prt(Text(transcription, size=20, selectable=True))
     use_ai = whisper_prefs['reformat'] or whisper_prefs['rewrite'] or whisper_prefs['summarize'] or whisper_prefs['describe'] or whisper_prefs['article'] or whisper_prefs['keypoints'] or whisper_prefs['keywords']
@@ -25980,7 +25980,7 @@ def run_whisper(page):
                 try:
                     import openai
                 except ModuleNotFoundError:
-                    installer.set_details("...installing openai")
+                    installer.status("...installing openai")
                     run_sp("pip install --upgrade openai -qq", realtime=False)
                     pass
                 finally:
@@ -25990,7 +25990,7 @@ def run_whisper(page):
                 except:
                     alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
                     return
-                installer.set_details("")
+                installer.status("")
     def question(request):
         if whisper_prefs['AI_engine'] == "OpenAI GPT-3":
             response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=whisper_prefs['AI_temperature'], presence_penalty=1)
@@ -26063,12 +26063,12 @@ def run_voice_fixer(page):
     try:
         from voicefixer import VoiceFixer
     except ModuleNotFoundError as e:
-        installer.set_details("...installing voicefixer (takes a while)")
+        installer.status("...installing voicefixer (takes a while)")
         run_sp("pip install voicefixer --upgrade", realtime=False)
         from voicefixer import VoiceFixer
         pass
     if pipe_voice_fixer == None:
-        installer.set_details("...initializing voicefixer model")
+        installer.status("...initializing voicefixer model")
         pipe_voice_fixer = VoiceFixer()
     audio_path = voice_fixer_prefs['audio_file'].strip()
     local_path = ""
@@ -26077,13 +26077,13 @@ def run_voice_fixer(page):
             try:
                 import ffmpeg
             except ImportError as e:
-                installer.set_details("...installing ffmpeg")
+                installer.status("...installing ffmpeg")
                 run_sp("pip install -q ffmpeg", realtime=False)
                 pass
             try:
                 import yt_dlp
             except ImportError as e:
-                installer.set_details("...installing yt_dlp")
+                installer.status("...installing yt_dlp")
                 run_sp("pip install yt_dlp", realtime=False)
                 import yt_dlp
                 pass
@@ -26097,7 +26097,7 @@ def run_voice_fixer(page):
                         progress.update()
                 else:
                     f_name = d['filename']
-            installer.set_details("...getting YouTube file")
+            installer.status("...getting YouTube file")
             prt(progress)
             ydl_opts = {
                 'format': 'm4a/bestaudio/best',
@@ -26122,7 +26122,7 @@ def run_voice_fixer(page):
                 return
             local_path = f"{f_name.rpartition('.')[0]}.mp3"
         else:
-            installer.set_details("...downloading file")
+            installer.status("...downloading file")
             local_path = download_file(audio_path)
     else:
         local_path = audio_path
@@ -26136,23 +26136,23 @@ def run_voice_fixer(page):
         try:
             import ffmpeg
         except ImportError as e:
-            installer.set_details("...installing ffmpeg")
+            installer.status("...installing ffmpeg")
             run_sp("pip install -q ffmpeg", realtime=False)
             pass
         try:
             import pydub
         except ImportError:
-            installer.set_details("...installing pydub")
+            installer.status("...installing pydub")
             run_sp("pip install -q pydub", realtime=False)
             import pydub
             pass
         from pydub import AudioSegment
-        installer.set_details("...converting from mp3")
+        installer.status("...converting from mp3")
         sound = AudioSegment.from_mp3(local_path)
         wav_file = local_path.rpartition(slash)[2].rpartition(".")[0]
         local_path = available_file(root_dir, wav_file, 0, ext='wav')
         sound = sound.set_frame_rate(44100)
-        installer.set_details("...converting to wav")
+        installer.status("...converting to wav")
         sound.export(local_path, format="wav")
     #save_dir = os.path.join(root_dir, 'audio_out', voice_fixer_prefs['batch_folder_name'])
     #if not os.path.exists(save_dir):
@@ -28872,7 +28872,7 @@ def run_controlnet_video2video(page):
     controlnet_video2video_dir = os.path.join(root_dir, "controlnetvideo")
     if not os.path.exists(controlnet_video2video_dir):
         try:
-            installer.set_details("...cloning un1tz3r0/controlnetvideo.git")
+            installer.status("...cloning un1tz3r0/controlnetvideo.git")
             run_sp("git clone https://github.com/un1tz3r0/controlnetvideo.git", cwd=root_dir, realtime=False)
         except Exception as e:
             clear_last()
@@ -28881,7 +28881,7 @@ def run_controlnet_video2video(page):
     try:
         import ffmpeg
     except ImportError as e:
-        installer.set_details("...installing ffmpeg")
+        installer.status("...installing ffmpeg")
         run_sp("pip install -q ffmpeg", realtime=False)
         pass
     try:
@@ -28893,19 +28893,19 @@ def run_controlnet_video2video(page):
     try:
         import click
     except ImportError as e:
-        installer.set_details("...installing click")
+        installer.status("...installing click")
         run_sp("pip install -q click", realtime=False)
         pass
     try:
         import moviepy
     except ImportError as e:
-        installer.set_details("...installing moviepy")
+        installer.status("...installing moviepy")
         run_sp("pip install -q moviepy", realtime=False)
         pass
     try:
         import xformers
     except ModuleNotFoundError:
-        installer.set_details("...installing FaceBook's Xformers")
+        installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
         run_sp("pip install -U xformers", realtime=False)
         status['installed_xformers'] = True
@@ -28913,19 +28913,19 @@ def run_controlnet_video2video(page):
     try:
         import mediapipe
     except ImportError as e:
-        installer.set_details("...installing mediapipe")
+        installer.status("...installing mediapipe")
         run_sp("pip install -q mediapipe", realtime=False)
         pass
     try:
         import controlnet_aux
     except ImportError as e:
-        installer.set_details("...installing controlnet-aux")
+        installer.status("...installing controlnet-aux")
         run_sp("pip install -q controlnet-aux", realtime=False)
         pass
     try:
         import watchdog
     except ImportError as e:
-        installer.set_details("...installing watchdog")
+        installer.status("...installing watchdog")
         run_sp("pip install -q watchdog", realtime=False)
         pass
     clear_pipes()
@@ -29153,7 +29153,7 @@ def run_deepfloyd(page, from_list=False):
         import diffusers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        installer.set_details("...HuggingFace Diffusers")
+        installer.status("...HuggingFace Diffusers")
         #run_process("pip install --upgrade diffusers~=0.16", page=page)
         #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
@@ -29162,7 +29162,7 @@ def run_deepfloyd(page, from_list=False):
         import transformers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        installer.set_details("...Transformers v4.28")
+        installer.status("...Transformers v4.28")
         #run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
         run_process("pip install --upgrade transformers~=4.28", page=page)
         pass
@@ -29170,7 +29170,7 @@ def run_deepfloyd(page, from_list=False):
         import safetensors
         from safetensors import safe_open
     except ModuleNotFoundError:
-        installer.set_details("...SafeTensors v0.3")
+        installer.status("...SafeTensors v0.3")
         run_process("pip install --upgrade safetensors~=0.3", page=page)
         import safetensors
         from safetensors import safe_open
@@ -29178,7 +29178,7 @@ def run_deepfloyd(page, from_list=False):
     try:
         import sentencepiece
     except ImportError:
-        installer.set_details("...SentencePiece")
+        installer.status("...SentencePiece")
         run_sp("pip install --upgrade sentencepiece", realtime=False) #~=0.1
         import sentencepiece
         pass
@@ -29186,7 +29186,7 @@ def run_deepfloyd(page, from_list=False):
         import accelerate
         #TODO: Uninstall other version first
     except ImportError:
-        installer.set_details("...Accelerate v0.18")
+        installer.status("...Accelerate v0.18")
         run_process("pip install --upgrade accelerate~=0.18.0", page=page)
         pass
     installer.set_message("Installing DeepFloyd IF Required Packages...")
@@ -29196,7 +29196,7 @@ def run_deepfloyd(page, from_list=False):
         try:
           import bitsandbytes
         except ImportError:
-          installer.set_details("...BitsandBytes")
+          installer.status("...BitsandBytes")
           os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
           #run_sp("export LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH", realtime=False)
           if sys.platform.startswith("win"):
@@ -29208,14 +29208,14 @@ def run_deepfloyd(page, from_list=False):
     try:
         import torch
     except ModuleNotFoundError:
-        installer.set_details("...Torch v2.0")
+        installer.status("...Torch v2.0")
         run_process("pip install --upgrade torch~=2.0", page=page)
         import torch
         pass
     try:
         from huggingface_hub import notebook_login, HfFolder, login
     except ModuleNotFoundError:
-        installer.set_details("...HuggingFace Hub")
+        installer.status("...HuggingFace Hub")
         run_process("pip install huggingface_hub --upgrade", page=page)
         import torch
         pass
@@ -29309,18 +29309,18 @@ def run_deepfloyd(page, from_list=False):
                 prt(installer)
                 if deepfloyd_prefs['low_memory']:
                     #, load_in_8bit=True
-                    installer.set_details("...text_encoder T5EncoderModel") #, variant="8bit"
+                    installer.status("...text_encoder T5EncoderModel") #, variant="8bit"
                     text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                    installer.set_details("...DiffusionPipeline")
+                    installer.status("...DiffusionPipeline")
                     pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, text_encoder=text_encoder, unet=None, use_safetensors=True, device_map=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     # Still getting errors here! WTF?
                     #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
-                    installer.set_details("...encode_prompts")
+                    installer.status("...encode_prompts")
                     prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     del text_encoder
                     del pipe_deepfloyd
                     pipe_deepfloyd = None
-                installer.set_details("...clearing pipes")
+                installer.status("...clearing pipes")
                 flush()
                 clear_last(update=False)
                 safety_modules = {}
@@ -29336,14 +29336,14 @@ def run_deepfloyd(page, from_list=False):
                         #pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "text2image"):
-                            #install.set_details("...DiffusionPipeline")
+                            #install.status("...DiffusionPipeline")
                             pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
                                 pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
                                 pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
-                        #install.set_details("...encode_prompts")
+                        #install.status("...encode_prompts")
                         prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     clear_last()
                     prt(progress)
@@ -29393,14 +29393,14 @@ def run_deepfloyd(page, from_list=False):
                         #pipe_deepfloyd.enable_model_cpu_offload()
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "image2image"):
-                            #install.set_details("...DiffusionPipeline")
+                            #install.status("...DiffusionPipeline")
                             pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
                                 pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
                                 pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
-                        #install.set_details("...encode_prompts")
+                        #install.status("...encode_prompts")
                         prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     total_steps = pr['num_inference_steps']
                     clear_last()
@@ -29456,14 +29456,14 @@ def run_deepfloyd(page, from_list=False):
                         pipe_deepfloyd.enable_model_cpu_offload()
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "inpainting"):
-                            #install.set_details("...DiffusionPipeline")
+                            #install.status("...DiffusionPipeline")
                             pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
                                 pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
                                 pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
-                        #install.set_details("...encode_prompts")
+                        #install.status("...encode_prompts")
                         prompt_embeds, negative_embeds = pipe_deepfloyd.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None)
                     total_steps = pr['num_inference_steps']
                     clear_last()
@@ -30070,7 +30070,7 @@ def run_video_to_video(page):
         model_id = "cerspense/zeroscope_v2_XL"
     clear_pipes('video_to_video')
     if pipe_video_to_video is None:
-        installer.set_details("...initializing VideoToVideo SDPipeline")
+        installer.status("...initializing VideoToVideo SDPipeline")
         from diffusers import VideoToVideoSDPipeline, DPMSolverMultistepScheduler
         pipe_video_to_video = VideoToVideoSDPipeline.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_video_to_video = pipeline_scheduler(pipe_video_to_video)
@@ -30092,7 +30092,7 @@ def run_video_to_video(page):
         nonlocal width, height
         if vid.startswith('http'):
             init_vid = download_file(vid, stable_dir)
-            installer.set_details("...extracting frames from video")
+            installer.status("...extracting frames from video")
         else:
             if os.path.isfile(vid):
                 init_vid = vid
@@ -30107,7 +30107,7 @@ def run_video_to_video(page):
         except Exception:
             alert_msg(page, "Make sure your Numbers are actual numbers...")
             return
-        installer.set_details("Extracting Frames from Video Clip")
+        installer.status("Extracting Frames from Video Clip")
         try:
             cap = cv2.VideoCapture(init_vid)
         except Exception as e:
@@ -30317,14 +30317,14 @@ def run_potat1(page):
         if version.parse(torch.__version__) >= version.parse("2.0.0"):
             torch_installed = False
     if not torch_installed:
-        installer.set_details("...installing Torch 1.13.1")
+        installer.status("...installing Torch 1.13.1")
         run_sp("pip install -q torch==1.13.1+cu116 torchvision==0.14.1+cu116 torchaudio==0.13.1 torchtext==0.14.1 torchdata==0.5.1 --extra-index-url https://download.pytorch.org/whl/cu116 -U", realtime=False)
     run_sp("pip install imageio[ffmpeg] -U einops omegaconf decord", realtime=False)
     if not os.path.exists(finetuning_dir):
-        installer.set_details("...camenduru/Text-To-Video-Finetuning")
+        installer.status("...camenduru/Text-To-Video-Finetuning")
         run_sp("git clone -b dev https://github.com/camenduru/Text-To-Video-Finetuning", realtime=False, cwd=root_dir)
     if not os.path.exists(potat1_dir):
-        installer.set_details("...camenduru/potat1")
+        installer.status("...camenduru/potat1")
         run_sp("git clone https://huggingface.co/camenduru/potat1", realtime=False, cwd=root_dir)
     #clear_pipes('potat1')
     clear_last()
@@ -30763,11 +30763,11 @@ def run_roop(page):
     roop_dir = os.path.join(root_dir, "roop")
     if not os.path.exists(roop_dir):
         try:
-            installer.set_details("...cloning s0md3v/roop.git")
+            installer.status("...cloning s0md3v/roop.git")
             run_process("git clone https://github.com/s0md3v/roop.git", cwd=root_dir)
-            installer.set_details("...installing requirements")
+            installer.status("...installing requirements")
             #run_process("pip install -r requirements.txt", cwd=roop_dir)
-            installer.set_details("...downloading roop inswapper")
+            installer.status("...downloading roop inswapper")
             download_file("https://huggingface.co/camenduru/roop/resolve/main/inswapper_128.onnx", to=roop_dir)
         except Exception as e:
             clear_last()
@@ -30776,7 +30776,7 @@ def run_roop(page):
     try:
         import ffmpeg
     except ImportError as e:
-        installer.set_details("...installing ffmpeg")
+        installer.status("...installing ffmpeg")
         run_sp("pip install -q ffmpeg", realtime=False)
         pass
     try:
@@ -30788,49 +30788,49 @@ def run_roop(page):
     try:
         import onnx
     except ImportError as e:
-        installer.set_details("...installing onnx")
+        installer.status("...installing onnx")
         run_sp("pip install -q onnx==1.14.0", realtime=False)
         pass
     try:
         import insightface
     except ImportError as e:
-        installer.set_details("...installing insightface")
+        installer.status("...installing insightface")
         run_sp("pip install -q insightface==0.7.3", realtime=False)
         pass
     try:
         import tk
     except ImportError as e:
-        installer.set_details("...installing tk")
+        installer.status("...installing tk")
         run_sp("pip install -q tk==0.1.0", realtime=False)
         pass
     try:
         import customtkinter
     except ImportError as e:
-        installer.set_details("...installing customtkinter")
+        installer.status("...installing customtkinter")
         run_sp("pip install -q customtkinter==5.1.3", realtime=False)
         pass
     try:
         import onnxruntime
     except ImportError as e:
-        installer.set_details("...installing onnxruntime")
+        installer.status("...installing onnxruntime")
         run_sp("pip install -q onnxruntime-gpu==1.15.0", realtime=False)
         pass
     try:
         import opennsfw2
     except ImportError as e:
-        installer.set_details("...installing opennsfw2")
+        installer.status("...installing opennsfw2")
         run_sp("pip install -q opennsfw2==0.10.2", realtime=False)
         try:
             import protobuf
         except ImportError as e:
-            installer.set_details("...installing protobuf") #3.20.*
+            installer.status("...installing protobuf") #3.20.*
             run_sp("pip install -q protobuf==4.23.2", realtime=False)
             pass
         pass
     try:
         import gfpgan
     except ImportError as e:
-        installer.set_details("...installing gfpgan")
+        installer.status("...installing gfpgan")
         run_sp("pip install -q gfpgan", realtime=False)
         pass
     clear_pipes()
@@ -30855,7 +30855,7 @@ def run_roop(page):
         os.makedirs(output_path)
     init_img = None
     if roop_prefs['source_image'].startswith('http'):
-        installer.set_details("...downloading source image")
+        installer.status("...downloading source image")
         init_img = PILImage.open(requests.get(roop_prefs['source_image'], stream=True).raw)
     else:
         if os.path.isfile(roop_prefs['source_image']):
@@ -30866,7 +30866,7 @@ def run_roop(page):
     source_name = roop_prefs['source_image'].rpartition("/")[2] if "/" in roop_prefs['source_image'] else roop_prefs['source_image'].rpartition(slash)[2]
     source_path = ""
     if init_img != None:
-        installer.set_details("...resizing source image")
+        installer.status("...resizing source image")
         width, height = init_img.size
         width, height = scale_dimensions(width, height, roop_prefs['max_size'])
         init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
@@ -30880,11 +30880,11 @@ def run_roop(page):
     target_path = ""
     if roop_prefs['target_image'].startswith('http'):
         if is_video:
-            installer.set_details("...downloading target video")
+            installer.status("...downloading target video")
             download_file(roop_prefs['target_image'], batch_output)
             target_path = os.path.join(batch_output, target_name)
         else:
-            installer.set_details("...downloading target image")
+            installer.status("...downloading target image")
             target_img = PILImage.open(requests.get(roop_prefs['target_image'], stream=True).raw)
     else:
         if os.path.isfile(roop_prefs['target_image']):
@@ -30896,7 +30896,7 @@ def run_roop(page):
             alert_msg(page, f"ERROR: Couldn't find your target_image {roop_prefs['target_image']}")
             return
     if target_img != None:
-        installer.set_details("...resizing target image")
+        installer.status("...resizing target image")
         width, height = target_img.size
         width, height = scale_dimensions(width, height, roop_prefs['max_size'])
         target_img = target_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
@@ -30990,22 +30990,22 @@ def run_animate_diff(page):
     prt(installer)
     animatediff_dir = os.path.join(root_dir, 'animatediff-cli-prompt-travel')
     if not os.path.exists(animatediff_dir):
-        installer.set_details("...clone guoyww/animatediff")
+        installer.status("...clone guoyww/animatediff")
         run_sp("git clone https://github.com/s9roll7/animatediff-cli-prompt-travel", realtime=False, cwd=root_dir)
         #run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
-        installer.set_details("...install animatediff")
+        installer.status("...install animatediff")
         run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
     os.chdir(animatediff_dir)
     try:
         import diffusers
     except ModuleNotFoundError:
-        installer.set_details("...installing diffusers")
+        installer.status("...installing diffusers")
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         pass
     try:
         import transformers
     except ModuleNotFoundError:
-        installer.set_details("...installing transformers")
+        installer.status("...installing transformers")
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
     pip_install("omegaconf einops cmake colorama rich ninja copier==8.1.0 pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib watchdog imageio==2.27.0", installer=installer)
@@ -31013,7 +31013,7 @@ def run_animate_diff(page):
     try:
         import xformers
     except ModuleNotFoundError:
-        installer.set_details("...installing FaceBook's Xformers")
+        installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
         run_sp("pip install -U xformers", realtime=False)
         status['installed_xformers'] = True
@@ -31021,19 +31021,26 @@ def run_animate_diff(page):
     try:
         import ffmpeg
     except ImportError as e:
-        installer.set_details("...installing ffmpeg")
+        installer.status("...installing ffmpeg")
         run_sp("pip install -q ffmpeg-python", realtime=False)
+        pass
+    try:
+        import cv2
+    except ModuleNotFoundError:
+        installer.status("...installing opencv")
+        run_process("pip install -q opencv-python", page=page)
+        import cv2
         pass
     try:
         import sentencepiece
     except Exception:
-        installer.set_details("...installing sentencepiece")
+        installer.status("...installing sentencepiece")
         run_sp("pip install sentencepiece>=0.1.99", realtime=False)
         pass
     try:
         import safetensors
     except ModuleNotFoundError:
-        installer.set_details("...installing safetensors")
+        installer.status("...installing safetensors")
         run_process("pip install --upgrade safetensors", page=page)
         import safetensors
         from safetensors import safe_open
@@ -31042,7 +31049,7 @@ def run_animate_diff(page):
         from animatediff.cli import generate
     except ModuleNotFoundError:
         try:
-            installer.set_details("...installing AnimateDiff Requirements")
+            installer.status("...installing AnimateDiff Requirements")
             run_sp("pip install -e .[dev]", cwd=animatediff_dir, realtime=False) #'.[dev]'
         except Exception as e:
             clear_last()
@@ -31052,14 +31059,14 @@ def run_animate_diff(page):
         import platform
         rife_dir = os.path.join(animatediff_dir, 'data', 'rife')
         if len(os.listdir(rife_dir)) <= 1:
-            installer.set_details("...downloading RiFE")
+            installer.status("...downloading RiFE")
             if platform.system() == 'Linux':
                 rife_zip = download_file("https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-ubuntu.zip")
             elif platform.system() == 'Windows':
                 rife_zip = download_file("https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-windows.zip")
             elif platform.system() == 'Darwin':
                 rife_zip = download_file("https://github.com/nihui/rife-ncnn-vulkan/releases/download/20221029/rife-ncnn-vulkan-20221029-macos.zip")
-            installer.set_details("...extracting RiFE")
+            installer.status("...extracting RiFE")
             shutil.unpack_archive(rife_zip, rife_dir)
             os.remove(rife_zip)
             for folder_name in os.listdir(rife_dir):
@@ -31083,13 +31090,13 @@ def run_animate_diff(page):
         os.makedirs(motion_module)
     #run_sp(f"rm -rf {sd_models}", realtime=False)
     shutil.rmtree(sd_models)
-    installer.set_details("...downloading stable-diffusion-v1-5")
+    installer.status("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
     #if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
-    #installer.set_details("...downloading motion_module-v1-4")
+    #installer.status("...downloading motion_module-v1-4")
     #download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
     #if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
-    #installer.set_details("...downloading motion_module-v1-5")
+    #installer.status("...downloading motion_module-v1-5")
     #download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
     #sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': '', 'weights': None}
@@ -31101,7 +31108,7 @@ def run_animate_diff(page):
     if animate_diff_prefs['dreambooth_lora'] == "Custom":
         lora = animate_diff_prefs['custom_lora']
         if lora.startswith("http"):
-            installer.set_details(f"...downloading Custom LoRA")
+            installer.status(f"...downloading Custom LoRA")
             lora_file = download_file(lora_model['path'], to=lora_dir)
             if os.path.isfile(lora_file):
                 lora_path = lora_file
@@ -31115,18 +31122,14 @@ def run_animate_diff(page):
                 break
         lora_path = os.path.join(lora_dir, lora_model['file'])
         if not os.path.isfile(lora_path):
-            installer.set_details(f"...downloading {lora_model['name']}")
+            installer.status(f"...downloading {lora_model['name']}")
             download_file(lora_model['path'], to=lora_dir)
             #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M {lora_model['path']} -d {lora_dir} -o {lora_model['file']}", realtime=False)
     if bool(lora_path):
         fname = lora_path.rpartition(slash)[2]
         lora_path = f"models{slash}sd{slash}{fname}"
     clear_pipes()
-    clear_last()
-    prt("Generating AnimateDiff of your Prompts... See console for progress.")
-    prt(progress)
-    time.sleep(0.5)
-    autoscroll(False)
+    
     samples_dir = os.path.join(animatediff_dir, 'samples')
     #batch_output = os.path.join(stable_dir, animate_diff_prefs['batch_folder_name'])
     #if not os.path.isdir(batch_output):
@@ -31166,9 +31169,31 @@ def run_animate_diff(page):
             prompt_map["0"] = animate_diff_prefs['prompt']
     else:
         prompt_map = animate_diff_prefs['animation_prompts']
+    if not bool(animate_diff_prefs['batch_folder_name']):
+        alert_msg(page, "It's highly recommended to give a unique Batch Folder Name to save to...")
+        return
+    installer.status("...preparing json")
     negative_prompts.append(animate_diff_prefs['negative_prompt'])
     random_seed = int(animate_diff_prefs['seed']) if int(animate_diff_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     seeds.append(random_seed)
+    context = min(animate_diff_prefs['video_length'], animate_diff_prefs['context'])
+    
+    def extract_frames(video_file, fps, save_dir, start_frame=0):
+        vidcap = cv2.VideoCapture(video_file)
+        source_fps = vidcap.get(cv2.CAP_PROP_FPS)
+        count = 0
+        while vidcap.isOpened():
+            success, image = vidcap.read()
+            if success:
+                if (count % (int(source_fps/fps)) == 0):
+                    cv2.imwrite(os.path.join(save_dir, f"{str(count + start_frame).zfill(4)}.png"), cv2.resize(image, (animate_diff_prefs['width'], animate_diff_prefs['height']), cv2.INTER_AREA))
+                if count >= (context - start_frame):
+                    break
+                count += 1
+            else:
+                break
+        cv2.destroyAllWindows()
+        vidcap.release()
     '''else:
         num = 0
         for ep in animate_diff_prefs['animation_prompts']:
@@ -31340,18 +31365,25 @@ def run_animate_diff(page):
             pass
         input_image_dir = os.path.join(animatediff_dir, 'data', 'controlnet_image', 'test', controlnet_task)
         for old in os.listdir(input_image_dir):
+            installer.status(f"...deleting {old}")
             os.remove(os.path.join(input_image_dir, old))
         control_images = l['control_images']
         for f, original_image in l['control_images'].items():
             if bool(original_image):
-                img_path = os.path.join(input_image_dir, f'{str(f).zfill(4)}.png')
-                #TODO: Resize image
-                if os.path.isfile(original_image):
-                    shutil.copy(original_image, img_path)
-                elif original_image.startswith('https://drive'):
-                    gdown.download(original_image, img_path, quiet=True)
-                elif original_image.startswith('http'):
-                    download_file(original_image, img_path)
+                if original_image.endswith('mp4') or original_image.endswith('avi'):
+                    if os.path.isfile(original_image):
+                        installer.status(f"...extracting frames from {os.path.basename(original_image)}")
+                        extract_frames(original_image, 8, input_image_dir, start_frame=f)
+                else:
+                    img_path = os.path.join(input_image_dir, f'{str(f).zfill(4)}.png')
+                    installer.status(f"...saving {os.path.basename(original_image)}")
+                    #TODO: Resize image
+                    if os.path.isfile(original_image):
+                        shutil.copy(original_image, img_path)
+                    elif original_image.startswith('https://drive'):
+                        gdown.download(original_image, img_path, quiet=True)
+                    elif original_image.startswith('http'):
+                        download_file(original_image, img_path)
         controlnet_map[controlnet_task] = {
           "enable": True,
           "use_preprocessor":True,
@@ -31361,6 +31393,7 @@ def run_animate_diff(page):
           "control_guidance_end": float(l['control_guidance_end']),
           "control_scale_list":scale_list,
         }
+    installer.status("...preparing json")
     upscale_config = {
       "scheduler": animate_diff_prefs['scheduler'],
       "steps": animate_diff_prefs['upscale_steps'],
@@ -31408,7 +31441,6 @@ def run_animate_diff(page):
     out_dir = os.path.join(animatediff_dir, "output")
     with open(json_file, "w") as outfile:
         json.dump(prompts_json, outfile, indent=4)
-    context = min(animate_diff_prefs['video_length'], animate_diff_prefs['context'])
     #cmd = f"python -m scripts.animate --config {yaml_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
     cmd2 = f"python -m cli --config-path {json_file} --pretrained_model_path {os.path.join(sd_models, 'stable-diffusion-v1-5')}"
     cmd2 += f" --L {animate_diff_prefs['video_length']} --W {animate_diff_prefs['width']} --H {animate_diff_prefs['height']}"
@@ -31492,6 +31524,11 @@ def run_animate_diff(page):
           )
       except ModuleNotFoundError:'''
       print(f"Running {cmd}")
+      clear_last()
+      prt("Generating AnimateDiff of your Prompts... See console for progress.")
+      prt(progress)
+      time.sleep(0.5)
+      autoscroll(False)
       run_sp(cmd, cwd=animatediff_dir, realtime=True)
       #    pass
       #console.run_process(cmd, cwd=animatediff_dir)
@@ -32941,7 +32978,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     #from diffusers import KandinskyV22PriorPipeline
-    #installer.set_details("...kandinsky-2-2-prior Pipeline")
+    #installer.status("...kandinsky-2-2-prior Pipeline")
     #if pipe_kandinsky_prior == None:
     #    pipe_kandinsky_prior = KandinskyV22PriorPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-prior", torch_dtype=torch.float16)
     #    pipe_kandinsky_prior.to("cuda")
@@ -32984,7 +33021,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
             #mask_img.save(mask_file)
         #print(f'Resize to {width}x{height}')
         task_type = "inpainting" if bool(pr['init_image']) and bool(pr['mask_image']) else "img2img" if bool(pr['init_image']) and not bool(pr['mask_image']) else "text2img"
-        installer.set_details(f"...kandinsky-2-2 {task_type} Pipeline")
+        installer.status(f"...kandinsky-2-2 {task_type} Pipeline")
         if pipe_kandinsky == None or loaded_kandinsky_task != task_type:
             clear_pipes('kandinsky_prior')
             try:
@@ -33011,7 +33048,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                     from diffusers import AutoPipelineForInpainting
                     pipe_kandinsky = AutoPipelineForInpainting.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if prefs['enable_torch_compile']:
-                    installer.set_details(f"...Torch compiling unet")
+                    installer.status(f"...Torch compiling unet")
                     pipe_kandinsky.unet.to(memory_format=torch.channels_last)
                     pipe_kandinsky.unet = torch.compile(pipe_kandinsky.unet, mode="reduce-overhead", fullgraph=True)
                     pipe_kandinsky = pipe_kandinsky.to("cuda")
@@ -33822,23 +33859,23 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
     from diffusers import KandinskyV22PriorEmb2EmbPipeline, KandinskyV22ControlnetImg2ImgPipeline
     from transformers import pipeline
     if pipe_kandinsky_controlnet_prior == None:
-        installer.set_details("...kandinsky-2-2-prior Emb2Emb Pipeline")
+        installer.status("...kandinsky-2-2-prior Emb2Emb Pipeline")
         pipe_kandinsky_controlnet_prior = KandinskyV22PriorEmb2EmbPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-prior",torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         pipe_kandinsky_controlnet_prior.to("cuda")
     task_type = "controlnet"
     if pipe_kandinsky == None or loaded_kandinsky_task != task_type:
-        installer.set_details(f"...kandinsky-2-2 {task_type} Pipeline")
+        installer.status(f"...kandinsky-2-2 {task_type} Pipeline")
         clear_pipes('kandinsky_controlnet_prior')
         try:
             if task_type == "controlnet":
                 pipe_kandinsky = KandinskyV22ControlnetImg2ImgPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-controlnet-depth", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             if prefs['enable_torch_compile']:
-                installer.set_details(f"...run torch compile")
+                installer.status(f"...run torch compile")
                 pipe_kandinsky.unet.to(memory_format=torch.channels_last)
                 pipe_kandinsky.unet = torch.compile(pipe_kandinsky.unet, mode="reduce-overhead", fullgraph=True)
                 pipe_kandinsky = pipe_kandinsky.to("cuda")
             elif int(status['cpu_memory']) <= 12:
-                installer.set_details(f"...enable_model_cpu_offload")
+                installer.status(f"...enable_model_cpu_offload")
                 pipe_kandinsky.enable_model_cpu_offload()
             else:
                 pipe_kandinsky.to("cuda")
@@ -33860,7 +33897,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
         return hint
     # step1: create models and pipelines
     if depth_estimator == None:
-        installer.set_details("...depth-estimation Pipeline")
+        installer.status("...depth-estimation Pipeline")
         depth_estimator = pipeline('depth-estimation')
     clear_last()
     for pr in kandinsky_controlnet_prompts:
@@ -34405,10 +34442,10 @@ class Header(UserControl):
         return self.column
 
 class FileInput(UserControl):
-    def __init__(self, label="Initial Image", type="image", pref="", key="", expand=False, col=None, max_size=None, output_dir=None, page=None):
+    def __init__(self, label="Initial Image", ftype="image", pref="", key="", expand=False, col=None, max_size=None, output_dir=None, page=None):
         super().__init__()
         self.label = label
-        self.type = type
+        self.ftype = ftype
         self.pref = pref
         self.key = key
         self.expand = expand
@@ -34463,7 +34500,7 @@ class FileInput(UserControl):
             img_ext = ["png", "PNG", "jpg", "jpeg"]
             vid_ext = ["mp4", "avi", "MP4", "AVI"]
             aud_ext = ["mp3", "wav", "MP3", "WAV"]
-            ext = img_ext if self.type == "image" else vid_ext if self.type == "video" else aud_ext if self.type == "audio" else vid_ext+aud_ext if self.type == "media" else vid_ext+img_ext if self.type == "picture" else img_ext
+            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
             self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
         def changed(e):
@@ -34762,14 +34799,17 @@ class Installing(UserControl):
     def set_message(self, msg):
         self.message_txt.value = msg
         self.message_txt.update()
-    def set_details(self, msg):
+    def status(self, msg):
         self.details.value = msg
         self.details.update()
     def show_progress(self, show):
         self.progress.visible = show
         self.progress.update()
 
-def pip_install(packages, installer=None, print=False, prt=None, cwd=None):
+def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgrade=False, q=False):
+    arg = ""
+    if upgrade: arg += "--upgrade "
+    if q: arg += "-q "
     for package in packages.split():
         try:
             if '=' in package:
@@ -34780,18 +34820,18 @@ def pip_install(packages, installer=None, print=False, prt=None, cwd=None):
             exec(f"import {pkg}")
         except ImportError:
             if installer != None:
-                installer.set_details(f"...installing {package}")
+                installer.status(f"...installing {package}")
             try:
                 if prt == None:
-                    run_sp(f"pip install {package}", realtime=print, cwd=cwd)
+                    run_sp(f"pip install {arg}{package}", realtime=print, cwd=cwd)
                 else:
                     console = RunConsole(show_progress=False)
                     prt(console)
-                    console.run_process(f"pip install {package}", cwd=cwd)
+                    console.run_process(f"pip install {arg}{package}", cwd=cwd)
             except Exception as e:
                 print(f"Error Installing {package}: {e}")
                 if installer != None:
-                    installer.set_details(f"...error installing {package}")
+                    installer.status(f"...error installing {package}")
                 pass
             pass
 
