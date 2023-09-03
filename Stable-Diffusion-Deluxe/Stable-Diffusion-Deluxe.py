@@ -484,6 +484,7 @@ status = {
     'loaded_scheduler': '',
     'loaded_model': '',
     'loaded_controlnet': '',
+    'loaded_controlnet_type': '',
     'loaded_SDXL': '',
     'changed_settings': False,
     'changed_installers': False,
@@ -7591,6 +7592,11 @@ controlnet_xl_prefs = {
     'fps': 12,
     'start_time': 0,
     'end_time': 0,
+    'use_image2image': False,
+    'init_image': '',
+    'mask_image': '',
+    'alpha_mask': False,
+    'invert_mask': False,
     'file_prefix': 'controlnet-',
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -7752,13 +7758,17 @@ def buildControlNetXL(page):
         controlnet_xl_prefs['multi_controlnets'].clear()
         multi_layers.controls.clear()
         multi_layers.update()
+    def toggle_img2img(e):
+        controlnet_xl_prefs['use_image2image'] = e.control.value
+        img2img_row.height = None if e.control.value else 0
+        img2img_row.update()
     original_image = TextField(label="Original Drawing", value=controlnet_xl_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
-    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_xl_conditioning_scale` before they are added to the residual in the original unet.")
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
     #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNetXL Layer", on_click=add_layer)
@@ -7783,6 +7793,14 @@ def buildControlNetXL(page):
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_xl_prefs, key='max_size')
+    
+    use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_xl_prefs['use_image2image'], on_change=toggle_img2img)
+    init_image = FileInput(label="Init Image (optional)", pref=controlnet_xl_prefs, key='init_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_xl_prefs, key='mask_image', expand=True, page=page)
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=controlnet_xl_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    alpha_mask = Checkbox(label="Alpha Mask", value=controlnet_xl_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
+    img2img_row = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]), height=None if controlnet_xl_prefs['use_image2image'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_xl_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_xl_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -7812,6 +7830,8 @@ def buildControlNetXL(page):
         guidance,
         eta_row,
         max_row,
+        use_image2image,
+        img2img_row,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xl_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet,
@@ -9698,7 +9718,7 @@ def buildAnimateDiff(page):
     
     prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], filled=True, expand=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], expand=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    seed = TextField(label="Seed", width=90, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
+    seed = TextField(label="Seed", width=76, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
     frame = TextField(label="Frame", width=76, value="0", filled=True, keyboard_type=KeyboardType.NUMBER, tooltip="")
     add_prompt_keyframe = ft.FilledButton("➕  Add Keyframe", on_click=add_prompt)
     video_length = SliderRow(label="Video Length", min=1, max=500, divisions=499, pref=animate_diff_prefs, key='video_length', tooltip="The number of frames to animate.")
@@ -9724,7 +9744,7 @@ def buildAnimateDiff(page):
     original_image = FileInput(label="Original Image or Video Clip", pref=animate_diff_prefs, key='original_image', ftype="picture", expand=True, page=page)
     control_frame = TextField(label="Frame", width=76, value="0", keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'control_frame', ptype='int'))
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
-    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, expand=True, pref=animate_diff_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_xl_conditioning_scale` before they are added to the residual in the original unet.")
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, expand=True, pref=animate_diff_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
     ref_image = FileInput(label="Reference Image (optional)", pref=animate_diff_prefs, key='ref_image', page=page)
@@ -9764,7 +9784,7 @@ def buildAnimateDiff(page):
         Row([frame, prompt, add_prompt_keyframe]),
         animation_prompts,
         Divider(thickness=2, height=4),
-        Row([negative_prompt, seed]),
+        Row([seed, negative_prompt]),
         num_inference_row,
         guidance,
         width_slider, height_slider,
@@ -28339,7 +28359,8 @@ def run_controlnet_xl(page, from_list=False):
     autoscroll(True)
     clear_list()
     prt(Divider(thickness=2, height=4))
-    prt(Installing("Installing ControlNetXL Packages..."))
+    installer = Installing("Installing ControlNetXL Packages...")
+    prt(installer)
     if status['loaded_controlnet'] == controlnet_xl_prefs["control_task"]:
         clear_pipes('controlnet')
     else:
@@ -28352,12 +28373,14 @@ def run_controlnet_xl(page, from_list=False):
         try:
           import cv2
         except ModuleNotFoundError:
+          installer.status("...installing opencv")
           run_sp("pip install opencv-contrib-python", realtime=False)
           import cv2
           pass
         try:
           from controlnet_aux import MLSDdetector
         except ModuleNotFoundError:
+          installer.status("...installing controlnet-aux")
           run_sp("pip install --upgrade controlnet-aux", realtime=False)
           #run_sp("pip install git+https://github.com/patrickvonplaten/controlnet_aux.git")
           pass
@@ -28644,6 +28667,9 @@ def run_controlnet_xl(page, from_list=False):
         for c in controlnet_xl_prefs['multi_controlnets']:
             controlnet.append(get_controlnet(c['control_task']))
             loaded_controlnet.append(c['control_task'])
+        if len(controlnet) == 1:
+            controlnet = controlnet[0]
+            loaded_controlnet = loaded_controlnet[0]
     else:
         controlnet = get_controlnet(controlnet_xl_prefs['control_task'])
         loaded_controlnet = controlnet_xl_prefs['control_task']
@@ -28651,23 +28677,74 @@ def run_controlnet_xl(page, from_list=False):
       if v != None and k in loaded_controlnet:
         del v
         controlnet_xl_models[k] = None
+    controlnet_type = "text2image"
+    if controlnet_xl_prefs['use_image2image']:
+        if bool(controlnet_xl_prefs['init_image']):
+            if bool(controlnet_xl_prefs['mask_image']) or controlnet_xl_prefs['alpha_mask']:
+                controlnet_type = "inpaint"
+            else:
+                controlnet_type = "image2image"
+    if controlnet_type != status['loaded_controlnet_type']:
+        clear_pipes()
     #model = get_model(prefs['model_ckpt'])
     model_path = "stabilityai/stable-diffusion-xl-base-1.0"
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_xl_prefs["control_task"]:
-        #if controlnet_xl_prefs["use_SDXL"]:
-        #TODO: pipe_controlnet = StableDiffusionXLControlNetPipeline
         vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
-        pipe_controlnet = StableDiffusionXLControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        if controlnet_type == "text2image":
+            pipe_controlnet = StableDiffusionXLControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        elif controlnet_type == "image2image":
+            from diffusers import StableDiffusionXLControlNetImg2ImgPipeline
+            pipe_controlnet = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        elif controlnet_type == "inpaint":
+            from diffusers import StableDiffusionXLControlNetInpaintPipeline
+            pipe_controlnet = StableDiffusionXLControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
-        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True)
+        pipe_controlnet = optimize_SDXL(pipe_controlnet, vae=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_xl_prefs["control_task"]
-    #else:
-        #pipe_controlnet.controlnet=controlnet
+        status['loaded_controlnet_type'] = controlnet_type
     pipe_controlnet = pipeline_scheduler(pipe_controlnet)
     if controlnet_xl_prefs['use_init_video']:
         from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
         pipe_controlnet.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
         pipe_controlnet.controlnet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+    init_img = None
+    mask_img = None
+    if bool(controlnet_xl_prefs['init_image'] and controlnet_xl_prefs['use_image2image']):
+        if controlnet_xl_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(controlnet_xl_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_xl_prefs['init_image']):
+                init_img = PILImage.open(controlnet_xl_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {controlnet_xl_prefs['init_image']}")
+                return
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, controlnet_xl_prefs['max_size'])
+        if bool(controlnet_xl_prefs['alpha_mask']):
+            init_img = init_img.convert("RGBA")
+        else:
+            init_img = init_img.convert("RGB")
+        init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if not bool(controlnet_xl_prefs['mask_image']) and bool(controlnet_xl_prefs['alpha_mask']):
+            mask_img = init_img.convert('RGBA')
+            red, green, blue, alpha = PILImage.Image.split(init_img)
+            mask_img = alpha.convert('L')
+        elif bool(controlnet_xl_prefs['mask_image']):
+            if controlnet_xl_prefs['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(controlnet_xl_prefs['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(controlnet_xl_prefs['mask_image']):
+                    mask_img = PILImage.open(controlnet_xl_prefs['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {controlnet_xl_prefs['mask_image']}")
+                    return
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, controlnet_xl_prefs['max_size'])
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if controlnet_xl_prefs['invert_mask'] and not controlnet_xl_prefs['alpha_mask']:
+            from PIL import ImageOps
+            mask_img = ImageOps.invert(mask_img.convert('RGB'))
+
     clear_last()
     prt(f"Generating ControlNet-XL {controlnet_xl_prefs['control_task']} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_xl_prefs['batch_folder_name'])
@@ -28704,10 +28781,21 @@ def run_controlnet_xl(page, from_list=False):
         try:
             random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
-            if not controlnet_xl_prefs['use_init_video']:
-                images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_xl_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
-            else:
-                images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_xl_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+            if controlnet_type == "text2image":
+                if not controlnet_xl_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+            elif controlnet_type == "image2image":
+                if not controlnet_xl_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+            elif controlnet_type == "inpaint":
+                if not controlnet_xl_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, mask=mask_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, mask=mask_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
         except Exception as e:
             #clear_last()
             clear_last()
