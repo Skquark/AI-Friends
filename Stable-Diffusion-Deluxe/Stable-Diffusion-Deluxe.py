@@ -4906,13 +4906,15 @@ def buildPoint_E(page):
 shap_e_prefs = {
     'prompt_text': '',
     'init_image': '',
-    'guidance_scale': 15.0,
+    'init_images': [],
+    'guidance_scale': 5.0,
     'base_model': 'base40M-textvec', #'base40M', 'base300M' or 'base1B'
     'render_mode': 'NeRF', #STF
     'use_karras': True,
-    'karras_steps': 64,
-    'size': 64,
+    'karras_steps': 50,
+    'size': 256,
     'save_frames': False,
+    'use_original': False,
     'batch_size': 1,
     'batch_folder_name': '',
     #'seed': 0,
@@ -4980,17 +4982,29 @@ def buildShap_E(page):
     #page.overlay.append(pick_files_dialog)
     def pick_original(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def toggle_original(e):
+      shap_e_prefs['use_original'] = e.control.value
+      original_row.height=None if shap_e_prefs['use_original'] else 0
+      original_row.update()
+    def run_shap(e):
+      if shap_e_prefs['use_original']:
+        run_shap_e(page)
+      else:
+        run_shap_e2(page)
     prompt_text = TextField(label="Prompt Text", value=shap_e_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
     init_image = TextField(label="Sample Image (optional, instead of prompt)", value=shap_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    #TODO: Add Multi-Image List
     #base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=shap_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
-    render_mode = Dropdown(label="Render Mode", width=250, options=[dropdown.Option("NeRF"), dropdown.Option("STF")], value=shap_e_prefs['render_mode'], on_change=lambda e: changed(e, 'render_mode'))
+    render_mode = Dropdown(label="Render Mode", width=150, options=[dropdown.Option("NeRF"), dropdown.Option("STF")], value=shap_e_prefs['render_mode'], on_change=lambda e: changed(e, 'render_mode'))
     size = SliderRow(label="Size of Render", min=32, max=512, divisions=15, multiple=32, tooltip="Higher values take longer to render.", suffix="px", pref=shap_e_prefs, key='size')
     karras_steps = SliderRow(label="Karras Steps", min=1, max=100, divisions=99, round=0, pref=shap_e_prefs, key='karras_steps')
     batch_folder_name = TextField(label="3D Model Folder Name", value=shap_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     #batch_size = TextField(label="Batch Size", value=shap_e_prefs['batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'batch_size', isInt=True), width = 90)
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=shap_e_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=shap_e_prefs, key='guidance_scale')
+    use_original = Switcher(label="Use Original Shap-E Method", value=shap_e_prefs['use_original'], tooltip="By default uses latest HuggingFace Diffusers Pipeline.", on_change=toggle_original)
     save_frames = Checkbox(label="Save Preview Frames", tooltip="Saves PNG Sequence of camera rotation, same as animated gif preview.", value=shap_e_prefs['save_frames'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_frames'))
+    original_row = Container(animate_size=animation.Animation(700, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height = None if shap_e_prefs['use_original'] else 0, padding=padding.only(top=4), content=Row([render_mode, save_frames]))
     #seed = TextField(label="Seed", value=shap_e_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
     page.shap_e_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -5001,12 +5015,12 @@ def buildShap_E(page):
         Header("🧊  Shap-E 3D Mesh", "Provide a Prompt or Image to Generate Conditional 3D PLY Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Shap-E Settings", on_click=df_help)]),
         prompt_text,
         init_image,
-        Row([render_mode, save_frames]),
+        Row([use_original, original_row]),
         guidance,
         karras_steps,
         size,
         Row([batch_folder_name, batch_size]),
-        ElevatedButton(content=Text("🪀  Run Shap-E", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_shap_e(page)),
+        ElevatedButton(content=Text("🪀  Run Shap-E", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=run_shap),
         page.shap_e_output,
         clear_button,
       ]
@@ -14472,6 +14486,7 @@ pipe_deepfloyd3 = None
 pipe_gpt2 = None
 pipe_distil_gpt2 = None
 pipe_background_remover = None
+pipe_shap_e = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
@@ -16633,6 +16648,12 @@ def clear_background_remover_pipe():
     del pipe_background_remover
     flush()
     pipe_background_remover = None
+def clear_shap_e_pipe():
+  global pipe_shap_e
+  if pipe_shap_e is not None:
+    del pipe_shap_e
+    flush()
+    pipe_shap_e = None
 def clear_controlnet_pipe():
   global pipe_controlnet, controlnet, controlnet_models, controlnet_xl_models, status
   if pipe_controlnet is not None:
@@ -16714,6 +16735,7 @@ def clear_pipes(allbut=None):
     if not 'music_ldm' in but: clear_music_ldm_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
+    if not 'shap_e' in but: clear_shap_e_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'stable_lm' in but: clear_stable_lm_pipe()
@@ -31217,7 +31239,7 @@ def run_animate_diff(page):
         fname = lora_path.rpartition(slash)[2]
         lora_path = f"models{slash}sd{slash}{fname}"
     clear_pipes()
-    
+
     samples_dir = os.path.join(animatediff_dir, 'samples')
     #batch_output = os.path.join(stable_dir, animate_diff_prefs['batch_folder_name'])
     #if not os.path.isdir(batch_output):
@@ -31265,7 +31287,7 @@ def run_animate_diff(page):
     random_seed = int(animate_diff_prefs['seed']) if int(animate_diff_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     seeds.append(random_seed)
     context = min(animate_diff_prefs['video_length'], animate_diff_prefs['context'])
-    
+
     def extract_frames(video_file, fps, save_dir, start_frame=0):
         vidcap = cv2.VideoCapture(video_file)
         source_fps = vidcap.get(cv2.CAP_PROP_FPS)
@@ -31308,7 +31330,12 @@ def run_animate_diff(page):
         'prompt_map': prompt_map,
         'n_prompt': negative_prompts,
     }
-    
+    ref_image = ""
+    if bool(animate_diff_prefs['ref_image']):
+        ref_file = os.path.join(animate_diff_prefs['ref_image'])
+        if os.path.exists(ref_file):
+            ref_image = f"ref_image{slash}{os.path.basename(animate_diff_prefs['ref_image'])}"
+            shutil.copy(ref_file, os.path.join(animatediff_dir, 'data', 'ref_image', os.path.basename(ref_file)))
     controlnet_map = {
       "input_image_dir" : f"controlnet_image{slash}test",
       "max_samples_on_vram": 200,
@@ -31441,6 +31468,16 @@ def run_animate_diff(page):
         "control_guidance_start": 0.0,
         "control_guidance_end": 1.0,
         "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_ref": {
+        "enable": bool(ref_image),
+        "ref_image": ref_image if bool(ref_image) else "ref_image/ref_sample.png",
+        "attention_auto_machine_weight": 1.0,
+        "gn_auto_machine_weight": 1.0,
+        "style_fidelity": 0.5,
+        "reference_attn": True,
+        "reference_adain": False,
+        "scale_pattern":[0.5]
       }
     }
     for l in animate_diff_prefs['controlnet_layers']:
@@ -31509,10 +31546,10 @@ def run_animate_diff(page):
         "control_guidance_end": 1.0
       },
       "controlnet_ref": {
-        "enable": bool(animate_diff_prefs['ref_image']),
+        "enable": bool(ref_image),
         "use_frame_as_ref_image": False,
         "use_1st_frame_as_ref_image": True,
-        "ref_image": animate_diff_prefs['ref_image'],
+        "ref_image": ref_image,
         "attention_auto_machine_weight": 1.0,
         "gn_auto_machine_weight": 1.0,
         "style_fidelity": 0.25,
@@ -32367,6 +32404,9 @@ def run_point_e(page):
 
 def run_shap_e(page):
     global shap_e_prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
+      return
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -32383,10 +32423,20 @@ def run_shap_e(page):
     if not bool(shap_e_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
     page.shap_e_output.controls = []
     page.shap_e_output.update()
+    installer = Installing("Installing OpenAI Shap-E 3D Libraries...")
+    prt(installer)
+    
     shap_e_dir = os.path.join(root_dir, "shap-e")
-    prt(Installing("Installing OpenAI Shap-E 3D Libraries..."))
     if not os.path.exists(shap_e_dir):
         try:
             #run_process("pip install -U scikit-image")
@@ -32458,14 +32508,7 @@ def run_shap_e(page):
     status_txt = Text("Generating your 3D model... See console for progress.")
     progress = ProgressBar(bar_height=8)
     total_steps = shap_e_prefs['karras_steps']
-    def callback_fnc(step: int) -> None:
-      callback_fnc.has_been_called = True
-      nonlocal progress, total_steps
-      #total_steps = len(latents)
-      percent = (step +1)/ total_steps
-      progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}"
-      progress.update()
+    
     clear_last(update=False)
     prt(status_txt)
     prt(progress)
@@ -32501,7 +32544,8 @@ def run_shap_e(page):
             img_file = os.path.join(shap_e_out, f'{fname}_{i}.png')
             images = decode_latent_images(xm, latent, cameras, rendering_mode=shap_e_prefs['render_mode'].lower())
             #images.save(img_file)
-            display(gif_widget(images))
+            if is_Colab:
+                display(gif_widget(images))
             #callback_fnc(i)
     except Exception as e:
         clear_last()
@@ -32540,7 +32584,6 @@ def run_shap_e(page):
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
 
-pipe_shap_e = None
 def run_shap_e2(page):
     global shap_e_prefs, pipe_shap_e, status
     def prt(line):
@@ -32566,32 +32609,47 @@ def run_shap_e2(page):
     prt(installer)
     from diffusers import DiffusionPipeline
     from diffusers.utils import export_to_ply
-    repo = "openai/shap-e"
-    clear_pipes()
-    try:
-        pipe_shap_e = DiffusionPipeline.from_pretrained(repo, torch_dtype=torch.float16, variant="fp16")
-        pipe_shap_e = pipe_shap_e.to(torch_device)
-    except Exception as e:
-        clear_last()
-        alert_msg(page, "Error Installing Shap-E Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-        return
-    from PIL import ImageOps
-    try:
-      import trimesh
-    except Exception:
-      run_sp("pip install trimesh", realtime=False)
-      import trimesh
-      pass
+    if 'loaded_shap_e' not in status: status['loaded_shap_e'] = ""
+    shap_e_type = "text"
     if bool(shap_e_prefs['prompt_text']):
         fname = format_filename(shap_e_prefs['prompt_text'])
     elif bool(shap_e_prefs['init_image']):
+        shap_e_type = "img2img"
         fname = format_filename(shap_e_prefs['init_image'].rpartition(slash)[1].rparition('.')[0])
     elif bool(shap_e_prefs['batch_folder_name']):
         fname = format_filename(shap_e_prefs['batch_folder_name'], force_underscore=True)
     else:
         alert_msg(page, "If you're not using Prompt Text, provide a name for your 3D Model.")
         return
-
+    repo = "openai/shap-e"
+    if status['loaded_shap_e'] == shap_e_type:
+        clear_pipes("shap_e")
+    else:
+        clear_pipes()
+    if pipe_shap_e == None:
+        try:
+            installer.status(f"...loading Shap-E {shap_e_type} pipeline")
+            if shap_e_type == "img2img":
+                from diffusers import ShapEImg2ImgPipeline
+                pipe_shap_e = ShapEImg2ImgPipeline.from_pretrained("openai/shap-e-img2img", torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+            elif shap_e_type == "text":
+                from diffusers import ShapEPipeline
+                pipe_shap_e = ShapEPipeline.from_pretrained("openai/shap-e", torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+            pipe_shap_e = pipe_shap_e.to(torch_device)
+            status['loaded_shap_e'] = shap_e_type
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Shap-E Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    from PIL import ImageOps
+    try:
+      import trimesh
+    except Exception:
+      installer.status("...installing trimesh")
+      run_sp("pip install trimesh", realtime=False)
+      import trimesh
+      pass
+    
     #filename = format_filename(shap_e_prefs['prompt_text'])
     #fname = f"{shap_e_prefs['file_prefix']}{fname}"
     shap_e_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'shap_e', shap_e_prefs['batch_folder_name'])
@@ -32605,6 +32663,7 @@ def run_shap_e2(page):
     #estimate = convert(int(shap_e_prefs["training_iters"] * 0.7))
     init_img = None
     if bool(shap_e_prefs['init_image']):
+      # TODO: Make Multi-Image List
         if shap_e_prefs['init_image'].startswith('http'):
             init_img = PILImage.open(requests.get(shap_e_prefs['init_image'], stream=True).raw)
         else:
@@ -32634,16 +32693,18 @@ def run_shap_e2(page):
     clear_last(update=False)
     prt(status_txt)
     prt(progress)
-    if init_img == None:
-        model_kwargs = dict(texts=[shap_e_prefs['prompt_text']] * shap_e_prefs['batch_size'])
+    if shap_e_type == "text":
+        model_kwargs = dict(texts=shap_e_prefs['prompt_text'])
     else:
-        model_kwargs = dict(images=[init_img] * shap_e_prefs['batch_size'])
+        model_kwargs = dict(images=init_img)
     try:
-        images = pipe_shap_e(shap_e_prefs['prompt_text'], num_images_per_prompt=shap_e_prefs['batch_size'], guidance_scale=shap_e_prefs['guidance_scale'], num_inference_steps=shap_e_prefs['karras_steps'], frame_size=shap_e_prefs['size'], output_type="mesh").images
+        images = pipe_shap_e(**model_kwargs, num_images_per_prompt=shap_e_prefs['batch_size'], guidance_scale=shap_e_prefs['guidance_scale'], num_inference_steps=shap_e_prefs['karras_steps'], frame_size=shap_e_prefs['size'])
     except Exception as e:
         clear_last()
         alert_msg(page, "Error running Shap-E sample_latents.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         return
+    #images = pipe_shap_e(shap_e_prefs['prompt'], guidance_scale=shap_e_prefs['guidance_scale'], num_inference_steps=shap_e_prefs['karras_steps'], frame_size=shap_e_prefs['size'], output_type="mesh").images
+    
     prt_status("Generating Shap-E 3D Models...") #images=[img]
     step = 0
     if shap_e_prefs['save_frames']:
@@ -32662,6 +32723,8 @@ def run_shap_e2(page):
     ply_path = export_to_ply(images[0], ply_file)
     print(f"saved to folder: {ply_path}")
     mesh = trimesh.load(ply_path)
+    rot = trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0])
+    mesh = mesh.apply_transform(rot)
     mesh.export(glb_file, file_type="glb")
 
     flush()
