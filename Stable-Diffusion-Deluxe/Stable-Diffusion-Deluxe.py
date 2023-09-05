@@ -701,12 +701,14 @@ def build3DAIs(page):
     page.DreamFusion = buildDreamFusion(page)
     page.Point_E = buildPoint_E(page)
     page.Shap_E = buildShap_E(page)
+    page.ZoeDepth = buildZoeDepth(page)
     page.InstantNGP = buildInstantNGP(page)
     diffusersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
             Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
             Tab(text="Shap-E 3D", content=page.Shap_E, icon=icons.PRECISION_MANUFACTURING),
+            Tab(text="ZoeDepth 3D", content=page.ZoeDepth, icon=icons.GRADIENT),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
         ],
     )
@@ -5027,6 +5029,65 @@ def buildShap_E(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+zoe_depth_prefs = {
+    'init_image': '',
+    'keep_edges': False,
+    'colorize': False,
+    'pano_360': False,
+    'zoe_model': 'ZoeD_N', #ZoeD_K, ZoeD_NK
+    'loaded_model': '',
+    'max_size': 1024,
+    'batch_folder_name': '',
+}
+def buildZoeDepth(page):
+    global zoe_depth_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            zoe_depth_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            zoe_depth_prefs[pref] = float(e.control.value)
+          else:
+            zoe_depth_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def zoe_depth_help(e):
+      def close_zoe_depth_dlg(e):
+        nonlocal zoe_depth_help_dlg
+        zoe_depth_help_dlg.open = False
+        page.update()
+      zoe_depth_help_dlg = AlertDialog(title=Text("🙅   Help with Zoe Depth"), content=Column([
+          Text("ZoeDepth is a deep learning model for metric depth estimation from a single image."),
+          Text("Give it any of your favorite images and create a 3D glb file from the depth map to import into your 3D Modeling program with texture.... Simple as that, no prompt needed."),
+          Markdown("[Paper](https://arxiv.org/abs/2302.12288) | [GitHub](https://github.com/isl-org/ZoeDepth) | [HuggingFace Space](https://huggingface.co/spaces/shariqfarooq/ZoeDepth)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧊  Depths we go... ", on_click=close_zoe_depth_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = zoe_depth_help_dlg
+      zoe_depth_help_dlg.open = True
+      page.update()
+    init_image = FileInput(label="Initial Image", pref=zoe_depth_prefs, key='init_image', page=page)
+    zoe_model = Dropdown(label="ZoeDepth Model", width=150, options=[dropdown.Option("ZoeD_N"), dropdown.Option("ZoeD_K"), dropdown.Option("ZoeD_NK")], value=zoe_depth_prefs['zoe_model'], on_change=lambda e:changed(e,'zoe_model'))
+    keep_edges = Switcher(label="Keep Occlusion Edges", value=zoe_depth_prefs['keep_edges'], on_change=lambda e:changed(e,'keep_edges'))
+    pano_360 = Switcher(label="Input 360 Panoramic", value=zoe_depth_prefs['pano_360'], on_change=lambda e:changed(e,'pano_360'))
+    colorize = Switcher(label="Show Colorized Depth", value=zoe_depth_prefs['colorize'], on_change=lambda e:changed(e,'colorize'))
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, expand=True, multiple=16, suffix="px", pref=zoe_depth_prefs, key='max_size')
+    page.zoe_depth_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.zoe_depth_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🥐  ZoeDepth 3D Depth Model from Init Image", "Zero-shot Transfer by Combining Relative and Metric Depth...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Zoe Depth Settings", on_click=zoe_depth_help)]),
+        init_image,
+        Row([keep_edges, pano_360, colorize]),
+        Row([zoe_model, max_row]),
+        ElevatedButton(content=Text("✊  Get Zoe Depth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_zoe_depth(page)),
+        page.zoe_depth_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 instant_ngp_prefs = {
     'train_steps': 2000, #Total number of training steps to perform.  If provided, overrides num_train_epochs.
@@ -14487,6 +14548,7 @@ pipe_gpt2 = None
 pipe_distil_gpt2 = None
 pipe_background_remover = None
 pipe_shap_e = None
+pipe_zoe_depth = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
@@ -16654,6 +16716,12 @@ def clear_shap_e_pipe():
     del pipe_shap_e
     flush()
     pipe_shap_e = None
+def clear_zoe_depth_pipe():
+  global pipe_zoe_depth
+  if pipe_zoe_depth is not None:
+    del pipe_spipe_zoe_depthhap_e
+    flush()
+    pipe_zoe_depth = None
 def clear_controlnet_pipe():
   global pipe_controlnet, controlnet, controlnet_models, controlnet_xl_models, status
   if pipe_controlnet is not None:
@@ -16736,6 +16804,7 @@ def clear_pipes(allbut=None):
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     if not 'shap_e' in but: clear_shap_e_pipe()
+    if not 'zoe_depth' in but: clear_zoe_depth_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'stable_lm' in but: clear_stable_lm_pipe()
@@ -16756,7 +16825,7 @@ def pil_to_base64(image):
     base64_string = base64.b64encode(image_bytes).decode('utf-8')
     return base64_string
 
-def available_file(folder, name, idx, ext='png', no_num=False):
+def available_file(folder, name, idx=0, ext='png', no_num=False):
   available = False
   while not available:
     # Todo, check if using PyDrive2
@@ -32734,6 +32803,139 @@ def run_shap_e2(page):
     prt("Finished generating Shap-E Mesh... Hope it's good.")
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
+
+def run_zoe_depth(page):
+    global zoe_depth_prefs, pipe_zoe_depth
+    def prt(line):
+        if type(line) == str:
+            line = Text(line, size=17)
+        page.ZoeDepth.controls.append(line)
+        page.ZoeDepth.update()
+    def clear_last():
+      del page.ZoeDepth.controls[-1]
+      page.ZoeDepth.update()
+    def clear_list():
+      page.ZoeDepth.controls = page.ZoeDepth.controls[:1]
+    def autoscroll(scroll=True):
+      page.ZoeDepth.auto_scroll = scroll
+      page.ZoeDepth.update()
+    if not bool(controlnet_qr_prefs['ref_image']):
+        alert_msg(page, f"ERROR: If using your own QR image, you must provide it.")
+        return
+    file_name = "zoedepth"
+    if zoe_depth_prefs['init_image'].startswith('http'):
+        image = PILImage.open(requests.get(zoe_depth_prefs['init_image'], stream=True).raw)
+        file_name = zoe_depth_prefs['init_image'].rpartition('/')[2]
+    else:
+        if os.path.isfile(zoe_depth_prefs['init_image']):
+            image = PILImage.open(zoe_depth_prefs['init_image'])
+            file_name = os.path.basename(zoe_depth_prefs['init_image'])
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your init_image {zoe_depth_prefs['init_image']}")
+            return
+    if '.' in file_name:
+        file_name = file_name.rpartition('.')[0]
+    file_name = format_filename(file_name)
+    progress = ProgressBar(bar_height=8)
+    installer = Installing("Installing ZoeDepth Image-to-3D Pipeline...")
+    clear_list()
+    prt(installer)
+    pip_install("timm trimesh h5py hdf5 matplotlib matplotlib-base opencv scipy", installer=installer, upgrade=True)
+    zoe_depth_dir = os.path.join(root_dir, "ZoeDepth")
+    if not os.path.exists(zoe_depth_dir):
+        try:
+            installer.status("...cloning isl-org/ZoeDepth.git")
+            run_sp("git clone https://github.com/isl-org/ZoeDepth.git", cwd=root_dir, realtime=False)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"Error Installing github.com/isl-org/ZoeDepth...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    sys.path.append(zoe_depth_dir)
+    try:
+        installer.status("...running sanity check")
+        run_sp("python sanity.py", cwd=zoe_depth_dir, realtime=False)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"Error Running ZoeDepth sanity.py...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    from zoedepth.utils.misc import get_image_from_url, colorize, save_raw_16bit
+    import matplotlib.pyplot as plt
+    import trimesh
+    from zoedepth.utils.geometry import depth_to_points, create_triangles
+    from functools import partial
+
+    def depth_edges_mask(depth):
+        depth_dx, depth_dy = np.gradient(depth)
+        depth_grad = np.sqrt(depth_dx ** 2 + depth_dy ** 2)
+        mask = depth_grad > 0.05
+        return mask
+    def pano_depth_to_world_points(depth):
+        radius = depth.flatten()
+        lon = np.linspace(-np.pi, np.pi, depth.shape[1])
+        lat = np.linspace(-np.pi/2, np.pi/2, depth.shape[0])
+        lon, lat = np.meshgrid(lon, lat)
+        lon = lon.flatten()
+        lat = lat.flatten()
+        # Convert to cartesian coordinates
+        x = radius * np.cos(lat) * np.cos(lon)
+        y = radius * np.cos(lat) * np.sin(lon)
+        z = radius * np.sin(lat)
+        pts3d = np.stack([x, y, z], axis=1)
+        return pts3d
+    
+    if zoe_depth_prefs['zoe_model'] == zoe_depth_prefs['loaded_model']:
+        clear_pipes('zoe_depth')
+    else:
+        clear_pipes()
+    if pipe_zoe_depth == None:
+        installer.status("...loading isl-org/ZoeDepth")#'isl-org/ZoeDepth'
+        pipe_zoe_depth = torch.hub.load(zoe_depth_dir, zoe_depth_prefs["zoe_model"], pretrained=True).to(torch_device).eval()
+        zoe_depth_prefs['loaded_model'] = zoe_depth_prefs['zoe_model']
+    batch_output = os.path.join(prefs['image_output'], zoe_depth_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+        os.makedirs(batch_output)
+    installer.set_message("Running ZoeDepth on your Image...")
+    installer.status("...infering depth")
+    prt(progress)
+    glb_path = available_file(batch_output, file_name, ext="glb", no_num=True)
+    depth_path = available_file(batch_output, file_name, no_num=True)
+    colored_path = available_file(batch_output, f"{file_name}-colored", no_num=True)
+    image.thumbnail((zoe_depth_prefs['max_size'],zoe_depth_prefs['max_size']))  # limit the size of the input image
+    depth = pipe_zoe_depth.infer_pil(image)
+    installer.status("...save depth")
+    save_raw_16bit(depth, depth_path)
+    if zoe_depth_prefs['pano_360']:
+        installer.status("...pano depth to world points")
+        pts3d = pano_depth_to_world_points(depth)
+    else:
+        installer.status("...depth to points")
+        pts3d = depth_to_points(depth[None])
+    verts = pts3d.reshape(-1, 3)
+    if zoe_depth_prefs['colorize']:
+        installer.status("...colorize depth")
+        colored = colorize(depth)
+        PILImage.fromarray(colored).save(colored_path)
+    image = np.array(image)
+    installer.status("...create triangles")
+    if zoe_depth_prefs['keep_edges']:
+        triangles = create_triangles(image.shape[0], image.shape[1])
+    else:
+        triangles = create_triangles(image.shape[0], image.shape[1], mask=~depth_edges_mask(depth))
+    colors = image.reshape(-1, 3)
+    installer.status("...create trimesh")
+    mesh = trimesh.Trimesh(vertices=verts, faces=triangles, vertex_colors=colors)
+    mesh.export(glb_path)
+    autoscroll(True)
+    clear_last()
+    clear_last()
+    prt(ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page))
+    if zoe_depth_prefs['colorize']:
+        prt(ImageButton(src=colored_path, width=colored.shape[1], height=colored.shape[0], data=colored_path, subtitle=colored_path, page=page))
+    
+    prt(f"Saved to {glb_path}")
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_instant_ngp(page):
     global instant_ngp_prefs, prefs

@@ -4,8 +4,8 @@ Invoke-WebRequest https://raw.githubusercontent.com/Skquark/AI-Friends/main/Stab
 cd .\venv\Scripts
 .\Activate.ps1
 cd ..
-python -m pip install --upgrade pip
-python -m pip install --upgrade flet
+.\Scripts\python.exe -m pip install --upgrade pip
+.\Scripts\python.exe -m pip install --upgrade flet
 flet .\Stable-Diffusion-Deluxe.py
-& .\deactivate.bat
+& .\Scripts\deactivate.bat
 exit /B 1

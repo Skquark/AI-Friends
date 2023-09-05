@@ -12,5 +12,6 @@ pip install --upgrade flet
 ::call %PROGRAMDATA%/Anaconda3/envs/%venv%/python.exe "%~dp0\main.py"
 PAUSE
 call flet run .\Stable-Diffusion-Deluxe.py
-C:\ProgramData\Anaconda3\Scripts\conda create --name sddconda
+C:\ProgramData\Anaconda3\Scripts\conda init cmd.exe
+C:\ProgramData\Anaconda3\Scripts\conda create --name sddconda python=3.10.2
 C:\ProgramData\Anaconda3\Scripts\conda activate sddconda
