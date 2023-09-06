@@ -4906,7 +4906,7 @@ def buildPoint_E(page):
     return c
 
 shap_e_prefs = {
-    'prompt_text': '',
+    'prompt_text': ' with solid white background',
     'init_image': '',
     'init_images': [],
     'guidance_scale': 5.0,
@@ -9513,6 +9513,13 @@ animate_diff_prefs = {
     'controlnet_tile': False, 'controlnet_ip2p': False, 'controlnet_lineart_anime': False, 'controlnet_openpose': False, 'controlnet_softedge': False, 'controlnet_shuffle': False, 'controlnet_depth': False, 'controlnet_canny': False, 'controlnet_inpaint': False, 'controlnet_lineart': False, 'controlnet_mlsd': False, 'controlnet_normalbae': False, 'controlnet_': False, 'controlnet_scribble': False, 'controlnet_seg': False,
     'upscale_tile': False, 'upscale_ip2p': False, 'upscale_lineart_anime': False, 'upscale_ip2p': False, 'upscale_ref': False,
     'upscale_steps': 20, 'upscale_strength': 0.5, 'upscale_guidance_scale': 10,
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_frame': '0',
+    'ip_adapter_layers': {},
+    'ip_adapter_scale': 0.5,
+    'ip_adapter_is_plus': True,
+    'ip_adapter_is_plus_face': True,
     'num_images': 1,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -9532,6 +9539,8 @@ animate_diff_loras = [
     {'name': 'moonfilm_reality20', 'file': 'moonfilm_reality20.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/moonfilm_reality20.safetensors'},
     {'name': 'rcnzCartoon3d_v10', 'file': 'rcnzCartoon3d_v10.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/rcnzCartoon3d_v10.safetensors'},
     {'name': 'realisticVisionV40_v20Novae', 'file': 'realisticVisionV40_v20Novae.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/realisticVisionV40_v20Novae.safetensors'},
+    {'name': 'Mistoon_Anime', 'file': 'mistoonAnime_v20.safetensors', 'path': 'https://huggingface.co/WickedOne/MistoonAnimeV2/blob/main/mistoonAnime_v20.safetensors'},
+    {'name': 'XXMix_9realistic_v4', 'file': 'xxmix9realistic_v40.safetensors', 'path': 'https://huggingface.co/jzli/XXMix_9realistic-v4/resolve/main/xxmix9realistic_v40.safetensors'},
     #{'name': 'Custom', 'file': '', 'path': ''},
 ]
 def buildAnimateDiff(page):
@@ -9569,7 +9578,7 @@ def buildAnimateDiff(page):
       animate_diff_help_dlg = AlertDialog(title=Text("💁   Help with AnimateDiff"), content=Column([
           Text("With the advance of text-to-image models (e.g., Stable Diffusion) and corresponding personalization techniques such as DreamBooth and LoRA, everyone can manifest their imagination into high-quality images at an affordable cost. Subsequently, there is a great demand for image animation techniques to further combine generated static images with motion dynamics. In this report, we propose a practical framework to animate most of the existing personalized text-to-image models once and for all, saving efforts in model-specific tuning. At the core of the proposed framework is to insert a newly initialized motion modeling module into the frozen text-to-image model and train it on video clips to distill reasonable motion priors. Once trained, by simply injecting this motion modeling module, all personalized versions derived from the same base T2I readily become text-driven models that produce diverse and personalized animated images. We conduct our evaluation on several public representative personalized text-to-image models across anime pictures and realistic photographs, and demonstrate that our proposed framework helps these models generate temporally smooth animation clips while preserving the domain and diversity of their outputs."),
           Text("Credits: Yuwei Guo, Ceyuan Yang, Anyi Rao, Yaohui Wang, Yu Qiao, Dahua Lin, Bo Dai. Also Neggles for refactoring, Camenduru and UI by Alan Bedian"),
-          Markdown("[Neggles GitHub Code](https://github.com/neggles/animatediff-cli) - [Original GitHub Code](https://github.com/guoyww/animatediff/) - [Project Page](https://animatediff.github.io/) - [Arxiv Paper](https://arxiv.org/abs/2307.04725)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Neggles GitHub Code](https://github.com/neggles/animatediff-cli) - [S9roll7 Prompt Travel](https://github.com/s9roll7/animatediff-cli-prompt-travel) - [Original GitHub Code](https://github.com/guoyww/animatediff/) - [Project Page](https://animatediff.github.io/) - [Arxiv Paper](https://arxiv.org/abs/2307.04725)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧞  Make a Wish... ", on_click=close_animate_diff_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = animate_diff_help_dlg
       animate_diff_help_dlg.open = True
@@ -9790,6 +9799,45 @@ def buildAnimateDiff(page):
         animate_diff_prefs['controlnet_layers'].clear()
         multi_layers.controls.clear()
         multi_layers.update()
+    def toggle_ip_adapter(e):
+      animate_diff_prefs['use_ip_adapter'] = e.control.value
+      ip_adapter_container.height=None if animate_diff_prefs['use_ip_adapter'] else 0
+      ip_adapter_container.update()
+    def add_ip_layer(e):
+        ip_adapter_image = {str(int(animate_diff_prefs['ip_adapter_frame'])): animate_diff_prefs['ip_adapter_image']}
+        updating = False
+        if str(int(animate_diff_prefs['ip_adapter_frame'])) in animate_diff_prefs['ip_adapter_layers']:
+            updating = True
+        animate_diff_prefs['ip_adapter_layers'].update(ip_adapter_image)
+        title = Markdown(f"**{str(int(animate_diff_prefs['ip_adapter_frame']))}:** {animate_diff_prefs['ip_adapter_image']}")
+        if updating:
+            animate_diff_prefs['ip_adapter_layers'][str(int(animate_diff_prefs['ip_adapter_frame']))] = animate_diff_prefs['ip_adapter_image']
+            for l in ip_adapter_layers.controls:
+                if next(iter(l.data.items()))[0] == str(int(animate_diff_prefs['ip_adapter_frame'])):
+                    l.title = title
+                    l.update()
+                    l.data = ip_adapter_image
+        else:
+            ip_adapter_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+              items=[
+                  PopupMenuItem(icon=icons.DELETE, text="Delete IP Frame", on_click=delete_ip_layer, data=ip_adapter_image),
+                  PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Frames", on_click=delete_all_ip_layers, data=ip_adapter_image),
+              ]), data=ip_adapter_image))
+        ip_adapter_layers.update()
+        #animate_diff_prefs['ip_adapter_image'] = ""
+        #ip_adapter_image.value = ""
+        #ip_adapter_image.update()
+    def delete_ip_layer(e):
+        del animate_diff_prefs['ip_adapter_layers'][next(iter(e.control.data.items()))[0]]
+        for c in ip_adapter_layers.controls:
+          if next(iter(c.data.items()))[0] ==  next(iter(e.control.data.items()))[0]:
+             ip_adapter_layers.controls.remove(c)
+             break
+        ip_adapter_layers.update()
+    def delete_all_ip_layers(e):
+        animate_diff_prefs['ip_adapter_layers'].clear()
+        ip_adapter_layers.controls.clear()
+        ip_adapter_layers.update()
     
     prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], filled=True, expand=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], expand=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
@@ -9827,6 +9875,20 @@ def buildAnimateDiff(page):
     #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNetXL Layer", on_click=add_layer)
     add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
     multi_layers = Column([], spacing=0)
+    ip_adapter_layers = Column([], spacing=0)
+    use_ip_adapter = Switcher(label="Use IP-Adapter Layers", value=animate_diff_prefs['use_ip_adapter'], on_change=toggle_ip_adapter)
+    ip_adapter_frame = TextField(label="Frame", width=76, value="0", keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'ip_adapter_frame'))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=animate_diff_prefs, key='ip_adapter_image', expand=True, page=page)
+    add_frame_btn = ft.FilledButton("➕ Add Frame", width=144, on_click=add_ip_layer)
+    ip_adapter_scale = SliderRow(label="IP-Adapter Scale", min=0.0, max=1.0, divisions=20, round=2, expand=True, pref=animate_diff_prefs, key='ip_adapter_scale', tooltip="")
+    ip_adapter_is_plus = Checkbox(label="IP-Adapter Plus", value=animate_diff_prefs['ip_adapter_is_plus'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_is_plus'))
+    ip_adapter_is_plus_face = Checkbox(label="IP-Adapter Plus Face", value=animate_diff_prefs['ip_adapter_is_plus_face'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_is_plus_face'))
+    ip_adapter_container = Container(animate_size=animation.Animation(700, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, alignment = alignment.top_left, height = None if animate_diff_prefs['use_ip_adapter'] else 0, padding=padding.only(top=4), content=Column([
+      Row([ip_adapter_frame, ip_adapter_image, add_frame_btn]),
+      ip_adapter_layers,
+      Row([ip_adapter_scale, ip_adapter_is_plus, ip_adapter_is_plus_face]),
+      Divider(thickness=2, height=4),
+    ]))
     upscale_tile = Switcher(label="Upscale Tile", value=animate_diff_prefs['upscale_tile'], on_change=lambda e:changed(e,'upscale_tile'))
     upscale_ip2p = Switcher(label="Upscale IP2P", value=animate_diff_prefs['upscale_ip2p'], on_change=lambda e:changed(e,'upscale_ip2p'))
     upscale_lineart_anime = Switcher(label="Upscale LineArt Anime", value=animate_diff_prefs['upscale_lineart_anime'], on_change=lambda e:changed(e,'upscale_lineart_anime'))
@@ -9873,6 +9935,8 @@ def buildAnimateDiff(page):
         Row([control_guidance_start, control_guidance_end]),
         multi_layers,
         Divider(thickness=2, height=4),
+        use_ip_adapter, 
+        ip_adapter_container,
         ref_image,
         Row([upscale_tile, upscale_ip2p, upscale_lineart_anime]),
         ResponsiveRow([upscale_steps, upscale_strength, upscale_guidance_scale]),
@@ -15117,9 +15181,11 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
     if prefs['use_LoRA_model']:
       lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
       if bool(lora['weights']):
-        p.load_lora_weights(lora['path'], weight_name=lora['weights'])
+        p.load_lora_weights(lora['path'], weight_name=lora['weights'], torch_dtype=torch.float16)
       else:
-        p.load_lora_weights(lora['path'])
+        p.load_lora_weights(lora['path'], torch_dtype=torch.float16)
+      #p.unfuse_lora() TODO
+      #p.fuse_lora(lora_scale=0.5)
       #p.unet.load_attn_procs(lora['path'])
     #if to_gpu and not (prefs['enable_torch_compile'] and torch_compile) and not model_offload:
     if prefs['enable_torch_compile'] and torch_compile:
@@ -15166,11 +15232,6 @@ def get_text2image(page):
     global pipe, unet, scheduler, prefs, model
     def open_url(e):
       page.launch_url(e.data)
-    '''if pipe is not None:
-        #print("Clearing the ol' pipe first...")
-        del pipe
-        flush()
-        pipe = None'''
     try:
       if use_custom_scheduler: # Not really using anymore, maybe later
         from transformers import CLIPTextModel, CLIPTokenizer
@@ -31168,12 +31229,13 @@ def run_animate_diff(page):
     installer = Installing("Installing AnimateDiff Requirements...")
     prt(installer)
     animatediff_dir = os.path.join(root_dir, 'animatediff-cli-prompt-travel')
-    if not os.path.exists(animatediff_dir):
+    if 'installed_animate_diff' not in status:#not os.path.exists(animatediff_dir) or force_updates:
         installer.status("...clone guoyww/animatediff")
         run_sp("git clone https://github.com/s9roll7/animatediff-cli-prompt-travel", realtime=False, cwd=root_dir)
         #run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
         installer.status("...install animatediff")
         run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
+        status['installed_animate_diff'] = True
     os.chdir(animatediff_dir)
     try:
         import diffusers
@@ -31562,22 +31624,22 @@ def run_animate_diff(page):
             installer.status(f"...deleting {old}")
             os.remove(os.path.join(input_image_dir, old))
         control_images = l['control_images']
-        for f, original_image in l['control_images'].items():
-            if bool(original_image):
-                if original_image.endswith('mp4') or original_image.endswith('avi'):
-                    if os.path.isfile(original_image):
-                        installer.status(f"...extracting frames from {os.path.basename(original_image)}")
-                        extract_frames(original_image, 8, input_image_dir, start_frame=f)
+        for f, ip_image in l['control_images'].items():
+            if bool(ip_image):
+                if ip_image.endswith('mp4') or ip_image.endswith('avi'):
+                    if os.path.isfile(ip_image):
+                        installer.status(f"...extracting frames from {os.path.basename(ip_image)}")
+                        extract_frames(ip_image, 8, input_image_dir, start_frame=f)
                 else:
                     img_path = os.path.join(input_image_dir, f'{str(f).zfill(4)}.png')
-                    installer.status(f"...saving {os.path.basename(original_image)}")
+                    installer.status(f"...saving {os.path.basename(ip_image)}")
                     #TODO: Resize image
-                    if os.path.isfile(original_image):
-                        shutil.copy(original_image, img_path)
-                    elif original_image.startswith('https://drive'):
-                        gdown.download(original_image, img_path, quiet=True)
-                    elif original_image.startswith('http'):
-                        download_file(original_image, img_path)
+                    if os.path.isfile(ip_image):
+                        shutil.copy(ip_image, img_path)
+                    elif ip_image.startswith('https://drive'):
+                        gdown.download(ip_image, img_path, quiet=True)
+                    elif ip_image.startswith('http'):
+                        download_file(ip_image, img_path)
         controlnet_map[controlnet_task] = {
           "enable": True,
           "use_preprocessor":True,
@@ -31587,6 +31649,26 @@ def run_animate_diff(page):
           "control_guidance_end": float(l['control_guidance_end']),
           "control_scale_list":scale_list,
         }
+    for f, ip_image in animate_diff_prefs['ip_adapter_layers'].items():
+        if bool(ip_image):
+            ip_adapter_image_dir = os.path.join(animatediff_dir, 'data', 'ip_adapter_image', 'test')
+            img_path = os.path.join(ip_adapter_image_dir, f'{str(f).zfill(4)}.png')
+            installer.status(f"...saving {os.path.basename(ip_image)}")
+            #TODO: Resize image
+            if os.path.isfile(ip_image):
+                shutil.copy(ip_image, img_path)
+            elif ip_image.startswith('https://drive'):
+                gdown.download(ip_image, img_path, quiet=True)
+            elif ip_image.startswith('http'):
+                download_file(ip_image, img_path)
+    ip_adapter_map = {
+      "enable": animate_diff_prefs['use_ip_adapter'],
+      "input_image_dir": f"ip_adapter_image{slash}test",
+      "save_input_image": False,
+      "scale": animate_diff_prefs['ip_adapter_scale'],
+      "is_plus_face": animate_diff_prefs['ip_adapter_plus'],
+      "is_plus": animate_diff_prefs['ip_adapter_plus_face']
+    }
     installer.status("...preparing json")
     upscale_config = {
       "scheduler": animate_diff_prefs['scheduler'],
@@ -31627,6 +31709,7 @@ def run_animate_diff(page):
       }
     }
     prompts_json['controlnet_map'] = controlnet_map
+    prompts_json['ip_adapter_map'] = ip_adapter_map
     prompts_json['upscale_config'] = upscale_config
     #if bool(lora_path):
     #    prompts_json['lora_scale'] = animate_diff_prefs['lora_alpha']
@@ -32895,6 +32978,7 @@ def run_zoe_depth(page):
     if not os.path.isdir(batch_output):
         os.makedirs(batch_output)
     installer.set_message("Running ZoeDepth on your Image...")
+    installer.show_progress(False)
     installer.status("...infering depth")
     prt(progress)
     glb_path = available_file(batch_output, file_name, ext="glb", no_num=True)
