@@ -1278,6 +1278,7 @@ def buildInstallers(page):
   enable_vae_slicing = Checkbox(label="Enable VAE Slicing", tooltip="Sliced VAE decode latents for larger batches of images with limited VRAM. Splits the input tensor in slices to compute decoding in several steps", value=prefs['vae_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_slicing'))
   enable_tome = Checkbox(label="Enable Token Merging", tooltip="ToMe optimizes the Pipelines to create images faster, at the expense of some quality. Works by merging the redundant tokens / patches progressively in the forward pass of a Transformer-based network.", value=prefs['enable_tome'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_tome'))
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
+  enable_torch_compile.visible = not platform.system() == "Windows"
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
   SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data))
@@ -3586,8 +3587,7 @@ def buildESRGANupscaler(page):
         face_enhance,
         ResponsiveRow([image_path, dst_image_path]),
         filename_suffix,
-        download_locally,
-        display_image,
+        Row([download_locally, display_image]),
         #Divider(thickness=2, height=4),
         split_image_grid,
         split_container,
@@ -9764,20 +9764,20 @@ def buildAnimateDiff(page):
         layer = {'control_task': animate_diff_prefs['control_task'], 'control_images': control_images, 'control_frame': animate_diff_prefs['control_frame'], 'original_image': animate_diff_prefs['original_image'], 'control_scale_list': animate_diff_prefs['control_scale_list'], 'conditioning_scale': animate_diff_prefs['conditioning_scale'], 'control_guidance_start': animate_diff_prefs['control_guidance_start'], 'control_guidance_end': animate_diff_prefs['control_guidance_end'], 'use_init_video': False}
         images = ""
         for f, img in control_images.items():
-            images += f"{f}: {img} - "
+            images += f" - {f}: {img}"
         if updating:
             for i, cn in enumerate(animate_diff_prefs['controlnet_layers']):
                 if cn['control_task'] == animate_diff_prefs['control_task']:
                     animate_diff_prefs['controlnet_layers'][i] = layer
             for l in multi_layers.controls:
                 if l.data['control_task'] == animate_diff_prefs['control_task']:
-                    l.title = Markdown(f"**{layer['control_task']}** - {images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")
+                    l.title = Markdown(f"**{layer['control_task']}** - Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}{images}")
                     #l.title = Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")])
                     l.update()
                     l.data = layer
         else:
             animate_diff_prefs['controlnet_layers'].append(layer)
-            title = Markdown(f"**{layer['control_task']}** - {images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")
+            title = Markdown(f"**{layer['control_task']}** - Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}{images}")
             #multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(f"{images}Scale List: [{animate_diff_prefs['control_scale_list']}] - Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
             multi_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
               items=[
@@ -31330,7 +31330,7 @@ def run_animate_diff(page):
     if not os.path.isdir(motion_module):
         os.makedirs(motion_module)
     #run_sp(f"rm -rf {sd_models}", realtime=False)
-    shutil.rmtree(sd_models)
+    #shutil.rmtree(sd_models)
     installer.status("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
     #if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
