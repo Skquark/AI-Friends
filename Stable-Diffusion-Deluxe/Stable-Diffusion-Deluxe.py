@@ -652,6 +652,7 @@ def buildImageAIs(page):
     page.ControlNet = buildControlNet(page)
     page.ControlNetXL = buildControlNetXL(page)
     page.DeepFloyd = buildDeepFloyd(page)
+    page.Wuerstchen = buildWuerstchen(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
@@ -671,6 +672,7 @@ def buildImageAIs(page):
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
+            Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
@@ -1634,6 +1636,7 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky2.update()
         page.ESRGAN_block_kandinsky2_fuse.update()
         page.ESRGAN_block_deepfloyd.update()
+        page.ESRGAN_block_wuerstchen.update()
         page.ESRGAN_block_reference.update()
         page.ESRGAN_block_unCLIP.update()
         page.ESRGAN_block_unCLIP_image_variation.update()
@@ -8302,6 +8305,97 @@ def buildDeepFloyd(page):
       ]))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+wuerstchen_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "wuerstchen-",
+    "num_images": 1,
+    "steps":12,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4,
+    'prior_guidance_scale': 4.0,
+    'prior_steps': 60,
+    "seed": 0,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildWuerstchen(page):
+    global prefs, wuerstchen_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            wuerstchen_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            wuerstchen_prefs[pref] = float(e.control.value)
+          else:
+            wuerstchen_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def wuerstchen_help(e):
+      def close_wuerstchen_dlg(e):
+        nonlocal wuerstchen_help_dlg
+        wuerstchen_help_dlg.open = False
+        page.update()
+      wuerstchen_help_dlg = AlertDialog(title=Text("🙅   Help with Würstchen Pipeline"), content=Column([
+          Text("Würstchen: Efficient Pretraining of Text-to-Image Models is by Pablo Pernias, Dominic Rampas, and Marc Aubreville."),
+          Text("We introduce Würstchen, a novel technique for text-to-image synthesis that unites competitive performance with unprecedented cost-effectiveness and ease of training on constrained hardware. Building on recent advancements in machine learning, our approach, which utilizes latent diffusion strategies at strong latent image compression rates, significantly reduces the computational burden, typically associated with state-of-the-art models, while preserving, if not enhancing, the quality of generated images. Wuerstchen achieves notable speed improvements at inference time, thereby rendering real-time applications more viable. One of the key advantages of our method lies in its modest training requirements of only 9,200 GPU hours, slashing the usual costs significantly without compromising the end performance. In a comparison against the state-of-the-art, we found the approach to yield strong competitiveness. This paper opens the door to a new line of research that prioritizes both performance and computational accessibility, hence democratizing the use of sophisticated AI technologies. Through Wuerstchen, we demonstrate a compelling stride forward in the realm of text-to-image synthesis, offering an innovative path to explore in future research."),
+          Markdown("[Paper](https://huggingface.co/papers/2306.00637) | [Original GitHub](https://github.com/dome272/Wuerstchen)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🐗  Some Brätwurst? ", on_click=close_wuerstchen_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = wuerstchen_help_dlg
+      wuerstchen_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        wuerstchen_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=wuerstchen_prefs['prompt'], multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=wuerstchen_prefs['negative_prompt'], multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=wuerstchen_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=wuerstchen_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    steps = TextField(label="Number of Steps", value=wuerstchen_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=wuerstchen_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=wuerstchen_prefs, key='steps')
+    prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=wuerstchen_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
+    prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, expand=True, pref=wuerstchen_prefs, key='prior_steps', col={'xs':12, 'md':6})
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=wuerstchen_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=14, multiple=128, suffix="px", pref=wuerstchen_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=14, multiple=128, suffix="px", pref=wuerstchen_prefs, key='height')
+    seed = TextField(label="Seed", width=90, value=str(wuerstchen_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=wuerstchen_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=wuerstchen_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=wuerstchen_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=wuerstchen_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_wuerstchen = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_wuerstchen.height = None if status['installed_ESRGAN'] else 0
+    if not wuerstchen_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🐷   Run Würstchen", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_wuerstchen(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_wuerstchen(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_wuerstchen(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.wuerstchen_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🌭  Würstchen", "Text-to-Image Synthesis uniting competitive performance, cost-effectiveness and ease of training on constrained hardware.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Würstchen Settings", on_click=wuerstchen_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([prior_steps, prior_guidance_scale]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_wuerstchen,
+            parameters_row,
+            page.wuerstchen_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
 
 text_to_video_prefs = {
     'prompt': '',
@@ -14582,6 +14676,7 @@ pipe_unCLIP = None
 pipe_unCLIP_image_variation = None
 pipe_unCLIP_interpolation = None
 pipe_unCLIP_image_interpolation = None
+pipe_wuerstchen = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
 pipe_instruct_pix2pix = None
@@ -16576,6 +16671,12 @@ def clear_unCLIP_image_interpolation_pipe():
     del pipe_unCLIP_image_interpolation
     flush()
     pipe_unCLIP_image_interpolation = None
+def clear_wuerstchen_pipe():
+  global pipe_wuerstchen
+  if pipe_wuerstchen is not None:
+    del pipe_wuerstchen
+    flush()
+    pipe_wuerstchen = None
 def clear_magic_mix_pipe():
   global pipe_magic_mix
   if pipe_magic_mix is not None:
@@ -16835,6 +16936,7 @@ def clear_pipes(allbut=None):
     if not 'unCLIP_interpolation' in but: clear_unCLIP_interpolation_pipe()
     if not 'image_variation' in but: clear_image_variation_pipe()
     if not 'semantic' in but: clear_semantic_pipe()
+    if not 'wuerstchen' in but: clear_wuerstchen_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
     if not 'alt_diffusion_img2img' in but: clear_alt_diffusion_img2img_pipe()
@@ -29874,6 +29976,213 @@ def run_deepfloyd(page, from_list=False):
         clear_pipes()
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_wuerstchen(page, from_list=False, with_params=False):
+    global wuerstchen_prefs, pipe_wuerstchen, prefs
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    wuerstchen_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            wuerstchen_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':wuerstchen_prefs['guidance_scale'], 'steps':wuerstchen_prefs['steps'], 'width':wuerstchen_prefs['width'], 'height':wuerstchen_prefs['height'], 'num_images':wuerstchen_prefs['num_images'], 'seed':wuerstchen_prefs['seed']})
+        else:
+            wuerstchen_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(wuerstchen_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      wuerstchen_prompts.append({'prompt': wuerstchen_prefs['prompt'], 'negative_prompt':wuerstchen_prefs['negative_prompt'], 'guidance_scale':wuerstchen_prefs['guidance_scale'], 'steps':wuerstchen_prefs['steps'], 'width':wuerstchen_prefs['width'], 'height':wuerstchen_prefs['height'], 'num_images':wuerstchen_prefs['num_images'], 'seed':wuerstchen_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Wuerstchen.controls.append(line)
+        if update:
+          page.Wuerstchen.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.Wuerstchen.controls[-1]
+        page.Wuerstchen.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Wuerstchen.auto_scroll = scroll
+        page.Wuerstchen.update()
+      else:
+        page.Wuerstchen.auto_scroll = scroll
+        page.Wuerstchen.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Wuerstchen.controls = page.Wuerstchen.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = wuerstchen_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Würstchen Engine & Models...")
+    clear_pipes("wuerstchen")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = False
+    prt(installer)
+    if pipe_wuerstchen == None:
+        clear_pipes('wuerstchen_prior')
+        try:
+            from diffusers import AutoPipelineForText2Image
+            pipe_wuerstchen = AutoPipelineForText2Image.from_pretrained("warp-diffusion/wuerstchen", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling unet")
+                #pipe_wuerstchen.unet.to(memory_format=torch.channels_last)
+                pipe_wuerstchen.unet = torch.compile(pipe_wuerstchen.unet, mode="reduce-overhead", fullgraph=True)
+                pipe_wuerstchen = pipe_wuerstchen.to("cuda")
+            elif cpu_offload:
+                pipe_wuerstchen.enable_model_cpu_offload()
+            else:
+                pipe_wuerstchen.to("cuda")
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Würstchen, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+    else:
+        clear_pipes('wuerstchen')
+    clear_last()
+    s = "" if len(wuerstchen_prompts) == 0 else "s"
+    prt(f"Generating your Würstchen Image{s}...")
+    for pr in wuerstchen_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        try:
+            images = pipe_wuerstchen(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                prior_guidance_scale=wuerstchen_prefs['prior_guidance_scale'], prior_num_inference_steps=wuerstchen_prefs['prior_steps'],
+                num_images_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['steps'],
+                guidance_scale=pr['guidance_scale'],
+                generator=generator,
+                #callback=callback_fnc,
+            ).images
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Text(str(e)))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(wuerstchen_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, wuerstchen_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{wuerstchen_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not wuerstchen_prefs['display_upscaled_image'] or not wuerstchen_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': wuerstchen_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if wuerstchen_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{idx}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                shutil.copy(image_path, dst_path)
+                faceenhance = ' --face_enhance' if wuerstchen_prefs["face_enhance"] else ''
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {wuerstchen_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if wuerstchen_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {wuerstchen_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"Würstchen")
+                if prefs['save_config_in_metadata']:
+                    config_json = wuerstchen_prefs.copy()
+                    config_json['model_path'] = "wuerstchen-community/wuerstchen-2-2-decoder"
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_text_to_video(page):
     global text_to_video_prefs, prefs, status, pipe_text_to_video, model_path
@@ -31729,6 +32038,7 @@ def run_animate_diff(page):
     #cmd += f" -O {animate_diff_prefs['overlap']}"
     w = 0
     h = 0
+    frame_dir = ""
     output_dir = ""
     output_dirs = []
     img_idx = 0
@@ -31750,6 +32060,7 @@ def run_animate_diff(page):
             try:
               frame = PILImage.open(event.src_path)
               w, h = frame.size
+              frame_dir = os.path.dirname(event.src_path)
               clear_last()
             except Exception:
               pass
@@ -31804,7 +32115,7 @@ def run_animate_diff(page):
       print(f"Running {cmd}")
       clear_last()
       prt("Generating AnimateDiff of your Prompts... See console for progress.")
-      prt(progress)
+      #prt(progress)
       time.sleep(0.5)
       autoscroll(False)
       run_sp(cmd, cwd=animatediff_dir, realtime=True)
@@ -31818,8 +32129,12 @@ def run_animate_diff(page):
       observer.stop()
       alert_msg(page, f"ERROR: Couldn't run AnimateDiff for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
       return
-    clear_last()
     #clear_last()
+    #clear_last()
+    if animate_diff_prefs['upscale_tile']:
+        upscale_cmd = f"animatediff tile-upscale {frame_dir} -c {json_file} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']}"
+        print(f"Running {upscale_cmd}")
+        #run_sp(upscale_cmd, cwd=animatediff_dir, realtime=True)
     time.sleep(3)
     observer.stop()
     #filename = f"{format_filename(editing_prompts[0]['prompt'])}"
