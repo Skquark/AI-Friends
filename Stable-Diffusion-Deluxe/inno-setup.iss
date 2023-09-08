@@ -37,7 +37,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: SetElevationBit('{app}\{#MyAppExeName}')
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\refresh.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\debug-venv.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\run-sdd.ps1"; DestDir: "{app}"; Flags: ignoreversion
@@ -46,9 +46,32 @@ Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\sdd-noupdate.
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename:"D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename:"D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico"
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename:"D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico"; AfterInstall: SetElevationBit('{autoprograms}\{#MyAppName}.lnk')
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename:"D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico"; AfterInstall: SetElevationBit('{autodesktop}\{#MyAppName}.lnk')
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: shellexec postinstall skipifsilent
 
+
+[Code]
+
+procedure SetElevationBit(Filename: string);
+var
+  Buffer: string;
+  Stream: TStream;
+begin
+  Filename := ExpandConstant(Filename);
+  Log('Setting elevation bit for ' + Filename);
+
+  Stream := TFileStream.Create(FileName, fmOpenReadWrite);
+  try
+    Stream.Seek(21, soFromBeginning);
+    SetLength(Buffer, 1);
+    Stream.ReadBuffer(Buffer, 1);
+    Buffer[1] := Chr(Ord(Buffer[1]) or $20);
+    Stream.Seek(-1, soFromCurrent);
+    Stream.WriteBuffer(Buffer, 1);
+  finally
+    Stream.Free;
+  end;
+end;

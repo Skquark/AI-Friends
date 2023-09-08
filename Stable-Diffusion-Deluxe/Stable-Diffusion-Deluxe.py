@@ -8365,8 +8365,8 @@ def buildWuerstchen(page):
     prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=wuerstchen_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
     prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, expand=True, pref=wuerstchen_prefs, key='prior_steps', col={'xs':12, 'md':6})
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=wuerstchen_prefs, key='guidance_scale')
-    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=14, multiple=128, suffix="px", pref=wuerstchen_prefs, key='width')
-    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=14, multiple=128, suffix="px", pref=wuerstchen_prefs, key='height')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=wuerstchen_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=wuerstchen_prefs, key='height')
     seed = TextField(label="Seed", width=90, value=str(wuerstchen_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=wuerstchen_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=wuerstchen_prefs, key='enlarge_scale')
@@ -9607,6 +9607,7 @@ animate_diff_prefs = {
     'controlnet_tile': False, 'controlnet_ip2p': False, 'controlnet_lineart_anime': False, 'controlnet_openpose': False, 'controlnet_softedge': False, 'controlnet_shuffle': False, 'controlnet_depth': False, 'controlnet_canny': False, 'controlnet_inpaint': False, 'controlnet_lineart': False, 'controlnet_mlsd': False, 'controlnet_normalbae': False, 'controlnet_': False, 'controlnet_scribble': False, 'controlnet_seg': False,
     'upscale_tile': False, 'upscale_ip2p': False, 'upscale_lineart_anime': False, 'upscale_ip2p': False, 'upscale_ref': False,
     'upscale_steps': 20, 'upscale_strength': 0.5, 'upscale_guidance_scale': 10,
+    'upscale_amount': 1.5,
     'use_ip_adapter': False,
     'ip_adapter_image': '',
     'ip_adapter_frame': '0',
@@ -9986,9 +9987,10 @@ def buildAnimateDiff(page):
     upscale_tile = Switcher(label="Upscale Tile", value=animate_diff_prefs['upscale_tile'], on_change=lambda e:changed(e,'upscale_tile'))
     upscale_ip2p = Switcher(label="Upscale IP2P", value=animate_diff_prefs['upscale_ip2p'], on_change=lambda e:changed(e,'upscale_ip2p'))
     upscale_lineart_anime = Switcher(label="Upscale LineArt Anime", value=animate_diff_prefs['upscale_lineart_anime'], on_change=lambda e:changed(e,'upscale_lineart_anime'))
-    upscale_steps = SliderRow(label="Upscale Steps", min=1, max=50, divisions=49, pref=animate_diff_prefs, key='upscale_steps', col={'md': 6, 'lg':4}, tooltip="")
-    upscale_strength = SliderRow(label="Upscale Strength", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='upscale_strength', col={'md': 6, 'lg':4}, tooltip="")
-    upscale_guidance_scale = SliderRow(label="Upscale Guidance", min=0, max=20, divisions=40, round=1, pref=animate_diff_prefs, col={'md': 12, 'lg':4}, key='upscale_guidance_scale')
+    upscale_steps = SliderRow(label="Upscale Steps", min=1, max=50, divisions=49, pref=animate_diff_prefs, key='upscale_steps', col={'md': 6}, tooltip="")
+    upscale_strength = SliderRow(label="Upscale Strength", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='upscale_strength', col={'md': 6}, tooltip="")
+    upscale_guidance_scale = SliderRow(label="Upscale Guidance", min=0, max=20, divisions=40, round=1, pref=animate_diff_prefs, col={'md': 6}, key='upscale_guidance_scale')
+    upscale_slider = SliderRow(label="Upscale Amount", min=1, max=4, divisions=12, round=2, suffix="x", pref=animate_diff_prefs, col={'md': 6}, key='upscale_amount')
     
     batch_folder_name = TextField(label="Batch Folder Name", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
@@ -10033,7 +10035,8 @@ def buildAnimateDiff(page):
         ip_adapter_container,
         ref_image,
         Row([upscale_tile, upscale_ip2p, upscale_lineart_anime]),
-        ResponsiveRow([upscale_steps, upscale_strength, upscale_guidance_scale]),
+        ResponsiveRow([upscale_steps, upscale_guidance_scale]),
+        ResponsiveRow([upscale_strength, upscale_slider]),
         Row([motion_module, scheduler, batch_folder_name]),
         Row([is_loop, save_frames, save_gif, save_video]),
         page.ESRGAN_block_animate_diff,
@@ -32131,10 +32134,19 @@ def run_animate_diff(page):
       return
     #clear_last()
     #clear_last()
-    if animate_diff_prefs['upscale_tile']:
-        upscale_cmd = f"animatediff tile-upscale {frame_dir} -c {json_file} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']}"
+    if animate_diff_prefs['upscale_tile'] or animate_diff_prefs['upscale_ip2p'] or animate_diff_prefs['upscale_lineart_anime']:
+        u_w = int(w * float(animate_diff_prefs['width']))
+        u_h = int(h * float(animate_diff_prefs['height']))
+        upscale_cmd = f"animatediff tile-upscale {Path(frame_dir)} -c {json_file} -W {u_w} -H {u_h}"
         print(f"Running {upscale_cmd}")
-        #run_sp(upscale_cmd, cwd=animatediff_dir, realtime=True)
+        prt("Upscaling AnimateDiff of your Frames... See console for progress.")
+        try:
+            run_sp(upscale_cmd, cwd=animatediff_dir, realtime=True)
+        except Exception as e:
+            clear_last()
+            observer.stop()
+            alert_msg(page, f"ERROR: Couldn't run Tile-Upscale on AnimateDiff for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
     time.sleep(3)
     observer.stop()
     #filename = f"{format_filename(editing_prompts[0]['prompt'])}"

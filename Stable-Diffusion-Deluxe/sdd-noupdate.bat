@@ -1,6 +1,11 @@
 @echo off
 cd /D "%~dp0"
-if not "%1"=="am_admin" (powershell start -verb runas '%0' am_admin & exit /b)
+NET SESSION >nul 2>&1
+IF NOT %ERRORLEVEL% EQU 0 (
+   echo Must launch app with Run as Administrator
+   pause
+   exit /B 1
+)
 reg query "hkcu\software\Python"
 if ERRORLEVEL 1 GOTO NOPYTHON
 echo Running Stable Diffusion Deluxe in a Python Virtual Environment
