@@ -32,9 +32,9 @@ except:
   pass
 stable_dir = root_dir
 env = os.environ.copy()
-def run_sp(cmd_str, cwd=None, realtime=True):
+def run_sp(cmd_str, cwd=None, realtime=False, output_column=None):
   cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
-  if realtime:
+  if realtime or output_column != None:
     if cwd is None:
       process = subprocess.Popen(cmd_str, shell = True, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' ) 
     else:
@@ -44,7 +44,11 @@ def run_sp(cmd_str, cwd=None, realtime=True):
       if realtime_output == '' and process.poll() is not None:
         break
       if realtime_output:
-        print(realtime_output.strip(), flush=False)
+        if not output_column:
+            print(realtime_output.strip(), flush=False)
+        else:
+            output_column.controls.append(ft.Text(realtime_output.strip()))
+            output_colum.update()
         sys.stdout.flush()
   else:
     if cwd is None:
@@ -296,6 +300,10 @@ def load_settings_file():
       'SDXL_high_noise_frac': 0.7,
       'SDXL_negative_conditions': False,
       'SDXL_compel': False,
+      'SDXL_watermark': False,
+      'SDXL_model': 'SDXL-Base v1',
+      'SDXL_custom_model': '',
+      'SDXL_custom_models': [],
       'use_composable': False,
       'use_safe': False,
       'use_versatile': False,
@@ -638,6 +646,7 @@ def buildImageAIs(page):
     page.unCLIP_Interpolation = buildUnCLIP_Interpolation(page)
     page.unCLIP_ImageInterpolation = buildUnCLIP_ImageInterpolation(page)
     page.UnCLIP_ImageVariation = buildUnCLIP_ImageVariation(page)
+    page.BLIPDiffusion = buildBLIPDiffusion(page)
     page.Reference = buildReference(page)
     page.ControlNetQR = buildControlNetQR(page)
     page.ControlNetSegmentAnything = buildControlNetSegmentAnything(page)
@@ -678,6 +687,7 @@ def buildImageAIs(page):
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
+            Tab(text="BLIP-Diffusion", content=page.BLIPDiffusion, icon=icons.RADAR),
             Tab(text="Reference", content=page.Reference, icon=icons.CRISIS_ALERT),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
@@ -902,6 +912,9 @@ if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
 if 'SDXL_high_noise_frac' not in prefs: prefs['SDXL_high_noise_frac'] = 0.7
 if 'SDXL_compel' not in prefs: prefs['SDXL_compel'] = False
 if 'SDXL_negative_conditions' not in prefs: prefs['SDXL_negative_conditions'] = False
+if 'SDXL_watermark' not in prefs: prefs['SDXL_watermark'] = False
+if 'SDXL_model' not in prefs: prefs['SDXL_model'] = 'SDXL-Base v1'
+if 'SDXL_custom_model' not in prefs: prefs['SDXL_custom_model'] = ''
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] = False
@@ -1209,16 +1222,19 @@ def buildInstallers(page):
       changed(e, 'model_ckpt')
       model = get_model(e.control.value)
       model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-      model_card.update()
-      if e.control.value.startswith("Stable"):
-        custom_area.content = model_card
-      elif e.control.value == "Community Finetuned Model":
-        custom_area.content = Row([finetuned_model, model_card])
-      elif e.control.value == "DreamBooth Library Model":
-        custom_area.content = Row([dreambooth_library, model_card])
-      elif e.control.value == "Custom Model Path":
-        custom_area.content = Row([custom_model, model_card])
-      custom_area.update()
+      try:
+          model_card.update()
+          if e.control.value.startswith("Stable"):
+            custom_area.content = model_card
+          elif e.control.value == "Community Finetuned Model":
+            custom_area.content = Row([finetuned_model, model_card])
+          elif e.control.value == "DreamBooth Library Model":
+            custom_area.content = Row([dreambooth_library, model_card])
+          elif e.control.value == "Custom Model Path":
+            custom_area.content = Row([custom_model, model_card])
+          custom_area.update()
+      except Exception:
+          pass
   def changed_finetuned_model(e):
       changed(e, 'finetuned_model')
       model = get_finetuned_model(e.control.value)
@@ -1234,6 +1250,13 @@ def buildInstallers(page):
       model = {'name': 'Custom Model', 'path': e.control.value, 'prefix': ''}
       model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
       model_card.update()
+  def changed_SDXL_model(e):
+      changed(e, 'SDXL_model')
+      SDXL_custom_model.visible = prefs['SDXL_model'] == 'Custom Model'
+      SDXL_custom_model.update()
+      #model = {'name': 'Custom Model', 'path': e.control.value, 'prefix': ''}
+      #model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
+      #model_card.update()
   def toggle_safe(e):
       changed(e, 'install_safe')
       safety_config.visible = e.control.value
@@ -1270,6 +1293,12 @@ def buildInstallers(page):
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
   model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
+  SDXL_model = Dropdown(label="SDXL Model Checkpoint", hint_text="", width=370, options=[dropdown.Option("Custom Model")], value=prefs['SDXL_model'], autofocus=False, on_change=changed_SDXL_model, col={'xs':9, 'md':4})
+  for xl in SDXL_models:
+      SDXL_model.options.append(dropdown.Option(xl["name"]))
+  SDXL_custom_model = TextField(label="Custom Model Path", value=prefs['SDXL_custom_model'], width=370, visible=prefs['SDXL_model']=='Custom Model', on_change=lambda e:changed(e,'SDXL_custom_model'), col={'xs':3, 'md':8})
+  SDXL_model_row = ResponsiveRow([SDXL_model, SDXL_custom_model], run_spacing=8)
+
   memory_optimization = Dropdown(label="Enable Memory Optimization", width=290, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   if version.parse(torch.__version__) < version.parse("2.0.0"):
       memory_optimization.options.append(dropdown.Option("Xformers Mem Efficient Attention"))
@@ -1353,7 +1382,8 @@ def buildInstallers(page):
   install_upscale = Switcher(label="Install Stable Diffusion v2 Upscale 4X Pipeline", value=prefs['install_upscale'], disabled=status['installed_upscale'], on_change=lambda e:changed(e, 'install_upscale'), tooltip="Allows you to enlarge images with prompts. Note: Will run out of mem for images larger than 512px, start small.")
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
-                                 Column([Container(Column([Container(None, height=3), model_row, Container(content=None, height=4), scheduler_mode,
+                                 Column([Container(Column([Container(None, height=3), model_row, SDXL_model_row,
+                                Container(content=None, height=4), scheduler_mode,
                                  Row([memory_optimization,
                                  higher_vram_mode]),
                                  #  enable_vae_slicing
@@ -1608,6 +1638,7 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky_controlnet.height = None
         page.ESRGAN_block_deepfloyd.height = None
         page.ESRGAN_block_reference.height = None
+        page.ESRGAN_block_blip_diffusion.height = None
         page.ESRGAN_block_unCLIP.height = None
         page.ESRGAN_block_unCLIP_image_variation.height = None
         page.ESRGAN_block_unCLIP_interpolation.height = None
@@ -1637,6 +1668,7 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky2_fuse.update()
         page.ESRGAN_block_deepfloyd.update()
         page.ESRGAN_block_wuerstchen.update()
+        page.ESRGAN_block_blip_diffusion.update()
         page.ESRGAN_block_reference.update()
         page.ESRGAN_block_unCLIP.update()
         page.ESRGAN_block_unCLIP_image_variation.update()
@@ -4416,7 +4448,6 @@ def buildDanceDiffusion(page):
     seed = TextField(label="Random Seed", value=dance_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', isInt=True), width = 110)
     audio_length_in_s = TextField(label="Audio Length in Seconds", value=dance_prefs['audio_length_in_s'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'audio_length_in_s'), width = 190)
     number_row = Row([batch_size, seed, audio_length_in_s])
-
     train_custom = Switcher(label="Train Custom Audio ", value=dance_prefs['train_custom'], on_change=toggle_custom)
     custom_audio_name = TextField(label="Custom Audio Name", value=dance_prefs['custom_name'], on_change=lambda e:changed(e,'custom_name'))
     wav_path = TextField(label="Audio Files or Folder Path or URL to Train", value=dance_prefs['wav_path'], on_change=lambda e:changed(e,'wav_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
@@ -4687,7 +4718,7 @@ def buildMusicGen(page):
     def pick_audio(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp3", "wav"], dialog_title="Pick Init Audio File")
     audio_file = TextField(label="Melody Conditioning Audio File (optional)", value=music_gen_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
-    prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=music_gen_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=music_gen_prefs['prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
     duration_row = SliderRow(label="Duration", min=1, max=720, divisions=718, suffix="s", expand=True, pref=music_gen_prefs, key='duration')
     #steps_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=music_gen_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     audio_model = Dropdown(label="Audio Model", width=150, options=[dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large")], value=music_gen_prefs['audio_model'], on_change=lambda e: changed(e, 'audio_model'))
@@ -4778,7 +4809,7 @@ def buildDreamFusion(page):
       page.dialog = df_help_dlg
       df_help_dlg.open = True
       page.update()
-    prompt_text = TextField(label="Prompt Text", value=dreamfusion_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
+    prompt_text = TextField(label="Prompt Text", value=dreamfusion_prefs['prompt_text'], filled=True, on_change=lambda e:changed(e,'prompt_text'))
     training_iters = TextField(label="Training Iterations", value=dreamfusion_prefs['training_iters'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'training_iters', ptype='int'), width = 160)
     learning_rate = TextField(label="Learning Rate", value=dreamfusion_prefs['learning_rate'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160)
     training_nerf_resolution = TextField(label="Training NERF Res", value=dreamfusion_prefs['training_nerf_resolution'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'training_nerf_resolution', ptype='int'), width = 160)
@@ -4881,7 +4912,7 @@ def buildPoint_E(page):
     #page.overlay.append(pick_files_dialog)
     def pick_original(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
-    prompt_text = TextField(label="Prompt Text", value=point_e_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
+    prompt_text = TextField(label="Prompt Text", value=point_e_prefs['prompt_text'], filled=True, on_change=lambda e:changed(e,'prompt_text'))
     init_image = TextField(label="Sample Image (instead of prompt)", value=point_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=point_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
     batch_folder_name = TextField(label="3D Model Folder Name", value=point_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -4996,7 +5027,7 @@ def buildShap_E(page):
         run_shap_e(page)
       else:
         run_shap_e2(page)
-    prompt_text = TextField(label="Prompt Text", value=shap_e_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
+    prompt_text = TextField(label="Prompt Text", value=shap_e_prefs['prompt_text'], filled=True, on_change=lambda e:changed(e,'prompt_text'))
     init_image = TextField(label="Sample Image (optional, instead of prompt)", value=shap_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     #TODO: Add Multi-Image List
     #base_model = Dropdown(label="Base Model", width=250, options=[dropdown.Option("base40M-imagevec"), dropdown.Option("base40M-textvec"), dropdown.Option("base40M"), dropdown.Option("base300M"), dropdown.Option("base1B")], value=shap_e_prefs['base_model'], on_change=lambda e: changed(e, 'base_model'))
@@ -5643,6 +5674,125 @@ def buildBackgroundRemover(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+blip_diffusion_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "source_subject_category": '',
+    "target_subject_category": '',
+    "steps":50,
+    #"ddim_eta":0.05,
+    "width": 512,
+    "height":512,
+    "guidance_scale":7.5,
+    "init_image": '',
+    "control_image": '',
+    "strength": 1.0,
+    "prompt_reps": 20,
+    "controlnet_type": 'None',
+    "use_controlnet_canny": False,
+    "seed": 0,
+    "batch_folder_name": '',
+    "file_prefix": "blip-",
+    "num_images": 1,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildBLIPDiffusion(page):
+    global prefs, blip_diffusion_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            blip_diffusion_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            blip_diffusion_prefs[pref] = float(e.control.value)
+          else:
+            blip_diffusion_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def blip_diffusion_help(e):
+      def close_blip_diffusion_dlg(e):
+        nonlocal blip_diffusion_help_dlg
+        blip_diffusion_help_dlg.open = False
+        page.update()
+      blip_diffusion_help_dlg = AlertDialog(title=Text("🙅   Help with BLIP Diffusion Pipeline"), content=Column([
+          Markdown("Blip Diffusion was proposed in [BLIP-Diffusion: Pre-trained Subject Representation for Controllable Text-to-Image Generation and Editing](https://arxiv.org/abs/2305.14720). It enables zero-shot subject-driven generation and control-guided zero-shot generation.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Subject-driven text-to-image generation models create novel renditions of an input subject based on text prompts. Existing models suffer from lengthy fine-tuning and difficulties preserving the subject fidelity. To overcome these limitations, we introduce BLIP-Diffusion, a new subject-driven image generation model that supports multimodal control which consumes inputs of subject images and text prompts. Unlike other subject-driven generation models, BLIP-Diffusion introduces a new multimodal encoder which is pre-trained to provide subject representation. We first pre-train the multimodal encoder following BLIP-2 to produce visual representation aligned with the text. Then we design a subject representation learning task which enables a diffusion model to leverage such visual representation and generates new subject renditions. Compared with previous methods such as DreamBooth, our model enables zero-shot subject-driven generation, and efficient fine-tuning for customized subject with up to 20x speedup. We also demonstrate that BLIP-Diffusion can be flexibly combined with existing techniques such as ControlNet and prompt-to-prompt to enable novel subject-driven generation and editing applications."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("💖  Lovely... ", on_click=close_blip_diffusion_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = blip_diffusion_help_dlg
+      blip_diffusion_help_dlg.open = True
+      page.update()
+
+    def toggle_controlnet_image(e):
+        blip_diffusion_prefs['use_controlnet_canny'] = e.control.value
+        control_image_container.height=None if blip_diffusion_prefs['use_controlnet_canny'] else 0
+        control_image_container.update()
+    def change_controlnet_type(e):
+        blip_diffusion_prefs['controlnet_type'] = e.control.value
+        control_image_container.height=None if blip_diffusion_prefs['controlnet_type'] != "None" else 0
+        control_image_container.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        blip_diffusion_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=blip_diffusion_prefs['prompt'], multiline=True, filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=blip_diffusion_prefs['negative_prompt'], multiline=True, filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    source_subject_category = TextField(label="Source Subject Category List", value=blip_diffusion_prefs['source_subject_category'], multiline=True, col={'md':6}, on_change=lambda e:changed(e,'source_subject_category'))
+    target_subject_category = TextField(label="Target Subject Category List", value=blip_diffusion_prefs['target_subject_category'], multiline=True, col={'md':6}, on_change=lambda e:changed(e,'target_subject_category'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=blip_diffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=blip_diffusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    steps = TextField(label="Number of Steps", value=blip_diffusion_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=blip_diffusion_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=blip_diffusion_prefs, key='steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=blip_diffusion_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=blip_diffusion_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=blip_diffusion_prefs, key='height')
+    init_image = FileInput(label="Reference Image", pref=blip_diffusion_prefs, key='init_image', page=page)
+    image_pickers = Container(content=ResponsiveRow([init_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    #use_controlnet_image = Switcher(label="Use ControlNet Canny", value=blip_diffusion_prefs['use_controlnet_canny'], on_change=toggle_controlnet_image)
+    controlnet_type = Dropdown(label="ControlNet Image Layer", width=182, options=[dropdown.Option("None"), dropdown.Option("Canny Edge"), dropdown.Option("HED")], value=blip_diffusion_prefs['controlnet_type'], on_change=change_controlnet_type)
+    control_image = FileInput(label="ControlNet Image", pref=blip_diffusion_prefs, key='control_image', page=page)
+    control_image_container = Container(animate_size=animation.Animation(700, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, expand=True, alignment = alignment.top_left, height = None if blip_diffusion_prefs['use_controlnet_canny'] else 0, padding=padding.only(top=4), content=Column([control_image]))
+    strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=0.9, divisions=16, round=2, pref=blip_diffusion_prefs, key='strength')
+    img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    seed = TextField(label="Seed", width=90, value=str(blip_diffusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=blip_diffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=blip_diffusion_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=blip_diffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=blip_diffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_blip_diffusion = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_blip_diffusion.height = None if status['installed_ESRGAN'] else 0
+    ESRGAN_settings.height = None if blip_diffusion_prefs['apply_ESRGAN_upscale'] else 0
+    parameters_button = ElevatedButton(content=Text(value="🦾   Run BLIP-Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_blip_diffusion(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_blip_diffusion(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_blip_diffusion(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.blip_diffusion_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("📡  BLIP-Diffusion by Salesforce", "Pre-trained Subject Representation for Controllable Text-to-Image Generation and Editing.", actions=[IconButton(icon=icons.HELP, tooltip="Help with BLIP Diffusion Settings", on_click=blip_diffusion_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([source_subject_category, target_subject_category]),
+            img_block,
+            Row([controlnet_type, control_image_container]),
+            #ResponsiveRow([prior_steps, prior_guidance_scale]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            #Row([batch_folder_name, file_prefix]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_blip_diffusion,
+            #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
+            parameters_row,
+            page.blip_diffusion_output
+        ],
+    ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, ddim_eta, seed,
+    return c
+
 
 reference_prefs = {
     'ref_image': '',
@@ -5738,8 +5888,8 @@ def buildReference(page):
     page.overlay.append(file_picker)
     def pick_init(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
-    prompt = TextField(label="Prompt Text", value=reference_prefs['prompt'], col={'md':9}, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=reference_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Prompt Text", value=reference_prefs['prompt'], filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=reference_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         reference_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -5909,8 +6059,8 @@ def buildControlNetQR(page):
         nonlocal pick_type
         pick_type = "init"
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
-    prompt = TextField(label="Prompt Text", value=controlnet_qr_prefs['prompt'], col={'md':9}, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_qr_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Prompt Text", value=controlnet_qr_prefs['prompt'], filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_qr_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         controlnet_qr_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -6067,8 +6217,8 @@ def buildControlNetSegmentAnything(page):
     page.overlay.append(file_picker)
     def pick_init(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
-    prompt = TextField(label="Prompt Text", value=controlnet_segment_prefs['prompt'], col={'md':9}, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_segment_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Prompt Text", value=controlnet_segment_prefs['prompt'], filled=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_segment_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         controlnet_segment_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -6205,8 +6355,8 @@ def buildEDICT(page):
     def pick_init(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
     base_prompt = TextField(label="Base Prompt Text (describe init image)", value=EDICT_prefs['base_prompt'], col={'md': 12}, multiline=True, on_change=lambda e:changed(e,'base_prompt'))
-    target_prompt = TextField(label="Target Prompt Text", value=EDICT_prefs['target_prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'target_prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=EDICT_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    target_prompt = TextField(label="Target Prompt Text", value=EDICT_prefs['target_prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'target_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=EDICT_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = TextField(label="Initial Image to Edit (crops square)", value=EDICT_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     seed = TextField(label="Seed", width=90, value=str(EDICT_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=EDICT_prefs, key='guidance_scale')
@@ -6336,8 +6486,8 @@ def buildDiffEdit(page):
     def pick_init(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick init Image File")
     source_prompt = TextField(label="Source Prompt Text (blank to auto-caption)", value=DiffEdit_prefs['source_prompt'], col={'md': 12}, multiline=True, on_change=lambda e:changed(e,'source_prompt'))
-    target_prompt = TextField(label="Target Prompt Text (describe edits)", value=DiffEdit_prefs['target_prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'target_prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=DiffEdit_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    target_prompt = TextField(label="Target Prompt Text (describe edits)", value=DiffEdit_prefs['target_prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'target_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=DiffEdit_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = TextField(label="Initial Image to Edit (crops square)", value=DiffEdit_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     seed = TextField(label="Seed", width=90, value=str(DiffEdit_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=DiffEdit_prefs, key='guidance_scale')
@@ -6457,7 +6607,7 @@ def buildUnCLIP(page):
             decoder_guidance.update()
             super_res_num_inference_row.update()
             decoder_num_inference_row.update()
-    prompt = TextField(label="Prompt Text", value=unCLIP_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=unCLIP_prefs['prompt'], filled=True, on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(unCLIP_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     prior_num_inference_row = SliderRow(label="Number of Prior Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_prefs, key='prior_num_inference_steps', tooltip="The number of Prior denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     decoder_num_inference_row = SliderRow(label="Number of Decoder Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_prefs, key='decoder_num_inference_steps', tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -7006,7 +7156,7 @@ def buildMagicMix(page):
     page.overlay.append(file_picker)
     def pick_init(e):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Init Image File")
-    prompt = TextField(label="Prompt Text", value=magic_mix_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=magic_mix_prefs['prompt'], filled=True, on_change=lambda e:changed(e,'prompt'))
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         magic_mix_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -7341,8 +7491,8 @@ def buildInstructPix2Pix(page):
         run_prompt_list.visible = not show
         run_prompt_list.update()
     original_image = TextField(label="Original Image", value=instruct_pix2pix_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
-    prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Editing Instructions Prompt Text", value=instruct_pix2pix_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=instruct_pix2pix_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(instruct_pix2pix_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switcher(label="Use Init Video", value=instruct_pix2pix_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
     init_video = TextField(label="Init Video Clip", value=instruct_pix2pix_prefs['init_video'], expand=True, visible=instruct_pix2pix_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
@@ -7579,9 +7729,9 @@ def buildControlNet(page):
         multi_layers.controls.clear()
         multi_layers.update()
     original_image = TextField(label="Original Drawing", value=controlnet_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
-    prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
@@ -7841,9 +7991,9 @@ def buildControlNetXL(page):
         img2img_row.height = None if e.control.value else 0
         img2img_row.update()
     original_image = TextField(label="Original Drawing", value=controlnet_xl_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
-    prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
@@ -8044,8 +8194,8 @@ def buildControlNet_Video2Video(page):
         canny_threshold.update()
         mlsd_threshold.height = None if controlnet_video2video_prefs['control_task'] == "MLSD" else 0
         mlsd_threshold.update()
-    prompt = TextField(label="Prompt Text", value=controlnet_video2video_prefs['prompt'], col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_video2video_prefs['negative_prompt'], col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Prompt Text", value=controlnet_video2video_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_video2video_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     #'aesthetic', 'lineart21', 'hed', 'hed21', 'canny', 'canny21', 'openpose', 'openpose21', 'depth', 'depth21', 'normal', 'mlsd'
     control_task = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option("Aesthetic"), dropdown.Option("Lineart21"), dropdown.Option("HED"), dropdown.Option("HED21"), dropdown.Option("HED"), dropdown.Option("Canny"), dropdown.Option("Canny21"), dropdown.Option("OpenPose"), dropdown.Option("OpenPose21"), dropdown.Option("Depth"), dropdown.Option("Depth21"), dropdown.Option("Normal"), dropdown.Option("MLSD")], value=controlnet_video2video_prefs['control_task'], on_change=change_task)
     #conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_video2video_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_video2video_conditioning_scale` before they are added to the residual in the original unet.")
@@ -8246,8 +8396,8 @@ def buildDeepFloyd(page):
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=deepfloyd_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     alpha_mask = Checkbox(label="Alpha Mask", value=deepfloyd_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
 
-    prompt = TextField(label="Prompt Text", value=deepfloyd_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=deepfloyd_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Prompt Text", value=deepfloyd_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=deepfloyd_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(deepfloyd_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=200, divisions=199, pref=deepfloyd_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=deepfloyd_prefs, key='guidance_scale')
@@ -8355,8 +8505,8 @@ def buildWuerstchen(page):
         ESRGAN_settings.height = None if e.control.value else 0
         wuerstchen_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Prompt Text", value=wuerstchen_prefs['prompt'], multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt = TextField(label="Negative Prompt Text", value=wuerstchen_prefs['negative_prompt'], multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Prompt Text", value=wuerstchen_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=wuerstchen_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=wuerstchen_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=wuerstchen_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     steps = TextField(label="Number of Steps", value=wuerstchen_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
@@ -8457,8 +8607,8 @@ Resources:
         ESRGAN_settings.height = None if e.control.value else 0
         text_to_video_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Animation Prompt Text", value=text_to_video_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=text_to_video_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Animation Prompt Text", value=text_to_video_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=text_to_video_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=text_to_video_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=text_to_video_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=text_to_video_prefs, key='guidance_scale')
@@ -8599,8 +8749,8 @@ def buildTextToVideoZero(page):
             t1.set_value(text_to_video_zero_prefs['t1'])
         t1.set_divisions(t1.max - t1.min)
         t1.update_slider()
-    prompt = TextField(label="Animation Prompt Text", value=text_to_video_zero_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=text_to_video_zero_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Animation Prompt Text", value=text_to_video_zero_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=text_to_video_zero_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=text_to_video_zero_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=text_to_video_zero_prefs, key='num_inference_steps', on_change=change_steps, tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=text_to_video_zero_prefs, key='guidance_scale')
@@ -8746,8 +8896,8 @@ Resources:
         ESRGAN_settings.height = None if e.control.value else 0
         video_to_video_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Video Prompt Text", value=video_to_video_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=video_to_video_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Video Prompt Text", value=video_to_video_prefs['prompt'], col={'md': 9}, filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=video_to_video_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_video = TextField(label="Init Video File", value=video_to_video_prefs['init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.VIDEO_CALL, on_click=pick_video))
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=video_to_video_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
     start_time = TextField(label="Start Time (s)", value=controlnet_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
@@ -8864,8 +9014,8 @@ def buildPotat1(page):
         ESRGAN_settings.height = None if e.control.value else 0
         potat1_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Animation Prompt Text", value=potat1_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=potat1_prefs['negative_prompt'], col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Animation Prompt Text", value=potat1_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=potat1_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=potat1_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=potat1_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=potat1_prefs, key='guidance_scale')
@@ -9568,6 +9718,8 @@ def buildROOP(page):
 animate_diff_prefs = {
     'prompt': '',
     'negative_prompt': '',
+    'head_prompt': '',
+    'tail_prompt': '',
     'use_prompt_map': False,
     'frame': '0',
     'steps': 25,
@@ -9934,6 +10086,8 @@ def buildAnimateDiff(page):
         ip_adapter_layers.controls.clear()
         ip_adapter_layers.update()
     
+    head_prompt = TextField(label="Head Prompt Text", value=animate_diff_prefs['head_prompt'], filled=False, multiline=True, on_change=lambda e:changed(e,'head_prompt'), col={'md':6})
+    tail_prompt = TextField(label="Tail Prompt Text", value=animate_diff_prefs['tail_prompt'], filled=False, multiline=True, on_change=lambda e:changed(e,'tail_prompt'), col={'md':6})
     prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], filled=True, expand=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=animate_diff_prefs['negative_prompt'], expand=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=76, value=str(animate_diff_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
@@ -9947,8 +10101,8 @@ def buildAnimateDiff(page):
     clip_skip = SliderRow(label="Clip Skip", min=0, max=4, divisions=4, pref=animate_diff_prefs, key='clip_skip', expand=True, col={'md': 6}, tooltip="Skips part of the image generation process, leading to slightly different results from the CLIP model.")
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
-    scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=170, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
-    motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=150, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
+    scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=176, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
+    motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15_v2"), dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=155, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
     custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], expand=True, visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
     for lora in animate_diff_loras:
@@ -10014,6 +10168,7 @@ def buildAnimateDiff(page):
         #Row([Text("AnimateDiff Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
         #            Row([ft.FilledTonalButton("Clear Prompts", on_click=clear_animate_diff_prompts), ft.FilledButton("Add Diff Prompt", on_click=lambda e: edit_animate_diff(None))])], alignment=MainAxisAlignment.SPACE_BETWEEN),
         #page.animate_diff_prompts,
+        ResponsiveRow([head_prompt, tail_prompt]),
         Row([frame, prompt, add_prompt_keyframe]),
         animation_prompts,
         Divider(thickness=2, height=4),
@@ -10160,7 +10315,7 @@ def buildMaterialDiffusion(page):
         guidance.update()
         changed(e, 'prompt_strength', ptype="float")
 
-    material_prompt = TextField(label="Material Prompt", value=materialdiffusion_prefs['material_prompt'], multiline=True, on_change=lambda e:changed(e,'material_prompt'))
+    material_prompt = TextField(label="Material Prompt", value=materialdiffusion_prefs['material_prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'material_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=materialdiffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=materialdiffusion_prefs['file_prefix'], width=150, on_change=lambda e:changed(e,'file_prefix'))
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
@@ -10295,7 +10450,7 @@ def buildDiT(page):
         ESRGAN_settings.height = None if e.control.value else 0
         DiT_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="ImageNet Class Names (separated by commas)", value=DiT_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="ImageNet Class Names (separated by commas)", value=DiT_prefs['prompt'], filled=True, on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(DiT_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=DiT_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     batch_folder_name = TextField(label="Batch Folder Name", value=DiT_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -10328,7 +10483,6 @@ def buildDiT(page):
         Row([ElevatedButton(content=Text("🔀   Get DiT Generation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiT(page)),
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_DiT(page, from_list=True))
              ]),
-
       ]
     )), page.DiT_output,
         clear_button,
@@ -10436,7 +10590,7 @@ def buildDallE2(page):
         enlarge_scale_slider.update()
         changed(e, 'enlarge_scale', ptype="float")
 
-    prompt = TextField(label="Prompt Text", value=dall_e_prefs['prompt'], multiline=True, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=dall_e_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=dall_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=dall_e_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     #num_images = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=dall_e_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
@@ -10609,8 +10763,8 @@ def buildKandinsky(page):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Prompt Text", value=kandinsky_prefs['prompt'], multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt = TextField(label="Negative Prompt Text", value=kandinsky_prefs['negative_prompt'], multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Prompt Text", value=kandinsky_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=kandinsky_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=kandinsky_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=kandinsky_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
@@ -10791,7 +10945,7 @@ def buildKandinsky2(page):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky2_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Prompt Text", value=kandinsky2_prefs['prompt'], multiline=True, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=kandinsky2_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky2_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=kandinsky2_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=kandinsky2_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
@@ -11121,7 +11275,7 @@ def buildKandinskyFuse(page):
     #add_prompt_btn = IconButton(icons.ADD, tooltip="Add Text Prompt", on_click=add_prompt)
     add_image_btn = ft.FilledButton("➕ Add Image", width=150, on_click=add_image)
     #add_image_btn = IconButton(icons.ADD, tooltip="Add Image to Mix", on_click=add_image)
-    prompt = TextField(label="Mix Prompt Text", value=kandinsky_fuse_prefs['prompt'], expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Mix Prompt Text", value=kandinsky_fuse_prefs['prompt'], filled=True, expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
     prompt_row = Row([prompt, add_prompt_btn])
     init_image = TextField(label="Mixing Image", value=kandinsky_fuse_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
     image_row = Row([init_image, add_image_btn])
@@ -11456,7 +11610,7 @@ def buildKandinsky2Fuse(page):
     #add_prompt_btn = IconButton(icons.ADD, tooltip="Add Text Prompt", on_click=add_prompt)
     add_image_btn = ft.FilledButton("➕ Add Image", width=135, on_click=add_image)
     #add_image_btn = IconButton(icons.ADD, tooltip="Add Image to Mix", on_click=add_image)
-    prompt = TextField(label="Mix Prompt Text", value=kandinsky2_fuse_prefs['prompt'], expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Mix Prompt Text", value=kandinsky2_fuse_prefs['prompt'], filled=True, expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
     prompt_row = Row([prompt, add_prompt_btn])
     init_image = TextField(label="Mixing Image", value=kandinsky2_fuse_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init), col={'xs':12, 'md':6})
     image_row = Row([init_image, add_image_btn])
@@ -11629,8 +11783,8 @@ def buildKandinskyControlNet(page):
         ESRGAN_settings.height = None if e.control.value else 0
         kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Prompt Text", value=kandinsky_controlnet_prefs['prompt'], multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt = TextField(label="Negative Prompt Text", value=kandinsky_controlnet_prefs['negative_prompt'], multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Prompt Text", value=kandinsky_controlnet_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=kandinsky_controlnet_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=kandinsky_controlnet_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     #n_iterations = TextField(label="Number of Iterations", value=kandinsky_controlnet_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
@@ -11751,7 +11905,7 @@ def buildDeepDaze(page):
         ESRGAN_settings.height = None if e.control.value else 0
         deep_daze_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
-    prompt = TextField(label="Prompt Text", value=deep_daze_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt Text", value=deep_daze_prefs['prompt'], filled=True, on_change=lambda e:changed(e,'prompt'))
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=deep_daze_prefs, key='max_size')
     #num_layers = TextField(label="Inference Steps", value=str(deep_daze_prefs['num_layers']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_layers', ptype='int'))
     learning_rate = TextField(label="Learning Rate", width=130, value=float(deep_daze_prefs['learning_rate']), keyboard_type=KeyboardType.NUMBER, tooltip="The learning rate of the neural net.", on_change=lambda e:changed(e,'learning_rate', ptype='float'))
@@ -11884,7 +12038,7 @@ def buildCLIPstyler(page):
         CLIPstyler_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
         has_changed = True
-    prompt_text = TextField(label="Stylized Prompt Text", value=CLIPstyler_prefs['prompt_text'], on_change=lambda e:changed(e,'prompt_text'))
+    prompt_text = TextField(label="Stylized Prompt Text", value=CLIPstyler_prefs['prompt_text'], filled=True, on_change=lambda e:changed(e,'prompt_text'))
     batch_folder_name = TextField(label="Batch Folder Name", value=CLIPstyler_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     source = TextField(label="Source Type", value=CLIPstyler_prefs['source'], on_change=lambda e:changed(e,'source'))
     #training_iterations = TextField(label="Training Iterations", value=CLIPstyler_prefs['training_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'training_iterations', ptype="int"))
@@ -11931,6 +12085,7 @@ def buildCLIPstyler(page):
 
 semantic_prefs = {
     'prompt': '',
+    'editing_prompt': '',
     'negative_prompt': '',
     'num_inference_steps': 100,
     'guidance_scale': 7.5,
@@ -11949,7 +12104,7 @@ semantic_prefs = {
 }
 
 def buildSemanticGuidance(page):
-    global semantic_prefs, prefs, pipe_semantic, editing_prompt
+    global semantic_prefs, prefs, pipe_semantic
     editing_prompt = {'editing_prompt':'', 'edit_warmup_steps':10, 'edit_guidance_scale':5, 'edit_threshold':0.9, 'edit_weights':1, 'reverse_editing_direction': False}
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
@@ -12011,6 +12166,8 @@ def buildSemanticGuidance(page):
     def edit_semantic(edit=None):
         semantic_prompt = edit if bool(edit) else editing_prompt.copy()
         edit_prompt = edit['editing_prompt'] if bool(edit) else ""
+        if not bool(edit):
+            semantic_prompt['editing_prompt'] = semantic_prefs['prompt']
         def close_dlg(e):
             dlg_edit.open = False
             page.update()
@@ -12070,8 +12227,8 @@ def buildSemanticGuidance(page):
         page.semantic_prompts.controls.clear()
         page.semantic_prompts.update()
         if prefs['enable_sounds']: page.snd_delete.play()
-    prompt = TextField(label="Base Prompt Text", value=semantic_prefs['prompt'], col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    negative_prompt  = TextField(label="Negative Prompt Text", value=semantic_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt = TextField(label="Base Prompt Text", value=semantic_prefs['prompt'], col={'md': 9}, filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=semantic_prefs['negative_prompt'], col={'md':3}, filled=True, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(semantic_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=semantic_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=semantic_prefs, key='guidance_scale')
@@ -13522,7 +13679,7 @@ def buildTortoiseTTS(page):
         custom_box.update()
         custom_voice_name.visible = tortoise_prefs['train_custom']
         custom_voice_name.update()
-    text = TextField(label="Text to Read", value=tortoise_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
+    text = TextField(label="Text to Read", value=tortoise_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
     preset = Dropdown(label="Quality Preset", width=250, options=[dropdown.Option("ultra_fast"), dropdown.Option("fast"), dropdown.Option("standard"), dropdown.Option("high_quality")], value=tortoise_prefs['preset'], on_change=lambda e: changed(e, 'preset'))
     batch_folder_name = TextField(label="Batch Folder Name", value=tortoise_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=tortoise_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
@@ -13616,7 +13773,7 @@ def buildAudioLDM(page):
         page.update()
     duration_row = SliderRow(label="Duration", min=1, max=20, divisions=38, round=1, suffix="s", pref=audioLDM_prefs, key='duration')
     guidance = SliderRow(label="Guidance Scale", min=0, max=5, divisions=10, round=1, pref=audioLDM_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
-    text = TextField(label="Text Prompt to Auditorialize", value=audioLDM_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
+    text = TextField(label="Text Prompt to Auditorialize", value=audioLDM_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
     batch_folder_name = TextField(label="Batch Folder Name", value=audioLDM_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=audioLDM_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:   ", min=1, max=5, value=audioLDM_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
@@ -13704,8 +13861,8 @@ def buildAudioLDM2(page):
     duration_row = SliderRow(label="Duration", min=1, max=320, divisions=319, round=1, suffix="s", pref=audioLDM2_prefs, key='duration')
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=audioLDM2_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
     steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=audioLDM2_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
-    text = TextField(label="Text Prompt to Auditorialize", value=audioLDM2_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
-    negative_prompt = TextField(label="Negative Prompt", value=audioLDM2_prefs['negative_prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    text = TextField(label="Text Prompt to Auditorialize", value=audioLDM2_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=audioLDM2_prefs['negative_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
     transcription = TextField(label="Text Transcript to Speak", value=audioLDM2_prefs['transcription'], multiline=True, min_lines=1, max_lines=8, visible=False, on_change=lambda e:changed(e,'transcription'))
     save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=audioLDM2_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
     batch_folder_name = TextField(label="Batch Folder Name", value=audioLDM2_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -13792,8 +13949,8 @@ def buildMusicLDM(page):
     duration_row = SliderRow(label="Duration", min=1, max=320, divisions=319, round=1, suffix="s", pref=musicLDM_prefs, key='duration')
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=musicLDM_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
     steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=musicLDM_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
-    text = TextField(label="Text Prompt to Describe Music", value=musicLDM_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
-    negative_prompt = TextField(label="Negative Prompt", value=musicLDM_prefs['negative_prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    text = TextField(label="Text Prompt to Describe Music", value=musicLDM_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=musicLDM_prefs['negative_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
     #transcription = TextField(label="Text Transcript to Speak", value=musicLDM_prefs['transcription'], multiline=True, min_lines=1, max_lines=8, visible=False, on_change=lambda e:changed(e,'transcription'))
     save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=musicLDM_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
     batch_folder_name = TextField(label="Batch Folder Name", value=musicLDM_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -13874,7 +14031,7 @@ def buildBark(page):
     #duration_row = SliderRow(label="Duration", min=1, max=20, divisions=38, round=1, suffix="s", pref=bark_prefs, key='duration')
     text_temp = SliderRow(label="Text Temperature", min=0, max=1, divisions=20, round=2, pref=bark_prefs, key='text_temp', tooltip="1.0 more diverse, 0.0 more conservative")
     waveform_temp = SliderRow(label="Wave Temperature", min=0, max=1, divisions=20, round=2, pref=bark_prefs, key='waveform_temp', tooltip="1.0 more diverse, 0.0 more conservative")
-    text = TextField(label="Text Prompt to Vocalize", value=bark_prefs['text'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
+    text = TextField(label="Text Prompt to Vocalize", value=bark_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
     acoustic_prompt = Dropdown(label="Acoustic Prompt", width=250, options=[dropdown.Option("Unconditional"), dropdown.Option("Announcer")], value=bark_prefs['acoustic_prompt'], on_change=lambda e: changed(e, 'acoustic_prompt'))
     langs = ["en", "de", "es", "fr", "hi", "it", "ja", "ko", "pl", "pt", "ru", "tr", "zh"]
     for lang in langs:
@@ -13999,8 +14156,8 @@ def buildRiffusion(page):
     duration_row = Row([Text("Duration: "), duration_value, duration])
     steps_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=riffusion_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=riffusion_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
-    prompt = TextField(label="Musical Text Prompt", value=riffusion_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'), col={'md':9})
-    negative_prompt = TextField(label="Negative Prompt", value=riffusion_prefs['negative_prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    prompt = TextField(label="Musical Text Prompt", value=riffusion_prefs['prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=riffusion_prefs['negative_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
     max_size_row = SliderRow(label="Max Size", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=riffusion_prefs, key='max_size')
     batch_folder_name = TextField(label="Batch Folder Name", value=riffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=riffusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
@@ -14074,7 +14231,7 @@ def buildMubert(page):
         page.dialog = mubert_help_dlg
         mubert_help_dlg.open = True
         page.update()
-    prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=mubert_prefs['prompt'], multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
+    prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=mubert_prefs['prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
     duration_row = SliderRow(label="Duration", min=1, max=250, divisions=249, suffix="s", pref=mubert_prefs, key='duration')
     is_loop = Checkbox(label="Is Audio Loop   ", value=mubert_prefs['is_loop'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'is_loop'))
     email = TextField(label="Email Address (for API use)", keyboard_type=KeyboardType.EMAIL, value=mubert_prefs['email'], on_change=lambda e:changed(e,'email'))
@@ -14089,7 +14246,7 @@ def buildMubert(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎼  Mubert Music Generator", "AI music is generated by Mubert API. Pretty good grooves...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Mubert Settings", on_click=mubert_help)]),
+        Header("🎼  Mubert Music Generator", "AI music is generated by Mubert API. Pretty good grooves...(may not work if API maxed)", actions=[IconButton(icon=icons.HELP, tooltip="Help with Mubert Settings", on_click=mubert_help)]),
         prompt,
         duration_row,
         is_loop,
@@ -14714,6 +14871,7 @@ pipe_zoe_depth = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
+pipe_blip_diffusion = None
 pipe_reference = None
 pipe_controlnet_qr = None
 pipe_controlnet_segment = None
@@ -14794,6 +14952,12 @@ def get_SDXL_LoRA_model(name):
       if mod['name'] == name:
         return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
   return {'name':'', 'path':''}
+def get_SDXL_model(name):
+  if name == "Custom Model":
+      return {'name':"Custom SDXL Model", 'path':prefs['SDXL_custom_model'], 'prefix':'', 'revision': 'fp16'}
+  for mod in SDXL_models:
+      if mod['name'] == name:
+        return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'], 'revision': mod['revision']}
 
 def get_diffusers(page):
     global scheduler, model_path, prefs, status
@@ -15293,7 +15457,7 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
       p = p.to(torch_device)
     p = pipeline_scheduler(p)
     status['loaded_scheduler'] = prefs['scheduler_mode']
-    status['loaded_model'] = "stabilityai/stable-diffusion-xl-base-1.0" #get_model(prefs['model_ckpt'])['path']
+    status['loaded_model'] = get_SDXL_model(prefs['SDXL_model'])['path']
     p.set_progress_bar_config(disable=True)
     return p
 
@@ -15686,11 +15850,12 @@ def get_SDXL_pipe(task="text2image"):
       except ModuleNotFoundError:
           run_sp("pip install --upgrade compel", realtime=False)
           pass
-  model_id = "stabilityai/stable-diffusion-xl-base-1.0"
+  SDXL_model = get_SDXL_model(prefs['SDXL_model'])
+  model_id = SDXL_model['path']#"stabilityai/stable-diffusion-xl-base-1.0"
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-1.0"
   if task != status['loaded_SDXL']:
       clear_pipes()
-  watermark = False
+  watermark = prefs['SDXL_watermark']
   low_ram = int(status['cpu_memory']) <= 12
   #vae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=torch.float16)
   vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae", torch_dtype=torch.float16, force_upcast=False)
@@ -15703,7 +15868,7 @@ def get_SDXL_pipe(task="text2image"):
           return pipe_SDXL
       pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
           model_id,
-          variant="fp16",
+          variant=SDXL_model['revision'],
           torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
           vae=vae,
           use_safetensors=True,
@@ -16786,6 +16951,12 @@ def clear_deepfloyd_pipe():
     pipe_deepfloyd = None
     pipe_deepfloyd2 = None
     pipe_deepfloyd3 = None
+def clear_blip_diffusion_pipe():
+  global pipe_blip_diffusion
+  if pipe_blip_diffusion is not None:
+    del pipe_blip_diffusion
+    flush()
+    pipe_blip_diffusion = None
 def clear_reference_pipe():
   global pipe_reference
   if pipe_reference is not None:
@@ -16948,6 +17119,7 @@ def clear_pipes(allbut=None):
     if not 'SAG' in but: clear_SAG_pipe()
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
+    if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
     if not 'reference' in but: clear_reference_pipe()
     if not 'controlnet_qr' in but: clear_controlnet_qr_pipe()
     if not 'controlnet_segment' in but: clear_controlnet_segment_pipe()
@@ -18770,7 +18942,7 @@ def get_stable_lm(ai_model="StableLM 3b"):
     try:
       import accelerate
     except ModuleNotFoundError:
-      run_sp("pip install accelerate", realtime=False)
+      run_sp("pip install git+https://github.com/huggingface/accelerate.git", realtime=False)
       import accelerate
       pass
     try:
@@ -20171,6 +20343,303 @@ def run_background_remover(page):
     prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     page.BackgroundRemover.auto_scroll = False
     page.BackgroundRemover.update()
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+loaded_blip_diffusion_task = ""
+def run_blip_diffusion(page, from_list=False, with_params=False):
+    global blip_diffusion_prefs, pipe_blip_diffusion, prefs, loaded_blip_diffusion_task
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if int(status['cpu_memory']) <= 10:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run BLIP Diffusion right now. Either Change runtime type to High-RAM mode and restart or use other BLIP Diffusion 2.1 in Extras.")
+      return
+    blip_diffusion_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            blip_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':blip_diffusion_prefs['init_image'], 'guidance_scale':blip_diffusion_prefs['guidance_scale'], 'steps':blip_diffusion_prefs['steps'], 'width':blip_diffusion_prefs['width'], 'height':blip_diffusion_prefs['height'], 'strength':blip_diffusion_prefs['strength'], 'num_images':blip_diffusion_prefs['num_images'], 'seed':blip_diffusion_prefs['seed']})
+        else:
+            blip_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':p['init_image'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(blip_diffusion_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      blip_diffusion_prompts.append({'prompt': blip_diffusion_prefs['prompt'], 'negative_prompt':blip_diffusion_prefs['negative_prompt'], 'init_image':blip_diffusion_prefs['init_image'], 'mask_image':blip_diffusion_prefs['mask_image'], 'guidance_scale':blip_diffusion_prefs['guidance_scale'], 'steps':blip_diffusion_prefs['steps'], 'width':blip_diffusion_prefs['width'], 'height':blip_diffusion_prefs['height'], 'strength':blip_diffusion_prefs['strength'], 'num_images':blip_diffusion_prefs['num_images'], 'seed':blip_diffusion_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.BLIPDiffusion.controls.append(line)
+        if update:
+          page.BLIPDiffusion.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.BLIPDiffusion.controls[-1]
+        page.BLIPDiffusion.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.BLIPDiffusion.auto_scroll = scroll
+        page.BLIPDiffusion.update()
+      else:
+        page.BLIPDiffusion.auto_scroll = scroll
+        page.BLIPDiffusion.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.BLIPDiffusion.controls = page.BLIPDiffusion.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = blip_diffusion_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing BLIP-Diffusion Engine & Model...")
+    prt(installer)
+    clear_pipes("blip_diffusion")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = False
+    use_controlnet = blip_diffusion_prefs['controlnet_type'] != "None"
+    if use_controlnet:
+        try:
+          from controlnet_aux import CannyDetector
+        except ModuleNotFoundError:
+          installer.status(f"...installing controlnet-aux")
+          run_sp("pip install --upgrade controlnet-aux", realtime=False)
+          pass
+    task_type = "controlnet" if use_controlnet else "text2img"
+    if loaded_blip_diffusion_task != task_type:
+        clear_pipes()
+    installer.status(f"...blip_diffusion {task_type} Pipeline")
+    model_id = "Salesforce/blipdiffusion"
+    if pipe_blip_diffusion == None or loaded_blip_diffusion_task != task_type:
+        try:
+            if task_type == "text2img":
+                from diffusers.pipelines import BlipDiffusionPipeline
+                model_id = "Salesforce/blipdiffusion"
+                pipe_blip_diffusion = BlipDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            elif task_type == "controlnet_canny":
+                from diffusers.pipelines import BlipDiffusionControlNetPipeline
+                from controlnet_aux import CannyDetector
+                model_id = "Salesforce/blipdiffusion-controlnet"
+                pipe_blip_diffusion = BlipDiffusionControlNetPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling unet")
+                pipe_blip_diffusion.unet.to(memory_format=torch.channels_last)
+                pipe_blip_diffusion.unet = torch.compile(pipe_blip_diffusion.unet, mode="reduce-overhead", fullgraph=True)
+                pipe_blip_diffusion = pipe_blip_diffusion.to("cuda")
+            elif cpu_offload:
+                pipe_blip_diffusion.enable_model_cpu_offload()
+            else:
+                pipe_blip_diffusion.to("cuda")
+            loaded_blip_diffusion_task = task_type
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing BLIP Diffusion, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+    else:
+        clear_pipes('blip_diffusion')
+    cldm_cond_image = None
+    if use_controlnet:
+        if not bool(blip_diffusion_prefs['control_image']):
+            alert_msg(page, f"ERROR: You must provide a ControlNet Image.")
+            return
+        fname = blip_diffusion_prefs['control_image'].rpartition(slash)[2]
+        if blip_diffusion_prefs['control_image'].startswith('http'):
+            installer.status(f"...download control_image")
+            control_image = PILImage.open(requests.get(blip_diffusion_prefs['control_image'], stream=True).raw)
+        else:
+            if os.path.isfile(blip_diffusion_prefs['control_image']):
+                control_image = PILImage.open(blip_diffusion_prefs['control_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your control_image {pr['control_image']}")
+                return
+        control_image = control_image.resize((blip_diffusion_prefs['width'], blip_diffusion_prefs['height']), resample=PILImage.Resampling.LANCZOS)
+        control_image = ImageOps.exif_transpose(control_image).convert("RGB")
+        if blip_diffusion_prefs['controlnet_type'] == "Canny Edge":
+            installer.status(f"...running Canny Edge Detector")
+            from controlnet_aux import CannyDetector
+            canny = CannyDetector()
+            cldm_cond_image = canny(control_image, 30, 70, output_type="pil")
+        elif blip_diffusion_prefs['controlnet_type'] == "HED":
+            installer.status(f"...running HED Edge Detector")
+            from controlnet_aux import HEDdetector
+            hed = HEDdetector.from_pretrained("lllyasviel/Annotators")
+            cldm_cond_image = hed(control_image)
+    clear_last()
+    for pr in blip_diffusion_prompts:
+        prt("Generating your BLIP-Diffusion Image...")
+        prt(progress)
+        autoscroll(False)
+        init_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        total_steps = pr['steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        cond_subject = [x.strip() for x in blip_diffusion_prefs['source_subject_category'].split(',')]
+        tgt_subject = [x.strip() for x in blip_diffusion_prefs['target_subject_category'].split(',')]
+        try:
+            if task_type == "text2img":
+                images = pipe_blip_diffusion(
+                    prompt=pr['prompt'], neg_prompt=pr['negative_prompt'],
+                    source_subject_category=cond_subject, target_subject_category=tgt_subject,
+                    reference_image=init_img,
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    strength=pr['strength'],
+                    prompt_reps=blip_diffusion_prefs['prompt_reps'],
+                    generator=generator,
+                    #callback=callback_fnc,
+                ).images
+            elif task_type == "controlnet":
+                images = pipe_blip_diffusion(
+                    prompt=pr['prompt'], neg_prompt=pr['negative_prompt'],
+                    source_subject_category=cond_subject, target_subject_category=tgt_subject,
+                    reference_image=init_img,
+                    conditioning_image=cldm_cond_image,
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    strength=pr['strength'],
+                    prompt_reps=blip_diffusion_prefs['prompt_reps'],
+                    generator=generator,
+                    #callback=callback_fnc,
+                ).images
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Text(str(e)))
+            return
+        clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(blip_diffusion_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, blip_diffusion_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{blip_diffusion_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not blip_diffusion_prefs['display_upscaled_image'] or not blip_diffusion_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            #if save_to_GDrive:
+            batch_output = os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': blip_diffusion_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            #out_path = batch_output# if save_to_GDrive else txt2img_output
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if blip_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{idx}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                shutil.copy(image_path, dst_path)
+                faceenhance = ' --face_enhance' if blip_diffusion_prefs["face_enhance"] else ''
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {blip_diffusion_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if blip_diffusion_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {blip_diffusion_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}")
+                if prefs['save_config_in_metadata']:
+                    #metadata.add_text("title", blip_diffusion_prefs['file_name'])
+                    # TODO: Merge Metadata with pr[]
+                    config_json = blip_diffusion_prefs.copy()
+                    config_json['model_path'] = model_id
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -29531,8 +30000,8 @@ def run_deepfloyd(page, from_list=False):
         import accelerate
         #TODO: Uninstall other version first
     except ImportError:
-        installer.status("...Accelerate v0.18")
-        run_process("pip install --upgrade accelerate~=0.18.0", page=page)
+        installer.status("...Accelerate")
+        run_process("pip install git+https://github.com/huggingface/accelerate.git", page=page)
         pass
     installer.set_message("Installing DeepFloyd IF Required Packages...")
     if deepfloyd_prefs['low_memory']:
@@ -30052,13 +30521,14 @@ def run_wuerstchen(page, from_list=False, with_params=False):
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
+    from diffusers.pipelines.wuerstchen import DEFAULT_STAGE_C_TIMESTEPS
     cpu_offload = False
     prt(installer)
     if pipe_wuerstchen == None:
-        clear_pipes('wuerstchen_prior')
+        #clear_pipes('wuerstchen')
         try:
             from diffusers import AutoPipelineForText2Image
-            pipe_wuerstchen = AutoPipelineForText2Image.from_pretrained("warp-diffusion/wuerstchen", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_wuerstchen = AutoPipelineForText2Image.from_pretrained("warp-ai/wuerstchen", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling unet")
                 #pipe_wuerstchen.unet.to(memory_format=torch.channels_last)
@@ -30086,7 +30556,9 @@ def run_wuerstchen(page, from_list=False, with_params=False):
         try:
             images = pipe_wuerstchen(
                 prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
-                prior_guidance_scale=wuerstchen_prefs['prior_guidance_scale'], prior_num_inference_steps=wuerstchen_prefs['prior_steps'],
+                prior_guidance_scale=wuerstchen_prefs['prior_guidance_scale'],
+                prior_num_inference_steps=wuerstchen_prefs['prior_steps'],
+                prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
                 num_images_per_prompt=pr['num_images'],
                 height=pr['height'],
                 width=pr['width'],
@@ -31771,6 +32243,8 @@ def run_animate_diff(page):
         'clip_skip': int(animate_diff_prefs['clip_skip']),
         #'lora_alpha': float(animate_diff_prefs['lora_alpha']),
         #'prompt': editing_prompts,
+        'head_prompt': animate_diff_prefs['head_prompt'],
+        'tail_prompt': animate_diff_prefs['tail_prompt'],
         'prompt_map': prompt_map,
         'n_prompt': negative_prompts,
     }
@@ -33768,7 +34242,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
             #init_img.save(init_file)
         mask_img = None
         if bool(pr['mask_image']):
-            fname = pr['init_image'].rpartition(slash)[2]
+            fname = pr['mask_image'].rpartition(slash)[2]
             #mask_file = os.path.join(save_dir, fname)
             if pr['mask_image'].startswith('http'):
                 mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
@@ -35026,7 +35500,7 @@ def main(page: Page):
           appbar.actions[2].tooltip = "Maximize Window"
         else:
           page.window_maximized = True
-          appbar.actions[2].icon=icons.MAXIMIZE
+          appbar.actions[2].icon=icons.FILTER_NONE
           appbar.actions[2].tooltip = "Restore Window"
         page.update()
     def get_memory():
