@@ -20362,14 +20362,20 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
         return
       for p in prompts:
         if with_params:
-            blip_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':blip_diffusion_prefs['init_image'], 'guidance_scale':blip_diffusion_prefs['guidance_scale'], 'steps':blip_diffusion_prefs['steps'], 'width':blip_diffusion_prefs['width'], 'height':blip_diffusion_prefs['height'], 'strength':blip_diffusion_prefs['strength'], 'num_images':blip_diffusion_prefs['num_images'], 'seed':blip_diffusion_prefs['seed']})
+            for x in range(blip_diffusion_prefs['num_images']):
+                seed = 0 if blip_diffusion_prefs['seed'] <= 0 else blip_diffusion_prefs['seed'] + x
+                blip_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':blip_diffusion_prefs['init_image'], 'guidance_scale':blip_diffusion_prefs['guidance_scale'], 'steps':blip_diffusion_prefs['steps'], 'width':blip_diffusion_prefs['width'], 'height':blip_diffusion_prefs['height'], 'strength':blip_diffusion_prefs['strength'], 'num_images':blip_diffusion_prefs['num_images'], 'seed':seed})
         else:
-            blip_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':p['init_image'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+            for x in range(p['num_images']):
+                seed = 0 if p['seed'] <= 0 else p['seed'] + x
+                blip_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':p['init_image'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':seed})
     else:
       if not bool(blip_diffusion_prefs['prompt']):
         alert_msg(page, "You must provide a text prompt to process your image generation...")
         return
-      blip_diffusion_prompts.append({'prompt': blip_diffusion_prefs['prompt'], 'negative_prompt':blip_diffusion_prefs['negative_prompt'], 'init_image':blip_diffusion_prefs['init_image'], 'mask_image':blip_diffusion_prefs['mask_image'], 'guidance_scale':blip_diffusion_prefs['guidance_scale'], 'steps':blip_diffusion_prefs['steps'], 'width':blip_diffusion_prefs['width'], 'height':blip_diffusion_prefs['height'], 'strength':blip_diffusion_prefs['strength'], 'num_images':blip_diffusion_prefs['num_images'], 'seed':blip_diffusion_prefs['seed']})
+      for x in range(blip_diffusion_prefs['num_images']):
+          seed = 0 if blip_diffusion_prefs['seed'] <= 0 else blip_diffusion_prefs['seed'] + x
+          blip_diffusion_prompts.append({'prompt': blip_diffusion_prefs['prompt'], 'negative_prompt':blip_diffusion_prefs['negative_prompt'], 'init_image':blip_diffusion_prefs['init_image'], 'guidance_scale':blip_diffusion_prefs['guidance_scale'], 'steps':blip_diffusion_prefs['steps'], 'width':blip_diffusion_prefs['width'], 'height':blip_diffusion_prefs['height'], 'strength':blip_diffusion_prefs['strength'], 'num_images':blip_diffusion_prefs['num_images'], 'seed':seed})
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line, size=17)
@@ -20417,7 +20423,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    installer = Installing("Installing BLIP-Diffusion Engine & Model...")
+    installer = Installing("Installing BLIP-Diffusion Engine & Model... See console for progress.")
     prt(installer)
     clear_pipes("blip_diffusion")
     import requests
@@ -20521,7 +20527,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                     prompt=pr['prompt'], neg_prompt=pr['negative_prompt'],
                     source_subject_category=cond_subject, target_subject_category=tgt_subject,
                     reference_image=init_img,
-                    num_images_per_prompt=pr['num_images'],
+                    #num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
                     num_inference_steps=pr['steps'],
@@ -20537,7 +20543,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                     source_subject_category=cond_subject, target_subject_category=tgt_subject,
                     reference_image=init_img,
                     conditioning_image=cldm_cond_image,
-                    num_images_per_prompt=pr['num_images'],
+                    #num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
                     num_inference_steps=pr['steps'],
@@ -30515,7 +30521,8 @@ def run_wuerstchen(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    installer = Installing("Installing Würstchen Engine & Models...")
+    installer = Installing("Installing Würstchen Engine & Models... See console for progress.")
+    prt(installer)
     clear_pipes("wuerstchen")
     import requests
     from io import BytesIO
@@ -30523,7 +30530,6 @@ def run_wuerstchen(page, from_list=False, with_params=False):
     from PIL import ImageOps
     from diffusers.pipelines.wuerstchen import DEFAULT_STAGE_C_TIMESTEPS
     cpu_offload = False
-    prt(installer)
     if pipe_wuerstchen == None:
         #clear_pipes('wuerstchen')
         try:
@@ -30563,7 +30569,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                 height=pr['height'],
                 width=pr['width'],
                 num_inference_steps=pr['steps'],
-                guidance_scale=pr['guidance_scale'],
+                decoder_guidance_scale=pr['guidance_scale'],
                 generator=generator,
                 #callback=callback_fnc,
             ).images
@@ -35708,6 +35714,7 @@ class FileInput(UserControl):
               upload_files(e)
         def on_upload_progress(e: FilePickerUploadEvent):
             if e.progress == 1:
+              #TODO: Make save dir default to /root/uploads dir
               if self.output_dir == None:
                 save_dir = root_dir
               else:
@@ -35715,7 +35722,7 @@ class FileInput(UserControl):
                 if not os.path.exists(save_dir):
                   os.mkdir(save_dir)
               if not slash in e.file_name:
-                fname = os.path.join(stable_dir, e.file_name)
+                fname = os.path.join(save_dir, e.file_name)
                 fpath = os.path.join(save_dir, e.file_name)
                 self.pref[self.key] = e.file_name.rpartition('.')[0]
               else:
@@ -35732,7 +35739,7 @@ class FileInput(UserControl):
               self.pref[self.key] = fname
               self.page.update()
             else:
-              percent = int(e.progress * 10)
+              percent = int(e.progress * 100)
               self.textfield.value = f"  {percent}%"
               self.textfield.update()
         def pick_file(e):
