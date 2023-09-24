@@ -163,11 +163,11 @@ LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_
 SDXL_models = [
     {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "revision": "fp16"},
     {"name": "Dreamshaper-XL", "path": "Lykon/dreamshaper-xl-1-0", "prefix": "", "revision": "fp16"},
-    {"name": "RealVis-XL", "path": "SG161222/RealVisXL-V1.0", "prefix": "", "revision": "fp16"},
-    {"name": "ProtVision-XL", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": "", "revision": "fp16"},
-    {"name": "Dreamviewer", "path": "Andyrasika/dreamviewer-sdxl-1.0", "prefix": "", "revision": "fp16"},
-    {"name": "Juggernaut XL 2", "path": "ckpt/juggernaut-xl", "prefix": "", "revision": "fp16"},
-    {"name": "CrystalClear XL", "path": "ckpt/crystalclear-xl", "prefix": "", "revision": "fp16"},
+    {"name": "RealVis-XL", "path": "SG161222/RealVisXL_V1.0", "prefix": "", "revision": "fp16"},
+    {"name": "ProtVision-XL", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": "", "revision": "fp32"},
+    {"name": "Dreamviewer", "path": "Andyrasika/dreamviewer-sdxl-1.0", "prefix": "", "revision": "fp16", "variant": "fp16"},
+    #{"name": "Juggernaut XL 2", "path": "ckpt/juggernaut-xl", "prefix": "", "revision": "fp16", "use_safetensors": True},
+    #{"name": "CrystalClear XL", "path": "ckpt/crystalclear-xl", "prefix": "", "revision": "fp16", "use_safetensors": True},
 ]
 SDXL_LoRA_models = [
     {"name": "Pixel Art XL", "path": "nerijs/pixel-art-xl", "weights": "pixel-art-xl.safetensors", "prefix": "pixel art"}, 

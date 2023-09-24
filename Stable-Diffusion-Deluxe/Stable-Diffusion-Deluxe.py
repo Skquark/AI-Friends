@@ -5681,8 +5681,8 @@ blip_diffusion_prefs = {
     "target_subject_category": '',
     "steps":50,
     #"ddim_eta":0.05,
-    "width": 512,
-    "height":512,
+    "width": 768,
+    "height":768,
     "guidance_scale":7.5,
     "init_image": '',
     "control_image": '',
@@ -5754,11 +5754,12 @@ def buildBLIPDiffusion(page):
     init_image = FileInput(label="Reference Image", pref=blip_diffusion_prefs, key='init_image', page=page)
     image_pickers = Container(content=ResponsiveRow([init_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #use_controlnet_image = Switcher(label="Use ControlNet Canny", value=blip_diffusion_prefs['use_controlnet_canny'], on_change=toggle_controlnet_image)
-    controlnet_type = Dropdown(label="ControlNet Image Layer", width=182, options=[dropdown.Option("None"), dropdown.Option("Canny Edge"), dropdown.Option("HED")], value=blip_diffusion_prefs['controlnet_type'], on_change=change_controlnet_type)
+    controlnet_type = Dropdown(label="ControlNet Image Layer", width=177, options=[dropdown.Option("None"), dropdown.Option("Canny Edge"), dropdown.Option("HED")], value=blip_diffusion_prefs['controlnet_type'], on_change=change_controlnet_type)
     control_image = FileInput(label="ControlNet Image", pref=blip_diffusion_prefs, key='control_image', page=page)
     control_image_container = Container(animate_size=animation.Animation(700, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, expand=True, alignment = alignment.top_left, height = None if blip_diffusion_prefs['use_controlnet_canny'] else 0, padding=padding.only(top=4), content=Column([control_image]))
-    strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=0.9, divisions=16, round=2, pref=blip_diffusion_prefs, key='strength')
-    img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=0.9, divisions=16, round=2, pref=blip_diffusion_prefs, key='strength', col={'md':6}, tooltip="Specifies the number of times the prompt is repeated along with prompt_reps.")
+    prompt_reps = SliderRow(label="Prompt Repetitions", min=0, max=50, divisions=50, pref=blip_diffusion_prefs, key='prompt_reps', col={'md':6}, tooltip="The number of times the prompt is repeated along with prompt_strength to amplify the prompt.")
+    #img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     seed = TextField(label="Seed", width=90, value=str(blip_diffusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=blip_diffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=blip_diffusion_prefs, key='enlarge_scale')
@@ -5775,10 +5776,12 @@ def buildBLIPDiffusion(page):
     page.blip_diffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("📡  BLIP-Diffusion by Salesforce", "Pre-trained Subject Representation for Controllable Text-to-Image Generation and Editing.", actions=[IconButton(icon=icons.HELP, tooltip="Help with BLIP Diffusion Settings", on_click=blip_diffusion_help)]),
+            Header("📡  BLIP-Diffusion by Salesforce", "Pre-trained Subject Representation for Controllable Text-to-Image Generation and Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with BLIP Diffusion Settings", on_click=blip_diffusion_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([source_subject_category, target_subject_category]),
-            img_block,
+            #img_block,
+            image_pickers,
+            ResponsiveRow([strength_slider, prompt_reps]),
             Row([controlnet_type, control_image_container]),
             #ResponsiveRow([prior_steps, prior_guidance_scale]),
             steps,
@@ -15457,7 +15460,7 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
       p = p.to(torch_device)
     p = pipeline_scheduler(p)
     status['loaded_scheduler'] = prefs['scheduler_mode']
-    status['loaded_model'] = get_SDXL_model(prefs['SDXL_model'])['path']
+    status['loaded_SDXL_model'] = get_SDXL_model(prefs['SDXL_model'])['path']
     p.set_progress_bar_config(disable=True)
     return p
 
@@ -15853,7 +15856,7 @@ def get_SDXL_pipe(task="text2image"):
   SDXL_model = get_SDXL_model(prefs['SDXL_model'])
   model_id = SDXL_model['path']#"stabilityai/stable-diffusion-xl-base-1.0"
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-1.0"
-  if task != status['loaded_SDXL']:
+  if SDXL_model['path'] != status['loaded_SDXL_model'] or task != status['loaded_SDXL']:
       clear_pipes()
   watermark = prefs['SDXL_watermark']
   low_ram = int(status['cpu_memory']) <= 12
@@ -15896,7 +15899,7 @@ def get_SDXL_pipe(task="text2image"):
           else:
             return pipe_SDXL
       pipe_SDXL = StableDiffusionXLImg2ImgPipeline.from_pretrained(
-          model_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          model_id, torch_dtype=torch.float16, variant=SDXL_model['revision'], use_safetensors=True,
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
@@ -15923,7 +15926,7 @@ def get_SDXL_pipe(task="text2image"):
           else:
             return pipe_SDXL
       pipe_SDXL = StableDiffusionXLInpaintPipeline.from_pretrained(
-          model_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          model_id, torch_dtype=torch.float16, variant=SDXL_model['revision'], use_safetensors=True,
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
@@ -20532,7 +20535,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                     width=pr['width'],
                     num_inference_steps=pr['steps'],
                     guidance_scale=pr['guidance_scale'],
-                    strength=pr['strength'],
+                    prompt_strength=pr['strength'],
                     prompt_reps=blip_diffusion_prefs['prompt_reps'],
                     generator=generator,
                     #callback=callback_fnc,
@@ -20548,7 +20551,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                     width=pr['width'],
                     num_inference_steps=pr['steps'],
                     guidance_scale=pr['guidance_scale'],
-                    strength=pr['strength'],
+                    prompt_strength=pr['strength'],
                     prompt_reps=blip_diffusion_prefs['prompt_reps'],
                     generator=generator,
                     #callback=callback_fnc,
@@ -20556,7 +20559,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
         except Exception as e:
             clear_last()
             clear_last()
-            alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Text(str(e)))
+            alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
             return
         clear_last()
         clear_last()
@@ -35757,9 +35760,10 @@ class FileInput(UserControl):
         return self.textfield
 
 class ImageButton(UserControl):
-    def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, fit=ImageFit.SCALE_DOWN, show_subtitle=False, page=None):
+    def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, src_base64=None, fit=ImageFit.SCALE_DOWN, show_subtitle=False, page=None):
         super().__init__()
         self.src = src
+        self.src_base64 = src_base64
         self.subtitle = subtitle
         self.actions = actions
         self.center = center
@@ -35812,10 +35816,16 @@ class ImageButton(UserControl):
             else: return width, height
         #self.image = Row([Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)], alignment=MainAxisAlignment.CENTER)
         if self.width == None:
-            self.image = Img(src=self.src, fit=self.fit, gapless_playback=True)
+            if self.src_base64 != None:
+              self.image = Img(src_base64=self.src_base64, fit=self.fit, gapless_playback=True)
+            else:
+              self.image = Img(src=self.src, fit=self.fit, gapless_playback=True)
         else:
             self.width, self.height = scale_width(self.width, self.height, (self.page.width if self.page.web else self.page.window_width) - 28)
-            self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
+            if self.src_base64 != None:
+              self.image = Img(src_base64=self.src_base64, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
+            else:
+              self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
         self.column = Column([Row([PopupMenuButton(
             items = [
                 PopupMenuItem(text="View Image", icon=icons.FULLSCREEN, on_click=image_details),
