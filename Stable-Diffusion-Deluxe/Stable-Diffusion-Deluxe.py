@@ -1257,6 +1257,12 @@ def buildInstallers(page):
       #model = {'name': 'Custom Model', 'path': e.control.value, 'prefix': ''}
       #model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
       #model_card.update()
+      model_SDXL = get_SDXL_model(e.control.value)
+      model_card_SDXL.value = f"  [**Model Card**](https://huggingface.co/{model_SDXL['path']})"
+      try:
+          model_card_SDXL.update()
+      except Exception:
+          pass
   def toggle_safe(e):
       changed(e, 'install_safe')
       safety_config.visible = e.control.value
@@ -1267,6 +1273,7 @@ def buildInstallers(page):
       SDXL_params.height = None if e.control.value else 0
       SDXL_params.update()
   model = get_model(prefs['model_ckpt'])
+  model_SDXL = get_SDXL_model(prefs['SDXL_model'])
   model_path = model['path']
   model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[
       dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"),
@@ -1274,6 +1281,7 @@ def buildInstallers(page):
       dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
   finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':11, 'lg':6})
   model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+  model_card_SDXL = Markdown(f"  [**Model Card**](https://huggingface.co/{model_SDXL['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
       finetuned_model.options.append(dropdown.Option(mod["name"]))
   page.finetuned_model = finetuned_model
@@ -1292,12 +1300,12 @@ def buildInstallers(page):
       custom_area.content = Row([dreambooth_library, model_card], col={'xs':9, 'lg':4})
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
-  model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8)
+  model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
   SDXL_model = Dropdown(label="SDXL Model Checkpoint", hint_text="", width=370, options=[dropdown.Option("Custom Model")], value=prefs['SDXL_model'], autofocus=False, on_change=changed_SDXL_model, col={'xs':9, 'md':4})
   for xl in SDXL_models:
       SDXL_model.options.append(dropdown.Option(xl["name"]))
   SDXL_custom_model = TextField(label="Custom Model Path", value=prefs['SDXL_custom_model'], width=370, visible=prefs['SDXL_model']=='Custom Model', on_change=lambda e:changed(e,'SDXL_custom_model'), col={'xs':3, 'md':8})
-  SDXL_model_row = ResponsiveRow([SDXL_model, SDXL_custom_model], run_spacing=8)
+  SDXL_model_row = Row([SDXL_model, SDXL_custom_model, model_card_SDXL], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
 
   memory_optimization = Dropdown(label="Enable Memory Optimization", width=290, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   if version.parse(torch.__version__) < version.parse("2.0.0"):
@@ -1391,7 +1399,7 @@ def buildInstallers(page):
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
                                  Row([enable_tome, enable_torch_compile]),
                                  ]), padding=padding.only(left=32, top=4)),
-                                         install_text2img, Row([install_SDXL, SDXL_model_card]), SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
+                                         install_text2img, install_SDXL, SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
                                          install_versatile, install_SAG, install_attend_and_excite, install_panorama, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
@@ -7388,7 +7396,7 @@ instruct_pix2pix_prefs = {
     'start_time': 0,
     'end_time': 0,
     'control_v': 'v1.1',
-    'use_SDXL':False,
+    'use_SDXL': False,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -7503,6 +7511,7 @@ def buildInstructPix2Pix(page):
     start_time = TextField(label="Start Time (s)", value=instruct_pix2pix_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=instruct_pix2pix_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
     vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if instruct_pix2pix_prefs['use_init_video'] else 0)
+    use_SDXL = Switcher(label="Use Stable Diffusion XL Instruct Pix2Pix Pipeline", value=instruct_pix2pix_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="Otherwise use standard 1.5/2.1 Model Checkpoint.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=instruct_pix2pix_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=instruct_pix2pix_prefs, key='guidance_scale')
     image_guidance = SliderRow(label="Image Guidance Scale", min=0, max=200, divisions=400, round=1, pref=instruct_pix2pix_prefs, key='image_guidance_scale', tooltip="Image guidance scale is to push the generated image towards the inital image `image`. Higher image guidance scale encourages to generate images that are closely linked to the source image `image`, usually at the expense of lower image quality.")
@@ -7526,7 +7535,7 @@ def buildInstructPix2Pix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🏜️  Instruct-Pix2Pix", "Text-Based Image Editing - Learning to Follow Image Editing Instructions...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)]),
+        Header("🏜️  Instruct-Pix2Pix", "Text-Based Image Editing - Follow Image Editing Instructions...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         Row([original_image, init_video, use_init_video]),
         vid_params,
@@ -7536,10 +7545,9 @@ def buildInstructPix2Pix(page):
         image_guidance,
         eta_row,
         max_row,
+        use_SDXL,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=instruct_pix2pix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_instruct_pix2pix,
-        #Row([jump_length, jump_n_sample, seed]),
-
         Row([ElevatedButton(content=Text("🏖️  Run Instruct Pix2Pix", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instruct_pix2pix(page)),
              run_prompt_list]),
         page.instruct_pix2pix_output,
@@ -15063,11 +15071,12 @@ def get_diffusers(page):
     except ModuleNotFoundError:
         run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
         pass
-    run_process("git config --global credential.helper store", page=page)
 
     from huggingface_hub import notebook_login, HfApi, HfFolder, login
     #from diffusers import StableDiffusionPipeline, logging
     from diffusers import logging
+    if not os.path.exists(HfFolder.path_token):
+        run_process("git config --global credential.helper store", page=page)
     logging.set_verbosity_error()
     if not os.path.exists(HfFolder.path_token):
         #from huggingface_hub.commands.user import _login
@@ -15336,7 +15345,7 @@ except ModuleNotFoundError:
     pass
 finally:
     torch_device = "cuda" if torch.cuda.is_available() else "cpu"
-    if torch_device == "cpu": print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API & OpenAI, but not Diffusers...")
+    if torch_device == "cpu": print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API, AIHorde & OpenAI, but not Diffusers...")
 
 try:
     import psutil
@@ -16845,6 +16854,8 @@ def clear_unCLIP_image_interpolation_pipe():
 def clear_wuerstchen_pipe():
   global pipe_wuerstchen
   if pipe_wuerstchen is not None:
+    del pipe_wuerstchen.prior_pipe
+    del pipe_wuerstchen.decoder_pipe
     del pipe_wuerstchen
     flush()
     pipe_wuerstchen = None
@@ -20538,7 +20549,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                     prompt_strength=pr['strength'],
                     prompt_reps=blip_diffusion_prefs['prompt_reps'],
                     generator=generator,
-                    #callback=callback_fnc,
+                    callback=callback_fnc,
                 ).images
             elif task_type == "controlnet":
                 images = pipe_blip_diffusion(
@@ -20554,7 +20565,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                     prompt_strength=pr['strength'],
                     prompt_reps=blip_diffusion_prefs['prompt_reps'],
                     generator=generator,
-                    #callback=callback_fnc,
+                    callback=callback_fnc,
                 ).images
         except Exception as e:
             clear_last()
@@ -28260,29 +28271,34 @@ def run_instruct_pix2pix(page, from_list=False):
     autoscroll(True)
     clear_list()
     prt(Divider(thickness=2, height=4))
-    prt(Installing("Installing Instruct-Pix2Pix Pipeline..."))
+    prt(Installing(f"Installing Instruct-Pix2Pix{' SDXL' if instruct_pix2pix_prefs['use_SDXL'] else ''} Pipeline..."))
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
     from PIL.PngImagePlugin import PngInfo
-
-    clear_pipes('instruct_pix2pix')
+    model_id = "timbrooks/instruct-pix2pix"
+    model_id_SDXL = "diffusers/sdxl-instructpix2pix-768"
+    if 'loaded_instructpix2pix' not in status:
+      status['loaded_instructpix2pix'] = ''
+    if status['loaded_instructpix2pix'] != (model_id_SDXL if instruct_pix2pix_prefs['use_SDXL'] else model_id):
+      clear_pipes()
+    else:
+      clear_pipes('instruct_pix2pix')
     torch.cuda.empty_cache()
     torch.cuda.reset_max_memory_allocated()
     torch.cuda.reset_peak_memory_stats()
-    model_id = "timbrooks/instruct-pix2pix"
-    model_id_SDXL = "timbrooks/instructpix2pix-clip-filtered"
     if pipe_instruct_pix2pix is None:
       if instruct_pix2pix_prefs['use_SDXL']:
         from diffusers import StableDiffusionXLInstructPix2PixPipeline
         pipe_instruct_pix2pix = StableDiffusionXLInstructPix2PixPipeline.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
-        pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
+        pipe_instruct_pix2pix = optimize_SDXL(pipe_instruct_pix2pix)
+        status['loaded_instructpix2pix'] = model_id_SDXL
       else:
         from diffusers import StableDiffusionInstructPix2PixPipeline
-        from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
         pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
         #pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
+        status['loaded_instructpix2pix'] = model_id
     pipeline_scheduler(pipe_instruct_pix2pix)
     clear_last()
     prt("Generating Instruct-Pix2Pix of your Image...")
@@ -28437,10 +28453,10 @@ def run_instruct_pix2pix(page, from_list=False):
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
                 metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {instruct_pix2pix_prefs['enlarge_scale']}x with ESRGAN" if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", "Instruct-Pix2Pix")
+                metadata.add_text("pipeline", f"Instruct-Pix2Pix{' SDXL' if instruct_pix2pix_prefs['use_SDXL'] else ''}")
                 if prefs['save_config_in_metadata']:
                   config_json = instruct_pix2pix_prefs.copy()
-                  config_json['model_path'] = model_id
+                  config_json['model_path'] = model_id_SDXL if instruct_pix2pix_prefs['use_SDXL'] else model_id
                   config_json['seed'] = random_seed
                   config_json['prompt'] = pr['prompt']
                   config_json['negative_prompt'] = pr['negative_prompt']
@@ -30510,6 +30526,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
       else:
         page.Wuerstchen.controls = page.Wuerstchen.controls[:1]
     progress = ProgressBar(bar_height=8)
+    prior_steps = wuerstchen_prefs['prior_steps']
     total_steps = wuerstchen_prefs['steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
@@ -30518,6 +30535,13 @@ def run_wuerstchen(page, from_list=False, with_params=False):
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    def prior_callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      prior_callback_fnc.has_been_called = True
+      nonlocal progress, prior_steps
+      percent = (step +1)/ prior_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {prior_steps}  Timestep: {timestep}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -30574,7 +30598,8 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                 num_inference_steps=pr['steps'],
                 decoder_guidance_scale=pr['guidance_scale'],
                 generator=generator,
-                #callback=callback_fnc,
+                prior_callback=prior_callback_fnc,
+                callback=callback_fnc,
             ).images
         except Exception as e:
             clear_last()
@@ -33645,13 +33670,13 @@ def run_shap_e2(page):
     status_txt = Text("Generating your 3D model... See console for progress.")
     progress = ProgressBar(bar_height=8)
     total_steps = shap_e_prefs['karras_steps']
-    def callback_fnc(step: int) -> None:
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.tooltip = f"[{int(percent * 100)}%] {step +1} / {total_steps}"
       progress.update()
     clear_last(update=False)
     prt(status_txt)
@@ -33661,7 +33686,7 @@ def run_shap_e2(page):
     else:
         model_kwargs = dict(images=init_img)
     try:
-        images = pipe_shap_e(**model_kwargs, num_images_per_prompt=shap_e_prefs['batch_size'], guidance_scale=shap_e_prefs['guidance_scale'], num_inference_steps=shap_e_prefs['karras_steps'], frame_size=shap_e_prefs['size'])
+        images = pipe_shap_e(**model_kwargs, num_images_per_prompt=shap_e_prefs['batch_size'], guidance_scale=shap_e_prefs['guidance_scale'], num_inference_steps=shap_e_prefs['karras_steps'], frame_size=shap_e_prefs['size'], callback=callback_fnc)
     except Exception as e:
         clear_last()
         alert_msg(page, "Error running Shap-E sample_latents.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -33693,7 +33718,7 @@ def run_shap_e2(page):
     flush()
     clear_last(update=False)
     clear_last(update=False)
-    prt(ImageButton(src=gif_file, width=shap_e_prefs['size'], height=shap_e_prefs['size'], data=gif_file, subtitle=pc_file, page=page))
+    prt(ImageButton(src=gif_file, width=shap_e_prefs['size'], height=shap_e_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
     prt("Finished generating Shap-E Mesh... Hope it's good.")
     if prefs['enable_sounds']: page.snd_alert.play()
     os.chdir(root_dir)
@@ -34794,7 +34819,7 @@ def run_kandinsky_fuse(page):
             num_inference_steps=kandinsky_fuse_prefs['steps'],
             guidance_scale=kandinsky_fuse_prefs['guidance_scale'],
             generator=generator,
-            #callback=callback_fnc,
+            callback=callback_fnc,
         ).images
     except Exception as e:
         clear_last()
@@ -35190,7 +35215,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     guidance_scale=pr['guidance_scale'],
                     num_images_per_prompt=pr['batch_size'],
                     generator=generator,
-                    #callback=callback_fnc,
+                    callback=callback_fnc,
                 ).images
 
             except Exception as e:
