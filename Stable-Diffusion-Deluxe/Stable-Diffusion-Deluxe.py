@@ -218,11 +218,9 @@ if not os.path.exists(assets):
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-error.mp3?raw=true", to=assets)
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-done.mp3?raw=true", to=assets)
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-drop.mp3?raw=true", to=assets)
-sdd_utils_py = os.path.join(root_dir, "sdd_utils.py")
-if not os.path.exists(sdd_utils_py):
-    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False)
-#sys.path.append(sdd_utils_py)
-import sdd_utils
+uploads_dir = os.path.join(root_dir, "uploads")
+if not os.path.exists(uploads_dir):
+    os.makedirs(uploads_dir)
 clear_output()
 
 import json
@@ -437,7 +435,6 @@ from flet import icons, dropdown, colors, padding, margin, alignment, border_rad
 from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
 from flet import BlendMode
 from flet import Image as Img
-from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists
 try:
     import PIL
 except ModuleNotFoundError:
@@ -512,6 +509,13 @@ if 'last_updated' in prefs:
         force_updates = True
 else:
     force_updates = True
+
+sdd_utils_py = os.path.join(root_dir, "sdd_utils.py")
+if not os.path.exists(sdd_utils_py) or force_updates:
+    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False)
+#sys.path.append(sdd_utils_py)
+import sdd_utils
+from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists
 
 def save_settings_file(page, change_icon=True):
   if change_icon:
@@ -1254,6 +1258,8 @@ def buildInstallers(page):
       changed(e, 'SDXL_model')
       SDXL_custom_model.visible = prefs['SDXL_model'] == 'Custom Model'
       SDXL_custom_model.update()
+      model_card_SDXL.visible = not prefs['SDXL_model'] == 'Custom Model'
+      model_card_SDXL.update()
       #model = {'name': 'Custom Model', 'path': e.control.value, 'prefix': ''}
       #model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
       #model_card.update()
@@ -1304,7 +1310,7 @@ def buildInstallers(page):
   SDXL_model = Dropdown(label="SDXL Model Checkpoint", hint_text="", width=370, options=[dropdown.Option("Custom Model")], value=prefs['SDXL_model'], autofocus=False, on_change=changed_SDXL_model, col={'xs':9, 'md':4})
   for xl in SDXL_models:
       SDXL_model.options.append(dropdown.Option(xl["name"]))
-  SDXL_custom_model = TextField(label="Custom Model Path", value=prefs['SDXL_custom_model'], width=370, visible=prefs['SDXL_model']=='Custom Model', on_change=lambda e:changed(e,'SDXL_custom_model'), col={'xs':3, 'md':8})
+  SDXL_custom_model = TextField(label="Custom Model Path", value=prefs['SDXL_custom_model'], width=370, expand=True, visible=prefs['SDXL_model']=='Custom Model', on_change=lambda e:changed(e,'SDXL_custom_model'), col={'xs':3, 'md':8})
   SDXL_model_row = Row([SDXL_model, SDXL_custom_model, model_card_SDXL], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
 
   memory_optimization = Dropdown(label="Enable Memory Optimization", width=290, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
@@ -6092,7 +6098,7 @@ def buildControlNetQR(page):
     border_thickness = SliderRow(label="Border Thickness", min=0, max=20, divisions=20, round=0, pref=controlnet_qr_prefs, key='border_thickness', tooltip="The border is equal to the thickness of 5 tiny black boxes around QR.")
     qr_generator = Container(content=Column([border_thickness], alignment=MainAxisAlignment.START), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     qr_generator.height = None if not controlnet_qr_prefs['use_image'] else 0
-    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5")], value=controlnet_qr_prefs['controlnet_version'], on_change=lambda e: changed(e, 'controlnet_version'))
+    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5"), dropdown.Option("QR Code Monster v2 1.5")], value=controlnet_qr_prefs['controlnet_version'], on_change=lambda e: changed(e, 'controlnet_version'))
     seed = TextField(label="Seed", width=90, value=str(controlnet_qr_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=controlnet_qr_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_qr_prefs, key='guidance_scale')
@@ -14970,8 +14976,9 @@ def get_SDXL_model(name):
       if mod['name'] == name:
         return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'], 'revision': mod['revision']}
 
+HFapi = None
 def get_diffusers(page):
-    global scheduler, model_path, prefs, status
+    global scheduler, model_path, prefs, status, HFapi
     torch_installed = False
     try:
         import torch
@@ -15087,8 +15094,8 @@ def get_diffusers(page):
           alert_msg(page, "ERROR Logging into HuggingFace... Check your API Key or Internet conenction.")
           return
     # TODO: Get Username to prefs
-    api = HfApi()
-    prefs['HuggingFace_username'] = api.whoami()["name"]
+    HFapi = HfApi()
+    prefs['HuggingFace_username'] = HFapi.whoami()["name"]
     #if prefs['model_ckpt'] == "Stable Diffusion v1.5": model_path =  "runwayml/stable-diffusion-v1-5"
     #elif prefs['model_ckpt'] == "Stable Diffusion v1.4": model_path =  "CompVis/stable-diffusion-v1-4"
     model = get_model(prefs['model_ckpt'])
@@ -15100,6 +15107,54 @@ def get_diffusers(page):
     #  pass
     status['finetuned_model'] = False if model['name'].startswith("Stable") else True
 
+def save_file(file, folder="", filename=None, media="images"):
+    if 'save_to_HF' in prefs and prefs['save_to_HF']:
+        upload_HF(file=file, folder=folder, filename=filename, media=media)
+    
+def upload_HF(file, folder="", filename=None, media="images"):
+    global HFapi
+    import huggingface_hub
+    from huggingface_hub import HfApi
+    if HFapi == None:
+        HFapi = HfApi()
+    if 'HuggingFace_username' not in prefs or prefs['HuggingFace_username'] == "":
+        prefs['HuggingFace_username'] = HFapi.whoami()["name"]
+    repo_name = f"{prefs['HuggingFace_username']/{media}}"
+    if folder=="":
+        path=filename
+    else:
+        path=f"{folder}/{filename}"
+    if filename==None:
+        print("upload_HF Error: Must give filename")
+    try:
+        HFapi.upload_file(
+            path_or_fileobj=file,
+            path_in_repo=path,#f"{folder}{filename}",#path.split("/")[-1],
+            repo_id=repo_name,
+            repo_type="dataset",
+        )
+    except huggingface_hub.utils._errors.RepositoryNotFoundError:
+        HFapi.create_repo(
+            repo_id=repo_name,
+            repo_type="dataset",
+            private=True,
+        )
+        try:
+            HFapi.upload_file(
+                path_or_fileobj=file,
+                path_in_repo=path,
+                repo_id=repo_name,
+                repo_type="dataset",
+            )
+        except Exception as e:
+            print(f"Create upload_HF Error: {e}")
+            return None
+        pass
+    except Exception as e:
+        print(f"upload_HF Error: {e}")
+        return None
+    print(f"Saved https://huggingface.co/datasets/{repo_name}/blob/main/{path}")
+    return f" https://huggingface.co/datasets/{repo_name}/blob/main/{path}"
 
 def model_scheduler(model, big3=False):
     scheduler_mode = prefs['scheduler_mode']
@@ -20967,8 +21022,11 @@ def run_controlnet_qr(page, from_list=False):
         import qrcode
         clear_last()
         pass
+    #use_SDXL = controlnet_qr_prefs['controlnet_version'].endswith("XL")
     sd_model = get_model(prefs['model_ckpt'])['path']
     controlnet_model = "DionTimmer/controlnet_qrcode-control_v1p_sd15" if controlnet_qr_prefs['controlnet_version'].endswith("1.5") else "DionTimmer/controlnet_qrcode-control_v11p_sd21"
+    if 'Monster' in controlnet_qr_prefs['controlnet_version']:
+        controlnet_model = "prantik-s/monster_qrcode_v2"#"monster-labs/control_v1p_sd15_qrcode_monster"
     if controlnet_qr_prefs['last_model'] == sd_model and controlnet_qr_prefs['last_controlnet_model'] == controlnet_model and pipe_controlnet_qr != None:
         clear_pipes('controlnet_qr')
     else:
@@ -32136,6 +32194,7 @@ def run_animate_diff(page):
                 shutil.move(os.path.join(rife_folder, file_name), rife_dir)
             run_sp(f"chmod 755 {rife_dir}", realtime=False)
             run_sp(f"chmod 755 {os.path.join(rife_dir, 'rife-ncnn-vulkan')}", realtime=False)
+            #TODO: Fix Colab https://github.com/nihui/rife-ncnn-vulkan/issues/46
             os.chmod(os.path.join(rife_dir, 'rife-ncnn-vulkan'), 0o777)
             run_sp("apt-get install libvulkan-dev", realtime=False)
     from pathlib import Path
@@ -35744,7 +35803,7 @@ class FileInput(UserControl):
             if e.progress == 1:
               #TODO: Make save dir default to /root/uploads dir
               if self.output_dir == None:
-                save_dir = root_dir
+                save_dir = uploads_dir
               else:
                 save_dir = self.output_dir
                 if not os.path.exists(save_dir):

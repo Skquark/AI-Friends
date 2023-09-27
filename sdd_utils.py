@@ -166,6 +166,7 @@ SDXL_models = [
     {"name": "RealVis-XL", "path": "SG161222/RealVisXL_V1.0", "prefix": "", "revision": "fp16"},
     {"name": "ProtVision-XL", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": "", "revision": "fp32"},
     {"name": "Dreamviewer", "path": "Andyrasika/dreamviewer-sdxl-1.0", "prefix": "", "revision": "fp16", "variant": "fp16"},
+    {"name": "DynaVision-XL", "path": "nyxia/dynavision-xl", "prefix": "", "revision": "fp16", "variant": "fp16"},
     #{"name": "Juggernaut XL 2", "path": "ckpt/juggernaut-xl", "prefix": "", "revision": "fp16", "use_safetensors": True},
     #{"name": "CrystalClear XL", "path": "ckpt/crystalclear-xl", "prefix": "", "revision": "fp16", "use_safetensors": True},
 ]
