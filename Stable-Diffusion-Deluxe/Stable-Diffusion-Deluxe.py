@@ -48,7 +48,7 @@ def run_sp(cmd_str, cwd=None, realtime=False, output_column=None):
             print(realtime_output.strip(), flush=False)
         else:
             output_column.controls.append(ft.Text(realtime_output.strip()))
-            output_colum.update()
+            output_column.update()
         sys.stdout.flush()
   else:
     if cwd is None:
@@ -89,18 +89,21 @@ def ng():
   _ng = rnd.choice(ng_list).partition('_')
   return _ng[2]+_ng[1]+_ng[0]
 
-def download_file(url, to=None, filename=None, raw=True):
+def download_file(url, to=None, filename=None, raw=True, ext="png", replace=False):
     if filename != None:
         local_filename = filename
     else:
         local_filename = url.split('/')[-1]
         if '?' in local_filename:
             local_filename = local_filename.rpartition('?')[0]
+    if '.' not in local_filename:
+        local_filename += f".{ext}"
     local_filename = os.path.join(to if to != None else root_dir, local_filename)
     if to != None:
         if not os.path.exists(to):
             os.makedirs(to)
-    if os.path.isfile(local_filename):
+    else: to = root_dir
+    if os.path.isfile(local_filename) and not replace:
         return local_filename
     with requests.get(url, stream=True) as r:
         with open(local_filename, 'wb') as f:
@@ -9747,8 +9750,11 @@ animate_diff_prefs = {
     'dreambooth_lora': 'realisticVisionV40_v20Novae',
     'lora_alpha': 0.8,
     'custom_lora': '',
-    'lora_map': {},
-    'motion_module': 'mm_sd_v15',
+    'lora_layer': 'Add Detail',
+    'lora_layer_alpha': 0.8,
+    'custom_lora_layer': '',
+    'lora_map': [],
+    'motion_module': 'mm_sd_v15_v2',
     'scheduler': 'k_dpmpp_2m',
     'seed': 0,
     'video_length': 16,
@@ -9784,6 +9790,8 @@ animate_diff_prefs = {
     'ip_adapter_scale': 0.5,
     'ip_adapter_is_plus': True,
     'ip_adapter_is_plus_face': True,
+    'motion_loras': [],
+    'motion_loras_strength': 0.5,
     'num_images': 1,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -9807,6 +9815,33 @@ animate_diff_loras = [
     {'name': 'XXMix_9realistic_v4', 'file': 'xxmix9realistic_v40.safetensors', 'path': 'https://huggingface.co/jzli/XXMix_9realistic-v4/resolve/main/xxmix9realistic_v40.safetensors'},
     #{'name': 'Custom', 'file': '', 'path': ''},
 ]
+animate_diff_lora_layers = [
+    {'name': 'Add Detail', 'file': 'add_detail.safetensors', 'path': 'https://civitai.com/api/download/models/118311?type=Model&format=SafeTensor'},
+    {'name': 'Muffet v2', 'file': 'muffet_v2.safetensors', 'path': 'https://civitai.com/api/download/models/36809?type=Model&format=SafeTensor'},
+    {'name': 'Vector Art', 'file': 'vector_art.safetensors', 'path': 'https://civitai.com/api/download/models/68115?type=Model&format=SafeTensor'},
+    {'name': 'Detail Enhancer', 'file': 'detail_enhancer.safetensors', 'path': 'https://civitai.com/api/download/models/87153?type=Model&format=SafeTensor'},
+    {'name': 'Studio Ghibli', 'file': 'studio_ghibli.safetensors', 'path': 'https://civitai.com/api/download/models/7657?type=Model&format=SafeTensor&size=full&fp=fp16'},
+    {'name': 'Arcane Style', 'file': 'arcane_style.safetensors', 'path': 'https://civitai.com/api/download/models/8339?type=Model&format=SafeTensor&size=full&fp=fp16'},
+    {'name': 'DC Comics', 'file': 'DC_Comics.safetensors', 'path': 'https://civitai.com/api/download/models/10580?type=Model&format=SafeTensor&size=full&fp=fp16'},
+    {'name': 'SteampunkAI', 'file': 'SteampunkAI.safetensors', 'path': 'https://civitai.com/api/download/models/24794?type=Model&format=SafeTensor&size=full&fp=fp16'},
+    {'name': 'Liminal Space', 'file': 'liminal_space.safetensors', 'path': 'https://civitai.com/api/download/models/72282?type=Model&format=SafeTensor'},
+    {'name': 'Landscapes Mix', 'file': 'landscapes_mix.safetensors', 'path': 'https://civitai.com/api/download/models/8787?type=Model&format=SafeTensor&size=full&fp=fp16'},
+    {'name': 'Elixir Enhancer', 'file': 'elixir_enhancer.safetensors', 'path': 'https://civitai.com/api/download/models/83081?type=Model&format=SafeTensor'},
+    {'name': 'Amateur Porn', 'file': 'amateur_porn.safetensors', 'path': 'https://civitai.com/api/download/models/56939?type=Model&format=SafeTensor'},
+    {'name': 'HD Porn', 'file': 'hd_porn.safetensors', 'path': 'https://civitai.com/api/download/models/54388?type=Model&format=SafeTensor'},
+    #{'name': '', 'file': '.safetensors', 'path': ''},
+]
+animate_diff_motion_loras = [
+    {'name': 'Zoom-In', 'file': 'v2_lora_ZoomOut.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_ZoomOut.ckpt'},
+    {'name': 'Zoom-Out', 'file': 'v2_lora_ZoomIn.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_ZoomIn.ckpt'},
+    {'name': 'Pan-Left', 'file': 'v2_lora_PanLeft.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_PanLeft.ckpt'},
+    {'name': 'Pan-Right', 'file': 'v2_lora_PanRight.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_PanRight.ckpt'},
+    {'name': 'Pan-Up', 'file': 'v2_lora_PanUp.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_PanUp.ckpt'},
+    {'name': 'Pan-Down', 'file': 'v2_lora_PanDown.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_PanDown.ckpt'},
+    {'name': 'Clockwise', 'file': 'v2_lora_RollingClockwise.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_RollingClockwise.ckpt'},
+    {'name': 'Anti-clockwise', 'file': 'v2_lora_RollingAnticlockwise.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_RollingAnticlockwise.ckpt'},
+]
+
 def buildAnimateDiff(page):
     global animate_diff_prefs, prefs, pipe_animate_diff, editing_prompt
     editing_prompt = {'prompt':'', 'negative_prompt':'', 'seed':0}
@@ -9851,6 +9886,46 @@ def buildAnimateDiff(page):
       animate_diff_prefs['dreambooth_lora'] = e.control.value
       custom_lora.visible = e.control.value == "Custom"
       custom_lora.update()
+    def changed_lora_layer(e):
+      animate_diff_prefs['lora_layer'] = e.control.value
+      custom_lora_layer.visible = e.control.value == "Custom"
+      custom_lora_layer.update()
+    def add_lora(e):
+      lora = animate_diff_prefs['lora_layer']
+      lora_scale = animate_diff_prefs['lora_layer_alpha']
+      lora_layer = {}
+      if lora == "Custom":
+        lora_layer = {'name': 'Custom', 'file':'', 'path':animate_diff_prefs['custom_lora_layer'], 'scale': lora_scale}
+      else:
+        for l in animate_diff_lora_layers:
+          if l['name'] == lora:
+            lora_layer = l.copy()
+            lora_layer['scale'] = lora_scale
+        for l in animate_diff_prefs['lora_map']:
+          if l['name'] == lora:
+            return
+      animate_diff_prefs['lora_map'].append(lora_layer)
+      title = Markdown(f"**{lora_layer['name']}** - Alpha Scale: [{lora_layer['scale']}] - {lora_layer['path']}")
+      lora_layer_map.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      lora_layer_map.update()
+    def delete_lora_layer(e):
+        for l in animate_diff_prefs['lora_map']:
+          if l['name'] == e.control.data['name']:
+            animate_diff_prefs['lora_map'].remove(l)
+          #del l #animate_diff_prefs['lora_map'][]
+        for c in lora_layer_map.controls:
+          if c.data['name'] == e.control.data['name']:
+             lora_layer_map.controls.remove(c)
+             break
+        lora_layer_map.update()
+    def delete_all_lora_layers(e):
+        animate_diff_prefs['lora_map'].clear()
+        lora_layer_map.controls.clear()
+        lora_layer_map.update()
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         animate_diff_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -10102,7 +10177,12 @@ def buildAnimateDiff(page):
         animate_diff_prefs['ip_adapter_layers'].clear()
         ip_adapter_layers.controls.clear()
         ip_adapter_layers.update()
-    
+    def changed_motion_lora(e):
+        on = e.control.value
+        if e.control.data in animate_diff_prefs['motion_loras']:
+            animate_diff_prefs['motion_loras'].remove(e.control.data)
+        else:
+            animate_diff_prefs['motion_loras'].append(e.control.data)
     head_prompt = TextField(label="Head Prompt Text", value=animate_diff_prefs['head_prompt'], filled=False, multiline=True, on_change=lambda e:changed(e,'head_prompt'), col={'md':6})
     tail_prompt = TextField(label="Tail Prompt Text", value=animate_diff_prefs['tail_prompt'], filled=False, multiline=True, on_change=lambda e:changed(e,'tail_prompt'), col={'md':6})
     prompt = TextField(label="Animation Prompt Text", value=animate_diff_prefs['prompt'], filled=True, expand=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
@@ -10125,6 +10205,20 @@ def buildAnimateDiff(page):
     for lora in animate_diff_loras:
         dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    
+    lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=animate_diff_prefs['lora_layer'], on_change=changed_lora_layer)
+    custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora_layer'], expand=True, visible=animate_diff_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
+    for lora in animate_diff_lora_layers:
+        lora_layer.options.insert(1, dropdown.Option(lora['name']))
+    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
+    lora_layer_map = Column([], spacing=0)
+
+    motion_loras_checkboxes = ResponsiveRow(controls=[Text("Motion Module LoRAs:", col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1.5})], run_spacing=0, vertical_alignment=CrossAxisAlignment.CENTER)
+    for m in animate_diff_motion_loras:
+        motion_loras_checkboxes.controls.append(Checkbox(label=m['name'], data=m['name'], value=m['name'] in animate_diff_prefs['motion_loras'], on_change=changed_motion_lora, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1}))
+    motion_loras_strength = SliderRow(label="Motion Module LoRA Strength", min=0, max=1, divisions=10, round=1, pref=animate_diff_prefs, key='motion_loras_strength', tooltip="The Weight of the custom Motion LoRA Module to influence camera.")
+
     save_frames = Switcher(label="Save Frames", value=animate_diff_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
     save_gif = Switcher(label="Save Animated GIF", value=animate_diff_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
     save_video = Switcher(label="Save Video", value=animate_diff_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
@@ -10163,7 +10257,7 @@ def buildAnimateDiff(page):
     upscale_guidance_scale = SliderRow(label="Upscale Guidance", min=0, max=20, divisions=40, round=1, pref=animate_diff_prefs, col={'md': 6}, key='upscale_guidance_scale')
     upscale_slider = SliderRow(label="Upscale Amount", min=1, max=4, divisions=12, round=2, suffix="x", pref=animate_diff_prefs, col={'md': 6}, key='upscale_amount')
     
-    batch_folder_name = TextField(label="Batch Folder Name", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    batch_folder_name = TextField(label="Batch Folder Name (required)", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animate_diff_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=animate_diff_prefs, key='enlarge_scale')
@@ -10196,6 +10290,8 @@ def buildAnimateDiff(page):
         video_length,
         ResponsiveRow([context, stride, clip_skip]),
         Row([dreambooth_lora, custom_lora]),#, lora_alpha
+        Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
+        lora_layer_map,
         Divider(thickness=4, height=4),
         Row([control_task, control_frame, original_image, add_layer_btn]),
         Row([control_scale_list,
@@ -10209,6 +10305,10 @@ def buildAnimateDiff(page):
         Row([upscale_tile, upscale_ip2p, upscale_lineart_anime]),
         ResponsiveRow([upscale_steps, upscale_guidance_scale]),
         ResponsiveRow([upscale_strength, upscale_slider]),
+        #Row([Text("Enable Motion Module LoRAs:"), motion_loras_strength]),
+        #ResponsiveRow([Container(Text("Motion Module LoRAs:"), col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}), motion_loras_checkboxes]),
+        motion_loras_checkboxes,
+        motion_loras_strength,
         Row([motion_module, scheduler, batch_folder_name]),
         Row([is_loop, save_frames, save_gif, save_video]),
         page.ESRGAN_block_animate_diff,
@@ -32228,12 +32328,14 @@ def run_animate_diff(page):
         lora = animate_diff_prefs['custom_lora']
         if lora.startswith("http"):
             installer.status(f"...downloading Custom LoRA")
-            lora_file = download_file(lora_model['path'], to=lora_dir)
+            lora_file = download_file(lora_model['path'], to=lora_dir, ext="safetensors")
             if os.path.isfile(lora_file):
                 lora_path = lora_file
         else:
             if os.path.isfile(lora):
-                lora_path = lora
+                fname = os.path.basename(lora)
+                lora_path = os.path.join(lora_dir, fname)
+                shutil.copy(lora, lora_path)
     elif animate_diff_prefs['dreambooth_lora'] != "None":
         for lora in animate_diff_loras:
             if lora['name'] == animate_diff_prefs['dreambooth_lora']:
@@ -32242,11 +32344,40 @@ def run_animate_diff(page):
         lora_path = os.path.join(lora_dir, lora_model['file'])
         if not os.path.isfile(lora_path):
             installer.status(f"...downloading {lora_model['name']}")
-            download_file(lora_model['path'], to=lora_dir)
+            download_file(lora_model['path'], to=lora_dir, ext="safetensors")
             #run_sp(f"aria2c --console-log-level=error -c -x 16 -s 16 -k 1M {lora_model['path']} -d {lora_dir} -o {lora_model['file']}", realtime=False)
     if bool(lora_path):
         fname = lora_path.rpartition(slash)[2]
         lora_path = f"models{slash}sd{slash}{fname}"
+    lora_map = {}
+    if len(animate_diff_prefs['lora_map']) > 0:
+        lora_map_dir = os.path.join(animatediff_dir, 'data', 'share', 'Lora')
+        if not os.path.isdir(lora_map_dir):
+            os.makedirs(lora_map_dir)
+        for l in animate_diff_prefs['lora_map']:
+            file = l['file']
+            if l['name'] == "Custom":
+                if '/models' in l['path']:
+                    file = l['path'].split('/models/')[1].split('?')[0]
+                else:
+                    file = l['path'].rpartition('/')[1].split('?')[0]
+                if ".safetensors" not in file:
+                    file += ".safetensors"
+            if l['path'].startswith("http"):
+                lora_layer_path = os.path.join(lora_map_dir, file)
+                if not os.path.isfile(lora_layer_path):
+                    installer.status(f"...downloading {file} LoRA")
+                    lora_file = download_file(l['path'], to=lora_map_dir, filename=file, ext="safetensors")
+                else:
+                    lora_file = lora_layer_path
+                if os.path.isfile(lora_file):
+                    lora_path = lora_file
+            elif os.path.isfile(l['path']):
+                lora_path = os.path.join(lora_map_dir, file)
+                shutil.copy(l['path'], lora_path)
+            elif os.path.isfile(os.path.join(lora_map_dir, file)):
+                lora_path = os.path.join(lora_map_dir, file)
+            lora_map[f"share{slash}Lora{slash}{file}"] = float(l['scale'])
     clear_pipes()
 
     samples_dir = os.path.join(animatediff_dir, 'samples')
@@ -32517,6 +32648,12 @@ def run_animate_diff(page):
                     if os.path.isfile(ip_image):
                         shutil.copy(ip_image, img_path)
                     elif ip_image.startswith('https://drive'):
+                        try:
+                          import gdown
+                        except ImportError:
+                          run_sp("pip -q install gdown")
+                        finally:
+                          import gdown
                         gdown.download(ip_image, img_path, quiet=True)
                     elif ip_image.startswith('http'):
                         download_file(ip_image, img_path)
@@ -32538,6 +32675,12 @@ def run_animate_diff(page):
             if os.path.isfile(ip_image):
                 shutil.copy(ip_image, img_path)
             elif ip_image.startswith('https://drive'):
+                try:
+                  import gdown
+                except ImportError:
+                  run_sp("pip -q install gdown")
+                finally:
+                  import gdown
                 gdown.download(ip_image, img_path, quiet=True)
             elif ip_image.startswith('http'):
                 download_file(ip_image, img_path)
@@ -32549,6 +32692,16 @@ def run_animate_diff(page):
       "is_plus_face": animate_diff_prefs['ip_adapter_plus'],
       "is_plus": animate_diff_prefs['ip_adapter_plus_face']
     }
+    motion_lora_map = {}
+    for m in animate_diff_prefs['motion_loras']:
+      for mm in animate_diff_motion_loras:
+        if mm['name'] == m:
+          mm_path = os.path.join(animatediff_dir, 'data', 'models', 'motion_lora', mm['file'])
+          if not os.path.isfile(mm_path):
+              installer.status(f"...downloading {mm['name']}")
+              download_file(mm['path'], to=mm_path)
+          motion_lora_map[f"models/motion_lora/{mm['file']}"] = animate_diff_prefs['motion_loras_strength']
+    
     installer.status("...preparing json")
     upscale_config = {
       "scheduler": animate_diff_prefs['scheduler'],
@@ -32588,6 +32741,8 @@ def run_animate_diff(page):
         "reference_adain": False
       }
     }
+    prompts_json['lora_map'] = lora_map
+    prompts_json['motion_lora_map'] = motion_lora_map
     prompts_json['controlnet_map'] = controlnet_map
     prompts_json['ip_adapter_map'] = ip_adapter_map
     prompts_json['upscale_config'] = upscale_config
