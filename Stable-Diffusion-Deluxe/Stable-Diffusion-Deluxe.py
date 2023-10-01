@@ -515,7 +515,7 @@ else:
 
 sdd_utils_py = os.path.join(root_dir, "sdd_utils.py")
 if not os.path.exists(sdd_utils_py) or force_updates:
-    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False)
+    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
 #sys.path.append(sdd_utils_py)
 import sdd_utils
 from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists
@@ -756,6 +756,7 @@ def buildVideoAIs(page):
     page.TextToVideo = buildTextToVideo(page)
     page.TextToVideoZero = buildTextToVideoZero(page)
     page.VideoToVideo = buildVideoToVideo(page)
+    page.InfiniteZoom = buildInfiniteZoom(page)
     page.Potat1 = buildPotat1(page)
     page.StableAnimation = buildStableAnimation(page)
     page.ControlNet = buildControlNet(page)
@@ -771,6 +772,7 @@ def buildVideoAIs(page):
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
+            Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
@@ -8976,6 +8978,297 @@ Resources:
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+infinite_zoom_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'frame': '0',
+    'guidance_scale': 6.0,
+    'num_inference_steps': 40,
+    'editing_prompts': [],
+    'animation_prompts': {},
+    'init_image': '',
+    'fps': 30,
+    'mask_width': 128,
+    'num_outpainting_steps': 20,
+    'frame_dupe_amount': 15,
+    'num_interpol_frames': 30,
+    'inpainting_model': 'stabilityai/stable-diffusion-2-inpainting',
+    'use_SDXL': False,
+    'max_size': 512,
+    'width': 512,
+    'height': 512,
+    'seed': 0,
+    'save_frames': True,
+    'save_gif': True,
+    'save_video': True,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 1.5,
+    "display_upscaled_image": False,
+}
+
+def buildInfiniteZoom(page):
+    global infinite_zoom_prefs, prefs, pipe_infinite_zoom, editing_prompt
+    editing_prompt = {'prompt':'', 'negative_prompt':'', 'seed':0}
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            infinite_zoom_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            infinite_zoom_prefs[pref] = float(e.control.value)
+          else:
+            infinite_zoom_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_infinite_zoom_output(o):
+      page.infinite_zoom_output.controls.append(o)
+      page.infinite_zoom_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.infinite_zoom_output.controls = []
+      page.infinite_zoom_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def infinite_zoom_help(e):
+      def close_infinite_zoom_dlg(e):
+        nonlocal infinite_zoom_help_dlg
+        infinite_zoom_help_dlg.open = False
+        page.update()
+      infinite_zoom_help_dlg = AlertDialog(title=Text("💁   Help with Infinite-Zoom"), content=Column([
+          Text('We shrink the init image from the previous block and outpaint its outer frame using the same concept (e.g. prompt, negative prompt, inference steps) but with a different seed. To generate an "inifinte zoom" video this is repeated num_outpainting_steps times and then rendered in reversed order. To keep the outpainted part coherent and full of new content its width has to be relatively large (e.g. mask_width = 128 pixels if resolution is 512*512). This on the other hand means that the generated video would be too fast and aestetically unpleasant. To slow down and smoothen the video we generate num_interpol_frames additional images between outpainted images using simple "interpolation".'),
+          Text('Notes: Length of the video is proportional to num_outpainting_steps * num_interpol_frames. The time to generate the video is proportional to num_outpainting_steps. On a T4 GPU it takes about ~7 minutes to generate the video of width = 512, num_inference_steps = 20, num_outpainting_steps = 100. With fps = 24 and num_interpol_frames = 24 the video will be about 1:40 minutes long.'),
+          #Text(""),
+          Markdown("[Github Project](https://github.com/v8hid/infinite-zoom-stable-diffusion) | [Google Colab](https://colab.research.google.com/github/v8hid/infinite-zoom-stable-diffusion/blob/main/smooth_infinite_zoom.ipynb)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🕵  It's Endlessness... ", on_click=close_infinite_zoom_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = infinite_zoom_help_dlg
+      infinite_zoom_help_dlg.open = True
+      page.update()
+    
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        infinite_zoom_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def infinite_zoom_tile(animate_prompt):
+        params = []
+        for k, v in animate_prompt.items():
+            if k == 'prompt': continue
+            params.append(f'{to_title(k)}: {v}')
+        sub = ', '.join(params)
+        return ListTile(title=Text(animate_prompt['prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=animate_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[PopupMenuItem(icon=icons.EDIT, text="Edit Animation Prompt", on_click=lambda e: edit_infinite_zoom(animate_prompt), data=animate_prompt),
+                 PopupMenuItem(icon=icons.DELETE, text="Delete Animation Prompt", on_click=lambda e: del_infinite_zoom(animate_prompt), data=animate_prompt)]), on_click=lambda e: edit_infinite_zoom(animate_prompt))
+    def edit_infinite_zoom(edit=None):
+        infinite_zoom_prompt = edit if bool(edit) else editing_prompt.copy()
+        edit_prompt = edit['prompt'] if bool(edit) else infinite_zoom_prefs['prompt']
+        if not bool(edit):
+            infinite_zoom_prompt['prompt'] = infinite_zoom_prefs['prompt']
+            infinite_zoom_prompt['negative_prompt'] = infinite_zoom_prefs['negative_prompt']
+            infinite_zoom_prompt['seed'] = infinite_zoom_prefs['seed']
+        def close_dlg(e):
+            dlg_edit.open = False
+            page.update()
+        def changed_p(e, pref=None):
+            if pref is not None:
+                infinite_zoom_prompt[pref] = e.control.value
+        def save_infinite_zoom_prompt(e):
+            if edit == None:
+                infinite_zoom_prefs['editing_prompts'].append(infinite_zoom_prompt)
+                page.infinite_zoom_prompts.controls.append(infinite_zoom_tile(infinite_zoom_prompt))
+                page.infinite_zoom_prompts.update()
+            else:
+                for s in infinite_zoom_prefs['editing_prompts']:
+                    if s['prompt'] == edit_prompt:
+                        s = infinite_zoom_prompt
+                        break
+                for t in page.infinite_zoom_prompts.controls:
+                    #print(f"{t.data['prompt']} == {edit_prompt} - {t.title.value}")
+                    if t.title.value == edit_prompt: #t.data['prompt']
+                        params = []
+                        for k, v in infinite_zoom_prompt.items():
+                            if k == 'prompt': continue
+                            params.append(f'{to_title(k)}: {v}')
+                        sub = ', '.join(params)
+                        t.title = Text(infinite_zoom_prompt['prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE)
+                        t.subtitle = Text(sub)
+                        t.data = infinite_zoom_prompt
+                        t.update()
+                        break
+                dlg_edit.open = False
+                e.control.update()
+                page.update()
+        infinite_zoom_editing_prompt = TextField(label="InfiniteZoom Prompt Modifier", value=infinite_zoom_prompt['prompt'], autofocus=True, on_change=lambda e:changed_p(e,'prompt'))
+        infinite_zoom_negative_prompt = TextField(label="Negative Prompt", value=infinite_zoom_prompt['negative_prompt'], autofocus=True, on_change=lambda e:changed_p(e,'negative_prompt'))
+        infinite_zoom_seed = TextField(label="Seed", width=90, value=str(infinite_zoom_prompt['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed_p(e,'seed'), col={'md':1})
+        if edit != None:
+            dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Animated Prompt"), content=Container(Column([
+                infinite_zoom_editing_prompt,
+                infinite_zoom_negative_prompt, infinite_zoom_seed,
+            ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_infinite_zoom_prompt)], actions_alignment=MainAxisAlignment.END)
+            page.dialog = dlg_edit
+            dlg_edit.open = True
+            page.update()
+        else:
+            save_infinite_zoom_prompt(None)
+    def del_infinite_zoom(edit=None):
+        for s in infinite_zoom_prefs['editing_prompts']:
+            if s['prompt'] == edit['prompt']:
+                infinite_zoom_prefs['editing_prompts'].remove(s)
+                break
+        for t in page.infinite_zoom_prompts.controls:
+            if t.data['prompt'] == edit['prompt']:
+                page.infinite_zoom_prompts.controls.remove(t)
+                break
+        page.infinite_zoom_prompts.update()
+        if prefs['enable_sounds']: page.snd_delete.play()
+    def edit_prompt(e):
+      nonlocal animation_prompts
+      f = int(e.control.data)
+      edit_prompt = infinite_zoom_prefs['animation_prompts'][str(f)]
+      def close_dlg(e):
+        dlg_edit.open = False
+        page.update()
+      def save_prompt(e):
+        fr = int(editing_frame.value)
+        pline = f'{fr}: "{editing_prompt.value}"'
+        for p in animation_prompts.controls:
+          if p.data == f:
+            p.title.value = pline
+            p.data = fr
+            for button in p.trailing.items:
+              button.data = fr
+            break
+        infinite_zoom_prefs['animation_prompts'][str(editing_frame.value)] = editing_prompt.value.strip()
+        if f != int(editing_frame.value):
+          del infinite_zoom_prefs['animation_prompts'][str(f)]
+          sorted_dict = {}
+          for key in sorted(infinite_zoom_prefs['animation_prompts'].keys()):
+              sorted_dict[key] = infinite_zoom_prefs['animation_prompts'][key]
+          infinite_zoom_prefs['animation_prompts'] = sorted_dict
+          animation_prompts.controls = sorted(animation_prompts.controls, key=lambda tile: tile.data)
+        animation_prompts.update()
+        close_dlg(e)
+      editing_frame = TextField(label="Frame", width=90, value=str(f), keyboard_type=KeyboardType.NUMBER, tooltip="")
+      editing_prompt = TextField(label="Keyframe Prompt Animation", expand=True, multiline=True, value=edit_prompt, autofocus=True)
+      dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ Edit Prompt Keyframe"), content=Container(Column([
+          Row([editing_frame, editing_prompt])
+      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = dlg_edit
+      dlg_edit.open = True
+      page.update()
+    def del_prompt(e):
+      f = e.control.data
+      for i, p in enumerate(animation_prompts.controls):
+        if p.data == f:
+          del animation_prompts.controls[i]
+          break
+      animation_prompts.update()
+      del infinite_zoom_prefs['animation_prompts'][str(f)]
+      if prefs['enable_sounds']: page.snd_delete.play()
+    def clear_prompts(e):
+      animation_prompts.controls.clear()
+      animation_prompts.update()
+      infinite_zoom_prefs['animation_prompts'] = {}
+      clear_prompt(e)
+      if prefs['enable_sounds']: page.snd_delete.play()
+    def clear_prompt(e):
+      prompt.value = ""
+      prompt.update()
+    def copy_prompt(e):
+      p = infinite_zoom_prefs['animation_prompts'][str(e.control.data)]
+      page.set_clipboard(p)
+      page.snack_bar = SnackBar(content=Text(f"📋  Prompt Text copied to clipboard..."))
+      page.snack_bar.open = True
+      page.update()
+    def add_prompt(e, f=None, p=None, sound=True):
+      if (not bool(prompt.value) or not bool(frame.value)) and f == None: return
+      if f == None: f = int(frame.value)
+      if p == None: p = prompt.value.strip()
+      pline = f'{f}: "{p}"'
+      if str(f) in infinite_zoom_prefs['animation_prompts']:
+        for i, pr in enumerate(animation_prompts.controls):
+          if pr.data == f:
+            pr.title.value = pline
+      else:
+        animation_prompts.controls.append(ListTile(title=Text(pline, size=14), data=f, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+            items=[PopupMenuItem(icon=icons.EDIT, text="Edit Animation Prompt", on_click=edit_prompt, data=f),
+                  PopupMenuItem(icon=icons.COPY, text="Copy Prompt Text", on_click=copy_prompt, data=f),
+                  PopupMenuItem(icon=icons.DELETE, text="Delete Animation Prompt", on_click=del_prompt, data=f), PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Prompts", on_click=clear_prompts)]), dense=True, on_click=edit_prompt))
+      infinite_zoom_prefs['animation_prompts'][str(f)] = p
+      sorted_dict = {}
+      for key in sorted(infinite_zoom_prefs['animation_prompts'].keys()):
+          sorted_dict[key] = infinite_zoom_prefs['animation_prompts'][key]
+      infinite_zoom_prefs['animation_prompts'] = sorted_dict
+      animation_prompts.controls = sorted(animation_prompts.controls, key=lambda tile: tile.data)
+      animation_prompts.update()
+      if prefs['enable_sounds'] and sound: page.snd_drop.play()
+
+    prompt = TextField(label="Animation Prompt Text", value=infinite_zoom_prefs['prompt'], filled=True, expand=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=infinite_zoom_prefs['negative_prompt'], col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    seed = TextField(label="Seed", width=76, value=str(infinite_zoom_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'), col={'md':1})
+    frame = TextField(label="Frame", width=76, value="0", filled=True, keyboard_type=KeyboardType.NUMBER, tooltip="")
+    add_prompt_keyframe = ft.FilledButton("➕  Add Keyframe", on_click=add_prompt)
+    num_interpol_frames = SliderRow(label="Interpolation Frames", min=1, max=150, divisions=149, pref=infinite_zoom_prefs, key='num_interpol_frames', tooltip="Number of images to be interpolated between each outpainting step.")
+    num_inference_row = SliderRow(label="Inference Steps", min=1, max=150, divisions=149, pref=infinite_zoom_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=infinite_zoom_prefs, key='guidance_scale')
+    mask_width = SliderRow(label="Mask Width", min=1, max=256, divisions=255, suffix="px", pref=infinite_zoom_prefs, key='mask_width', col={'md': 6}, tooltip="Width of the border in pixels to be outpainted during each step. Make sure: mask_width < image resolution / 2")
+    num_outpainting_steps = SliderRow(label="Outpainting Steps", min=1, max=100, divisions=99, pref=infinite_zoom_prefs, key='num_outpainting_steps', col={'md': 6}, tooltip="Number of outpainting images between each interpolation.")
+    frame_dupe_amount = SliderRow(label="Frame Dupe Amount", min=1, max=90, divisions=89, pref=infinite_zoom_prefs, key='frame_dupe_amount', tooltip="Duplicates the first and last frames, use to add a delay before animation based on playback fps (15 = 0.5 seconds @ 30fps)")
+    fps = SliderRow(label="Frames per Second", min=1, max=60, divisions=59, suffix='fps', pref=infinite_zoom_prefs, key='fps', tooltip="The FPS to save video clip.")
+    #max_size = SliderRow(label="Max Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='max_size')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='height')
+    use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline", value=infinite_zoom_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
+    inpainting_model = Dropdown(label="Inpainting Model", width=386, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers","parlance/dreamlike-diffusion-1.0-inpainting","ghunkins/stable-diffusion-liberty-inpainting"]], value=infinite_zoom_prefs['inpainting_model'], on_change=lambda e: changed(e, 'inpainting_model'))
+    save_frames = Switcher(label="Save Frames", value=infinite_zoom_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
+    save_gif = Switcher(label="Save Animated GIF", value=infinite_zoom_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
+    save_video = Switcher(label="Save Video", value=infinite_zoom_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
+    init_image = FileInput(label="Initial Image (optional)", pref=infinite_zoom_prefs, key='init_image', page=page)
+    batch_folder_name = TextField(label="Batch Folder Name (required)", value=infinite_zoom_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=infinite_zoom_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=infinite_zoom_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=infinite_zoom_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_infinite_zoom = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_infinite_zoom.height = None if status['installed_ESRGAN'] else 0
+    page.infinite_zoom_prompts = Column([], spacing=0)
+    page.infinite_zoom_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.infinite_zoom_output.controls) > 0
+    animation_prompts = Column([], spacing=0)
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🔍  Infinite Zoom Text-to-Video", "Animate your Keyframe Prompts with an Endless Zooming Effect...", actions=[IconButton(icon=icons.HELP, tooltip="Help with InfiniteZoom Settings", on_click=infinite_zoom_help)]),
+        Row([frame, prompt, add_prompt_keyframe]),
+        animation_prompts,
+        Divider(thickness=2, height=4),
+        negative_prompt,
+        init_image,
+        num_inference_row,
+        guidance,
+        #max_size,
+        width_slider, height_slider,
+        mask_width,
+        num_outpainting_steps,
+        num_interpol_frames,
+        fps,
+        frame_dupe_amount,
+        Divider(thickness=4, height=4),
+        Row([inpainting_model, use_SDXL]),
+        Row([seed, batch_folder_name]),
+        Row([save_frames, save_gif, save_video]),
+        page.ESRGAN_block_infinite_zoom,
+        Row([ElevatedButton(content=Text("💫  Run Infinite Zoom", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_infinite_zoom(page)),]),
+        page.infinite_zoom_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 potat1_prefs = {
     'prompt': '',
@@ -10074,9 +10367,9 @@ def buildAnimateDiff(page):
       if p == None: p = prompt.value.strip()
       pline = f'{f}: "{p}"'
       if str(f) in animate_diff_prefs['animation_prompts']:
-        for i, p in enumerate(animation_prompts.controls):
-          if p.data == f:
-            p.title.value = pline
+        for i, pr in enumerate(animation_prompts.controls):
+          if pr.data == f:
+            pr.title.value = pline
       else:
         animation_prompts.controls.append(ListTile(title=Text(pline, size=14), data=f, trailing=PopupMenuButton(icon=icons.MORE_VERT,
             items=[PopupMenuItem(icon=icons.EDIT, text="Edit Animation Prompt", on_click=edit_prompt, data=f),
@@ -14977,6 +15270,7 @@ pipe_voice_fixer = None
 pipe_text_to_video = None
 pipe_text_to_video_zero = None
 pipe_video_to_video = None
+pipe_infinite_zoom = None
 pipe_deepfloyd = None
 pipe_deepfloyd2 = None
 pipe_deepfloyd3 = None
@@ -17112,6 +17406,12 @@ def clear_video_to_video_pipe():
     del pipe_video_to_video
     flush()
     pipe_video_to_video = None
+def clear_infinite_zoom_pipe():
+  global pipe_infinite_zoom
+  if pipe_infinite_zoom is not None:
+    del pipe_infinite_zoom
+    flush()
+    pipe_infinite_zoom = None
 def clear_deepfloyd_pipe():
   global pipe_deepfloyd, pipe_deepfloyd2, pipe_deepfloyd3
   if pipe_deepfloyd is not None:
@@ -17304,6 +17604,7 @@ def clear_pipes(allbut=None):
     if not 'text_to_video' in but: clear_text_to_video_pipe()
     if not 'text_to_video_zero' in but: clear_text_to_video_zero_pipe()
     if not 'video_to_video' in but: clear_video_to_video_pipe()
+    if not 'infinite_zoom' in but: clear_infinite_zoom_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
     if not 'audio_ldm2' in but: clear_audio_ldm2_pipe()
@@ -31485,6 +31786,329 @@ def run_video_to_video(page):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_infinite_zoom(page):
+    global prefs, infinite_zoom_prefs, pipe_infinite_zoom, status
+    def prt(line):
+        if type(line) == str:
+            line = Text(line, size=17)
+        page.InfiniteZoom.controls.append(line)
+        page.InfiniteZoom.update()
+    def clear_last():
+        del page.InfiniteZoom.controls[-1]
+        page.InfiniteZoom.update()
+    def clear_list():
+        page.InfiniteZoom.controls = page.InfiniteZoom.controls[:1]
+    def autoscroll(scroll=True):
+        page.InfiniteZoom.auto_scroll = scroll
+        page.InfiniteZoom.update()
+    if not status['installed_diffusers']:
+        alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+        return
+    if len(infinite_zoom_prefs['animation_prompts']) == 0:
+        if bool(infinite_zoom_prefs['prompt']):
+            infinite_zoom_prefs['animation_prompts']['0'] = infinite_zoom_prefs['prompt']
+        else:
+            alert_msg(page, "You need to provide at least one keyframe prompt to animate...")
+            return
+    if not bool(infinite_zoom_prefs['batch_folder_name']):
+        alert_msg(page, "You must give Batch Folder Name to save your project output...")
+        return
+    clear_list()
+    autoscroll(True)
+    progress = ProgressBar(bar_height=8)
+    total_steps = infinite_zoom_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+        callback_fnc.has_been_called = True
+        nonlocal progress, total_steps
+        #total_steps = len(latents)
+        percent = (step +1)/ total_steps
+        progress.value = percent
+        progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+        progress.update()
+    installer = Installing("Installing Infinite Zoom Stable Diffusion Pipeline...")
+    prt(installer)
+    pip_install("transformers scipy ftfy accelerate", installer=installer)
+    
+    from PIL import Image as PILImage
+    from io import BytesIO
+    import numpy as np
+    import random as rnd
+    import cv2
+    os.environ["CUDA_VISIBLE_DEVICES"]="0"
+    #from IPython.display import clear_output
+    from datetime import datetime
+    
+    fname = format_filename(infinite_zoom_prefs['batch_folder_name'])
+    max_size = infinite_zoom_prefs['max_size']
+    batch_output = os.path.join(stable_dir, infinite_zoom_prefs['batch_folder_name'])
+    output_dir = batch_output
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], infinite_zoom_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    #print("3/3: Define helper functions")
+    def write_video(file_path, frames, fps, reversed = True, start_frame_dupe_amount = 15, last_frame_dupe_amount = 30, as_gif=False):
+        if reversed == True:
+            frames.reverse()
+        w, h = frames[0].size
+        if as_gif:
+            fourcc = cv2.VideoWriter_fourcc(*'gif')
+        else:
+            fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+        writer = cv2.VideoWriter(file_path, fourcc, fps, (w, h))
+        for x in range(start_frame_dupe_amount):  
+            np_frame = np.array(frames[0].convert('RGB'))
+            cv_frame = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
+            writer.write(cv_frame)
+        for frame in frames:
+            np_frame = np.array(frame.convert('RGB'))
+            cv_frame = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
+            writer.write(cv_frame)
+        for x in range(last_frame_dupe_amount):  
+            np_frame = np.array(frames[len(frames) - 1].convert('RGB'))
+            cv_frame = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
+            writer.write(cv_frame)
+        writer.release() 
+
+    def image_grid(imgs, rows, cols):
+        assert len(imgs) == rows*cols
+        w, h = imgs[0].size
+        grid = PILImage.new('RGB', size=(cols*w, rows*h))
+        grid_w, grid_h = grid.size
+        for i, img in enumerate(imgs):
+            grid.paste(img, box=(i%cols*w, i//cols*h))
+        return grid
+
+    def shrink_and_paste_on_blank(current_image, mask_width):
+        height = current_image.height
+        width = current_image.width
+        #shrink down by mask_width
+        prev_image = current_image.resize((height-2*mask_width,width-2*mask_width))
+        prev_image = prev_image.convert("RGBA")
+        prev_image = np.array(prev_image)
+        #create blank non-transparent image
+        blank_image = np.array(current_image.convert("RGBA"))*0
+        blank_image[:,:,3] = 1
+        #paste shrinked onto blank
+        blank_image[mask_width:height-mask_width,mask_width:width-mask_width,:] = prev_image
+        prev_image = PILImage.fromarray(blank_image)
+        return prev_image
+    
+    def load_img(address, res=(512, 512)):
+        if address.startswith('http'):
+            image = PILImage.open(requests.get(address, stream=True).raw)
+        else:
+            if os.path.isfile(address):
+                image = PILImage.open(address)
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {address}")
+                return
+            image = PILImage.open(address)
+        image = image.convert('RGB')
+        image = image.resize(res, resample=PILImage.LANCZOS)
+        return image
+    use_SDXL = infinite_zoom_prefs['use_SDXL']
+    model_id = infinite_zoom_prefs['inpainting_model'] #param ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers","parlance/dreamlike-diffusion-1.0-inpainting","ghunkins/stable-diffusion-liberty-inpainting"] {allow-input: true}
+    SDXL_model = get_SDXL_model(prefs['SDXL_model'])
+    model_id_SDXL = SDXL_model['path']
+    if 'loaded_infinite_zoom' not in status:
+        status['loaded_infinite_zoom'] = ''
+    if status['loaded_infinite_zoom'] != (model_id_SDXL if use_SDXL else model_id):
+        clear_pipes()
+    else:
+        clear_pipes('infinite_zoom')
+        if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_infinite_zoom = pipeline_scheduler(pipe_infinite_zoom)
+    if pipe_infinite_zoom == None:
+        installer.status(f"...initializing{' SDXL' if use_SDXL else ''} Inpaint Pipeline")
+        try:
+            if use_SDXL:
+                from diffusers import StableDiffusionXLInpaintPipeline, AutoencoderKL
+                vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16, force_upcast=False)
+                pipe_infinite_zoom = StableDiffusionXLInpaintPipeline.from_pretrained(
+                    model_id, torch_dtype=torch.float16, variant=SDXL_model['revision'], use_safetensors=True,
+                    vae=vae,
+                    add_watermarker=False,
+                    cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+                    **safety,
+                )
+                pipe_infinite_zoom = pipeline_scheduler(pipe_infinite_zoom)
+                pipe_infinite_zoom = optimize_SDXL(pipe_infinite_zoom)
+                status['loaded_infinite_zoom'] = model_id_SDXL
+            else:
+                from diffusers import StableDiffusionInpaintPipeline
+                pipe_infinite_zoom = StableDiffusionInpaintPipeline.from_pretrained(
+                    infinite_zoom_prefs['inpainting_model'],
+                    torch_dtype=torch.float16,
+                    cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+                )
+                pipe_infinite_zoom = pipeline_scheduler(pipe_infinite_zoom)
+                #pipe_infinite_zoom.scheduler = DPMSolverMultistepScheduler.from_config(pipe_infinite_zoom.scheduler.config)
+                #pipe_infinite_zoom = pipe_infinite_zoom.to("cuda")
+                def dummy(images, **kwargs):
+                    return images, False
+                pipe_infinite_zoom.safety_checker = dummy
+                #pipe_infinite_zoom.enable_attention_slicing() #This is useful to save some memory in exchange for a small speed decrease.
+                pipe_infinite_zoom = optimize_pipe(pipe_infinite_zoom)
+                status['loaded_infinite_zoom'] = model_id
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Problem Initializing Pipeline...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    installer.status("...preparing run")
+    g_cuda = torch.Generator(device=torch_device)
+    animation_prompts = {int(k): v for k, v in infinite_zoom_prefs['animation_prompts'].items()}
+    prompt = animation_prompts[0]
+    negative_prompt = infinite_zoom_prefs['negative_prompt']
+    num_init_images = 1 #TODO: Make multiple to pick from before processing
+    random_seed = int(infinite_zoom_prefs['seed']) if int(infinite_zoom_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    num_inference_steps = infinite_zoom_prefs['num_inference_steps']
+    guidance_scale = infinite_zoom_prefs['guidance_scale']
+    width = infinite_zoom_prefs['width']
+    height = infinite_zoom_prefs['height']#infinite_zoom_prefs['max_size']
+    init_image = infinite_zoom_prefs['init_image']#"/content/gdrive/MyDrive/init/image.jpeg"#param {type:"string"}
+    num_outpainting_steps = infinite_zoom_prefs['num_outpainting_steps']
+    mask_width = infinite_zoom_prefs['mask_width']
+    num_interpol_frames = infinite_zoom_prefs['num_interpol_frames']
+    init_image_selected = 0 #param
+    fps = infinite_zoom_prefs['fps']
+    start_frame_dupe_amount = infinite_zoom_prefs['frame_dupe_amount']
+    last_frame_dupe_amount = infinite_zoom_prefs['frame_dupe_amount']
+    # Since the model was trained on 512 images increasing the resolution to e.g. 1024 will drastically reduce its imagination, so the video will vary a lot less compared to 512
+
+    current_image = PILImage.new(mode="RGBA", size=(height, width))
+    mask_image = np.array(current_image)[:,:,3] 
+    mask_image = PILImage.fromarray(255-mask_image).convert("RGB")
+    current_image = current_image.convert("RGB")
+    clear_last()
+    if not bool(init_image):
+        prt(progress)
+        try:
+            if use_SDXL:
+                SDXL_negative_conditions = {'negative_original_size':(512, 512), 'negative_crops_coords_top_left':(0, 0), 'negative_target_size':(1024, 1024)} if not prefs['SDXL_negative_conditions'] else {}
+                init_images = pipe_infinite_zoom(prompt=[prompt]*num_init_images,
+                                negative_prompt=[negative_prompt]*num_init_images,
+                                image=current_image,
+                                mask_image=mask_image,
+                                target_size=(width, height),
+                                guidance_scale = guidance_scale,
+                                generator = g_cuda.manual_seed(random_seed),
+                                num_inference_steps=num_inference_steps,
+                                callback=callback_fnc, callback_steps=1, **SDXL_negative_conditions).images
+            else:
+                init_images =  pipe_infinite_zoom(prompt=[prompt]*num_init_images,
+                                    negative_prompt=[negative_prompt]*num_init_images,
+                                    image=current_image,
+                                    mask_image=mask_image,
+                                    guidance_scale = guidance_scale,
+                                    height = height,
+                                    width = width, 
+                                    generator = g_cuda.manual_seed(random_seed),
+                                    callback=callback_fnc,
+                                    num_inference_steps=num_inference_steps).images
+        except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Something went wrong generating image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+        #for image in images:
+            #prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            
+        #image_grid(init_images, rows=1, cols=num_init_images)
+        clear_last()
+        if num_init_images == 1:
+            init_image_selected = 0
+        else:
+            init_image_selected = init_image_selected - 1
+            #TODO: Display numbered init_images and give selection prompt to pick which
+        current_image = init_images[init_image_selected]
+    else:
+        current_image = load_img(init_image,(width,height))
+        
+    all_frames = []
+    all_frames.append(current_image)
+
+    for i in range(num_outpainting_steps):
+        prt(f'Generating Images [{i+1} / {num_outpainting_steps}]')
+        autoscroll(False)
+        prt(progress)
+        prev_image_fix = current_image
+        prev_image = shrink_and_paste_on_blank(current_image, mask_width)
+        current_image = prev_image
+        mask_image = np.array(current_image)[:,:,3] 
+        mask_image = PILImage.fromarray(255-mask_image).convert("RGB")
+        current_image = current_image.convert("RGB")
+        try:
+            if use_SDXL:
+                SDXL_negative_conditions = {'negative_original_size':(512, 512), 'negative_crops_coords_top_left':(0, 0), 'negative_target_size':(1024, 1024)} if not prefs['SDXL_negative_conditions'] else {}
+                images = pipe_infinite_zoom(prompt=animation_prompts[max(k for k in animation_prompts.keys() if k <= i)],
+                                negative_prompt=negative_prompt,
+                                image=current_image,
+                                mask_image=mask_image,
+                                target_size=(width, height),
+                                guidance_scale = guidance_scale,
+                                #generator = g_cuda.manual_seed(random_seed),
+                                num_inference_steps=num_inference_steps,
+                                callback=callback_fnc, callback_steps=1, **SDXL_negative_conditions).images
+            else:
+                images = pipe_infinite_zoom(prompt=animation_prompts[max(k for k in animation_prompts.keys() if k <= i)],
+                                negative_prompt=negative_prompt,
+                                image=current_image,
+                                mask_image=mask_image,
+                                guidance_scale = guidance_scale,
+                                height = height,
+                                width = width,
+                                #this can make the whole thing deterministic but the output less exciting
+                                #generator = g_cuda.manual_seed(random_seed), 
+                                num_inference_steps=num_inference_steps,
+                                callback=callback_fnc, callback_steps=1).images
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        current_image = images[0]
+        autoscroll(True)
+        clear_last()
+        current_image.paste(prev_image, mask=prev_image)
+        #interpolation steps bewteen 2 inpainted images (=sequential zoom and crop)
+        for j in range(num_interpol_frames - 1):
+            interpol_image = current_image
+            interpol_width = round((1- ( 1-2*mask_width/height )**( 1-(j+1)/num_interpol_frames ) )*height/2 )
+            interpol_image = interpol_image.crop((interpol_width, interpol_width, width - interpol_width, height - interpol_width))
+            interpol_image = interpol_image.resize((height, width))
+            #paste the higher resolution previous image in the middle to avoid drop in quality caused by zooming
+            interpol_width2 = round(( 1 - (height-2*mask_width) / (height-2*interpol_width) ) / 2*height)
+            prev_image_fix_crop = shrink_and_paste_on_blank(prev_image_fix, interpol_width2)
+            interpol_image.paste(prev_image_fix_crop, mask = prev_image_fix_crop)
+            all_frames.append(interpol_image)
+            #TODO: Give option to save all Interpolation frames
+        all_frames.append(current_image)
+        interpol_path = available_file(output_dir, fname, 1)
+        interpol_image.save(interpol_path)
+        prt(Row([ImageButton(src=interpol_path, width=width, height=height, data=interpol_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        if infinite_zoom_prefs['save_frames']:
+            save_path = available_file(batch_output, fname, 1)
+            shutil.copy(interpol_path, save_path)
+        #clear_output(wait=True)
+        #interpol_image.show()
+    now = datetime.now()
+    date_time = now.strftime("%m-%d-%Y_%H-%M-%S")
+    
+    if infinite_zoom_prefs['save_gif']:
+        out_gif = os.path.join(batch_output, fname + "_out_"+date_time+".gif")
+        in_gif = os.path.join(batch_output, fname + "_in_"+date_time+".gif")
+        write_video(out_gif, all_frames, fps, False, start_frame_dupe_amount, last_frame_dupe_amount, as_gif=True)
+        prt(Row([ImageButton(src=out_gif, width=width, height=height, data=out_gif, page=page)], alignment=MainAxisAlignment.CENTER))
+        write_video(in_gif, all_frames, fps, True, start_frame_dupe_amount, last_frame_dupe_amount, as_gif=True)
+        prt(Row([ImageButton(src=in_gif, width=width, height=height, data=in_gif, page=page)], alignment=MainAxisAlignment.CENTER))
+    if infinite_zoom_prefs['save_video']:
+        out_vid = os.path.join(batch_output, fname + "_out_"+date_time+".mp4")
+        in_vid = os.path.join(batch_output, fname + "_in_"+date_time+".mp4")
+        write_video(out_vid, all_frames, fps, False, start_frame_dupe_amount, last_frame_dupe_amount)
+        write_video(in_vid, all_frames, fps, True, start_frame_dupe_amount, last_frame_dupe_amount)
+        prt(Row([VideoContainer(out_vid)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_potat1(page):
     global potat1_prefs, prefs, status, pipe_potat1, model_path
@@ -32206,7 +32830,7 @@ def run_animate_diff(page):
     prt(installer)
     animatediff_dir = os.path.join(root_dir, 'animatediff-cli-prompt-travel')
     if 'installed_animate_diff' not in status:#not os.path.exists(animatediff_dir) or force_updates:
-        installer.status("...clone guoyww/animatediff")
+        installer.status("...clone s9roll7/animatediff")
         run_sp("git clone https://github.com/s9roll7/animatediff-cli-prompt-travel", realtime=False, cwd=root_dir)
         #run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
         installer.status("...install animatediff")
@@ -32226,15 +32850,15 @@ def run_animate_diff(page):
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
     pip_install("omegaconf einops cmake colorama rich ninja copier==8.1.0 pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib watchdog imageio==2.27.0", installer=installer)
-    #if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-    try:
-        import xformers
-    except ModuleNotFoundError:
-        installer.status("...installing FaceBook's Xformers")
-        #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers", realtime=False)
-        status['installed_xformers'] = True
-        pass
+    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+        try:
+            import xformers
+        except ModuleNotFoundError:
+            installer.status("...installing FaceBook's Xformers")
+            #run_sp("pip install --pre -U triton", realtime=False)
+            run_sp("pip install -U xformers", realtime=False)
+            status['installed_xformers'] = True
+            pass
     try:
         import ffmpeg
     except ImportError as e:
@@ -32696,11 +33320,11 @@ def run_animate_diff(page):
     for m in animate_diff_prefs['motion_loras']:
       for mm in animate_diff_motion_loras:
         if mm['name'] == m:
-          mm_path = os.path.join(animatediff_dir, 'data', 'models', 'motion_lora', mm['file'])
-          if not os.path.isfile(mm_path):
+          mm_path = os.path.join(animatediff_dir, 'data', 'models', 'motion_lora')
+          if not os.path.isfile(os.path.join(mm_path, mm['file'])):
               installer.status(f"...downloading {mm['name']}")
-              download_file(mm['path'], to=mm_path)
-          motion_lora_map[f"models/motion_lora/{mm['file']}"] = animate_diff_prefs['motion_loras_strength']
+              download_file(mm['path'], to=mm_path, filename=mm['file'], ext="ckpt")
+          motion_lora_map[f"models{slash}motion_lora{slash}{mm['file']}"] = animate_diff_prefs['motion_loras_strength']
     
     installer.status("...preparing json")
     upscale_config = {
