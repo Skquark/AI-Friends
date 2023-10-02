@@ -16384,7 +16384,7 @@ def get_SDXL_pipe(task="text2image"):
           else:
             return pipe_SDXL
       pipe_SDXL = StableDiffusionXLInpaintPipeline.from_pretrained(
-          model_id, torch_dtype=torch.float16, variant=SDXL_model['revision'], use_safetensors=True,
+          "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant=SDXL_model['revision'], use_safetensors=True,
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
@@ -18423,12 +18423,13 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  #, target_size=(arg['width'], arg['height'])
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_refiner(pr)
@@ -18541,12 +18542,12 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                   #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, target_size=(arg['width'], arg['height']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_refiner(pr)
@@ -31828,7 +31829,7 @@ def run_infinite_zoom(page):
     installer = Installing("Installing Infinite Zoom Stable Diffusion Pipeline...")
     prt(installer)
     pip_install("transformers scipy ftfy accelerate", installer=installer)
-    
+
     from PIL import Image as PILImage
     from io import BytesIO
     import numpy as np
@@ -31837,7 +31838,7 @@ def run_infinite_zoom(page):
     os.environ["CUDA_VISIBLE_DEVICES"]="0"
     #from IPython.display import clear_output
     from datetime import datetime
-    
+
     fname = format_filename(infinite_zoom_prefs['batch_folder_name'])
     max_size = infinite_zoom_prefs['max_size']
     batch_output = os.path.join(stable_dir, infinite_zoom_prefs['batch_folder_name'])
@@ -31853,11 +31854,11 @@ def run_infinite_zoom(page):
             frames.reverse()
         w, h = frames[0].size
         if as_gif:
-            fourcc = cv2.VideoWriter_fourcc(*'gif')
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
         else:
             fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
         writer = cv2.VideoWriter(file_path, fourcc, fps, (w, h))
-        for x in range(start_frame_dupe_amount):  
+        for x in range(start_frame_dupe_amount):
             np_frame = np.array(frames[0].convert('RGB'))
             cv_frame = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
             writer.write(cv_frame)
@@ -31865,12 +31866,20 @@ def run_infinite_zoom(page):
             np_frame = np.array(frame.convert('RGB'))
             cv_frame = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
             writer.write(cv_frame)
-        for x in range(last_frame_dupe_amount):  
+        for x in range(last_frame_dupe_amount):
             np_frame = np.array(frames[len(frames) - 1].convert('RGB'))
             cv_frame = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
             writer.write(cv_frame)
-        writer.release() 
+        writer.release()
+    import imageio
 
+    def convert_mp4_to_gif(input_file, output_file, fps=30):
+        try:
+            video_reader = imageio.get_reader(input_file)
+            frames = [frame for frame in video_reader]
+            imageio.mimsave(output_file, frames, 'GIF', fps=fps)
+        except Exception as e:
+            print(f"Error with convert_mp4_to_gif: {e}")
     def image_grid(imgs, rows, cols):
         assert len(imgs) == rows*cols
         w, h = imgs[0].size
@@ -31894,7 +31903,7 @@ def run_infinite_zoom(page):
         blank_image[mask_width:height-mask_width,mask_width:width-mask_width,:] = prev_image
         prev_image = PILImage.fromarray(blank_image)
         return prev_image
-    
+
     def load_img(address, res=(512, 512)):
         if address.startswith('http'):
             image = PILImage.open(requests.get(address, stream=True).raw)
@@ -31924,17 +31933,21 @@ def run_infinite_zoom(page):
         installer.status(f"...initializing{' SDXL' if use_SDXL else ''} Inpaint Pipeline")
         try:
             if use_SDXL:
-                from diffusers import StableDiffusionXLInpaintPipeline, AutoencoderKL
+                from diffusers import AutoPipelineForInpainting, AutoencoderKL
+                #StableDiffusionXLInpaintPipeline
                 vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16, force_upcast=False)
-                pipe_infinite_zoom = StableDiffusionXLInpaintPipeline.from_pretrained(
-                    model_id, torch_dtype=torch.float16, variant=SDXL_model['revision'], use_safetensors=True,
+                pipe_infinite_zoom = AutoPipelineForInpainting.from_pretrained(
+                    #model_id, variant=SDXL_model['revision']
+                    "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", variant="fp16",
+                    torch_dtype=torch.float16, use_safetensors=True,
                     vae=vae,
                     add_watermarker=False,
                     cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-                    **safety,
+                    safety_checker=None, requires_safety_checker=False,
                 )
                 pipe_infinite_zoom = pipeline_scheduler(pipe_infinite_zoom)
                 pipe_infinite_zoom = optimize_SDXL(pipe_infinite_zoom)
+                pipe_infinite_zoom.set_progress_bar_config(disable=True)
                 status['loaded_infinite_zoom'] = model_id_SDXL
             else:
                 from diffusers import StableDiffusionInpaintPipeline
@@ -31942,15 +31955,17 @@ def run_infinite_zoom(page):
                     infinite_zoom_prefs['inpainting_model'],
                     torch_dtype=torch.float16,
                     cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+                    safety_checker=None, requires_safety_checker=False,
                 )
                 pipe_infinite_zoom = pipeline_scheduler(pipe_infinite_zoom)
                 #pipe_infinite_zoom.scheduler = DPMSolverMultistepScheduler.from_config(pipe_infinite_zoom.scheduler.config)
                 #pipe_infinite_zoom = pipe_infinite_zoom.to("cuda")
                 def dummy(images, **kwargs):
                     return images, False
-                pipe_infinite_zoom.safety_checker = dummy
+                #pipe_infinite_zoom.safety_checker = dummy
                 #pipe_infinite_zoom.enable_attention_slicing() #This is useful to save some memory in exchange for a small speed decrease.
                 pipe_infinite_zoom = optimize_pipe(pipe_infinite_zoom)
+                pipe_infinite_zoom.set_progress_bar_config(disable=True)
                 status['loaded_infinite_zoom'] = model_id
         except Exception as e:
             clear_last()
@@ -31978,7 +31993,7 @@ def run_infinite_zoom(page):
     # Since the model was trained on 512 images increasing the resolution to e.g. 1024 will drastically reduce its imagination, so the video will vary a lot less compared to 512
 
     current_image = PILImage.new(mode="RGBA", size=(height, width))
-    mask_image = np.array(current_image)[:,:,3] 
+    mask_image = np.array(current_image)[:,:,3]
     mask_image = PILImage.fromarray(255-mask_image).convert("RGB")
     current_image = current_image.convert("RGB")
     clear_last()
@@ -31991,11 +32006,12 @@ def run_infinite_zoom(page):
                                 negative_prompt=[negative_prompt]*num_init_images,
                                 image=current_image,
                                 mask_image=mask_image,
-                                target_size=(width, height),
+                                #target_size=(width, height),
                                 guidance_scale = guidance_scale,
                                 generator = g_cuda.manual_seed(random_seed),
                                 num_inference_steps=num_inference_steps,
-                                callback=callback_fnc, callback_steps=1, **SDXL_negative_conditions).images
+                                callback=callback_fnc, callback_steps=1).images
+                                #, **SDXL_negative_conditions
             else:
                 init_images =  pipe_infinite_zoom(prompt=[prompt]*num_init_images,
                                     negative_prompt=[negative_prompt]*num_init_images,
@@ -32003,7 +32019,7 @@ def run_infinite_zoom(page):
                                     mask_image=mask_image,
                                     guidance_scale = guidance_scale,
                                     height = height,
-                                    width = width, 
+                                    width = width,
                                     generator = g_cuda.manual_seed(random_seed),
                                     callback=callback_fnc,
                                     num_inference_steps=num_inference_steps).images
@@ -32013,7 +32029,7 @@ def run_infinite_zoom(page):
                 return
         #for image in images:
             #prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            
+
         #image_grid(init_images, rows=1, cols=num_init_images)
         clear_last()
         if num_init_images == 1:
@@ -32024,18 +32040,20 @@ def run_infinite_zoom(page):
         current_image = init_images[init_image_selected]
     else:
         current_image = load_img(init_image,(width,height))
-        
+    interpol_path = available_file(output_dir, fname, 0)
+    interpol_image.save(interpol_path)
+    prt(Row([ImageButton(src=interpol_path, width=width, height=height, data=interpol_path, page=page)], alignment=MainAxisAlignment.CENTER))
     all_frames = []
     all_frames.append(current_image)
 
     for i in range(num_outpainting_steps):
-        prt(f'Generating Images [{i+1} / {num_outpainting_steps}]')
+        prt(f'Generating Image {i+1} / {num_outpainting_steps} - "{animation_prompts[max(k for k in animation_prompts.keys() if k <= i)]}"')
         autoscroll(False)
         prt(progress)
         prev_image_fix = current_image
         prev_image = shrink_and_paste_on_blank(current_image, mask_width)
         current_image = prev_image
-        mask_image = np.array(current_image)[:,:,3] 
+        mask_image = np.array(current_image)[:,:,3]
         mask_image = PILImage.fromarray(255-mask_image).convert("RGB")
         current_image = current_image.convert("RGB")
         try:
@@ -32045,11 +32063,12 @@ def run_infinite_zoom(page):
                                 negative_prompt=negative_prompt,
                                 image=current_image,
                                 mask_image=mask_image,
-                                target_size=(width, height),
+                                #target_size=(width, height),
                                 guidance_scale = guidance_scale,
                                 #generator = g_cuda.manual_seed(random_seed),
                                 num_inference_steps=num_inference_steps,
-                                callback=callback_fnc, callback_steps=1, **SDXL_negative_conditions).images
+                                callback=callback_fnc, callback_steps=1).images
+                                #, **SDXL_negative_conditions
             else:
                 images = pipe_infinite_zoom(prompt=animation_prompts[max(k for k in animation_prompts.keys() if k <= i)],
                                 negative_prompt=negative_prompt,
@@ -32059,7 +32078,7 @@ def run_infinite_zoom(page):
                                 height = height,
                                 width = width,
                                 #this can make the whole thing deterministic but the output less exciting
-                                #generator = g_cuda.manual_seed(random_seed), 
+                                #generator = g_cuda.manual_seed(random_seed),
                                 num_inference_steps=num_inference_steps,
                                 callback=callback_fnc, callback_steps=1).images
         except Exception as e:
@@ -32093,20 +32112,26 @@ def run_infinite_zoom(page):
         #interpol_image.show()
     now = datetime.now()
     date_time = now.strftime("%m-%d-%Y_%H-%M-%S")
-    
+    out_vid = os.path.join(batch_output, fname + "_out_"+date_time+".mp4")
+    in_vid = os.path.join(batch_output, fname + "_in_"+date_time+".mp4")
+    if infinite_zoom_prefs['save_video']:
+        prt("Generating Video MP4 File...")
+        write_video(in_vid, all_frames, fps, False, start_frame_dupe_amount, last_frame_dupe_amount)
+        write_video(out_vid, all_frames, fps, True, start_frame_dupe_amount, last_frame_dupe_amount)
+        clear_last()
+        prt(f"Saved Videos as {in_vid} and {out_vid}")
+        #prt(Row([VideoContainer(out_vid)], alignment=MainAxisAlignment.CENTER))
     if infinite_zoom_prefs['save_gif']:
+        prt("Generating Animated GIF File...")
         out_gif = os.path.join(batch_output, fname + "_out_"+date_time+".gif")
         in_gif = os.path.join(batch_output, fname + "_in_"+date_time+".gif")
-        write_video(out_gif, all_frames, fps, False, start_frame_dupe_amount, last_frame_dupe_amount, as_gif=True)
-        prt(Row([ImageButton(src=out_gif, width=width, height=height, data=out_gif, page=page)], alignment=MainAxisAlignment.CENTER))
-        write_video(in_gif, all_frames, fps, True, start_frame_dupe_amount, last_frame_dupe_amount, as_gif=True)
+        convert_mp4_to_gif(out_vid, out_gif, fps)
+        convert_mp4_to_gif(in_vid, in_gif, fps)
+        #write_video(in_gif, all_frames, fps, False, start_frame_dupe_amount, last_frame_dupe_amount, as_gif=True)
+        #write_video(out_gif, all_frames, fps, True, start_frame_dupe_amount, last_frame_dupe_amount, as_gif=True)
+        clear_last()
         prt(Row([ImageButton(src=in_gif, width=width, height=height, data=in_gif, page=page)], alignment=MainAxisAlignment.CENTER))
-    if infinite_zoom_prefs['save_video']:
-        out_vid = os.path.join(batch_output, fname + "_out_"+date_time+".mp4")
-        in_vid = os.path.join(batch_output, fname + "_in_"+date_time+".mp4")
-        write_video(out_vid, all_frames, fps, False, start_frame_dupe_amount, last_frame_dupe_amount)
-        write_video(in_vid, all_frames, fps, True, start_frame_dupe_amount, last_frame_dupe_amount)
-        prt(Row([VideoContainer(out_vid)], alignment=MainAxisAlignment.CENTER))
+        #prt(Row([ImageButton(src=out_gif, width=width, height=height, data=out_gif, page=page)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -33313,8 +33338,8 @@ def run_animate_diff(page):
       "input_image_dir": f"ip_adapter_image{slash}test",
       "save_input_image": False,
       "scale": animate_diff_prefs['ip_adapter_scale'],
-      "is_plus_face": animate_diff_prefs['ip_adapter_plus'],
-      "is_plus": animate_diff_prefs['ip_adapter_plus_face']
+      "is_plus_face": animate_diff_prefs['ip_adapter_is_plus_face'],
+      "is_plus": animate_diff_prefs['ip_adapter_is_plus']
     }
     motion_lora_map = {}
     for m in animate_diff_prefs['motion_loras']:
