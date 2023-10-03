@@ -23,6 +23,7 @@ OutputDir=D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\
 DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 ;PrivilegesRequired=lowest
+PrivilegesRequired=admin
 OutputBaseFilename=SDD-setup
 SetupIconFile=D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico
 WizardSmallImageFile=D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\logo-image-55x58.bmp
@@ -38,6 +39,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion; AfterInstall: SetElevationBit('{app}\{#MyAppExeName}')
+Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\refresh.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\debug-venv.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\run-sdd.ps1"; DestDir: "{app}"; Flags: ignoreversion
@@ -46,11 +48,11 @@ Source: "D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\sdd-noupdate.
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename:"D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico"; AfterInstall: SetElevationBit('{autoprograms}\{#MyAppName}.lnk')
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename:"D:\Projects\AI-Friends\AI-Friends\Stable-Diffusion-Deluxe\favicon.ico"; AfterInstall: SetElevationBit('{autodesktop}\{#MyAppName}.lnk')
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename:"{app}\favicon.ico"; AfterInstall: SetElevationBit('{autoprograms}\{#MyAppName}.lnk')
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename:"{app}\favicon.ico"; AfterInstall: SetElevationBit('{autodesktop}\{#MyAppName}.lnk')
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: shellexec postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: runascurrentuser shellexec postinstall skipifsilent
 
 
 [Code]

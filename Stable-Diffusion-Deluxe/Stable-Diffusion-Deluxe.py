@@ -1151,7 +1151,9 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=Fal
         pass
       okay_button = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
       if content == None: content = Container(content=None)
-      page.alert_dlg = AlertDialog(title=Text(msg), content=Column([content], scroll=ScrollMode.AUTO), actions=[okay_button], actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
+      if not isinstance(content, list):
+          content = [content]
+      page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=[okay_button], actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
       page.dialog = page.alert_dlg
       page.alert_dlg.open = True
       try:
@@ -1210,7 +1212,7 @@ def buildInstallers(page):
                 dropdown.Option("DDIM"),
                 dropdown.Option("LMS Discrete"),
                 dropdown.Option("PNDM"),
-                dropdown.Option("IPMDM"),
+                dropdown.Option("IPNDM"),
                 dropdown.Option("DPM Solver"),
                 dropdown.Option("DPM Solver++"),
                 dropdown.Option("DPM Solver Inverse"),
@@ -1274,6 +1276,31 @@ def buildInstallers(page):
           model_card_SDXL.update()
       except Exception:
           pass
+  def scheduler_help(e):
+      alert_msg(page, "🎰   Sampler/Scheduler Modes Info", content=[Text("It's difficult to explain the visible difference each scheduler will make on your diffusion, and we can't say which is better for what. The variations are subtle, and there's a lot of complex random math going on, so it depends on your personal taste and prompts."),
+        Text("All the samplers are different algorithms for numerically approximating solutions to differential equations (DEs). In SD's case this is a high-dimensional differential equation that determines how the initial noise must be diffused (spread around the image) to produce a result image that minimizes a loss function (essentially the distance to a hypothetical 'perfect' match to the initial noise, but with additional push applied by the prompt). This incredibly complex differential equation is basically what's encoded in the billion+ floating-point numbers that make up a Stable Diffusion model."),
+        Text("A sampler essentially works by taking the given number of steps, sampling the latent space on each step to compute the local gradient (slope), to figure out which direction the next step should be taken in. Like a ball rolling down a hill, the sampler tries to get as low as possible in terms of minimizing the loss function. But what locally looks like the fastest route may not actually net you an optimal solution – you may get stuck in a local optimum (a valley) and sometimes you have to first go up to find a better route down."),
+        Markdown("""* **DDIM -** Denoising Diffusion Implicit Models is one of the first samplers for solving diffusion models. The image direction is approximated by the noise estimated by the noise predictor. It adds an _ETA_ parameter to set the amount of starting noise.
+* **LMS Discrete -** Linear Multistep Scheduler algorithm is a simple and widely used method based on Least Mean Square for estimating the parameters of a linear model. It iteratively updates the model's parameters in order to minimize the error between the model's predictions and the actual outputs of the system.
+* **PNDM -** Pseudo Numerical methods for Diffusion Models proposes uses advanced Ordinary Differential Equations integration techniques, namely Runge-Kutta method and a linear multi-step method. Generates higher quality synthetic images with fewer steps.
+* **IPNDM -** A fourth-order Improved Pseudo Linear Multistep scheduler with interesting results.
+* **DPM Solver -** Diffusion Probabilistic Model solver specifically designed for solving diffusion differential equations.
+* **DPM Solver++ -** Improved version of DPM that refines results at high guidance scale (CFG) values.
+* **DPM Solver Inverse -** Inverted scheduler from DPM-Solver: A Fast ODE Solver for Diffusion Probabilistic Model Sampling in Around 10 Steps. For Null-text Inversion for Editing Real Images.
+* **SDE-DPM Solver++ -** A fast Stochastic Differential Equation solver for the reverse diffusion SDE. Introduces some random drift to the process on each step to possibly find a route to a better solution than a fully deterministic solver.
+* **K-Euler Discrete -** This is a fast scheduler which can often generate good outputs in 20-40 steps. From the Elucidating the Design Space of Diffusion-Based Generative Models paper.
+* **K-Euler Ancestral -** Uses ancestral sampling with Euler method steps. This is a fast scheduler which can often generate good outputs in 30-40 steps. One of my personal favorites with the subtleties.
+* **DEIS Multistep -** Diffusion Exponential Integrator Sampler modifies the polynomial fitting formula in log-rho space instead of the original linear `t` space in the DEIS paper. The modification enjoys closed-form coefficients for exponential multistep update instead of replying on the numerical solver. aims to accelerate the sampling process while maintaining high sample quality. 
+* **UniPC Multistep -** Unified Predictor-Corrector inspired by the predictor-corrector method in ODE solvers, it can achieve high-quality image generation in 5-10 steps. Combines UniC and UniP to create a powerful image improvement tool.
+* **Heun Discrete -** A more accurate improvement to Euler’s method, but needs to predict noise twice in each step, so it is twice as slow as Euler. Uses a correction step to reduce error and is thus an example of a predictor–corrector algorithm.
+* **Karras Heun Discrete -** Uses a different noise schedule empirically found by Tero Karras et al. Takes large steps at first and small steps at the end. In the context of DPMs, it's employed to simulate the evolution of data over time. 
+* **K-DPM2 Ancestral -** Karras Diffusion Probabilistic Model Solver is accurate up to the second order. Ancestral sampling traces the data's evolution backward in time, from its final form back to its initial noisy state.
+* **K-DPM2 Discrete -** The solver discretizes the diffusion process into smaller time steps. This discretization allows for efficient and accurate sampling, balanced between speed and sample quality.
+* **Karras-LMS -** Linear Multi-Step Method is a standard method for solving ordinary differential equations. It aims at improving accuracy by clever use of the values of the previous time steps.
+
+[Diffusers Scheduler Overview](https://github.com/huggingface/diffusers/blob/main/docs/source/en/api/schedulers/overview.md) | [Stable Diffusion Samplers: A Comprehensive Guide](https://stable-diffusion-art.com/samplers/) | [Sampler Differences Explained](https://www.reddit.com/r/StableDiffusion/comments/zgu6wd/comment/izkhkxc/)""", on_tap_link=lambda e: e.page.launch_url(e.data))
+      ], okay="🥴  Hard to Say...", sound=False, wide=True)
+  scheduler_help_btn = IconButton(icons.HELP_OUTLINE, tooltip="Help with Sampler/Scheduler Modes", on_click=scheduler_help)
   def toggle_safe(e):
       changed(e, 'install_safe')
       safety_config.visible = e.control.value
@@ -1402,7 +1429,7 @@ def buildInstallers(page):
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
                                  Column([Container(Column([Container(None, height=3), model_row, SDXL_model_row,
-                                Container(content=None, height=4), scheduler_mode,
+                                Container(content=None, height=4), Row([scheduler_mode, scheduler_help_btn]),
                                  Row([memory_optimization,
                                  higher_vram_mode]),
                                  #  enable_vae_slicing
