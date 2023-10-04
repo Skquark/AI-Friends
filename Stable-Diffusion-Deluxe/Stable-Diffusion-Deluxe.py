@@ -3783,7 +3783,7 @@ init_video_prefs = {
     'init_folder': '',
     'include_strength': False,
     'image_strength': 0.5,
-    'max_size': 960,
+    'max_size': 1024,
     'file_prefix': 'frame-',
     'video_file': '',
     'fps': 15,
@@ -20405,9 +20405,9 @@ def run_init_video(page):
     if prefs['enable_sounds']: page.snd_drop.play()
 
 def multiple_of_64(x):
-    return int(round(x/64)*64)
+    return multiple_of(x, 64)
 def multiple_of_8(x):
-    return int(round(x/8)*8)
+    return multiple_of(x, 8)
 def multiple_of(x, num):
     return int(round(x/num)*num)
 def scale_dimensions(width, height, max=1024, multiple=16):
@@ -31904,9 +31904,11 @@ def run_infinite_zoom(page):
         try:
             video_reader = imageio.get_reader(input_file)
             frames = [frame for frame in video_reader]
-            imageio.mimsave(output_file, frames, 'GIF', fps=fps)
+            duration = int(1000 * 1/fps)
+            imageio.mimsave(output_file, frames, 'GIF', duration=duration)
         except Exception as e:
             print(f"Error with convert_mp4_to_gif: {e}")
+    
     def image_grid(imgs, rows, cols):
         assert len(imgs) == rows*cols
         w, h = imgs[0].size
@@ -31917,10 +31919,9 @@ def run_infinite_zoom(page):
         return grid
 
     def shrink_and_paste_on_blank(current_image, mask_width):
-        height = current_image.height
-        width = current_image.width
+        width, height = current_image.size
         #shrink down by mask_width
-        prev_image = current_image.resize((height-2*mask_width,width-2*mask_width))
+        prev_image = current_image.resize((width-2*mask_width,height-2*mask_width))
         prev_image = prev_image.convert("RGBA")
         prev_image = np.array(prev_image)
         #create blank non-transparent image
@@ -31930,6 +31931,16 @@ def run_infinite_zoom(page):
         blank_image[mask_width:height-mask_width,mask_width:width-mask_width,:] = prev_image
         prev_image = PILImage.fromarray(blank_image)
         return prev_image
+        
+        new_width = width - 2 * mask_width
+        new_height = int(new_width / (width / height))
+        prev_image = current_image.resize((new_width, new_height))
+        prev_image = prev_image.convert("RGBA")
+        blank_image = PILImage.new("RGBA", (width, height))
+        paste_x = (width - new_width) // 2
+        paste_y = (height - new_height) // 2
+        blank_image.paste(prev_image, (paste_x, paste_y))
+        return blank_image
 
     def load_img(address, res=(512, 512)):
         if address.startswith('http'):
@@ -32068,7 +32079,7 @@ def run_infinite_zoom(page):
     else:
         current_image = load_img(init_image,(width,height))
     interpol_path = available_file(output_dir, fname, 0)
-    interpol_image.save(interpol_path)
+    current_image.save(interpol_path)
     prt(Row([ImageButton(src=interpol_path, width=width, height=height, data=interpol_path, page=page)], alignment=MainAxisAlignment.CENTER))
     all_frames = []
     all_frames.append(current_image)
@@ -32119,11 +32130,12 @@ def run_infinite_zoom(page):
         #interpolation steps bewteen 2 inpainted images (=sequential zoom and crop)
         for j in range(num_interpol_frames - 1):
             interpol_image = current_image
-            interpol_width = round((1- ( 1-2*mask_width/height )**( 1-(j+1)/num_interpol_frames ) )*height/2 )
-            interpol_image = interpol_image.crop((interpol_width, interpol_width, width - interpol_width, height - interpol_width))
-            interpol_image = interpol_image.resize((height, width))
+            interpol_width = round((1- ( 1-2*mask_width/width )**( 1-(j+1)/num_interpol_frames ) )*width/2 )
+            interpol_height = round((1- ( 1-2*mask_width/height )**( 1-(j+1)/num_interpol_frames ) )*height/2 )
+            interpol_image = interpol_image.crop((interpol_width, interpol_height, width - interpol_width, height - interpol_height))
+            interpol_image = interpol_image.resize((width, height))
             #paste the higher resolution previous image in the middle to avoid drop in quality caused by zooming
-            interpol_width2 = round(( 1 - (height-2*mask_width) / (height-2*interpol_width) ) / 2*height)
+            interpol_width2 = round(( 1 - (width-2*mask_width) / (height-2*interpol_width) ) / 2*height)
             prev_image_fix_crop = shrink_and_paste_on_blank(prev_image_fix, interpol_width2)
             interpol_image.paste(prev_image_fix_crop, mask = prev_image_fix_crop)
             all_frames.append(interpol_image)
@@ -32925,6 +32937,12 @@ def run_animate_diff(page):
         import cv2
         pass
     try:
+        import onnxruntime
+    except Exception:
+        installer.status("...installing onnxruntime-gpu")
+        run_sp("pip install onnxruntime-gpu", realtime=False)
+        pass
+    try:
         import sentencepiece
     except Exception:
         installer.status("...installing sentencepiece")
@@ -33581,7 +33599,14 @@ def run_animate_diff(page):
                 continue
             interpolate_cmd = f"animatediff rife interpolate --temporal-tta --uhd {Path(dir)}" #--out_file --codec VideoCodec.h264
             try:
+              installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+              prt(installer)
+              out_file = available_file(out_dir, "interpolated", no_num=True, ext="mp4")
+              interpolate_video(dir, input_fps=8, output_fps=30, output_video=out_file, installer=installer)
+              #else:
+              installer.set_message("Running RiFE Temporal Video Interpolation...")
               run_sp(interpolate_cmd, cwd=animatediff_dir, realtime=True)
+              installer.show_progress(False)
               #print(f"prompt={animate_diff_prefs['prompt']}, negative_prompt={animate_diff_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={animate_diff_prefs['edit_momentum_scale']}, edit_mom_beta={animate_diff_prefs['edit_mom_beta']}, steps={animate_diff_prefs['steps']}, eta={animate_diff_prefs['eta']}, guidance_scale={animate_diff_prefs['guidance_scale']}")
               #images = pipe_animate_diff(prompt=animate_diff_prefs['prompt'], negative_prompt=animate_diff_prefs['negative_prompt'], editing_prompt=editing_prompts, edit_warmup_steps=edit_warmup_steps, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, edit_weights=edit_weights, reverse_editing_direction=reverse_editing_direction, edit_momentum_scale=animate_diff_prefs['edit_momentum_scale'], edit_mom_beta=animate_diff_prefs['edit_mom_beta'], steps=animate_diff_prefs['steps'], eta=animate_diff_prefs['eta'], guidance_scale=animate_diff_prefs['guidance_scale'], width=width, height=height, num_images_per_prompt=animate_diff_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
             except Exception as e:
@@ -37058,6 +37083,56 @@ def elapsed(start_time):
     end_time = time.time()
     return f"{end_time-start_time:.0f}s"
 
+def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None):
+    frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
+    saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
+    interpolated = os.path.join(frames_dir, "interpolated.mp4")
+    if not os.path.exists(frame_interpolation_dir):
+        if installer != None:
+            installer.status("...cloning frame-interpolation")
+        run_sp("git clone https://github.com/google-research/frame-interpolation", cwd=root_dir, realtime=False) #pytti-tools
+    try:
+        import ffmpeg
+    except ImportError as e:
+        installer.status("...installing ffmpeg")
+        run_sp("pip install -q ffmpeg-python", realtime=False)
+        pass
+    try:
+        import frame_interpolation
+    except ModuleNotFoundError:
+        if installer != None:
+            installer.status("...installing frame-interpolation requirements")
+        run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
+        #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False)
+    try:
+        import gdown
+    except ModuleNotFoundError:
+        if installer != None:
+            installer.status("...installing gdown")
+        run_sp(f"pip install --upgrade gdown", cwd=root_dir, realtime=False)
+    if not os.path.exists(saved_model_dir):
+        run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+    saved_model = 'pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
+    #run_sp(f"mkdir -p frames", cwd=frames_dir, realtime=False)
+    if bool(input_fps):
+        recursive_interpolation_passes = int((output_fps - input_fps) / input_fps)
+    else:
+        recursive_interpolation_passes = recursive_interpolation_passes or 1
+    if installer != None:
+        installer.status("...running frame-interpolation")
+    run_sp(f"python -m eval.interpolator_cli --model_path {saved_model} --pattern {frames_dir} --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=False)
+    if os.path.exists(interpolated):
+        if output_video != None:
+            shutil.move(interpolated, output_video)
+            return output_video
+        else:
+            return interpolated
+    else:
+        print(f"Failed to save video {interpolated}")
+        return ""
+    
 class VideoPlayer(UserControl):
     def __init__(self, video_file="", width=500, height=500):
         super().__init__()
