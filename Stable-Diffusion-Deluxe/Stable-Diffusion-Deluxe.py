@@ -32870,6 +32870,8 @@ def run_animate_diff(page):
       page.AnimateDiff.controls.append(line)
       page.AnimateDiff.update()
     def clear_last():
+      if len(page.AnimateDiff.controls) == 1:
+        return
       del page.AnimateDiff.controls[-1]
       page.AnimateDiff.update()
     def autoscroll(scroll=True):
@@ -32914,15 +32916,15 @@ def run_animate_diff(page):
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
     pip_install("omegaconf einops cmake colorama rich ninja copier==8.1.0 pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib watchdog imageio==2.27.0", installer=installer)
-    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
-        try:
-            import xformers
-        except ModuleNotFoundError:
-            installer.status("...installing FaceBook's Xformers")
-            #run_sp("pip install --pre -U triton", realtime=False)
-            run_sp("pip install -U xformers", realtime=False)
-            status['installed_xformers'] = True
-            pass
+    #if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    try:
+        import xformers
+    except ModuleNotFoundError:
+        installer.status("...installing FaceBook's Xformers")
+        #run_sp("pip install --pre -U triton", realtime=False)
+        run_sp("pip install -U xformers", realtime=False)
+        status['installed_xformers'] = True
+        pass
     try:
         import ffmpeg
     except ImportError as e:
@@ -33005,12 +33007,15 @@ def run_animate_diff(page):
         shutil.rmtree(sd_models)
     installer.status("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
-    #if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
-    #installer.status("...downloading motion_module-v1-4")
-    #download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
-    #if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
-    #installer.status("...downloading motion_module-v1-5")
-    #download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
+    if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
+        installer.status("...downloading motion_module-v1-4")
+        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
+    if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
+        installer.status("...downloading motion_module-v1-5")
+        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
+    if animate_diff_prefs['motion_module'] == 'mm_sd_v15_v2':
+        installer.status("...downloading motion_module-v1-5 v2")
+        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15_v2.ckpt", to=motion_module)
     #sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': '', 'weights': None}
     lora_dir = os.path.join(animatediff_dir, 'data', 'models', 'sd')
@@ -33319,7 +33324,7 @@ def run_animate_diff(page):
     for l in animate_diff_prefs['controlnet_layers']:
         controlnet_task = f"controlnet_{l['control_task'].lower()}"
         try:
-            scale_list = [float(x.strip()) for x in l['control_scale_list']]
+            scale_list = [float(x.strip()) for x in l['control_scale_list'].split(',')]
         except Exception:
             print(f"Error converting Scale List {l['control_scale_list']} to list of floats. Using default..")
             scale_list = [0.5,0.4,0.3,0.2,0.1]
@@ -33480,7 +33485,7 @@ def run_animate_diff(page):
               frame = PILImage.open(event.src_path)
               w, h = frame.size
               frame_dir = os.path.dirname(event.src_path)
-              clear_last()
+              #clear_last()
             except Exception:
               pass
           clear_last()
@@ -33534,7 +33539,7 @@ def run_animate_diff(page):
       print(f"Running {cmd}")
       clear_last()
       prt("Generating AnimateDiff of your Prompts... See console for progress.")
-      #prt(progress)
+      prt(progress)
       time.sleep(0.5)
       autoscroll(False)
       run_sp(cmd, cwd=animatediff_dir, realtime=True)
@@ -36659,7 +36664,7 @@ class FileInput(UserControl):
             if e.progress == 1:
               #TODO: Make save dir default to /root/uploads dir
               if self.output_dir == None:
-                save_dir = uploads_dir
+                save_dir = root_dir
               else:
                 save_dir = self.output_dir
                 if not os.path.exists(save_dir):
