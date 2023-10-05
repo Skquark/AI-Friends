@@ -273,6 +273,8 @@ def load_settings_file():
       'enable_torch_compile': False,
       'enable_tome': False,
       'tome_ratio': 0.5,
+      'enable_freeu': False,
+      'freeu_args': {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2},
       'cache_dir': '',
       'install_diffusers': True,
       'install_interpolation': False,
@@ -939,6 +941,8 @@ if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "N
 if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
 if 'enable_tome' not in prefs: prefs['enable_tome'] = False
 if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
+if 'enable_freeu' not in prefs: prefs['enable_freeu'] = False
+if 'freeu_args' not in prefs: prefs['freeu_args'] = {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2},
 if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
 if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
 if 'prompt_style' not in prefs: prefs['prompt_style'] = "cinematic-default"
@@ -1356,6 +1360,7 @@ def buildInstallers(page):
   enable_tome = Checkbox(label="Enable Token Merging", tooltip="ToMe optimizes the Pipelines to create images faster, at the expense of some quality. Works by merging the redundant tokens / patches progressively in the forward pass of a Transformer-based network.", value=prefs['enable_tome'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_tome'))
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
   enable_torch_compile.visible = not sys.platform.startswith('win')
+  enable_freeu = Checkbox(label="Enable FreeU: Free Lunch", tooltip="Technique to improve image quality by rebalancing the contributions from the UNet’s skip connections and backbone feature maps. Applied during inference, does not require any additional training or mem. Works on most pipeline tasks.", value=prefs['enable_freeu'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_freeu'))
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
   SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data))
@@ -1435,7 +1440,7 @@ def buildInstallers(page):
                                  #  enable_vae_slicing
                                  #enable_attention_slicing,
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
-                                 Row([enable_tome, enable_torch_compile]),
+                                 Row([enable_freeu, enable_tome, enable_torch_compile]),
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, install_SDXL, SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
@@ -15862,7 +15867,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True, model_offload=False):
+def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True, model_offload=False, freeu=True):
     global prefs, status
     if model_offload:
       p.enable_model_cpu_offload()
@@ -15891,6 +15896,8 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
         p.load_lora_weights(lora['path'])
       #TODO: , weight_name=lora_filename
       #p.unet.load_attn_procs(lora['path'])
+    if prefs['enable_freeu'] and freeu:
+      p.enable_freeu(**prefs['freeu_args'])
     if prefs['sequential_cpu_offload'] and not no_cpu:
       p.enable_sequential_cpu_offload()
     else:
@@ -15911,7 +15918,7 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
     status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
 
-def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False):
+def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False, freeu=True):
     global prefs, status
     low_ram = int(status['cpu_memory']) <= 12
     to_gpu = True
@@ -15938,6 +15945,8 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
       #p.fuse_lora(lora_scale=0.5)
       #p.unet.load_attn_procs(lora['path'])
     #if to_gpu and not (prefs['enable_torch_compile'] and torch_compile) and not model_offload:
+    if prefs['enable_freeu'] and freeu:
+      p.enable_freeu(s1=0.6, s2=0.4, b1=1.1, b2=1.2)#**prefs['freeu_args'])
     if prefs['enable_torch_compile'] and torch_compile:
       #p.unet.to(memory_format=torch.channels_last)
       p.unet = torch.compile(p.unet, mode="reduce-overhead", fullgraph=True)
@@ -31230,6 +31239,8 @@ def run_text_to_video(page):
         pipe_text_to_video = TextToVideoSDPipeline.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_text_to_video = pipeline_scheduler(pipe_text_to_video)
         pipe_text_to_video.scheduler = DPMSolverMultistepScheduler.from_config(pipe_text_to_video.scheduler.config)
+        if prefs['enable_freev']:
+            pipe_text_to_video.enable_freev(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
         if text_to_video_prefs['lower_memory']:
             pipe_text_to_video.enable_sequential_cpu_offload()
             #pipe_text_to_video.enable_model_cpu_offload()
@@ -31413,6 +31424,8 @@ def run_text_to_video_zero(page):
         from diffusers import TextToVideoZeroPipeline, DPMSolverMultistepScheduler
         pipe_text_to_video_zero = TextToVideoZeroPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
+        if prefs['enable_freev']:
+            pipe_text_to_video_zero.enable_freev(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
         pipe_text_to_video_zero.scheduler = DPMSolverMultistepScheduler.from_config(pipe_text_to_video_zero.scheduler.config)
         pipe_text_to_video_zero = pipe_text_to_video_zero.to(torch_device)
         #pipe_text_to_video_zero = optimize_pipe(pipe_text_to_video_zero, vae_tiling=True, vae=True, to_gpu=False)
@@ -33477,7 +33490,7 @@ def run_animate_diff(page):
           output_dir = event.src_path
           output_dirs.append(event.src_path)
           return None
-        elif event.event_type == 'created' and (event.src_path.endswith("png") or event.src_path.endswith("gif")):
+        elif event.event_type == 'created' and (event.src_path.endswith("png") or event.src_path.endswith("gif") or event.src_path.endswith("jpg")):
           autoscroll(True)
           if w == 0:
             time.sleep(0.8)
@@ -33487,6 +33500,7 @@ def run_animate_diff(page):
               frame_dir = os.path.dirname(event.src_path)
               #clear_last()
             except Exception:
+              frame_dir = os.path.dirname(event.src_path)
               pass
           clear_last()
           if animate_diff_prefs['save_frames']:
@@ -33587,7 +33601,8 @@ def run_animate_diff(page):
               fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
               time.sleep(1)
               shutil.copy(event.src_path, fpath)
-              prt(Row([VideoContainer(event.src_path)], alignment=MainAxisAlignment.CENTER))
+              prt(f"Video saved to {fpath} from {event.src_path}")
+              #prt(Row([VideoContainer(event.src_path)], alignment=MainAxisAlignment.CENTER))
               #prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
               #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
               #prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
@@ -37091,7 +37106,8 @@ def elapsed(start_time):
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
-    interpolated = os.path.join(frames_dir, "interpolated.mp4")
+    photos_dir = os.path.join(frame_interpolation_dir, 'photos')
+    interpolated = os.path.join(photos_dir, "interpolated.mp4")
     if not os.path.exists(frame_interpolation_dir):
         if installer != None:
             installer.status("...cloning frame-interpolation")
@@ -37120,6 +37136,12 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
     saved_model = 'pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
+    installer.status("...copying photo frames")
+    for f in os.listdir(photos_dir):
+        os.remove(os.path.join(photos_dir, f))
+    for f in os.listdir(frames_dir):
+        if f.endswith('png') or f.endswith('jpg'):
+            shutil.copy(os.path.join(frames_dir, f), os.path.join(photos_dir, f))
     #run_sp(f"mkdir -p frames", cwd=frames_dir, realtime=False)
     if bool(input_fps):
         recursive_interpolation_passes = int((output_fps - input_fps) / input_fps)
@@ -37127,9 +37149,11 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         recursive_interpolation_passes = recursive_interpolation_passes or 1
     if installer != None:
         installer.status("...running frame-interpolation")
-    run_sp(f"python -m eval.interpolator_cli --model_path {saved_model} --pattern {frames_dir} --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=False)
+    run_sp(f"python -m eval.interpolator_cli --model_path {saved_model} --pattern 'photos' --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=False)
     if os.path.exists(interpolated):
         if output_video != None:
+            if not output_video.endswith('mp4'):
+                output_video = os.path.join(output_video, "interpolated.mp4")
             shutil.move(interpolated, output_video)
             return output_video
         else:
