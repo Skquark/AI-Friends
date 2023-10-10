@@ -765,6 +765,7 @@ def buildVideoAIs(page):
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.Roop = buildROOP(page)
     page.AnimateDiff = buildAnimateDiff(page)
+    page.Rerender_a_video = buildRerender_a_video(page)
 
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
@@ -775,6 +776,7 @@ def buildVideoAIs(page):
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
+            Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
@@ -1361,6 +1363,16 @@ def buildInstallers(page):
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
   enable_torch_compile.visible = not sys.platform.startswith('win')
   enable_freeu = Checkbox(label="Enable FreeU: Free Lunch", tooltip="Technique to improve image quality by rebalancing the contributions from the UNet’s skip connections and backbone feature maps. Applied during inference, does not require any additional training or mem. Works on most pipeline tasks.", value=prefs['enable_freeu'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_freeu'))
+  '''def toggle_freeu(e):
+      changed(e,'enable_freeu')
+      freeu_args.height = None if prefs['enable_freeu'] else 0
+      freeu_args.update()
+  b1 = SliderRow(label="b1", min=1.0, max=1.2, divisions=4, round=2, pref=prefs['freeu_args'], key='b1', expand=True, col={'md':6}, tooltip="Backbone factor of the first stage block of decoder.")
+  b2 = SliderRow(label="b2", min=1.2, max=1.6, divisions=8, round=2, pref=prefs['freeu_args'], key='b2', expand=True, col={'md':6}, tooltip="Backbone factor of the second stage block of decoder.")
+  s1 = SliderRow(label="s1", min=0, max=1, divisions=20, round=1, pref=prefs['freeu_args'], key='s1', expand=True, col={'md':6}, tooltip="Skip factor of the first stage block of decoder.")
+  s2 = SliderRow(label="s2", min=0, max=1, divisions=20, round=1, pref=prefs['freeu_args'], key='s2', expand=True, col={'md':6}, tooltip="Skip factor of the second stage block of decoder.")
+  freeu_args = Container(content=Column([ResponsiveRow([b1, b2, s1, s2])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=0, left=13), height = None if prefs['enable_freeu'] else 0)'''
+
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
   SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data))
@@ -10114,7 +10126,7 @@ animate_diff_prefs = {
     'ip_adapter_layers': {},
     'ip_adapter_scale': 0.5,
     'ip_adapter_is_plus': True,
-    'ip_adapter_is_plus_face': True,
+    'ip_adapter_is_plus_face': False,
     'motion_loras': [],
     'motion_loras_strength': 0.5,
     'num_images': 1,
@@ -10135,9 +10147,11 @@ animate_diff_loras = [
     {'name': 'moonfilm_filmGrain10', 'file': 'moonfilm_filmGrain10.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/moonfilm_filmGrain10.safetensors'},
     {'name': 'moonfilm_reality20', 'file': 'moonfilm_reality20.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/moonfilm_reality20.safetensors'},
     {'name': 'rcnzCartoon3d_v10', 'file': 'rcnzCartoon3d_v10.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/rcnzCartoon3d_v10.safetensors'},
+    {'name': 'realisticVisionV20_v20', 'file': 'realisticVisionV20_v20.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/blob/main/realisticVisionV20_v20.safetensors'},
     {'name': 'realisticVisionV40_v20Novae', 'file': 'realisticVisionV40_v20Novae.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/realisticVisionV40_v20Novae.safetensors'},
     {'name': 'Mistoon_Anime', 'file': 'mistoonAnime_v20.safetensors', 'path': 'https://huggingface.co/WickedOne/MistoonAnimeV2/blob/main/mistoonAnime_v20.safetensors'},
     {'name': 'XXMix_9realistic_v4', 'file': 'xxmix9realistic_v40.safetensors', 'path': 'https://huggingface.co/jzli/XXMix_9realistic-v4/resolve/main/xxmix9realistic_v40.safetensors'},
+    {'name': 'revAnimated_v122', 'file': 'revAnimated_v122.safetensors', 'path': 'https://huggingface.co/joaov33/revanimated/blob/main/revAnimated_v122.safetensors'},
     #{'name': 'Custom', 'file': '', 'path': ''},
 ]
 animate_diff_lora_layers = [
@@ -10524,7 +10538,7 @@ def buildAnimateDiff(page):
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
     scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=176, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
-    motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("mm_sd_v15_v2"), dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=155, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
+    motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("improved3DMotion"), dropdown.Option("mm_sd_v15_v2"), dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=168, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
     custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], expand=True, visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
     for lora in animate_diff_loras:
@@ -10647,6 +10661,204 @@ def buildAnimateDiff(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+
+rerender_a_video_prefs = {
+    'init_video': '',
+    'prompt': '',
+    'negative_prompt': '',
+    'a_prompt': '',
+    'control_task': 'Canny',
+    'controlnet_strength': 0.8,
+    'x0_strength': 0.95,
+    'mask_strength': 0.5,
+    'inner_strength': 0.9,
+    "dreambooth_lora": "realisticVisionV20_v20",
+    'custom_lora': '',
+    'frame_count': 102,
+    'max_size': 512,
+    'low_threshold': 50, #1-255 canny
+    'high_threshold': 100, #1-255
+    'crop': {'top': 0, 'left':0, 'right':0, 'bottom':0},
+    'enable_freeu': True,
+    'freeu_args': {'b1': 1.1, 'b2':1.2, 's1':1.0, 's2':0.2},
+    'interval': 10,
+    'style_update_freq': 10,
+    'prompt_strength': 7.5,
+    'start_time': 0.0,
+    'end_time': 0.0,
+    'duration': 0.0,
+    'smooth_boundary': False,
+    'color_preserve': False,
+    'loose_cfattn': False,
+    'first_frame': False,
+    'show_console': True,
+    'save_frames': True,
+    'seed': 0,
+    'file_prefix': 'rerender-',
+    'output_name': '',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildRerender_a_video(page):
+    global rerender_a_video_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            rerender_a_video_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            rerender_a_video_prefs[pref] = float(e.control.value)
+          else:
+            rerender_a_video_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.rerender_a_video_output.controls = []
+      page.rerender_a_video_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def rerender_a_video_help(e):
+      def close_rerender_a_video_dlg(e):
+        nonlocal rerender_a_video_help_dlg
+        rerender_a_video_help_dlg.open = False
+        page.update()
+      rerender_a_video_help_dlg = AlertDialog(title=Text("💁   Help with Rerender-a-Video"), content=Column([
+          Text("The framework includes two parts: key frame translation and full video translation. The first part uses an adapted diffusion model to generate key frames, with hierarchical cross-frame constraints applied to enforce coherence in shapes, textures and colors. The second part propagates the key frames to other frames with temporal-aware patch matching and frame blending. Our framework achieves global style and local texture temporal consistency at a low cost (without re-training or optimization). The adaptation is compatible with existing image diffusion techniques, allowing our framework to take advantage of them, such as customizing a specific subject with LoRA, and introducing extra spatial guidance with ControlNet. Extensive experimental results demonstrate the effectiveness of our proposed framework over existing methods in rendering high-quality and temporally-coherent videos."),
+          #Text(""),
+          Markdown("""Features:
+* Temporal consistency: cross-frame constraints for low-level temporal consistency.
+* Zero-shot: no training or fine-tuning required.
+* Flexibility: compatible with off-the-shelf models (e.g., ControlNet, LoRA) for customized translation.
+
+[GitHub Page](https://github.com/williamyang1991/Rerender_A_Video) | [HuggingFace Space](https://huggingface.co/spaces/Anonymous-sub/Rerender) | [Project Page](https://www.mmlab-ntu.com/project/rerender/)""", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text('ControlNet is a neural network structure to control diffusion models by adding extra conditions. It copys the weights of neural network blocks into a "locked" copy and a "trainable" copy. The "trainable" one learns your condition. The "locked" one preserves your model. Thanks to this, training with small dataset of image pairs will not destroy the production-ready diffusion models. The "zero convolution" is 1×1 convolution with both weight and bias initialized as zeros. Before training, all zero convolutions output zeros, and ControlNet will not cause any distortion.  No layer is trained from scratch. You are still fine-tuning. Your original model is safe.  This allows training on small-scale or even personal devices. This is also friendly to merge/replacement/offsetting of models/weights/blocks/layers.'),
+          Text("Canny Map Edge - A monochrome image with white edges on a black background."),
+          Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
+          Text("HED - A monochrome image with white soft edges on a black background."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("📺  Change Reality... ", on_click=close_rerender_a_video_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = rerender_a_video_help_dlg
+      rerender_a_video_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        rerender_a_video_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_task(e):
+        changed(e,'control_task')
+        canny_threshold.height = None if rerender_a_video_prefs['control_task'] == "Canny" or rerender_a_video_prefs['control_task'] == "Canny21" else 0
+        canny_threshold.update()
+    def changed_lora(e):
+      rerender_a_video_prefs['dreambooth_lora'] = e.control.value
+      custom_lora.visible = e.control.value == "Custom"
+      custom_lora.update()
+    def toggle_freeu(e):
+        changed(e,'enable_freeu')
+        freeu_args.height = None if rerender_a_video_prefs['enable_freeu'] else 0
+        freeu_args.update()
+    prompt = TextField(label="Prompt Text", value=rerender_a_video_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=rerender_a_video_prefs['negative_prompt'], multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    a_prompt = TextField(label="Additional Prompt Text", value=rerender_a_video_prefs['a_prompt'], multiline=True, filled=True, col={'md':4}, on_change=lambda e:changed(e,'a_prompt'))
+    #'aesthetic', 'lineart21', 'hed', 'hed21', 'canny', 'canny21', 'openpose', 'openpose21', 'depth', 'depth21', 'normal', 'mlsd'
+    control_task = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option("HED"), dropdown.Option("Canny"), dropdown.Option("Depth")], value=rerender_a_video_prefs['control_task'], on_change=change_task)
+    #conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=rerender_a_video_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `rerender_a_video_conditioning_scale` before they are added to the residual in the original unet.")
+    controlnet_strength = SliderRow(label="ControlNet Strength", min=0.0, max=1.0, divisions=20, round=2, pref=rerender_a_video_prefs, key='controlnet_strength', tooltip="How much influence the controlnet annotator's output is used to guide the denoising process.")
+    x0_strength = SliderRow(label="Denoise Strength", min=0.0, max=1.05, divisions=21, round=2, pref=rerender_a_video_prefs, key='x0_strength', tooltip="Repaint degree, low to make output look more like init video. 0: fully recover the input.1.05: fully rerender the input.")
+    mask_strength = SliderRow(label="Mask Strength", min=0.0, max=1.0, divisions=20, round=2, pref=rerender_a_video_prefs, key='mask_strength', tooltip="")
+    inner_strength = SliderRow(label="Inner Strength", min=0.0, max=1.0, divisions=20, round=2, pref=rerender_a_video_prefs, key='inner_strength', tooltip="")
+    init_video = FileInput(label="Init Video Clip", pref=rerender_a_video_prefs, key='init_video', ftype="video", expand=True, page=page)
+    #init_video = TextField(label="Init Video Clip", value=rerender_a_video_prefs['init_video'], expand=True, on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    #fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=rerender_a_video_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    start_time = TextField(label="Start Time (s)", value=rerender_a_video_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=rerender_a_video_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    duration = TextField(label="Duration (0 for all)", value=rerender_a_video_prefs['duration'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'duration', ptype="float"))
+    vid_params = Container(content=Column([Row([start_time, end_time, duration])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=5))
+    interval = SliderRow(label="Number of Intervals", min=1, max=100, divisions=99, pref=rerender_a_video_prefs, key='interval', tooltip="Uniformly sample the key frame every K frames. Small value for large or fast motions.")
+    frame_count = SliderRow(label="Frame Count", min=1, max=300, divisions=299, pref=rerender_a_video_prefs, key='frame_count', tooltip="The final output video will have K*M+1 frames with M+1 key frames.")
+    style_update_freq = SliderRow(label="Style Update Frequency", min=1, max=100, divisions=99, pref=rerender_a_video_prefs, key='style_update_freq', tooltip="")
+    prompt_strength = SliderRow(label="Prompt Strength", min=0, max=30, divisions=60, round=1, pref=rerender_a_video_prefs, key='prompt_strength', tooltip="How much influence the prompt has on the output. Guidance Scale.")
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=rerender_a_video_prefs, key='low_threshold', expand=True, col={'lg':6})
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=rerender_a_video_prefs, key='high_threshold', expand=True, col={'lg':6})
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    canny_threshold.height = None if rerender_a_video_prefs['control_task'] == "Canny" else 0
+    crop_left = SliderRow(label="Crop Left", min=0, max=512, divisions=512, suffix="px", pref=rerender_a_video_prefs['crop'], key='left', expand=True, col={'lg':6}, tooltip="")
+    crop_right = SliderRow(label="Crop Right", min=0, max=512, divisions=512, suffix="px", pref=rerender_a_video_prefs['crop'], key='right', expand=True, col={'lg':6})
+    crop_top = SliderRow(label="Crop Top", min=0, max=512, divisions=512, suffix="px", pref=rerender_a_video_prefs['crop'], key='top', expand=True, col={'lg':6})
+    crop_bottom = SliderRow(label="Crop Bottom", min=0, max=512, divisions=512, suffix="px", pref=rerender_a_video_prefs['crop'], key='bottom', expand=True, col={'lg':6})
+
+    b1 = SliderRow(label="b1", min=1.0, max=1.2, divisions=4, round=2, pref=rerender_a_video_prefs['freeu_args'], key='b1', expand=True, col={'md':6}, tooltip="Backbone factor of the first stage block of decoder.")
+    b2 = SliderRow(label="b2", min=1.2, max=1.6, divisions=8, round=2, pref=rerender_a_video_prefs['freeu_args'], key='b2', expand=True, col={'md':6}, tooltip="Backbone factor of the second stage block of decoder.")
+    s1 = SliderRow(label="s1", min=0, max=1, divisions=20, round=1, pref=rerender_a_video_prefs['freeu_args'], key='s1', expand=True, col={'md':6}, tooltip="Skip factor of the first stage block of decoder.")
+    s2 = SliderRow(label="s2", min=0, max=1, divisions=20, round=1, pref=rerender_a_video_prefs['freeu_args'], key='s2', expand=True, col={'md':6}, tooltip="Skip factor of the second stage block of decoder.")
+    freeu_args = Container(content=Column([ResponsiveRow([b1, b2, s1, s2])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=0, left=13), height = None if rerender_a_video_prefs['enable_freeu'] else 0)
+    enable_freeu = Switcher(label="Enable FreeU: Free Lunch UNET", value=rerender_a_video_prefs['enable_freeu'], tooltip="Improves diffusion model sample quality at no costs. Results will have higher contrast and saturation, richer details, and more vivid colors.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_freeu)
+    #color_fix = Dropdown(label="Color Fix", width=150, options=[dropdown.Option("None"), dropdown.Option("RGB"), dropdown.Option("HSV"), dropdown.Option("Lab")], value=rerender_a_video_prefs['color_fix'], on_change=lambda e:changed(e,'color_fix'), tooltip="Prevent color from drifting due to feedback and model bias by fixing the histogram to the first frame. Specify colorspace for histogram matching")
+    #color_amount = SliderRow(label="Color Amount", min=0.0, max=1.0, divisions=10, round=1, pref=rerender_a_video_prefs, key='color_amount', expand=True, tooltip="Blend between the original color and the color matched version.")
+    #max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=rerender_a_video_prefs, key='max_size')
+    dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=rerender_a_video_prefs['dreambooth_lora'], on_change=changed_lora)
+    for lora in animate_diff_loras:
+      dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
+    custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=rerender_a_video_prefs['custom_lora'], expand=True, visible=rerender_a_video_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=rerender_a_video_prefs, key='max_size')
+    smooth_boundary = Switcher(label="Smooth Boundary", value=rerender_a_video_prefs['smooth_boundary'], tooltip="Prevents artifacts at fusion boundaries.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'smooth_boundary'))
+    color_preserve = Switcher(label="Color Preserve", value=rerender_a_video_prefs['color_preserve'], tooltip="Keep the color of the input video", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'color_preserve'))
+    loose_cfattn = Switcher(label="Loose Cross-Frame Attention", value=rerender_a_video_prefs['loose_cfattn'], tooltip="Results will better match the input video, thus reducing ghosting artifacts caused by inconsistencies.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'loose_cfattn'))
+    show_console = Switcher(label="Show Console Output", value=rerender_a_video_prefs['show_console'], tooltip="Outputs the progress run log in the console window. Gets messy, but useful.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'show_console'))
+    first_frame = Switcher(label="First Frame Only", value=rerender_a_video_prefs['first_frame'], tooltip="Rerender only the first key frame as test.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'first_frame'))
+    seed = TextField(label="Seed", value=rerender_a_video_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width=120, on_change=lambda e:changed(e,'seed', ptype="int"))
+    file_prefix = TextField(label="Filename Prefix",  value=rerender_a_video_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    output_name = TextField(label="Output Name", value=rerender_a_video_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=rerender_a_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=rerender_a_video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=rerender_a_video_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=rerender_a_video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    page.rerender_a_video_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.rerender_a_video_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("📹  Rerender-a-Video", "Zero-Shot Text-Guided Video-to-Video Translation... (Note: May need 24GB VRAM to run)", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Vid2Vid Settings", on_click=rerender_a_video_help)]),
+        ResponsiveRow([prompt, a_prompt]),
+        negative_prompt,
+        Row([control_task, init_video]),
+        canny_threshold,
+        #vid_params,
+        controlnet_strength,
+        x0_strength,
+        mask_strength,
+        inner_strength,
+        #prompt_strength,
+        frame_count,
+        interval,
+        style_update_freq,
+        Row([dreambooth_lora, custom_lora]),
+        #Row([color_fix, color_amount]),
+        max_size,
+        ResponsiveRow([crop_left, crop_right]),
+        ResponsiveRow([crop_top, crop_bottom]),
+        #ResponsiveRow([motion_alpha, motion_sigma]),
+        #ResponsiveRow([max_dimension, min_dimension]),
+        enable_freeu,
+        freeu_args,
+        Row([smooth_boundary, color_preserve, loose_cfattn, first_frame]),
+        Row([seed, output_name, batch_folder_name]),
+        page.ESRGAN_block_controlnet,
+        Row([ElevatedButton(content=Text("📸  Run Rerender on Video", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_rerender_a_video(page))]),
+        page.rerender_a_video_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 materialdiffusion_prefs = {
     "material_prompt": '',
@@ -16191,7 +16403,7 @@ def get_interpolation_pipe():
     #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
     #pipe_interpolation = pipe_interpolation.to(torch_device)
     pipe_interpolation = pipeline_scheduler(pipe_interpolation)
-    pipe_interpolation = optimize_pipe(pipe_interpolation)
+    pipe_interpolation = optimize_pipe(pipe_interpolation, freeu=False)
     pipe_interpolation.set_progress_bar_config(disable=True)
     return pipe_interpolation
 
@@ -16250,7 +16462,7 @@ def get_img2img_pipe():
   #pipe_img2img.to(torch_device)
   #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
   pipe_img2img = pipeline_scheduler(pipe_img2img)
-  pipe_img2img = optimize_pipe(pipe_img2img, vae=True)
+  pipe_img2img = optimize_pipe(pipe_img2img, vae=True, freeu=False)
   pipe_img2img.set_progress_bar_config(disable=True)
   #def dummy(images, **kwargs): return images, False
   #pipe_img2img.safety_checker = dummy
@@ -16284,7 +16496,7 @@ def get_imagic_pipe():
   if prefs['disable_nsfw_filter']:
     pipe_imagic.safety_checker = dummy
   pipe_imagic = pipeline_scheduler(pipe_imagic, big3=True)
-  pipe_imagic = optimize_pipe(pipe_imagic)
+  pipe_imagic = optimize_pipe(pipe_imagic, freeu=False)
   #pipe_imagic.set_progress_bar_config(disable=True)
   return pipe_imagic
 
@@ -16315,7 +16527,7 @@ def get_composable_pipe():
   if prefs['disable_nsfw_filter']:
     pipe_composable.safety_checker = dummy
   pipe_composable = pipeline_scheduler(pipe_composable, big3=True)
-  pipe_composable = optimize_pipe(pipe_composable)
+  pipe_composable = optimize_pipe(pipe_composable, freeu=False)
   #pipe_composable.set_progress_bar_config(disable=True)
   return pipe_composable
 
@@ -16482,7 +16694,7 @@ def get_versatile_pipe(): # Mega was taking up too much vram and crashing the sy
   )
   #pipe_versatile.to(torch_device)
   pipe_versatile = pipeline_scheduler(pipe_versatile)
-  pipe_versatile = optimize_pipe(pipe_versatile)
+  pipe_versatile = optimize_pipe(pipe_versatile, freeu=False)
   pipe_versatile.set_progress_bar_config(disable=True)
   return pipe_versatile
 
@@ -16507,7 +16719,7 @@ def get_versatile_text2img_pipe():
   )
   #pipe_versatile_text2img.to(torch_device)
   pipe_versatile_text2img = pipeline_scheduler(pipe_versatile_text2img)
-  pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img)
+  pipe_versatile_text2img = optimize_pipe(pipe_versatile_text2img, freeu=False)
   pipe_versatile_text2img.set_progress_bar_config(disable=True)
   return pipe_versatile_text2img
 
@@ -16540,7 +16752,7 @@ def get_versatile_variation_pipe():
     )
   #pipe_versatile_variation.to(torch_device)
   pipe_versatile_variation = pipeline_scheduler(pipe_versatile_variation)
-  pipe_versatile_variation = optimize_pipe(pipe_versatile_variation)
+  pipe_versatile_variation = optimize_pipe(pipe_versatile_variation, freeu=False)
   pipe_versatile_variation.set_progress_bar_config(disable=True)
   return pipe_versatile_variation
 
@@ -16573,7 +16785,7 @@ def get_versatile_dualguided_pipe():
     )
   #pipe_versatile_dualguided.to(torch_device)
   pipe_versatile_dualguided = pipeline_scheduler(pipe_versatile_dualguided)
-  pipe_versatile_dualguided = optimize_pipe(pipe_versatile_dualguided)
+  pipe_versatile_dualguided = optimize_pipe(pipe_versatile_dualguided, freeu=False)
   pipe_versatile_dualguided.set_progress_bar_config(disable=True)
   return pipe_versatile_dualguided
 
@@ -16621,7 +16833,7 @@ def get_safe_pipe():
       )
   #pipe_safe.to(torch_device)
   pipe_safe = pipeline_scheduler(pipe_safe)
-  pipe_safe = optimize_pipe(pipe_safe)
+  pipe_safe = optimize_pipe(pipe_safe, freeu=False)
   pipe_safe.set_progress_bar_config(disable=True)
   return pipe_safe
 
@@ -16657,7 +16869,7 @@ def get_SAG_pipe():
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       **safety)
   pipe_SAG = pipeline_scheduler(pipe_SAG, big3=True)
-  pipe_SAG = optimize_pipe(pipe_SAG, vae=False)
+  pipe_SAG = optimize_pipe(pipe_SAG, vae=False, freeu=False)
   pipe_SAG.set_progress_bar_config(disable=True)
   return pipe_SAG
 
@@ -16693,7 +16905,7 @@ def get_attend_and_excite_pipe():
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       **safety)
   pipe_attend_and_excite = pipeline_scheduler(pipe_attend_and_excite)
-  pipe_attend_and_excite = optimize_pipe(pipe_attend_and_excite, vae=True)
+  pipe_attend_and_excite = optimize_pipe(pipe_attend_and_excite, vae=True, freeu=False)
   pipe_attend_and_excite.set_progress_bar_config(disable=True)
   return pipe_attend_and_excite
 
@@ -16729,7 +16941,7 @@ def get_panorama_pipe():
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       **safety)
   pipe_panorama = pipeline_scheduler(pipe_panorama)
-  pipe_panorama = optimize_pipe(pipe_panorama, vae=True)
+  pipe_panorama = optimize_pipe(pipe_panorama, vae=True, freeu=False)
   pipe_panorama.set_progress_bar_config(disable=True)
   return pipe_panorama
 
@@ -16774,7 +16986,7 @@ def get_upscale_pipe():
     )
   #pipe_upscale.to(torch_device)
   pipe_upscale = pipeline_scheduler(pipe_upscale, big3=True)
-  pipe_upscale = optimize_pipe(pipe_upscale)
+  pipe_upscale = optimize_pipe(pipe_upscale, freeu=False)
   pipe_upscale.set_progress_bar_config(disable=True)
   return pipe_upscale
 
@@ -16831,7 +17043,7 @@ def get_clip_guided_pipe():
         feature_extractor=feature_extractor,
     )'''
     pipe_clip_guided = pipeline_scheduler(pipe_clip_guided, big3=True)
-    pipe_clip_guided = optimize_pipe(pipe_clip_guided)
+    pipe_clip_guided = optimize_pipe(pipe_clip_guided, freeu=False)
     return pipe_clip_guided
 
 def get_clip_guided_img2img_pipe():
@@ -16883,7 +17095,7 @@ def get_clip_guided_img2img_pipe():
         feature_extractor=feature_extractor,
     )'''
     pipe_clip_guided = pipeline_scheduler(pipe_clip_guided, big3=True)
-    pipe_clip_guided = optimize_pipe(pipe_clip_guided)
+    pipe_clip_guided = optimize_pipe(pipe_clip_guided, freeu=False)
     return pipe_clip_guided
 
 def get_repaint(page):
@@ -16931,7 +17143,7 @@ def get_depth_pipe():
     )
   #pipe_depth.to(torch_device)
   pipe_depth = pipeline_scheduler(pipe_depth)
-  pipe_depth = optimize_pipe(pipe_depth)
+  pipe_depth = optimize_pipe(pipe_depth, freeu=False)
   pipe_depth.set_progress_bar_config(disable=True)
   return pipe_depth
 
@@ -17005,7 +17217,7 @@ def get_alt_diffusion_img2img_pipe():
       )
     #pipe_alt_diffusion_img2img.to(torch_device)
     pipe_alt_diffusion_img2im = pipeline_scheduler(pipe_alt_diffusion_img2im)
-    pipe_alt_diffusion_img2img = optimize_pipe(pipe_alt_diffusion_img2img)
+    pipe_alt_diffusion_img2img = optimize_pipe(pipe_alt_diffusion_img2img, freeu=False)
     pipe_alt_diffusion_img2img.set_progress_bar_config(disable=True)
     return pipe_alt_diffusion_img2img
 
@@ -20628,7 +20840,7 @@ def run_image_variation(page):
         pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_image_variation.to(torch_device)
         pipe_image_variation = pipeline_scheduler(pipe_image_variation)
-        pipe_image_variation = optimize_pipe(pipe_image_variation)
+        pipe_image_variation = optimize_pipe(pipe_image_variation, freeu=False)
         #pipe_image_variation.set_progress_bar_config(disable=True)
         clear_last()
     s = "s" if image_variation_prefs['num_images'] > 1 else ""
@@ -21253,14 +21465,14 @@ def run_reference(page, from_list=False):
                 from stable_diffusion_xl_reference import StableDiffusionXLReferencePipeline
                 pipe_reference = StableDiffusionXLReferencePipeline.from_pretrained(model, torch_dtype=torch.float16, use_safetensors=True, variant="fp16", safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 pipe_reference = pipeline_scheduler(pipe_reference)
-                pipe_reference = optimize_SDXL(pipe_reference)
+                pipe_reference = optimize_SDXL(pipe_reference, freeu=False)
                 pipe_reference.set_progress_bar_config(disable=True)
             else:
                 from stable_diffusion_reference import StableDiffusionReferencePipeline
                 pipe_reference = StableDiffusionReferencePipeline.from_pretrained(model, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_reference.to(torch_device)
                 pipe_reference = pipeline_scheduler(pipe_reference)
-                pipe_reference = optimize_pipe(pipe_reference)
+                pipe_reference = optimize_pipe(pipe_reference, freeu=False)
                 pipe_reference.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
@@ -21460,6 +21672,14 @@ def run_controlnet_qr(page, from_list=False):
         import qrcode
         clear_last()
         pass
+    try:
+        import accelerate
+    except ImportError:
+        prt(Installing(f"Installing QRCode Library... "))
+        run_sp("pip install qrcode", realtime=False)
+        import qrcode
+        clear_last()
+        pass
     #use_SDXL = controlnet_qr_prefs['controlnet_version'].endswith("XL")
     sd_model = get_model(prefs['model_ckpt'])['path']
     controlnet_model = "DionTimmer/controlnet_qrcode-control_v1p_sd15" if controlnet_qr_prefs['controlnet_version'].endswith("1.5") else "DionTimmer/controlnet_qrcode-control_v11p_sd21"
@@ -21481,7 +21701,7 @@ def run_controlnet_qr(page, from_list=False):
             pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16)
             pipe_controlnet_qr = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(sd_model, controlnet=pipe_controlnet, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
-            pipe_controlnet_qr = optimize_pipe(pipe_controlnet_qr)
+            pipe_controlnet_qr = optimize_pipe(pipe_controlnet_qr, freeu=False)
             pipe_controlnet_qr.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
@@ -21753,7 +21973,7 @@ def run_controlnet_segment(page, from_list=False):
             installer.status(f"...SD Model {model_name}")
             pipe_controlnet_segment = StableDiffusionControlNetPipeline.from_pretrained(model, controlnet=pipe_controlnet, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             pipe_controlnet_segment = pipeline_scheduler(pipe_controlnet_segment)
-            pipe_controlnet_segment = optimize_pipe(pipe_controlnet_segment)
+            pipe_controlnet_segment = optimize_pipe(pipe_controlnet_segment, freeu=False)
             pipe_controlnet_segment.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
@@ -22620,7 +22840,7 @@ def run_semantic(page):
         from diffusers import SemanticStableDiffusionPipeline
         pipe_semantic = SemanticStableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         pipe_semantic = pipeline_scheduler(pipe_semantic)
-        pipe_semantic = optimize_pipe(pipe_semantic, vae=False)
+        pipe_semantic = optimize_pipe(pipe_semantic, vae=False, freeu=False)
         pipe_semantic.set_progress_bar_config(disable=True)
     else:
         pipe_semantic = pipeline_scheduler(pipe_semantic)
@@ -27570,7 +27790,7 @@ def run_unCLIP(page, from_list=False):
               from diffusers import UnCLIPPipeline
               pipe_unCLIP = UnCLIPPipeline.from_pretrained(model_id, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
               #pipe_unCLIP.to(torch_device)
-              pipe_unCLIP = optimize_pipe(pipe_unCLIP)
+              pipe_unCLIP = optimize_pipe(pipe_unCLIP, freeu=False)
               loaded_StableUnCLIP = False
         except Exception as e:
             clear_last()
@@ -27759,7 +27979,7 @@ def run_unCLIP_image_variation(page, from_list=False):
         try:
             pipe_unCLIP_image_variation = UnCLIP_ImageVariationPipeline.from_pretrained("kakaobrain/karlo-v1-alpha-image-variations", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_unCLIP_image_variation.to(torch_device)
-            pipe_unCLIP_image_variation = optimize_pipe(pipe_unCLIP_image_variation)
+            pipe_unCLIP_image_variation = optimize_pipe(pipe_unCLIP_image_variation, freeu=False)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Downloading unCLIP Image Variation Pipeline", content=Text(str(e)))
@@ -28140,7 +28360,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
         try:
             pipe_unCLIP_image_interpolation = DiffusionPipeline.from_pretrained("kakaobrain/karlo-v1-alpha-image-variations", custom_pipeline="unclip_image_interpolation", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_unCLIP_image_interpolation.to(torch_device)
-            pipe_unCLIP_image_interpolation = optimize_pipe(pipe_unCLIP_image_interpolation)
+            pipe_unCLIP_image_interpolation = optimize_pipe(pipe_unCLIP_image_interpolation, freeu=False)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Downloading unCLIP Image Interpolation Pipeline", content=Text(str(e)))
@@ -28385,7 +28605,7 @@ def run_magic_mix(page, from_list=False):
         try:
             pipe_magic_mix = DiffusionPipeline.from_pretrained(model, custom_pipeline="AlanB/magic_mix_mod", scheduler=schedule, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_magic_mix.to(torch_device)
-            pipe_magic_mix = optimize_pipe(pipe_magic_mix)
+            pipe_magic_mix = optimize_pipe(pipe_magic_mix, freeu=False)
             magic_mix_prefs['scheduler_last'] = magic_mix_prefs['scheduler_mode']
         except Exception as e:
             clear_last()
@@ -28792,7 +29012,7 @@ def run_instruct_pix2pix(page, from_list=False):
       else:
         from diffusers import StableDiffusionInstructPix2PixPipeline
         pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
-        pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
+        pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix, freeu=False)
         #pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
         status['loaded_instructpix2pix'] = model_id
     pipeline_scheduler(pipe_instruct_pix2pix)
@@ -29370,7 +29590,7 @@ def run_controlnet(page, from_list=False):
         #TODO: pipe_controlnet = StableDiffusionXLControlNetPipeline
         pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
-        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True)
+        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True, freeu=False)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_prefs["control_task"]
     #else:
         #pipe_controlnet.controlnet=controlnet
@@ -33023,12 +33243,19 @@ def run_animate_diff(page):
     if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
         installer.status("...downloading motion_module-v1-4")
         download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
+        mm_ckpt = "mm_sd_v14.ckpt"
     if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
         installer.status("...downloading motion_module-v1-5")
         download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
+        mm_ckpt = "mm_sd_v15.ckpt"
     if animate_diff_prefs['motion_module'] == 'mm_sd_v15_v2':
         installer.status("...downloading motion_module-v1-5 v2")
         download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15_v2.ckpt", to=motion_module)
+        mm_ckpt = "mm_sd_v15_v2.ckpt"
+    if animate_diff_prefs['motion_module'] == 'improved3DMotion':
+        installer.status("...downloading Improved 3D Motion Module")
+        download_file("https://civitai.com/api/download/models/178017?type=Model&format=PickleTensor", to=motion_module, filename="improved3DMotion_improved3DV1.ckpt")
+        mm_ckpt = "improved3DMotion_improved3DV1.ckpt"
     #sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': '', 'weights': None}
     lora_dir = os.path.join(animatediff_dir, 'data', 'models', 'sd')
@@ -33169,7 +33396,7 @@ def run_animate_diff(page):
         'name': 'SDD',
         #'base': "",
         'path': lora_path,
-        'motion_module': f"models{slash}motion-module{slash}{animate_diff_prefs['motion_module']}.ckpt",
+        'motion_module': f"models{slash}motion-module{slash}{mm_ckpt}",
         #'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
         'compile': prefs['enable_torch_compile'],
         'seed': seeds,
@@ -33711,6 +33938,270 @@ def run_animate_diff(page):
     os.chdir(root_dir)
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_rerender_a_video(page):
+    global rerender_a_video_prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.Rerender_a_video.controls.append(line)
+      page.Rerender_a_video.update()
+    def clear_last():
+      del page.Rerender_a_video.controls[-1]
+      page.Rerender_a_video.update()
+    def autoscroll(scroll=True):
+        page.Rerender_a_video.auto_scroll = scroll
+        page.Rerender_a_video.update()
+    if not bool(rerender_a_video_prefs['init_video']):
+        alert_msg(page, "You must provide a target init video...")
+        return
+    if not bool(rerender_a_video_prefs['prompt']):
+        alert_msg(page, "You must provide an interesting prompt to guide the video...")
+        return
+    if not bool(rerender_a_video_prefs['batch_folder_name']):
+        alert_msg(page, "You must give a unique Batch Folder Name to save to...")
+        return
+    page.Rerender_a_video.controls = page.Rerender_a_video.controls[:1]
+    autoscroll()
+    installer = Installing("Installing Rerender-a-Video Libraries...")
+    prt(installer)
+    rerender_a_video_dir = os.path.join(root_dir, "Rerender_A_Video")
+    if not os.path.exists(rerender_a_video_dir):
+        try:
+            installer.status("...cloning williamyang1991/Rerender_A_Video")
+            run_sp("git clone https://github.com/williamyang1991/Rerender_A_Video.git --recursive", cwd=root_dir, realtime=False)
+            installer.status("...installing Rerender_A_Video requirements")
+            #run_sp("pip install -r requirements.txt", realtime=True)
+            pip_install("addict==2.4.0 albumentations==1.3.0 basicsr==1.4.2 blendmodes einops gradio imageio imageio-ffmpeg invisible-watermark kornia==0.6 numba omegaconf open_clip_torch prettytable==3.6.0 pytorch-lightning==1.5.0 safetensors streamlit==1.12.1 streamlit-drawable-canvas==0.8.0 test-tube==0.7.5 timm torchmetrics transformers webdataset yapf==0.32.0 watchdog", installer=installer, upgrade=True)
+            installer.status("...downloading SD models")
+            run_sp("python install.py", cwd=rerender_a_video_dir, realtime=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Rerender_A_Video Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    '''try:
+        import controlnet_aux
+    except ImportError as e:
+        installer.status("...installing controlnet-aux")
+        run_sp("pip install -q controlnet-aux", realtime=False)
+        pass'''
+    import logging
+    logging.set_verbosity_error()
+    clear_pipes()
+
+    from PIL import ImageOps
+    if bool(rerender_a_video_prefs['output_name']):
+        fname = format_filename(rerender_a_video_prefs['output_name'], force_underscore=True)
+    elif bool(rerender_a_video_prefs['prompt']):
+        fname = format_filename(rerender_a_video_prefs['prompt'], force_underscore=True)
+    elif bool(rerender_a_video_prefs['batch_folder_name']):
+        fname = format_filename(rerender_a_video_prefs['batch_folder_name'], force_underscore=True)
+    else: fname = "output"
+    if bool(rerender_a_video_prefs['file_prefix']):
+        fname = f"{rerender_a_video_prefs['file_prefix']}{fname}"
+    video_dir = os.path.join(rerender_a_video_dir, "videos")
+    #if bool(rerender_a_video_prefs['batch_folder_name']):
+    #    batch_output = os.path.join(stable_dir, rerender_a_video_prefs['batch_folder_name'])
+    #else: batch_output = stable_dir
+    #if not os.path.exists(batch_output):
+    #    os.makedirs(batch_output)
+    output_path = os.path.join(prefs['image_output'], rerender_a_video_prefs['batch_folder_name'])
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+    init_vid = rerender_a_video_prefs['init_video']
+    if init_vid.startswith('http'):
+        init_vid = download_file(init_vid, uploads_dir, ext="mp4")
+    else:
+        if not os.path.isfile(init_vid):
+            alert_msg(page, f"ERROR: Couldn't find your init_video {init_vid}")
+            return
+    video_file = os.path.basename(init_vid)
+    if not video_file.endswith("mp4"):
+        video_file += ".mp4"
+    shutil.copy(init_vid, os.path.join(video_dir, video_file))
+    video_out_path = os.path.join(video_dir, rerender_a_video_prefs['batch_folder_name'])
+    if not os.path.exists(video_out_path):
+        os.makedirs(video_out_path)
+    
+    lora_dir = os.path.join(rerender_a_video_dir, 'models')
+    if not os.path.isdir(lora_dir):
+        os.makedirs(lora_dir)
+    lora_path = ""
+    if rerender_a_video_prefs['dreambooth_lora'] == "Custom":
+        lora = rerender_a_video_prefs['custom_lora']
+        if lora.startswith("http"):
+            installer.status(f"...downloading Custom LoRA")
+            lora_file = download_file(lora_model['path'], to=lora_dir, ext="safetensors")
+            if os.path.isfile(lora_file):
+                lora_path = lora_file
+        else:
+            if os.path.isfile(lora):
+                fname = os.path.basename(lora)
+                lora_path = os.path.join(lora_dir, fname)
+                shutil.copy(lora, lora_path)
+    else:
+        for lora in animate_diff_loras:
+            if lora['name'] == rerender_a_video_prefs['dreambooth_lora']:
+                lora_model = lora
+                break
+        lora_path = os.path.join(lora_dir, lora_model['file'])
+        if not os.path.isfile(lora_path):
+            installer.status(f"...downloading {lora_model['name']}")
+            download_file(lora_model['path'], to=lora_dir, ext="safetensors")
+    sd_model = os.path.basename(lora_path)
+    random_seed = int(rerender_a_video_prefs['seed']) if int(rerender_a_video_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    clear_last()
+    progress = ProgressBar(bar_height=8)
+    prt(f"Generating your Rerender-a-Video...")
+    prt(progress)
+    autoscroll(False)
+    '''total_steps = rerender_a_video_prefs['steps']
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()'''
+    output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
+    config_json_file = os.path.join(rerender_a_video_dir, "config", "sdd_rerender.json")
+    config_json = {
+        "input": f"videos/{video_file}",
+        "output": f"videos/{rerender_a_video_prefs['batch_folder_name']}/{os.path.basename(output_file)}",
+        "work_dir": f"videos/{rerender_a_video_prefs['batch_folder_name']}",
+        "key_subdir": "keys",
+        "sd_model": f"models/{sd_model}", #realisticVisionV20_v20.safetensors",
+        "frame_count": rerender_a_video_prefs['frame_count'],
+        "interval": rerender_a_video_prefs['interval'],
+        "crop": [
+            rerender_a_video_prefs['crop']['left'],
+            rerender_a_video_prefs['crop']['right'],
+            rerender_a_video_prefs['crop']['top'],
+            rerender_a_video_prefs['crop']['bottom']
+        ],
+        "prompt": rerender_a_video_prefs['prompt'],
+        "a_prompt": rerender_a_video_prefs['a_prompt'],#"RAW photo, subject, (high detailed skin:1.2), 8k uhd, dslr, soft lighting, high quality, film grain, Fujifilm XT3",
+        "n_prompt": rerender_a_video_prefs['negative_prompt'],
+        "x0_strength": rerender_a_video_prefs['x0_strength'],
+        "control_type": rerender_a_video_prefs['control_task'] if rerender_a_video_prefs['control_task'] == "HED" else rerender_a_video_prefs['control_task'].lower(),
+        "canny_low": rerender_a_video_prefs['low_threshold'],
+        "canny_high": rerender_a_video_prefs['high_threshold'],
+        "control_strength": rerender_a_video_prefs['control_strength'],
+        "style_update_freq": rerender_a_video_prefs['style_update_freq'],
+        "loose_cfattn": rerender_a_video_prefs['loose_cfattn'],
+        "inner_strength": rerender_a_video_prefs['inner_strength'],
+        "smooth_boundary": rerender_a_video_prefs['smooth_boundary'],
+        "color_preserve": rerender_a_video_prefs['color_preserve'],
+        "loose_cfattn": rerender_a_video_prefs['loose_cfattn'],
+        "seed": random_seed,
+        "image_resolution": rerender_a_video_prefs['max_size'],
+        "warp_period": [
+            0,
+            0.1
+        ],
+        "ada_period": [
+            0.8,
+            1
+        ],
+    }
+    if rerender_a_video_prefs['enable_freeu']:
+        config_json['freeu_args'] = [rerender_a_video_prefs['freeu_args']['b1'], rerender_a_video_prefs['freeu_args']['b2'], rerender_a_video_prefs['freeu_args']['s1'], rerender_a_video_prefs['freeu_args']['s2']]
+    with open(config_json_file, "w") as outfile:
+        json.dump(config_json, outfile, indent=4)
+    #output_file = os.path.join(output_path, f"{fname}{'.mp4' if is_video else '.png'}")
+    cmd = f'python rerender.py --cfg config/sdd_rerender.json -{"nb" if rerender_a_video_prefs["first_frame"] else "nr"}'
+    w = 0
+    h = 0
+    img_idx = 0
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    class Handler(FileSystemEventHandler):
+      def __init__(self):
+        super().__init__()
+      def on_created(self, event):
+        nonlocal img_idx, w, h
+        if event.is_directory:
+          return None
+        elif event.event_type == 'created' and event.src_path.endswith("png"):
+          autoscroll(True)
+          if w == 0:
+            time.sleep(0.8)
+            try:
+              frame = PILImage.open(event.src_path)
+              w, h = frame.size
+              clear_last()
+            except Exception:
+              pass
+          clear_last()
+          if rerender_a_video_prefs['save_frames']:
+            fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+          else:
+            fpath = event.src_path
+          #prt(Divider(height=6, thickness=2))
+          prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
+          page.update()
+          prt(progress)
+          if rerender_a_video_prefs['save_frames']:
+            fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+            shutil.copy(event.src_path, fpath)
+          time.sleep(0.2)
+          autoscroll(False)
+          img_idx += 1
+        if event.event_type == 'created' and (event.src_path.endswith("mp4") or event.src_path.endswith("avi")):
+          autoscroll(True)
+          #clear_last()
+          prt(Divider(height=6, thickness=2))
+          fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+          time.sleep(1)
+          shutil.copy(event.src_path, fpath)
+          prt(f"Video saved to {fpath} from {event.src_path}")
+          #prt(Row([VideoContainer(event.src_path)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
+          page.update()
+          #prt(progress)
+          time.sleep(0.2)
+          autoscroll(False)
+    image_handler = Handler()
+    observer = Observer()
+    observer.schedule(image_handler, video_out_path, recursive=True)
+    observer.start()
+    prt(f"Running {cmd}")
+    prt(progress)
+    try:
+        #os.system(f'cd {rerender_a_video_dir};{cmd}')
+        #if is_Colab:
+        #  os.chdir(rerender_a_video_dir)
+        #  $cmd
+        #  os.chdir(root_dir)
+        #else:
+        #TODO: Parse output to get percent current for progress callback_fnc
+        run_sp(cmd, cwd=rerender_a_video_dir, realtime=True)
+    except Exception as e:
+        clear_last()
+        observer.stop()
+        alert_msg(page, "Error running rerender.py!", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    clear_last()
+    observer.stop()
+    #clear_last()
+    autoscroll(True)
+    #TODO: Upscale Image
+    if os.path.isfile(output_file):
+        prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
+        #prt(Row([VideoPlayer(video_file=output_file, width=width, height=height)], alignment=MainAxisAlignment.CENTER))
+    else:
+        prt("Error Generating Output File! Maybe NSFW Image detected?")
+    prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_materialdiffusion(page):
     global materialdiffusion_prefs, prefs
