@@ -944,7 +944,7 @@ if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
 if 'enable_tome' not in prefs: prefs['enable_tome'] = False
 if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
 if 'enable_freeu' not in prefs: prefs['enable_freeu'] = False
-if 'freeu_args' not in prefs: prefs['freeu_args'] = {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2},
+if 'freeu_args' not in prefs: prefs['freeu_args'] = {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2}
 if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
 if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
 if 'prompt_style' not in prefs: prefs['prompt_style'] = "cinematic-default"
@@ -7814,9 +7814,9 @@ def buildControlNet(page):
     vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_prefs['use_init_video'] else 0)
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_prefs, key='guidance_scale')
-    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='low_threshold')
-    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='high_threshold')
-    threshold = Container(Column([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" else 0
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_prefs['eta']}", weight=FontWeight.BOLD)
@@ -8078,9 +8078,9 @@ def buildControlNetXL(page):
 
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_xl_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_xl_prefs, key='guidance_scale')
-    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='low_threshold')
-    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='high_threshold')
-    threshold = Container(Column([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     threshold.height = None if controlnet_xl_prefs['control_task'] == "Canny Map Edge" else 0
     eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_xl_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_xl_prefs['eta']}", weight=FontWeight.BOLD)
@@ -8276,8 +8276,8 @@ def buildControlNet_Video2Video(page):
     vid_params = Container(content=Column([Row([start_time, end_time, duration])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=5))
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_video2video_prefs, key='steps', tooltip="Number of inference steps, depends on the scheduler, trades off speed for quality.")
     prompt_strength = SliderRow(label="Prompt Strength", min=0, max=30, divisions=60, round=1, pref=controlnet_video2video_prefs, key='prompt_strength', tooltip="How much influence the prompt has on the output. Guidance Scale.")
-    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_video2video_prefs, key='low_threshold', expand=True, col={'lg':6})
-    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_video2video_prefs, key='high_threshold', expand=True, col={'lg':6})
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_video2video_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_video2video_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
     canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     canny_threshold.height = None if controlnet_video2video_prefs['control_task'] == "Canny Map Edge" else 0
     mlsd_score_thr = SliderRow(label="MLSD Score Threshold", min=0.0, max=1.0, divisions=10, round=1, pref=controlnet_video2video_prefs, key='mlsd_score_thr', expand=True, col={'lg':6})
@@ -10170,6 +10170,16 @@ animate_diff_lora_layers = [
     {'name': 'HD Porn', 'file': 'hd_porn.safetensors', 'path': 'https://civitai.com/api/download/models/54388?type=Model&format=SafeTensor'},
     #{'name': '', 'file': '.safetensors', 'path': ''},
 ]
+animate_diff_motion_modules = [
+    {'name': 'mm_sd_v14', 'file': 'mm_sd_v14.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt'},
+    {'name': 'mm_sd_v15', 'file': 'mm_sd_v15.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt'},
+    {'name': 'mm_sd_v15_v2', 'file': 'mm_sd_v15_v2.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15_v2.ckpt'},
+    {'name': 'improved3DMotion', 'file': 'improved3DMotion_improved3DV1.ckpt', 'path': 'https://civitai.com/api/download/models/178017?type=Model&format=PickleTensor'},
+    {'name': 'TemporalDiff', 'file': 'temporaldiffMotion_v10.ckpt', 'path': 'https://civitai.com/api/download/models/160418?type=Model&format=PickleTensor'},
+    {'name': 'YoinkoorLab NSFW', 'file': 'yoinkoorlabsNSFWMotion_godmodev20.ckpt', 'path': 'https://civitai.com/api/download/models/177016?type=Model&format=PickleTensor'},
+    {'name': 'Improved Humans', 'file': 'improvedHumansMotion_refinedHumanMovement.ckpt', 'path': 'https://civitai.com/api/download/models/174464?type=Model&format=PickleTensor'},
+    {'name': 'ZlikwidDiff', 'file': 'zlikwiddiffV1_v10.ckpt', 'path': 'https://civitai.com/api/download/models/178745?type=Model&format=PickleTensor'},
+]
 animate_diff_motion_loras = [
     {'name': 'Zoom-In', 'file': 'v2_lora_ZoomOut.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_ZoomOut.ckpt'},
     {'name': 'Zoom-Out', 'file': 'v2_lora_ZoomIn.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_ZoomIn.ckpt'},
@@ -10538,13 +10548,15 @@ def buildAnimateDiff(page):
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
     scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=176, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
-    motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("improved3DMotion"), dropdown.Option("mm_sd_v15_v2"), dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=168, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
+    #motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("improved3DMotion"), dropdown.Option("mm_sd_v15_v2"), dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=176, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
+    motion_module = Dropdown(label="Motion Module", options=[], width=187, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
+    for mm in animate_diff_motion_modules:
+        motion_module.options.append(dropdown.Option(mm['name']))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
     custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora'], expand=True, visible=animate_diff_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
     for lora in animate_diff_loras:
         dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
-    
     lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=animate_diff_prefs['lora_layer'], on_change=changed_lora_layer)
     custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animate_diff_prefs['custom_lora_layer'], expand=True, visible=animate_diff_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
     for lora in animate_diff_lora_layers:
@@ -10552,12 +10564,10 @@ def buildAnimateDiff(page):
     lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
     lora_layer_map = Column([], spacing=0)
-
     motion_loras_checkboxes = ResponsiveRow(controls=[Text("Motion Module LoRAs:", col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1.5})], run_spacing=0, vertical_alignment=CrossAxisAlignment.CENTER)
     for m in animate_diff_motion_loras:
         motion_loras_checkboxes.controls.append(Checkbox(label=m['name'], data=m['name'], value=m['name'] in animate_diff_prefs['motion_loras'], on_change=changed_motion_lora, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1}))
     motion_loras_strength = SliderRow(label="Motion Module LoRA Strength", min=0, max=1, divisions=10, round=1, pref=animate_diff_prefs, key='motion_loras_strength', tooltip="The Weight of the custom Motion LoRA Module to influence camera.")
-
     save_frames = Switcher(label="Save Frames", value=animate_diff_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
     save_gif = Switcher(label="Save Animated GIF", value=animate_diff_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
     save_video = Switcher(label="Save Video", value=animate_diff_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
@@ -10782,8 +10792,8 @@ def buildRerender_a_video(page):
     frame_count = SliderRow(label="Frame Count", min=1, max=300, divisions=299, pref=rerender_a_video_prefs, key='frame_count', tooltip="The final output video will have K*M+1 frames with M+1 key frames.")
     style_update_freq = SliderRow(label="Style Update Frequency", min=1, max=100, divisions=99, pref=rerender_a_video_prefs, key='style_update_freq', tooltip="")
     prompt_strength = SliderRow(label="Prompt Strength", min=0, max=30, divisions=60, round=1, pref=rerender_a_video_prefs, key='prompt_strength', tooltip="How much influence the prompt has on the output. Guidance Scale.")
-    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=rerender_a_video_prefs, key='low_threshold', expand=True, col={'lg':6})
-    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=rerender_a_video_prefs, key='high_threshold', expand=True, col={'lg':6})
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=rerender_a_video_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=rerender_a_video_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
     canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     canny_threshold.height = None if rerender_a_video_prefs['control_task'] == "Canny" else 0
     crop_left = SliderRow(label="Crop Left", min=0, max=512, divisions=512, suffix="px", pref=rerender_a_video_prefs['crop'], key='left', expand=True, col={'lg':6}, tooltip="")
@@ -10804,7 +10814,7 @@ def buildRerender_a_video(page):
     for lora in animate_diff_loras:
       dreambooth_lora.options.insert(1, dropdown.Option(lora['name']))
     custom_lora = TextField(label="Custom LoRA Safetensor (URL or Path)", value=rerender_a_video_prefs['custom_lora'], expand=True, visible=rerender_a_video_prefs['dreambooth_lora']=="Custom", on_change=lambda e:changed(e,'custom_lora'))
-    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=rerender_a_video_prefs, key='max_size')
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=48, multiple=16, suffix="px", pref=rerender_a_video_prefs, key='max_size')
     smooth_boundary = Switcher(label="Smooth Boundary", value=rerender_a_video_prefs['smooth_boundary'], tooltip="Prevents artifacts at fusion boundaries.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'smooth_boundary'))
     color_preserve = Switcher(label="Color Preserve", value=rerender_a_video_prefs['color_preserve'], tooltip="Keep the color of the input video", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'color_preserve'))
     loose_cfattn = Switcher(label="Loose Cross-Frame Attention", value=rerender_a_video_prefs['loose_cfattn'], tooltip="Results will better match the input video, thus reducing ghosting artifacts caused by inconsistencies.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'loose_cfattn'))
@@ -33127,15 +33137,6 @@ def run_animate_diff(page):
     autoscroll(True)
     installer = Installing("Installing AnimateDiff Requirements...")
     prt(installer)
-    animatediff_dir = os.path.join(root_dir, 'animatediff-cli-prompt-travel')
-    if 'installed_animate_diff' not in status:#not os.path.exists(animatediff_dir) or force_updates:
-        installer.status("...clone s9roll7/animatediff")
-        run_sp("git clone https://github.com/s9roll7/animatediff-cli-prompt-travel", realtime=False, cwd=root_dir)
-        #run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
-        installer.status("...install animatediff")
-        run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
-        status['installed_animate_diff'] = True
-    os.chdir(animatediff_dir)
     try:
         import diffusers
     except ModuleNotFoundError:
@@ -33149,6 +33150,16 @@ def run_animate_diff(page):
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
     pip_install("omegaconf einops cmake colorama rich ninja copier==8.1.0 pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib watchdog imageio==2.27.0", installer=installer)
+
+    animatediff_dir = os.path.join(root_dir, 'animatediff-cli-prompt-travel')
+    if 'installed_animate_diff' not in status:#not os.path.exists(animatediff_dir) or force_updates:
+        installer.status("...clone s9roll7/animatediff")
+        run_sp("git clone https://github.com/s9roll7/animatediff-cli-prompt-travel", realtime=False, cwd=root_dir)
+        #run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
+        installer.status("...install animatediff-prompt-travel")
+        run_sp("git lfs install", cwd=animatediff_dir, realtime=False)
+        status['installed_animate_diff'] = True
+    os.chdir(animatediff_dir)
     #if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
     try:
         import xformers
@@ -33240,22 +33251,13 @@ def run_animate_diff(page):
         shutil.rmtree(sd_models)
     installer.status("...downloading stable-diffusion-v1-5")
     run_sp(f"git clone -b fp16 https://huggingface.co/runwayml/stable-diffusion-v1-5 {sd_models}", realtime=False, cwd=root_dir)
-    if animate_diff_prefs['motion_module'] == 'mm_sd_v14':
-        installer.status("...downloading motion_module-v1-4")
-        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt", to=motion_module)
-        mm_ckpt = "mm_sd_v14.ckpt"
-    if animate_diff_prefs['motion_module'] == 'mm_sd_v15':
-        installer.status("...downloading motion_module-v1-5")
-        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt", to=motion_module)
-        mm_ckpt = "mm_sd_v15.ckpt"
-    if animate_diff_prefs['motion_module'] == 'mm_sd_v15_v2':
-        installer.status("...downloading motion_module-v1-5 v2")
-        download_file("https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15_v2.ckpt", to=motion_module)
-        mm_ckpt = "mm_sd_v15_v2.ckpt"
-    if animate_diff_prefs['motion_module'] == 'improved3DMotion':
-        installer.status("...downloading Improved 3D Motion Module")
-        download_file("https://civitai.com/api/download/models/178017?type=Model&format=PickleTensor", to=motion_module, filename="improved3DMotion_improved3DV1.ckpt")
-        mm_ckpt = "improved3DMotion_improved3DV1.ckpt"
+    mm_model = [mm for mm in animate_diff_motion_modules if mm['name'] == animate_diff_prefs['motion_module']][0]
+    mm_path = os.path.join(motion_module, mm_model['file'])
+    mm_ckpt = mm_model['file']
+    if not os.path.isfile(mm_path):
+        installer.status(f"...downloading {mm_model['name']} Motion Module")
+        download_file(mm_model['path'], to=motion_module, filename=mm_model['file'])
+
     #sd_models = "runwayml/stable-diffusion-v1-5"
     lora_model = {'name': 'None', 'file': '', 'path': '', 'weights': None}
     lora_dir = os.path.join(animatediff_dir, 'data', 'models', 'sd')
@@ -33821,7 +33823,7 @@ def run_animate_diff(page):
             super().__init__()
           def on_created(self, event):
             nonlocal w, h, output_dir
-            if event.event_type == 'created' and (event.src_path.endswith("mp4") or event.src_path.endswith("avi")):
+            if event.event_type == 'created' and (event.src_path.endswith("mp4") or event.src_path.endswith("avi") or event.src_path.endswith("webm")):
               autoscroll(True)
               #clear_last()
               prt(Divider(height=6, thickness=2))
@@ -33988,8 +33990,8 @@ def run_rerender_a_video(page):
         installer.status("...installing controlnet-aux")
         run_sp("pip install -q controlnet-aux", realtime=False)
         pass'''
-    import logging
-    logging.set_verbosity_error()
+    #import logging
+    #logging.set_verbosity_error()
     clear_pipes()
 
     from PIL import ImageOps
@@ -34052,12 +34054,8 @@ def run_rerender_a_video(page):
             installer.status(f"...downloading {lora_model['name']}")
             download_file(lora_model['path'], to=lora_dir, ext="safetensors")
     sd_model = os.path.basename(lora_path)
+    installer.status("...preparing json")
     random_seed = int(rerender_a_video_prefs['seed']) if int(rerender_a_video_prefs['seed']) > 0 else rnd.randint(0,4294967295)
-    clear_last()
-    progress = ProgressBar(bar_height=8)
-    prt(f"Generating your Rerender-a-Video...")
-    prt(progress)
-    autoscroll(False)
     '''total_steps = rerender_a_video_prefs['steps']
     def callback_fnc(step: int) -> None:
       callback_fnc.has_been_called = True
@@ -34090,7 +34088,7 @@ def run_rerender_a_video(page):
         "control_type": rerender_a_video_prefs['control_task'] if rerender_a_video_prefs['control_task'] == "HED" else rerender_a_video_prefs['control_task'].lower(),
         "canny_low": rerender_a_video_prefs['low_threshold'],
         "canny_high": rerender_a_video_prefs['high_threshold'],
-        "control_strength": rerender_a_video_prefs['control_strength'],
+        "control_strength": rerender_a_video_prefs['controlnet_strength'],
         "style_update_freq": rerender_a_video_prefs['style_update_freq'],
         "loose_cfattn": rerender_a_video_prefs['loose_cfattn'],
         "inner_strength": rerender_a_video_prefs['inner_strength'],
@@ -34099,20 +34097,21 @@ def run_rerender_a_video(page):
         "loose_cfattn": rerender_a_video_prefs['loose_cfattn'],
         "seed": random_seed,
         "image_resolution": rerender_a_video_prefs['max_size'],
-        "warp_period": [
-            0,
-            0.1
-        ],
-        "ada_period": [
-            0.8,
-            1
-        ],
+        "warp_period": [0, 0.1],
+        "ada_period": [0.8, 1],
     }
     if rerender_a_video_prefs['enable_freeu']:
         config_json['freeu_args'] = [rerender_a_video_prefs['freeu_args']['b1'], rerender_a_video_prefs['freeu_args']['b2'], rerender_a_video_prefs['freeu_args']['s1'], rerender_a_video_prefs['freeu_args']['s2']]
     with open(config_json_file, "w") as outfile:
         json.dump(config_json, outfile, indent=4)
     #output_file = os.path.join(output_path, f"{fname}{'.mp4' if is_video else '.png'}")
+    if not os.path.exists(config_json_file):
+        print(f"Error creating json file {config_json_file}")
+    clear_last()
+    progress = ProgressBar(bar_height=8)
+    prt(f"Generating your Rerender-a-Video...")
+    prt(progress)
+    autoscroll(False)
     cmd = f'python rerender.py --cfg config/sdd_rerender.json -{"nb" if rerender_a_video_prefs["first_frame"] else "nr"}'
     w = 0
     h = 0
@@ -34194,7 +34193,8 @@ def run_rerender_a_video(page):
     autoscroll(True)
     #TODO: Upscale Image
     if os.path.isfile(output_file):
-        prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
+        prt(f"Saved video to {output_file}")
+        #prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
         #prt(Row([VideoPlayer(video_file=output_file, width=width, height=height)], alignment=MainAxisAlignment.CENTER))
     else:
         prt("Error Generating Output File! Maybe NSFW Image detected?")
@@ -37614,8 +37614,9 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     except ModuleNotFoundError:
         if installer != None:
             installer.status("...installing frame-interpolation requirements")
-        run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
+        #run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
         #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False)
+        pip_install("tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image apache-beam==2.34.0 google-cloud-bigquery-storage==1.1.0 natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
     try:
         import gdown
     except ModuleNotFoundError:
