@@ -265,6 +265,7 @@ def load_settings_file():
       'HuggingFace_username': "",
       'scheduler_mode': "DDIM",
       'higher_vram_mode': False,
+      'enable_xformers': False,
       'enable_attention_slicing': True,
       'memory_optimization': "None",
       'sequential_cpu_offload': False,
@@ -872,6 +873,8 @@ if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = Fals
 if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
 if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
 if 'memory_optimization' not in prefs: prefs['memory_optimization'] = 'None'
+if 'enable_xformers' not in prefs: prefs['enable_xformers'] = False
+if 'enable_attention_slicing' not in prefs: prefs['enable_attention_slicing'] = True
 if 'sequential_cpu_offload' not in prefs: prefs['sequential_cpu_offload'] = False
 if 'vae_slicing' not in prefs: prefs['vae_slicing'] = True
 if 'vae_tiling' not in prefs: prefs['vae_tiling'] = False
@@ -1351,9 +1354,14 @@ def buildInstallers(page):
   SDXL_custom_model = TextField(label="Custom Model Path", value=prefs['SDXL_custom_model'], width=370, expand=True, visible=prefs['SDXL_model']=='Custom Model', on_change=lambda e:changed(e,'SDXL_custom_model'), col={'xs':3, 'md':8})
   SDXL_model_row = Row([SDXL_model, SDXL_custom_model, model_card_SDXL], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
 
+  enable_xformers = Checkbox(label="Enable Xformers Mem Efficient Attention", tooltip="If using Torch < 2, speeds up diffusion process.", value=prefs['enable_xformers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_xformers'))
   memory_optimization = Dropdown(label="Enable Memory Optimization", width=290, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   if version.parse(torch.__version__) < version.parse("2.0.0"):
       memory_optimization.options.append(dropdown.Option("Xformers Mem Efficient Attention"))
+      enable_xformers.visible = True
+  else:
+      enable_xformers.visible = False
+      prefs['enable_xformers'] = False
   higher_vram_mode = Checkbox(label="Higher VRAM Mode", tooltip="Adds a bit more precision & uses much more GPU memory. Not recommended unless you have >16GB VRAM.", value=prefs['higher_vram_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'higher_vram_mode'))
   sequential_cpu_offload = Checkbox(label="Enable Sequential CPU Offload", tooltip="Offloads all models to CPU using accelerate, significantly reducing memory usage.", value=prefs['sequential_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'sequential_cpu_offload'))
   enable_attention_slicing = Checkbox(label="Enable Attention Slicing", tooltip="Saves VRAM while creating images so you can go bigger without running out of mem.", value=prefs['enable_attention_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_attention_slicing'))
@@ -1447,7 +1455,7 @@ def buildInstallers(page):
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
                                  Column([Container(Column([Container(None, height=3), model_row, SDXL_model_row,
                                 Container(content=None, height=4), Row([scheduler_mode, scheduler_help_btn]),
-                                 Row([memory_optimization,
+                                 Row([enable_attention_slicing, enable_xformers,#memory_optimization,
                                  higher_vram_mode]),
                                  #  enable_vae_slicing
                                  #enable_attention_slicing,
@@ -5159,7 +5167,7 @@ def buildZoeDepth(page):
           Text("ZoeDepth is a deep learning model for metric depth estimation from a single image."),
           Text("Give it any of your favorite images and create a 3D glb file from the depth map to import into your 3D Modeling program with texture.... Simple as that, no prompt needed."),
           Markdown("[Paper](https://arxiv.org/abs/2302.12288) | [GitHub](https://github.com/isl-org/ZoeDepth) | [HuggingFace Space](https://huggingface.co/spaces/shariqfarooq/ZoeDepth)", on_tap_link=lambda e: e.page.launch_url(e.data)),
-        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧊  Depths we go... ", on_click=close_zoe_depth_dlg)], actions_alignment=MainAxisAlignment.END)
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧊  The depths we go... ", on_click=close_zoe_depth_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = zoe_depth_help_dlg
       zoe_depth_help_dlg.open = True
       page.update()
@@ -15643,7 +15651,7 @@ def get_diffusers(page):
             run_process("pip install torch torchaudio torchvision torchtext torchdata", page=page)
         else: #TODO: Check OS and run platform specific
             run_process("pip install torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu118", page=page)
-    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    if prefs['enable_xformers']:#prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
         try:
             import xformers
             if force_updates: raise ModuleNotFoundError("Forcing update")
@@ -16093,16 +16101,17 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
     global prefs, status
     if model_offload:
       p.enable_model_cpu_offload()
-    if prefs['memory_optimization'] == 'Attention Slicing':
+    #if prefs['memory_optimization'] == 'Attention Slicing':
+    if prefs['enable_attention_slicing']:
       #if not model['name'].startswith('Stable Diffusion v2'): #TEMP hack until it updates my git with fix
       if prefs['sequential_cpu_offload'] and not no_cpu:
         p.enable_attention_slicing(1)
       else:
-        p.enable_attention_slicing()
-    elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention' and status['installed_xformers']:
+        p.enable_attention_slicing()#prefs['memory_optimization'] == 'Xformers Mem Efficient Attention'
+    elif prefs['enable_xformers'] and status['installed_xformers']:
       #p.set_use_memory_efficient_attention_xformers(True)
       p.enable_xformers_memory_efficient_attention()
-    elif prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
+    elif prefs['enable_xformers']:
       p.enable_attention_slicing()
     if prefs['vae_slicing'] and vae:
       p.enable_vae_slicing()
@@ -16150,7 +16159,7 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
     elif prefs['sequential_cpu_offload'] and not no_cpu:
       p.enable_sequential_cpu_offload()
       to_gpu = False
-    if prefs['memory_optimization'] == 'Xformers Mem Efficient Attention' and status['installed_xformers']:
+    if prefs['enable_xformers'] and status['installed_xformers']:
       #p.set_use_memory_efficient_attention_xformers(True)
       p.enable_xformers_memory_efficient_attention()
     if prefs['vae_slicing'] and vae:
@@ -16465,14 +16474,13 @@ def get_img2img_pipe():
       custom_pipeline="img2img_inpainting",
       #scheduler=model_scheduler(inpaint_model),
       cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-      revision="fp16",
       use_safetensors=True, variant="fp16",
       torch_dtype=torch.float16,
       **safety)
   #pipe_img2img.to(torch_device)
   #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
   pipe_img2img = pipeline_scheduler(pipe_img2img)
-  pipe_img2img = optimize_pipe(pipe_img2img, vae=True, freeu=False)
+  pipe_img2img = optimize_pipe(pipe_img2img, vae=True)
   pipe_img2img.set_progress_bar_config(disable=True)
   #def dummy(images, **kwargs): return images, False
   #pipe_img2img.safety_checker = dummy
@@ -16996,7 +17004,7 @@ def get_upscale_pipe():
     )
   #pipe_upscale.to(torch_device)
   pipe_upscale = pipeline_scheduler(pipe_upscale, big3=True)
-  pipe_upscale = optimize_pipe(pipe_upscale, freeu=False)
+  pipe_upscale = optimize_pipe(pipe_upscale)
   pipe_upscale.set_progress_bar_config(disable=True)
   return pipe_upscale
 
@@ -17227,7 +17235,7 @@ def get_alt_diffusion_img2img_pipe():
       )
     #pipe_alt_diffusion_img2img.to(torch_device)
     pipe_alt_diffusion_img2im = pipeline_scheduler(pipe_alt_diffusion_img2im)
-    pipe_alt_diffusion_img2img = optimize_pipe(pipe_alt_diffusion_img2img, freeu=False)
+    pipe_alt_diffusion_img2img = optimize_pipe(pipe_alt_diffusion_img2img)
     pipe_alt_diffusion_img2img.set_progress_bar_config(disable=True)
     return pipe_alt_diffusion_img2img
 
@@ -20850,7 +20858,7 @@ def run_image_variation(page):
         pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_image_variation.to(torch_device)
         pipe_image_variation = pipeline_scheduler(pipe_image_variation)
-        pipe_image_variation = optimize_pipe(pipe_image_variation, freeu=False)
+        pipe_image_variation = optimize_pipe(pipe_image_variation)
         #pipe_image_variation.set_progress_bar_config(disable=True)
         clear_last()
     s = "s" if image_variation_prefs['num_images'] > 1 else ""
@@ -21711,7 +21719,7 @@ def run_controlnet_qr(page, from_list=False):
             pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16)
             pipe_controlnet_qr = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(sd_model, controlnet=pipe_controlnet, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
-            pipe_controlnet_qr = optimize_pipe(pipe_controlnet_qr, freeu=False)
+            pipe_controlnet_qr = optimize_pipe(pipe_controlnet_qr)
             pipe_controlnet_qr.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
@@ -21983,7 +21991,7 @@ def run_controlnet_segment(page, from_list=False):
             installer.status(f"...SD Model {model_name}")
             pipe_controlnet_segment = StableDiffusionControlNetPipeline.from_pretrained(model, controlnet=pipe_controlnet, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             pipe_controlnet_segment = pipeline_scheduler(pipe_controlnet_segment)
-            pipe_controlnet_segment = optimize_pipe(pipe_controlnet_segment, freeu=False)
+            pipe_controlnet_segment = optimize_pipe(pipe_controlnet_segment)
             pipe_controlnet_segment.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
@@ -29022,7 +29030,7 @@ def run_instruct_pix2pix(page, from_list=False):
       else:
         from diffusers import StableDiffusionInstructPix2PixPipeline
         pipe_instruct_pix2pix = StableDiffusionInstructPix2PixPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
-        pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix, freeu=False)
+        pipe_instruct_pix2pix = optimize_pipe(pipe_instruct_pix2pix)
         #pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
         status['loaded_instructpix2pix'] = model_id
     pipeline_scheduler(pipe_instruct_pix2pix)
@@ -29600,7 +29608,7 @@ def run_controlnet(page, from_list=False):
         #TODO: pipe_controlnet = StableDiffusionXLControlNetPipeline
         pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
-        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True, freeu=False)
+        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_prefs["control_task"]
     #else:
         #pipe_controlnet.controlnet=controlnet
@@ -31469,8 +31477,8 @@ def run_text_to_video(page):
         pipe_text_to_video = TextToVideoSDPipeline.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_text_to_video = pipeline_scheduler(pipe_text_to_video)
         pipe_text_to_video.scheduler = DPMSolverMultistepScheduler.from_config(pipe_text_to_video.scheduler.config)
-        if prefs['enable_freev']:
-            pipe_text_to_video.enable_freev(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
+        if prefs['enable_freeu']:
+            pipe_text_to_video.enable_freeu(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
         if text_to_video_prefs['lower_memory']:
             pipe_text_to_video.enable_sequential_cpu_offload()
             #pipe_text_to_video.enable_model_cpu_offload()
@@ -31654,8 +31662,8 @@ def run_text_to_video_zero(page):
         from diffusers import TextToVideoZeroPipeline, DPMSolverMultistepScheduler
         pipe_text_to_video_zero = TextToVideoZeroPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
-        if prefs['enable_freev']:
-            pipe_text_to_video_zero.enable_freev(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
+        if prefs['enable_freeu']:
+            pipe_text_to_video_zero.enable_freeu(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
         pipe_text_to_video_zero.scheduler = DPMSolverMultistepScheduler.from_config(pipe_text_to_video_zero.scheduler.config)
         pipe_text_to_video_zero = pipe_text_to_video_zero.to(torch_device)
         #pipe_text_to_video_zero = optimize_pipe(pipe_text_to_video_zero, vae_tiling=True, vae=True, to_gpu=False)
@@ -33976,8 +33984,8 @@ def run_rerender_a_video(page):
             installer.status("...cloning williamyang1991/Rerender_A_Video")
             run_sp("git clone https://github.com/williamyang1991/Rerender_A_Video.git --recursive", cwd=root_dir, realtime=False)
             installer.status("...installing Rerender_A_Video requirements")
-            #run_sp("pip install -r requirements.txt", realtime=True)
-            pip_install("addict==2.4.0 albumentations==1.3.0 basicsr==1.4.2 blendmodes einops gradio imageio imageio-ffmpeg invisible-watermark kornia==0.6 numba omegaconf open_clip_torch prettytable==3.6.0 pytorch-lightning==1.5.0 safetensors streamlit==1.12.1 streamlit-drawable-canvas==0.8.0 test-tube==0.7.5 timm torchmetrics transformers webdataset yapf==0.32.0 watchdog", installer=installer, upgrade=True)
+            #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
+            pip_install("addict==2.4.0 albumentations==1.3.0 basicsr==1.4.2 blendmodes einops gradio imageio imageio-ffmpeg invisible-watermark kornia==0.6 numba omegaconf open_clip_torch prettytable==3.6.0 pytorch-lightning safetensors streamlit==1.12.1 streamlit-drawable-canvas==0.8.0 test-tube==0.7.5 timm torchmetrics transformers webdataset yapf==0.32.0 watchdog", installer=installer, upgrade=True)
             installer.status("...downloading SD models")
             run_sp("python install.py", cwd=rerender_a_video_dir, realtime=True)
         except Exception as e:
@@ -34151,7 +34159,7 @@ def run_rerender_a_video(page):
           time.sleep(0.2)
           autoscroll(False)
           img_idx += 1
-        if event.event_type == 'created' and (event.src_path.endswith("mp4") or event.src_path.endswith("avi")):
+        elif event.event_type == 'created' and (event.src_path.endswith("mp4") or event.src_path.endswith("avi")):
           autoscroll(True)
           #clear_last()
           prt(Divider(height=6, thickness=2))
@@ -34163,7 +34171,7 @@ def run_rerender_a_video(page):
           #prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
-          page.update()
+          #page.update()Image
           #prt(progress)
           time.sleep(0.2)
           autoscroll(False)
@@ -34171,8 +34179,8 @@ def run_rerender_a_video(page):
     observer = Observer()
     observer.schedule(image_handler, video_out_path, recursive=True)
     observer.start()
-    prt(f"Running {cmd}")
-    prt(progress)
+    #prt(f"Running {cmd}")
+    #prt(progress)
     try:
         #os.system(f'cd {rerender_a_video_dir};{cmd}')
         #if is_Colab:
@@ -34187,7 +34195,7 @@ def run_rerender_a_video(page):
         observer.stop()
         alert_msg(page, "Error running rerender.py!", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
         return
-    clear_last()
+    #clear_last()
     observer.stop()
     #clear_last()
     autoscroll(True)
@@ -34197,7 +34205,7 @@ def run_rerender_a_video(page):
         #prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
         #prt(Row([VideoPlayer(video_file=output_file, width=width, height=height)], alignment=MainAxisAlignment.CENTER))
     else:
-        prt("Error Generating Output File! Maybe NSFW Image detected?")
+        prt("Error Generating Output File! Maybe NSFW Image detected or Out of Memory?")
     prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
