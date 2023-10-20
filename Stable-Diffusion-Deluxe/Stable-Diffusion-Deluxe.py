@@ -497,6 +497,7 @@ status = {
     'loaded_controlnet': '',
     'loaded_controlnet_type': '',
     'loaded_SDXL': '',
+    'loaded_SDXL_model': '',
     'changed_settings': False,
     'changed_installers': False,
     'changed_parameters': False,
@@ -1286,7 +1287,7 @@ def buildInstallers(page):
       except Exception:
           pass
   def scheduler_help(e):
-      alert_msg(page, "🎰   Sampler/Scheduler Modes Info", content=[Text("It's difficult to explain the visible difference each scheduler will make on your diffusion, and we can't say which is better for what. The variations are subtle, and there's a lot of complex random math going on, so it depends on your personal taste and prompts."),
+      alert_msg(page, "🎰   Sampler/Scheduler Modes Info", content=[Text("It's difficult to explain the visible difference each scheduler will make on your diffusion, and we can't really say which is better for what. The variations are subtle, and there's a lot of complex random math going on, so it depends on your personal taste, style and prompts."),
         Text("All the samplers are different algorithms for numerically approximating solutions to differential equations (DEs). In SD's case this is a high-dimensional differential equation that determines how the initial noise must be diffused (spread around the image) to produce a result image that minimizes a loss function (essentially the distance to a hypothetical 'perfect' match to the initial noise, but with additional push applied by the prompt). This incredibly complex differential equation is basically what's encoded in the billion+ floating-point numbers that make up a Stable Diffusion model."),
         Text("A sampler essentially works by taking the given number of steps, sampling the latent space on each step to compute the local gradient (slope), to figure out which direction the next step should be taken in. Like a ball rolling down a hill, the sampler tries to get as low as possible in terms of minimizing the loss function. But what locally looks like the fastest route may not actually net you an optimal solution – you may get stuck in a local optimum (a valley) and sometimes you have to first go up to find a better route down."),
         Markdown("""* **DDIM -** Denoising Diffusion Implicit Models is one of the first samplers for solving diffusion models. The image direction is approximated by the noise estimated by the noise predictor. It adds an _ETA_ parameter to set the amount of starting noise.
@@ -1308,7 +1309,7 @@ def buildInstallers(page):
 * **Karras-LMS -** Linear Multi-Step Method is a standard method for solving ordinary differential equations. It aims at improving accuracy by clever use of the values of the previous time steps.
 
 [Diffusers Scheduler Overview](https://github.com/huggingface/diffusers/blob/main/docs/source/en/api/schedulers/overview.md) | [Stable Diffusion Samplers: A Comprehensive Guide](https://stable-diffusion-art.com/samplers/) | [Sampler Differences Explained](https://www.reddit.com/r/StableDiffusion/comments/zgu6wd/comment/izkhkxc/)""", on_tap_link=lambda e: e.page.launch_url(e.data))
-      ], okay="🥴  Hard to Say...", sound=False, wide=True)
+      ], okay="🥴  Hard to Pick...", sound=False, wide=True)
   scheduler_help_btn = IconButton(icons.HELP_OUTLINE, tooltip="Help with Sampler/Scheduler Modes", on_click=scheduler_help)
   def toggle_safe(e):
       changed(e, 'install_safe')
@@ -1455,9 +1456,9 @@ def buildInstallers(page):
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
                                  Column([Container(Column([Container(None, height=3), model_row, SDXL_model_row,
                                 Container(content=None, height=4), Row([scheduler_mode, scheduler_help_btn]),
-                                 Row([enable_attention_slicing, enable_xformers,#memory_optimization,
-                                 higher_vram_mode]),
-                                 #  enable_vae_slicing
+                                 Row([enable_attention_slicing, higher_vram_mode, enable_xformers,#memory_optimization,
+                                      ]),
+                                 Row([enable_vae_slicing, enable_vae_tiling]),
                                  #enable_attention_slicing,
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
                                  Row([enable_freeu, enable_tome, enable_torch_compile]),
@@ -16149,7 +16150,7 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
     status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
 
-def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False, freeu=True):
+def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False, freeu=True, tome=True):
     global prefs, status
     low_ram = int(status['cpu_memory']) <= 12
     to_gpu = True
@@ -16178,9 +16179,18 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
     #if to_gpu and not (prefs['enable_torch_compile'] and torch_compile) and not model_offload:
     if prefs['enable_freeu'] and freeu:
       p.enable_freeu(s1=0.6, s2=0.4, b1=1.1, b2=1.2)#**prefs['freeu_args'])
+      #s1=0.9, s2=0.2, b1=1.2, b2=1.4
     if prefs['enable_torch_compile'] and torch_compile:
       #p.unet.to(memory_format=torch.channels_last)
       p.unet = torch.compile(p.unet, mode="reduce-overhead", fullgraph=True)
+    if prefs['enable_tome'] and tome:
+      try:
+        import tomesd
+      except Exception:
+        run_sp("pip install tomesd", realtime=False)
+        import tomesd
+        pass
+      tomesd.apply_patch(p, ratio=prefs['tome_ratio'])
     if to_gpu:
       p = p.to(torch_device)
     p = pipeline_scheduler(p)
@@ -16288,7 +16298,7 @@ def get_lpw_pipe():
     else:
       return pipe
   if 'revision' in model:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, **safety)
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, variant=model['revision'], torch_dtype=torch.float16, **safety)
   else:
     if 'vae' in model:
       from diffusers import AutoencoderKL, UNet2DConditionModel
@@ -16303,7 +16313,7 @@ def get_lpw_pipe():
     #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
-  pipe = pipeline_scheduler(pipe)
+  #pipe = pipeline_scheduler(pipe)
   pipe = optimize_pipe(pipe, vae=True)
   pipe.set_progress_bar_config(disable=True)
   return pipe
@@ -16342,7 +16352,7 @@ def get_compel_pipe():
     else:
       return pipe
   if 'revision' in model:
-    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16, **safety)
+    pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, variant=model['revision'], torch_dtype=torch.float16, **safety)
   else:
     if 'vae' in model:
       from diffusers import AutoencoderKL, UNet2DConditionModel
@@ -16557,9 +16567,11 @@ def get_SDXL(page):
       pipe_SDXL = get_SDXL_pipe()
       return True
     except Exception as er:
+      SDXL_model = get_SDXL_model(prefs['SDXL_model'])
+      model_id = SDXL_model['path']
       model_url = f"https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0"
       alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace Stable Diffusion XL Model Card to use Checkpoint',
-                content=Markdown(f'[{model_url}]({model_url})<br>{er}', on_tap_link=open_url))
+                content=Markdown(f'[{model_id}]({model_url})</br>{er}</br>{traceback.format_exc()}', on_tap_link=open_url))
       return False
 
 def get_SDXL_pipe(task="text2image"):
@@ -16611,7 +16623,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False)
 
   elif task == "image2image":
       status['loaded_SDXL'] = task
@@ -16637,7 +16649,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False)
 
   elif task == "inpainting":
       status['loaded_SDXL'] = task
@@ -16669,7 +16681,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False)
   if prefs['SDXL_compel']:
       from compel import Compel, ReturnedEmbeddingsType
       compel_base = Compel(tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2], text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
@@ -18931,6 +18943,7 @@ def start_diffusion(page):
                 page.update()'''
               total_steps = arg['steps']
               prt(pb)
+              nudge(page.imageColumn)
               page.auto_scrolling(False)
               if prefs['use_composable'] and status['installed_composable']:
                 weights = arg['negative_prompt'] #" 1 | 1"  # Equal weight to each prompt. Can be negative
@@ -37602,6 +37615,13 @@ def elapsed(start_time):
     end_time = time.time()
     return f"{end_time-start_time:.0f}s"
 
+def nudge(column):
+    ''' Force an autoscroll column to go down. Mainly to show ProgressBar not scrolling to bottom.'''
+    column.controls.append(Container(content=None))
+    column.update()
+    del column.controls[-1]
+    column.update()
+    
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
