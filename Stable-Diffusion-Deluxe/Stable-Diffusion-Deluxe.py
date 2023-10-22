@@ -771,8 +771,8 @@ def buildVideoAIs(page):
 
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
-            Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="AnimateDiff", content=page.AnimateDiff, icon=icons.AUTO_MODE),
+            Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
@@ -2112,7 +2112,7 @@ def buildParameters(page):
   custom_SDXL_LoRA_model = TextField(label="Custom SDXL LoRA Model Path", value=prefs['custom_SDXL_LoRA_model'], width=370, on_change=lambda e:changed(e, 'custom_SDXL_LoRA_model', apply=False))
   custom_SDXL_LoRA_model.visible = True if prefs['SDXL_LoRA_model'] == "Custom SDXL LoRA Path" else False
 
-  LoRA_block = Container(Row([page.LoRA_model, custom_LoRA_model, page.SDXL_LoRA_model, custom_SDXL_LoRA_model]), padding=padding.only(top=3), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  LoRA_block = Container(Row([page.LoRA_model, custom_LoRA_model, page.SDXL_LoRA_model, custom_SDXL_LoRA_model]), padding=padding.only(top=6), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   LoRA_block.width = None if prefs['use_LoRA_model'] else 0
   centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
   use_interpolation = Switcher(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
@@ -7694,6 +7694,7 @@ def buildControlNet(page):
           Text("LineArt - An image with line art, usually black lines on a white background."),
           Text("Shuffle - An image with shuffled patches or regions."),
           Text("Brightness - An image based on brightness of init."),
+          Text("Mediapipe Face - An image based on face position & expression."),
           Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Too much control... ", on_click=close_controlnet_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = controlnet_help_dlg
@@ -7807,7 +7808,7 @@ def buildControlNet(page):
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Mediapipe Face"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
@@ -10136,6 +10137,8 @@ animate_diff_prefs = {
     'ip_adapter_scale': 0.5,
     'ip_adapter_is_plus': True,
     'ip_adapter_is_plus_face': False,
+    'ip_adapter_light': False,
+    'is_simple_composite': False,
     'motion_loras': [],
     'motion_loras_strength': 0.5,
     'num_images': 1,
@@ -10581,7 +10584,8 @@ def buildAnimateDiff(page):
     save_gif = Switcher(label="Save Animated GIF", value=animate_diff_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
     save_video = Switcher(label="Save Video", value=animate_diff_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
     is_loop = Switcher(label="Loop", value=animate_diff_prefs['is_loop'], on_change=lambda e:changed(e,'is_loop'))
-    control_task = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
+    is_simple_composite = Switcher(label="Simple Composite", value=animate_diff_prefs['is_simple_composite'], on_change=lambda e:changed(e,'is_simple_composite'))
+    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile", "QR_Code_Monster_v1", "QR_Code_Monster_v2", "Mediapipe_Face"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
     original_image = FileInput(label="Original Image or Video Clip", pref=animate_diff_prefs, key='original_image', ftype="picture", expand=True, page=page)
     control_frame = TextField(label="Frame", width=76, value="0", keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'control_frame', ptype='int'))
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
@@ -10589,7 +10593,7 @@ def buildAnimateDiff(page):
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
     ref_image = FileInput(label="Reference Image (optional)", pref=animate_diff_prefs, key='ref_image', page=page)
-    control_scale_list  = TextField(label="Control Scale List", width=236, value=animate_diff_prefs['control_scale_list'], on_change=lambda e:changed(e,'control_scale_list'))
+    control_scale_list  = TextField(label="Control Scale List", width=250, value=animate_diff_prefs['control_scale_list'], on_change=lambda e:changed(e,'control_scale_list'))
     #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNetXL Layer", on_click=add_layer)
     add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
     multi_layers = Column([], spacing=0)
@@ -10601,10 +10605,11 @@ def buildAnimateDiff(page):
     ip_adapter_scale = SliderRow(label="IP-Adapter Scale", min=0.0, max=1.0, divisions=20, round=2, expand=True, pref=animate_diff_prefs, key='ip_adapter_scale', tooltip="")
     ip_adapter_is_plus = Checkbox(label="IP-Adapter Plus", value=animate_diff_prefs['ip_adapter_is_plus'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_is_plus'))
     ip_adapter_is_plus_face = Checkbox(label="IP-Adapter Plus Face", value=animate_diff_prefs['ip_adapter_is_plus_face'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_is_plus_face'))
+    ip_adapter_light = Checkbox(label="IP-Adapter Light", value=animate_diff_prefs['ip_adapter_light'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_light'))
     ip_adapter_container = Container(animate_size=animation.Animation(700, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, alignment = alignment.top_left, height = None if animate_diff_prefs['use_ip_adapter'] else 0, padding=padding.only(top=4), content=Column([
       Row([ip_adapter_frame, ip_adapter_image, add_frame_btn]),
       ip_adapter_layers,
-      Row([ip_adapter_scale, ip_adapter_is_plus, ip_adapter_is_plus_face]),
+      Row([ip_adapter_scale, ip_adapter_is_plus, ip_adapter_is_plus_face, ip_adapter_light]),
       Divider(thickness=2, height=4),
     ]))
     upscale_tile = Switcher(label="Upscale Tile", value=animate_diff_prefs['upscale_tile'], on_change=lambda e:changed(e,'upscale_tile'))
@@ -10668,7 +10673,7 @@ def buildAnimateDiff(page):
         motion_loras_checkboxes,
         motion_loras_strength,
         Row([motion_module, scheduler, batch_folder_name]),
-        Row([is_loop, save_frames, save_gif, save_video]),
+        Row([is_loop, save_frames, save_gif, save_video, is_simple_composite]),
         page.ESRGAN_block_animate_diff,
         #Row([jump_length, jump_n_sample, seed]),
         Row([
@@ -15331,8 +15336,8 @@ def buildCustomModelManager(page):
         elif type == "SDXL LoRA":
             for i, l in enumerate(custom_SDXL_LoRA_models.controls):
                 if l.title.controls[0].value == name:
-                    del custom_LoRA_SDXL_models.controls[i]
-                    custom_LoRA_SDXL_models.update()
+                    del custom_SDXL_LoRA_models.controls[i]
+                    custom_SDXL_LoRA_models.update()
                     break
         elif type == "DanceDiffusion":
             for i, l in enumerate(custom_dance_diffusion_models.controls):
@@ -16244,7 +16249,7 @@ def get_text2image(page):
         if prefs['higher_vram_mode']:
           unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", use_auth_token=True, device_map="auto")
         else:
-          unet = UNet2DConditionModel.from_pretrained(model_path, revision="fp16", torch_dtype=torch.float16, subfolder="unet", use_auth_token=True, device_map="auto")
+          unet = UNet2DConditionModel.from_pretrained(model_path, variant="fp16", torch_dtype=torch.float16, subfolder="unet", use_auth_token=True, device_map="auto")
         vae = vae.to(torch_device)
         text_encoder = text_encoder.to(torch_device)
         #if enable_attention_slicing:
@@ -17168,7 +17173,7 @@ def get_depth_pipe():
         model_id,
         #scheduler=model_scheduler(model_id),
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-        revision="fp16",
+        variant="fp16",
         torch_dtype=torch.float16,
     )
   #pipe_depth.to(torch_device)
@@ -17393,7 +17398,7 @@ def get_conceptualizer(page):
       return
     pipe_conceptualizer = StableDiffusionPipeline.from_pretrained(
         model_path,
-        revision="fp16",
+        variant="fp16",
         torch_dtype=torch.float16,
         text_encoder=text_encoder,
         tokenizer=tokenizer,
@@ -24080,7 +24085,7 @@ def run_dreambooth(page):
             if prefs['higher_vram_mode']:
               pipeline = StableDiffusionPipeline.from_pretrained(model_path).to("cuda")
             else:
-              pipeline = StableDiffusionPipeline.from_pretrained(model_path, revision="fp16", torch_dtype=torch.float16).to("cuda")
+              pipeline = StableDiffusionPipeline.from_pretrained(model_path, variant="fp16", torch_dtype=torch.float16).to("cuda")
             if prefs['enable_attention_slicing']:
               pipeline.enable_attention_slicing()
             pipeline.set_progress_bar_config(disable=True)
@@ -29327,7 +29332,8 @@ def run_controlnet(page, from_list=False):
     autoscroll(True)
     clear_list()
     prt(Divider(thickness=2, height=4))
-    prt(Installing("Installing ControlNet Packages..."))
+    installer = Installing("Installing ControlNet Packages...")
+    prt(installer)
     if status['loaded_controlnet'] == controlnet_prefs["control_task"]:
         clear_pipes('controlnet')
     else:
@@ -29340,12 +29346,14 @@ def run_controlnet(page, from_list=False):
         try:
           import cv2
         except ModuleNotFoundError:
+          installer.status("...installing opencd")
           run_sp("pip install opencv-contrib-python", realtime=False)
           import cv2
           pass
         try:
           from controlnet_aux import MLSDdetector
         except ModuleNotFoundError:
+          installer.status("...installing controlnet-aux")
           run_sp("pip install --upgrade controlnet-aux", realtime=False)
           #run_sp("pip install git+https://github.com/patrickvonplaten/controlnet_aux.git")
           pass
@@ -29371,6 +29379,7 @@ def run_controlnet(page, from_list=False):
     shuffle_checkpoint = "lllyasviel/control_v11e_sd15_shuffle"
     tile_checkpoint = "lllyasviel/control_v11f1e_sd15_tile"
     brightness_checkpoint = "ioclab/control_v1p_sd15_brightness"
+    mediapipe_face_checkpoint = "CrucibleAI/ControlNetMediaPipeFace"
     hed = None
     openpose = None
     depth_estimator = None
@@ -29380,8 +29389,9 @@ def run_controlnet(page, from_list=False):
     normal = None
     lineart = None
     shuffle = None
+    face_detector = None
     def get_controlnet(task):
-        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle, face_detector
         if controlnet_models[task] != None:
             return controlnet_models[task]
         if task == "Canny Map Edge" or task == "Video Canny Edge":
@@ -29439,6 +29449,12 @@ def run_controlnet(page, from_list=False):
             controlnet_models[task] = ControlNetModel.from_pretrained(tile_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Brightness":
             controlnet_models[task] = ControlNetModel.from_pretrained(brightness_checkpoint, torch_dtype=torch.float16, use_safetensors=True)
+        elif task == "Mediapipe Face":
+            from controlnet_aux import MediapipeFaceDetector
+            face_detector = MediapipeFaceDetector()
+            controlnet_models[task] = ControlNetModel.from_pretrained(mediapipe_face_checkpoint, subfolder="diffusion_sd15", torch_dtype=torch.float16, use_safetensors=True)
+        elif task == "QR Code Monster":
+            controlnet_models[task] = ControlNetModel.from_pretrained('monster-labs/control_v1p_sd15_qrcode_monster', subfolder='v2', torch_dtype=torch.float16, use_safetensors=True)
         elif task == "Instruct Pix2Pix":
             controlnet_models[task] = ControlNetModel.from_pretrained(ip2p_checkpoint, torch_dtype=torch.float16).to(torch_device)
 
@@ -29455,7 +29471,7 @@ def run_controlnet(page, from_list=False):
         img = input_image.resize((W, H), resample=PILImage.LANCZOS)
         return img
     def prep_image(task, img):
-        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle, face_detector
         nonlocal width, height
         if isinstance(img, str):
           if img.startswith('http'):
@@ -29540,6 +29556,27 @@ def run_controlnet(page, from_list=False):
                 original_img = resize_for_condition_image(original_img, 1024)
             elif task == "Brightness":
                 original_img = PILImage.fromarray(original_img).convert('L')
+            elif task == "Mediapipe Face":
+                original_img = face_detector(original_img, scribble=True)
+                '''pip_install("mediapipe")
+                import mediapipe as mp
+                mp_drawing = mp.solutions.drawing_utils
+                mp_drawing_styles = mp.solutions.drawing_styles
+                mp_face_mesh = mp.solutions.face_mesh
+                input_image = np.array(original_img)
+                with mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=5, refine_landmarks=True, min_detection_confidence=0.5) as face_mesh:
+                    results = face_mesh.process(input_image)
+                res = input_image[:, :, ::-1].copy()
+                show_tesselation = show_contours = show_irises = True
+                if results.multi_face_landmarks is not None:
+                    for face_landmarks in results.multi_face_landmarks:
+                        if show_tesselation:
+                            mp_drawing.draw_landmarks(image=res, landmark_list=face_landmarks, connections=mp_face_mesh.FACEMESH_TESSELATION, landmark_drawing_spec=None, connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_tesselation_style())
+                        if show_contours:
+                            mp_drawing.draw_landmarks(image=res, landmark_list=face_landmarks, connections=mp_face_mesh.FACEMESH_CONTOURS, landmark_drawing_spec=None, connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_contours_style())
+                        if show_irises:
+                            mp_drawing.draw_landmarks(image=res, landmark_list=face_landmarks, connections=mp_face_mesh.FACEMESH_IRISES, landmark_drawing_spec=None, connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_iris_connections_style())
+                original_img = PILImage.fromarray(res[:, :, ::-1])'''
             return original_img
         except Exception as e:
             #clear_last()
@@ -29757,7 +29794,7 @@ def run_controlnet(page, from_list=False):
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             num += 1
     autoscroll(False)
-    del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+    del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle, face_detector
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_controlnet_xl(page, from_list=False):
@@ -33573,6 +33610,33 @@ def run_animate_diff(page):
         "control_guidance_end": 1.0,
         "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
       },
+      "qr_code_monster_v1": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "qr_code_monster_v2": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
+      "controlnet_mediapipe_face": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
       "controlnet_ref": {
         "enable": bool(ref_image),
         "ref_image": ref_image if bool(ref_image) else "ref_image/ref_sample.png",
@@ -33585,7 +33649,10 @@ def run_animate_diff(page):
       }
     }
     for l in animate_diff_prefs['controlnet_layers']:
-        controlnet_task = f"controlnet_{l['control_task'].lower()}"
+        if l['control_task'].startswith("QR"):
+            controlnet_task = l['control_task'].lower()
+        else:
+            controlnet_task = f"controlnet_{l['control_task'].lower()}"
         try:
             scale_list = [float(x.strip()) for x in l['control_scale_list'].split(',')]
         except Exception:
@@ -33652,7 +33719,8 @@ def run_animate_diff(page):
       "save_input_image": False,
       "scale": animate_diff_prefs['ip_adapter_scale'],
       "is_plus_face": animate_diff_prefs['ip_adapter_is_plus_face'],
-      "is_plus": animate_diff_prefs['ip_adapter_is_plus']
+      "is_plus": animate_diff_prefs['ip_adapter_is_plus'],
+      "is_light": animate_diff_prefs['ip_adapter_light']
     }
     motion_lora_map = {}
     for m in animate_diff_prefs['motion_loras']:
@@ -33722,6 +33790,8 @@ def run_animate_diff(page):
     cmd += f" -L {animate_diff_prefs['video_length']} -W {animate_diff_prefs['width']} -H {animate_diff_prefs['height']} -C {context} -S {animate_diff_prefs['stride']}"
     if animate_diff_prefs['save_gif']:
         cmd += " --save-merged"
+    if animate_diff_prefs['is_simple_composite']:
+        cmd += " --simple_composite"
     #cmd += f" -O {animate_diff_prefs['overlap']}"
     w = 0
     h = 0

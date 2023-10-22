@@ -159,11 +159,11 @@ finetuned_models = [
     #{"name": "Smoke Diffusion", "path": "guumaster/smoke-diffusion", "prefix": "ssmoky "},
     #{"name": "reasonableDrink Dreams", "path": "elRivx/reasonableDrink", "prefix": "reasonableDrink "},
 ]
-LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}, {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''}, {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '}, {'name': 'Analog.Redmond', 'path': 'artificialguybr/analogredmond', 'prefix':'AnalogRedmAF'}, {'name': 'LogoLoraForSDXL', 'path': 'artificialguybr/LogoRedmond-LogoLoraForSDXL', 'prefix':'LogoRedAF'}]
+LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}, {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''}, {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '}, {'name': 'Analog.Redmond', 'path': 'artificialguybr/analogredmond', 'prefix':'AnalogRedmAF'}]
 SDXL_models = [
     {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "revision": "fp16"},
     {"name": "Dreamshaper-XL", "path": "Lykon/dreamshaper-xl-1-0", "prefix": "", "revision": "fp16"},
-    {"name": "RealVis-XL", "path": "SG161222/RealVisXL_V1.0", "prefix": "", "revision": "fp16"},
+    #{"name": "RealVis-XL", "path": "SG161222/RealVisXL_V1.0", "prefix": "", "revision": "fp16"},
     {"name": "ProtVision-XL", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": "", "revision": "fp32"},
     {"name": "Dreamviewer", "path": "Andyrasika/dreamviewer-sdxl-1.0", "prefix": "", "revision": "fp16", "variant": "fp16"},
     {"name": "DynaVision-XL", "path": "nyxia/dynavision-xl", "prefix": "", "revision": "fp16", "variant": "fp16"},
@@ -192,6 +192,8 @@ SDXL_LoRA_models = [
     {"name": "Logo.Redmond", "path": "artificialguybr/LogoRedmond-LogoLoraForSDXL", "weights": "LogoRedmond_LogoRedAF.safetensors", "prefix": "LogoRedAF"},
     {"name": "LinearManga.Redmond", "path": "artificialguybr/LineAniRedmond-LinearMangaSDXL", "weights": "LineAniRedmond-LineAniAF.safetensors", "prefix": "LineAniAF"},
     {"name": "Josef Koudelka Style", "path": "TheLastBen/Josef_Koudelka_Style_SDXL", "weights": "koud.safetensors", "prefix": "by josef koudelka"},
+    {"name": "Joker", "path": "jbilcke-hf/sdxl-joker", "weights": "pytorch_lora_weights.safetensors", "prefix": "jokerstyle"},
+    {'name': 'LogoLoraForSDXL', 'path': 'artificialguybr/LogoRedmond-LogoLoraForSDXL', 'prefix':'LogoRedAF'},
     {"name": "Leonardo Style", "path": "goofyai/Leonardo_Ai_Style_Illustration", "weights": "leonardo_illustration.safetensors", "prefix": "leonardo style"},
     {"name": "SimpStyle", "path": "Norod78/SDXL-simpstyle-Lora", "weights": "SDXL-simpstyle-Lora-r8.safetensors", "prefix": "simpstyle"},
     {"name": "Storybook.Redmond", "path": "artificialguybr/StoryBookRedmond", "weights": "StoryBookRedmond-KidsRedmAF.safetensors", "prefix": "KidsRedmAF"},
