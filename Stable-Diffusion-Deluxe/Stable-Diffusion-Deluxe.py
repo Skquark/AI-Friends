@@ -300,6 +300,7 @@ def load_settings_file():
       'install_upscale': False,
       'safety_config': 'Strong',
       'use_imagic': False,
+      'SD_compel': False,
       'use_SDXL': False,
       'SDXL_high_noise_frac': 0.7,
       'SDXL_negative_conditions': False,
@@ -362,6 +363,8 @@ def load_settings_file():
       'use_depth2img': False,
       'use_LoRA_model': False,
       'LoRA_model': 'Von Platen LoRA',
+      'active_LoRA_layers': [],
+      'active_SDXL_LoRA_layers': [],
       'custom_LoRA_models': [],
       'custom_LoRA_model': "",
       'SDXL_LoRA_model': 'Papercut SDXL',
@@ -396,7 +399,7 @@ def load_settings_file():
           'permutate_artists': False,
           'request_mode': 3,
           'AI_temperature': 0.9,
-          'AI_engine': "OpenAI GPT-3",
+          'AI_engine': "ChatGPT-3.5 Turbo",
           'economy_mode': True,
       },
       'prompt_remixer': {
@@ -408,10 +411,10 @@ def load_settings_file():
           'permutate_artists': False,
           'request_mode': 3,
           'AI_temperature': 0.9,
-          'AI_engine': "OpenAI GPT-3",
+          'AI_engine': "ChatGPT-3.5 Turbo",
       },
       'prompt_brainstormer': {
-          'AI_engine': 'OpenAI GPT-3',
+          'AI_engine': 'ChatGPT-3.5 Turbo',
           'about_prompt': '',
           'request_mode': 'Brainstorm',
           'AI_temperature': 0.9,
@@ -494,6 +497,7 @@ status = {
     'finetuned_model': False,
     'loaded_scheduler': '',
     'loaded_model': '',
+    'loaded_task': '',
     'loaded_controlnet': '',
     'loaded_controlnet_type': '',
     'loaded_SDXL': '',
@@ -535,8 +539,8 @@ def save_settings_file(page, change_icon=True):
 
 current_tab = 0
 def tab_on_change (e):
-    t = e.control
     global current_tab, status
+    t = e.control
     #print (f"tab changed from {current_tab} to: {t.selected_index}")
     #print(str(t.tabs[t.selected_index].text))
     if current_tab == 0:
@@ -911,6 +915,8 @@ if 'clip_guidance_preset' not in prefs: prefs['clip_guidance_preset'] = "FAST_BL
 if 'tortoise_custom_voices' not in prefs: prefs['tortoise_custom_voices'] = []
 if 'use_LoRA_model' not in prefs: prefs['use_LoRA_model'] = False
 if 'LoRA_model' not in prefs: prefs['LoRA_model'] = "Von Platen LoRA"
+if 'active_LoRA_layers' not in prefs: prefs['active_LoRA_layers'] = []
+if 'active_SDXL_LoRA_layers' not in prefs: prefs['active_SDXL_LoRA_layers'] = []
 if 'custom_LoRA_models' not in prefs: prefs['custom_LoRA_models'] = []
 if 'custom_LoRA_model' not in prefs: prefs['custom_LoRA_model'] = ''
 if 'SDXL_LoRA_model' not in prefs: prefs['SDXL_LoRA_model'] = "Papercut SDXL"
@@ -924,6 +930,7 @@ if 'max_iter_to_alter' not in prefs: prefs['max_iter_to_alter'] = 25
 if 'install_SAG' not in prefs: prefs['install_SAG'] = False
 if 'use_SAG' not in prefs: prefs['use_SAG'] = False
 if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
+if 'SD_compel' not in prefs: prefs['SD_compel'] = False
 if 'install_SDXL' not in prefs: prefs['install_SDXL'] = False
 if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
 if 'SDXL_high_noise_frac' not in prefs: prefs['SDXL_high_noise_frac'] = 0.7
@@ -936,8 +943,8 @@ if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] = False
 if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
-if 'AI_engine' not in prefs['prompt_generator']: prefs['prompt_generator']['AI_engine'] = 'OpenAI GPT-3'
-if 'AI_engine' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AI_engine'] = 'OpenAI GPT-3'
+if 'AI_engine' not in prefs['prompt_generator']: prefs['prompt_generator']['AI_engine'] = 'ChatGPT-3.5 Turbo'
+if 'AI_engine' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AI_engine'] = 'ChatGPT-3.5 Turbo'
 if 'AIHorde_api_key' not in prefs: prefs['AIHorde_api_key'] = '0000000000'
 if 'install_AIHorde_api' not in prefs: prefs['install_AIHorde_api'] = False
 if 'use_AIHorde_api' not in prefs: prefs['use_AIHorde_api'] = False
@@ -1315,6 +1322,10 @@ def buildInstallers(page):
       changed(e, 'install_safe')
       safety_config.visible = e.control.value
       safety_config.update()
+  def toggle_SD(e):
+      changed(e, 'install_text2img')
+      SD_params.height = None if e.control.value else 0
+      SD_params.update()
   def toggle_SDXL(e):
       changed(e, 'install_SDXL')
       #TODO: Reenable when Compel works right
@@ -1383,8 +1394,12 @@ def buildInstallers(page):
   freeu_args = Container(content=Column([ResponsiveRow([b1, b2, s1, s2])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=0, left=13), height = None if prefs['enable_freeu'] else 0)'''
 
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
-  install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
-  SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data))
+  #install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
+  install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipelines", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=toggle_SD, tooltip="Best general-purpose component for most SD models <= 2.1, but don't need if using SDXL.")
+  SD_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SD", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD_compel'], on_change=lambda e:changed(e, 'SD_compel'))
+  SD_params = Container(Column([SD_compel]), padding=padding.only(top=5, left=20), height=None if prefs['install_text2img'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+
+  #SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data))
   install_SDXL = Switcher(label="Install Stable Diffusion XL 1.0 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=toggle_SDXL, tooltip="Latest SDXL v1.0 trained on 1080p images.")
   SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=5, left=20), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -1463,7 +1478,7 @@ def buildInstallers(page):
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
                                  Row([enable_freeu, enable_tome, enable_torch_compile]),
                                  ]), padding=padding.only(left=32, top=4)),
-                                         install_text2img, install_SDXL, SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
+                                         install_text2img, SD_params, install_SDXL, SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
                                          install_versatile, install_SAG, install_attend_and_excite, install_panorama, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
@@ -1820,7 +1835,7 @@ def buildInstallers(page):
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
                 content=Column([
-        Header("📥  Stable Diffusion Required & Optional Installers"),
+        Header("📥  Stable Diffusion Required & Optional Installers", subtitle="Run this every time you Start the App or make Changes. Only pick what you plan to use this session..."),
         install_diffusers,
         diffusers_settings,
         #install_text2img,
@@ -2042,7 +2057,7 @@ def buildParameters(page):
       image_pickers.update()
   def toggle_LoRA(e):
       changed(e,'use_LoRA_model', apply=False)
-      LoRA_block.width = None if e.control.value else 0
+      LoRA_block.height = None if e.control.value else 0
       LoRA_block.update()
   def changed_LoRA(e):
       changed(e, 'LoRA_model', apply=False)
@@ -2092,6 +2107,107 @@ def buildParameters(page):
   page.use_versatile = Switcher(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Dual Guided between prompt & image, or create Image Variation.")
   page.use_versatile.visible = status['installed_versatile']
   use_LoRA_model = Switcher(label="Use LoRA Model Adapter Layer ", value=prefs['use_LoRA_model'], on_change=toggle_LoRA, tooltip="Applies custom trained weighted attention model on top of loaded model")
+  def delete_lora_layer(e):
+      for l in prefs['active_LoRA_layers']:
+        if l['name'] == e.control.data['name']:
+          prefs['active_LoRA_layers'].remove(l)
+      for c in active_LoRA_layers.controls:
+        if c.data['name'] == e.control.data['name']:
+            active_LoRA_layers.controls.remove(c)
+            break
+      active_LoRA_layers.update()
+  def delete_all_lora_layers(e):
+      prefs['active_LoRA_layers'].clear()
+      active_LoRA_layers.controls.clear()
+      active_LoRA_layers.update()
+  def change_LoRA(e):
+      for l in prefs['active_LoRA_layers']:
+        if l['name'] == e.control.data['name']:
+          l['scale'] = e.control.value
+  def add_LoRA(e, LoRA_map=None):
+      if LoRA_map != None:
+        lora = LoRA_map['name']
+        lora_scale = LoRA_map['scale']
+        lora_layer = LoRA_map
+      else:
+        lora = prefs['LoRA_model']
+        lora_scale = 1
+        lora_layer = {}
+        if lora.startswith("Custom"):
+          num = 1
+          for c in prefs['active_LoRA_layers']:
+              if c['name'].startswith("Custom"):
+                  if num == int(c['name'].rpartition('-')[2]):
+                      num += 1
+          lora_layer = {'name': f'Custom-{num}', 'file':'', 'path':prefs['custom_LoRA_model'], 'scale': lora_scale}
+        else:
+          for l in prefs['active_LoRA_layers']:
+            if l['name'] == lora:
+              return
+          lora_layer = get_LoRA_model(lora)
+          lora_layer['scale'] = lora_scale
+        prefs['active_LoRA_layers'].append(lora_layer)
+      lora_scaler = SliderRow(label="Scale", min=0, max=1, divisions=20, round=1, pref=lora_layer, key='scale', tooltip="", expand=True, data=lora_layer, on_change=change_LoRA)
+      title_link = Markdown(f"[**{lora_layer['name']}**](https://huggingface.co/{lora_layer['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+      title = Row([title_link, lora_scaler])#Text(lora_layer['name'])
+      active_LoRA_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      if LoRA_map == None:
+        active_LoRA_layers.update()
+  
+  def delete_SDXL_lora_layer(e):
+      for l in prefs['active_SDXL_LoRA_layers']:
+        if l['name'] == e.control.data['name']:
+          prefs['active_SDXL_LoRA_layers'].remove(l)
+      for c in active_SDXL_LoRA_layers.controls:
+        if c.data['name'] == e.control.data['name']:
+            active_SDXL_LoRA_layers.controls.remove(c)
+            break
+      active_SDXL_LoRA_layers.update()
+  def delete_all_SDXL_lora_layers(e):
+      prefs['active_SDXL_LoRA_layers'].clear()
+      active_SDXL_LoRA_layers.controls.clear()
+      active_SDXL_LoRA_layers.update()
+  def change_SDXL_LoRA(e):
+      for l in prefs['active_SDXL_LoRA_layers']:
+        if l['name'] == e.control.data['name']:
+          l['scale'] = e.control.value
+  def add_SDXL_LoRA(e, LoRA_map=None):
+      if LoRA_map != None:
+        lora = LoRA_map['name']
+        lora_scale = LoRA_map['scale']
+        lora_layer = LoRA_map
+      else:
+        lora = prefs['SDXL_LoRA_model']
+        lora_scale = 1
+        lora_layer = {}
+        if lora.startswith("Custom"):
+          num = 1
+          for c in prefs['active_SDXL_LoRA_layers']:
+              if c['name'].startswith("Custom"):
+                  if num == int(c['name'].rpartition('-')[2]):
+                      num += 1
+          lora_layer = {'name': f'Custom-{num}', 'file':'', 'path':prefs['custom_SDXL_LoRA_model'], 'scale': lora_scale}
+        else:
+          for l in prefs['active_SDXL_LoRA_layers']:
+            if l['name'] == lora:
+              return
+          lora_layer = get_SDXL_LoRA_model(lora)
+          lora_layer['scale'] = lora_scale
+        prefs['active_SDXL_LoRA_layers'].append(lora_layer)
+      lora_scaler = SliderRow(label="Scale", min=0, max=1, divisions=20, round=1, pref=lora_layer, key='scale', tooltip="", expand=True, data=lora_layer, on_change=change_SDXL_LoRA)
+      title_link = Markdown(f"[**{lora_layer['name']}**](https://huggingface.co/{lora_layer['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+      title = Row([title_link, lora_scaler])
+      active_SDXL_LoRA_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_SDXL_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_SDXL_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      if LoRA_map == None:
+        active_SDXL_LoRA_layers.update()
   page.LoRA_model = Dropdown(label="LoRA Model Weights", width=220, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
   if len(prefs['custom_LoRA_models']) > 0:
     for l in prefs['custom_LoRA_models']:
@@ -2099,7 +2215,7 @@ def buildParameters(page):
   for m in LoRA_models:
       page.LoRA_model.options.append(dropdown.Option(m['name']))
   page.LoRA_model.options.append(dropdown.Option("Custom LoRA Path"))
-  custom_LoRA_model = TextField(label="Custom LoRA Model Path", value=prefs['custom_LoRA_model'], width=370, on_change=lambda e:changed(e, 'custom_LoRA_model', apply=False))
+  custom_LoRA_model = TextField(label="Custom LoRA Model Path", value=prefs['custom_LoRA_model'], expand=True, on_change=lambda e:changed(e, 'custom_LoRA_model', apply=False))
   custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
   
   page.SDXL_LoRA_model = Dropdown(label="SDXL LoRA Model Weights", width=220, options=[], value=prefs['SDXL_LoRA_model'], on_change=changed_SDXL_LoRA)
@@ -2109,11 +2225,19 @@ def buildParameters(page):
   for m in SDXL_LoRA_models:
       page.SDXL_LoRA_model.options.append(dropdown.Option(m['name']))
   page.SDXL_LoRA_model.options.append(dropdown.Option("Custom SDXL LoRA Path"))
-  custom_SDXL_LoRA_model = TextField(label="Custom SDXL LoRA Model Path", value=prefs['custom_SDXL_LoRA_model'], width=370, on_change=lambda e:changed(e, 'custom_SDXL_LoRA_model', apply=False))
+  custom_SDXL_LoRA_model = TextField(label="Custom SDXL LoRA Model Path", value=prefs['custom_SDXL_LoRA_model'], expand=True, on_change=lambda e:changed(e, 'custom_SDXL_LoRA_model', apply=False))
   custom_SDXL_LoRA_model.visible = True if prefs['SDXL_LoRA_model'] == "Custom SDXL LoRA Path" else False
-
-  LoRA_block = Container(Row([page.LoRA_model, custom_LoRA_model, page.SDXL_LoRA_model, custom_SDXL_LoRA_model]), padding=padding.only(top=6), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-  LoRA_block.width = None if prefs['use_LoRA_model'] else 0
+  active_LoRA_layers = Column([], spacing=0, tight=True)
+  active_SDXL_LoRA_layers = Column([], spacing=0, tight=True)
+  add_LoRA_layer = ft.FilledButton("➕ Add LoRA", on_click=add_LoRA)
+  add_SDXL_LoRA_layer = ft.FilledButton("➕ Add SDXL LoRA", on_click=add_SDXL_LoRA)
+  for l in prefs['active_LoRA_layers']:
+      add_LoRA(None, l)
+  for l in prefs['active_SDXL_LoRA_layers']:
+      add_SDXL_LoRA(None, l)
+  LoRA_block = Container(ResponsiveRow([Column([Row([page.LoRA_model, custom_LoRA_model, add_LoRA_layer]), active_LoRA_layers], col={'md': 6}), 
+                                        Column([Row([page.SDXL_LoRA_model, custom_SDXL_LoRA_model, add_SDXL_LoRA_layer]), active_SDXL_LoRA_layers], col={'md': 6})]), padding=padding.only(top=6, left=10), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  LoRA_block.height = None if prefs['use_LoRA_model'] else 0
   centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
   use_interpolation = Switcher(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
   interpolation_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['num_interpolation_steps'], on_change=change_interpolation_steps, expand=True)
@@ -2218,7 +2342,7 @@ def buildParameters(page):
         eta,
         width_slider, height_slider, #Divider(height=9, thickness=2),
         page.interpolation_block, page.img_block, page.use_safe, page.use_SDXL, page.SDXL_params, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
-        Row([use_LoRA_model, LoRA_block]), page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
+        use_LoRA_model, LoRA_block, page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
         #parameters_row,
       ],
@@ -3915,10 +4039,13 @@ def buildInitVideo(page):
     return c
 
 image2text_prefs = {
-    'mode': 'best',
+    'method': 'Fuyu-8B',
+    'mode': 'Best',
+    'fuyu_mode': 'Detailed Caption',
     'request_mode': 'Caption',
     'slow_workers': True,
     'trusted_workers': False,
+    'question': '',
     'folder_path': '',
     'image_path': '',
     'max_size': 768,
@@ -3963,7 +4090,8 @@ def buildImage2Text(page):
         i2t_help_dlg.open = False
         page.update()
       i2t_help_dlg = AlertDialog(title=Text("💁   Help with Image2Text CLIP Interrogator"), content=Column([
-          Text(""),
+          Text("You have 3 methods to get a caption prompt from you input image. Using Mode of Best, Classic or Fast will use the older BLIP models that work great but takes longer to run. The Fuyu-8B is a much faster captioning technique using Transformers, and can give Detailed Coco-style prompts or simpler captioning. You can also use AIHorde to process the caption interrogation in the cloud using Stable Horde services without using your GPU."),
+          Text("Fuyu-8B by AdeptAI Labs is a small version of the multimodal model. It has a much simpler architecture and training procedure than other multi-modal models, which makes it easier to understand, scale, and deploy. It’s designed from the ground up for digital agents, so it can support arbitrary image resolutions, answer questions about graphs and diagrams, answer UI-based questions, and do fine-grained localization on screen images. It’s fast - we can get responses for large images in less than 100 milliseconds."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😪  Okay then... ", on_click=close_i2t_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = i2t_help_dlg
       i2t_help_dlg.open = True
@@ -4080,6 +4208,24 @@ def buildImage2Text(page):
       mode.update()
       request_mode.visible = use
       request_mode.update()
+    def change_method(e):
+      method = e.control.value
+      changed(e,'method')
+      AIHorde_row.visible = method=="AIHorde Crowdsourced"
+      AIHorde_row.update()
+      mode.visible = method=="BLIP-Interrogation"
+      mode.update()
+      request_mode.visible = method=="AIHorde Crowdsourced"
+      request_mode.update()
+      fuyu_mode.visible = method=="Fuyu-8B"
+      fuyu_mode.update()
+      question_prompt.visible = method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question"
+      question_prompt.update()
+    def change_fuyu(e):
+      fuyu = e.control.value
+      changed(e,'fuyu_mode')
+      question_prompt.visible = fuyu=="Question"
+      question_prompt.update()
     def clear_prompts(e):
       if prefs['enable_sounds']: page.snd_delete.play()
       page.image2text_list.controls = []
@@ -4094,12 +4240,15 @@ def buildImage2Text(page):
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
-    mode = Dropdown(label="Interrogation Mode", width=250, options=[dropdown.Option("best"), dropdown.Option("classic"), dropdown.Option("fast")], value=image2text_prefs['mode'], on_change=lambda e: changed(e, 'mode'))
-    use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
-    request_mode = Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=False, on_change=lambda e: changed(e, 'request_mode'))
+    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
+    #use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
+    mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
+    request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
+    fuyu_mode = Dropdown(label="Fuyu Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['fuyu_mode'], visible=image2text_prefs['method']=="Fuyu-8B", on_change=change_fuyu)
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
-    AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), height=None if image2text_prefs['use_AIHorde'] else 0, animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
+    AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), visible=image2text_prefs['method']=="AIHorde Crowdsourced", animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
+    question_prompt = TextField(label="Ask Question about Image", value=image2text_prefs['question'], visible=image2text_prefs['method']=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question", expand=True, on_change=lambda e:changed(e,'question'))
     save_csv = Checkbox(label="Save CSV file of Prompts", tooltip="", value=image2text_prefs['save_csv'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_csv'))
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=32, multiple=16, suffix="px", pref=image2text_prefs, key='max_size')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=image2text_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
@@ -4113,8 +4262,7 @@ def buildImage2Text(page):
       content=Column([
         Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create text prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
         #mode,
-        Row([mode, request_mode, use_AIHorde]),
-        AIHorde_row,
+        Row([method, fuyu_mode, mode, request_mode, question_prompt, AIHorde_row]),
         max_row,
         Row([image_path, add_image_button]),
         page.image2text_file_list,
@@ -13448,6 +13596,7 @@ LoRA_dreambooth_prefs = {
     'scale_lr': False, #Scale the learning rate by the number of GPUs, gradient accumulation steps, and batch size.
     'max_train_steps': 500, #Total number of training steps to perform.  If provided, overrides num_train_epochs.
     'seed': 0,
+    'use_SDXL': False,
     'name_of_your_model': '',
     'save_model': True,
     'where_to_save_model': 'Public HuggingFace',
@@ -13670,6 +13819,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=LoRA_dreambooth_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
     seed = Tooltip(message="0 or -1 for Random. Pick any number.", content=TextField(label="Seed", value=LoRA_dreambooth_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160))
     #save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_dreambooth_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
+    use_SDXL = Switcher(label="Train with SDXL", value=LoRA_dreambooth_prefs['use_SDXL'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'use_SDXL'))
     save_model = Switcher(label="Save Model to HuggingFace", value=LoRA_dreambooth_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save, tooltip="Requires WRITE access on API Key to Upload Checkpoint")
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_dreambooth_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_dreambooth_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
@@ -13691,6 +13841,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
       content=Column([
         Header("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA DreamBooth)", "Provide a collection of images to train. Adds on to the currently loaded Model Checkpoint...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_dreambooth_help)]),
         ResponsiveRow([instance_prompt, name_of_your_model]),
+        use_SDXL,
         Row([num_class_images, sample_batch_size, train_batch_size, prior_loss_weight]),
         Row([prior_preservation, gradient_checkpointing, lr_scheduler]),
         Row([learning_rate, lr_warmup_steps, lr_num_cycles, lr_power]),
@@ -15488,8 +15639,10 @@ retry_attempts_if_NSFW = 3
 unet = None
 pipe = None
 pipe_img2img = None
+pipe_SD = None
 pipe_SDXL = None
 pipe_SDXL_refiner = None
+compel_proc = None
 compel_base = None
 compel_refiner = None
 pipe_interpolation = None
@@ -15550,6 +15703,9 @@ pipe_zoe_depth = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
+fuyu_tokenizer = None
+fuyu_model = None
+fuyu_processor = None
 pipe_blip_diffusion = None
 pipe_reference = None
 pipe_controlnet_qr = None
@@ -15614,22 +15770,22 @@ def get_LoRA_model(name):
       return {'name':"Custom LoRA Model", 'path':prefs['custom_LoRA_model'], 'weights':None}
   for mod in LoRA_models:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' not in mod else mod['weights']}
   if len(prefs['custom_LoRA_models']) > 0:
     for mod in prefs['custom_LoRA_models']:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' not in mod else mod['weights']}
   return {'name':'', 'path':''}
 def get_SDXL_LoRA_model(name):
   if name == "Custom SDXL LoRA Path":
       return {'name':"Custom SDXL LoRA Model", 'path':prefs['custom_SDXL_LoRA_model'], 'weights':None}
   for mod in SDXL_LoRA_models:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' not in mod else mod['weights']}
   if len(prefs['custom_SDXL_LoRA_models']) > 0:
     for mod in prefs['custom_SDXL_LoRA_models']:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' in mod else mod['weights']}
+        return {'name':mod['name'], 'path':mod['path'], 'weights':None if 'weights' not in mod else mod['weights']}
   return {'name':'', 'path':''}
 def get_SDXL_model(name):
   if name == "Custom Model":
@@ -15651,7 +15807,7 @@ def get_diffusers(page):
         if version.parse(torch.__version__) < version.parse("2.0.0"):
             torch_installed = False
     if not torch_installed:
-        page.console_msg("Upgrading Torch 2.0 Packages...")
+        page.console_msg("Upgrading Torch 2.1.0 Packages...")
         run_process("pip uninstall --yes torch torchaudio torchvision torchtext torchdata", page=page)
         if is_Colab:
             run_process("pip install torch torchaudio torchvision torchtext torchdata", page=page)
@@ -15698,6 +15854,13 @@ def get_diffusers(page):
           run_process("pip uninstall -y transformers", realtime=False)
     except ModuleNotFoundError:
         pass
+    try:
+        import transformers
+        if force_updates: raise ModuleNotFoundError("Forcing update")
+    except ModuleNotFoundError:
+        run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers.git", page=page)
+        #run_process("pip install --upgrade transformers~=4.28", page=page)
+        pass
     #run_process("pip install -q huggingface_hub", page=page)
     '''try:
       from huggingface_hub import notebook_login, HfApi, HfFolder, login
@@ -15705,19 +15868,24 @@ def get_diffusers(page):
       import transformers
     except ModuleNotFoundError as e:#ModuleNotFoundError as e:'''
     try:
+        import accelerate
+    except ModuleNotFoundError:
+        run_sp("pip install git+https://github.com/huggingface/accelerate.git", realtime=False)
+        import accelerate
+        pass
+    try:
+        import peft
+    except ModuleNotFoundError:
+        run_sp("pip install git+https://github.com/huggingface/peft.git", realtime=False)
+        pass
+    try:
         import diffusers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         pass
-    try:
-        import transformers
-        if force_updates: raise ModuleNotFoundError("Forcing update")
-    except ModuleNotFoundError:
-        #run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
-        run_process("pip install --upgrade transformers~=4.28", page=page)
-        pass
+    
     try:
         import scipy
     except ModuleNotFoundError:
@@ -15926,6 +16094,7 @@ def model_scheduler(model, big3=False):
     return s
 
 def pipeline_scheduler(p, big3=False, from_scheduler = True):
+    global status
     scheduler_mode = prefs['scheduler_mode']
     if scheduler_mode == "LMS Discrete":
       from diffusers import LMSDiscreteScheduler
@@ -16036,7 +16205,9 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_config(p.scheduler.config)
     p.scheduler = s
+    status['loaded_scheduler'] = scheduler_mode
     return p
+
 #if is_Colab:
 #    os.remove("/usr/local/lib/python3.8/dist-packages/torch/lib/libcudnn.so.8")
 #    download_file("https://github.com/Skquark/diffusers/blob/main/utils/libcudnn.so.8?raw=true", to="/usr/local/lib/python3.8/dist-packages/torch/lib/")
@@ -16048,8 +16219,8 @@ try:
       raise ModuleNotFoundError("")
 except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
-    print("Installing PyTorch 2.0.1 with CUDA 1.18")
-    run_sp("pip install -U --force-reinstall torch==2.0.1 torchvision==0.15.2 torchaudio --index-url https://download.pytorch.org/whl/cu118", realtime=False)
+    print("Installing PyTorch 2.1.0 with CUDA 1.18")
+    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118", realtime=False)
     #pip install --pre torch torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/nightly/cu118
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
@@ -16103,7 +16274,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True, model_offload=False, freeu=True):
+def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True, model_offload=False, freeu=True, lora=True):
     global prefs, status
     if model_offload:
       p.enable_model_cpu_offload()
@@ -16125,12 +16296,14 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
       p.enable_vae_tiling()
     if unet:
       p.unet = torch.compile(p.unet)
-    if prefs['use_LoRA_model']:
+    if lora:
+      p = apply_LoRA(p)
+    '''if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
       if bool(lora['weights']):
         p.load_lora_weights(lora['path'], weight_name=lora['weights'])
       else:
-        p.load_lora_weights(lora['path'])
+        p.load_lora_weights(lora['path'])'''
       #TODO: , weight_name=lora_filename
       #p.unet.load_attn_procs(lora['path'])
     if prefs['enable_freeu'] and freeu:
@@ -16155,7 +16328,7 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
     status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
 
-def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False, freeu=True, tome=True):
+def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False, freeu=True, tome=True, lora=True):
     global prefs, status
     low_ram = int(status['cpu_memory']) <= 12
     to_gpu = True
@@ -16172,12 +16345,14 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
       p.enable_vae_slicing()
     if prefs['vae_tiling'] and vae_tiling:
       p.enable_vae_tiling()
-    if prefs['use_LoRA_model']:
+    if lora:
+      p = apply_LoRA(p, SDXL=True)
+    '''if prefs['use_LoRA_model']:
       lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
       if bool(lora['weights']):
         p.load_lora_weights(lora['path'], weight_name=lora['weights'], torch_dtype=torch.float16)
       else:
-        p.load_lora_weights(lora['path'], torch_dtype=torch.float16)
+        p.load_lora_weights(lora['path'], torch_dtype=torch.float16)'''
       #p.unfuse_lora() TODO
       #p.fuse_lora(lora_scale=0.5)
       #p.unet.load_attn_procs(lora['path'])
@@ -16202,6 +16377,25 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
     status['loaded_scheduler'] = prefs['scheduler_mode']
     status['loaded_SDXL_model'] = get_SDXL_model(prefs['SDXL_model'])['path']
     p.set_progress_bar_config(disable=True)
+    return p
+
+def apply_LoRA(p, SDXL=False):
+    active = p.get_active_adapters()
+    layers = 'active_SDXL_LoRA_layers' if SDXL else 'active_LoRA_layers'
+    if prefs['use_LoRA_model'] and len(prefs[layers]) > 0:
+      adapters = []
+      scales = []
+      for l in prefs[layers]:
+        adapters.append(l['name'])
+        scales.append(l['scale'])
+        weight_args = {}
+        if 'weights' in l and bool(l['weights']):
+          weight_args['weight_name'] = l['weights']
+        p.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+      p.set_adapters(adapters, adapter_weights=scales)
+    else:
+      if len(active) > 0:
+        p.disable_lora()
     return p
 
 def install_xformers(page):
@@ -16258,11 +16452,17 @@ def get_text2image(page):
       else:
         #if status['finetuned_model']: pipe = get_txt2img_pipe()
         #else:
-        pipe = get_lpw_pipe()
+        #pipe = get_lpw_pipe()
+        pipe = get_SD_pipe()
     except EnvironmentError as e:
       model = get_model(prefs['model_ckpt'])
       model_url = f"https://huggingface.co/{model['path']}"
       alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace {model["name"]} Model Cards to use Checkpoint',
+                content=Column([Markdown(f'[{model_url}]({model_url})', on_tap_link=open_url), Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+    except Exception as e:
+      model = get_model(prefs['model_ckpt'])
+      model_url = f"https://huggingface.co/{model['path']}"
+      alert_msg(page, f'ERROR Loading Pipeline with {model["name"]}',
                 content=Column([Markdown(f'[{model_url}]({model_url})', on_tap_link=open_url), Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
 
 # I thought it's what I wanted, but current implementation does same as mine but doesn't clear memory between
@@ -16289,6 +16489,7 @@ def get_lpw_pipe():
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   from diffusers import AutoencoderKL, UNet2DConditionModel
   model = get_model(prefs['model_ckpt'])
+  model_path = model['path']
   os.chdir(root_dir)
   #if not os.path.isfile(os.path.join(root_dir, 'lpw_stable_diffusion.py')):
   #  run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/lpw_stable_diffusion.py")
@@ -16321,6 +16522,70 @@ def get_lpw_pipe():
   #pipe = pipeline_scheduler(pipe)
   pipe = optimize_pipe(pipe, vae=True)
   pipe.set_progress_bar_config(disable=True)
+  return pipe
+
+def get_SD_pipe(task="txt2img"):
+  global pipe, model_path, prefs, compel_proc
+  from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpainting
+  model = get_model(prefs['model_ckpt'])
+  model_path = model['path']
+  if pipe is not None:
+    if 'from_ckpt' in model and task != status['loaded_task']:
+      clear_pipes()
+    elif task != status['loaded_task']:
+      if task == "txt2img":
+        pipe = AutoPipelineForText2Image.from_pipe(pipe)
+      elif task == "img2img":
+        pipe = AutoPipelineForImage2Image.from_pipe(pipe)
+      elif task == "inpaint":
+        pipe = AutoPipelineForInpainting.from_pipe(pipe)
+      pipe = pipeline_scheduler(pipe)
+      pipe = apply_LoRA(pipe)
+      status['loaded_task'] = task
+      return pipe
+    if model['path'] != status['loaded_model'] or task != status['loaded_task']:
+      clear_pipes()
+    elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+      pipe = pipeline_scheduler(pipe)
+      pipe = apply_LoRA(pipe)
+      return pipe
+    else:
+      pipe = apply_LoRA(pipe)
+      return pipe
+  if prefs['SD_compel']:
+      pip_install("compel", upgrade=True)
+  variant = {'variant': model['revision']} if 'revision' in model else {}
+  variant = {'variant': model['variant']} if 'variant' in model else variant
+  if 'vae' in model:
+    from diffusers import AutoencoderKL, UNet2DConditionModel
+    vae = AutoencoderKL.from_single_file(model_path, subfolder="vae", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
+    unet = UNet2DConditionModel.from_single_file(model_path, subfolder="unet", torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32)
+    vae_args = {'vae': vae, 'unet': unet}
+  else:
+    vae_args = {}
+  if 'from_ckpt' in model:
+    from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline, StableDiffusionInpaintPipeline
+    if task == "txt2img":
+      pipe = StableDiffusionPipeline.from_single_file(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, use_safetensors=True, **vae_args, **variant, **safety)
+    elif task == "img2img":
+      pipe = StableDiffusionImg2ImgPipeline.from_single_file(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, use_safetensors=True, **vae_args, **variant, **safety)
+    elif task == "inpaint":
+      pipe = StableDiffusionInpaintPipeline.from_single_file(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, use_safetensors=True,**vae_args, **variant, **safety)
+    #pipe = StableDiffusionPipeline.from_single_file(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
+  else:
+    if task == "txt2img":
+      pipe = AutoPipelineForText2Image.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, use_safetensors=True, **vae_args, **variant, **safety)
+    elif task == "img2img":
+      pipe = AutoPipelineForImage2Image.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, use_safetensors=True, **vae_args, **variant, **safety)
+    elif task == "inpaint":
+      pipe = AutoPipelineForInpainting.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, use_safetensors=True, **vae_args, **variant, **safety)
+      #pipe = StableDiffusionPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
+  pipe = optimize_pipe(pipe, vae=True)
+  if prefs['SD_compel']:
+      from compel import Compel
+      compel_proc = Compel(tokenizer=pipe.tokenizer, text_encoder=pipe.text_encoder, truncate_long_prompts=False)
+  pipe.set_progress_bar_config(disable=True)
+  status['loaded_task'] = task
   return pipe
 
 def get_txt2img_pipe():
@@ -16581,97 +16846,81 @@ def get_SDXL(page):
 
 def get_SDXL_pipe(task="text2image"):
   global pipe_SDXL, pipe_SDXL_refiner, prefs, status, compel_base, compel_refiner
-  from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, AutoencoderKL # , AutoencoderTiny
-  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  from diffusers import StableDiffusionXLPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL # , AutoencoderTiny
   try:
       from imwatermark import WatermarkEncoder
   except ModuleNotFoundError:
       run_sp("pip install --no-deps invisible-watermark>=0.2.0", realtime=False)
       pass
   if prefs['SDXL_compel']:
-      try:
-          from compel import Compel
-      except ModuleNotFoundError:
-          run_sp("pip install --upgrade compel", realtime=False)
-          pass
+      pip_install("compel", upgrade=True)
   SDXL_model = get_SDXL_model(prefs['SDXL_model'])
   model_id = SDXL_model['path']#"stabilityai/stable-diffusion-xl-base-1.0"
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-1.0"
   if SDXL_model['path'] != status['loaded_SDXL_model'] or task != status['loaded_SDXL']:
       clear_pipes()
+  if pipe_SDXL is not None:
+      pipe_SDXL = apply_LoRA(pipe_SDXL, SDXL=True)
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+          pipe_SDXL = pipeline_scheduler(pipe_SDXL)
+          if pipe_SDXL_refiner is not None:
+              pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
+      return pipe_SDXL
   watermark = prefs['SDXL_watermark']
   low_ram = int(status['cpu_memory']) <= 12
+  variant = {'variant': SDXL_model['revision']} if 'revision' in SDXL_model else {}
+  variant = {'variant': SDXL_model['variant']} if 'variant' in SDXL_model else variant
   #vae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=torch.float16)
   vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae", torch_dtype=torch.float16, force_upcast=False)
   if task == "text2image":
       status['loaded_SDXL'] = task
-      if pipe_SDXL is not None:
-          if prefs['scheduler_mode'] != status['loaded_scheduler']:
-            pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-            pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
-          return pipe_SDXL
       pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
           model_id,
-          variant=SDXL_model['revision'],
           torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
           vae=vae,
           use_safetensors=True,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          **safety,
+          **variant, **safety,
       )
       pipe_SDXL = optimize_SDXL(pipe_SDXL)
-      pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True, variant="fp16",
+      pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True,
           text_encoder_2=pipe_SDXL.text_encoder_2,
           vae=pipe_SDXL.vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          **safety,
+          **variant, **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False, lora=False)
 
   elif task == "image2image":
       status['loaded_SDXL'] = task
-      if pipe_SDXL is not None:
-          if prefs['scheduler_mode'] != status['loaded_scheduler']:
-            pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-            pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
-            return pipe_SDXL
-          else:
-            return pipe_SDXL
       pipe_SDXL = StableDiffusionXLImg2ImgPipeline.from_pretrained(
-          model_id, torch_dtype=torch.float16, variant=SDXL_model['revision'], use_safetensors=True,
+          model_id, torch_dtype=torch.float16, use_safetensors=True,
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          **safety,
+          **variant, **safety,
       )
       pipe_SDXL = optimize_SDXL(pipe_SDXL)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
-          refiner_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True,
+          refiner_id, torch_dtype=torch.float16, use_safetensors=True,
           vae=pipe_SDXL.vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          **safety,
+          **variant, **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False, lora=False)
 
   elif task == "inpainting":
       status['loaded_SDXL'] = task
       from diffusers import StableDiffusionXLInpaintPipeline
-      if pipe_SDXL is not None:
-          if prefs['scheduler_mode'] != status['loaded_scheduler']:
-            pipe_SDXL = pipeline_scheduler(pipe_SDXL)
-            pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
-            return pipe_SDXL
-          else:
-            return pipe_SDXL
       pipe_SDXL = StableDiffusionXLInpaintPipeline.from_pretrained(
-          "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, variant=SDXL_model['revision'], use_safetensors=True,
+          "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, use_safetensors=True,
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          **safety,
+          **variant, **safety,
       )
       pipe_SDXL = optimize_SDXL(pipe_SDXL)
 
@@ -16681,12 +16930,11 @@ def get_SDXL_pipe(task="text2image"):
           vae=pipe_SDXL.vae,
           torch_dtype=torch.float16,
           use_safetensors=True,
-          variant="fp16",
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          **safety,
+          **variant, **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False, lora=False)
   if prefs['SDXL_compel']:
       from compel import Compel, ReturnedEmbeddingsType
       compel_base = Compel(tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2], text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
@@ -17424,12 +17672,16 @@ def clear_img2img_pipe():
     flush()
     pipe_img2img = None
 def clear_txt2img_pipe():
-  global pipe
+  global pipe, compel_proc
   if pipe is not None:
     #print("Clearing out text2img pipeline for more VRAM")
     del pipe
     flush()
     pipe = None
+    if prefs['SD_compel']:
+      if compel_proc is not None:
+        del compel_proc
+        compel_proc = None
 def clear_unet_pipe():
   global unet
   if unet is not None:
@@ -17709,6 +17961,16 @@ def clear_blip_diffusion_pipe():
     del pipe_blip_diffusion
     flush()
     pipe_blip_diffusion = None
+def clear_fuyu_pipe():
+  global fuyu_tokenizer, fuyu_model, fuyu_processor
+  if fuyu_tokenizer is not None:
+    del fuyu_tokenizer
+    del fuyu_model
+    del fuyu_processor
+    flush()
+    fuyu_tokenizer = None
+    fuyu_model = None
+    fuyu_processor = None
 def clear_reference_pipe():
   global pipe_reference
   if pipe_reference is not None:
@@ -17872,6 +18134,7 @@ def clear_pipes(allbut=None):
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
+    if not 'fuyu' in but: clear_fuyu_pipe()
     if not 'reference' in but: clear_reference_pipe()
     if not 'controlnet_qr' in but: clear_controlnet_qr_pipe()
     if not 'controlnet_segment' in but: clear_controlnet_segment_pipe()
@@ -17940,7 +18203,7 @@ def available_folder(folder, name, idx):
 #async
 def start_diffusion(page):
   global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale, pipe_SDXL, pipe_SDXL_refiner
-  global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps, compel_base, compel_refiner
+  global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps, compel_proc, compel_base, compel_refiner
   def prt(line, update=True):
     if type(line) == str:
       line = Text(line)
@@ -18089,14 +18352,21 @@ def start_diffusion(page):
       prefix = model['prefix']
     if prefs['use_LoRA_model']:
       if prefs['use_SDXL'] and status['installed_SDXL']:
-        lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
+        for l in prefs['active_SDXL_LoRA_layers']:
+          if 'prefix' in l:
+           if bool(l['prefix']):
+              prefix += l['prefix']
+              if prefix[-1] != ' ':
+                prefix += ' '
+        #lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
       else:
-        lora = get_LoRA_model(prefs['LoRA_model'])
-      if 'prefix' in lora:
-        if bool(lora['prefix']):
-          prefix += lora['prefix']
-          if prefix[-1] != ' ':
-            prefix += ' '
+        for l in prefs['active_LoRA_layers']:
+          if 'prefix' in l:
+           if bool(l['prefix']):
+              prefix += l['prefix']
+              if prefix[-1] != ' ':
+                prefix += ' '
+        #lora = get_LoRA_model(prefs['LoRA_model'])
 
     for p in updated_prompts:
       pr = ""
@@ -18642,10 +18912,14 @@ def start_diffusion(page):
                   clear_last()
               else:
                 clear_pipes("txt2img")
-                if pipe is None:
-                  prt(Installing("Initializing Long Prompt Weighting Inpaint Pipeline..."))
-                  pipe = get_txt2img_pipe()
+                if pipe is None or status['loaded_task'] != "inpaint":
+                  #prt(Installing("Initializing Long Prompt Weighting Inpaint Pipeline..."))
+                  prt(Installing("Initializing Stable Diffusion Inpaint Pipeline..."))
+                  pipe = get_SD_pipe(task="inpaint")
+                  #pipe = get_txt2img_pipe()
                   clear_last()
+                else:
+                  pipe = get_SD_pipe(task="inpaint")
               '''if pipe_img2img is None:
                 try:
                   pipe_img2img = get_img2img_pipe()
@@ -18702,17 +18976,18 @@ def start_diffusion(page):
                 pipe_used = "Stable Diffusion XL Inpainting"
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 total_steps = int(arg['steps'] * high_noise_frac)
+                cross_attention_kwargs = {"cross_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_SDXL_LoRA_layers']) > 0 else {}
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   #, target_size=(arg['width'], arg['height'])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_refiner(pr)
@@ -18725,8 +19000,20 @@ def start_diffusion(page):
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
-                pipe_used = "Long Prompt Weight Inpaint"
-                images = pipe.inpaint(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                #pipe_used = "Long Prompt Weight Inpaint"
+                #images = pipe.inpaint(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                pipe_used = "Stable Diffusion Inpaint"
+                cross_attention_kwargs = {"cross_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_LoRA_layers']) > 0 else {}
+                if prefs['SD_compel']:
+                  pipe_used += " w/ Compel"
+                  prompt_embed = compel_proc.build_conditioning_tensor(pr)
+                  negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'])
+                  [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  del prompt_embed, negative_embed
+                else:
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['init_image']):
@@ -18781,10 +19068,14 @@ def start_diffusion(page):
                   clear_last()
               else:
                 clear_pipes("txt2img")
-                if pipe is None:
-                  prt(Installing("Initializing Long Prompt Weighting Image2Image Pipeline..."))
-                  pipe = get_txt2img_pipe()
+                if pipe is None or status['loaded_task'] != "img2img":
+                  #prt(Installing("Initializing Long Prompt Weighting Image2Image Pipeline..."))
+                  prt(Installing("Initializing Stable Diffusion Image2Image Pipeline..."))
+                  pipe = get_SD_pipe(task="img2img")
+                  #pipe = get_txt2img_pipe()
                   clear_last()
+                else:
+                  pipe = get_SD_pipe(task="img2img")
               '''if pipe_img2img is None:
                 try:
                   pipe_img2img = get_img2img_pipe()
@@ -18821,18 +19112,20 @@ def start_diffusion(page):
                 pipe_used = "Stable Diffusion XL Image-to-Image"
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 total_steps = int(arg['steps'] * high_noise_frac)
+                cross_attention_kwargs = {"cross_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_SDXL_LoRA_layers']) > 0 else {}
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                   #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
+                  pipe_used += " w/ Compel"
                   prompt_embed, pooled = compel_refiner(pr)
                   negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
@@ -18868,8 +19161,20 @@ def start_diffusion(page):
                 res = pipe_imagic(alpha=2, callback=callback_fn, callback_steps=1)
                 images.append(res.images[0])
               else:
-                pipe_used = "Long Prompt Weight Image-to-Image"
-                images = pipe.img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                #pipe_used = "Long Prompt Weight Image-to-Image"
+                #images = pipe.img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                pipe_used = "Stable Diffusion Image-to-Image"
+                cross_attention_kwargs = {"cross_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_LoRA_layers']) > 0 else {}
+                if prefs['SD_compel']:
+                  pipe_used += " w/ Compel"
+                  prompt_embed = compel_proc.build_conditioning_tensor(pr)
+                  negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'])
+                  [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  del prompt_embed, negative_embed
+                else:
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['prompt2']):
@@ -18934,11 +19239,17 @@ def start_diffusion(page):
                   prt(Installing("Initializing Panorama MultiDiffusion Pipeline..."))
                   pipe_panorama = get_panorama_pipe()
                   clear_last()
-              elif pipe is None:
+              else:
                 clear_pipes("txt2img")
-                prt(Installing("Initializing Long Prompt Weighting Text2Image Pipeline..."))
-                pipe = get_txt2img_pipe()
-                clear_last()
+                if pipe is None or status['loaded_task'] != "txt2img":
+                  #prt(Installing("Initializing Long Prompt Weighting Text2Image Pipeline..."))
+                  prt(Installing("Initializing Stable Diffusion Text2Image Pipeline..."))
+                  pipe = get_SD_pipe(task="txt2img")
+                  #pipe = get_txt2img_pipe()
+                  clear_last()
+                else:
+                  pipe = get_SD_pipe(task="txt2img")
+                #print(pipe)
               '''with io.StringIO() as buf, redirect_stdout(buf):
                 get_text2image(page)
                 output = buf.getvalue()
@@ -18964,15 +19275,16 @@ def start_diffusion(page):
                 high_noise_frac = prefs['SDXL_high_noise_frac']
                 #TODO: Figure out batch num_images_per_prompt + option to not refine , image[None, :] , num_images_per_prompt=arg['batch_size']
                 total_steps = int(arg['steps'] * high_noise_frac)
+                cross_attention_kwargs = {"cross_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_SDXL_LoRA_layers']) > 0 else {}
                 if prefs['SDXL_compel']:
-                  print(f"pr:{pr} - neg: {arg['negative_prompt']}")
+                  #print(f"pr:{pr} - neg: {arg['negative_prompt']}")
                   prompt_embed, pooled = compel_base(pr)
-                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'] or "blurry")
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                   del pooled, negative_pooled
                 else:
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
@@ -19035,8 +19347,21 @@ def start_diffusion(page):
                 pipe_used = f"Safe Diffusion {safety}"
                 images = pipe_safe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **safety).images
               else:
-                pipe_used = "Long Prompt Weight Text-to-Image"
-                images = pipe.text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                pipe_used = "Stable Diffusion Text-to-Image"
+                if pipe is None:
+                  print("pipe is None")
+                cross_attention_kwargs = {"cross_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_LoRA_layers']) > 0 else {}
+                if prefs['SD_compel']:
+                  pipe_used += " w/ Compel"
+                  prompt_embed = compel_proc.build_conditioning_tensor(pr)
+                  negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'])
+                  [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  del prompt_embed, negative_embed
+                else:
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                #pipe_used = "Long Prompt Weight Text-to-Image"
+                #images = pipe.text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               '''if prefs['precision'] == "autocast":
                 with autocast("cuda"):
                   images = pipe(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], seed = arg['seed'], generator=generator, callback=callback_fn, callback_steps=1)["sample"]
@@ -20008,8 +20333,7 @@ def run_magic_prompt(page):
     try:
         from transformers import pipeline, set_seed
     except:
-        run_sp("pip install -qq --upgrade git+https://github.com/huggingface/transformers")
-        #run_sp("pip install torch")
+        run_sp("pip install -qq --upgrade git+https://github.com/huggingface/transformers.git")
         from transformers import pipeline, set_seed
         pass
     try:
@@ -20115,8 +20439,7 @@ def run_distil_gpt2(page):
     try:
         from transformers import GPT2Tokenizer, GPT2LMHeadModel, set_seed
     except:
-        run_sp("pip install -qq --upgrade git+https://github.com/huggingface/transformers")
-        #run_sp("pip install torch")
+        run_sp("pip install -qq --upgrade git+https://github.com/huggingface/transformers.git")
         from transformers import GPT2Tokenizer, GPT2LMHeadModel, set_seed
         pass
 
@@ -20300,7 +20623,6 @@ def run_retrieve(page):
       from google.colab import files
     def meta_dream(meta):
       if meta is not None and len(meta) > 1:
-          #d = Dream(meta["prompt"])
           print(str(meta))
           arg = {}
           p = ''
@@ -20364,6 +20686,115 @@ def run_retrieve(page):
       else:
           alert_msg(page, 'Problem reading your config json image meta data.')
           return
+    
+    def meta_comfy(metac):
+      if metac is not None and len(metac) > 1:
+          #print(str(meta))
+          arg = {}
+          #comfyui={"3": {"inputs": {"seed": 1058652716688649, "steps": 50, "cfg": 6.0, "sampler_name": "euler_ancestral", "scheduler": "normal", "denoise": 1.0, "model": ["4", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["5", 0]}, "class_type": "KSampler"}, "4": {"inputs": {"ckpt_name": "v1-5-pruned-emaonly.ckpt"}, "class_type": "CheckpointLoaderSimple"}, "5": {"inputs": {"width": 960, "height": 512, "batch_size": 4}, "class_type": "EmptyLatentImage"}, "6": {"inputs": {"text": "Large fancy Armenian Church with modern and gothic architecture in a city, high quality Thomas Kinkade, futuristic and complex", "clip": ["4", 1]}, "class_type": "CLIPTextEncode"}, "7": {"inputs": {"text": "text, watermark, russian, russia", "clip": ["4", 1]}, "class_type": "CLIPTextEncode"}, "8": {"inputs": {"samples": ["3", 0], "vae": ["4", 2]}, "class_type": "VAEDecode"}, "9": {"inputs": {"filename_prefix": "ComfyUI", "images": ["8", 0]}, "class_type": "SaveImage"}, "10": {"inputs": {"strength": 1, "noise_augmentation": 0, "conditioning": ["6", 0]}, "class_type": "unCLIPConditioning"}, "11": {"inputs": {"text": ""}, "class_type": "CLIPTextEncode"}, "15": {"inputs": {"style_model_name": null}, "class_type": "StyleModelLoader"}, "16": {"inputs": {"add_noise": "enable", "noise_seed": 262554034916863, "steps": 20, "cfg": 8, "sampler_name": "euler", "scheduler": "karras", "start_at_step": 0, "end_at_step": 10000, "return_with_leftover_noise": "disable"}, "class_type": "KSamplerAdvanced"}, "17": {"inputs": {"model_path": null}, "class_type": "DiffusersLoader"}, "18": {"inputs": {"strength": 1, "noise_augmentation": 0}, "class_type": "unCLIPConditioning"}}
+          p = ''
+          dream = '    Comfy('
+          for k, v in metac.items():
+            if 'inputs' in v:
+              #print(f"{k}: {v['inputs']}")
+              meta = v['inputs']
+              if meta.get('add_moise'):
+                continue
+              if meta.get('title'):
+                dream += f'"{meta["title"]}"'
+                p = meta["title"]
+              if meta.get('prompt'):
+                dream += f'"{meta["prompt"]}"'
+                p = meta["prompt"]
+              if meta.get('config'):
+                meta = meta['config']
+              if meta.get('prompt'):
+                #dream += f'"{meta["prompt"]}"'
+                p = meta["prompt"]
+              if meta.get('text'):
+                if len(meta["text"]) > 8:
+                  if not bool(p):
+                    dream += f', prompt="{meta["text"]}"'
+                    p = meta["text"]
+                  else:
+                    dream += f', negative="{meta["text"]}"'
+                    arg["negative_prompt"] = meta["text"]
+              if meta.get('negative_prompt'):
+                dream += f', negative="{meta["negative_prompt"]}"'
+                arg["negative_prompt"] = meta["negative_prompt"]
+              if meta.get('width'):
+                dream += f', width={meta["width"]}'
+                arg["width"] = meta["width"]
+              if meta.get('height'):
+                dream += f', height={meta["height"]}'
+                arg["height"] = meta["height"]
+              if meta.get('guidance_scale'):
+                dream += f', guidance_scale={meta["guidance_scale"]}'
+                arg["guidance_scale"] = meta["guidance_scale"]
+              elif meta.get('cfg'):
+                if 'seed' not in meta:
+                  continue
+                dream += f', guidance_scale={meta["cfg"]}'
+                arg["guidance_scale"] = meta["cfg"]
+              if meta.get('steps'):
+                if 'seed' not in meta:
+                  continue
+                dream += f', steps={meta["steps"]}'
+                arg["steps"] = meta["steps"]
+              if meta.get('eta'):
+                dream += f', eta={meta["eta"]}'
+                arg["eta"] = meta["eta"]
+              if meta.get('seed'):
+                dream += f', seed={meta["seed"]}'
+                arg["seed"] = meta["seed"]
+              if meta.get('init_image'):
+                dream += f', init_image="{meta["init_image"]}"'
+                arg["init_image"] = meta["init_image"]
+              if meta.get('mask_image'):
+                dream += f', mask_image="{meta["mask_image"]}"'
+                arg["mask_image"] = meta["mask_image"]
+              if meta.get('init_image_strength'):
+                dream += f', init_image_strength={meta["init_image_strength"]}'
+                arg["init_image_strength"] = meta["init_image_strength"]
+          dream += '),'
+          page.add_to_retrieve_output(Text(dream, selectable=True))
+          if display_full_metadata:
+            page.add_to_retrieve_output(Text(str(metadata)))
+          if add_to_prompts:
+            page.add_to_prompts(p, arg)
+      else:
+          alert_msg(page, 'Problem reading your ComfyUI json image meta data.')
+          return
+    #Todo: Detect Automatic1111 and convert
+    def meta_auto1111(metadata):
+      if metadata is not None and len(metadata) > 1:
+          print(str(meta))
+          arg = {}
+          #https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/0cc0ee1bcb4c24a8c9715f66cede06601bfc00c8/modules/processing.py#L445-L462
+          p = ''
+          if 'parameters' not in metadata: return
+          print(metadata["parameters"])
+          p = metadata["parameters"].split("\n")[0]
+          arg["negative_prompt"] = metadata["parameters"].split("\n")[1].split(": ")[1]
+          steps_index = metadata["parameters"].index("Steps:")
+          steps_info = metadata["parameters"][steps_index:].split("\nTemplate")[0]
+          steps_list = steps_info.split(", ")
+          cfg_index = metadata["parameters"].index("CFG scale:")
+          cfg_info = metadata["parameters"][cfg_index:].split("\nTemplate")[0]
+          size_index = metadata["parameters"].index("Size:")
+          size_info = metadata["parameters"][size_index:].split("\nTemplate")[0]
+          if 'x' in size_info:
+            size = size_info.split('x')
+            dream += f', width={size[0]}'
+            arg["width"] = int(size[0])
+            dream += f', height={size[2]}'
+            arg["height"] = int(size[2])
+          dream += '),'
+          page.add_to_retrieve_output(Text(dream, selectable=True))
+          if display_full_metadata:
+            page.add_to_retrieve_output(Text(str(metadata)))
+          if add_to_prompts:
+            page.add_to_prompts(p, arg)
     uploaded = {}
     if not upload_file:
       if not bool(image_path):
@@ -20432,11 +20863,18 @@ def run_retrieve(page):
                   meta[key] = val
                   val = ''
                 key = parts[2].strip()
-            #print(meta)
-            meta_dream(meta)
-            #print(dream)
+          elif metadata.get('prompt'):
+            json_txt = metadata['prompt']
+            #print(json_txt)
+            meta = json.loads(json_txt)
+            meta_comfy(meta)
+          elif metadata.get('parameters'):
+            json_txt = metadata['parameters']
+            #print(json_txt)
+            meta = json.loads(json_txt)
+            meta_auto111(meta)
           else:
-            alert_msg(page, "No Enhanced Stable Diffusion config metadata found inside image.")
+            alert_msg(page, "No Stable Diffusion Deluxe config metadata found inside image.")
 
 def run_initfolder(page):
     prompt_string = initfolder_prefs['prompt_string']
@@ -22996,6 +23434,7 @@ def run_semantic(page):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_image2text(page):
+    global fuyu_tokenizer, fuyu_model, fuyu_processor
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -23014,8 +23453,49 @@ def run_image2text(page):
     if len(image2text_prefs['images']) < 1:
       alert_msg(page, "You must add one or more files to interrogate first... ")
       return
-    if not image2text_prefs['use_AIHorde']:
-        prt(Installing("Downloading Image2Text CLIP-Interrogator Blips..."))
+    if image2text_prefs['method'] == "Fuyu-8B":
+        if not status['installed_diffusers']:
+            alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+            return
+        installer = Installing("Downloading Fuyu-8B Image2Text Model...")
+        prt(installer)
+        clear_pipes("fuyu")
+        from transformers import AutoTokenizer, FuyuForCausalLM, FuyuImageProcessor, FuyuProcessor
+        import torch
+        dtype = torch.bfloat16
+        model_id = "adept/fuyu-8b"
+        if fuyu_tokenizer == None:
+            installer.status("...adept/fuyu-8b Tokenizer")
+            fuyu_tokenizer = AutoTokenizer.from_pretrained(model_id)
+            installer.status("...loading model (see console)")
+            fuyu_model = FuyuForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=dtype, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            installer.status("...FuyuImageProcessor")
+            fuyu_processor = FuyuProcessor(image_processor=FuyuImageProcessor(), tokenizer=fuyu_tokenizer)
+        folder_path = image2text_prefs['folder_path']
+        prompt_mode = "What is happening in this image?" if 'Detailed' in image2text_prefs['fuyu_mode'] else "Generate a coco-style caption with art style.\n" if 'Simple' in image2text_prefs['fuyu_mode'] else image2text_prefs['question']
+        i2t_prompts = []
+        clear_last()
+        for file in image2text_prefs['images']:
+            prt(f"Interrogating Images to Describe Prompt...")
+            prt(progress)
+            image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
+            try:
+                model_inputs = fuyu_processor(text=prompt_mode, images=[image])
+                model_inputs = {k: v.to(dtype=dtype if torch.is_floating_point(v) else v.dtype, device=torch_device) for k,v in model_inputs.items()}
+                generation_output = fuyu_model.generate(**model_inputs, max_new_tokens=60)
+                prompt_len = model_inputs["input_ids"].shape[-1]
+                prompt = fuyu_tokenizer.decode(generation_output[0][prompt_len:], skip_special_tokens=True).strip()
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't run Fuyu generate for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            clear_last()
+            clear_last()
+            i2t_prompts.append(prompt)
+            page.add_to_image2text(prompt)
+    elif image2text_prefs['method'] == "BLIP-Interrogation":
+        installer = Installing("Downloading Image2Text CLIP-Interrogator Blips...")
+        prt(installer)
         try:
             if transformers.__version__ != "4.21.3": # Diffusers conflict
               run_process("pip uninstall -y transformers", realtime=False)
@@ -23070,7 +23550,7 @@ def run_image2text(page):
             else:
                 return ci.interrogate_fast(image)
         folder_path = image2text_prefs['folder_path']
-        mode = image2text_prefs['mode'] #'best' #param ["best","classic", "fast"]
+        mode = image2text_prefs['mode'].lower() #'best' #param ["best","classic", "fast"]
         #files = [f for f in os.listdir(folder_path) if f.endswith('.jpg') or  f.endswith('.png')] if os.path.exists(folder_path) else []
         files = image2text_prefs['images']
         clear_last()
@@ -23102,7 +23582,7 @@ def run_image2text(page):
         run_process("pip uninstall -y transformers", realtime=False)
         run_process("pip install --upgrade transformers", realtime=False)
         clear_last()
-    else:
+    elif image2text_prefs['method'] == "AIHorde Crowdsourced":
         if not status['installed_AIHorde']:
           prt(Installing("Installing AIHorde API Library..."))
           get_AIHorde(page)
@@ -30785,9 +31265,9 @@ def run_deepfloyd(page, from_list=False):
         import transformers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        installer.status("...Transformers v4.28")
-        #run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
-        run_process("pip install --upgrade transformers~=4.28", page=page)
+        installer.status("...Transformers")
+        run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
+        #run_process("pip install --upgrade transformers~=4.28", page=page)
         pass
     try:
         import safetensors
@@ -33029,7 +33509,7 @@ def run_roop(page):
             import protobuf
         except ImportError as e:
             installer.status("...installing protobuf") #3.20.*
-            run_sp("pip install -q protobuf==4.23.2", realtime=False)
+            run_sp("pip install -q protobuf==4.24.3", realtime=False)
             pass
         pass
     try:
@@ -37084,6 +37564,9 @@ def main(page: Page):
             time.sleep(0.8)
             memory_text.value = get_memory()
             memory_text.update()
+            time.sleep(3.2)
+            memory_text.value = get_memory()
+            memory_text.update()
         memory_text = Text(get_memory())
         clear_pipes_btn = ElevatedButton(content=Text("Clear Memory", size=16), on_click=clear_the_pipes)
         memory_row = Row([memory_text, Container(content=None, expand=True), clear_pipes_btn])
@@ -37433,7 +37916,7 @@ class NumberPicker(UserControl):
         return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
 class SliderRow(UserControl):
-    def __init__(self, label="", value=None, min=0, max=20, divisions=20, step=None, multiple=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, col=None, on_change=None):
+    def __init__(self, label="", value=None, min=0, max=20, divisions=20, step=None, multiple=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, col=None, on_change=None, data=None):
         super().__init__()
         self.value = value or pref[key]
         self.min = min
@@ -37456,6 +37939,7 @@ class SliderRow(UserControl):
         self.key = key
         self.col = col
         self.on_change = on_change
+        self.data = data
         self.build()
     def build(self):
         def change_slider(e):
@@ -37529,6 +38013,7 @@ class SliderRow(UserControl):
             self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), label="{value}" + self.suffix, value=float(self.pref[self.key]), tooltip=self.tooltip, expand=True, on_change=change_slider)
         self.slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
         slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
+        
         slider_label = Text(f"{self.label}: ")
         left = Text("", visible=False)
         right = Text("", visible=False)
@@ -37687,8 +38172,9 @@ def elapsed(start_time):
 
 def nudge(column):
     ''' Force an autoscroll column to go down. Mainly to show ProgressBar not scrolling to bottom.'''
-    column.controls.append(Container(content=None))
+    column.controls.append(Container(content=Text(" ")))
     column.update()
+    time.sleep(0.1)
     del column.controls[-1]
     column.update()
     
