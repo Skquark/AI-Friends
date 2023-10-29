@@ -771,6 +771,7 @@ def buildVideoAIs(page):
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.Roop = buildROOP(page)
     page.AnimateDiff = buildAnimateDiff(page)
+    page.HotshotXL = buildHotshotXL(page)
     page.Rerender_a_video = buildRerender_a_video(page)
 
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
@@ -782,6 +783,7 @@ def buildVideoAIs(page):
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
+            Tab(text="Hotshot-XL", content=page.HotshotXL, icon=icons.HOT_TUB),
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
@@ -10834,6 +10836,134 @@ def buildAnimateDiff(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+hotshot_xl_prefs = {
+    'prompt': '',
+    'negative_prompt': 'text, watermark, copyright, blurry, low resolution, blur, low quality',
+    'num_inference_steps': 25,
+    'guidance_scale': 23.0,
+    'fps': 24,
+    'video_length': 16,
+    'video_duration': 1000,
+    'export_to_video': False,
+    'seed': 0,
+    'width': 608,
+    'height': 416,
+    'scheduler': 'EulerAncestralDiscreteScheduler',
+    'gif': '',
+    'controlnet_type': 'Canny',
+    'conditioning_scale': 0.7,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
+    'lora_layer': 'None',
+    'custom_lora_layer': '',
+    'init_video': '',
+    'init_weight': 0.5,
+    'num_images': 1,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildHotshotXL(page):
+    global hotshot_xl_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            hotshot_xl_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            hotshot_xl_prefs[pref] = float(e.control.value)
+          else:
+            hotshot_xl_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.hotshot_xl_output.controls = []
+      page.hotshot_xl_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def hotshot_xl_help(e):
+      def close_hotshot_xl_dlg(e):
+        nonlocal hotshot_xl_help_dlg
+        hotshot_xl_help_dlg.open = False
+        page.update()
+      hotshot_xl_help_dlg = AlertDialog(title=Text("💁   Help with Hotshot-XL Text-To-GIF"), content=Column([
+          Text("You’ll be able to make GIFs with any existing or newly fine-tuned SDXL model you may want to use. If you'd like to make GIFs of personalized subjects, you can load your own SDXL based LORAs, and not have to worry about fine-tuning Hotshot-XL. This is awesome because it’s usually much easier to find suitable images for training data than it is to find videos. It also hopefully fits into everyone's existing LORA usage/workflows. Hotshot-XL is compatible with SDXL ControlNet to make GIFs in the composition/layout you’d like. Hotshot-XL was trained to generate 1 second GIFs at 8 FPS. Hotshot-XL was trained on various aspect ratios. For best results with the base Hotshot-XL model, we recommend using it with an SDXL model that has been fine-tuned with 512x512 images."),
+          Markdown("[Project Website](https://www.hotshot.co/) | [GitHub repository](https://github.com/hotshotco/Hotshot-XL)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("♨️  Hot Stuff... ", on_click=close_hotshot_xl_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = hotshot_xl_help_dlg
+      hotshot_xl_help_dlg.open = True
+      page.update()
+    def changed_lora_layer(e):
+        hotshot_xl_prefs['lora_layer'] = e.control.value
+        custom_lora_layer.visible = e.control.value == "Custom"
+        custom_lora_layer.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        hotshot_xl_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Animation Prompt Text", value=hotshot_xl_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=hotshot_xl_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    video_length = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=hotshot_xl_prefs, key='video_length', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    video_duration = SliderRow(label="Video Duration", min=1, max=6000, divisions=5999, suffix="ms", pref=hotshot_xl_prefs, key='video_duration', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=hotshot_xl_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=hotshot_xl_prefs, key='guidance_scale')
+    #fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=hotshot_xl_prefs, key='fps')
+    export_to_video = Tooltip(message="Save mp4 video file instead of Animated GIF", content=Switcher(label="Export to Video", value=hotshot_xl_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=24, multiple=16, suffix="px", pref=hotshot_xl_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=24, multiple=16, suffix="px", pref=hotshot_xl_prefs, key='height')
+    scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("EulerAncestralDiscreteScheduler"), dropdown.Option("EulerDiscreteScheduler")], width=300, value=hotshot_xl_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
+    gif = FileInput(label="Init Animated GIF (optional)", pref=hotshot_xl_prefs, expand=True, key='gif', ftype="gif", page=page)
+    controlnet_type = Dropdown(label="ControlNet Image Layer", width=177, options=[dropdown.Option("Canny"), dropdown.Option("Depth")], value=hotshot_xl_prefs['controlnet_type'], on_change=lambda e: changed(e, 'controlnet_type'))
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0.0, max=1.0, divisions=10, round=1, pref=hotshot_xl_prefs, col={'md': 6, 'lg': 4}, key='conditioning_scale', tooltip="Strength of the ControlNet Mask.")
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, pref=hotshot_xl_prefs, col={'md': 6, 'lg': 4}, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, pref=hotshot_xl_prefs, col={'md': 6, 'lg': 4}, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
+    lora_layer = Dropdown(label="SDXL LoRA Layer", options=[dropdown.Option("None"), dropdown.Option("Custom")], value=hotshot_xl_prefs['lora_layer'], on_change=changed_lora_layer)
+    custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=hotshot_xl_prefs['custom_lora_layer'], expand=True, visible=hotshot_xl_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
+    for lora in SDXL_LoRA_models:
+        lora_layer.options.insert(2, dropdown.Option(lora['name']))
+    num_images = NumberPicker(label="Number of Animations: ", min=1, max=8, value=hotshot_xl_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
+    batch_folder_name = TextField(label="Video Folder Name", value=hotshot_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(hotshot_xl_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=hotshot_xl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=hotshot_xl_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=hotshot_xl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_hotshot_xl = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_hotshot_xl.height = None if status['installed_ESRGAN'] else 0
+    page.hotshot_xl_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.hotshot_xl_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🔥  Hotshot-XL Text-To-GIF with SDXL", "Generate Animated GIFs with any fine-tuned SDXL model... (Work in Progress)", actions=[IconButton(icon=icons.HELP, tooltip="Help with Hotshot-XL Settings", on_click=hotshot_xl_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        ResponsiveRow([prompt, negative_prompt]),
+        #Row([export_to_video, lower_memory]),
+        video_length,
+        video_duration,
+        num_inference_row,
+        guidance,
+        width_slider, height_slider,
+        Row([controlnet_type, gif]),
+        ResponsiveRow([control_guidance_start, control_guidance_end, conditioning_scale]),
+        Divider(height=4),
+        Row([lora_layer, custom_lora_layer]),
+        Row([scheduler, export_to_video]),
+        #page.ESRGAN_block_hotshot_xl,
+        Row([num_images, seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("🫠  Run Hotshot-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hotshot_xl(page)),
+        ]),
+        page.hotshot_xl_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 rerender_a_video_prefs = {
     'init_video': '',
@@ -15792,7 +15922,7 @@ def get_SDXL_model(name):
       return {'name':"Custom SDXL Model", 'path':prefs['SDXL_custom_model'], 'prefix':'', 'revision': 'fp16'}
   for mod in SDXL_models:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'], 'revision': mod['revision']}
+        return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'], 'revision': mod['variant'] if 'variant' in mod else mod['revision'] if 'variant' in mod else 'fp16'}
 
 HFapi = None
 def get_diffusers(page):
@@ -34512,6 +34642,221 @@ def run_animate_diff(page):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_hotshot_xl(page):
+    global hotshot_xl_prefs, prefs, status, pipe_hotshot_xl, model_path
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.HotshotXL.controls.append(line)
+      page.HotshotXL.update()
+    def clear_last():
+      del page.HotshotXL.controls[-1]
+      page.HotshotXL.update()
+    def clear_list():
+      page.HotshotXL.controls = page.HotshotXL.controls[:1]
+    def autoscroll(scroll=True):
+      page.HotshotXL.auto_scroll = scroll
+      page.HotshotXL.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = hotshot_xl_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Hotshot-XL Text-To-Video Pipeline...")
+    prt(installer)
+    #model_id = "damo-vilab/text-to-video-ms-1.7b"
+    clear_pipes()
+    hotshot_xl_dir = os.path.join(root_dir, "Hotshot-XL")
+    if not os.path.exists(hotshot_xl_dir):
+        installer.status("...hotshotco/Hotshot-XL")
+        run_sp("git clone https://github.com/hotshotco/Hotshot-XL", realtime=False, cwd=root_dir)
+    try:
+        pip_install("appdirs==1.4.4 certifi==2023.7.22 charset-normalizer==3.3.0 click==8.1.7 cmake decorator==4.4.2 docker-pycreds==0.4.0 einops filelock==3.12.4 fsspec==2023.9.2 gitdb==4.0.10 GitPython==3.1.37 idna==3.4 imageio imageio-ffmpeg importlib-metadata==6.8.0 Jinja2==3.1.2 lit==17.0.2 MarkupSafe==2.1.3 moviepy mpmath==1.3.0 networkx==3.1 numpy pathtools proglog==0.1.10 protobuf==4.24.3 psutil PyYAML regex safetensors sentry-sdk==1.31.0 setproctitle==1.3.3 six==1.16.0 smmap==5.0.1 sympy==1.12 tokenizers==0.14.0 tqdm transformers triton typing_extensions urllib3 wandb zipp==3.17.0", installer=installer)
+        #pip_install("nvidia-cublas-cu11==11.10.3.66 nvidia-cuda-cupti-cu11==11.7.101 nvidia-cuda-nvrtc-cu11==11.7.99 nvidia-cuda-runtime-cu11==11.7.99 nvidia-cudnn-cu11==8.5.0.96 nvidia-cufft-cu11==10.9.0.58 nvidia-curand-cu11==10.2.10.91 nvidia-cusolver-cu11==11.4.0.1 nvidia-cusparse-cu11==11.7.4.91 nvidia-nccl-cu11==2.14.3 nvidia-nvtx-cu11==11.7.91")
+        run_sp("apt-get install git-lfs", realtime=False)
+        run_sp("git lfs install", realtime=False)
+        installer.status("...huggingface hotshotco/Hotshot-XL")
+        run_sp("git clone https://huggingface.co/hotshotco/Hotshot-XL", realtime=False, cwd=root_dir)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Hotshot-XL Text-To-Video requirements failed for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    hotshot_lora = os.path.join(hotshot_xl_dir, 'lora')
+    hotshot_input = os.path.join(hotshot_xl_dir, 'input')
+    hotshot_output = os.path.join(hotshot_xl_dir, 'output')
+    os.makedirs(hotshot_lora, exist_ok=True)
+    os.makedirs(hotshot_input, exist_ok=True)
+    os.makedirs(hotshot_output, exist_ok=True)
+    lora = hotshot_xl_prefs['lora_layer']
+    lora_path = ""
+    if lora != "None":
+        lora_model = get_SDXL_LoRA_model(lora_model)
+        installer.status(f"...getting LoRA {lora_model['name']}")
+        if lora == "Custom":
+            lora_model['name'] = "Custom SDXL LoRA"
+            lora_model['path'] = hotshot_xl_prefs['custom_lora_layer']
+            if lora_model['path'].count('/') == 1:
+                from huggingface_hub import HfFileSystem
+                fs = HfFileSystem()
+                files = fs.ls(lora_model['path'], detail=False)
+                lora_model['weights'] = [file.rpartition('/')[2] for file in files if file.endswith(".safetensors")]
+        if lora_model['path'].count('/') == 1:
+            lora_path = download_file(f"https://huggingface.co/{lora_model['path']}/blob/main/{lora_model['weights']}", to=hotshot_lora)
+        elif os.path.isfile(lora_model['path']):
+            lora_path = lora_model['path']
+        elif lora_model['path'].startswith("http"):
+            lora_path = download_file(lora_model['path'], to=hotshot_lora, ext="safetensors")
+        else:
+            print(f"Couldn't download LoRA {lora_model['path']}")
+    #clear_pipes('hotshot_xl')
+    
+    local_output = os.path.join(stable_dir, hotshot_xl_prefs['batch_folder_name'])
+    if not os.path.isdir(local_output):
+        os.makedirs(local_output)
+    batch_output = os.path.join(prefs['image_output'], hotshot_xl_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+        os.makedirs(batch_output)
+    width = hotshot_xl_prefs['width']
+    height = hotshot_xl_prefs['height']
+    filename = format_filename(hotshot_xl_prefs["prompt"])
+    out_file = f"{filename}.{'mp4' if hotshot_xl_prefs['export_to_video'] else 'gif'}"
+    x = " --xformers" if status['installed_xformers'] else ""
+    lora_arg = f' --lora "lora/{os.path.basename(lora_path)}"' if bool(lora_path) else ""
+    if bool(hotshot_xl_prefs["gif"]):
+        if os.path.isfile(hotshot_xl_prefs["gif"]):
+            shutil.copy(hotshot_xl_prefs["gif"], os.path.join(hotshot_input, os.path.basename(hotshot_xl_prefs["gif"])))
+    gif = f' --control_type {hotshot_xl_prefs["controlnet_type"].lower()} --controlnet_conditioning_scale {hotshot_xl_prefs["conditioning_scale"]} --control_guidance_start {hotshot_xl_prefs["control_guidance_start"]} --control_guidance_end {hotshot_xl_prefs["control_guidance_end"]} --gif "input/{os.path.basename(hotshot_xl_prefs["gif"])}"' if bool(hotshot_xl_prefs["gif"]) else ''
+    clear_last()
+    for num in range(hotshot_xl_prefs["num_images"]):
+        random_seed = (int(hotshot_xl_prefs['seed']) + num) if int(hotshot_xl_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        prt("Generating Hotshot-XL of your Prompt...")
+        prt(progress)
+        autoscroll(False)
+        try:
+            run_sp(f'python inference.py --prompt "{hotshot_xl_prefs["prompt"]}" --negative_prompt "{hotshot_xl_prefs["negative_prompt"]}" --width {width} --height {height} --seed {random_seed} --steps {hotshot_xl_prefs["num_inference_steps"]} --video_length {hotshot_xl_prefs["video_length"]} --video_duration {hotshot_xl_prefs["video_duration"]} --scheduler {hotshot_xl_prefs["scheduler"]}{gif}{" --low_vram_mode" if not prefs["higher_vram_mode"] else ""}{x}{lora_arg} --output "output/{out_file}"', realtime=True, cwd=hotshot_xl_dir)
+          #print(f"prompt={hotshot_xl_prefs['prompt']}, negative_prompt={hotshot_xl_prefs['negative_prompt']}, editing_prompt={editing_prompt}, edit_warmup_steps={edit_warmup_steps}, edit_guidance_scale={edit_guidance_scale}, edit_threshold={edit_threshold}, edit_weights={edit_weights}, reverse_editing_direction={reverse_editing_direction}, edit_momentum_scale={hotshot_xl_prefs['edit_momentum_scale']}, edit_mom_beta={hotshot_xl_prefs['edit_mom_beta']}, num_inference_steps={hotshot_xl_prefs['num_inference_steps']}, eta={hotshot_xl_prefs['eta']}, guidance_scale={hotshot_xl_prefs['guidance_scale']}")
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Hotshot-XL Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last()
+        clear_last()
+        autoscroll(True)
+        video_path = os.path.join(hotshot_output, out_file)
+        if not os.path.isfile(video_path):
+            prt(f"Problem creating file {video_path}")
+            return
+        output_path = os.path.join(prefs['image_output'], rerender_a_video_prefs['batch_folder_name'])
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        output_file = available_file(output_path, out_file, 0, ext="mp4" if hotshot_xl_prefs['export_to_video'] else 'gif', no_num=True)
+        shutil.copy(video_path, output_file)
+        if hotshot_xl_prefs['export_to_video']:
+            prt(f"Saved Video file to {output_file}")
+        else:
+            prt(Row([ImageButton(src=output_file, data=output_file, width=width, height=height, show_subtitle=True, page=page)], alignment=MainAxisAlignment.CENTER))
+
+    '''if hotshot_xl_prefs['export_to_video']:
+        from diffusers.utils import export_to_video
+        video_path = export_to_video(frames)
+        shutil.copy(video_path, available_file(local_output, filename, 0, ext="mp4", no_num=True))
+        shutil.copy(video_path, available_file(batch_output, filename, 0, ext="mp4", no_num=True))
+    import cv2
+    from PIL.PngImagePlugin import PngInfo
+    num = 0
+    for image in frames:
+        random_seed += num
+        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+        image_path = available_file(batch_output, fname, num)
+        unscaled_path = image_path
+        output_file = image_path.rpartition(slash)[2]
+        #uint8_image = (image * 255).round().astype("uint8")
+        #np_image = image.cpu().numpy()
+        #print(f"image: {type(image)}, np_image: {type(np_image)}")
+        #print(f"image: {type(image)} to {image_path}")
+        cv2.imwrite(image_path, image)
+        #PILImage.fromarray(np_image).save(image_path)
+        out_path = image_path.rpartition(slash)[0]
+        upscaled_path = os.path.join(out_path, output_file)
+        if not hotshot_xl_prefs['display_upscaled_image'] or not hotshot_xl_prefs['apply_ESRGAN_upscale']:
+            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+        if hotshot_xl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+            upload_folder = 'upload'
+            result_folder = 'results'
+            if os.path.isdir(upload_folder):
+                shutil.rmtree(upload_folder)
+            if os.path.isdir(result_folder):
+                shutil.rmtree(result_folder)
+            os.mkdir(upload_folder)
+            os.mkdir(result_folder)
+            short_name = f'{fname[:80]}-{num}.png'
+            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+            #print(f'Moving {fpath} to {dst_path}')
+            #shutil.move(fpath, dst_path)
+            shutil.copy(image_path, dst_path)
+            #faceenhance = ' --face_enhance' if hotshot_xl_prefs["face_enhance"] else ''
+            faceenhance = ''
+            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {hotshot_xl_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+            out_file = short_name.rpartition('.')[0] + '_out.png'
+            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            image_path = upscaled_path
+            os.chdir(stable_dir)
+            if hotshot_xl_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(hotshot_xl_prefs["enlarge_scale"]), height=height * float(hotshot_xl_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        if prefs['save_image_metadata']:
+            img = PILImage.open(image_path)
+            metadata = PngInfo()
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+            metadata.add_text("copyright", prefs['meta_Copyright'])
+            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {hotshot_xl_prefs['enlarge_scale']}x with ESRGAN" if hotshot_xl_prefs['apply_ESRGAN_upscale'] else "")
+            metadata.add_text("pipeline", "Text-To-Video")
+            if prefs['save_config_in_metadata']:
+              config_json = hotshot_xl_prefs.copy()
+              config_json['model_path'] = model_id
+              config_json['scheduler_mode'] = prefs['scheduler_mode']
+              config_json['seed'] = random_seed
+              del config_json['video_length']
+              del config_json['width']
+              del config_json['height']
+              del config_json['display_upscaled_image']
+              del config_json['batch_folder_name']
+              del config_json['lower_memory']
+              if not config_json['apply_ESRGAN_upscale']:
+                del config_json['enlarge_scale']
+                del config_json['apply_ESRGAN_upscale']
+              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+            img.save(image_path, pnginfo=metadata)
+        #TODO: PyDrive
+        if storage_type == "Colab Google Drive":
+            new_file = available_file(os.path.join(prefs['image_output'], hotshot_xl_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        elif bool(prefs['image_output']):
+            new_file = available_file(os.path.join(prefs['image_output'], hotshot_xl_prefs['batch_folder_name']), fname, num)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        num += 1'''
+    #prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
+    prt(f"Done creating video... Check {batch_output}")
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 def run_rerender_a_video(page):
     global rerender_a_video_prefs, status
     if not status['installed_diffusers']:
@@ -36310,13 +36655,13 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 '''
                 if task_type == "text2img":
                     from diffusers import AutoPipelineForText2Image
-                    pipe_kandinsky = AutoPipelineForText2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForText2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "img2img":
                     from diffusers import AutoPipelineForImage2Image
-                    pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "inpainting":
                     from diffusers import AutoPipelineForInpainting
-                    pipe_kandinsky = AutoPipelineForInpainting.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForInpainting.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if prefs['enable_torch_compile']:
                     installer.status(f"...Torch compiling unet")
                     pipe_kandinsky.unet.to(memory_format=torch.channels_last)
@@ -37773,8 +38118,9 @@ class FileInput(UserControl):
         def pick_file(e):
             img_ext = ["png", "PNG", "jpg", "jpeg"]
             vid_ext = ["mp4", "avi", "MP4", "AVI"]
+            gif_ext = ["gif", "GIF"]
             aud_ext = ["mp3", "wav", "MP3", "WAV"]
-            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+vid_ext if self.ftype == "picture" else img_ext
+            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
             self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
         def changed(e):
@@ -38100,7 +38446,7 @@ def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgra
                 #pkg = package.split('==')[0]
             else: pkg = package
             if '-' in pkg: pkg = pkg.replace('-', '_')
-            exec(f"import {pkg}")
+            exec(f"import {pkg.lower()}")
         except ImportError:
             if installer != None:
                 installer.status(f"...installing {package}")
