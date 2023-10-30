@@ -16404,7 +16404,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True, model_offload=False, freeu=True, lora=True):
+def optimize_pipe(p, vae_slicing=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True, model_offload=False, freeu=True, lora=True):
     global prefs, status
     if model_offload:
       p.enable_model_cpu_offload()
@@ -16420,7 +16420,7 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
       p.enable_xformers_memory_efficient_attention()
     elif prefs['enable_xformers']:
       p.enable_attention_slicing()
-    if prefs['vae_slicing'] and vae:
+    if prefs['vae_slicing'] and vae_slicing:
       p.enable_vae_slicing()
     if prefs['vae_tiling'] and vae_tiling:
       p.enable_vae_tiling()
@@ -16458,7 +16458,7 @@ def optimize_pipe(p, vae=False, unet=False, no_cpu=False, vae_tiling=False, to_g
     status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
 
-def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False, freeu=True, tome=True, lora=True):
+def optimize_SDXL(p, vae_slicing=False, no_cpu=False, vae_tiling=True, torch_compile=True, model_offload=False, freeu=True, tome=True, lora=True):
     global prefs, status
     low_ram = int(status['cpu_memory']) <= 12
     to_gpu = True
@@ -16471,7 +16471,7 @@ def optimize_SDXL(p, vae=False, no_cpu=False, vae_tiling=True, torch_compile=Tru
     if prefs['enable_xformers'] and status['installed_xformers']:
       #p.set_use_memory_efficient_attention_xformers(True)
       p.enable_xformers_memory_efficient_attention()
-    if prefs['vae_slicing'] and vae:
+    if prefs['vae_slicing'] and vae_slicing:
       p.enable_vae_slicing()
     if prefs['vae_tiling'] and vae_tiling:
       p.enable_vae_tiling()
@@ -16650,7 +16650,7 @@ def get_lpw_pipe():
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
   #pipe = pipeline_scheduler(pipe)
-  pipe = optimize_pipe(pipe, vae=True)
+  pipe = optimize_pipe(pipe, vae_slicing=True)
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
@@ -16710,7 +16710,7 @@ def get_SD_pipe(task="txt2img"):
     elif task == "inpaint":
       pipe = AutoPipelineForInpainting.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, use_safetensors=True, **vae_args, **variant, **safety)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
-  pipe = optimize_pipe(pipe, vae=True)
+  pipe = optimize_pipe(pipe, vae_slicing=task == "txt2img")
   if prefs['SD_compel']:
       from compel import Compel
       compel_proc = Compel(tokenizer=pipe.tokenizer, text_encoder=pipe.text_encoder, truncate_long_prompts=False)
@@ -16768,7 +16768,7 @@ def get_compel_pipe():
   #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
   #pipe = pipe.to(torch_device)
   pipe = pipeline_scheduler(pipe)
-  pipe = optimize_pipe(pipe, vae=True)
+  pipe = optimize_pipe(pipe, vae_slicing=True)
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
@@ -16890,7 +16890,7 @@ def get_img2img_pipe():
   #pipe_img2img.to(torch_device)
   #if prefs['enable_attention_slicing']: pipe_img2img.enable_attention_slicing() #slice_size
   pipe_img2img = pipeline_scheduler(pipe_img2img)
-  pipe_img2img = optimize_pipe(pipe_img2img, vae=True)
+  pipe_img2img = optimize_pipe(pipe_img2img, vae_slicing=True)
   pipe_img2img.set_progress_bar_config(disable=True)
   #def dummy(images, **kwargs): return images, False
   #pipe_img2img.safety_checker = dummy
@@ -17013,7 +17013,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **variant, **safety,
       )
-      pipe_SDXL = optimize_SDXL(pipe_SDXL)
+      pipe_SDXL = optimize_SDXL(pipe_SDXL, vae_slicing=True)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(refiner_id, torch_dtype=torch.float16, use_safetensors=True,
           text_encoder_2=pipe_SDXL.text_encoder_2,
           vae=pipe_SDXL.vae,
@@ -17021,7 +17021,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **variant, **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False, lora=False)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, lora=False, vae_slicing=True)
 
   elif task == "image2image":
       status['loaded_SDXL'] = task
@@ -17032,7 +17032,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **variant, **safety,
       )
-      pipe_SDXL = optimize_SDXL(pipe_SDXL)
+      pipe_SDXL = optimize_SDXL(pipe_SDXL, vae_slicing=True)
       pipe_SDXL_refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
           refiner_id, torch_dtype=torch.float16, use_safetensors=True,
           vae=pipe_SDXL.vae,
@@ -17040,7 +17040,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **variant, **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False, lora=False)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, lora=False, vae_slicing=True)
 
   elif task == "inpainting":
       status['loaded_SDXL'] = task
@@ -17052,7 +17052,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **variant, **safety,
       )
-      pipe_SDXL = optimize_SDXL(pipe_SDXL)
+      pipe_SDXL = optimize_SDXL(pipe_SDXL, vae_slicing=True)
 
       pipe_SDXL_refiner = StableDiffusionXLInpaintPipeline.from_pretrained(
           refiner_id,
@@ -17064,7 +17064,7 @@ def get_SDXL_pipe(task="text2image"):
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **variant, **safety,
       )
-      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, freeu=False, lora=False)
+      pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, lora=False, vae_slicing=True)
   if prefs['SDXL_compel']:
       from compel import Compel, ReturnedEmbeddingsType
       compel_base = Compel(tokenizer=[pipe_SDXL.tokenizer, pipe_SDXL.tokenizer_2], text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
@@ -17282,7 +17282,7 @@ def get_SAG_pipe():
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       **safety)
   pipe_SAG = pipeline_scheduler(pipe_SAG, big3=True)
-  pipe_SAG = optimize_pipe(pipe_SAG, vae=False, freeu=False)
+  pipe_SAG = optimize_pipe(pipe_SAG, vae_slicing=False, freeu=False)
   pipe_SAG.set_progress_bar_config(disable=True)
   return pipe_SAG
 
@@ -17318,7 +17318,7 @@ def get_attend_and_excite_pipe():
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       **safety)
   pipe_attend_and_excite = pipeline_scheduler(pipe_attend_and_excite)
-  pipe_attend_and_excite = optimize_pipe(pipe_attend_and_excite, vae=True, freeu=False)
+  pipe_attend_and_excite = optimize_pipe(pipe_attend_and_excite, vae_slicing=True, freeu=False)
   pipe_attend_and_excite.set_progress_bar_config(disable=True)
   return pipe_attend_and_excite
 
@@ -17354,7 +17354,7 @@ def get_panorama_pipe():
       torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32,
       **safety)
   pipe_panorama = pipeline_scheduler(pipe_panorama)
-  pipe_panorama = optimize_pipe(pipe_panorama, vae=True, freeu=False)
+  pipe_panorama = optimize_pipe(pipe_panorama, vae_slicing=True, freeu=False)
   pipe_panorama.set_progress_bar_config(disable=True)
   return pipe_panorama
 
@@ -17788,6 +17788,17 @@ def get_conceptualizer(page):
     pipe_conceptualizer.set_progress_bar_config(disable=True)
     #pipe_conceptualizer = pipe_conceptualizer.to(torch_device)
     return pipe_conceptualizer
+
+def resize_for_condition_image(input_image: PILImage, resolution: int):
+    input_image = input_image.convert("RGB")
+    W, H = input_image.size
+    k = float(resolution) / min(H, W)
+    H *= k
+    W *= k
+    H = int(round(H / 64.0)) * 64
+    W = int(round(W / 64.0)) * 64
+    img = input_image.resize((W, H), resample=PILImage.LANCZOS)
+    return img
 
 def flush():
     gc.collect()
@@ -18609,7 +18620,7 @@ def start_diffusion(page):
               else:
                 clear_last()
                 prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
-            init_img = init_img.resize((arg['width'], arg['height']))
+            init_img = init_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS)
             buff = BytesIO()
             init_img.save(buff, format="PNG")
             buff.seek(0)
@@ -18625,7 +18636,7 @@ def start_diffusion(page):
                 else:
                   clear_last()
                   prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
-              mask = mask_img.resize((arg['width'], arg['height']))
+              mask = mask_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS)
 
               buff = BytesIO()
               mask.save(buff, format="PNG")
@@ -18655,7 +18666,7 @@ def start_diffusion(page):
               else:
                 clear_last()
                 prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
-            init_img = init_img.resize((arg['width'], arg['height']))
+            init_img = init_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS)
 
             buff = BytesIO()
             init_img.save(buff, format="PNG")
@@ -19112,21 +19123,21 @@ def start_diffusion(page):
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   #, target_size=(arg['width'], arg['height'])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, height=arg['height'], width=arg['width'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, height=arg['height'], width=arg['width'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_refiner(pr)
                   negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                   del prompt_embed, negative_embed, pooled, negative_pooled
                 else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
@@ -19139,10 +19150,10 @@ def start_diffusion(page):
                   prompt_embed = compel_proc.build_conditioning_tensor(pr)
                   negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'])
                   [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
                   del prompt_embed, negative_embed
                 else:
-                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
 
               clear_last()
               page.auto_scrolling(True)
@@ -19259,10 +19270,10 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_refiner(pr)
                   negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
                   del prompt_embed, negative_embed, pooled, negative_pooled
                 else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
                 #images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -19300,10 +19311,10 @@ def start_diffusion(page):
                   prompt_embed = compel_proc.build_conditioning_tensor(pr)
                   negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'])
                   [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=init_img, target_size=(arg['height'], arg['width']), strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
                   del prompt_embed, negative_embed
                 else:
-                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, target_size=(arg['height'], arg['width']), strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
 
               clear_last()
               page.auto_scrolling(True)
@@ -19420,11 +19431,11 @@ def start_diffusion(page):
                   prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
                   negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
                   #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                   del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
                 else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
@@ -23444,7 +23455,7 @@ def run_semantic(page):
         from diffusers import SemanticStableDiffusionPipeline
         pipe_semantic = SemanticStableDiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         pipe_semantic = pipeline_scheduler(pipe_semantic)
-        pipe_semantic = optimize_pipe(pipe_semantic, vae=False, freeu=False)
+        pipe_semantic = optimize_pipe(pipe_semantic, vae_slicing=False, freeu=False)
         pipe_semantic.set_progress_bar_config(disable=True)
     else:
         pipe_semantic = pipeline_scheduler(pipe_semantic)
@@ -30268,7 +30279,7 @@ def run_controlnet(page, from_list=False):
         #TODO: pipe_controlnet = StableDiffusionXLControlNetPipeline
         pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
-        pipe_controlnet = optimize_pipe(pipe_controlnet, vae=True, vae_tiling=True)
+        pipe_controlnet = optimize_pipe(pipe_controlnet, vae_slicing=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_prefs["control_task"]
     #else:
         #pipe_controlnet.controlnet=controlnet
@@ -30844,7 +30855,7 @@ def run_controlnet_xl(page, from_list=False):
             from diffusers import StableDiffusionXLControlNetInpaintPipeline
             pipe_controlnet = StableDiffusionXLControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
-        pipe_controlnet = optimize_SDXL(pipe_controlnet, vae=True, vae_tiling=True)
+        pipe_controlnet = optimize_SDXL(pipe_controlnet, vae_slicing=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_xl_prefs["control_task"]
         status['loaded_controlnet_type'] = controlnet_type
     pipe_controlnet = pipeline_scheduler(pipe_controlnet)
@@ -32913,7 +32924,7 @@ def run_infinite_zoom(page):
                     return images, False
                 #pipe_infinite_zoom.safety_checker = dummy
                 #pipe_infinite_zoom.enable_attention_slicing() #This is useful to save some memory in exchange for a small speed decrease.
-                pipe_infinite_zoom = optimize_pipe(pipe_infinite_zoom)
+                pipe_infinite_zoom = optimize_pipe(pipe_infinite_zoom, vae_slicing=False)
                 pipe_infinite_zoom.set_progress_bar_config(disable=True)
                 status['loaded_infinite_zoom'] = model_id
         except Exception as e:
@@ -36628,11 +36639,11 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 else:
                     alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
                     return
-                if kandinsky_prefs['invert_mask']:
-                    mask_img = ImageOps.invert(mask_img.convert('RGB'))
+            if kandinsky_prefs['invert_mask']:
+                mask_img = ImageOps.invert(mask_img.convert('RGB'))
             mask_img = mask_img.resize((pr['width'], pr['height']), resample=PILImage.NEAREST)
             mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
-            mask_img = np.asarray(mask_img)
+            #mask_img = np.asarray(mask_img)
             #mask_img.save(mask_file)
         #print(f'Resize to {width}x{height}')
         task_type = "inpainting" if bool(pr['init_image']) and bool(pr['mask_image']) else "img2img" if bool(pr['init_image']) and not bool(pr['mask_image']) else "text2img"
@@ -36655,13 +36666,13 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 '''
                 if task_type == "text2img":
                     from diffusers import AutoPipelineForText2Image
-                    pipe_kandinsky = AutoPipelineForText2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForText2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "img2img":
                     from diffusers import AutoPipelineForImage2Image
-                    pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained("kandinsky-community/kandinsky-2-2-decoder", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "inpainting":
                     from diffusers import AutoPipelineForInpainting
-                    pipe_kandinsky = AutoPipelineForInpainting.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForInpainting.from_pretrained("kandinsky-community/kandinsky-2-2-decoder-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if prefs['enable_torch_compile']:
                     installer.status(f"...Torch compiling unet")
                     pipe_kandinsky.unet.to(memory_format=torch.channels_last)
@@ -36702,8 +36713,8 @@ def run_kandinsky(page, from_list=False, with_params=False):
                     #image_embeds=image_embeds,
                     #negative_image_embeds=negative_image_embeds,
                     num_images_per_prompt=pr['num_images'],
-                    height=pr['height'],
                     width=pr['width'],
+                    height=pr['height'],
                     num_inference_steps=pr['steps'],
                     guidance_scale=pr['guidance_scale'],
                     generator=generator,
@@ -36721,8 +36732,8 @@ def run_kandinsky(page, from_list=False, with_params=False):
                     #image_embeds=image_embeds,
                     #negative_image_embeds=negative_image_embeds,
                     num_images_per_prompt=pr['num_images'],
-                    height=pr['height'],
                     width=pr['width'],
+                    height=pr['height'],
                     num_inference_steps=pr['steps'],
                     guidance_scale=pr['guidance_scale'],
                     generator=generator,
@@ -36737,12 +36748,12 @@ def run_kandinsky(page, from_list=False, with_params=False):
                     #pr['prompt'],
                     image=init_img,
                     mask_image=mask_img,
-                    strength=pr['strength'],
+                    #strength=pr['strength'],
                     #image_embeds=image_embeds,
                     #negative_image_embeds=negative_image_embeds,
                     num_images_per_prompt=pr['num_images'],
-                    height=pr['height'],
                     width=pr['width'],
+                    height=pr['height'],
                     num_inference_steps=pr['steps'],
                     guidance_scale=pr['guidance_scale'],
                     generator=generator,
