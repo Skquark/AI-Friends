@@ -1188,8 +1188,8 @@ def save_installers(controls):
       elif c.value == 'Install Real-ESRGAN AI Upscaler': prefs['install_ESRGAN'] = c.value
       elif c.value == 'Install OpenAI GPT-3 Text Engine': prefs['install_OpenAI'] = c.value
       elif c.value == 'Install TextSynth GPT-J Text Engine': prefs['install_TextSynth'] = c.value
-    elif isinstance(c, Container):
-      '''try:
+    '''elif isinstance(c, Container):
+      try:
         for i in c.content.controls:
           if isinstance(i, Switch):
             print(f"elif i.value == '{c.label}': prefs[''] = i.value")
@@ -1398,13 +1398,15 @@ def buildInstallers(page):
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   #install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
   install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipelines", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=toggle_SD, tooltip="Best general-purpose component for most SD models <= 2.1, but don't need if using SDXL.")
-  SD_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SD", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD_compel'], on_change=lambda e:changed(e, 'SD_compel'))
-  SD_params = Container(Column([SD_compel]), padding=padding.only(top=5, left=20), height=None if prefs['install_text2img'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  SD_compel = Checkbox(label="Use Compel Long Prompt Weighting Embeds with SD", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD_compel'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD_compel'))
+  #SD_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SD", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD_compel'], on_change=lambda e:changed(e, 'SD_compel'))
+  SD_params = Container(Column([SD_compel]), padding=padding.only(top=0, left=32), height=None if prefs['install_text2img'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
 
   #SDXL_model_card = Markdown(f"  [**Accept Model Card**](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data))
   install_SDXL = Switcher(label="Install Stable Diffusion XL 1.0 text2image, image2image & Inpaint Pipeline", value=prefs['install_SDXL'], disabled=status['installed_SDXL'], on_change=toggle_SDXL, tooltip="Latest SDXL v1.0 trained on 1080p images.")
-  SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
-  SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=5, left=20), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  SDXL_compel = Checkbox(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SDXL_compel'))
+  #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
+  SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=0, left=32), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   #SDXL_params.visible = False
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
@@ -15960,7 +15962,11 @@ def get_diffusers(page):
         #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
         #if install_xformers(page):
         status['installed_xformers'] = True
-    run_sp("pip install invisible-watermark", realtime=False) #pip install --no-deps invisible-watermark>=0.2.0
+    try:
+        import invisible_watermark
+    except ModuleNotFoundError:
+        run_sp("pip install invisible-watermark", realtime=False) #pip install --no-deps invisible-watermark>=0.2.0
+        pass
     '''try:
         import accelerate
     except ModuleNotFoundError:
@@ -16015,7 +16021,6 @@ def get_diffusers(page):
         #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         pass
-    
     try:
         import scipy
     except ModuleNotFoundError:
@@ -19077,11 +19082,11 @@ def start_diffusion(page):
                 if os.path.isfile(arg['init_image']):
                   init_img = PILImage.open(arg['init_image'])
                 else: prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
-              if bool(arg['alpha_mask']):
-                init_img = init_img.convert("RGBA")
-              else:
-                init_img = init_img.convert("RGB")
-              init_img = init_img.resize((arg['width'], arg['height']))
+              #if bool(arg['alpha_mask']):
+              #  init_img = init_img.convert("RGBA")
+              #else:
+              #  init_img = init_img.convert("RGB")
+              init_img = init_img.resize((arg['width'], arg['height']), resample=PILImage.Resampling.LANCZOS)
               #init_image = preprocess(init_img)
               mask_img = None
               if not bool(arg['mask_image']) and bool(arg['alpha_mask']):
@@ -19101,6 +19106,7 @@ def start_diffusion(page):
                 mask_img = ImageOps.invert(mask_img.convert('RGB'))
               mask_img = mask_img.convert("L")
               mask_img = mask_img.resize((arg['width'], arg['height']), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+              init_img = init_img.convert("RGB")
               #mask = mask_img.resize((arg['width'], arg['height']))
               #mask = np.array(mask).astype(np.float32) / 255.0
               #mask = np.tile(mask,(4,1,1))
@@ -19134,10 +19140,10 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_refiner(pr)
                   negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                   del prompt_embed, negative_embed, pooled, negative_pooled
                 else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
@@ -33140,7 +33146,7 @@ def run_potat1(page):
     except:
         pass
     if torch_installed:
-        if version.parse(torch.__version__) >= version.parse("2.0.0"):
+        if version.parse(torch.__version__).base_version >= version.parse("2.0.0"):
             torch_installed = False
     if not torch_installed:
         installer.status("...installing Torch 1.13.1")
@@ -39033,20 +39039,17 @@ def show_port(adr, height=500):
     document.body.append(fm)
   })();
   """ % (adr, height) ))
-#import requests
 #r = requests.get('http://localhost:4040/api/tunnels')
 #url = r.json()['tunnels'][0]['public_url']
 #print(url)
 #await google.colab.kernel.proxyPort(%s)
 #get_ipython().system_raw('python3 -m http.server 8888 &')
 #get_ipython().system_raw('./ngrok http 8501 &')
-#show_port(public_url.public_url, port)0
 #show_port(public_url.public_url)
 #run_sp(f'python -m webbrowser -t "{public_url.public_url}"')
 #webbrowser.open(public_url.public_url, new=0, autoraise=True)
 #webbrowser.open_new_tab(public_url.public_url)
 #ft.app(target=main, view=flet.WEB_BROWSER, port=port, host=socket_host)
-#ft.app(target=main, view=flet.WEB_BROWSER, port=port, host=host_address)
 #ft.app(target=main, view=flet.WEB_BROWSER, port=80, host=public_url.public_url)
 #ft.app(target=main, view=flet.WEB_BROWSER, port=port, host="0.0.0.0")
 #ft.app(target=main, view=ft.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
@@ -39057,6 +39060,6 @@ if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
   if newest_flet:
-    ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir, use_color_emoji=True)
+    ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=os.path.abspath(root_dir), upload_dir=os.path.abspath(root_dir), use_color_emoji=True)
   else:
     ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir)
