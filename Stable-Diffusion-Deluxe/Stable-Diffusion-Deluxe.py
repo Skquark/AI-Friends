@@ -2624,7 +2624,7 @@ def editPrompt(e):
     init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(arg['init_image_strength']), expand=True)
     strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
     img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_SDXL']) else 0
+    #img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_SDXL']) else 0
     use_clip_guided_model = Switcher(label="Use CLIP-Guided Model", tooltip="Uses more VRAM, so you'll probably need to make image size smaller", value=arg['use_clip_guided_model'], on_change=toggle_clip)
     clip_guidance_scale = Slider(min=1, max=5000, divisions=4999, label="{value}", value=arg['clip_guidance_scale'], expand=True)
     clip_guidance_scale_slider = Row([Text("CLIP Guidance Scale: "), clip_guidance_scale])
@@ -19129,21 +19129,21 @@ def start_diffusion(page):
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   #, target_size=(arg['width'], arg['height'])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, height=arg['height'], width=arg['width'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, height=arg['height'], width=arg['width'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 total_steps = int(arg['steps'] * (1 - high_noise_frac))
                 if prefs['SDXL_compel']:
                   prompt_embed, pooled = compel_refiner(pr)
                   negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                   del prompt_embed, negative_embed, pooled, negative_pooled
                 else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
@@ -19156,10 +19156,10 @@ def start_diffusion(page):
                   prompt_embed = compel_proc.build_conditioning_tensor(pr)
                   negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'])
                   [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength=1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
                   del prompt_embed, negative_embed
                 else:
-                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'], mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength=1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **cross_attention_kwargs).images
 
               clear_last()
               page.auto_scrolling(True)
@@ -31400,6 +31400,15 @@ def run_deepfloyd(page, from_list=False):
     installer = Installing("Installing Diffusers & Required Packages...")
     prt(installer)
     try:
+        import accelerate
+        #TODO: Uninstall other version first
+    except ImportError:
+        installer.status("...Accelerate")
+        run_process("pip install git+https://github.com/huggingface/accelerate.git", page=page)
+        pass
+    #if deepfloyd_prefs['low_memory']:
+    #    pip_install("bitsandbytes", upgrade=True, installer=installer)
+    try:
         import diffusers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
@@ -31429,16 +31438,10 @@ def run_deepfloyd(page, from_list=False):
         import sentencepiece
     except ImportError:
         installer.status("...SentencePiece")
-        run_sp("pip install --upgrade sentencepiece", realtime=False) #~=0.1
+        run_sp("pip install --upgrade sentencepiece", realtime=True) #~=0.1
         import sentencepiece
         pass
-    try:
-        import accelerate
-        #TODO: Uninstall other version first
-    except ImportError:
-        installer.status("...Accelerate")
-        run_process("pip install git+https://github.com/huggingface/accelerate.git", page=page)
-        pass
+    
     installer.set_message("Installing DeepFloyd IF Required Packages...")
     if deepfloyd_prefs['low_memory']:
         #clear_last(update=False)
@@ -31452,7 +31455,7 @@ def run_deepfloyd(page, from_list=False):
           if sys.platform.startswith("win"):
               run_sp("pip install bitsandbytes-windows", realtime=False)
           else:
-              run_sp("pip install --upgrade bitsandbytes", realtime=False) #~=0.38
+              run_sp("pip install --upgrade bitsandbytes", realtime=True) #~=0.38
           import bitsandbytes
           pass
     try:
@@ -31971,8 +31974,8 @@ def run_wuerstchen(page, from_list=False, with_params=False):
     if pipe_wuerstchen == None:
         #clear_pipes('wuerstchen')
         try:
-            from diffusers import AutoPipelineForText2Image
-            pipe_wuerstchen = AutoPipelineForText2Image.from_pretrained("warp-ai/wuerstchen", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            from diffusers import WuerstchenCombinedPipeline
+            pipe_wuerstchen = WuerstchenCombinedPipeline.from_pretrained("warp-ai/wuerstchen", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling unet")
                 #pipe_wuerstchen.unet.to(memory_format=torch.channels_last)
@@ -31984,7 +31987,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                 pipe_wuerstchen.to("cuda")
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing Würstchen, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            alert_msg(page, f"ERROR Initializing Würstchen, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     else:
         clear_pipes('wuerstchen')
@@ -32015,7 +32018,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
         except Exception as e:
             clear_last()
             clear_last()
-            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Text(str(e)))
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
         #clear_last()
         clear_last()
