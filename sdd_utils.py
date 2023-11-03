@@ -169,6 +169,7 @@ SDXL_models = [
     {"name": "Dreamviewer", "path": "Andyrasika/dreamviewer-sdxl-1.0", "prefix": "", "variant": "fp16"},
     {"name": "Dusk Slime Mix", "path": "EarthnDusk/DuskSlimeMixUltraInifity-YamerXLfp16", "prefix": "", "variant": "fp16"},
     {"name": "DynaVision-XL", "path": "nyxia/dynavision-xl", "prefix": "", "variant": "fp16"},
+    {"name": "E621 Rising 3", "path": "hearmeneigh/e621-rising-v3", "prefix": "rising_masterpiece", "variant": "fp16", "use_safetensors": True},
     {"name": "FFusion FFXL400", "path": "FFusion/FFXL400", "prefix": "", "variant": "fp16"},
     {"name": "Hassaku-XL", "path": "femboysLover/Hassaku-fp16-XL", "prefix": "", "variant": "fp16"},
     {"name": "Juggernaut XL 5", "path": "stablediffusionapi/juggernaut-xl-v5", "prefix": "", "variant": "fp16", "use_safetensors": True},
