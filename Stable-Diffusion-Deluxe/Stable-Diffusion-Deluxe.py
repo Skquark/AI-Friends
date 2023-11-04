@@ -259,6 +259,7 @@ def load_settings_file():
       'HuggingFace_api_key': "",
       'Stability_api_key': "",
       'OpenAI_api_key': "",
+      'PaLM_api_key': "",
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
       'AIHorde_api_key': "0000000000",
@@ -272,6 +273,7 @@ def load_settings_file():
       'vae_slicing': True,
       'vae_tiling': False,
       'enable_torch_compile': False,
+      'enable_stable_fast': False,
       'enable_tome': False,
       'tome_ratio': 0.5,
       'enable_freeu': False,
@@ -953,7 +955,9 @@ if 'use_AIHorde_api' not in prefs: prefs['use_AIHorde_api'] = False
 if 'AIHorde_model' not in prefs: prefs['AIHorde_model'] = 'stable_diffusion'
 if 'AIHorde_sampler' not in prefs: prefs['AIHorde_sampler'] = 'k_euler_a'
 if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "None"
+if 'PaLM_api_key' not in prefs: prefs['PaLM_api_key'] = ''
 if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
+if 'enable_stable_fast' not in prefs: prefs['enable_stable_fast'] = False
 if 'enable_tome' not in prefs: prefs['enable_tome'] = False
 if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
 if 'enable_freeu' not in prefs: prefs['enable_freeu'] = False
@@ -1088,10 +1092,11 @@ def buildSettings(page):
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters for Uncensored Images", value=prefs['disable_nsfw_filter'], tooltip="If you're over 18 & promise not to abuse, allow Not Safe For Work. Otherwise, will filter mature content...", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
   retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
-  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google PaLM API Token** from https://developers.generativeai.google/tutorials/setup\n\n\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key (optional)", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key (optional)", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
+  PaLM_api = TextField(label="Google PaLM API Key (optional)", value=prefs['PaLM_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'PaLM_api_key'))
   TextSynth_api = TextField(label="TextSynth API Key (optional)", value=prefs['TextSynth_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'TextSynth_api_key'))
   Replicate_api = TextField(label="Replicate API Key (optional)", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Replicate_api_key'))
   AIHorde_api = TextField(label="AIHorde API Key (optional)", value=prefs['AIHorde_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'AIHorde_api_key'))
@@ -1116,6 +1121,7 @@ def buildSettings(page):
         HuggingFace_api,
         Stability_api,
         OpenAI_api,
+        PaLM_api,
         TextSynth_api,
         Replicate_api,
         AIHorde_api,
@@ -2620,7 +2626,7 @@ def editPrompt(e):
     alpha_mask = Checkbox(label="Alpha Mask", value=arg['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
     invert_mask = Checkbox(label="Invert Mask", value=arg['invert_mask'], tooltip="Reverse Black & White of Image Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER)
     image_row = ResponsiveRow([Row([init_image, alpha_mask], col={"lg":6}), Row([mask_image, invert_mask], col={"lg":6})])
-    init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(arg['init_image_strength']), expand=True)
+    init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=float(arg['init_image_strength']), expand=True)
     strength_slider = Row([Text("Init Image Strength: "), init_image_strength])
     img_block = Container(content=Column([image_row, strength_slider]), padding=padding.only(top=4, bottom=3), animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     #img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_SDXL']) else 0
@@ -3057,7 +3063,7 @@ def buildPromptGenerator(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("Google PaLM")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3079,7 +3085,7 @@ def buildPromptGenerator(page):
         AI_engine,
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
-          Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
+          Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
         ]),
         ElevatedButton(content=Text("💭   Generate Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda e: run_prompt_generator(page)),
         page.prompt_generator_list,
@@ -3123,7 +3129,7 @@ def buildPromptRemixer(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("Google PaLM")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3145,7 +3151,7 @@ def buildPromptRemixer(page):
         AI_engine,
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
-          Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
+          Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
         ]),
         ElevatedButton(content=Text("🍹   Remix Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda e: run_prompt_remixer(page)),
         page.prompt_remixer_list,
@@ -3178,7 +3184,7 @@ def buildPromptBrainstormer(page):
         else: alert_msg(page, "You must provide your HuggingFace API Key in settings first before using this Request Mode...")
     page.prompt_brainstormer_list = Column([], spacing=0)
     def add_to_prompt_brainstormer(p):
-      page.prompt_brainstormer_list.controls.append(Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE, selectable=True))
+      page.prompt_brainstormer_list.controls.append(Text(p, style=TextThemeStyle.BODY_LARGE, selectable=True))
       page.prompt_brainstormer_list.update()
       brainstormer_list_buttons.visible = True
       brainstormer_list_buttons.update()
@@ -3208,7 +3214,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b"), dropdown.Option("Google PaLM")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -3409,12 +3415,12 @@ def buildDistilGPT2(page):
       page.distil_gpt2_list.update()
       distil_list_buttons.visible = False
       distil_list_buttons.update()
-    AI_temperature = Row([Text("AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, tooltip="The value used to module the next token probabilities", value=distil_gpt2_prefs['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6})
+    AI_temperature = Row([Text("AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, tooltip="The value used to module the next token probabilities", value=distil_gpt2_prefs['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6})
     top_k = Row([Text("Top-K Samples:"), Slider(label="{value}", min=0, max=50, divisions=50, expand=True, tooltip="Number of highest probability vocabulary tokens to keep for top-k-filtering", value=distil_gpt2_prefs['top_k'], on_change=lambda e: changed(e, 'top_k'))], col={'lg':6})
     #max_length = Row([Text("Max Length:"), Slider(label="{value}", min=0, max=1024, divisions=1024, expand=True, tooltip="The maximum length the generated tokens can have. Corresponds to the length of the input prompt + max_new_tokens.", value=distil_gpt2_prefs['max_length'], on_change=lambda e: changed(e, 'max_length', ptype="int"))], col={'lg':6})
     max_length = SliderRow(label="Max Length", min=0, max=1024, divisions=1024, pref=distil_gpt2_prefs, key='max_length')
-    repetition_penalty = Row([Text("Repetition Penalty:"), Slider(label="{value}", min=1.0, max=3.0, divisions=20, expand=True, tooltip="Penalizes repetition by discounting the scores of previously generated tokens", value=distil_gpt2_prefs['repetition_penalty'], on_change=lambda e: changed(e, 'repetition_penalty'))], col={'lg':6})
-    penalty_alpha = Row([Text("Penalty Alpha:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, tooltip="The degeneration penalty for contrastive search; activate when it is larger than 0", value=distil_gpt2_prefs['penalty_alpha'], on_change=lambda e: changed(e, 'penalty_alpha', ptype="float"))], col={'lg':6})
+    repetition_penalty = Row([Text("Repetition Penalty:"), Slider(label="{value}", min=1.0, max=3.0, divisions=20, round=2, expand=True, tooltip="Penalizes repetition by discounting the scores of previously generated tokens", value=distil_gpt2_prefs['repetition_penalty'], on_change=lambda e: changed(e, 'repetition_penalty'))], col={'lg':6})
+    penalty_alpha = Row([Text("Penalty Alpha:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, tooltip="The degeneration penalty for contrastive search; activate when it is larger than 0", value=distil_gpt2_prefs['penalty_alpha'], on_change=lambda e: changed(e, 'penalty_alpha', ptype="float"))], col={'lg':6})
     no_repeat_ngram_size = Row([Text("No Repeat NGRAM Size:"), Slider(label="{value}", min=0, max=50, expand=True, divisions=50, tooltip="If set > 0, all ngrams of that size can only occur once. 0 adds more commas.", value=distil_gpt2_prefs['no_repeat_ngram_size'], on_change=lambda e: changed(e, 'no_repeat_ngram_size', ptype="int"))], col={'lg':6})
     seed = TextField(label="Seed", value=distil_gpt2_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width = 90, on_change=lambda e:changed(e,'seed', ptype="int"))
     distil_list_buttons = Row([
@@ -3909,7 +3915,7 @@ def buildInitFolder(page):
 
     init_folder = TextField(label="Init Image Folder Path", value=initfolder_prefs['init_folder'], on_change=lambda e:changed(e,'init_folder'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     include_strength = Checkbox(label="Include Strength", value=initfolder_prefs['include_strength'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_strength)
-    image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(initfolder_prefs['image_strength']), expand=True)
+    image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=float(initfolder_prefs['image_strength']), expand=True)
     strength_row = Row([Text("Image Strength:"), image_strength])
     strength_row.visible = initfolder_prefs['include_strength']
     initfolder_output = Column([])
@@ -4016,7 +4022,7 @@ def buildInitVideo(page):
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=init_video_prefs, key='max_size')
     show_images = Checkbox(label="Show Extracted Images", value=init_video_prefs['show_images'], tooltip="Fills up screen with all frames, you probably don't need to.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_images'))
     include_strength = Checkbox(label="Include Strength   ", value=init_video_prefs['include_strength'], tooltip="Otherwise defaults to setting in Image Parameters", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_strength)
-    image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=float(init_video_prefs['image_strength']), expand=True)
+    image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=float(init_video_prefs['image_strength']), expand=True)
     strength_row = Row([Text("Image Strength:"), image_strength])
     strength_row.visible = init_video_prefs['include_strength']
     init_video_output = Column([])
@@ -4812,7 +4818,7 @@ def buildAudioDiffusion(page):
         eta_value.update()
         eta_row.update()
     steps_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=audio_diffusion_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(audio_diffusion_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", round=2, value=float(audio_diffusion_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {audio_diffusion_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("DDIM ETA:"), eta_value, eta,])
     page.etas.append(eta_row)
@@ -5522,8 +5528,8 @@ def buildInstantNGP(page):
     #readme_description = TextField(label="Extra README Description", value=instant_ngp_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=6, multiple=64, suffix="px", pref=instant_ngp_prefs, key='resolution')
 
-    sharpen = Row([Text(" Shapen Images:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['sharpen'], on_change=lambda e: changed(e, 'sharpen'))], col={'lg':6})
-    exposure = Row([Text(" Image Exposure:"), Slider(label="{value}", min=0, max=1, divisions=10, expand=True, value=instant_ngp_prefs['exposure'], on_change=lambda e: changed(e, 'exposure'))], col={'lg':6})
+    sharpen = Row([Text(" Shapen Images:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=instant_ngp_prefs['sharpen'], on_change=lambda e: changed(e, 'sharpen'))], col={'lg':6})
+    exposure = Row([Text(" Image Exposure:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=instant_ngp_prefs['exposure'], on_change=lambda e: changed(e, 'exposure'))], col={'lg':6})
     vr_mode = Checkbox(label="Output VR Mode", tooltip="Render to a VR headset", value=instant_ngp_prefs['vr_mode'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'vr_mode'))
     image_path = TextField(label="Image Files or Folder Path or URL to Train", value=instant_ngp_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
@@ -5663,7 +5669,7 @@ def buildRepainter(page):
     #num_inference_steps = TextField(label="Inference Steps", value=str(repaint_prefs['num_inference_steps']), keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=10, max=3000, divisions=2990, pref=repaint_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     #eta = TextField(label="ETA", value=str(repaint_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(repaint_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", round=2, value=float(repaint_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {repaint_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
     page.etas.append(eta_row)
@@ -5770,7 +5776,7 @@ def buildImageVariation(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=image_variation_prefs, key='guidance_scale')
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=image_variation_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     #eta = TextField(label="ETA", value=str(image_variation_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", round=2, value=float(image_variation_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     eta_row = Row([Text("DDIM ETA: "), eta])
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=image_variation_prefs, key='max_size')
@@ -6986,7 +6992,7 @@ def buildUnCLIP_ImageVariation(page):
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=unCLIP_image_variation_prefs, key='max_size')
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=unCLIP_image_variation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(unCLIP_image_variation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_image_variation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=unCLIP_image_variation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_image_variation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7101,7 +7107,7 @@ def buildUnCLIP_Interpolation(page):
     #max_row = Row([Text("Max Resolution Size: "), max_size])
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=unCLIP_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(unCLIP_interpolation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_interpolation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=unCLIP_interpolation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_interpolation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7260,7 +7266,7 @@ def buildUnCLIP_ImageInterpolation(page):
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=unCLIP_image_interpolation_prefs, key='max_size')
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(unCLIP_image_interpolation_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=unCLIP_image_interpolation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=unCLIP_image_interpolation_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=unCLIP_image_interpolation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7559,7 +7565,7 @@ def buildPaintByExample(page):
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=paint_by_example_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=paint_by_example_prefs, key='guidance_scale')
     #eta = TextField(label="ETA", value=str(paint_by_example_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(paint_by_example_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(paint_by_example_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {paint_by_example_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
     page.etas.append(eta_row)
@@ -7731,7 +7737,7 @@ def buildInstructPix2Pix(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=instruct_pix2pix_prefs, key='guidance_scale')
     image_guidance = SliderRow(label="Image Guidance Scale", min=0, max=200, divisions=400, round=1, pref=instruct_pix2pix_prefs, key='image_guidance_scale', tooltip="Image guidance scale is to push the generated image towards the inital image `image`. Higher image guidance scale encourages to generate images that are closely linked to the source image `image`, usually at the expense of lower image quality.")
     #eta = TextField(label="ETA", value=str(instruct_pix2pix_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(instruct_pix2pix_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(instruct_pix2pix_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {instruct_pix2pix_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
     page.etas.append(eta_row)
@@ -7979,7 +7985,7 @@ def buildControlNet(page):
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
     threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     threshold.height = None if controlnet_prefs['control_task'] == "Canny Map Edge" else 0
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(controlnet_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
     page.etas.append(eta_row)
@@ -8243,7 +8249,7 @@ def buildControlNetXL(page):
     high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
     threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     threshold.height = None if controlnet_xl_prefs['control_task'] == "Canny Map Edge" else 0
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(controlnet_xl_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(controlnet_xl_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {controlnet_xl_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
     page.etas.append(eta_row)
@@ -8635,7 +8641,7 @@ def buildDeepFloyd(page):
     upscale_guidance = SliderRow(label="Upscale Guidance Scale", min=0, max=50, divisions=100, round=1, pref=deepfloyd_prefs, key='upscale_guidance_scale')
     image_strength = SliderRow(label="Image Strength", min=0, max=1, divisions=20, round=2, pref=deepfloyd_prefs, key='image_strength', tooltip="Conceptually, indicates how much to transform the reference `image`. Denoising steps depends on the amount of noise initially added.")
     #eta = TextField(label="ETA", value=str(deepfloyd_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(deepfloyd_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(deepfloyd_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {deepfloyd_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
     #page.etas.append(eta_row)
@@ -11295,7 +11301,7 @@ def buildMaterialDiffusion(page):
     mask_image = TextField(label="Mask Image", value=materialdiffusion_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask), col={'xs':10, 'md':5})
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=materialdiffusion_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
     image_pickers = Container(content=ResponsiveRow([init_image, mask_image, invert_mask]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=materialdiffusion_prefs['prompt_strength'], on_change=change_strength, expand=True)
+    prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=materialdiffusion_prefs['prompt_strength'], on_change=change_strength, expand=True)
     strength_value = Text(f" {int(materialdiffusion_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     #strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=0.9, divisions=16, suffix="%", pref=materialdiffusion_prefs, key='prompt_strength')
@@ -11576,7 +11582,7 @@ def buildDallE2(page):
     img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=dall_e_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_value = Text(f" {float(dall_e_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", value=dall_e_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=dall_e_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=dall_e_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=dall_e_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
@@ -13192,7 +13198,7 @@ def buildSemanticGuidance(page):
     edit_momentum_scale = SliderRow(label="Edit Momentum Scale", min=0, max=1, divisions=20, round=1, pref=semantic_prefs, key='edit_momentum_scale', tooltip="Scale of the momentum to be added to the semantic guidance at each diffusion step. Momentum is already built up during warmup, i.e. for diffusion steps smaller than `sld_warmup_steps`. Momentum will only be added to latent guidance once all warmup periods are finished.")
     edit_mom_beta = SliderRow(label="Edit Momentum Beta", min=0, max=1, divisions=20, round=1, pref=semantic_prefs, key='edit_mom_beta', tooltip="Defines how semantic guidance momentum builds up. `edit_mom_beta` indicates how much of the previous momentum will be kept. Momentum is already built up during warmup, i.e. for diffusion steps smaller than `edit_warmup_steps`.")
     #eta = TextField(label="ETA", value=str(semantic_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
-    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(semantic_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", round=2, value=float(semantic_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {semantic_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, eta])
     page.etas.append(eta_row)
@@ -15111,7 +15117,7 @@ def buildRiffusion(page):
         changed(e, 'duration', ptype="float")
         duration_value.value = f" {riffusion_prefs['duration']}s"
         duration_value.update()
-    duration = Slider(min=1, max=20, divisions=38, label="{value}s", value=float(riffusion_prefs['duration']), expand=True, on_change=change_duration)
+    duration = Slider(min=1, max=20, divisions=38, label="{value}s", round=1, value=float(riffusion_prefs['duration']), expand=True, on_change=change_duration)
     duration_value = Text(f" {float(riffusion_prefs['duration'])}s", weight=FontWeight.BOLD)
     duration_row = Row([Text("Duration: "), duration_value, duration])
     steps_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=riffusion_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -19959,22 +19965,42 @@ generator_request_modes = ["visually detailed",
 def run_prompt_generator(page):
   import random as rnd
   global artists, styles, status
-  try:
-    import openai
-  except:
-    page.prompt_generator_list.controls.append(Installing("Installing OpenAI Library..."))
-    page.prompt_generator_list.update()
-    run_sp("pip install --upgrade openai", realtime=False)
-    import openai
-    del page.prompt_generator_list.controls[-1]
-    page.prompt_generator_list.update()
-    pass
-  try:
-    openai.api_key = prefs['OpenAI_api_key']
-  except:
-    alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
-    return
-  status['installed_OpenAI'] = True
+  if 'GPT' in prefs['prompt_generator']['AI_engine']:
+    try:
+      import openai
+    except:
+      page.prompt_generator_list.controls.append(Installing("Installing OpenAI Library..."))
+      page.prompt_generator_list.update()
+      run_sp("pip install --upgrade openai", realtime=False)
+      import openai
+      del page.prompt_generator_list.controls[-1]
+      page.prompt_generator_list.update()
+      pass
+    try:
+      openai.api_key = prefs['OpenAI_api_key']
+    except:
+      alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
+      return
+    status['installed_OpenAI'] = True
+  if prefs['prompt_generator']['AI_engine'] == "Google PaLM":
+    if not bool(prefs['PaLM_api_key']):
+      alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+      return
+    try:
+      import google.generativeai as palm
+    except:
+      page.prompt_generator_list.controls.append(Installing("Installing PaLM MakerSuite Library..."))
+      page.prompt_generator_list.update()
+      run_sp("pip install --upgrade google-generativeai", realtime=False)
+      import google.generativeai as palm
+      del page.prompt_generator_list.controls[-1]
+      page.prompt_generator_list.update()
+      pass
+    try:
+      palm.configure(api_key=prefs['PaLM_api_key'])
+    except:
+      alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+      return
   prompts_gen = []
   prompt_results = []
   subject = ""
@@ -19987,7 +20013,7 @@ def run_prompt_generator(page):
 '''
     #print(prompt)
     if prefs['prompt_generator']['phrase_as_subject']:
-      prompt += "\n*"
+      prompt += "\n* "
     else:
       prompt += f"""* A beautiful painting of a serene landscape with a river running through it, lush trees, golden sun illuminating
 * Fireflies illuminating autumnal woods, an Autumn in the Brightwood glade, with warm yellow lantern lights
@@ -20005,6 +20031,10 @@ def run_prompt_generator(page):
       )
       #print(str(response))
       result = response["choices"][0]["message"]["content"].strip()
+    elif prefs['prompt_generator']['AI_engine'] == "Google PaLM":
+      completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_generator']['AI_temperature'], max_output_tokens=1024)
+      #print(str(completion))
+      result = completion.result.strip()
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -20017,6 +20047,7 @@ def run_prompt_generator(page):
       if '"' in pr: pr = pr.replace('"', '')
       if pr.endswith("."):
         pr = pr[:(-1)]
+      if '*' in pr: pr = pr.rpartition('*')[2].strip()
       prompt_results.append(pr)
   #print(f"Request mode influence: {request_modes[prefs['prompt_generator']['request_mode']]}\n")
   page.prompt_generator_list.controls.append(Installing("Requesting Prompts from the AI..."))
@@ -20076,18 +20107,38 @@ remixer_request_modes = [
 def run_prompt_remixer(page):
   import random as rnd
   global artists, styles, status
-  try:
-    import openai
-  except:
-    run_sp("pip install --upgrade openai")
-    import openai
-    pass
-  try:
-    openai.api_key = prefs['OpenAI_api_key']
-  except:
-    alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
-    return
-  status['installed_OpenAI'] = True
+  if 'GPT' in prefs['prompt_remixer']['AI_engine']:
+    try:
+      import openai
+    except:
+      run_sp("pip install --upgrade openai")
+      import openai
+      pass
+    try:
+      openai.api_key = prefs['OpenAI_api_key']
+    except:
+      alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
+      return
+    status['installed_OpenAI'] = True
+  if prefs['prompt_remixer']['AI_engine'] == "Google PaLM":
+    if not bool(prefs['PaLM_api_key']):
+      alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+      return
+    try:
+      import google.generativeai as palm
+    except:
+      page.prompt_remixer_list.controls.append(Installing("Installing PaLM MakerSuite Library..."))
+      page.prompt_remixer_list.update()
+      run_sp("pip install --upgrade google-generativeai", realtime=False)
+      import google.generativeai as palm
+      del page.prompt_remixer_list.controls[-1]
+      page.prompt_remixer_list.update()
+      pass
+    try:
+      palm.configure(api_key=prefs['PaLM_api_key'])
+    except:
+      alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+      return
   prompts_remix = []
   prompt_results = []
 
@@ -20112,7 +20163,10 @@ def run_prompt_remixer(page):
       response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "user", "content": prompt}])
       #print(str(response))
       result = response["choices"][0]["message"]["content"].strip()
-
+    elif prefs['prompt_remixer']['AI_engine'] == "Google PaLM":
+      completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_remixer']['AI_temperature'], max_output_tokens=1024)
+      #print(str(completion.result))
+      result = completion.result.strip()
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -20122,6 +20176,8 @@ def run_prompt_remixer(page):
       if pr[0] == '*': pr = pr[1:].strip()
       elif '.' in pr: # Sometimes got 1. 2.
         pr = pr.partition('.')[2].strip()
+      if '*' in pr:
+        pr = pr.replace('*', '').strip()
       prompt_results.append(pr)
   page.prompt_remixer_list.controls.append(Text(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else "") + f"\nRequest mode influence: {remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]}\n"))
   page.prompt_remixer_list.update()
@@ -20292,7 +20348,26 @@ def run_prompt_brainstormer(page):
         alert_msg(page, f"Missing HuggingFace_api_key... Define your key in Settings.")
         return
     #ask_OpenAI_instead = False #@param {type:'boolean'}
-
+    if prefs['prompt_brainstormer']['AI_engine'] == "Google PaLM":
+      if not bool(prefs['PaLM_api_key']):
+        alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+        return
+      try:
+        import google.generativeai as palm
+      except:
+        page.prompt_brainstormer_list.controls.append(Installing("Installing PaLM MakerSuite Library..."))
+        page.prompt_brainstormer_list.update()
+        run_sp("pip install --upgrade google-generativeai", realtime=False)
+        import google.generativeai as palm
+        del page.prompt_brainstormer_list.controls[-1]
+        page.prompt_brainstormer_list.update()
+        pass
+      try:
+        palm.configure(api_key=prefs['PaLM_api_key'])
+      except:
+        alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+        return
+    
     prompt_request_modes = [
         "visually detailed wording, flowing sentences, extra long descriptions",
         "that is similar but with more details, themes, imagination, interest, subjects, artistic style, poetry, tone, settings, adjectives, visualizations",
@@ -20396,6 +20471,13 @@ def run_prompt_brainstormer(page):
           del page.prompt_brainstormer_list.controls[-1]
           page.prompt_brainstormer_list.update()
         result = stable_lm_request(request, temperature=prefs['prompt_brainstormer']['AI_temperature'])
+      elif prefs['prompt_brainstormer']['AI_engine'] == "Google PaLM":
+        completion = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=prefs['prompt_brainstormer']['AI_temperature'], max_output_tokens=1024)
+        result = completion.result.strip()
+      del page.prompt_brainstormer_list.controls[-1]
+      page.prompt_brainstormer_list.update()
+      if '*' in result:
+        result = result.replace('*', '').strip()
       page.add_to_prompt_brainstormer(str(result) + '\n')
     #print(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else ""))
     if good_key:
