@@ -443,8 +443,7 @@ import flet as ft
 #from flet import *
 from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, FilledButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
 from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, KeyboardType, TextThemeStyle, AnimationCurve
-from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode
-from flet import BlendMode
+from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode, BlendMode
 from flet import Image as Img
 try:
     import PIL
@@ -679,6 +678,7 @@ def buildImageAIs(page):
     page.ControlNetXL = buildControlNetXL(page)
     page.DeepFloyd = buildDeepFloyd(page)
     page.Wuerstchen = buildWuerstchen(page)
+    page.PixArtAlpha = buildPixArtAlpha(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
     page.Kandinsky = buildKandinsky(page)
@@ -699,6 +699,7 @@ def buildImageAIs(page):
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
+            Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
@@ -849,7 +850,6 @@ def buildExtras(page):
         ],
     )
     return extrasTabs
-
 
 def b_style():
     return ButtonStyle(elevation=8)
@@ -1107,12 +1107,10 @@ def buildSettings(page):
       content=Column([
         Header("⚙️   Stable Diffusion Deluxe Settings & Preferences"),
         ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
-        #VerticalDivider(thickness=2),
         Row([file_prefix, file_suffix_seed]) if (page.width if page.web else page.window_width) > 500 else Column([file_prefix, file_suffix_seed]),
         Row([file_max_length, file_allowSpace]),
         file_datetime,
         Row([disable_nsfw_filter, retry_attempts]),
-        #VerticalDivider(thickness=2, width=1),
         save_image_metadata,
         Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window_width) > 712 else Column([meta_ArtistName, meta_Copyright]),
         Row([save_config_in_metadata, save_config_json]),
@@ -1735,6 +1733,8 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky_controlnet.height = None
         page.ESRGAN_block_deepfloyd.height = None
         page.ESRGAN_block_reference.height = None
+        page.ESRGAN_block_wuerstchen.height = None
+        page.ESRGAN_block_pixart_alpha.height = None
         page.ESRGAN_block_blip_diffusion.height = None
         page.ESRGAN_block_unCLIP.height = None
         page.ESRGAN_block_unCLIP_image_variation.height = None
@@ -1765,6 +1765,7 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky2_fuse.update()
         page.ESRGAN_block_deepfloyd.update()
         page.ESRGAN_block_wuerstchen.update()
+        page.ESRGAN_block_pixart_alpha.update()
         page.ESRGAN_block_blip_diffusion.update()
         page.ESRGAN_block_reference.update()
         page.ESRGAN_block_unCLIP.update()
@@ -3063,7 +3064,7 @@ def buildPromptGenerator(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("Google PaLM")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("Google PaLM")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3129,7 +3130,7 @@ def buildPromptRemixer(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("Google PaLM")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("Google PaLM")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3214,7 +3215,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b"), dropdown.Option("Google PaLM")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b"), dropdown.Option("Google PaLM")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -8779,6 +8780,110 @@ def buildWuerstchen(page):
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
+
+pixart_alpha_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "pixart-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4.5,
+    'num_inference_steps': 20,
+    "seed": 0,
+    "clean_caption": True,
+    "feature_mask": True,
+    "pixart_model": "PixArt-XL-2-1024-MS",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildPixArtAlpha(page):
+    global prefs, pixart_alpha_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            pixart_alpha_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            pixart_alpha_prefs[pref] = float(e.control.value)
+          else:
+            pixart_alpha_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def pixart_alpha_help(e):
+      def close_pixart_alpha_dlg(e):
+        nonlocal pixart_alpha_help_dlg
+        pixart_alpha_help_dlg.open = False
+        page.update()
+      pixart_alpha_help_dlg = AlertDialog(title=Text("🙅   Help with PixArt-α Pipeline"), content=Column([
+          Text("The most advanced text-to-image (T2I) models require significant training costs (e.g., millions of GPU hours), seriously hindering the fundamental innovation for the AIGC community while increasing CO2 emissions. This paper introduces PIXART-α, a Transformer-based T2I diffusion model whose image generation quality is competitive with state-of-the-art image generators (e.g., Imagen, SDXL, and even Midjourney), reaching near-commercial application standards. Additionally, it supports high-resolution image synthesis up to 1024px resolution with low training cost, as shown in Figure 1 and 2. To achieve this goal, three core designs are proposed: (1) Training strategy decomposition: We devise three distinct training steps that separately optimize pixel dependency, text-image alignment, and image aesthetic quality; (2) Efficient T2I Transformer: We incorporate cross-attention modules into Diffusion Transformer (DiT) to inject text conditions and streamline the computation-intensive class-condition branch; (3) High-informative data: We emphasize the significance of concept density in text-image pairs and leverage a large Vision-Language model to auto-label dense pseudo-captions to assist text-image alignment learning. As a result, PIXART-α's training speed markedly surpasses existing large-scale T2I models, e.g., PIXART-α only takes 10.8% of Stable Diffusion v1.5's training time (675 vs. 6,250 A100 GPU days), saving nearly $300,000 ($26,000 vs. $320,000) and reducing 90% CO2 emissions. Moreover, compared with a larger SOTA model, RAPHAEL, our training cost is merely 1%. Extensive experiments demonstrate that PIXART-α excels in image quality, artistry, and semantic control. We hope PIXART-α will provide new insights to the AIGC community and startups to accelerate building their own high-quality yet low-cost generative models from scratch."),
+          Text("It uses a Transformer backbone (instead of a UNet) for denoising. As such it has a similar architecture as DiT. It was trained using text conditions computed from T5. This aspect makes the pipeline better at following complex text prompts with intricate details. It is good at producing high-resolution images at different aspect ratios. It rivals the quality of state-of-the-art text-to-image generation systems (as of this writing) such as Stable Diffusion XL, Imagen, and DALL-E 2, while being more efficient than them."),
+          Markdown("[Paper](https://huggingface.co/papers/2310.00426) | [PixArt-alpha GitHub](https://github.com/PixArt-alpha/PixArt-alpha) | [PixArt-alpha Checkpoints](https://huggingface.co/PixArt-alpha) | [Recomended Sizes](https://github.com/PixArt-alpha/PixArt-alpha/blob/master/diffusion/data/datasets/utils.py)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🐗  Pix that Art ", on_click=close_pixart_alpha_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = pixart_alpha_help_dlg
+      pixart_alpha_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        pixart_alpha_prefs['pixart_model'] = e.control.value
+        pixart_custom_model.visible = e.control.value == "Custom"
+        pixart_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        pixart_alpha_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=pixart_alpha_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=pixart_alpha_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=pixart_alpha_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=pixart_alpha_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    #num_inference_steps = TextField(label="Number of Steps", value=pixart_alpha_prefs['num_inference_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=pixart_alpha_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=pixart_alpha_prefs, key='num_inference_steps')
+    #prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=pixart_alpha_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pixart_alpha_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_alpha_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_alpha_prefs, key='height')
+    pixart_model = Dropdown(label="PixArt-α Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
+    pixart_custom_model = TextField(label="Custom PixArt-α Model (URL or Path)", value=pixart_alpha_prefs['custom_model'], expand=True, visible=pixart_alpha_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    clean_caption = Switcher(label="Clean Caption", value=pixart_alpha_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
+    feature_mask = Switcher(label="Feature Mask", value=pixart_alpha_prefs['feature_mask'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'feature_mask'), tooltip="If enabled, the text embeddings will be masked.")
+    seed = TextField(label="Seed", width=90, value=str(pixart_alpha_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pixart_alpha_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=pixart_alpha_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=pixart_alpha_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=pixart_alpha_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_pixart_alpha = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_pixart_alpha.height = None if status['installed_ESRGAN'] else 0
+    if not pixart_alpha_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🏂   Run PixArt-α", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pixart_alpha(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pixart_alpha(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pixart_alpha(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.pixart_alpha_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🧚  PixArt-αlpha", "Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis.", actions=[IconButton(icon=icons.HELP, tooltip="Help with PixArt-α Settings", on_click=pixart_alpha_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            #ResponsiveRow([num_inference_steps]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([pixart_model, pixart_custom_model]),
+            Row([clean_caption, feature_mask]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_pixart_alpha,
+            parameters_row,
+            page.pixart_alpha_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+  
 
 text_to_video_prefs = {
     'prompt': '',
@@ -15321,7 +15426,7 @@ def buildWhisper(page):
     audio_file = TextField(label="Input Audio File (MP3, URL or YouTube URL)", value=whisper_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
     model_size = Dropdown(label="Whisper Model Size", width=200, options=[dropdown.Option("tiny"), dropdown.Option("base"), dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large")], value=whisper_prefs['model_size'], on_change=lambda e: changed(e, 'model_size'))
     trim_audio = Checkbox(label="Trim Audio to 30s", value=whisper_prefs['trim_audio'], tooltip="Prefers a short audio chunk", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trim_audio'))
-    AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("Google PaLM")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     AI_temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, expand=True, pref=whisper_prefs, key="AI_temperature")
     reformat = Checkbox(label="Reformat grammar and structure of transcript", value=whisper_prefs['reformat'], tooltip=whisper_requests['reformat'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'reformat'))
     rewrite = Checkbox(label="Rewrite and edit content of transcript", value=whisper_prefs['rewrite'], tooltip=whisper_requests['rewrite'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'rewrite'))
@@ -15805,6 +15910,7 @@ pipe_unCLIP_image_variation = None
 pipe_unCLIP_interpolation = None
 pipe_unCLIP_image_interpolation = None
 pipe_wuerstchen = None
+pipe_pixart_alpha = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
 pipe_instruct_pix2pix = None
@@ -17994,6 +18100,12 @@ def clear_wuerstchen_pipe():
     del pipe_wuerstchen
     flush()
     pipe_wuerstchen = None
+def clear_pixart_alpha_pipe():
+  global pipe_pixart_alpha
+  if pipe_pixart_alpha is not None:
+    del pipe_pixart_alpha
+    flush()
+    pipe_pixart_alpha = None
 def clear_magic_mix_pipe():
   global pipe_magic_mix
   if pipe_magic_mix is not None:
@@ -18276,6 +18388,7 @@ def clear_pipes(allbut=None):
     if not 'image_variation' in but: clear_image_variation_pipe()
     if not 'semantic' in but: clear_semantic_pipe()
     if not 'wuerstchen' in but: clear_wuerstchen_pipe()
+    if not 'pixart_alpha' in but: clear_pixart_alpha_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
     if not 'alt_diffusion_img2img' in but: clear_alt_diffusion_img2img_pipe()
@@ -20027,9 +20140,17 @@ def run_prompt_generator(page):
     elif prefs['prompt_generator']['AI_engine'] == "ChatGPT-3.5 Turbo":
       response = openai.ChatCompletion.create(
         model="gpt-3.5-turbo-16k",
+        temperature=prefs['prompt_generator']['AI_temperature'],
         messages=[{"role": "user", "content": prompt}]
       )
       #print(str(response))
+      result = response["choices"][0]["message"]["content"].strip()
+    elif prefs['prompt_generator']['AI_engine'] == "OpenAI GPT-4":
+      response = openai.ChatCompletion.create(
+        model="gpt-4",
+        temperature=prefs['prompt_generator']['AI_temperature'],
+        messages=[{"role": "user", "content": prompt}]
+      )
       result = response["choices"][0]["message"]["content"].strip()
     elif prefs['prompt_generator']['AI_engine'] == "Google PaLM":
       completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_generator']['AI_temperature'], max_output_tokens=1024)
@@ -20160,8 +20281,11 @@ def run_prompt_remixer(page):
       #print(response)
       result = response["choices"][0]["text"].strip()
     elif prefs['prompt_remixer']['AI_engine'] == "ChatGPT-3.5 Turbo":
-      response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "user", "content": prompt}])
+      response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       #print(str(response))
+      result = response["choices"][0]["message"]["content"].strip()
+    elif prefs['prompt_remixer']['AI_engine'] == "OpenAI GPT-4":
+      response = openai.ChatCompletion.create(model="gpt-4", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       result = response["choices"][0]["message"]["content"].strip()
     elif prefs['prompt_remixer']['AI_engine'] == "Google PaLM":
       completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_remixer']['AI_temperature'], max_output_tokens=1024)
@@ -20319,7 +20443,7 @@ def run_prompt_brainstormer(page):
         finally:
           from textsynthpy import TextSynth, Complete
         textsynth = TextSynth(prefs['TextSynth_api_key'], engine=textsynth_engine) # Insert your API key in the previous cell
-    if prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-3" or  prefs['prompt_brainstormer']['AI_engine'] == "ChatGPT-3.5 Turbo":
+    if 'GPT' in prefs['prompt_brainstormer']['AI_engine']:
       try:
         if not bool(prefs['OpenAI_api_key']): good_key = False
       except NameError: good_key = False
@@ -20458,7 +20582,10 @@ def run_prompt_brainstormer(page):
         response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
         result = response["choices"][0]["text"].strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "ChatGPT-3.5 Turbo":
-        response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "user", "content": request}])
+        response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
+        result = response["choices"][0]["message"]["content"].strip()
+      elif prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-4":
+        response = openai.ChatCompletion.create(model="gpt-4", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
         result = response["choices"][0]["message"]["content"].strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
         result = bloom_request(request)
@@ -28195,7 +28322,7 @@ def run_whisper(page):
     use_ai = whisper_prefs['reformat'] or whisper_prefs['rewrite'] or whisper_prefs['summarize'] or whisper_prefs['describe'] or whisper_prefs['article'] or whisper_prefs['keypoints'] or whisper_prefs['keywords']
     if use_ai:
         good_key = True
-        if whisper_prefs['AI_engine'] == "OpenAI GPT-3" or  whisper_prefs['AI_engine'] == "ChatGPT-3.5 Turbo":
+        if 'GPT' in whisper_prefs['AI_engine']:
             try:
                 if not bool(prefs['OpenAI_api_key']): good_key = False
             except NameError: good_key = False
@@ -28217,13 +28344,38 @@ def run_whisper(page):
                     alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
                     return
                 installer.status("")
+        elif whisper_prefs['AI_engine'] == "Google PaLM":
+            if not bool(prefs['PaLM_api_key']):
+                alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+                return
+            try:
+                import google.generativeai as palm
+            except:
+                installer.status("Installing PaLM MakerSuite Library...")
+                run_sp("pip install --upgrade google-generativeai", realtime=False)
+                import google.generativeai as palm
+                pass
+            try:
+                palm.configure(api_key=prefs['PaLM_api_key'])
+            except:
+                alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+                return
+            installer.status("")
     def question(request):
         if whisper_prefs['AI_engine'] == "OpenAI GPT-3":
             response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=whisper_prefs['AI_temperature'], presence_penalty=1)
             result = response["choices"][0]["text"].strip()
         elif whisper_prefs['AI_engine'] == "ChatGPT-3.5 Turbo":
-            response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "user", "content": request}])
+            response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
             result = response["choices"][0]["message"]["content"].strip()
+        elif whisper_prefs['AI_engine'] == "OpenAI GPT-4":
+            response = openai.ChatCompletion.create(model="gpt-4", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
+            result = response["choices"][0]["message"]["content"].strip()
+        elif whisper_prefs['AI_engine'] == "Google PaLM":
+            response = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=whisper_prefs['AI_temperature'], max_output_tokens=1024)
+            result = response.result.strip()
+        if '*' in result:
+            result = result.replace('*', '').strip()
         return result
     if whisper_prefs['reformat']:
         prt("Reformat of transcript:")
@@ -32187,6 +32339,227 @@ def run_wuerstchen(page, from_list=False, with_params=False):
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_pixart_alpha(page, from_list=False, with_params=False):
+    global pixart_alpha_prefs, pipe_pixart_alpha, prefs
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    pixart_alpha_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            pixart_alpha_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':pixart_alpha_prefs['guidance_scale'], 'num_inference_steps':pixart_alpha_prefs['num_inference_steps'], 'width':pixart_alpha_prefs['width'], 'height':pixart_alpha_prefs['height'], 'num_images':pixart_alpha_prefs['num_images'], 'seed':pixart_alpha_prefs['seed']})
+        else:
+            pixart_alpha_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(pixart_alpha_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      pixart_alpha_prompts.append({'prompt': pixart_alpha_prefs['prompt'], 'negative_prompt':pixart_alpha_prefs['negative_prompt'], 'guidance_scale':pixart_alpha_prefs['guidance_scale'], 'num_inference_steps':pixart_alpha_prefs['num_inference_steps'], 'width':pixart_alpha_prefs['width'], 'height':pixart_alpha_prefs['height'], 'num_images':pixart_alpha_prefs['num_images'], 'seed':pixart_alpha_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.PixArtAlpha.controls.append(line)
+        if update:
+          page.PixArtAlpha.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.PixArtAlpha.controls[-1]
+        page.PixArtAlpha.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.PixArtAlpha.auto_scroll = scroll
+        page.PixArtAlpha.update()
+      else:
+        page.PixArtAlpha.auto_scroll = scroll
+        page.PixArtAlpha.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.PixArtAlpha.controls = page.PixArtAlpha.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = pixart_alpha_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing PixArt-α Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("pixart_alpha")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    pip_install("sentencepiece", installer=installer, upgrade=True)
+    if pixart_alpha_prefs['clean_caption']:
+        pip_install("beautifulsoup4 ftfy", installer=installer)
+    cpu_offload = False
+    pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else pixart_alpha_prefs['pixart_custom_model']
+    if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
+    if pixart_model != status['loaded_pixart']:
+        clear_pipes()
+    if pipe_pixart_alpha == None:
+        installer.status(f"...initialize PixArtAlpha Pipeline")
+        try:
+            from diffusers import PixArtAlphaPipeline
+            pipe_pixart_alpha = PixArtAlphaPipeline.from_pretrained(pixart_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_pixart_alpha.transformer = torch.compile(pipe_pixart_alpha.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_pixart_alpha = pipe_pixart_alpha.to(torch_device)
+            elif cpu_offload:
+                pipe_pixart_alpha.enable_model_cpu_offload()
+            else:
+                pipe_pixart_alpha.to(torch_device)
+            pipe_pixart_alpha.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing PixArt-α...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_pixart'] = pixart_model
+    else:
+        clear_pipes('pixart_alpha')
+        if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha)
+    clear_last()
+    s = "" if len(pixart_alpha_prompts) == 0 else "s"
+    prt(f"Generating your PixArt-α Image{s}...")
+    for pr in pixart_alpha_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        try:
+            images = pipe_pixart_alpha(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                clean_caption=pixart_alpha_prefs['clean_caption'],
+                mask_feature=pixart_alpha_prefs['mask_feature'],
+                generator=generator,
+                callback=callback_fnc,
+            ).images
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(pixart_alpha_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, pixart_alpha_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{pixart_alpha_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not pixart_alpha_prefs['display_upscaled_image'] or not pixart_alpha_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], pixart_alpha_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': pixart_alpha_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if pixart_alpha_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{idx}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                shutil.copy(image_path, dst_path)
+                faceenhance = ' --face_enhance' if pixart_alpha_prefs["face_enhance"] else ''
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {pixart_alpha_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if pixart_alpha_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(pixart_alpha_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_alpha_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {pixart_alpha_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"PixArt-α")
+                if prefs['save_config_in_metadata']:
+                    config_json = pixart_alpha_prefs.copy()
+                    config_json['model_path'] = pixart_model
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], pixart_alpha_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], pixart_alpha_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_text_to_video(page):
     global text_to_video_prefs, prefs, status, pipe_text_to_video, model_path
