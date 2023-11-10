@@ -182,9 +182,11 @@ SDXL_models = [
     {"name": "Segmind SSD-1B", "path": "segmind/SSD-1B", "prefix": "", "variant": "fp16"},
     {"name": "Segmind SSD-1B Anime", "path": "furusu/SSD-1B-anime", "prefix": "", "variant": "fp16"},
     {"name": "ThinkDiffusion-XL", "path": "ThinkDiffusion/ThinkDiffusionXL", "prefix": "", "variant": "fp16"},
+    {"name": "Hotshot SDXL-512", "path": "hotshotco/SDXL-512", "prefix": "", "variant": "fp16", "use_safetensors": True},
     #{"name": "CrystalClear XL", "path": "ckpt/crystalclear-xl", "prefix": "", "revision": "fp16", "use_safetensors": True},
 ]
 SDXL_LoRA_models = [
+    {"name": "3D Redmond", "path": "artificialguybr/3DRedmond-V1", "weights": "3DRedmond-3DRenderStyle-3DRenderAF.safetensors", "prefix": "3D Render Style, 3DRenderAF"}, 
     {"name": "Pixel Art XL", "path": "nerijs/pixel-art-xl", "weights": "pixel-art-xl.safetensors", "prefix": "pixel art"}, 
     {"name": "Crayon Style", "path": "ostris/crayon_style_lora_sdxl", "weights": "crayons_v1_sdxl.safetensors", "prefix": ""}, 
     {"name": "Papercut SDXL", "path": "TheLastBen/Papercut_SDXL", "weights": "papercut.safetensors", "prefix": "papercut"}, 

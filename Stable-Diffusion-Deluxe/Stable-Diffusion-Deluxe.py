@@ -638,6 +638,7 @@ def buildPromptHelpers(page):
     page.RetrievePrompts = buildRetrievePrompts(page)
     page.InitFolder = buildInitFolder(page)
     page.InitVideo = buildInitVideo(page)
+    page.BLIP2Image2Text = buildBLIP2Image2Text(page)
     promptTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Prompt Writer", content=page.writer, icon=icons.CLOUD_CIRCLE),
@@ -652,6 +653,7 @@ def buildPromptHelpers(page):
             Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
             Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
             Tab(text="Init Images from Video", content=page.InitVideo, icon=icons.SWITCH_VIDEO),
+            Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
         ],
     )
     return promptTabs
@@ -681,6 +683,7 @@ def buildImageAIs(page):
     page.PixArtAlpha = buildPixArtAlpha(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
+    page.DallE3 = buildDallE3(page)
     page.Kandinsky = buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page)
     page.KandinskyControlNet = buildKandinskyControlNet(page)
@@ -689,6 +692,7 @@ def buildImageAIs(page):
     page.Point_E = buildPoint_E(page)
     page.Shap_E = buildShap_E(page)
     page.InstantNGP = buildInstantNGP(page)
+    page.DeepDaze = buildDeepDaze(page)
     diffusersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
@@ -718,11 +722,9 @@ def buildImageAIs(page):
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
+            Tab(text="OpenAI Dall-E 3", content=page.DallE3, icon=icons.BLUR_ON),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
-            #Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
-            #Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
-            #Tab(text="Shap-E 3D", content=page.Shap_E, icon=icons.PRECISION_MANUFACTURING),
-            #Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
+            Tab(text="DeepDaze", content=page.DeepDaze, icon=icons.FACE),
         ],
     )
     return diffusersTabs
@@ -832,10 +834,8 @@ def buildExtras(page):
     page.CustomModelManager = buildCustomModelManager(page)
     page.MaskMaker = buildDreamMask(page)
     page.BackgroundRemover = buildBackgroundRemover(page)
-    page.BLIP2Image2Text = buildBLIP2Image2Text(page)
     page.Kandinsky2 = buildKandinsky2(page)
     page.Kandinsky2Fuse = buildKandinsky2Fuse(page)
-    page.DeepDaze = buildDeepDaze(page)
     extrasTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
@@ -843,10 +843,8 @@ def buildExtras(page):
             Tab(text="Model Manager", content=page.CustomModelManager, icon=icons.DIFFERENCE),
             Tab(text="Background Remover", content=page.BackgroundRemover, icon=icons.WALLPAPER),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
-            Tab(text="BLIP2 Image2Text", content=page.BLIP2Image2Text, icon=icons.BATHTUB),
             Tab(text="Kandinsky 2.1", content=page.Kandinsky2, icon=icons.AC_UNIT),
             Tab(text="Kandinsky Fuse", content=page.Kandinsky2Fuse, icon=icons.FIREPLACE),
-            Tab(text="DeepDaze", content=page.DeepDaze, icon=icons.FACE),
         ],
     )
     return extrasTabs
@@ -3064,7 +3062,7 @@ def buildPromptGenerator(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("Google PaLM")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3130,7 +3128,7 @@ def buildPromptRemixer(page):
       request_slider.update()
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("Google PaLM")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3215,7 +3213,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b"), dropdown.Option("Google PaLM")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b"), dropdown.Option("Google PaLM")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -11048,7 +11046,7 @@ def buildHotshotXL(page):
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=hotshot_xl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_hotshot_xl = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_hotshot_xl.height = None if hotshot_xl_prefs['apply_ESRGAN_upscale'] else 0
+    ESRGAN_settings.height = None if hotshot_xl_prefs['apply_ESRGAN_upscale'] else 0
     page.hotshot_xl_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.hotshot_xl_output.controls) > 0
@@ -11062,7 +11060,7 @@ def buildHotshotXL(page):
         video_length,
         video_duration,
         num_inference_row,
-        guidance,
+        #guidance,
         width_slider, height_slider,
         Row([controlnet_type, gif]),
         ResponsiveRow([control_guidance_start, control_guidance_end, conditioning_scale]),
@@ -11568,7 +11566,7 @@ dall_e_prefs = {
     'mask_image': '',
     'variation': False,
     "invert_mask": False,
-    'file_prefix': 'dalle-',
+    'file_prefix': 'dalle2-',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
     "face_enhance": prefs['face_enhance'],
@@ -11664,7 +11662,7 @@ def buildDallE2(page):
     prompt = TextField(label="Prompt Text", value=dall_e_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=dall_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=dall_e_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    #num_images = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=dall_e_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    #num_images = NumberPicker(label="Num of Images", min=1, max=10, step=9, value=dall_e_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
     #num_images = TextField(label="num_images", value=dall_e_prefs['num_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_images', ptype="int"))
     #n_iterations = TextField(label="Number of Iterations", value=dall_e_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
     #steps = TextField(label="Inference Steps", value=dall_e_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
@@ -11679,8 +11677,8 @@ def buildDallE2(page):
     #height = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_prefs['height'], on_change=change_height, expand=True)
     #height_value = Text(f" {int(dall_e_prefs['height'])}px", weight=FontWeight.BOLD)
     #height_slider = Row([Text(f"Height: "), height_value, height])
-    init_image = TextField(label="Init Image", value=dall_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
-    mask_image = TextField(label="Mask Image", value=dall_e_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
+    init_image = TextField(label="Init Image (optional)", value=dall_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
+    mask_image = TextField(label="Mask Image (optional)", value=dall_e_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
     variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_prefs['variation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     image_pickers = Container(content=ResponsiveRow([Row([init_image, variation], col={"md":6}), Row([mask_image, invert_mask], col={"md":6})], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -11708,11 +11706,154 @@ def buildDallE2(page):
         padding=padding.only(18, 14, 20, 10), content=Column([
             Header("👺  OpenAI Dall-E 2", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
             prompt,
-            param_rows,
             img_block, page.ESRGAN_block_dalle,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
+            param_rows,
             parameters_row,
             page.dall_e_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+dall_e_3_prefs = {
+    'prompt': '',
+    'size': '1024x1024',
+    'num_images': 1,
+    'init_image': '',
+    'mask_image': '',
+    'variation': False,
+    "invert_mask": False,
+    'hd_quality': False,
+    'natural_style': False,
+    'file_prefix': 'dalle3-',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+    "batch_folder_name": '',
+}
+
+def buildDallE3(page):
+    global dall_e_3_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            dall_e_3_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            dall_e_3_prefs[pref] = float(e.control.value)
+          else:
+            dall_e_3_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def pick_files_result(e: FilePickerResultEvent):
+        if e.files:
+            img = e.files
+            dalle = []
+            fname = img[0]
+            print(", ".join(map(lambda f: f.name, e.files)))
+            src_path = page.get_upload_url(fname.name, 600)
+            dalle.append(FilePickerUploadFile(fname.name, upload_url=src_path))
+            pick_files_dialog.upload(dalle)
+            print(str(src_path))
+            print(str(dalle[0]))
+            dst_path = os.path.join(root_dir, fname.name)
+            print(f'Copy {src_path} to {dst_path}')
+            init_image.value = dst_path
+
+    pick_files_dialog = FilePicker(on_result=pick_files_result)
+    page.overlay.append(pick_files_dialog)
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+            upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+        nonlocal pick_type
+        if e.progress == 1:
+            if not slash in e.file_name:
+              fname = os.path.join(root_dir, e.file_name)
+            else:
+              fname = e.file_name
+            if pick_type == "init":
+                init_image.value = fname
+                init_image.update()
+                dall_e_3_prefs['init_image'] = fname
+            elif pick_type == "mask":
+                mask_image.value = fname
+                mask_image.update()
+                dall_e_3_prefs['mask_image'] = fname
+            page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        dalle = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                dalle.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(dalle)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    #page.overlay.append(pick_files_dialog)
+    def pick_init(e):
+        nonlocal pick_type
+        pick_type = "init"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
+    def pick_mask(e):
+        nonlocal pick_type
+        pick_type = "mask"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        dall_e_3_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_enlarge_scale(e):
+        enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
+        enlarge_scale_slider.update()
+        changed(e, 'enlarge_scale', ptype="float")
+
+    prompt = TextField(label="Prompt Text", value=dall_e_3_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=dall_e_3_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=dall_e_3_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    #num_images = TextField(label="num_images", value=dall_e_3_prefs['num_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_images', ptype="int"))
+    #num_images = NumberPicker(label="Num of Images", min=1, max=10, step=9, value=dall_e_3_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    size = Dropdown(label="Image Size", width=130, options=[dropdown.Option("1024x1024"), dropdown.Option("1024x1792"), dropdown.Option("1792x1024")], value=dall_e_3_prefs['size'], on_change=lambda e:changed(e,'size'))
+    param_rows = ResponsiveRow([Row([batch_folder_name, file_prefix], col={'lg':6}), Row([size], col={'lg':6})])
+    init_image = TextField(label="Init Image", value=dall_e_3_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
+    mask_image = TextField(label="Mask Image", value=dall_e_3_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
+    variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_3_prefs['variation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_3_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    image_pickers = Container(content=ResponsiveRow([Row([init_image, variation], col={"md":6}), Row([mask_image, invert_mask], col={"md":6})], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    hd_quality = Switcher(label="HD Quality", value=dall_e_3_prefs['hd_quality'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'hd_quality'), tooltip="Creates images with finer details and greater consistency across the image")
+    natural_style = Switcher(label="Natural Style", value=dall_e_3_prefs['natural_style'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'natural_style'), tooltip="Vivid is default, leaning towards generating hyper-real and dramatic images. Natural causes the model to produce more natural, less hyper-real looking images.")
+    img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=dall_e_3_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(dall_e_3_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=dall_e_3_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=dall_e_3_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=dall_e_3_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_dalle = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_dalle.height = None if status['installed_ESRGAN'] else 0
+    if not dall_e_3_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e_3(page, from_list=True))
+    parameters_button = ElevatedButton(content=Text(value="🙌   Run Dall-E 3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e_3(page))
+
+    parameters_row = Row([parameters_button, list_button], spacing=22)#, alignment=MainAxisAlignment.SPACE_BETWEEN)
+    dall_e_3_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🏇  OpenAI Dall-E 3", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
+            prompt,
+            Row([hd_quality, natural_style]),
+            #img_block,
+            param_rows,
+            page.ESRGAN_block_dalle,
+            parameters_row,
+            dall_e_3_output
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -15429,7 +15570,7 @@ def buildWhisper(page):
     audio_file = TextField(label="Input Audio File (MP3, URL or YouTube URL)", value=whisper_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
     model_size = Dropdown(label="Whisper Model Size", width=200, options=[dropdown.Option("tiny"), dropdown.Option("base"), dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large")], value=whisper_prefs['model_size'], on_change=lambda e: changed(e, 'model_size'))
     trim_audio = Checkbox(label="Trim Audio to 30s", value=whisper_prefs['trim_audio'], tooltip="Prefers a short audio chunk", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trim_audio'))
-    AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("Google PaLM")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     AI_temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, expand=True, pref=whisper_prefs, key="AI_temperature")
     reformat = Checkbox(label="Reformat grammar and structure of transcript", value=whisper_prefs['reformat'], tooltip=whisper_requests['reformat'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'reformat'))
     rewrite = Checkbox(label="Rewrite and edit content of transcript", value=whisper_prefs['rewrite'], tooltip=whisper_requests['rewrite'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'rewrite'))
@@ -20134,7 +20275,9 @@ def run_prompt_generator(page):
       page.prompt_generator_list.update()
       pass
     try:
-      openai.api_key = prefs['OpenAI_api_key']
+      #openai.api_key = prefs['OpenAI_api_key']
+      from openai import OpenAI
+      openai_client = OpenAI(api_key=prefs['OpenAI_api_key'])
     except:
       alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
       return
@@ -20178,24 +20321,25 @@ def run_prompt_generator(page):
 * Midnight landscape painting of a city under a starry sky, owl in the shaman forest knowing the ways of magic, warm glow over the buildings
 * {prefs['prompt_generator']['phrase']}"""
     if prefs['prompt_generator']['AI_engine'] == "OpenAI GPT-3":
-      response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs['prompt_generator']['AI_temperature'], presence_penalty=1)
+      response = openai_client.completions.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs['prompt_generator']['AI_temperature'], presence_penalty=1)
       #print(response)
-      result = response["choices"][0]["text"].strip()
+      result = response.choices[0].text.strip()#["choices"][0]["text"].strip()
     elif prefs['prompt_generator']['AI_engine'] == "ChatGPT-3.5 Turbo":
-      response = openai.ChatCompletion.create(
+      response = openai_client.chat.completions.create(
         model="gpt-3.5-turbo-16k",
         temperature=prefs['prompt_generator']['AI_temperature'],
         messages=[{"role": "user", "content": prompt}]
       )
       #print(str(response))
-      result = response["choices"][0]["message"]["content"].strip()
-    elif prefs['prompt_generator']['AI_engine'] == "OpenAI GPT-4":
-      response = openai.ChatCompletion.create(
-        model="gpt-4",
+      result = response.choices[0].message.content.strip()#["choices"][0]["message"]["content"].strip()
+    elif "GPT-4" in prefs['prompt_generator']['AI_engine']:
+      gpt_model = "gpt-4-1106-preview" if "Turbo" in prefs['prompt_generator']['AI_engine'] else "gpt-4"
+      response = openai_client.chat.completions.create(
+        model=gpt_model,
         temperature=prefs['prompt_generator']['AI_temperature'],
         messages=[{"role": "user", "content": prompt}]
       )
-      result = response["choices"][0]["message"]["content"].strip()
+      result = response.choices[0].message.content.strip()#["choices"][0]["message"]["content"].strip()
     elif prefs['prompt_generator']['AI_engine'] == "Google PaLM":
       completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_generator']['AI_temperature'], max_output_tokens=1024)
       #print(str(completion))
@@ -20280,7 +20424,9 @@ def run_prompt_remixer(page):
       import openai
       pass
     try:
-      openai.api_key = prefs['OpenAI_api_key']
+      #openai.api_key = prefs['OpenAI_api_key']
+      from openai import OpenAI
+      openai_client = OpenAI(api_key=prefs['OpenAI_api_key'])
     except:
       alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
       return
@@ -20321,16 +20467,17 @@ def run_prompt_remixer(page):
 
   def prompt_remix():
     if prefs['prompt_remixer']['AI_engine'] == "OpenAI GPT-3":
-      response = openai.Completion.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs["prompt_remixer"]['AI_temperature'], presence_penalty=1)
+      response = openai_client.completions.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs["prompt_remixer"]['AI_temperature'], presence_penalty=1)
       #print(response)
-      result = response["choices"][0]["text"].strip()
+      result = response.choices[0].text.strip()
     elif prefs['prompt_remixer']['AI_engine'] == "ChatGPT-3.5 Turbo":
-      response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
+      response = openai_client.chat.completions.create(model="gpt-3.5-turbo-16k", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       #print(str(response))
-      result = response["choices"][0]["message"]["content"].strip()
-    elif prefs['prompt_remixer']['AI_engine'] == "OpenAI GPT-4":
-      response = openai.ChatCompletion.create(model="gpt-4", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
-      result = response["choices"][0]["message"]["content"].strip()
+      result = response.choices[0].message.content.strip()
+    elif "GPT-4" in prefs['prompt_remixer']['AI_engine']:
+      gpt_model = "gpt-4-1106-preview" if "Turbo" in prefs['prompt_remixer']['AI_engine'] else "gpt-4"
+      response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
+      result = response.choices[0].message.content.strip()
     elif prefs['prompt_remixer']['AI_engine'] == "Google PaLM":
       completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_remixer']['AI_temperature'], max_output_tokens=1024)
       #print(str(completion.result))
@@ -20504,7 +20651,8 @@ def run_prompt_brainstormer(page):
         finally:
           import openai
         try:
-          openai.api_key = prefs['OpenAI_api_key']
+          from openai import OpenAI
+          openai_client = OpenAI(api_key=prefs['OpenAI_api_key'])
         except:
           alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
           return
@@ -20623,14 +20771,15 @@ def run_prompt_brainstormer(page):
         #print(str(response))
         result = response.text.strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-3":
-        response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
-        result = response["choices"][0]["text"].strip()
+        response = openai_client.completions.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
+        result = response.choices[0].text.strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "ChatGPT-3.5 Turbo":
-        response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
-        result = response["choices"][0]["message"]["content"].strip()
-      elif prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-4":
-        response = openai.ChatCompletion.create(model="gpt-4", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
-        result = response["choices"][0]["message"]["content"].strip()
+        response = openai_client.chat.completions.create(model="gpt-3.5-turbo-16k", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
+        result = response.choices[0].message.content.strip()
+      elif "GPT-4" in prefs['prompt_brainstormer']['AI_engine']:
+        gpt_model = "gpt-4-1106-preview" if "Turbo" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4"
+        response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
+        result = response.choices[0].message.content.strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
         result = bloom_request(request)
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5":
@@ -28383,7 +28532,8 @@ def run_whisper(page):
                 finally:
                     import openai
                 try:
-                    openai.api_key = prefs['OpenAI_api_key']
+                    from openai import OpenAI
+                    openai_client = OpenAI(api_key=prefs['OpenAI_api_key'])
                 except:
                     alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
                     return
@@ -28407,14 +28557,15 @@ def run_whisper(page):
             installer.status("")
     def question(request):
         if whisper_prefs['AI_engine'] == "OpenAI GPT-3":
-            response = openai.Completion.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=whisper_prefs['AI_temperature'], presence_penalty=1)
-            result = response["choices"][0]["text"].strip()
+            response = openai_client.completions.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=whisper_prefs['AI_temperature'], presence_penalty=1)
+            result = response.choices[0].text.strip()
         elif whisper_prefs['AI_engine'] == "ChatGPT-3.5 Turbo":
-            response = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
-            result = response["choices"][0]["message"]["content"].strip()
-        elif whisper_prefs['AI_engine'] == "OpenAI GPT-4":
-            response = openai.ChatCompletion.create(model="gpt-4", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
-            result = response["choices"][0]["message"]["content"].strip()
+            response = openai_client.chat.completions.create(model="gpt-3.5-turbo-16k", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
+            result = response.choices[0].message.content.strip()
+        elif "GPT-4" in whisper_prefs['AI_engine']:
+            gpt_model = "gpt-4-1106-preview" if "Trubo" in whisper_prefs['AI_engine'] else "gpt-4"
+            response = openai_client.chat.completions.create(model=gpt_model, temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
+            result = response.choices[0].message.content.strip()
         elif whisper_prefs['AI_engine'] == "Google PaLM":
             response = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=whisper_prefs['AI_temperature'], max_output_tokens=1024)
             result = response.result.strip()
@@ -36892,7 +37043,8 @@ def run_dall_e(page, from_list=False):
         import openai
         pass
     try:
-        openai.api_key = prefs['OpenAI_api_key']
+        from openai import OpenAI
+        openai_client = OpenAI(api_key=prefs['OpenAI_api_key'])
     except Exception as e:
         alert_msg(page, f"Seems like your OpenAI API Key is Invalid. Check it again...", content=Text(str(e)))
         return
@@ -36956,13 +37108,13 @@ def run_dall_e(page, from_list=False):
 
         try:
             if bool(init_image) and bool(dall_e_prefs['variation']):
-                response = openai.Image.create_variation(image=open(init_file, 'rb'), size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
+                response = openai_client.images.create_variation(image=open(init_file, 'rb'), size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
             elif bool(init_image) and not bool(mask_image):
-                response = openai.Image.create_edit(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'))
+                response = openai_client.images.edit(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'))
             elif bool(init_image) and bool(mask_image):
-                response = openai.Image.create_edit(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'), mask=open(mask_file, 'rb'))
+                response = openai_client.images.edit(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'), mask=open(mask_file, 'rb'))
             else:
-                response = openai.Image.create(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
+                response = openai_client.images.generate(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
         except Exception as e:
             clear_last()
             clear_last()
@@ -36979,8 +37131,8 @@ def run_dall_e(page, from_list=False):
             return
         #print(str(response))
         idx = 0
-        for i in response['data']:
-            image = i['url']
+        for i in response.data:
+            image = i.url
             #random_seed += idx
             fname = format_filename(p['prompt'])
             #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
@@ -37038,6 +37190,185 @@ def run_dall_e(page, from_list=False):
                 if dall_e_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            else:
+                shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
+            # TODO: Add Metadata
+            prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_dall_e_3(page, from_list=False):
+    global dall_e_3_prefs, prefs, prompts
+    if (not bool(dall_e_3_prefs['prompt']) and not from_list) or (from_list and (len(prompts) == 0)):
+      alert_msg(page, "You must provide a text prompt to process your image generation...")
+      return
+    if not bool(prefs['OpenAI_api_key']):
+      alert_msg(page, "You must provide your OpenAI API Key in Settings to process your Dall-E 3 Creation...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.DallE3.controls.append(line)
+      page.DallE3.update()
+    def clear_last():
+      del page.DallE3.controls[-1]
+      page.DallE3.update()
+    def autoscroll(scroll=True):
+      page.DallE3.auto_scroll = scroll
+      page.DallE3.update()
+    def clear_list():
+      page.DallE3.controls = page.DallE3.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    try:
+        import openai
+        if version.parse(openai.__version__).base_version < version.parse("1.2.2"):
+            run_process("pip uninstall -y openai", realtime=False)
+            raise ModuleNotFoundError("Forcing update")
+        if force_updates or True: raise ModuleNotFoundError("Forcing update")
+    except:
+        prt(Installing("Installing OpenAi Dall-E 3 API..."))
+        run_process("pip install -q --upgrade openai", realtime=False)
+        clear_last()
+        import openai
+        pass
+    try:
+        #openai.api_key = prefs['OpenAI_api_key']
+        from openai import OpenAI
+        client = OpenAI(api_key=prefs['OpenAI_api_key'])
+    except Exception as e:
+        alert_msg(page, f"Seems like your OpenAI API Key is Invalid. Check it again...", content=Text(str(e)))
+        return
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    save_dir = os.path.join(root_dir, 'dalle_inputs')
+    init_img = None
+    dall_e_list = []
+    if from_list:
+        if len(prompts) > 0:
+            for p in prompts:
+                dall_e_list.append({'prompt': p.prompt, 'init_image': p.arg['init_image'], 'mask_image': p.arg['mask_image']})
+        else:
+            alert_msg(page, f"Your Prompts List is empty. Add to your batch list to use feature.")
+            return
+    else:
+        dall_e_list.append({'prompt': dall_e_3_prefs['prompt'], 'init_image': dall_e_3_prefs['init_image'], 'mask_image': dall_e_3_prefs['mask_image']})
+    clear_list()
+    autoscroll(True)
+    for p in dall_e_list:
+        init_image = p['init_image']
+        mask_image = p['mask_image']
+        if bool(init_image):
+            fname = init_image.rpartition(slash)[2]
+            init_file = os.path.join(save_dir, fname)
+            if init_image.startswith('http'):
+                init_img = PILImage.open(requests.get(init_image, stream=True).raw)
+            else:
+                if os.path.isfile(init_image):
+                    init_img = PILImage.open(init_image)
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {init_image}")
+                    return
+            init_img = init_img.resize((dall_e_3_prefs['size'], dall_e_3_prefs['size']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            init_img.save(init_file)
+        mask_img = None
+        if bool(mask_image):
+            fname = init_image.rpartition(slash)[2]
+            mask_file = os.path.join(save_dir, fname)
+            if mask_image.startswith('http'):
+                mask_img = PILImage.open(requests.get(mask_image, stream=True).raw)
+            else:
+                if os.path.isfile(mask_image):
+                    mask_img = PILImage.open(mask_image)
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {mask_image}")
+                    return
+                if dall_e_3_prefs['invert_mask']:
+                    mask_img = ImageOps.invert(mask_img.convert('RGB'))
+            mask_img = mask_img.resize((dall_e_3_prefs['size'], dall_e_3_prefs['size']), resample=PILImage.NEAREST)
+            mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            mask_img.save(mask_file)
+        prt("Generating your Dall-E 3 Image...")
+        prt(progress)
+        autoscroll(False)
+
+        try:
+            if bool(init_image) and bool(dall_e_3_prefs['variation']):
+                response = client.images.create_variation(image=open(init_file, 'rb'), size=dall_e_3_prefs['size'], n=dall_e_3_prefs['num_images'])
+            elif bool(init_image) and not bool(mask_image):
+                response = client.images.edit(prompt=p['prompt'], size=dall_e_3_prefs['size'], n=dall_e_3_prefs['num_images'], image=open(init_file, 'rb'))
+            elif bool(init_image) and bool(mask_image):
+                response = client.images.edit(prompt=p['prompt'], size=dall_e_3_prefs['size'], n=dall_e_3_prefs['num_images'], image=open(init_file, 'rb'), mask=open(mask_file, 'rb'))
+            else:
+                response = client.images.generate(model="dall-e-3", prompt=p['prompt'], size=dall_e_3_prefs['size'], n=1, quality="hd" if dall_e_3_prefs['hd_quality'] else "standard", style="natural" if dall_e_3_prefs['natural_style'] else "vivid")
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating image form API...", content=Text(str(e)))
+            return
+        clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        #print(str(images))
+        if response is None:
+            prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
+            return
+        #print(str(response))
+        idx = 0
+        for i in response.data:
+            image = i.url #i['url']
+            fname = format_filename(p['prompt'])
+            fname = f'{dall_e_3_prefs["file_prefix"]}{fname}'
+            txt2img_output = stable_dir
+            if bool(dall_e_3_prefs['batch_folder_name']):
+                txt2img_output = os.path.join(stable_dir, dall_e_3_prefs['batch_folder_name'])
+            if not os.path.exists(txt2img_output):
+                os.makedirs(txt2img_output)
+            image_path = available_file(txt2img_output, fname, 1)
+            response = requests.get(image, stream=True)
+            with open(image_path, "wb") as f:
+                f.write(response.content)
+            new_file = image_path.rpartition(slash)[2].rpartition('-')[0]
+            size = int(dall_e_3_prefs['size'].rpartition('x')[0])
+            out_path = batch_output if save_to_GDrive else txt2img_output
+            new_path = available_file(out_path, new_file, idx)
+            if not dall_e_3_prefs['display_upscaled_image'] or not dall_e_3_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, data=new_file, width=size, height=size, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], dall_e_3_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': dall_e_3_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+
+            if dall_e_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+                upload_folder = 'upload'
+                result_folder = 'results'
+                if os.path.isdir(upload_folder):
+                    shutil.rmtree(upload_folder)
+                if os.path.isdir(result_folder):
+                    shutil.rmtree(result_folder)
+                os.mkdir(upload_folder)
+                os.mkdir(result_folder)
+                short_name = f'{fname[:80]}-{idx}.png'
+                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
+                shutil.copy(image_path, dst_path)
+                faceenhance = ' --face_enhance' if dall_e_3_prefs["face_enhance"] else ''
+                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {dall_e_3_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+                out_file = short_name.rpartition('.')[0] + '_out.png'
+                upscaled_path = new_path
+                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                os.chdir(stable_dir)
+                if dall_e_3_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_3_prefs["enlarge_scale"]), height=size * float(dall_e_3_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
