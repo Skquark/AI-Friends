@@ -775,6 +775,7 @@ def buildVideoAIs(page):
     page.ControlNet = buildControlNet(page)
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.Roop = buildROOP(page)
+    page.Video_ReTalking = buildVideoReTalking(page)
     page.AnimateDiff = buildAnimateDiff(page)
     page.HotshotXL = buildHotshotXL(page)
     page.Rerender_a_video = buildRerender_a_video(page)
@@ -787,6 +788,7 @@ def buildVideoAIs(page):
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
+            Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
             Tab(text="Hotshot-XL", content=page.HotshotXL, icon=icons.HOT_TUB),
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
@@ -10343,6 +10345,92 @@ def buildROOP(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+video_retalking_prefs = {
+    'input_audio': '',
+    'target_video': '',
+    'exp_img': 'neutral',
+    'exp_image': '',
+    'up_face': 'original',
+    'fps': 25,
+    'img_size': 384,
+    'nosmooth': False,
+    'output_name': '',
+    'batch_folder_name': '',
+}
+def buildVideoReTalking(page):
+    global video_retalking_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            video_retalking_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            video_retalking_prefs[pref] = float(e.control.value)
+          else:
+            video_retalking_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_video_retalking_output(o):
+      page.video_retalking_output.controls.append(o)
+      page.video_retalking_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.video_retalking_output.controls = []
+      page.video_retalking_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def toggle_expression(e):
+      video_retalking_prefs['exp_img'] = e.control.value
+      exprerssion.visible = video_retalking_prefs['exp_img'] == "Image"
+      exprerssion.update()
+    def video_retalking_help(e):
+      def close_video_retalking_dlg(e):
+        nonlocal video_retalking_help_dlg
+        video_retalking_help_dlg.open = False
+        page.update()
+      video_retalking_help_dlg = AlertDialog(title=Text("💁   Help with Video ReTalking"), content=Column([
+          Text("We present VideoReTalking, a new system to edit the faces of a real-world talking head video according to input audio, producing a high-quality and lip-syncing output video even with a different emotion. Our system disentangles this objective into three sequential tasks: (1) face video generation with a canonical expression; (2) audio-driven lip-sync; and (3) face enhancement for improving photo-realism. Given a talking-head video, we first modify the expression of each frame according to the same expression template using the expression editing network, resulting in a video with the canonical expression. This video, together with the given audio, is then fed into the lip-sync network to generate a lip-syncing video. Finally, we improve the photo-realism of the synthesized faces through an identity-aware face enhancement network and post-processing. We use learning-based approaches for all three steps and all our modules can be tackled in a sequential pipeline without any user intervention."),
+          Text("Credit goes to Kun Cheng, Xiaodong Cun, Yong Zhang, Menghan Xia, Fei Yin, Mingrui Zhu, Xuan Wang, Jue Wang, Nannan Wang and Xidian University, Tencent AI Lab, Tsinghua University"),
+          Markdown("[Paper](https://arxiv.org/abs/2211.14758) | [GitHub Page](https://github.com/OpenTalker/video-retalking) | [Project Page](https://opentalker.github.io/video-retalking/) | [Colab](https://colab.research.google.com/github/vinthony/video-retalking/blob/main/quick_demo.ipynb)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("💬  Let's Lip Sync... ", on_click=close_video_retalking_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = video_retalking_help_dlg
+      video_retalking_help_dlg.open = True
+      page.update()
+    target_video = FileInput(label="Target Video with Face", pref=video_retalking_prefs, key='target_video', ftype="video", page=page)
+    input_audio = FileInput(label="Input Audio of Dialog", pref=video_retalking_prefs, key='input_audio', ftype="audio", page=page)
+    output_name = TextField(label="Output File Name", value=video_retalking_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
+    up_face = Dropdown(label="Up Face", hint_text="", width=200, options=[dropdown.Option("original"), dropdown.Option("surprise"), dropdown.Option("angry")], value=video_retalking_prefs['up_face'], autofocus=False, on_change=lambda e:changed(e, 'up_face'))
+    exp_img = Dropdown(label="Expression", hint_text="", width=200, options=[dropdown.Option("neutral"), dropdown.Option("smile"), dropdown.Option("Image")], value=video_retalking_prefs['exp_img'], autofocus=False, on_change=toggle_expression)
+    exp_image = FileInput(label="Facial Expression Image", pref=video_retalking_prefs, key='exp_image', ftype="image", expand=False, page=page)
+    exprerssion = Container(content=exp_image, expand=True, visible=False)
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=video_retalking_prefs, key='fps', tooltip="The FPS to save target video clip.", col={'lg':6})
+    img_size = SliderRow(label="Max Image Size", min=256, max=1024, divisions=48, multiple=16, suffix="px", pref=video_retalking_prefs, key='img_size', col={'lg':6})
+    batch_folder_name = TextField(label="Batch Folder Name", value=video_retalking_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    page.video_retalking_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.video_retalking_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("👄  Video ReTalking", "Audio-based Lip Synchronization for Talking Head Video Editing in the Wild...", actions=[IconButton(icon=icons.HELP, tooltip="Help with VideoReTalking", on_click=video_retalking_help)]),
+        #ResponsiveRow([Row([input_audio, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        target_video,
+        input_audio,
+        Row([up_face, exp_img, exprerssion]),
+        ResponsiveRow([fps, img_size]),
+        Row([output_name, batch_folder_name]),
+        ElevatedButton(content=Text("🗣  Run Video-ReTalking", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_video_retalking(page)),
+        page.video_retalking_output,
+        #clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 animate_diff_prefs = {
     'prompt': '',
@@ -34439,6 +34527,185 @@ def run_roop(page):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_video_retalking(page):
+    global video_retalking_prefs, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.Video_ReTalking.controls.append(line)
+      page.Video_ReTalking.update()
+    def clear_last():
+      del page.Video_ReTalking.controls[-1]
+      page.Video_ReTalking.update()
+    def autoscroll(scroll=True):
+        page.Video_ReTalking.auto_scroll = scroll
+        page.Video_ReTalking.update()
+    if not bool(video_retalking_prefs['input_audio']) or not bool(video_retalking_prefs['target_video']):
+        alert_msg(page, "You must provide a source audio and target video...")
+        return
+    page.Video_ReTalking.controls = page.Video_ReTalking.controls[:1]
+    autoscroll()
+    installer = Installing("Installing Video-ReTalking Packages...")
+    prt(installer)
+    video_retalking_dir = os.path.join(root_dir, "video-retalking")
+    video_retalking_checkpoints = os.path.join(video_retalking_dir, "checkpoints")
+    if not os.path.exists(video_retalking_dir):
+        try:
+            installer.status("...cloning vinthony/video_retalking.git")
+            run_process("git clone https://github.com/OpenTalker/video-retalking.git", cwd=root_dir)
+            installer.status("...installing requirements")
+            #run_process("pip install -r requirements.txt", cwd=video_retalking_dir)
+            pip_install("basicsr==1.4.2 kornia==0.5.1 face-alignment==1.3.4 ninja==1.10.2.3 einops facexlib==0.2.5 librosa==0.9.2 dlib==19.24.0 gradio numpy", installer=installer)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Video-ReTalking Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    make_dir(video_retalking_checkpoints)
+    if not os.path.isfile(video_retalking_checkpoints, '30_net_gen.pth'):
+        installer.status("...downloading checkpoints")
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/30_net_gen.pth", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/BFM.zip", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/DNet.pt", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/ENet.pth", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/expression.mat", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/face3d_pretrain_epoch_20.pth", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/GFPGANv1.3.pth", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/GPEN-BFR-512.pth", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/LNet.pth", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/ParseNet-latest.pth", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/RetinaFace-R50.pth", to=video_retalking_checkpoints)
+        download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/shape_predictor_68_face_landmarks.dat", to=video_retalking_checkpoints)
+        installer.status("...unziping BFM")
+        run_sp(f"unzip {os.path.join(video_retalking_checkpoints, 'BFM.zip')} -d BFM", realtime=False, cwd=video_retalking_checkpoints)
+        os.remove(os.path.join(video_retalking_checkpoints, 'BFM.zip'))
+    try:
+        import ffmpeg
+    except ImportError as e:
+        installer.status("...installing ffmpeg")
+        run_sp("apt install ffmpeg", realtime=False)
+        pass
+    try:
+        import cv2
+    except ModuleNotFoundError:
+        run_sp("pip install opencv-python", realtime=False)
+        import cv2
+        pass
+    clear_pipes()
+    import glob
+    from base64 import b64encode
+    from PIL import ImageOps
+    if bool(video_retalking_prefs['output_name']):
+        fname = format_filename(video_retalking_prefs['output_name'], force_underscore=True)
+    elif bool(video_retalking_prefs['batch_folder_name']):
+        fname = format_filename(video_retalking_prefs['batch_folder_name'], force_underscore=True)
+    else:
+        fname = "output"
+    #TODO: Add prefix
+    if bool(video_retalking_prefs['batch_folder_name']):
+        batch_output = os.path.join(stable_dir, video_retalking_prefs['batch_folder_name'])
+    else:
+        batch_output = stable_dir
+    make_dir(batch_output)
+    results_dir = os.path.join(video_retalking_dir, "results")
+    make_dir(results_dir)
+    inputs_dir = os.path.join(video_retalking_dir, "inputs")
+    make_dir(inputs_dir)
+    output_path = os.path.join(prefs['image_output'], video_retalking_prefs['batch_folder_name'])
+    make_dir(output_path)
+
+    expression_img = None
+    target_name = video_retalking_prefs['target_video'].rpartition("/")[2] if "/" in video_retalking_prefs['target_video'] else video_retalking_prefs['target_video'].rpartition(slash)[2]
+    target_path = ""
+    if video_retalking_prefs['target_video'].startswith('http'):
+        installer.status("...downloading target video")
+        download_file(video_retalking_prefs['target_video'], inputs_dir)
+        target_path = os.path.join(inputs_dir, target_name)
+    else:
+        if os.path.isfile(video_retalking_prefs['target_video']):
+            target_path = video_retalking_prefs['target_video']
+            shutil.copy(target_path, os.path.join(inputs_dir, os.path.basename(target_path)))
+            target_path = os.path.join(inputs_dir, os.path.basename(target_path))
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your target_video {video_retalking_prefs['target_video']}")
+            return
+    input_audio = ""
+    if video_retalking_prefs['input_audio'].startswith('http'):
+        installer.status("...downloading input audio")
+        download_file(video_retalking_prefs['input_audio'], inputs_dir)
+        input_audio = os.path.join(inputs_dir, target_name)
+    else:
+        if os.path.isfile(video_retalking_prefs['input_audio']):
+            input_audio = video_retalking_prefs['input_audio']
+            shutil.copy(input_audio, os.path.join(inputs_dir, os.path.basename(input_audio)))
+            input_audio = os.path.join(inputs_dir, os.path.basename(input_audio))
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your input_audio {video_retalking_prefs['input_audio']}")
+            return
+    if video_retalking_prefs['exp_img'] == "Image":
+        if video_retalking_prefs['exp_image'].startswith('http'):
+            installer.status("...downloading expression image")
+            download_file(video_retalking_prefs['exp_image'], inputs_dir)
+            expression_img = os.path.join(inputs_dir, target_name)
+        else:
+            if os.path.isfile(video_retalking_prefs['exp_image']):
+                expression_img = video_retalking_prefs['exp_image']
+                shutil.copy(expression_img, os.path.join(inputs_dir, os.path.basename(expression_img)))
+                expression_img = os.path.join(inputs_dir, os.path.basename(expression_img))
+    clear_last()
+    progress = ProgressBar(bar_height=8)
+    prt(f"Generating your Video-ReTalking Video... See Connsole for Progress.")
+    prt(progress)
+    autoscroll(False)
+    total_steps = 100 #?
+    def callback_fnc(step: int) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}"
+      progress.update()
+    output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
+    video_file = os.path.join(results_dir, os.path.basename(output_file))
+    extras = ""
+    if video_retalking_prefs['exp_img'] != 'neutral':
+        if video_retalking_prefs['exp_img'] != 'Image':
+            if bool(expression_img):
+                extras += f' --exp_img "inputs/{os.path.basename(expression_img)}"'
+        else:
+            extras += f" --exp_img {video_retalking_prefs['exp_img']}"
+    if video_retalking_prefs['up_face'] != 'original':
+        extras += f" --up_face {video_retalking_prefs['up_face']}"
+    if video_retalking_prefs['fps'] != 25:
+        extras += f" --fps {video_retalking_prefs['fps']}"
+    if video_retalking_prefs['img_size'] != 384:
+        extras += f" --img_size {video_retalking_prefs['img_size']}"
+    cmd = f'python inference.py --face "inputs/{os.path.basename(target_path)}"  --audio "inputs/{os.path.basename(input_audio)}"{extras} --outfile "results/{os.path.basename(output_file)}"'
+    prt(f"Running {cmd}")
+    try:
+        run_process(cmd, cwd=video_retalking_dir, page=page, realtime=True)
+    except Exception as e:
+        clear_last()
+        clear_last()
+        alert_msg(page, "Error running Python inference.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    shutil.copy(video_file, output_file)
+    clear_last()
+    clear_last()
+    clear_last()
+    autoscroll(True)
+    #TODO: Upscale Image
+    if os.path.isfile(output_file):
+        prt(Row([Text("Saved to {output_file}")], alignment=MainAxisAlignment.CENTER))
+        try:
+            prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
+        except:
+            pass
+    else:
+        prt("💢  Error Generating Output File!")
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 def run_animate_diff(page):
     global animate_diff_prefs, prefs, status, pipe_animate_diff, model_path
     #if not status['installed_diffusers']:
@@ -39387,6 +39654,10 @@ def its(step_time):
         sit = step_time
         output = f"{sit:.1f} s/it"
     return output
+
+def make_dir(path):
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
 
 def nudge(column):
     ''' Force an autoscroll column to go down. Mainly to show ProgressBar not scrolling to bottom.'''
