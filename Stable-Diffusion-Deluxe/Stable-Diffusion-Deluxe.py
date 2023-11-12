@@ -682,6 +682,7 @@ def buildImageAIs(page):
     page.Wuerstchen = buildWuerstchen(page)
     page.PixArtAlpha = buildPixArtAlpha(page)
     page.LMD_Plus = buildLMD_Plus(page)
+    page.LCM = buildLCM(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
     page.DallE3 = buildDallE3(page)
@@ -706,6 +707,7 @@ def buildImageAIs(page):
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
             Tab(text="LMD+", content=page.LMD_Plus, icon=icons.HIGHLIGHT_ALT),
+            Tab(text="LCM", content=page.LCM, icon=icons.MEMORY),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
@@ -9037,6 +9039,112 @@ def buildLMD_Plus(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+lcm_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "lcm-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4.5,
+    'num_inference_steps': 30,
+    "seed": 0,
+    'init_image': '',
+    'init_image_strength': 0.8,
+    "cpu_offload": False,
+    "cpu_only": False,
+    "lcm_model": "LCM_Dreamshaper_v7",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildLCM(page):
+    global prefs, lcm_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            lcm_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            lcm_prefs[pref] = float(e.control.value)
+          else:
+            lcm_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def lcm_help(e):
+      def close_lcm_dlg(e):
+        nonlocal lcm_help_dlg
+        lcm_help_dlg.open = False
+        page.update()
+      lcm_help_dlg = AlertDialog(title=Text("🙅   Help with LCM Pipeline"), content=Column([
+          Text("Latent Diffusion Models (LDMs) have achieved remarkable results in synthesizing high-resolution images. However, the iterative sampling process is computationally intensive and leads to slow generation. Inspired by Consistency Models (song et al.), we propose Latent Consistency Models (LCMs), enabling swift inference with minimal steps on any pre-trained LDMs, including Stable Diffusion (rombach et al). Viewing the guided reverse diffusion process as solving an augmented probability flow ODE (PF-ODE), LCMs are designed to directly predict the solution of such ODE in latent space, mitigating the need for numerous iterations and allowing rapid, high-fidelity sampling. Efficiently distilled from pre-trained classifier-free guided diffusion models, a high-quality 768 x 768 2~4-step LCM takes only 32 A100 GPU hours for training. Furthermore, we introduce Latent Consistency Fine-tuning (LCF), a novel method that is tailored for fine-tuning LCMs on customized image datasets. Evaluation on the LAION-5B-Aesthetics dataset demonstrates that LCMs achieve state-of-the-art text-to-image generation performance with few-step inference."),
+          #Text(""),
+          Markdown("[Project](https://latent-consistency-models.github.io/) | [Paper](https://arxiv.org/pdf/2310.04378.pdf) | [SimianLuo/LCM_Dreamshaper_v7](https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7) | [Checkpoint](https://huggingface.co/spaces/SimianLuo/Latent_Consistency_Model)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🏃  How many steps?", on_click=close_lcm_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = lcm_help_dlg
+      lcm_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        lcm_prefs['lcm_model'] = e.control.value
+        lcm_custom_model.visible = e.control.value == "Custom"
+        lcm_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        lcm_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=lcm_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=lcm_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image (optional)", pref=lcm_prefs, key='init_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=lcm_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=lcm_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=lcm_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=lcm_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=lcm_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lcm_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lcm_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lcm_prefs, key='height')
+    lcm_model = Dropdown(label="LCM Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("LCM_Dreamshaper_v7")], value=lcm_prefs['lcm_model'], on_change=changed_model)
+    lcm_custom_model = TextField(label="Custom LCM Model (URL or Path)", value=lcm_prefs['custom_model'], expand=True, visible=lcm_prefs['lcm_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=lcm_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    cpu_only = Switcher(label="CPU Only (not yet)", value=lcm_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
+    seed = TextField(label="Seed", width=90, value=str(lcm_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=lcm_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=lcm_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=lcm_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=lcm_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_lcm = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_lcm.height = None if status['installed_ESRGAN'] else 0
+    if not lcm_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🏎   Run LCM", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lcm(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lcm(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lcm(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.lcm_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("💻  Latent Consistency Model (LCM)", "Synthesizing High-Resolution Images with Few-Step Inference.", actions=[IconButton(icon=icons.HELP, tooltip="Help with LCM Settings", on_click=lcm_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([init_image, init_image_strength]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([lcm_model, lcm_custom_model]),
+            Row([cpu_offload, cpu_only]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_lcm,
+            parameters_row,
+            page.lcm_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 text_to_video_prefs = {
     'prompt': '',
     'negative_prompt': 'text, words, watermark, shutterstock',
@@ -16302,6 +16410,7 @@ pipe_alt_diffusion_img2img = None
 pipe_SAG = None
 pipe_attend_and_excite = None
 pipe_lmd_plus = None
+pipe_lcm = None
 pipe_panorama = None
 pipe_DiT = None
 pipe_dance = None
@@ -18686,6 +18795,12 @@ def clear_lmd_plus_pipe():
     del pipe_lmd_plus
     flush()
     pipe_lmd_plus = None
+def clear_lcm_pipe():
+  global pipe_lcm
+  if pipe_lcm is not None:
+    del pipe_lcm
+    flush()
+    pipe_lcm = None
 def clear_panorama_pipe():
   global pipe_panorama
   if pipe_panorama is not None:
@@ -18935,6 +19050,7 @@ def clear_pipes(allbut=None):
     if not 'SAG' in but: clear_SAG_pipe()
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'lmd_plus' in but: clear_lmd_plus_pipe()
+    if not 'lcm' in but: clear_lcm_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
     if not 'fuyu' in but: clear_fuyu_pipe()
@@ -33357,6 +33473,246 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             elif bool(prefs['image_output']):
                 new_file = available_file(os.path.join(prefs['image_output'], lmd_plus_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_lcm(page, from_list=False, with_params=False):
+    global lcm_prefs, pipe_lcm, prefs
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    lcm_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            lcm_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':lcm_prefs['guidance_scale'], 'num_inference_steps':lcm_prefs['num_inference_steps'], 'width':lcm_prefs['width'], 'height':lcm_prefs['height'], 'init_image':lcm_prefs['init_image'], 'init_image_strength':lcm_prefs['init_image_strength'], 'num_images':lcm_prefs['num_images'], 'seed':lcm_prefs['seed']})
+        else:
+            lcm_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(lcm_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      lcm_prompts.append({'prompt': lcm_prefs['prompt'], 'negative_prompt':lcm_prefs['negative_prompt'], 'guidance_scale':lcm_prefs['guidance_scale'], 'num_inference_steps':lcm_prefs['num_inference_steps'], 'width':lcm_prefs['width'], 'height':lcm_prefs['height'], 'init_image':lcm_prefs['init_image'], 'init_image_strength':lcm_prefs['init_image_strength'], 'num_images':lcm_prefs['num_images'], 'seed':lcm_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.LCM.controls.append(line)
+        if update:
+          page.LCM.update()
+    def clear_last():
+      if from_list:
+        del page.imageColumn.controls[-1]
+        page.imageColumn.update()
+      else:
+        del page.LCM.controls[-1]
+        page.LCM.update()
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.LCM.auto_scroll = scroll
+        page.LCM.update()
+      else:
+        page.LCM.auto_scroll = scroll
+        page.LCM.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.LCM.controls = page.LCM.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = lcm_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = pipe.total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing LCM Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("lcm")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = lcm_prefs['cpu_offload']
+    lcm_model = "SimianLuo/LCM_Dreamshaper_v7" if lcm_prefs['lcm_model'] == "LCM_Dreamshaper_v7" else "PixArt-alpha/PixArt-XL-2-512x512" if lcm_prefs['lcm_model'] == "PixArt-XL-2-512x512" else lcm_prefs['lcm_custom_model']
+    if 'loaded_lcm' not in status: status['loaded_lcm'] = ""
+    if 'loaded_lcm_mode' not in status: status['loaded_lcm_mode'] = ""
+    if lcm_model != status['loaded_lcm']:
+        clear_pipes()
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/LCM-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    
+    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image
+    if pipe_lcm == None:
+        installer.status(f"...initialize LCM Pipeline")
+        try:
+            if bool(lcm_prefs['init_image']):
+                pipe_lcm = AutoPipelineForImage2Image.from_pretrained(lcm_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                status['loaded_lcm_mode'] = "Image2Image"
+            else:
+                pipe_lcm = AutoPipelineForText2Image.from_pretrained(lcm_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                status['loaded_lcm_mode'] = "Text2Image"
+            pipe_lcm = pipeline_scheduler(pipe_lcm)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_lcm.transformer = torch.compile(pipe_lcm.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_lcm = pipe_lcm.to(torch_device)
+            elif cpu_offload:
+                pipe_lcm.enable_model_cpu_offload()
+            else:
+                pipe_lcm.to(torch_device)
+            pipe_lcm.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing LCM...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_lcm'] = lcm_model
+    else:
+        clear_pipes('lcm')
+        if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_lcm = pipeline_scheduler(pipe_lcm)
+    clear_last()
+    s = "" if len(lcm_prompts) == 0 else "s"
+    prt(f"Generating your LCM Image{s}...")
+    for pr in lcm_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        init_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        try:
+            if init_img is not None:
+                if status['loaded_lcm_mode'] != "Image2Image":
+                    pipe_lcm = AutoPipelineForImage2Image.from_pipe(pipe_lcm)
+                    status['loaded_lcm_mode'] = "Image2Image"
+                images = pipe_lcm(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    init_image=init_img,
+                    init_image_strength=pr['init_image_strength'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+            else:
+                if status['loaded_lcm_mode'] != "Text2Image":
+                    pipe_lcm = AutoPipelineForText2Image.from_pipe(pipe_lcm)
+                    status['loaded_lcm_mode'] = "Text2Image"
+                images = pipe_lcm(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(lcm_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, lcm_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{lcm_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not lcm_prefs['display_upscaled_image'] or not lcm_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], lcm_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': lcm_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if lcm_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=lcm_prefs["enlarge_scale"], face_enhance=lcm_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if lcm_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(lcm_prefs["enlarge_scale"]), height=pr['height'] * float(lcm_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {lcm_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"LCM")
+                if prefs['save_config_in_metadata']:
+                    config_json = lcm_prefs.copy()
+                    config_json['model_path'] = lcm_model
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], lcm_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], lcm_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
