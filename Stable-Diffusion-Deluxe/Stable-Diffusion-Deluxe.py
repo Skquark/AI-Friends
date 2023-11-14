@@ -359,6 +359,7 @@ def load_settings_file():
       'init_image_strength': 0.25,
       'alpha_mask': False,
       'invert_mask': False,
+      'negative_prompt': "",
       'precision': 'autocast',
       'use_inpaint_model': False,
       'centipede_prompts_as_init_images': False,
@@ -883,6 +884,7 @@ def get_color(color):
 
 
 # Delete these after everyone's updated
+if 'negative_prompt' not in prefs: prefs['negative_prompt'] = ''
 if 'file_datetime' not in prefs: prefs['file_datetime'] = False
 if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
 if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
@@ -2678,9 +2680,9 @@ def editPrompt(e):
 def buildPromptsList(page):
   parameter = Ref[ListTile]()
   global prompts, args, prefs
-  def changed(e):
-      status['changed_prompts'] = True
-      page.update()
+  def changed(e, pref=None):
+      if pref is not None:
+          prefs[pref] = e.control.value
   def prompt_help(e):
       def close_help_dlg(e):
         nonlocal prompt_help_dlg
@@ -2984,7 +2986,7 @@ def buildPromptsList(page):
   prompts_list = Column([],spacing=1)
   page.prompts_list = prompts_list
   prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, filled=True, multiline=True, max_lines=6, on_submit=add_prompt, col={'lg':9})
-  negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", filled=True, multiline=True, max_lines=4, suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
+  negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", filled=True, multiline=True, max_lines=4, value=prefs['negative_prompt'], on_change=lambda e:changed(e,'negative_prompt'), suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
   add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.width if page.web else page.window_width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   copy_prompts_button = IconButton(icons.COPY_ALL, tooltip="Save Prompts as Plain-Text List", on_click=copy_prompts)
@@ -8935,7 +8937,7 @@ lmd_plus_prefs = {
     "prompt": '',
     "negative_prompt": '',
     "batch_folder_name": '',
-    "file_prefix": "lmd_plus-",
+    "file_prefix": "lmd-",
     "num_images": 1,
     "width": 512,
     "height":512,
@@ -9001,7 +9003,7 @@ def buildLMD_Plus(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lmd_plus_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lmd_plus_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lmd_plus_prefs, key='height')
-    lmd_plus_model = Dropdown(label="LMD_Plus Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("llonglian/lmd_plus")], value=lmd_plus_prefs['lmd_plus_model'], on_change=changed_model)
+    lmd_plus_model = Dropdown(label="LMD+ Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("longlian/lmd_plus")], value=lmd_plus_prefs['lmd_plus_model'], on_change=changed_model)
     lmd_plus_custom_model = TextField(label="Custom LMD_Plus Model (URL or Path)", value=lmd_plus_prefs['custom_model'], expand=True, visible=lmd_plus_prefs['lmd_plus_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=lmd_plus_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, expand=True, pref=lmd_plus_prefs, key='temperature', tooltip="Softmax value used to module the next token probabilities", col={'lg':6})
@@ -18468,7 +18470,7 @@ def get_ESRGAN(page, model="realesr-general-x4v3", installer=None):
         stat(f"Installing Real-ESRGAN")
         run_sp(f"git clone https://github.com/xinntao/Real-ESRGAN.git -q", cwd=dist_dir)
         os.chdir(ESRGAN_folder)
-        pip_install("basicsr facexlib gfpgan tqdm", quiet=True, cwd=ESRGAN_folder, installer=installer)
+        pip_install("basicsr facexlib gfpgan tqdm", q=True, cwd=ESRGAN_folder, installer=installer)
         stat(f"Setup Real-ESRGAN")
         run_sp(f"pip install -r requirements.txt --quiet", realtime=False, cwd=ESRGAN_folder)
         run_sp(f"python setup.py develop --quiet", realtime=False, cwd=ESRGAN_folder)
@@ -18558,7 +18560,7 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
         if not os.path.isdir(SRFormer_dir):
             stat(f"Installing {method}...")
             run_sp("git clone https://github.com/HVision-NKU/SRFormer", cwd=root_dir)
-            pip_install("addict future lmdb pyyaml scikit-image scipy tb-nightly tqdm yapf", quiet=True, installer=installer)
+            pip_install("addict future lmdb pyyaml scikit-image scipy tb-nightly tqdm yapf", q=True, installer=installer)
             run_sp("python setup.py develop", cwd=SRFormer_dir)
         upload_folder = os.path.join(SRFormer_dir, 'upload')
         result_folder = os.path.join(SRFormer_dir, 'results')
@@ -21461,9 +21463,8 @@ def run_magic_prompt(page):
         line = Text(line, size=17)
       page.magic_prompt_output.controls.append(line)
       page.magic_prompt_output.update()
-    def clear_last():
-      del page.magic_prompt_output.controls[-1]
-      page.magic_prompt_output.update()
+    def clear_last(lines=1):
+        clear_line(page.magic_prompt_output, lines=lines)
     progress = ProgressBar(bar_height=8)
     prt(Installing("Installing Magic Prompt GPT-2 Pipeline..."))
     try:
@@ -21571,9 +21572,8 @@ def run_distil_gpt2(page):
         line = Text(line, size=17)
       page.distil_gpt2_output.controls.append(line)
       page.distil_gpt2_output.update()
-    def clear_last():
-      del page.distil_gpt2_output.controls[-1]
-      page.distil_gpt2_output.update()
+    def clear_last(lines=1):
+      clear_line(page.distil_gpt2_output, lines=lines)
     progress = ProgressBar(bar_height=8)
     prt(Installing("Installing Distil GPT-2 Pipeline..."))
 
@@ -22064,9 +22064,8 @@ def run_init_video(page):
     if not bool(prompt):
         alert_msg(page, "Provide a good prompt to apply to All Frames in List.")
         return
-    def clear_last():
-      del page.init_video_output.controls[-1]
-      page.init_video_output.update()
+    def clear_last(lines=1):
+      clear_line(page.init_video_output, lines=lines)
     page.init_video_output.controls.clear()
     page.init_video_output.update()
     if not os.path.exists(output_dir):
@@ -22290,9 +22289,8 @@ def run_repainter(page):
         line = Text(line, size=17)
       page.RePainter.controls.append(line)
       page.RePainter.update()
-    def clear_last():
-      del page.RePainter.controls[-1]
-      page.RePainter.update()
+    def clear_last(lines=1):
+      clear_line(page.RePainter, lines=lines)
     def autoscroll(scroll=True):
       page.RePainter.auto_scroll = scroll
       page.RePainter.update()
@@ -22402,9 +22400,8 @@ def run_image_variation(page):
         line = Text(line)
       page.ImageVariation.controls.append(line)
       page.ImageVariation.update()
-    def clear_last():
-      del page.ImageVariation.controls[-1]
-      page.ImageVariation.update()
+    def clear_last(lines=1):
+      clear_line(page.ImageVariation, lines=lines)
     def autoscroll(scroll=True):
       page.ImageVariation.auto_scroll = scroll
       page.ImageVariation.update()
@@ -22509,9 +22506,8 @@ def run_background_remover(page):
         line = Text(line)
       page.BackgroundRemover.controls.append(line)
       page.BackgroundRemover.update()
-    def clear_last():
-      del page.BackgroundRemover.controls[-1]
-      page.BackgroundRemover.update()
+    def clear_last(lines=1):
+      clear_line(page.BackgroundRemover, lines=lines)
     def autoscroll(scroll=True):
       page.BackgroundRemover.auto_scroll = scroll
       page.BackgroundRemover.update()
@@ -22721,13 +22717,11 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
         page.BLIPDiffusion.controls.append(line)
         if update:
           page.BLIPDiffusion.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.BLIPDiffusion.controls[-1]
-        page.BLIPDiffusion.update()
+        clear_line(page.BLIPDiffusion, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -23003,13 +22997,11 @@ def run_reference(page, from_list=False):
         page.Reference.controls.append(line)
         if update:
           page.Reference.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.Reference.controls[-1]
-        page.Reference.update()
+        clear_line(page.Reference, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -23225,13 +23217,11 @@ def run_controlnet_qr(page, from_list=False):
         page.ControlNetQR.controls.append(line)
         if update:
           page.ControlNetQR.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.ControlNetQR.controls[-1]
-        page.ControlNetQR.update()
+        clear_line(page.ControlNetQR, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -23527,13 +23517,11 @@ def run_controlnet_segment(page, from_list=False):
         page.ControlNetSegmentAnything.controls.append(line)
         if update:
           page.ControlNetSegmentAnything.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.ControlNetSegmentAnything.controls[-1]
-        page.ControlNetSegmentAnything.update()
+        clear_line(page.ControlNetSegmentAnything, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -23789,9 +23777,8 @@ def run_EDICT(page):
         line = Text(line, size=17)
       page.EDICT.controls.append(line)
       page.EDICT.update()
-    def clear_last():
-      del page.EDICT.controls[-1]
-      page.EDICT.update()
+    def clear_last(lines=1):
+      clear_line(page.EDICT, lines=lines)
     def autoscroll(scroll=True):
       page.EDICT.auto_scroll = scroll
       page.EDICT.update()
@@ -23985,9 +23972,8 @@ def run_DiffEdit(page):
         line = Text(line, size=17)
       page.DiffEdit.controls.append(line)
       page.DiffEdit.update()
-    def clear_last():
-      del page.DiffEdit.controls[-1]
-      page.DiffEdit.update()
+    def clear_last(lines=1):
+      clear_line(page.DiffEdit, lines=lines)
     def autoscroll(scroll=True):
       page.DiffEdit.auto_scroll = scroll
       page.DiffEdit.update()
@@ -24203,9 +24189,8 @@ def run_CLIPstyler(page):
         line = Text(line)
       page.CLIPstyler.controls.append(line)
       page.CLIPstyler.update()
-    def clear_last():
-      del page.CLIPstyler.controls[-1]
-      page.CLIPstyler.update()
+    def clear_last(lines=1):
+      clear_line(page.CLIPstyler, lines=lines)
     def autoscroll(scroll=True):
       page.CLIPstyler.auto_scroll = scroll
       page.CLIPstyler.update()
@@ -24460,9 +24445,8 @@ def run_semantic(page):
         line = Text(line, size=17)
       page.SemanticGuidance.controls.append(line)
       page.SemanticGuidance.update()
-    def clear_last():
-      del page.SemanticGuidance.controls[-1]
-      page.SemanticGuidance.update()
+    def clear_last(lines=1):
+      clear_line(page.SemanticGuidance, lines=lines)
     def autoscroll(scroll=True):
       page.SemanticGuidance.auto_scroll = scroll
       page.SemanticGuidance.update()
@@ -24614,9 +24598,8 @@ def run_image2text(page):
         line = Text(line)
       page.image2text_output.controls.append(line)
       page.image2text_output.update()
-    def clear_last():
-      del page.image2text_output.controls[-1]
-      page.image2text_output.update()
+    def clear_last(lines=1):
+      clear_line(page.image2text_output, lines=lines)
     if image2text_prefs['use_AIHorde'] and not bool(prefs['AIHorde_api_key']):
       alert_msg(page, "To use AIHorde API service, you must provide an API key in settings")
       return
@@ -24945,10 +24928,8 @@ def run_BLIP2_image2text(page):
         line = Text(line)
       page.BLIP2_image2text_output.controls.append(line)
       page.BLIP2_image2text_output.update()
-    def clear_last():
-      if len(page.BLIP2_image2text_output.controls) < 1: return
-      del page.BLIP2_image2text_output.controls[-1]
-      page.BLIP2_image2text_output.update()
+    def clear_last(lines=1):
+      clear_line(page.BLIP2_image2text_output, lines=lines)
     progress = ProgressBar(bar_height=8)
     #if not status['installed_diffusers']:
     #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
@@ -25046,9 +25027,8 @@ def run_dance_diffusion(page):
         line = Text(line)
       page.dance_output.controls.append(line)
       page.dance_output.update()
-    def clear_last():
-      del page.dance_output.controls[-1]
-      page.dance_output.update()
+    def clear_last(lines=1):
+      clear_line(page.dance_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     progress = ProgressBar(bar_height=8)
@@ -25208,10 +25188,8 @@ def run_audio_diffusion(page):
         line = Text(line)
       page.audio_diffusion_output.controls.append(line)
       page.audio_diffusion_output.update()
-    def clear_last():
-      if len(page.audio_diffusion_output.controls) < 1: return
-      del page.audio_diffusion_output.controls[-1]
-      page.audio_diffusion_output.update()
+    def clear_last(lines=1):
+      clear_line(page.audio_diffusion_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     #if not bool(audio_diffusion_prefs['text']):
@@ -25357,10 +25335,8 @@ def run_music_gen(page):
         line = Text(line)
       page.music_gen_output.controls.append(line)
       page.music_gen_output.update()
-    def clear_last():
-      if len(page.music_gen_output.controls) < 1: return
-      del page.music_gen_output.controls[-1]
-      page.music_gen_output.update()
+    def clear_last(lines=1):
+      clear_line(page.music_gen_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     if not bool(music_gen_prefs['prompt']):
@@ -25649,9 +25625,8 @@ def run_dreambooth(page):
         line = Text(line)
       page.dreambooth_output.controls.append(line)
       page.dreambooth_output.update()
-    def clear_last():
-      del page.dreambooth_output.controls[-1]
-      page.dreambooth_output.update()
+    def clear_last(lines=1):
+      clear_line(page.dreambooth_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -26130,9 +26105,8 @@ def run_dreambooth2(page):
         line = Text(line)
       page.dreambooth_output.controls.append(line)
       page.dreambooth_output.update()
-    def clear_last():
-      del page.dreambooth_output.controls[-1]
-      page.dreambooth_output.update()
+    def clear_last(lines=1):
+      clear_line(page.dreambooth_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -26323,9 +26297,8 @@ def run_textualinversion(page):
         line = Text(line)
       page.textualinversion_output.controls.append(line)
       page.textualinversion_output.update()
-    def clear_last():
-      del page.textualinversion_output.controls[-1]
-      page.textualinversion_output.update()
+    def clear_last(lines=1):
+      clear_line(page.textualinversion_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -26579,9 +26552,8 @@ def run_textualinversion2(page):
         line = Text(line)
       page.textualinversion_output.controls.append(line)
       page.textualinversion_output.update()
-    def clear_last():
-      del page.textualinversion_output.controls[-1]
-      page.textualinversion_output.update()
+    def clear_last(lines=1):
+      clear_line(page.textualinversion_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -27081,9 +27053,8 @@ def run_LoRA_dreambooth(page):
         line = Text(line)
       page.LoRA_dreambooth_output.controls.append(line)
       page.LoRA_dreambooth_output.update()
-    def clear_last():
-      del page.LoRA_dreambooth_output.controls[-1]
-      page.LoRA_dreambooth_output.update()
+    def clear_last(lines=1):
+      clear_line(page.LoRA_dreambooth_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -27337,9 +27308,8 @@ def run_LoRA(page):
         line = Text(line)
       page.LoRA_output.controls.append(line)
       page.LoRA_output.update()
-    def clear_last():
-      del page.LoRA_output.controls[-1]
-      page.LoRA_output.update()
+    def clear_last(lines=1):
+      clear_line(page.LoRA_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -27601,10 +27571,8 @@ def run_converter(page):
         line = Text(line)
       page.converter_output.controls.append(line)
       page.converter_output.update()
-    def clear_last():
-      if len(page.converter_output.controls) == 0: return
-      del page.converter_output.controls[-1]
-      page.converter_output.update()
+    def clear_last(lines=1):
+      clear_line(page.converter_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -27638,6 +27606,7 @@ def run_converter(page):
     progress = ProgressBar(bar_height=8)
 
     if model_path.startswith('https://drive'):
+      import gdown
       gdown.download(model_path, checkpoint_file, quiet=True)
     elif model_path.startswith('http'):
       local = download_file(model_path)
@@ -27834,9 +27803,8 @@ def run_checkpoint_merger(page):
         line = Text(line)
       page.checkpoint_merger_output.controls.append(line)
       page.checkpoint_merger_output.update()
-    def clear_last():
-      del page.checkpoint_merger_output.controls[-1]
-      page.checkpoint_merger_output.update()
+    def clear_last(lines=1):
+      clear_line(page.checkpoint_merger_output, lines=lines)
     if not status['installed_diffusers']:
         alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
         return
@@ -27962,9 +27930,8 @@ def run_tortoise_tts(page):
         line = Text(line)
       page.tortoise_output.controls.append(line)
       page.tortoise_output.update()
-    def clear_last():
-      del page.tortoise_output.controls[-1]
-      page.tortoise_output.update()
+    def clear_last(lines=1):
+      clear_line(page.tortoise_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     if tortoise_prefs['train_custom'] and not bool(tortoise_prefs['custom_voice_name']):
@@ -28121,10 +28088,8 @@ def run_audio_ldm(page):
         line = Text(line)
       page.audioLDM_output.controls.append(line)
       page.audioLDM_output.update()
-    def clear_last():
-      if len(page.audioLDM_output.controls) < 1: return
-      del page.audioLDM_output.controls[-1]
-      page.audioLDM_output.update()
+    def clear_last(lines=1):
+      clear_line(page.audioLDM_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     if not bool(audioLDM_prefs['text']):
@@ -28224,10 +28189,8 @@ def run_audio_ldm2(page):
         line = Text(line)
       page.audioLDM2_output.controls.append(line)
       page.audioLDM2_output.update()
-    def clear_last():
-      if len(page.audioLDM2_output.controls) < 1: return
-      del page.audioLDM2_output.controls[-1]
-      page.audioLDM2_output.update()
+    def clear_last(lines=1):
+      clear_line(page.audioLDM2_output, lines=lines)
     if not bool(audioLDM2_prefs['text']):
       alert_msg(page, "Provide Text for the AI to create the sound of...")
       return
@@ -28434,10 +28397,8 @@ def run_music_ldm(page):
         line = Text(line)
       page.musicLDM_output.controls.append(line)
       page.musicLDM_output.update()
-    def clear_last():
-      if len(page.musicLDM_output.controls) < 1: return
-      del page.musicLDM_output.controls[-1]
-      page.musicLDM_output.update()
+    def clear_last(lines=1):
+      clear_line(page.musicLDM_output, lines=lines)
     if not bool(musicLDM_prefs['text']):
       alert_msg(page, "Provide Text for the AI to create the music of...")
       return
@@ -28601,10 +28562,8 @@ def run_bark(page):
         line = Text(line)
       page.bark_output.controls.append(line)
       page.bark_output.update()
-    def clear_last():
-      if len(page.bark_output.controls) < 1: return
-      del page.bark_output.controls[-1]
-      page.bark_output.update()
+    def clear_last(lines=1):
+      clear_line(page.bark_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     if not bool(bark_prefs['text']):
@@ -28706,10 +28665,8 @@ def run_riffusion(page):
         line = Text(line)
       page.riffusion_output.controls.append(line)
       page.riffusion_output.update()
-    def clear_last():
-      if len(page.riffusion_output.controls) < 1: return
-      del page.riffusion_output.controls[-1]
-      page.riffusion_output.update()
+    def clear_last(lines=1):
+      clear_line(page.riffusion_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     if not bool(riffusion_prefs['prompt']):
@@ -28876,10 +28833,8 @@ def run_mubert(page):
         line = Text(line)
       page.tortoise_output.controls.append(line)
       page.tortoise_output.update()
-    def clear_last():
-      if len(page.tortoise_output.controls) == 0: return
-      del page.tortoise_output.controls[-1]
-      page.tortoise_output.update()
+    def clear_last(lines=1):
+      clear_line(page.tortoise_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     progress = ProgressBar(bar_height=8)
@@ -29005,9 +28960,8 @@ def run_whisper(page):
         line = Text(line, size=17)
       page.Whisper.controls.append(line)
       page.Whisper.update()
-    def clear_last():
-      del page.Whisper.controls[-1]
-      page.Whisper.update()
+    def clear_last(lines=1):
+      clear_line(page.Whisper, lines=lines)
     def clear_list():
       page.Whisper.controls = page.Whisper.controls[:1]
     def autoscroll(scroll=True):
@@ -29240,9 +29194,8 @@ def run_voice_fixer(page):
         line = Text(line, size=17)
       page.VoiceFixer.controls.append(line)
       page.VoiceFixer.update()
-    def clear_last():
-      del page.VoiceFixer.controls[-1]
-      page.VoiceFixer.update()
+    def clear_last(lines=1):
+      clear_line(page.VoiceFixer, lines=lines)
     def clear_list():
       page.VoiceFixer.controls = page.VoiceFixer.controls[:1]
     def autoscroll(scroll=True):
@@ -29409,13 +29362,11 @@ def run_unCLIP(page, from_list=False):
         page.unCLIP.controls.append(line)
         if update:
           page.unCLIP.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.unCLIP.controls[-1]
-        page.unCLIP.update()
+        clear_line(page.unCLIP, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -29634,13 +29585,11 @@ def run_unCLIP_image_variation(page, from_list=False):
         page.UnCLIP_ImageVariation.controls.append(line)
         if update:
           page.UnCLIP_ImageVariation.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.UnCLIP_ImageVariation.controls[-1]
-        page.UnCLIP_ImageVariation.update()
+        clear_line(page.UnCLIP_ImageVariation, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -29827,13 +29776,11 @@ def run_unCLIP_interpolation(page, from_list=False):
         page.unCLIP_interpolation_output.controls.append(line)
         if update:
           page.unCLIP_interpolation_output.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.unCLIP_interpolation_output.controls[-1]
-        page.unCLIP_interpolation_output.update()
+        clear_line(page.unCLIP_interpolation_output, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -30014,13 +29961,11 @@ def run_unCLIP_image_interpolation(page, from_list=False):
         page.UnCLIP_ImageInterpolation.controls.append(line)
         if update:
           page.UnCLIP_ImageInterpolation.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.UnCLIP_ImageInterpolation.controls[-1]
-        page.UnCLIP_ImageInterpolation.update()
+        clear_line(page.UnCLIP_ImageInterpolation, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -30225,13 +30170,11 @@ def run_magic_mix(page, from_list=False):
         page.MagicMix.controls.append(line)
         if update:
           page.MagicMix.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.MagicMix.controls[-1]
-        page.MagicMix.update()
+        clear_line(page.MagicMix, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -30444,9 +30387,8 @@ def run_paint_by_example(page):
         line = Text(line, size=17)
       page.PaintByExample.controls.append(line)
       page.PaintByExample.update()
-    def clear_last():
-      del page.PaintByExample.controls[-1]
-      page.PaintByExample.update()
+    def clear_last(lines=1):
+      clear_line(page.PaintByExample, lines=lines)
     def autoscroll(scroll=True):
       page.PaintByExample.auto_scroll = scroll
       page.PaintByExample.update()
@@ -30653,15 +30595,11 @@ def run_instruct_pix2pix(page, from_list=False):
         page.InstructPix2Pix.controls.append(line)
         if update:
           page.InstructPix2Pix.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        if len(page.imageColumn.controls) == 0: return
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        if len(page.InstructPix2Pix.controls) == 1: return
-        del page.InstructPix2Pix.controls[-1]
-        page.InstructPix2Pix.update()
+        clear_line(page.InstructPix2Pix, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -30940,18 +30878,11 @@ def run_controlnet(page, from_list=False):
         if update:
           page.ControlNet.update()
           #page.controlnet_output.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        if len(page.imageColumn.controls) == 0: return
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        if len(page.ControlNet.controls) == 1: return
-        del page.ControlNet.controls[-1]
-        page.ControlNet.update()
-        #if len(page.controlnet_output.controls) == 0: return
-        #del page.controlnet_output.controls[-1]
-        #page.controlnet_output.update()
+        clear_line(page.ControlNet, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -31502,18 +31433,11 @@ def run_controlnet_xl(page, from_list=False):
         if update:
           page.ControlNetXL.update()
           #page.controlnet_xl_output.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        if len(page.imageColumn.controls) == 0: return
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        if len(page.ControlNetXL.controls) == 1: return
-        del page.ControlNetXL.controls[-1]
-        page.ControlNetXL.update()
-        #if len(page.controlnet_xl_output.controls) == 0: return
-        #del page.controlnet_xl_output.controls[-1]
-        #page.controlnet_xl_output.update()
+        clear_line(page.ControlNetXL, lines=lines)
     def clear_list():
       if from_list:
         page.imageColumn.controls.clear()
@@ -32157,9 +32081,8 @@ def run_controlnet_video2video(page):
         line = Text(line)
       page.ControlNet_Video2Video.controls.append(line)
       page.ControlNet_Video2Video.update()
-    def clear_last():
-      del page.ControlNet_Video2Video.controls[-1]
-      page.ControlNet_Video2Video.update()
+    def clear_last(lines=1):
+      clear_line(page.ControlNet_Video2Video, lines=lines)
     def autoscroll(scroll=True):
         page.ControlNet_Video2Video.auto_scroll = scroll
         page.ControlNet_Video2Video.update()
@@ -32399,15 +32322,11 @@ def run_deepfloyd(page, from_list=False):
         page.DeepFloyd.controls.append(line)
         if update:
           page.DeepFloyd.update()
-    def clear_last(update=True):
+    def clear_last(lines=1):
       if from_list:
-        if len(page.imageColumn.controls) == 0: return
-        del page.imageColumn.controls[-1]
-        if update: page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        if len(page.DeepFloyd.controls) == 1: return
-        del page.DeepFloyd.controls[-1]
-        if update: page.DeepFloyd.update()
+        clear_line(page.DeepFloyd, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -32972,13 +32891,11 @@ def run_wuerstchen(page, from_list=False, with_params=False):
         page.Wuerstchen.controls.append(line)
         if update:
           page.Wuerstchen.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.Wuerstchen.controls[-1]
-        page.Wuerstchen.update()
+        clear_line(page.Wuerstchen, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -33192,13 +33109,11 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
         page.PixArtAlpha.controls.append(line)
         if update:
           page.PixArtAlpha.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.PixArtAlpha.controls[-1]
-        page.PixArtAlpha.update()
+        clear_line(page.PixArtAlpha, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -33228,7 +33143,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    installer = Installing("Installing PixArt-α Engine & Models... See console for progress.")
+    installer = Installing("Installing PixArt-α Engine & Models... See console for progress, may take a while.")
     prt(installer)
     clear_pipes("pixart_alpha")
     import requests
@@ -33237,7 +33152,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     from PIL import ImageOps
     pip_install("sentencepiece", installer=installer, upgrade=True)
     if pixart_alpha_prefs['clean_caption']:
-        pip_install("beautifulsoup4 ftfy", installer=installer)
+        pip_install("beautifulsoup4|beautifulsoup ftfy", installer=installer)
     cpu_offload = pixart_alpha_prefs['cpu_offload']
     pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else pixart_alpha_prefs['pixart_custom_model']
     if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
@@ -33395,13 +33310,11 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         page.LMD_Plus.controls.append(line)
         if update:
           page.LMD_Plus.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.LMD_Plus.controls[-1]
-        page.LMD_Plus.update()
+        clear_line(page.LMD_Plus, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -33418,10 +33331,10 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         page.LMD_Plus.controls = page.LMD_Plus.controls[:1]
     progress = ProgressBar(bar_height=8)
     total_steps = lmd_plus_prefs['num_inference_steps']
-    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
-      #total_steps = len(latents)
+      #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
@@ -33532,7 +33445,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         prompt_full = llm_template.format(prompt=pr['prompt'].strip().rstrip("."), width=pr['width'], height=pr['height'])
         
         response = get_response(prompt_full, AI_engine=lmd_plus_prefs['AI_engine'])
-        prt(response)
+        prt(Markdown(response))
         phrases, boxes, bg_prompt, neg_prompt = pipe_lmd_plus.parse_llm_response(response.strip())
         if bool(pr['negative_prompt']):
             neg_prompt += f", {pr['negative_prompt']}"
@@ -33549,7 +33462,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 guidance_scale=pr['guidance_scale'],
                 gligen_scheduled_sampling_beta=lmd_plus_prefs['gligen_scheduled_sampling_beta'],
                 generator=generator,
-                callback=callback_fnc,
+                callback_on_step_end=callback_fnc,
                 lmd_guidance_kwargs={}
             ).images
         except Exception as e:
@@ -33657,13 +33570,11 @@ def run_lcm(page, from_list=False, with_params=False):
         page.LCM.controls.append(line)
         if update:
           page.LCM.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.LCM.controls[-1]
-        page.LCM.update()
+        clear_line(page.LCM, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -33719,7 +33630,7 @@ def run_lcm(page, from_list=False, with_params=False):
             else:
                 pipe_lcm = AutoPipelineForText2Image.from_pretrained(lcm_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 status['loaded_lcm_mode'] = "Text2Image"
-            pipe_lcm = pipeline_scheduler(pipe_lcm)
+            #pipe_lcm = pipeline_scheduler(pipe_lcm)
             if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling transformer")
                 pipe_lcm.transformer = torch.compile(pipe_lcm.transformer, mode="reduce-overhead", fullgraph=True)
@@ -33877,9 +33788,8 @@ def run_text_to_video(page):
         line = Text(line, size=17)
       page.TextToVideo.controls.append(line)
       page.TextToVideo.update()
-    def clear_last():
-      del page.TextToVideo.controls[-1]
-      page.TextToVideo.update()
+    def clear_last(lines=1):
+      clear_line(page.TextToVideo, lines=lines)
     def clear_list():
       page.TextToVideo.controls = page.TextToVideo.controls[:1]
     def autoscroll(scroll=True):
@@ -34067,9 +33977,8 @@ def run_text_to_video_zero(page):
         line = Text(line, size=17)
       page.TextToVideo.controls.append(line)
       page.TextToVideo.update()
-    def clear_last():
-      del page.TextToVideo.controls[-1]
-      page.TextToVideo.update()
+    def clear_last(lines=1):
+      clear_line(page.TextToVideo, lines=lines)
     def clear_list():
       page.TextToVideo.controls = page.TextToVideo.controls[:1]
     def autoscroll(scroll=True):
@@ -34260,9 +34169,8 @@ def run_video_to_video(page):
         line = Text(line, size=17)
       page.VideoToVideo.controls.append(line)
       page.VideoToVideo.update()
-    def clear_last():
-      del page.VideoToVideo.controls[-1]
-      page.VideoToVideo.update()
+    def clear_last(lines=1):
+      clear_line(page.VideoToVideo, lines=lines)
     def clear_list():
       page.TextToVideo.controls = page.VideoToVideo.controls[:1]
     def autoscroll(scroll=True):
@@ -34515,9 +34423,8 @@ def run_controlnet_temporalnet(page):
         line = Text(line, size=17)
       page.TemporalNet_XL.controls.append(line)
       page.TemporalNet_XL.update()
-    def clear_last():
-      del page.TemporalNet_XL.controls[-1]
-      page.TemporalNet_XL.update()
+    def clear_last(lines=1):
+      clear_line(page.TemporalNet_XL, lines=lines)
     def clear_list():
       page.TextToVideo.controls = page.TemporalNet_XL.controls[:1]
     def autoscroll(scroll=True):
@@ -34682,9 +34589,8 @@ def run_infinite_zoom(page):
             line = Text(line, size=17)
         page.InfiniteZoom.controls.append(line)
         page.InfiniteZoom.update()
-    def clear_last():
-        del page.InfiniteZoom.controls[-1]
-        page.InfiniteZoom.update()
+    def clear_last(lines=1):
+        clear_line(page.InfiniteZoom, lines=lines)
     def clear_list():
         page.InfiniteZoom.controls = page.InfiniteZoom.controls[:1]
     def autoscroll(scroll=True):
@@ -35045,9 +34951,8 @@ def run_potat1(page):
         line = Text(line, size=17)
       page.Potat1.controls.append(line)
       page.Potat1.update()
-    def clear_last():
-      del page.Potat1.controls[-1]
-      page.Potat1.update()
+    def clear_last(lines=1):
+      clear_line(page.Potat1, lines=lines)
     def clear_list():
       page.Potat1.controls = page.Potat1.controls[:1]
     def autoscroll(scroll=True):
@@ -35228,9 +35133,8 @@ def run_stable_animation(page):
         line = Text(line, size=17)
       page.StableAnimation.controls.append(line)
       page.StableAnimation.update()
-    def clear_last():
-      del page.StableAnimation.controls[-1]
-      page.StableAnimation.update()
+    def clear_last(lines=1):
+      clear_line(page.StableAnimation, lines=lines)
     def clear_list():
       page.StableAnimation.controls = page.StableAnimation.controls[:1]
     def autoscroll(scroll=True):
@@ -35512,9 +35416,8 @@ def run_roop(page):
         line = Text(line)
       page.Roop.controls.append(line)
       page.Roop.update()
-    def clear_last():
-      del page.Roop.controls[-1]
-      page.Roop.update()
+    def clear_last(lines=1):
+      clear_line(page.Roop, lines=lines)
     def autoscroll(scroll=True):
         page.Roop.auto_scroll = scroll
         page.Roop.update()
@@ -35727,9 +35630,8 @@ def run_video_retalking(page):
         line = Text(line)
       page.Video_ReTalking.controls.append(line)
       page.Video_ReTalking.update()
-    def clear_last():
-      del page.Video_ReTalking.controls[-1]
-      page.Video_ReTalking.update()
+    def clear_last(lines=1):
+      clear_line(page.Video_ReTalking, lines=lines)
     def autoscroll(scroll=True):
         page.Video_ReTalking.auto_scroll = scroll
         page.Video_ReTalking.update()
@@ -35909,11 +35811,8 @@ def run_animate_diff(page):
         line = Text(line, size=17)
       page.AnimateDiff.controls.append(line)
       page.AnimateDiff.update()
-    def clear_last():
-      if len(page.AnimateDiff.controls) == 1:
-        return
-      del page.AnimateDiff.controls[-1]
-      page.AnimateDiff.update()
+    def clear_last(lines=1):
+      clear_line(page.AnimateDiff, lines=lines)
     def autoscroll(scroll=True):
       page.AnimateDiff.auto_scroll = scroll
       page.AnimateDiff.update()
@@ -36781,9 +36680,8 @@ def run_hotshot_xl(page):
         line = Text(line, size=17)
       page.HotshotXL.controls.append(line)
       page.HotshotXL.update()
-    def clear_last():
-      del page.HotshotXL.controls[-1]
-      page.HotshotXL.update()
+    def clear_last(lines=1):
+      clear_line(page.HotshotXL, lines=lines)
     def clear_list():
       page.HotshotXL.controls = page.HotshotXL.controls[:1]
     def autoscroll(scroll=True):
@@ -37009,9 +36907,8 @@ def run_rerender_a_video(page):
         line = Text(line)
       page.Rerender_a_video.controls.append(line)
       page.Rerender_a_video.update()
-    def clear_last():
-      del page.Rerender_a_video.controls[-1]
-      page.Rerender_a_video.update()
+    def clear_last(lines=1):
+      clear_line(page.Rerender_a_video, lines=lines)
     def autoscroll(scroll=True):
         page.Rerender_a_video.auto_scroll = scroll
         page.Rerender_a_video.update()
@@ -37274,9 +37171,8 @@ def run_materialdiffusion(page):
         line = Text(line, size=17)
       page.MaterialDiffusion.controls.append(line)
       page.MaterialDiffusion.update()
-    def clear_last():
-      del page.MaterialDiffusion.controls[-1]
-      page.MaterialDiffusion.update()
+    def clear_last(lines=1):
+      clear_line(page.MaterialDiffusion, lines=lines)
     def clear_list():
       page.MaterialDiffusion.controls = page.MaterialDiffusion.controls[:1]
     def autoscroll(scroll=True):
@@ -37457,9 +37353,8 @@ def run_DiT(page, from_list=False):
       page.DiT.controls.append(line)
       if update:
         page.DiT.update()
-    def clear_last():
-      del page.DiT.controls[-1]
-      page.DiT.update()
+    def clear_last(lines=1):
+      clear_line(page.DiT, lines=lines)
     def clear_list():
       page.DiT.controls = page.DiT.controls[:1]
     def autoscroll(scroll=True):
@@ -37625,10 +37520,8 @@ def run_dreamfusion(page):
     def add_to_dreamfusion_output(o):
       page.dreamfusion_output.controls.append(o)
       page.dreamfusion_output.update()
-    def clear_last():
-      #page.dreamfusion_output.controls = []
-      del page.dreamfusion_output.controls[-1]
-      page.dreamfusion_output.update()
+    def clear_last(lines=1):
+      clear_line(page.dreamfusion_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install HuggingFace Diffusers Pipeline before running...")
       return
@@ -37695,10 +37588,8 @@ def run_point_e(page):
         nonlocal status_txt
         status_txt.value = text
         status_txt.update()
-    def clear_last():
-      #page.point_e_output.controls = []
-      del page.point_e_output.controls[-1]
-      page.point_e_output.update()
+    def clear_last(lines=1):
+      clear_line(page.point_e_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install HuggingFace Diffusers Pipeline before running...")
       return
@@ -37888,10 +37779,8 @@ def run_shap_e(page):
         nonlocal status_txt
         status_txt.value = text
         status_txt.update()
-    def clear_last(update=True):
-      #page.shap_e_output.controls = []
-      del page.shap_e_output.controls[-1]
-      if update: page.shap_e_output.update()
+    def clear_last(lines=1):
+      clear_line(page.shap_e_output, lines=lines)
     if not bool(shap_e_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
@@ -38067,10 +37956,8 @@ def run_shap_e2(page):
         nonlocal status_txt
         status_txt.value = text
         status_txt.update()
-    def clear_last(update=True):
-      #page.shap_e_output.controls = []
-      del page.shap_e_output.controls[-1]
-      if update: page.shap_e_output.update()
+    def clear_last(lines=1):
+      clear_line(page.shap_e_output, lines=lines)
     if not bool(shap_e_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
@@ -38214,9 +38101,8 @@ def run_zoe_depth(page):
             line = Text(line, size=17)
         page.ZoeDepth.controls.append(line)
         page.ZoeDepth.update()
-    def clear_last():
-      del page.ZoeDepth.controls[-1]
-      page.ZoeDepth.update()
+    def clear_last(lines=1):
+      clear_line(page.ZoeDepth, lines=lines)
     def clear_list():
       page.ZoeDepth.controls = page.ZoeDepth.controls[:1]
     def autoscroll(scroll=True):
@@ -38348,9 +38234,8 @@ def run_instant_ngp(page):
         line = Text(line)
       page.instant_ngp_output.controls.append(line)
       page.instant_ngp_output.update()
-    def clear_last():
-      del page.instant_ngp_output.controls[-1]
-      page.instant_ngp_output.update()
+    def clear_last(lines=1):
+      clear_line(page.instant_ngp_output, lines=lines)
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
@@ -38485,9 +38370,8 @@ def run_dall_e(page, from_list=False):
         line = Text(line, size=17)
       page.DallE2.controls.append(line)
       page.DallE2.update()
-    def clear_last():
-      del page.DallE2.controls[-1]
-      page.DallE2.update()
+    def clear_last(lines=1):
+      clear_line(page.DallE2, lines=lines)
     def autoscroll(scroll=True):
       page.DallE2.auto_scroll = scroll
       page.DallE2.update()
@@ -38671,9 +38555,8 @@ def run_dall_e_3(page, from_list=False):
         line = Text(line, size=17)
       page.DallE3.controls.append(line)
       page.DallE3.update()
-    def clear_last():
-      del page.DallE3.controls[-1]
-      page.DallE3.update()
+    def clear_last(lines=1):
+      clear_line(page.DallE3, lines=lines)
     def autoscroll(scroll=True):
       page.DallE3.auto_scroll = scroll
       page.DallE3.update()
@@ -38872,13 +38755,11 @@ def run_kandinsky(page, from_list=False, with_params=False):
         page.Kandinsky.controls.append(line)
         if update:
           page.Kandinsky.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.Kandinsky.controls[-1]
-        page.Kandinsky.update()
+        clear_line(page.Kandinsky, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -39188,9 +39069,8 @@ def run_kandinsky2(page):
         line = Text(line, size=17)
       page.Kandinsky2.controls.append(line)
       page.Kandinsky2.update()
-    def clear_last():
-      del page.Kandinsky2.controls[-1]
-      page.Kandinsky2.update()
+    def clear_last(lines=1):
+      clear_line(page.Kandinsky2, lines=lines)
     def autoscroll(scroll=True):
       page.Kandinsky2.auto_scroll = scroll
       page.Kandinsky2.update()
@@ -39389,9 +39269,8 @@ def run_kandinsky_fuse(page):
         line = Text(line, size=17)
       page.KandinskyFuse.controls.append(line)
       page.KandinskyFuse.update()
-    def clear_last():
-      del page.KandinskyFuse.controls[-1]
-      page.KandinskyFuse.update()
+    def clear_last(lines=1):
+      clear_line(page.KandinskyFuse, lines=lines)
     def autoscroll(scroll=True):
       page.KandinskyFuse.auto_scroll = scroll
       page.KandinskyFuse.update()
@@ -39572,9 +39451,8 @@ def run_kandinsky2_fuse(page):
         line = Text(line, size=17)
       page.Kandinsky2Fuse.controls.append(line)
       page.Kandinsky2Fuse.update()
-    def clear_last():
-      del page.Kandinsky2Fuse.controls[-1]
-      page.Kandinsky2Fuse.update()
+    def clear_last(lines=1):
+      clear_line(page.Kandinsky2Fuse, lines=lines)
     def autoscroll(scroll=True):
       page.Kandinsky2Fuse.auto_scroll = scroll
       page.Kandinsky2Fuse.update()
@@ -39750,13 +39628,11 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
         page.KandinskyControlNet.controls.append(line)
         if update:
           page.KandinskyControlNet.update()
-    def clear_last():
+    def clear_last(lines=1):
       if from_list:
-        del page.imageColumn.controls[-1]
-        page.imageColumn.update()
+        clear_line(page.imageColumn, lines=lines)
       else:
-        del page.KandinskyControlNet.controls[-1]
-        page.KandinskyControlNet.update()
+        clear_line(page.KandinskyControlNet, lines=lines)
     def autoscroll(scroll=True):
       if from_list:
         page.imageColumn.auto_scroll = scroll
@@ -39997,10 +39873,8 @@ def run_deep_daze(page):
         line = Text(line)
       page.DeepDaze.controls.append(line)
       page.DeepDaze.update()
-    def clear_last():
-      #page.deep_daze_output.controls = []
-      del page.DeepDaze.controls[-1]
-      page.DeepDaze.update()
+    def clear_last(lines=1):
+      clear_line(page.DeepDaze, lines=lines)
     def autoscroll(scroll=True):
       page.DeepDaze.auto_scroll = scroll
       page.DeepDaze.update()
@@ -40231,7 +40105,7 @@ def main(page: Page):
             time.sleep(3.2)
             memory_text.value = get_memory()
             memory_text.update()
-            time.sleep(3.4)
+            time.sleep(4.6)
             memory_text.value = get_memory()
             memory_text.update()
         memory_text = Text(get_memory())
@@ -40763,15 +40637,16 @@ def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgra
     if q: arg += "-q "
     for package in packages.split():
         try:
-            if '=' in package:
-                pkg = re.split('[=~]|>=|<=', package)[0]
-                #pkg = package.split('==')[0]
-            else: pkg = package
+            pkg = package
+            if '|' in pkg: pkg = pkg.rpartition('|')[2]
             if '-' in pkg: pkg = pkg.replace('-', '_')
+            if '=' in pkg:
+                pkg = re.split('[=~]|>=|<=', pkg)[0]
             exec(f"import {pkg.lower()}")
         except ImportError:
+            if '|' in package: package = package.rpartition('|')[0]
             if installer != None:
-                installer.status(f"...installing {package}")
+                installer.status(f"...installing {pkg}")
             try:
                 if prt == None:
                     run_sp(f"pip install {arg}{package}", realtime=print, cwd=cwd)
@@ -40847,6 +40722,13 @@ def its(step_time):
         sit = step_time
         output = f"{sit:.1f} s/it"
     return output
+
+def clear_line(column, lines=1, update=True):
+    for l in range(lines):
+        if len(column.controls) < 1: return
+        del column.controls[-1]
+    if update:
+        column.update()
 
 def make_dir(path):
     if not os.path.exists(path):
