@@ -778,6 +778,7 @@ def buildVideoAIs(page):
     page.StableAnimation = buildStableAnimation(page)
     page.ControlNet = buildControlNet(page)
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
+    page.TemporalNet_XL = buildTemporalNet_XL(page)
     page.Roop = buildROOP(page)
     page.Video_ReTalking = buildVideoReTalking(page)
     page.AnimateDiff = buildAnimateDiff(page)
@@ -798,6 +799,7 @@ def buildVideoAIs(page):
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
+            Tab(text="TemporalNet-XL", content=page.TemporalNet_XL, icon=icons.HOURGLASS_BOTTOM),
             Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
         ],
     )
@@ -6357,7 +6359,7 @@ def buildControlNetQR(page):
     border_thickness = SliderRow(label="Border Thickness", min=0, max=20, divisions=20, round=0, pref=controlnet_qr_prefs, key='border_thickness', tooltip="The border is equal to the thickness of 5 tiny black boxes around QR.")
     qr_generator = Container(content=Column([border_thickness], alignment=MainAxisAlignment.START), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     qr_generator.height = None if not controlnet_qr_prefs['use_image'] else 0
-    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5"), dropdown.Option("QR Code Monster v2 1.5")], value=controlnet_qr_prefs['controlnet_version'], on_change=lambda e: changed(e, 'controlnet_version'))
+    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5"), dropdown.Option("QR Code Monster v2 1.5"), dropdown.Option("QR Pattern v2 1.5"), dropdown.Option("SDXL QR Code Monster v1"), dropdown.Option("SDXL QR Pattern"), dropdown.Option("SDXL QR Pattern LLLite")], value=controlnet_qr_prefs['controlnet_version'], on_change=lambda e: changed(e, 'controlnet_version'))
     seed = TextField(label="Seed", width=90, value=str(controlnet_qr_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=controlnet_qr_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_qr_prefs, key='guidance_scale')
@@ -9549,6 +9551,118 @@ Resources:
              #ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_video_to_video(page, from_list=True))
         ]),
         page.video_to_video_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+controlnet_temporalnet_prefs = {
+    'init_video': '',
+    'init_image': '',
+    'prompt': '',
+    'negative_prompt': '',
+    'num_inference_steps': 50,
+    'guidance_scale': 7.0,
+    'temporalnet_strength': 0.6,
+    'canny_strength': 0.7,
+    'export_to_video': True,
+    'save_frames': False,
+    'save_canny': False,
+    "lower_memory": True,
+    'seed': 0,
+    'max_size': 1024,
+    'low_threshold': 25,
+    'high_threshold': 200,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildTemporalNet_XL(page):
+    global controlnet_temporalnet_prefs, prefs, pipe_controlnet, editing_prompt
+    editing_prompt = {'editing_prompt':'', 'edit_warmup_steps':10, 'edit_guidance_scale':5, 'edit_threshold':0.9, 'edit_weights':1, 'reverse_editing_direction': False}
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            controlnet_temporalnet_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            controlnet_temporalnet_prefs[pref] = float(e.control.value)
+          else:
+            controlnet_temporalnet_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.controlnet_temporalnet_output.controls = []
+      page.controlnet_temporalnet_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def controlnet_temporalnet_help(e):
+      def close_controlnet_temporalnet_dlg(e):
+        nonlocal controlnet_temporalnet_help_dlg
+        controlnet_temporalnet_help_dlg.open = False
+        page.update()
+      controlnet_temporalnet_help_dlg = AlertDialog(title=Text("💁   Help with Controlnet TemporalNet XL"), content=Column([
+          Text("This is TemporalNet-XL, it is a re-train of the controlnet TemporalNet1 with Stable Diffusion XL. This does not use the control mechanism of TemporalNet2 as it would require some additional work to adapt the diffusers pipeline to work with a 6-channel input. While it does not eliminate all flickering, it significantly reduces it, particularly at higher denoise levels. For optimal results, it is recommended to use TemporalNet in combination with other methods."),
+          Markdown("Credit goes to Ciara Rowles - [Huggingface Model](https://huggingface.co/CiaraRowles/controlnet-temporalnet-sdxl-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🎞  Temporal Anomaly... ", on_click=close_controlnet_temporalnet_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = controlnet_temporalnet_help_dlg
+      controlnet_temporalnet_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        controlnet_temporalnet_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Video Prompt Text", value=controlnet_temporalnet_prefs['prompt'], col={'md': 9}, filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_temporalnet_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_video = FileInput(label="Init Video Clip", pref=controlnet_temporalnet_prefs, key='init_video', ftype="video", page=page)
+    init_image = FileInput(label="Frame 0 Init Image (optional)", pref=controlnet_temporalnet_prefs, key='init_image', ftype="image", page=page)
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=controlnet_temporalnet_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_temporalnet_prefs, key='guidance_scale')
+    #strength = SliderRow(label="Init Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_temporalnet_prefs, key='strength', tooltip="Conceptually, indicates how much to transform the Reference Image over the Vid Generation. Higher value give less influence.")
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_temporalnet_prefs, key='max_size')
+    #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_temporalnet_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_temporalnet_prefs, key='height')
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_temporalnet_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_temporalnet_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    temporalnet_strength = SliderRow(label="TemporalNet Strength", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_temporalnet_prefs, key='temporalnet_strength', col={'lg':6}, tooltip="")
+    canny_strength = SliderRow(label="Canny Strength", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_temporalnet_prefs, key='canny_strength', col={'lg':6}, tooltip="")
+    lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=controlnet_temporalnet_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
+    save_frames = Tooltip(message="Save Frames", content=Switcher(label="Save Frames", value=controlnet_temporalnet_prefs['save_frames'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames')))
+    save_canny = Tooltip(message="Save Canny", content=Switcher(label="Save Canny Frames", value=controlnet_temporalnet_prefs['save_canny'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_canny')))
+    #model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=controlnet_temporalnet_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_temporalnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(controlnet_temporalnet_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_temporalnet_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_temporalnet_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_temporalnet_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet_temporalnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet_temporalnet.height = None if status['installed_ESRGAN'] else 0
+    page.controlnet_temporalnet_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.controlnet_temporalnet_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("⌛  Controlnet TemporalNet-XL", "Video2Video ControlNet model designed to enhance the temporal consistency of video frames...", actions=[IconButton(icon=icons.HELP, tooltip="Help with TemporalNet-XL Settings", on_click=controlnet_temporalnet_help)]),
+        ResponsiveRow([prompt, negative_prompt]),
+        init_video,
+        init_image,
+        num_inference_row,
+        guidance,
+        ResponsiveRow([temporalnet_strength, canny_strength]),
+        canny_threshold,
+        max_row,
+        Row([lower_memory, save_frames, save_canny]),
+        page.ESRGAN_block_controlnet_temporalnet,
+        Row([seed, batch_folder_name]),
+        Row([ElevatedButton(content=Text("⏲️  Run TemporalNet-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_temporalnet(page)),]),
+        page.controlnet_temporalnet_output,
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
@@ -23181,11 +23295,29 @@ def run_controlnet_qr(page, from_list=False):
         import qrcode
         clear_last()
         pass
-    #use_SDXL = controlnet_qr_prefs['controlnet_version'].endswith("XL")
-    sd_model = get_model(prefs['model_ckpt'])['path']
-    controlnet_model = "DionTimmer/controlnet_qrcode-control_v1p_sd15" if controlnet_qr_prefs['controlnet_version'].endswith("1.5") else "DionTimmer/controlnet_qrcode-control_v11p_sd21"
-    if 'Monster' in controlnet_qr_prefs['controlnet_version']:
-        controlnet_model = "prantik-s/monster_qrcode_v2"#"monster-labs/control_v1p_sd15_qrcode_monster"
+    use_SDXL = 'SDXL' in controlnet_qr_prefs['controlnet_version']
+    if not use_SDXL:
+        if '2.1' in controlnet_qr_prefs['controlnet_version']:
+            sd_model = "stabilityai/stable-diffusion-2-1"
+        else:
+            sd_model = "runwayml/stable-diffusion-v1-5"
+        #sd_model = get_model(prefs['model_ckpt'])['path']
+        controlnet_model = "DionTimmer/controlnet_qrcode-control_v1p_sd15" if controlnet_qr_prefs['controlnet_version'].endswith("1.5") else "DionTimmer/controlnet_qrcode-control_v11p_sd21"
+        if 'Monster' in controlnet_qr_prefs['controlnet_version']: #"monster-labs/control_v1p_sd15_qrcode_monster"
+            controlnet_model = "prantik-s/monster_qrcode_v2"
+        elif 'Pattern' in controlnet_qr_prefs['controlnet_version']:
+            controlnet_model = "Nacholmo/controlnet-qr-pattern-v2"
+            sd_model = "Nacholmo/Counterfeit-V2.5-vae-swapped"
+    else:
+        sd_model = get_SDXL_model(prefs['SDXL_model'])['path']
+        if 'Monster' in controlnet_qr_prefs['controlnet_version']:
+            controlnet_model = "monster-labs/control_v1p_sdxl_qrcode_monster"
+        elif 'Pattern' in controlnet_qr_prefs['controlnet_version']:
+            if 'LLLite' not in controlnet_qr_prefs['controlnet_version']:
+                controlnet_model = "Nacholmo/controlnet-qr-pattern-sdxl"
+            else:
+                controlnet_model = "Nacholmo/qr-pattern-sdxl-ControlNet-LLLite"
+    #monster-labs/control_v1p_sdxl_qrcode_monster
     if controlnet_qr_prefs['last_model'] == sd_model and controlnet_qr_prefs['last_controlnet_model'] == controlnet_model and pipe_controlnet_qr != None:
         clear_pipes('controlnet_qr')
     else:
@@ -23196,19 +23328,35 @@ def run_controlnet_qr(page, from_list=False):
     #torch.cuda.reset_max_memory_allocated()
     #torch.cuda.reset_peak_memory_stats()
     if pipe_controlnet_qr == None:
-        prt(Installing(f"Installing ControlNet QRCode Pipeline with {sd_model} Model... "))
-        from diffusers import StableDiffusionControlNetImg2ImgPipeline, ControlNetModel
+        installer = Installing(f"Installing ControlNet QRCode Pipeline with {controlnet_qr_prefs['controlnet_version']} Model... ")
+        prt(installer)
         try:
-            pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16)
-            pipe_controlnet_qr = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(sd_model, controlnet=pipe_controlnet, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
-            pipe_controlnet_qr = optimize_pipe(pipe_controlnet_qr)
-            pipe_controlnet_qr.set_progress_bar_config(disable=True)
+            if not use_SDXL:
+                from diffusers import StableDiffusionControlNetImg2ImgPipeline, ControlNetModel
+                installer.status(f"...get {controlnet_model}")
+                pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16)
+                installer.status(f"...get {sd_model}")
+                pipe_controlnet_qr = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(sd_model, controlnet=pipe_controlnet, torch_dtype=torch.float16, variant='fp16', safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...optimizing")
+                pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
+                pipe_controlnet_qr = optimize_pipe(pipe_controlnet_qr)
+                pipe_controlnet_qr.set_progress_bar_config(disable=True)
+            else:
+                from diffusers import StableDiffusionXLControlNetImg2ImgPipeline, ControlNetModel, AutoencoderKL
+                installer.status(f"...get {controlnet_model}")
+                pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16)
+                installer.status(f"...get sdxl-vae-fp16-fix vae")
+                vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to("cuda")
+                installer.status(f"...get {sd_model}")
+                pipe_controlnet_qr = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(sd_model, controlnet=pipe_controlnet, vae=vae, variant="fp16", use_safetensors=True, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...optimizing")
+                pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
+                pipe_controlnet_qr = optimize_SDXL(pipe_controlnet_qr)
+                pipe_controlnet_qr.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing ControlNet QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-        #pipe_controlnet_qr.set_progress_bar_config(disable=True)
         clear_last()
     else:
         pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
@@ -23268,7 +23416,7 @@ def run_controlnet_qr(page, from_list=False):
             #height = pr['height']
         else:
             init_img = qrcode_image
-            pr['strength'] = 1.0
+            pr['strength'] = 0.99
         total_steps = pr['num_inference_steps'] * 2
         for num in range(controlnet_qr_prefs['num_images']):
             prt(progress)
@@ -23349,7 +23497,6 @@ def run_controlnet_qr(page, from_list=False):
                         del config_json['apply_ESRGAN_upscale']
                       metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
                     img.save(image_path, pnginfo=metadata)
-                #TODO: PyDrive
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], controlnet_qr_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -33353,7 +33500,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         installer.status(f"...initialize LMD+ Pipeline")
         try:
             from diffusers import DiffusionPipeline
-            pipe_lmd_plus = DiffusionPipeline.from_pretrained(lmd_plus_model, custom_pipeline="llm-grounded-diffusion", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_lmd_plus = DiffusionPipeline.from_pretrained(lmd_plus_model, custom_pipeline="llm_grounded_diffusion", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_lmd_plus = pipeline_scheduler(pipe_lmd_plus)
             if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling transformer")
@@ -33536,7 +33683,7 @@ def run_lcm(page, from_list=False, with_params=False):
     def callback_fnc(pipe, step, timestep, callback_kwargs):
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
-      #total_steps = pipe.total_steps
+      #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
@@ -34356,6 +34503,176 @@ def run_video_to_video(page):
     if bool(video_path):
         prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_controlnet_temporalnet(page):
+    global controlnet_temporalnet_prefs, prefs, status, pipe_controlnet, controlnet
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.TemporalNet_XL.controls.append(line)
+      page.TemporalNet_XL.update()
+    def clear_last():
+      del page.TemporalNet_XL.controls[-1]
+      page.TemporalNet_XL.update()
+    def clear_list():
+      page.TextToVideo.controls = page.TemporalNet_XL.controls[:1]
+    def autoscroll(scroll=True):
+      page.TemporalNet_XL.auto_scroll = scroll
+      page.TemporalNet_XL.update()
+    if not bool(controlnet_temporalnet_prefs['init_video']):
+      alert_msg(page, "You must provide the Input Initial Video Clip to process...")
+      return
+    progress = ProgressBar(bar_height=8)
+    total_steps = controlnet_temporalnet_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Controlnet TemporalNet XL Pipeline...")
+    prt(installer)
+    try:
+        import cv2
+    except ModuleNotFoundError:
+        installer.status("...installing cv2")
+        run_sp("pip install opencv-contrib-python", realtime=False)
+        import cv2
+        pass
+    from diffusers import StableDiffusionXLControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
+    from diffusers.utils import load_image
+    import numpy as np
+    from PIL import Image as PILImage
+    fps = 25
+    def split_video_into_frames(video_path, frames_dir):
+        nonlocal fps
+        vidcap = cv2.VideoCapture(video_path)
+        fps = vidcap.get(cv2.CAP_PROP_FPS)
+        success, image = vidcap.read()
+        count = 0
+        while success:
+            if max(image.shape[:2]) != controlnet_temporalnet_prefs['max_size']:
+                scale_factor = controlnet_temporalnet_prefs['max_size'] / max(image.shape[:2])
+                image = cv2.resize(image, (0, 0), fx=scale_factor, fy=scale_factor)
+            frame_path = os.path.join(frames_dir, f"frame{count:04d}.png")
+            cv2.imwrite(frame_path, image)
+            success, image = vidcap.read()
+            count += 1
+    def frame_number(frame_filename):
+        return int(frame_filename[5:-4])
+    def count_frame_images(frames_dir):
+        frame_files = [f for f in os.listdir(frames_dir) if f.startswith('frame') and f.endswith('.png')]
+        return len(frame_files)
+    def write_video(video_out, frames_dir, fps):
+        frames = [os.path.join(frames_dir, f) for f in os.listdir(frames_dir) if os.path.isfile(os.path.join(frames_dir, f))]
+        frame = cv2.imread(frames[0])
+        height, width, _ = frame.shape
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(video_out, fourcc, fps, (width, height))
+        for frame in frames:
+            img = cv2.imread(frame)
+            out.write(img)
+        out.release()
+        cv2.destroyAllWindows()
+    
+    save_dir = os.path.join(stable_dir, controlnet_temporalnet_prefs['batch_folder_name'])
+    frames_dir = os.path.join(save_dir, 'frames')
+    make_dir(frames_dir)
+    batch_output = os.path.join(prefs['image_output'], controlnet_temporalnet_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    output_frames_dir = os.path.join(save_dir, 'output_frames')
+    make_dir(output_frames_dir)
+    if controlnet_temporalnet_prefs['save_canny']:
+        canny_frames_dir = os.path.join(batch_output, 'canny_frames')
+        make_dir(canny_frames_dir)
+    if controlnet_temporalnet_prefs['save_frames']:
+        save_frames_dir = os.path.join(batch_output, 'frames')
+        make_dir(save_frames_dir)
+    init_image_path = controlnet_temporalnet_prefs['init_image']
+    video_path = controlnet_temporalnet_prefs['init_video']
+    if video_path.startswith('http'):
+        video_path = download_file(video_path, uploads_dir, ext="mp4")
+    else:
+        if not os.path.isfile(video_path):
+            alert_msg(page, f"ERROR: Couldn't find your init_video {video_path}")
+            return
+    if count_frame_images(frames_dir) == 0:
+        installer.status("...split_video_into_frames")
+        split_video_into_frames(video_path, frames_dir)
+    if bool(init_image_path):
+        last_generated_image = load_image(init_image_path)
+    else:
+        initial_frame_path = os.path.join(frames_dir, "frame0000.png")
+        last_generated_image = load_image(initial_frame_path)
+
+    base_model_path = "stabilityai/stable-diffusion-xl-base-1.0"
+    controlnet1_path = "CiaraRowles/controlnet-temporalnet-sdxl-1.0"
+    controlnet2_path = "diffusers/controlnet-canny-sdxl-1.0"
+    if status['loaded_controlnet_type'] == "TemporalNet":
+        clear_pipes('controlnet')
+    else:
+        clear_pipes()
+    if pipe_controlnet is None:
+        controlnet = [
+            ControlNetModel.from_pretrained(controlnet1_path, torch_dtype=torch.float16,use_safetensors=True),
+            ControlNetModel.from_pretrained(controlnet2_path, torch_dtype=torch.float16)
+        ]
+        pipe_controlnet = StableDiffusionXLControlNetPipeline.from_pretrained(base_model_path, controlnet=controlnet, torch_dtype=torch.float16)
+        pipe_controlnet = pipeline_scheduler(pipe_controlnet)
+        #pipe_controlnet.scheduler = UniPCMultistepScheduler.from_config(pipe_controlnet.scheduler.config)
+        #pipe_controlnet.enable_xformers_memory_efficient_attention()
+        if controlnet_temporalnet_prefs['lower_memory']:
+            pipe_controlnet.enable_model_cpu_offload()
+        else:
+            pipe_controlnet.to(torch_device)
+        status['loaded_controlnet_type'] = "TemporalNet"
+    clear_last()
+    prt(f"Generating Controlnet TemporalNet XL on Frames with your Prompt...")
+    fname = format_filename(controlnet_temporalnet_prefs['prompt'])
+    random_seed = int(controlnet_temporalnet_prefs['seed']) if int(controlnet_temporalnet_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.manual_seed(random_seed)
+    frame_files = sorted(os.listdir(frames_dir), key=frame_number)
+
+    for i, frame_file in enumerate(frame_files):
+        # Use the original video frame to create Canny edge-detected image as the conditioning image for the first ControlNetModel
+        prt(progress)
+        autoscroll(False)
+        control_image_path = os.path.join(frames_dir, frame_file)
+        control_image = load_image(control_image_path)
+        canny_image = np.array(control_image)
+        canny_image = cv2.Canny(canny_image, controlnet_temporalnet_prefs['low_threshold'], controlnet_temporalnet_prefs['high_threshold'])
+        canny_image = canny_image[:, :, None]
+        canny_image = np.concatenate([canny_image, canny_image, canny_image], axis=2)
+        canny_image = PILImage.fromarray(canny_image)
+        image = pipe_controlnet(
+            controlnet_temporalnet_prefs['prompt'], negative_prompt=controlnet_temporalnet_prefs['negative_prompt'], num_inference_steps=controlnet_temporalnet_prefs['num_inference_steps'], guidance=controlnet_temporalnet_prefs['guidance'], generator=generator, image=[last_generated_image, canny_image], controlnet_conditioning_scale=[controlnet_temporalnet_prefs['temporalnet_strength'], controlnet_temporalnet_prefs['canny_strength']], callback=callback_fnc
+        ).images[0]
+        w, h = image.size
+        output_path = os.path.join(output_frames_dir, f"frame{str(i).zfill(4)}.png")
+        image.save(output_path)
+        if controlnet_temporalnet_prefs['save_canny']:
+            canny_image_path = os.path.join(canny_frames_dir, f"outputcanny{str(i).zfill(4)}.png")
+            canny_image.save(canny_image_path)
+        last_generated_image = image
+        clear_last()
+        autoscroll(True)
+        prt(Row([Img(src=output_path, fit=ImageFit.CONTAIN, width=w, height=h, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Text(output_path)], alignment=MainAxisAlignment.CENTER))
+    prt(Installing(f"Saving Video File... Frames at {output_frames_dir if not controlnet_temporalnet_prefs['save_frames'] else save_frames_dir}"))
+    if controlnet_temporalnet_prefs['save_frames']:
+        shutil.copytree(output_frames_dir, save_frames_dir, dirs_exist_ok=True)
+    video_out = available_file(batch_output, fname, 0, no_num=True, ext="mp4")
+    write_video(video_out, output_frames_dir, fps)
+    clear_last
+    prt(f"Saved to {video_out}")
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_infinite_zoom(page):
