@@ -6,6 +6,6 @@ IF NOT %ERRORLEVEL% EQU 0 (
    pause
    exit /B 1
 )
-pip install --upgrade --quiet flet
+pip install --upgrade --quiet flet==0.12.0.dev1793
 powershell -Command "Invoke-WebRequest https://raw.githubusercontent.com/Skquark/AI-Friends/main/Stable-Diffusion-Deluxe/Stable-Diffusion-Deluxe.py -OutFile .\Stable-Diffusion-Deluxe.py"
 flet run Stable-Diffusion-Deluxe.py

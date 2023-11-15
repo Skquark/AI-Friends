@@ -159,7 +159,14 @@ finetuned_models = [
     #{"name": "Smoke Diffusion", "path": "guumaster/smoke-diffusion", "prefix": "ssmoky "},
     #{"name": "reasonableDrink Dreams", "path": "elRivx/reasonableDrink", "prefix": "reasonableDrink "},
 ]
-LoRA_models = [{'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'}, {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'}, {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''}, {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '}, {'name': 'Analog.Redmond', 'path': 'artificialguybr/analogredmond', 'prefix':'AnalogRedmAF'}]
+LoRA_models = [
+    {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'},
+    {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'},
+    {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''},
+    {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '},
+    {'name': 'Analog.Redmond', 'path': 'artificialguybr/analogredmond', 'prefix':'AnalogRedmAF'},
+    {'name': 'LCM LoRA', 'path': 'latent-consistency/lcm-lora-sdv1-5', 'prefix':''},
+]
 SDXL_models = [
     {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "variant": "fp16"},
     {"name": "Animagine-XL", "path": "Linaqruf/animagine-xl", "prefix": "", "variant": "fp16"},
@@ -225,6 +232,7 @@ SDXL_LoRA_models = [
     {"name": "Photorealistic Slider", "path": "ostris/photorealistic-slider-sdxl-lora", "weights": "sdxl_photorealistic_slider_v1-0.safetensors", "prefix": "more realistic"},
     {"name": "Lofi Girl", "path": "Norod78/SDXL-LofiGirl-Lora", "weights": "SDXL-LofiGirl-Lora.safetensors", "prefix": "LofiGirl"},
     {"name": "Architecture Siheyuan", "path": "frank-chieng/sdxl_lora_architecture_siheyuan", "weights": "sdxl_lora_architecture_siheyuan.safetensors", "prefix": "siheyuan"},
+    {"name": "LCM LoRA SDXL", "path": "latent-consistency/lcm-lora-sdxl", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     #{"name": "", "path": "", "weights": "", "prefix": ""},
 ]
 
@@ -874,8 +882,8 @@ Background prompt: An oil painting of a living room scene
 Negative prompt: chairs
 
 Caption: {prompt}
-Objects: 
-"""
+Objects: """
+
 # prompt_full = llm_template.format(prompt=prompt.strip().rstrip("."))
 DEFAULT_SO_NEGATIVE_PROMPT = "artifacts, blurry, smooth texture, bad quality, distortions, unrealistic, distorted image, bad proportions, duplicate, two, many, group, occlusion, occluded, side, border, collate"
 DEFAULT_OVERALL_NEGATIVE_PROMPT = "artifacts, blurry, smooth texture, bad quality, distortions, unrealistic, distorted image, bad proportions, duplicate"

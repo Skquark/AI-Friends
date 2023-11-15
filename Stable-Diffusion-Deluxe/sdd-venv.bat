@@ -18,7 +18,7 @@ powershell -Command "Invoke-WebRequest https://raw.githubusercontent.com/Skquark
 cd .\venv
 call .\Scripts\activate.bat
 .\Scripts\python.exe -m pip install --upgrade --quiet pip
-.\Scripts\python.exe -m pip install --upgrade --quiet flet
+.\Scripts\python.exe -m pip install --upgrade --quiet flet==0.12.0.dev1793
 cls
 flet .\Stable-Diffusion-Deluxe.py
 call .\Scripts\deactivate.bat

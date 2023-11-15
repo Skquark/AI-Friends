@@ -118,7 +118,7 @@ def wget(url, to):
 try:
   import flet
 except ImportError as e:
-  run_sp("pip install flet --upgrade --quiet --pre")
+  run_sp("pip install flet==0.12.0.dev1793 --upgrade --quiet")
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
@@ -442,6 +442,7 @@ version_checker()
 #@title ## **▶️ Run Stable Diffusion Deluxe** - Flet/Flutter WebUI App
 import flet as ft
 #from flet import *
+import flet.canvas as cv
 from flet import Page, View, Column, Row, ResponsiveRow, Container, Text, Stack, TextField, Checkbox, Switch, Image, ElevatedButton, FilledButton, IconButton, Markdown, Tab, Tabs, AppBar, Divider, VerticalDivider, GridView, Tooltip, SnackBar, AnimatedSwitcher, ButtonStyle, FloatingActionButton, Audio, Theme, Dropdown, Slider, ListTile, ListView, TextButton, PopupMenuButton, PopupMenuItem, AlertDialog, Banner, Icon, ProgressBar, ProgressRing, GestureDetector, KeyboardEvent, FilePicker, FilePickerResultEvent, FilePickerUploadFile, FilePickerUploadEvent, UserControl, Ref
 from flet import icons, dropdown, colors, padding, margin, alignment, border_radius, theme, animation, KeyboardType, TextThemeStyle, AnimationCurve
 from flet import TextAlign, FontWeight, ClipBehavior, MainAxisAlignment, CrossAxisAlignment, ScrollMode, ImageFit, ThemeMode, BlendMode
@@ -739,6 +740,7 @@ def build3DAIs(page):
     page.Point_E = buildPoint_E(page)
     page.Shap_E = buildShap_E(page)
     page.ZoeDepth = buildZoeDepth(page)
+    page.LDM3D = buildLDM3D(page)
     page.InstantNGP = buildInstantNGP(page)
     diffusersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
@@ -746,6 +748,7 @@ def build3DAIs(page):
             Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
             Tab(text="Shap-E 3D", content=page.Shap_E, icon=icons.PRECISION_MANUFACTURING),
             Tab(text="ZoeDepth 3D", content=page.ZoeDepth, icon=icons.GRADIENT),
+            Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
         ],
     )
@@ -1258,6 +1261,7 @@ def buildInstallers(page):
                 dropdown.Option("K-DPM2 Ancestral"),
                 dropdown.Option("K-DPM2 Discrete"),
                 dropdown.Option("Karras-LMS"),
+                dropdown.Option("LCM"),
             ], value=prefs['scheduler_mode'], autofocus=False, on_change=change_scheduler,
         )
   def changed_model_ckpt(e):
@@ -1328,6 +1332,7 @@ def buildInstallers(page):
 * **K-DPM2 Ancestral -** Karras Diffusion Probabilistic Model Solver is accurate up to the second order. Ancestral sampling traces the data's evolution backward in time, from its final form back to its initial noisy state.
 * **K-DPM2 Discrete -** The solver discretizes the diffusion process into smaller time steps. This discretization allows for efficient and accurate sampling, balanced between speed and sample quality.
 * **Karras-LMS -** Linear Multi-Step Method is a standard method for solving ordinary differential equations. It aims at improving accuracy by clever use of the values of the previous time steps.
+* **LCM -** Multistep and onestep scheduler (Algorithm 3) used alongside Latent Consistency Model Pipeline in 1-8 steps. Use with LCM LoRA too.
 
 [Diffusers Scheduler Overview](https://github.com/huggingface/diffusers/blob/main/docs/source/en/api/schedulers/overview.md) | [Stable Diffusion Samplers: A Comprehensive Guide](https://stable-diffusion-art.com/samplers/) | [Sampler Differences Explained](https://www.reddit.com/r/StableDiffusion/comments/zgu6wd/comment/izkhkxc/)""", on_tap_link=lambda e: e.page.launch_url(e.data))
       ], okay="🥴  Hard to Pick...", sound=False, wide=True)
@@ -8840,8 +8845,8 @@ pixart_alpha_prefs = {
     'num_inference_steps': 30,
     "seed": 0,
     "clean_caption": True,
-    "mask_feature": True,
-    "cpu_offload": False,
+    #"mask_feature": True,
+    "cpu_offload": True,
     "pixart_model": "PixArt-XL-2-1024-MS",
     "custom_model": "",
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -8899,7 +8904,7 @@ def buildPixArtAlpha(page):
     pixart_model = Dropdown(label="PixArt-α Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-α Model (URL or Path)", value=pixart_alpha_prefs['custom_model'], expand=True, visible=pixart_alpha_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     clean_caption = Switcher(label="Clean Caption", value=pixart_alpha_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
-    mask_feature = Switcher(label="Feature Mask", value=pixart_alpha_prefs['mask_feature'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'mask_feature'), tooltip="If enabled, the text embeddings will be masked.")
+    #mask_feature = Switcher(label="Feature Mask", value=pixart_alpha_prefs['mask_feature'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'mask_feature'), tooltip="If enabled, the text embeddings will be masked.")
     cpu_offload = Switcher(label="CPU Offload", value=pixart_alpha_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(pixart_alpha_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pixart_alpha_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -8924,7 +8929,7 @@ def buildPixArtAlpha(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([pixart_model, pixart_custom_model]),
-            Row([clean_caption, mask_feature, cpu_offload]),
+            Row([clean_caption, cpu_offload]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_pixart_alpha,
             parameters_row,
@@ -9145,6 +9150,107 @@ def buildLCM(page):
             page.ESRGAN_block_lcm,
             parameters_row,
             page.lcm_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+ldm3d_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "ldm3d-",
+    "num_images": 1,
+    "width": 1024,
+    "height":512,
+    "guidance_scale":5.0,
+    'num_inference_steps': 50,
+    "seed": 0,
+    "cpu_offload": True,
+    "use_upscale": False,
+    "ldm3d_model": "Intel/ldm3d-4c",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildLDM3D(page):
+    global prefs, ldm3d_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            ldm3d_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            ldm3d_prefs[pref] = float(e.control.value)
+          else:
+            ldm3d_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def ldm3d_help(e):
+      def close_ldm3d_dlg(e):
+        nonlocal ldm3d_help_dlg
+        ldm3d_help_dlg.open = False
+        page.update()
+      ldm3d_help_dlg = AlertDialog(title=Text("🙅   Help with LDM3D Pipeline"), content=Column([
+          Text("A Latent Diffusion Model for 3D (LDM3D) that generates both image and depth map data from a given text prompt, allowing users to generate RGBD images from text prompts. The LDM3D model is fine-tuned on a dataset of tuples containing an RGB image, depth map and caption, and validated through extensive experiments. We also develop an application called DepthFusion, which uses the generated RGB images and depth maps to create immersive and interactive 360-degree-view experiences using TouchDesigner. This technology has the potential to transform a wide range of industries, from entertainment and gaming to architecture and design. Overall, this paper presents a significant contribution to the field of generative AI and computer vision, and showcases the potential of LDM3D and DepthFusion to revolutionize content creation and digital experiences."),
+          Markdown("You can use this model to generate RGB and depth map given a text prompt. A short video summarizing the approach can be found at [this url](https://t.ly/tdi2) and a VR demo can be found [here](https://www.youtube.com/watch?v=3hbUo-hwAs0). A demo is also accessible on [Spaces](https://huggingface.co/spaces/Intel/ldm3d)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("The LDM3D model was proposed in [LDM3D: Latent Diffusion Model for 3D](https://arxiv.org/abs/2305.10853) by Gabriela Ben Melech Stan, Diana Wofk, Scottie Fox, Alex Redden, Will Saxton, Jean Yu, Estelle Aflalo, Shao-Yen Tseng, Fabio Nonato, Matthias Muller, Vasudev Lal.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Paper](https://huggingface.co/papers/2305.10853) | [Video](https://t.ly/tdi2) | [Intel/ldm3d-4c Model](https://huggingface.co/Intel/ldm3d-4c) | [Checkpoint](https://huggingface.co/spaces/SimianLuo/Latent_Consistency_Model)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🕳  Going Deep", on_click=close_ldm3d_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = ldm3d_help_dlg
+      ldm3d_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        ldm3d_prefs['ldm3d_model'] = e.control.value
+        ldm3d_custom_model.visible = e.control.value == "Custom"
+        ldm3d_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        ldm3d_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=ldm3d_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=ldm3d_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=ldm3d_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=ldm3d_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=ldm3d_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=ldm3d_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=ldm3d_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=ldm3d_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=ldm3d_prefs, key='height')
+    ldm3d_model = Dropdown(label="LDM3D Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("Intel/ldm3d-4c"), dropdown.Option("Intel/ldm3d-pano"), dropdown.Option("Intel/ldm3d")], value=ldm3d_prefs['ldm3d_model'], on_change=changed_model)
+    ldm3d_custom_model = TextField(label="Custom LDM3D Model (URL or Path)", value=ldm3d_prefs['custom_model'], expand=True, visible=ldm3d_prefs['ldm3d_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=ldm3d_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    use_upscale = Switcher(label="Use SR Upscale", value=ldm3d_prefs['use_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_upscale'), tooltip="Uses ldm3d-sr to double the size of rgb & depth.")
+    seed = TextField(label="Seed", width=90, value=str(ldm3d_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=ldm3d_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=ldm3d_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ldm3d_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=ldm3d_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_ldm3d = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_ldm3d.height = None if status['installed_ESRGAN'] else 0
+    if not ldm3d_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🏎   Run LDM3D", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ldm3d(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ldm3d(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ldm3d(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.ldm3d_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🍋  Latent Diffusion Model for 3D (LDM3D)", "Generate RGB Images and 3D Depth Maps given a text prompt... Made with Intel.", actions=[IconButton(icon=icons.HELP, tooltip="Help with LDM3D Settings", on_click=ldm3d_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([ldm3d_model, ldm3d_custom_model]),
+            Row([cpu_offload, use_upscale]),
+            page.ESRGAN_block_ldm3d,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            parameters_row,
+            page.ldm3d_output
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -13955,6 +14061,11 @@ def buildSemanticGuidance(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+class State:
+    x: float
+    y: float
+
+state = State()
 #TODO: Waiting for Scribbler addon integration
 def buildDreamMask(page):
     #prog_bars: Dict[str, ProgressRing] = {}
@@ -13985,6 +14096,36 @@ def buildDreamMask(page):
             file_picker.upload(uf)
     page.overlay.append(file_picker)
 
+    '''
+    def pan_start(e: ft.DragStartEvent):
+        state.x = e.local_x
+        state.y = e.local_y
+    def pan_update(e: ft.DragUpdateEvent):
+        cp.shapes.append(cv.Line(state.x, state.y, e.local_x, e.local_y, paint=ft.Paint(stroke_width=3)))
+        cp.update()
+        state.x = e.local_x
+        state.y = e.local_y
+    cp = cv.Canvas(
+        content=ft.GestureDetector(
+            on_pan_start=pan_start,
+            on_pan_update=pan_update,
+            drag_interval=10,
+        ),
+        expand=False,
+        
+        Container(
+            Stack(
+                [
+                    Container(content=Text("Picture")),
+                    #Img(src="https://picsum.photos/200/300", fit=ImageFit.FILL, width=float("inf")),
+                    cp,
+                ]
+            ),
+            border_radius=5,
+            #width=float("inf"),
+            #expand=True,
+        )
+    )'''
     c = Column([
         ElevatedButton(
             "Select Init Image to Mask...",
@@ -13992,6 +14133,7 @@ def buildDreamMask(page):
             on_click=lambda _: file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File" ),
         ),
         Column(ref=files),
+        
     ])
     return c
 
@@ -16527,6 +16669,8 @@ pipe_SAG = None
 pipe_attend_and_excite = None
 pipe_lmd_plus = None
 pipe_lcm = None
+pipe_ldm3d = None
+pipe_ldm3d_upscale = None
 pipe_panorama = None
 pipe_DiT = None
 pipe_dance = None
@@ -16736,7 +16880,7 @@ def get_diffusers(page):
         import peft
     except ModuleNotFoundError:
         #print("peft")
-        run_sp("pip install git+https://github.com/huggingface/peft.git", realtime=False)
+        run_sp("pip install --upgrade git+https://github.com/huggingface/peft.git", realtime=False)
         pass
     try:
         import diffusers
@@ -16956,9 +17100,9 @@ def model_scheduler(model, big3=False):
       s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     return s
 
-def pipeline_scheduler(p, big3=False, from_scheduler = True):
+def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None):
     global status
-    scheduler_mode = prefs['scheduler_mode']
+    scheduler_mode = prefs['scheduler_mode'] if scheduler is None else scheduler
     if scheduler_mode == "LMS Discrete":
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
@@ -17041,6 +17185,9 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True):
     elif scheduler_mode == "UniPC Multistep":
       from diffusers import UniPCMultistepScheduler
       s = UniPCMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+    elif scheduler_mode == "LCM":
+      from diffusers import LCMScheduler
+      s = LCMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
     elif scheduler_mode == "Score-SDE-Vp":
       from diffusers import ScoreSdeVpScheduler
       s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -18917,6 +19064,13 @@ def clear_lcm_pipe():
     del pipe_lcm
     flush()
     pipe_lcm = None
+def clear_ldm3d_pipe():
+  global pipe_ldm3d, pipe_ldm3d_upscale
+  if pipe_ldm3d is not None:
+    del pipe_ldm3d, pipe_ldm3d_upscale
+    flush()
+    pipe_ldm3d = None
+    pipe_ldm3d_upscale = None
 def clear_panorama_pipe():
   global pipe_panorama
   if pipe_panorama is not None:
@@ -19167,6 +19321,7 @@ def clear_pipes(allbut=None):
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'lmd_plus' in but: clear_lmd_plus_pipe()
     if not 'lcm' in but: clear_lcm_pipe()
+    if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
     if not 'fuyu' in but: clear_fuyu_pipe()
@@ -19385,9 +19540,13 @@ def start_diffusion(page):
       if model['prefix'][-1] != ' ':
         model['prefix'] = model['prefix'] + ' '
       prefix = model['prefix']
+    lcm_lora = False
     if prefs['use_LoRA_model']:
       if prefs['use_SDXL'] and status['installed_SDXL']:
         for l in prefs['active_SDXL_LoRA_layers']:
+          if 'name' in l:
+            if 'LCM' in l['name']:
+              lcm_lora = True
           if 'prefix' in l:
            if bool(l['prefix']):
               prefix += l['prefix']
@@ -19396,6 +19555,9 @@ def start_diffusion(page):
         #lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
       else:
         for l in prefs['active_LoRA_layers']:
+          if 'name' in l:
+            if 'LCM' in l['name']:
+              lcm_lora = True
           if 'prefix' in l:
            if bool(l['prefix']):
               prefix += l['prefix']
@@ -19824,6 +19986,8 @@ def start_diffusion(page):
         #from torch.amp.autocast_mode import autocast
         #precision_scope = autocast if prefs['precision']=="autocast" else nullcontext
         SDXL_negative_conditions = {'negative_original_size':(512, 512), 'negative_crops_coords_top_left':(0, 0), 'negative_target_size':(1024, 1024)} if not prefs['SDXL_negative_conditions'] else {}
+        if lcm_lora:
+          arg['guidance_scale'] = 0
         try:
           if use_custom_scheduler and not bool(arg['init_image']) and not bool(arg['mask_image']) and not bool(arg['prompt2']):
             # Not implemented correctly anymore, old code but might reuse custom
@@ -20304,7 +20468,7 @@ def start_diffusion(page):
                 page.update()'''
               total_steps = arg['steps']
               prt(pb)
-              nudge(page.imageColumn)
+              nudge(page.imageColumn, page=page)
               page.auto_scrolling(False)
               if prefs['use_composable'] and status['installed_composable']:
                 weights = arg['negative_prompt'] #" 1 | 1"  # Equal weight to each prompt. Can be negative
@@ -20576,6 +20740,7 @@ def start_diffusion(page):
         config_json['sampler'] = prefs['generation_sampler'] if prefs['use_Stability_api'] else prefs['scheduler_mode']
         if bool(prefs['meta_ArtistName']): config_json['artist'] = prefs['meta_ArtistName']
         if bool(prefs['meta_Copyright']): config_json['copyright'] = prefs['meta_Copyright']
+        #TODO: if use_LoRA add layers and scale
         if prefs['use_Stability_api']: del config_json['eta']
         del config_json['use_Stability']
         if not bool(config_json['negative_prompt']): del config_json['negative_prompt']
@@ -33200,7 +33365,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                 num_inference_steps=pr['num_inference_steps'],
                 guidance_scale=pr['guidance_scale'],
                 clean_caption=pixart_alpha_prefs['clean_caption'],
-                mask_feature=pixart_alpha_prefs['mask_feature'],
+                #mask_feature=pixart_alpha_prefs['mask_feature'],
                 generator=generator,
                 callback=callback_fnc,
             ).images
@@ -33413,7 +33578,8 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         installer.status(f"...initialize LMD+ Pipeline")
         try:
             from diffusers import DiffusionPipeline
-            pipe_lmd_plus = DiffusionPipeline.from_pretrained(lmd_plus_model, custom_pipeline="llm_grounded_diffusion", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_lmd_plus = DiffusionPipeline.from_pretrained(lmd_plus_model, custom_pipeline="AlanB/llm_grounded_diffusion_fix", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #custom_pipeline="llm_grounded_diffusion"
             #pipe_lmd_plus = pipeline_scheduler(pipe_lmd_plus)
             if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling transformer")
@@ -33426,7 +33592,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             pipe_lmd_plus.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing LMD_Plus...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Initializing LMD+...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
         status['loaded_lmd_plus'] = lmd_plus_model
     else:
@@ -33446,6 +33612,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         
         response = get_response(prompt_full, AI_engine=lmd_plus_prefs['AI_engine'])
         prt(Markdown(response))
+        
         phrases, boxes, bg_prompt, neg_prompt = pipe_lmd_plus.parse_llm_response(response.strip())
         if bool(pr['negative_prompt']):
             neg_prompt += f", {pr['negative_prompt']}"
@@ -33620,7 +33787,7 @@ def run_lcm(page, from_list=False, with_params=False):
     #from optimum.intel import OVLatentConsistencyModelPipeline
     #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/LCM-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
     
-    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image
+    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, LCMScheduler
     if pipe_lcm == None:
         installer.status(f"...initialize LCM Pipeline")
         try:
@@ -33631,6 +33798,7 @@ def run_lcm(page, from_list=False, with_params=False):
                 pipe_lcm = AutoPipelineForText2Image.from_pretrained(lcm_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 status['loaded_lcm_mode'] = "Text2Image"
             #pipe_lcm = pipeline_scheduler(pipe_lcm)
+            pipe_lcm.scheduler = LCMScheduler.from_config(pipe_lcm.scheduler.config)
             if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling transformer")
                 pipe_lcm.transformer = torch.compile(pipe_lcm.transformer, mode="reduce-overhead", fullgraph=True)
@@ -33777,6 +33945,229 @@ def run_lcm(page, from_list=False, with_params=False):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_ldm3d(page, from_list=False, with_params=False):
+    global ldm3d_prefs, pipe_ldm3d, pipe_ldm3d_upscale, prefs
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    ldm3d_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            ldm3d_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':ldm3d_prefs['guidance_scale'], 'num_inference_steps':ldm3d_prefs['num_inference_steps'], 'width':ldm3d_prefs['width'], 'height':ldm3d_prefs['height'], 'num_images':ldm3d_prefs['num_images'], 'seed':ldm3d_prefs['seed']})
+        else:
+            ldm3d_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(ldm3d_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      ldm3d_prompts.append({'prompt': ldm3d_prefs['prompt'], 'negative_prompt':ldm3d_prefs['negative_prompt'], 'guidance_scale':ldm3d_prefs['guidance_scale'], 'num_inference_steps':ldm3d_prefs['num_inference_steps'], 'width':ldm3d_prefs['width'], 'height':ldm3d_prefs['height'], 'num_images':ldm3d_prefs['num_images'], 'seed':ldm3d_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.LDM3D.controls.append(line)
+        if update:
+          page.LDM3D.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.LDM3D, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.LDM3D.auto_scroll = scroll
+        page.LDM3D.update()
+      else:
+        page.LDM3D.auto_scroll = scroll
+        page.LDM3D.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.LDM3D.controls = page.LDM3D.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = ldm3d_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing LDM3D Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("ldm3d")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = ldm3d_prefs['cpu_offload']
+    ldm3d_model = ldm3d_prefs['ldm3d_model'] if ldm3d_prefs['ldm3d_model'] != "Custom" else ldm3d_prefs['ldm3d_custom_model']
+    if 'loaded_ldm3d' not in status: status['loaded_ldm3d'] = ""
+    if ldm3d_model != status['loaded_ldm3d']:
+        clear_pipes()
+    from diffusers import StableDiffusionLDM3DPipeline, LCMScheduler
+    if pipe_ldm3d == None:
+        installer.status(f"...initialize LDM3D Pipeline")
+        try:
+            pipe_ldm3d = StableDiffusionLDM3DPipeline.from_pretrained(ldm3d_model, torch_dtype=torch.float16, safety=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_ldm3d = pipeline_scheduler(pipe_ldm3d)
+            #pipe_ldm3d.scheduler = LCMScheduler.from_config(pipe_ldm3d.scheduler.config)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_ldm3d.transformer = torch.compile(pipe_ldm3d.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_ldm3d = pipe_ldm3d.to(torch_device)
+            elif cpu_offload:
+                pipe_ldm3d.enable_model_cpu_offload()
+            else:
+                pipe_ldm3d.to(torch_device)
+            pipe_ldm3d.set_progress_bar_config(disable=True)
+            if ldm3d_prefs['use_upscale']:
+                installer.status(f"...initialize LDM3D Upscale Pipeline")
+                from diffusers import StableDiffusionUpscaleLDM3DPipeline
+                pipe_ldm3d_upscale = StableDiffusionUpscaleLDM3DPipeline.from_pretrained("Intel/ldm3d-sr")
+                pipe_ldm3d_upscale.to("cuda")
+                '''low_res_img = Image.open(f"lemons_ldm3d_rgb.jpg").convert("RGB")
+                low_res_depth = Image.open(f"lemons_ldm3d_depth.png").convert("L")
+                outputs = pipe_ldm3d_upscale(prompt="high quality high resolution uhd 4k image", rgb=low_res_img, depth=low_res_depth, num_inference_steps=50, target_res=[1024, 1024])
+                upscaled_rgb, upscaled_depth =outputs.rgb[0], outputs.depth[0]'''
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing LDM3D...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_ldm3d'] = ldm3d_model
+    else:
+        clear_pipes('ldm3d')
+        if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_ldm3d = pipeline_scheduler(pipe_ldm3d)
+    clear_last()
+    s = "" if len(ldm3d_prompts) == 0 else "s"
+    prt(f"Generating your LDM3D Image{s}...")
+    for pr in ldm3d_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        try:
+            images = pipe_ldm3d(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                generator=generator,
+                callback=callback_fnc,
+            ).images
+            if ldm3d_prefs['use_upscale']:
+                target_width=pr['width'] * 2
+                target_height=pr['height'] * 2
+                prt(f"Upscaling Image to {target_width}x{target_height}...")
+                images = pipe_ldm3d_upscale(prompt=pr['prompt'], rgb=images.rgb, depth=images.depth, num_inference_steps=pr['num_inference_steps'], target_res=[target_width, target_height]).images
+                clear_last()
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(ldm3d_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, ldm3d_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        #for image in images:
+        for i in range(len(images.rgb)):
+            fname = format_filename(pr['prompt'])
+            fname = f'{ldm3d_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname+"-rgb", i, no_num=True)
+            depth_image_path = available_file(txt2img_output, fname+"-depth", i, no_num=True)
+            rgb_image, depth_image = image.rgb[i], image.depth[i]
+            rgb_image.save(image_path)
+            depth_image.save(depth_image_path)
+            output_file = image_path.rpartition(slash)[2]
+            depth_output_file = image_path.rpartition(slash)[2]
+            if not ldm3d_prefs['display_upscaled_image'] or not ldm3d_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=depth_image_path, width=pr['width'], height=pr['height'], data=depth_image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], ldm3d_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': ldm3d_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+            depth_upscaled_path = os.path.join(out_path, depth_output_file)
+            if ldm3d_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=ldm3d_prefs["enlarge_scale"], face_enhance=ldm3d_prefs["face_enhance"])
+                upscale_image(depth_image_path, depth_upscaled_path, scale=ldm3d_prefs["enlarge_scale"], face_enhance=ldm3d_prefs["face_enhance"])
+                image_path = upscaled_path
+                depth_image_path = depth_upscaled_path
+                os.chdir(stable_dir)
+                if ldm3d_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(ldm3d_prefs["enlarge_scale"]), height=pr['height'] * float(ldm3d_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=depth_upscaled_path, width=pr['width'] * float(ldm3d_prefs["enlarge_scale"]), height=pr['height'] * float(ldm3d_prefs["enlarge_scale"]), data=depth_image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                imgs = [image_path, depth_image_path]
+                for image_file in imgs:
+                    img = PILImage.open(image_file)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {ldm3d_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", f"LDM3D")
+                    if prefs['save_config_in_metadata']:
+                        config_json = ldm3d_prefs.copy()
+                        config_json['model_path'] = ldm3d_model
+                        config_json['seed'] = random_seed
+                        del config_json['num_images']
+                        del config_json['display_upscaled_image']
+                        del config_json['batch_folder_name']
+                        if not config_json['apply_ESRGAN_upscale']:
+                            del config_json['enlarge_scale']
+                            del config_json['apply_ESRGAN_upscale']
+                        metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_file, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = os.path.join(prefs['image_output'], ldm3d_prefs['batch_folder_name'], os.path.basename(image_path))
+                depth_new_file = os.path.join(prefs['image_output'], ldm3d_prefs['batch_folder_name'], os.path.basename(depth_image_path))
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+                shutil.copy(depth_image_path, depth_new_file)
+            elif bool(prefs['image_output']):
+                new_file = os.path.join(prefs['image_output'], ldm3d_prefs['batch_folder_name'], os.path.basename(image_path))
+                depth_new_file = os.path.join(prefs['image_output'], ldm3d_prefs['batch_folder_name'], os.path.basename(depth_image_path))
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+                shutil.copy(depth_image_path, depth_new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_text_to_video(page):
     global text_to_video_prefs, prefs, status, pipe_text_to_video, model_path
@@ -38565,6 +38956,7 @@ def run_dall_e_3(page, from_list=False):
     progress = ProgressBar(bar_height=8)
     try:
         import openai
+        print(f"OpenAI {version.parse(openai.__version__).base_version} v{openai.__version__}")
         if version.parse(openai.__version__).base_version < version.parse("1.2.2"):
             run_process("pip uninstall -y openai", realtime=False)
             raise ModuleNotFoundError("Forcing update")
@@ -38602,6 +38994,8 @@ def run_dall_e_3(page, from_list=False):
     for p in dall_e_list:
         init_image = p['init_image']
         mask_image = p['mask_image']
+        size = dall_e_3_prefs['size'].partition('x')
+        w, h = int(size[0]), int(size[2])
         if bool(init_image):
             fname = init_image.rpartition(slash)[2]
             init_file = os.path.join(save_dir, fname)
@@ -38613,7 +39007,7 @@ def run_dall_e_3(page, from_list=False):
                 else:
                     alert_msg(page, f"ERROR: Couldn't find your init_image {init_image}")
                     return
-            init_img = init_img.resize((dall_e_3_prefs['size'], dall_e_3_prefs['size']), resample=PILImage.Resampling.LANCZOS)
+            init_img = init_img.resize((w, h), resample=PILImage.Resampling.LANCZOS)
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")
             init_img.save(init_file)
         mask_img = None
@@ -38630,7 +39024,7 @@ def run_dall_e_3(page, from_list=False):
                     return
                 if dall_e_3_prefs['invert_mask']:
                     mask_img = ImageOps.invert(mask_img.convert('RGB'))
-            mask_img = mask_img.resize((dall_e_3_prefs['size'], dall_e_3_prefs['size']), resample=PILImage.NEAREST)
+            mask_img = mask_img.resize((w, h), resample=PILImage.NEAREST)
             mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
             mask_img.save(mask_file)
         prt("Generating your Dall-E 3 Image...")
@@ -38676,11 +39070,11 @@ def run_dall_e_3(page, from_list=False):
             with open(image_path, "wb") as f:
                 f.write(response.content)
             new_file = image_path.rpartition(slash)[2].rpartition('-')[0]
-            size = int(dall_e_3_prefs['size'].rpartition('x')[0])
+            #size = int(dall_e_3_prefs['size'].rpartition('x')[0])
             out_path = batch_output if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
             if not dall_e_3_prefs['display_upscaled_image'] or not dall_e_3_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, data=new_file, width=size, height=size, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=image_path, data=new_file, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], dall_e_3_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
                 os.makedirs(batch_output)
@@ -38711,7 +39105,7 @@ def run_dall_e_3(page, from_list=False):
                 os.chdir(stable_dir)
                 if dall_e_3_prefs['display_upscaled_image']:
                     time.sleep(0.6)
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_3_prefs["enlarge_scale"]), height=size * float(dall_e_3_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=w * float(dall_e_3_prefs["enlarge_scale"]), height=h * float(dall_e_3_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
@@ -40734,13 +41128,15 @@ def make_dir(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
-def nudge(column):
+def nudge(column, page=None):
     ''' Force an autoscroll column to go down. Mainly to show ProgressBar not scrolling to bottom.'''
     column.controls.append(Container(content=Text(" ")))
     column.update()
     time.sleep(0.1)
     del column.controls[-1]
     column.update()
+    if page is not None:
+        page.update()
     
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
