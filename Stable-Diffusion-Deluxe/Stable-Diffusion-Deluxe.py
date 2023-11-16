@@ -710,14 +710,14 @@ def buildImageAIs(page):
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
             Tab(text="LMD+", content=page.LMD_Plus, icon=icons.HIGHLIGHT_ALT),
             Tab(text="LCM", content=page.LCM, icon=icons.MEMORY),
+            Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="BLIP-Diffusion", content=page.BLIPDiffusion, icon=icons.RADAR),
-            Tab(text="Reference", content=page.Reference, icon=icons.CRISIS_ALERT),
-            Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
+            Tab(text="Reference-Only", content=page.Reference, icon=icons.CRISIS_ALERT),
             Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
             Tab(text="EDICT Edit", content=page.EDICT, icon=icons.AUTO_AWESOME),
             Tab(text="DiffEdit", content=page.DiffEdit, icon=icons.AUTO_GRAPH),
@@ -727,8 +727,8 @@ def buildImageAIs(page):
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
-            Tab(text="OpenAI Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
-            Tab(text="OpenAI Dall-E 3", content=page.DallE3, icon=icons.BLUR_ON),
+            Tab(text="Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
+            Tab(text="Dall-E 3", content=page.DallE3, icon=icons.BLUR_ON),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             Tab(text="DeepDaze", content=page.DeepDaze, icon=icons.FACE),
         ],
@@ -853,8 +853,8 @@ def buildExtras(page):
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
             Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
             Tab(text="Model Manager", content=page.CustomModelManager, icon=icons.DIFFERENCE),
-            Tab(text="Background Remover", content=page.BackgroundRemover, icon=icons.WALLPAPER),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
+            Tab(text="Background Remover", content=page.BackgroundRemover, icon=icons.WALLPAPER),
             Tab(text="Kandinsky 2.1", content=page.Kandinsky2, icon=icons.AC_UNIT),
             Tab(text="Kandinsky Fuse", content=page.Kandinsky2Fuse, icon=icons.FIREPLACE),
         ],
@@ -14082,7 +14082,17 @@ def buildDreamMask(page):
           fname = os.path.join(root_dir, e.file_name)
         else:
           fname = e.file_name
-        files.current.controls.append(Row([Text(f"Done uploading {root_dir}{e.file_name}")]))
+        load_img = PILImage.open(fname)
+        w, h = load_img.size
+        bg_img.width=w
+        bg_img.height=h
+        stack_box.width=w
+        stack_box.height=h
+        bg_img.src = fname
+        bg_img.update()
+        stack_box.update()
+        clear_canvas(e)
+        #files.current.controls.append(Row([Text(f"Done uploading {root_dir}{e.file_name}")]))
         page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def upload_files(e):
@@ -14095,13 +14105,13 @@ def buildDreamMask(page):
                 on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
-
-    '''
+    bg_img = Img(src="https://picsum.photos/200/300", fit=ImageFit.CONTAIN, width=1024, height=512)#float("inf")
+    stroke_width = 50
     def pan_start(e: ft.DragStartEvent):
         state.x = e.local_x
         state.y = e.local_y
     def pan_update(e: ft.DragUpdateEvent):
-        cp.shapes.append(cv.Line(state.x, state.y, e.local_x, e.local_y, paint=ft.Paint(stroke_width=3)))
+        cp.shapes.append(cv.Line(state.x, state.y, e.local_x, e.local_y, paint=ft.Paint(stroke_width=stroke_width, stroke_join=ft.StrokeJoin.ROUND, stroke_cap=ft.StrokeCap.ROUND, style=ft.PaintingStyle.STROKE))) #, blend_mode=ft.BlendMode.CLEAR
         cp.update()
         state.x = e.local_x
         state.y = e.local_y
@@ -14112,29 +14122,39 @@ def buildDreamMask(page):
             drag_interval=10,
         ),
         expand=False,
-        
-        Container(
+    )
+    def clear_canvas(e):
+        cp.shapes.clear()
+        cp.update()
+    def change_stroke(e):
+        nonlocal stroke_width
+        stroke_width = e.control.value
+    stack_box = Container(
             Stack(
                 [
-                    Container(content=Text("Picture")),
+                    #Container(content=Text("Picture")),
+                    bg_img,
                     #Img(src="https://picsum.photos/200/300", fit=ImageFit.FILL, width=float("inf")),
                     cp,
                 ]
             ),
-            border_radius=5,
-            #width=float("inf"),
-            #expand=True,
+            #border_radius=5,
+            border=ft.border.all(2, ft.colors.BLACK),
+            width=1024,#float("inf"),
+            height=512,
+            expand=False,
         )
-    )'''
     c = Column([
+        Header("🎭   Dream Mask Maker"),
         ElevatedButton(
             "Select Init Image to Mask...",
             icon=icons.FOLDER_OPEN,
             on_click=lambda _: file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File" ),
         ),
         Column(ref=files),
-        
-    ])
+        stack_box,
+        Row([IconButton(icon=icons.CLEAR, tooltip="Clear", on_click=clear_canvas), Text("Stroke Width"), Slider(min=1, max=100, divisions=99, round=0, expand=True, label="{value}px", value=stroke_width, on_change=change_stroke)])
+    ], scroll=ScrollMode.AUTO)
     return c
 
 dreambooth_prefs = {
@@ -16143,37 +16163,9 @@ def buildWhisper(page):
         page.dialog = whisper_help_dlg
         whisper_help_dlg.open = True
         page.update()
-    def file_picker_result(e: FilePickerResultEvent):
-        if e.files != None:
-          upload_files(e)
-    def on_upload_progress(e: FilePickerUploadEvent):
-        if e.progress == 1:
-            if not slash in e.file_name:
-              fname = os.path.join(root_dir, e.file_name)
-              whisper_prefs['file_name'] = e.file_name.rpartition('.')[0]
-            else:
-              fname = e.file_name
-              fpath = os.path.join(root_dir, e.file_name.rpartition(slash)[2])
-              whisper_prefs['file_name'] = e.file_name.rparition(slash)[2].rpartition('.')[0]
-            audio_file.value = fname
-            audio_file.update()
-            whisper_prefs['audio_file'] = fname
-            page.update()
-    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
-    def upload_files(e):
-        uf = []
-        if file_picker.result != None and file_picker.result.files != None:
-            for f in file_picker.result.files:
-              if page.web:
-                uf.append(FilePickerUploadFile(f.name, upload_url=page.get_upload_url(f.name, 600)))
-              else:
-                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
-            file_picker.upload(uf)
-    page.overlay.append(file_picker)
-    def pick_audio(e):
-        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp3", "wav"], dialog_title="Pick Init Audio File")
-    audio_file = TextField(label="Input Audio File (MP3, URL or YouTube URL)", value=whisper_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
-    model_size = Dropdown(label="Whisper Model Size", width=200, options=[dropdown.Option("tiny"), dropdown.Option("base"), dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large")], value=whisper_prefs['model_size'], on_change=lambda e: changed(e, 'model_size'))
+    #audio_file = TextField(label="Input Media File (MP3, MP4, AVI, URL or YouTube URL)", value=whisper_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
+    audio_file = FileInput(label="Input Media File (MP3, MP4, AVI, URL or YouTube URL)", pref=whisper_prefs, key='audio_file', ftype="media", page=page)
+    model_size = Dropdown(label="Whisper Model Size", width=200, options=[dropdown.Option("tiny"), dropdown.Option("base"), dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large"), dropdown.Option("large-v2"), dropdown.Option("large-v3")], value=whisper_prefs['model_size'], on_change=lambda e: changed(e, 'model_size'))
     trim_audio = Checkbox(label="Trim Audio to 30s", value=whisper_prefs['trim_audio'], tooltip="Prefers a short audio chunk", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trim_audio'))
     AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     AI_temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, expand=True, pref=whisper_prefs, key="AI_temperature")
@@ -16684,6 +16676,7 @@ pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_music_gen = None
 pipe_voice_fixer = None
+pipe_whisper = None
 pipe_text_to_video = None
 pipe_text_to_video_zero = None
 pipe_video_to_video = None
@@ -19107,6 +19100,12 @@ def clear_voice_fixer_pipe():
     del pipe_voice_fixer
     flush()
     pipe_voice_fixer = None
+def clear_whisper_pipe():
+  global pipe_whisper
+  if pipe_whisper is not None:
+    del pipe_whisper
+    flush()
+    pipe_whisper = None
 def clear_text_to_video_pipe():
   global pipe_text_to_video
   if pipe_text_to_video is not None:
@@ -19337,6 +19336,7 @@ def clear_pipes(allbut=None):
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
     if not 'music_gen' in but: clear_music_gen_pipe()
     if not 'voice_fixer' in but: clear_voice_fixer_pipe()
+    if not 'whisper' in but: clear_whisper_pipe()
     if not 'text_to_video' in but: clear_text_to_video_pipe()
     if not 'text_to_video_zero' in but: clear_text_to_video_zero_pipe()
     if not 'video_to_video' in but: clear_video_to_video_pipe()
@@ -29119,7 +29119,7 @@ def run_mubert(page):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_whisper(page):
-    global whisper_prefs, whisper_requests
+    global whisper_prefs, whisper_requests, pipe_whisper, status
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -29144,34 +29144,76 @@ def run_whisper(page):
         run_sp("pip install git+https://github.com/openai/whisper.git -q", realtime=False)
         import whisper
         pass
-    installer.status(f"...load_model {whisper_prefs['model_size']}")
-    whisper_model = whisper.load_model(whisper_prefs['model_size'])
+    if 'loaded_whisper' not in status:
+        status['loaded_whisper'] = whisper_prefs['model_size']
+    if status['loaded_whisper'] == whisper_prefs['model_size']:
+        clear_pipes("whisper")
+    else:
+        clear_pipes()
+    newer = '-v' in whisper_prefs['model_size']
+    if newer:
+        pip_install("git+https://github.com/huggingface/transformers.git|transformers accelerate", installer=installer)
+        from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+        from transformers.pipelines.audio_utils import ffmpeg_read
+    if pipe_whisper is None:
+        if not newer:
+            installer.status(f"...load_model {whisper_prefs['model_size']}")
+            pipe_whisper = whisper.load_model(whisper_prefs['model_size'])
+            status['loaded_whisper'] = whisper_prefs['model_size']
+        else:
+            torch_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+            model_id = f"openai/whisper-{whisper_prefs['model_size']}"
+            pipe_whisper = AutoModelForSpeechSeq2Seq.from_pretrained(
+                model_id, torch_dtype=torch_dtype, low_cpu_mem_usage=True, use_safetensors=True
+            ).to(torch_device)
+            processor = AutoProcessor.from_pretrained(model_id)
+            pipe_whisper = pipeline(
+                "automatic-speech-recognition",
+                model=model,
+                tokenizer=processor.tokenizer,
+                feature_extractor=processor.feature_extractor,
+                max_new_tokens=128,
+                chunk_length_s=30,
+                batch_size=8,
+                return_timestamps=True,
+                torch_dtype=torch_dtype,
+                device=torch_device,
+            )
     from_language = ""
     def transcribe(audio):
         nonlocal installer, from_language
-        installer.status("...load_audio")
-        audio = whisper.load_audio(audio)
-        if whisper_prefs['trim_audio']:
-            installer.status("...pad_or_trim audio")
-            audio = whisper.pad_or_trim(audio)
-        if whisper_prefs['simple_transcribe']:
-            installer.status("...Whisper transcribe")
-            options = {
-                "task": "transcribe"
-            }
-            result = whisper.transcribe(whisper_model, audio, **options)
+        if not newer:
+            installer.status("...load_audio")
+            audio = whisper.load_audio(audio)
+            if whisper_prefs['trim_audio']:
+                installer.status("...pad_or_trim audio")
+                audio = whisper.pad_or_trim(audio)
+            if whisper_prefs['simple_transcribe']:
+                installer.status("...Whisper transcribe")
+                options = {
+                    "task": "transcribe"
+                }
+                result = whisper.transcribe(pipe_whisper, audio, **options)
+            else:
+                installer.status("...log_mel_spectrogram")
+                mel = whisper.log_mel_spectrogram(audio).to(pipe_whisper.device)
+                if whisper_prefs['detect_language'] or whisper_prefs['translate']:
+                    installer.status("...detect_language")
+                    _, probs = pipe_whisper.detect_language(mel)
+                    from_language = max(probs, key=probs.get)
+                    prt(f"Detected language: {from_language}")
+                installer.status("...DecodingOptions")
+                options = whisper.DecodingOptions(fp16 = False)
+                result = whisper.decode(pipe_whisper, mel, options)
+            return result.text
         else:
-            installer.status("...log_mel_spectrogram")
-            mel = whisper.log_mel_spectrogram(audio).to(whisper_model.device)
-            if whisper_prefs['detect_language'] or whisper_prefs['translate']:
-                installer.status("...detect_language")
-                _, probs = whisper_model.detect_language(mel)
-                from_language = max(probs, key=probs.get)
-                prt(f"Detected language: {from_language}")
-            installer.status("...DecodingOptions")
-            options = whisper.DecodingOptions(fp16 = False)
-            result = whisper.decode(whisper_model, mel, options)
-        return result.text
+            installer.status("...load audio")
+            inputs = ffmpeg_read(audio, pipe_whisper.feature_extractor.sampling_rate)
+            inputs = {"array": inputs, "sampling_rate": pipe.feature_extractor.sampling_rate}
+            generate_kwargs={"language": f"<|en|>"}#{"task": "translate"})
+            installer.status("...Whisper transcribe")
+            result = pipe_whisper(inputs)
+            return result['text']
     audio_path = whisper_prefs['audio_file'].strip()
     local_path = ""
     if audio_path.startswith("http"):
@@ -29236,15 +29278,25 @@ def run_whisper(page):
             local_path = download_file(audio_path)
     else:
         local_path = audio_path
-    if not (local_path.endswith("mp3") or local_path.endswith("wav")):
-        alert_msg(page, f"ERROR: File path must be an mp3 or wav file...")
+    
+    if (local_path.endswith("mp4") or local_path.endswith("avi")):
+        pip_install("ffmpeg", installer=installer)
+        import ffmpeg
+        installer.status("...converting to mp3")
+        video = ffmpeg.input(local_path)
+        audio = video.audio
+        filename, extension = os.path.splitext(os.path.basename(local_path))
+        local_path = os.path.join(os.path.dirname(local_path), f"{filename}.mp3")
+        audio.output(local_path)
+    elif not (local_path.endswith("mp3") or local_path.endswith("wav")):
+        alert_msg(page, f"ERROR: File path must be an mp3, wav, mp4 or avi file...")
         return
     if not os.path.exists(local_path):
         alert_msg(page, f"ERROR: File not found...")
         return
     installer.status("")
     installer.show_progress(False)
-    installer.set_message("Running Whisper-AI on your Recording...")
+    installer.set_message("Running Whisper-AI on your Dialog...")
     prt(progress)
     try:
         #TODO: Split long files into smaller chunks to transcribe queue
@@ -41138,7 +41190,7 @@ def nudge(column, page=None):
     if page is not None:
         page.update()
     
-def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None):
+def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
     photos_dir = os.path.join(frame_interpolation_dir, 'photos')
@@ -41187,6 +41239,18 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         installer.status("...running frame-interpolation")
     run_sp(f"python -m eval.interpolator_cli --model_path {saved_model} --pattern 'photos' --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=False)
     if os.path.exists(interpolated):
+        if denoise or sharpen or deflicker:
+            video = ffmpeg.input(interpolated)
+            if deflicker:
+                installer.status("...deflicker")
+                video = video.filter("deflicker")
+            if sharpen:
+                installer.status("...sharpen")
+                video = video.filter("sharpen")
+            if denoise:
+                installer.status("...denoise")
+                video = video.filter("denoise")
+            video.output(interpolated)
         if output_video != None:
             if not output_video.endswith('mp4'):
                 output_video = os.path.join(output_video, "interpolated.mp4")

@@ -5,7 +5,7 @@ cd .\venv\Scripts
 .\Activate.ps1
 cd ..
 .\Scripts\python.exe -m pip install --upgrade pip
-.\Scripts\python.exe -m pip install --upgrade flet==0.12.0.dev1793
+.\Scripts\python.exe -m pip install --upgrade flet
 flet .\Stable-Diffusion-Deluxe.py
 & .\Scripts\deactivate.bat
 exit /B 1
