@@ -14406,7 +14406,7 @@ def buildDreamBooth(page):
         max_row,
         Row([image_path, add_image_button]),
         page.db_file_list,
-        Row([ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dreambooth(page)), ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dreambooth2(page))]),
+        Row([ElevatedButton(content=Text("👨‍🎨️  Run DreamBooth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dreambooth(page))]),
         page.dreambooth_output,
         clear_button,
       ]
@@ -25570,19 +25570,12 @@ def run_music_gen(page):
     installer = Installing("Downloading MusicGen Pipeline...")
     prt(installer)
     music_gen_dir = os.path.join(root_dir, "music_gen")
-    try:
-        import sentencepiece
-    except ModuleNotFoundError: #>=0.1.99
-        #run_sp("pip install --upgrade sentencepiece~=0.1", realtime=False)
-        run_sp("pip install sentencepiece", realtime=True)
-        import sentencepiece
-        pass
+    pip_install("sentencepiece ffmpeg librosa torchlibrosa", installer=installer)
     try:
         import audiocraft
         #from audiocraft.models import musicgen
     except ModuleNotFoundError:
         installer.status("...facebookresearch/audiocraft")
-        run_sp("pip install -U ffmpeg", realtime=False)
         #run_sp("pip install -U audiocraft", realtime=True)
         #run_sp("pip install -U git+https://github.com/facebookresearch/audiocraft#egg=audiocraft", realtime=False)
         run_sp("pip install -U git+https://github.com/Oncorporation/audiocraft#egg=audiocraft", realtime=False)
@@ -25592,13 +25585,6 @@ def run_music_gen(page):
         from audiocraft.data.audio import audio_write
         from audiocraft.data.audio_utils import apply_fade, apply_tafade
         from audiocraft.utils.extend import generate_music_segments, add_settings_to_image, INTERRUPTING
-    try:
-        import librosa
-    except ImportError:
-        installer.status("...installing librosa")
-        run_sp("pip install -q librosa", realtime=False)
-        run_sp("pip install -q torchlibrosa", realtime=False)
-        pass
     text = music_gen_prefs['prompt']
     init = music_gen_prefs['audio_file']
     model_id = music_gen_prefs['audio_model'] if not bool(init) else "melody"
@@ -25830,487 +25816,8 @@ def run_music_gen(page):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 # https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb
+
 def run_dreambooth(page):
-    global dreambooth_prefs, prefs
-    def prt(line):
-      if type(line) == str:
-        line = Text(line)
-      page.dreambooth_output.controls.append(line)
-      page.dreambooth_output.update()
-    def clear_last(lines=1):
-      clear_line(page.dreambooth_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
-    save_path = os.path.join(root_dir, "my_concept")
-    error = False
-    if not os.path.exists(save_path):
-      error = True
-    elif len(os.listdir(save_path)) == 0:
-      error = True
-    if len(page.db_file_list.controls) == 0:
-      error = True
-    if error:
-      alert_msg(page, "Couldn't find a list of images to train concept. Add image files to the list...")
-      return
-    prt(Installing("Downloading DreamBooth Conceptualizers"))
-    #os.chdir(root_dir)
-    #run_process("pip clone https://github.com/Skquark/diffusers.git", realtime=False)
-    #run_process("pip install -e .", realtime=False)
-    #os.chdir(os.path.join(root_dir, "diffusers", "examples", "dreambooth"))
-    #run_process("pip install -r requirements.txt", realtime=False)
-    os.chdir(root_dir)
-    try:
-        os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
-        #run_sp("export LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH", realtime=False)
-        import bitsandbytes
-    except Exception:
-        if sys.platform.startswith("win"):
-            run_sp("pip install bitsandbytes-windows", realtime=False)
-        else:
-            run_sp("pip install --upgrade bitsandbytes", realtime=False)
-        import bitsandbytes
-        pass
-    import argparse
-    import itertools
-    import math
-    from contextlib import nullcontext
-    import random
-    import torch.nn.functional as F
-    import torch.utils.checkpoint
-    from torch.utils.data import Dataset
-    from accelerate import Accelerator
-    from accelerate.logging import get_logger
-    from accelerate.utils import set_seed
-    from diffusers import AutoencoderKL, DDPMScheduler, PNDMScheduler, StableDiffusionPipeline, UNet2DConditionModel
-    #from diffusers.hub_utils import init_git_repo, push_to_hub
-    from diffusers.optimization import get_scheduler
-    from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-
-    from torchvision import transforms
-    from tqdm.auto import tqdm
-    from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
-
-    import bitsandbytes as bnb
-    import gc
-    import glob
-    from io import BytesIO
-
-    def download_image(url):
-      try:
-        response = requests.get(url)
-      except:
-        return None
-      return PILImage.open(BytesIO(response.content)).convert("RGB")
-    #images = list(filter(None,[download_image(url) for url in dreambooth_prefs['urls']]))
-    #save_path = "./my_concept"
-    #if not os.path.exists(save_path):
-    #  os.mkdir(save_path)
-    #[image.save(f"{save_path}/{i}.jpeg") for i, image in enumerate(images)]
-    #image_grid(images, 1, len(images))
-
-    prior_preservation_class_folder = dreambooth_prefs['prior_preservation_class_folder']
-    class_data_root=prior_preservation_class_folder
-    class_prompt=dreambooth_prefs['prior_preservation_class_prompt']
-    class_data_root=prior_preservation_class_folder
-    dreambooth_prefs['instance_prompt'] = dreambooth_prefs['instance_prompt'].strip()
-    clear_pipes()
-    num_new_images = None
-    if(dreambooth_prefs['prior_preservation']):
-        class_images_dir = Path(class_data_root)
-        if not class_images_dir.exists():
-            class_images_dir.mkdir(parents=True)
-        cur_class_images = len(list(class_images_dir.iterdir()))
-
-        if cur_class_images < dreambooth_prefs['num_class_images']:
-            if prefs['higher_vram_mode']:
-              pipeline = StableDiffusionPipeline.from_pretrained(model_path).to("cuda")
-            else:
-              pipeline = StableDiffusionPipeline.from_pretrained(model_path, variant="fp16", torch_dtype=torch.float16).to("cuda")
-            if prefs['enable_attention_slicing']:
-              pipeline.enable_attention_slicing()
-            pipeline.set_progress_bar_config(disable=True)
-
-            num_new_images = dreambooth_prefs['num_class_images'] - cur_class_images
-            print(f"Number of class images to sample: {num_new_images}.")
-
-            sample_dataset = PromptDataset(class_prompt, num_new_images)
-            sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=dreambooth_prefs['sample_batch_size'])
-
-            for example in tqdm(sample_dataloader, desc="Generating class images"):
-                images = pipeline(example["prompt"]).images
-
-                for i, image in enumerate(images):
-                    image.save(class_images_dir / f"{example['index'][i] + cur_class_images}.jpg")
-            pipeline = None
-            gc.collect()
-            del pipeline
-            with torch.no_grad():
-              torch.cuda.empty_cache()
-    text_encoder = CLIPTextModel.from_pretrained(model_path, subfolder="text_encoder")
-    vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae")
-    unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet")
-    tokenizer = CLIPTokenizer.from_pretrained(model_path,subfolder="tokenizer")
-
-    from argparse import Namespace
-    dreambooth_args = Namespace(
-        pretrained_model_name_or_path=model_path,
-        resolution=dreambooth_prefs['max_size'],
-        center_crop=True,
-        instance_data_dir=save_path,
-        instance_prompt=dreambooth_prefs['instance_prompt'],
-        learning_rate=dreambooth_prefs['learning_rate'],#5e-06,
-        max_train_steps=dreambooth_prefs['max_train_steps'],#450,
-        train_batch_size=1,
-        gradient_accumulation_steps=2,
-        max_grad_norm=1.0,
-        mixed_precision="no", # set to "fp16" for mixed-precision training.
-        gradient_checkpointing=True, # set this to True to lower the memory usage.
-        use_8bit_adam=not prefs['higher_vram_mode'], # use 8bit optimizer from bitsandbytes
-        seed=dreambooth_prefs['seed'],#3434554,
-        with_prior_preservation=dreambooth_prefs['prior_preservation'],
-        prior_loss_weight=dreambooth_prefs['prior_loss_weight'],
-        sample_batch_size=dreambooth_prefs['sample_batch_size'],
-        class_data_dir=dreambooth_prefs['prior_preservation_class_folder'],
-        class_prompt=class_prompt,
-        num_class_images=dreambooth_prefs['num_class_images'],
-        output_dir="dreambooth-concept",
-    )
-
-    from accelerate.utils import set_seed
-    def training_function(text_encoder, vae, unet):
-        logger = get_logger(__name__)
-        accelerator = Accelerator(
-            gradient_accumulation_steps=dreambooth_args.gradient_accumulation_steps,
-            mixed_precision=dreambooth_args.mixed_precision,
-        )
-        set_seed(dreambooth_args.seed)
-        if dreambooth_args.gradient_checkpointing:
-            unet.enable_gradient_checkpointing()
-        # Use 8-bit Adam for lower memory usage or to fine-tune the model in 16GB GPUs
-        if dreambooth_args.use_8bit_adam:
-            optimizer_class = bnb.optim.AdamW8bit
-        else:
-            optimizer_class = torch.optim.AdamW
-        optimizer = optimizer_class(unet.parameters(),lr=dreambooth_args.learning_rate)
-        noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-        train_dataset = DreamBoothDataset(
-            instance_data_root=dreambooth_args.instance_data_dir,
-            instance_prompt=dreambooth_args.instance_prompt,
-            class_data_root=dreambooth_args.class_data_dir if dreambooth_args.with_prior_preservation else None,
-            class_prompt=dreambooth_args.class_prompt,
-            tokenizer=tokenizer,
-            size=dreambooth_args.resolution,
-            center_crop=dreambooth_args.center_crop,
-        )
-        def collate_fn(examples):
-            input_ids = [example["instance_prompt_ids"] for example in examples]
-            pixel_values = [example["instance_images"] for example in examples]
-
-            # concat class and instance examples for prior preservation
-            if dreambooth_args.with_prior_preservation:
-                input_ids += [example["class_prompt_ids"] for example in examples]
-                pixel_values += [example["class_images"] for example in examples]
-
-            pixel_values = torch.stack(pixel_values)
-            pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
-
-            input_ids = tokenizer.pad({"input_ids": input_ids}, padding=True, return_tensors="pt").input_ids
-
-            batch = {
-                "input_ids": input_ids,
-                "pixel_values": pixel_values,
-            }
-            return batch
-        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=dreambooth_args.train_batch_size, shuffle=True, collate_fn=collate_fn)
-        unet, optimizer, train_dataloader = accelerator.prepare(unet, optimizer, train_dataloader)
-        # Move text_encode and vae to gpu
-        text_encoder.to(accelerator.device)
-        vae.to(accelerator.device)
-        # We need to recalculate our total training steps as the size of the training dataloader may have changed.
-        num_update_steps_per_epoch = math.ceil(len(train_dataloader) / dreambooth_args.gradient_accumulation_steps)
-        num_train_epochs = math.ceil(dreambooth_args.max_train_steps / num_update_steps_per_epoch)
-        clear_last()
-        total_batch_size = dreambooth_args.train_batch_size * accelerator.num_processes * dreambooth_args.gradient_accumulation_steps
-
-        prt("***** Running training *****")
-        prt(f"  Number of examples = {len(train_dataset)}")
-        if num_new_images != None: prt(f"  Number of class images to sample: {num_new_images}.")
-        prt(f"  Instantaneous batch size per device = {dreambooth_args.train_batch_size}")
-        prt(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
-        prt(f"  Gradient Accumulation steps = {dreambooth_args.gradient_accumulation_steps}")
-        prt(f"  Total optimization steps = {dreambooth_args.max_train_steps}")
-        progress = ProgressBar(bar_height=8)
-        prt(progress)
-        progress_bar = tqdm(range(dreambooth_args.max_train_steps), disable=not accelerator.is_local_main_process)
-        progress_bar.set_description("Steps")
-        global_step = 0
-
-        for epoch in range(num_train_epochs):
-            unet.train()
-            for step, batch in enumerate(train_dataloader):
-                with accelerator.accumulate(unet):
-                    # Convert images to latent space
-                    with torch.no_grad():
-                        latents = vae.encode(batch["pixel_values"]).latent_dist.sample()
-                        latents = latents * 0.18215
-                    # Sample noise that we'll add to the latents
-                    noise = torch.randn(latents.shape).to(latents.device)
-                    bsz = latents.shape[0]
-                    # Sample a random timestep for each image
-                    timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (bsz,), device=latents.device).long()
-
-                    # Add noise to the latents according to the noise magnitude at each timestep
-                    # (this is the forward diffusion process)
-                    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-
-                    # Get the text embedding for conditioning
-                    with torch.no_grad():
-                        encoder_hidden_states = text_encoder(batch["input_ids"])[0]
-
-                    # Predict the noise residual
-                    noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
-
-                    if dreambooth_args.with_prior_preservation:
-                        # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
-                        noise_pred, noise_pred_prior = torch.chunk(noise_pred, 2, dim=0)
-                        noise, noise_prior = torch.chunk(noise, 2, dim=0)
-
-                        # Compute instance loss
-                        loss = F.mse_loss(noise_pred, noise, reduction="none").mean([1, 2, 3]).mean()
-
-                        # Compute prior loss
-                        prior_loss = F.mse_loss(noise_pred_prior, noise_prior, reduction="none").mean([1, 2, 3]).mean()
-
-                        # Add the prior loss to the instance loss.
-                        loss = loss + dreambooth_args.prior_loss_weight * prior_loss
-                    else:
-                        loss = F.mse_loss(noise_pred, noise, reduction="none").mean([1, 2, 3]).mean()
-
-                    accelerator.backward(loss)
-                    if accelerator.sync_gradients:
-                        accelerator.clip_grad_norm_(unet.parameters(), dreambooth_args.max_grad_norm)
-                    optimizer.step()
-                    optimizer.zero_grad()
-
-                # Checks if the accelerator has performed an optimization step behind the scenes
-                if accelerator.sync_gradients:
-                    progress_bar.update(1)
-                    global_step += 1
-
-                logs = {"loss": loss.detach().item()}
-                progress_bar.set_postfix(**logs)
-                progress.value = (global_step + 1) / dreambooth_args.max_train_steps
-                progress.tooltip = f'[{(global_step + 1)} / {dreambooth_args.max_train_steps}]'
-                progress.update()
-
-                if global_step >= dreambooth_args.max_train_steps:
-                    break
-
-            accelerator.wait_for_everyone()
-
-        # Create the pipeline using the trained modules and save it.
-        if accelerator.is_main_process:
-            pipeline = StableDiffusionPipeline(
-                text_encoder=text_encoder,
-                vae=vae,
-                unet=accelerator.unwrap_model(unet),
-                tokenizer=tokenizer,
-                scheduler=PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", skip_prk_steps=True),
-                feature_extractor=CLIPFeatureExtractor.from_pretrained("openai/clip-vit-base-patch32"),
-                **safety,
-            )
-            pipeline.save_pretrained(dreambooth_args.output_dir)
-
-    import accelerate
-    try:
-      accelerate.notebook_launcher(training_function, args=(text_encoder, vae, unet))
-    except Exception as e:
-      clear_last()
-      alert_msg(page, "ERROR: CUDA Ran Out of Memory. Try reducing parameters and try again...", content=Text(str(e)))
-      with torch.no_grad():
-        torch.cuda.empty_cache()
-      return
-    clear_last()
-    with torch.no_grad():
-        torch.cuda.empty_cache()
-    name_of_your_concept = dreambooth_prefs['name_of_your_concept']
-    if(dreambooth_prefs['save_concept']):
-      from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
-      from huggingface_hub import create_repo
-      from IPython.display import display_markdown
-      api = HfApi()
-      your_username = api.whoami()["name"]
-      dreambooth_pipe = StableDiffusionPipeline.from_pretrained(
-        dreambooth_args.output_dir,
-        torch_dtype=torch.float16,
-      ).to("cuda")
-      os.makedirs("fp16_model",exist_ok=True)
-      dreambooth_pipe.save_pretrained("fp16_model")
-      del dreambooth_pipe
-      hf_token = prefs['HuggingFace_api_key']
-      if(dreambooth_prefs['where_to_save_concept'] == "Public Library"):
-        repo_id = f"sd-dreambooth-library/{format_filename(name_of_your_concept, use_dash=True)}"
-        #Join the Concepts Library organization if you aren't part of it already
-        run_sp(f"curl -X POST -H 'Authorization: Bearer '{hf_token} -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-dreambooth-library/share/SSeOwppVCscfTEzFGQaqpfcjukVeNrKNHX", realtime=False)
-        #!curl -X POST -H 'Authorization: Bearer '$hf_token -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-dreambooth-library/share/SSeOwppVCscfTEzFGQaqpfcjukVeNrKNHX
-      else:
-        repo_id = f"{your_username}/{format_filename(name_of_your_concept, use_dash=True)}"
-      output_dir = dreambooth_args.output_dir
-      if(not prefs['HuggingFace_api_key']):
-        with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
-      else:
-        hf_token = prefs['HuggingFace_api_key']
-
-      images_upload = os.listdir(save_path)
-      image_string = ""
-      #repo_id = f"sd-dreambooth-library/{slugify(name_of_your_concept)}"
-      print(f"repo_id={repo_id}")
-      for i, image in enumerate(images_upload):
-          image_string = f'''{image_string}![image {i}](https://huggingface.co/{repo_id}/resolve/main/concept_images/{image})
-    '''
-      description = dreambooth_prefs['readme_description']
-      if bool(description.strip()):
-        description = dreambooth_prefs['readme_description'] + '\n\n'
-      readme_text = f'''---
-license: mit
----
-### {name_of_your_concept} on Stable Diffusion via Dreambooth using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
-#### model by {api.whoami()["name"]}
-This your the Stable Diffusion model fine-tuned the {name_of_your_concept} concept taught to Stable Diffusion with Dreambooth.
-It can be used by modifying the `instance_prompt`: **{dreambooth_prefs['instance_prompt']}**
-
-{description}You can also train your own concepts and upload them to the library by using [this notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb).
-And you can run your new concept via `diffusers`: [Colab Notebook for Inference](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_inference.ipynb), [Spaces with the Public Concepts loaded](https://huggingface.co/spaces/sd-dreambooth-library/stable-diffusion-dreambooth-concepts)
-
-Here are the images used for training this concept:
-{image_string}
-'''
-      #Save the readme to a file
-      readme_file = open("README.md", "w")
-      readme_file.write(readme_text)
-      readme_file.close()
-      #Save the token identifier to a file
-      text_file = open("token_identifier.txt", "w")
-      text_file.write(dreambooth_prefs['instance_prompt'])
-      text_file.close()
-      operations = [
-        CommitOperationAdd(path_in_repo="token_identifier.txt", path_or_fileobj="token_identifier.txt"),
-        CommitOperationAdd(path_in_repo="README.md", path_or_fileobj="README.md"),
-      ]
-      try:
-        create_repo(repo_id, private=True, token=hf_token)
-      except Exception as e:
-        alert_msg(page, f"ERROR Creating repo {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
-        return
-
-      api.create_commit(repo_id=repo_id, operations=operations, commit_message=f"Upload the concept {name_of_your_concept} embeds and token",token=hf_token)
-      api.upload_folder(folder_path="fp16_model", path_in_repo="", repo_id=repo_id,token=hf_token)
-      api.upload_folder(folder_path=save_path, path_in_repo="concept_images", repo_id=repo_id, token=hf_token)
-      prefs['custom_model'] = repo_id
-      prefs['custom_models'].append({'name': name_of_your_concept, 'path':repo_id})
-      page.custom_model.value = repo_id
-      try:
-        page.custom_model.update()
-      except Exception: pass
-      prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token in prompts.", on_tap_link=lambda e: e.page.launch_url(e.data)))
-    if prefs['enable_sounds']: page.snd_alert.play()
-
-try:
-    from torchvision import transforms
-except Exception:
-    run_sp("pip install torchvision", realtime=False)
-    from torchvision import transforms
-    pass
-from torch.utils.data import Dataset
-
-class DreamBoothDataset(Dataset):
-    def __init__(
-        self,
-        instance_data_root,
-        instance_prompt,
-        tokenizer,
-        class_data_root=None,
-        class_prompt=None,
-        size=dreambooth_prefs['max_size'],
-        center_crop=False,
-    ):
-        self.size = size
-        self.center_crop = center_crop
-        self.tokenizer = tokenizer
-
-        self.instance_data_root = Path(instance_data_root)
-        if not self.instance_data_root.exists():
-            raise ValueError("Instance images root doesn't exists.")
-
-        self.instance_images_path = list(Path(instance_data_root).iterdir())
-        self.num_instance_images = len(self.instance_images_path)
-        self.instance_prompt = instance_prompt
-        self._length = self.num_instance_images
-
-        if class_data_root is not None:
-            self.class_data_root = Path(class_data_root)
-            self.class_data_root.mkdir(parents=True, exist_ok=True)
-            self.class_images_path = list(Path(class_data_root).iterdir())
-            self.num_class_images = len(self.class_images_path)
-            self._length = max(self.num_class_images, self.num_instance_images)
-            self.class_prompt = class_prompt
-        else:
-            self.class_data_root = None
-
-        self.image_transforms = transforms.Compose([
-            transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5])]
-        )
-
-    def __len__(self):
-        return self._length
-
-    def __getitem__(self, index):
-        example = {}
-        instance_image = PILImage.open(self.instance_images_path[index % self.num_instance_images])
-        if not instance_image.mode == "RGB":
-            instance_image = instance_image.convert("RGB")
-        example["instance_images"] = self.image_transforms(instance_image)
-        example["instance_prompt_ids"] = self.tokenizer(
-            self.instance_prompt,
-            padding="do_not_pad",
-            truncation=True,
-            max_length=self.tokenizer.model_max_length,
-        ).input_ids
-
-        if self.class_data_root:
-            class_image = PILImage.open(self.class_images_path[index % self.num_class_images])
-            if not class_image.mode == "RGB":
-                class_image = class_image.convert("RGB")
-            example["class_images"] = self.image_transforms(class_image)
-            example["class_prompt_ids"] = self.tokenizer(
-                self.class_prompt,
-                padding="do_not_pad",
-                truncation=True,
-                max_length=self.tokenizer.model_max_length,
-            ).input_ids
-
-        return example
-
-class PromptDataset(Dataset):
-    def __init__(self, prompt, num_samples):
-        self.prompt = prompt
-        self.num_samples = num_samples
-
-    def __len__(self):
-        return self.num_samples
-
-    def __getitem__(self, index):
-        example = {}
-        example["prompt"] = self.prompt
-        example["index"] = index
-        return example
-
-
-def run_dreambooth2(page):
     global dreambooth_prefs, prefs
     def prt(line):
       if type(line) == str:
@@ -26756,506 +26263,6 @@ This is the `{placeholder_token}` concept taught to Stable Diffusion via Textual
         except Exception: pass
         prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token to your Prompt text.", on_tap_link=lambda e: e.page.launch_url(e.data)))
     if prefs['enable_sounds']: page.snd_alert.play()
-
-def run_textualinversion2(page):
-    global textualinversion_prefs, prefs
-    def prt(line):
-      if type(line) == str:
-        line = Text(line)
-      page.textualinversion_output.controls.append(line)
-      page.textualinversion_output.update()
-    def clear_last(lines=1):
-      clear_line(page.textualinversion_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
-    save_path = os.path.join(root_dir, "my_concept")
-    error = False
-    if not os.path.exists(save_path):
-      error = True
-    elif len(os.listdir(save_path)) == 0:
-      error = True
-    if len(page.ti_file_list.controls) == 0:
-      error = True
-    if error:
-      alert_msg(page, "Couldn't find a list of images to train concept. Add image files to the list...")
-      return
-    prt(Installing("Downloading Textual-Inversion Training Models"))
-    #run_process("pip install -qq bitsandbytes")
-    import argparse
-    import itertools
-    import math
-    import random
-
-    import torch.nn.functional as F
-    import torch.utils.checkpoint
-    from torch.utils.data import Dataset
-    from accelerate import Accelerator
-    from accelerate.logging import get_logger
-    from accelerate.utils import set_seed
-    from diffusers import AutoencoderKL, DDPMScheduler, PNDMScheduler, StableDiffusionPipeline, UNet2DConditionModel
-    #from diffusers.hub_utils import init_git_repo, push_to_hub
-    from diffusers.optimization import get_scheduler
-    from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-    from torchvision import transforms
-    from tqdm.auto import tqdm
-    from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
-
-    imagenet_templates_small = [
-        "a photo of a {}",
-        "a rendering of a {}",
-        "a cropped photo of the {}",
-        "the photo of a {}",
-        "a photo of a clean {}",
-        "a photo of a dirty {}",
-        "a dark photo of the {}",
-        "a photo of my {}",
-        "a photo of the cool {}",
-        "a close-up photo of a {}",
-        "a bright photo of the {}",
-        "a cropped photo of a {}",
-        "a photo of the {}",
-        "a good photo of the {}",
-        "a photo of one {}",
-        "a close-up photo of the {}",
-        "a rendition of the {}",
-        "a photo of the clean {}",
-        "a rendition of a {}",
-        "a photo of a nice {}",
-        "a good photo of a {}",
-        "a photo of the nice {}",
-        "a photo of the small {}",
-        "a photo of the weird {}",
-        "a photo of the large {}",
-        "a photo of a cool {}",
-        "a photo of a small {}",
-    ]
-
-    imagenet_style_templates_small = [
-        "a painting in the style of {}",
-        "a rendering in the style of {}",
-        "a cropped painting in the style of {}",
-        "the painting in the style of {}",
-        "a clean painting in the style of {}",
-        "a dirty painting in the style of {}",
-        "a dark painting in the style of {}",
-        "a picture in the style of {}",
-        "a cool painting in the style of {}",
-        "a close-up painting in the style of {}",
-        "a bright painting in the style of {}",
-        "a cropped painting in the style of {}",
-        "a good painting in the style of {}",
-        "a close-up painting in the style of {}",
-        "a rendition in the style of {}",
-        "a nice painting in the style of {}",
-        "a small painting in the style of {}",
-        "a weird painting in the style of {}",
-        "a large painting in the style of {}",
-    ]
-    tokenizer = CLIPTokenizer.from_pretrained(
-        model_path,
-        subfolder="tokenizer",
-    )
-    placeholder_token = textualinversion_prefs['placeholder_token'].strip()
-    if not placeholder_token.startswith('<'): placeholder_token = '<' + placeholder_token
-    if not placeholder_token.endswith('>'): placeholder_token = placeholder_token + '>'
-    # Add the placeholder token in tokenizer
-    num_added_tokens = tokenizer.add_tokens(placeholder_token)
-    if num_added_tokens == 0:
-        raise ValueError(
-            f"The tokenizer already contains the token {placeholder_token}. Please pass a different"
-            " `placeholder_token` that is not already in the tokenizer."
-        )
-
-    token_ids = tokenizer.encode(textualinversion_prefs['initializer_token'], add_special_tokens=False)
-    # Check if initializer_token is a single token or a sequence of tokens
-    if len(token_ids) > 1:
-        raise ValueError("The initializer token must be a single token.")
-
-    initializer_token_id = token_ids[0]
-    placeholder_token_id = tokenizer.convert_tokens_to_ids(placeholder_token)
-
-    # Load the Stable Diffusion model
-    # Load models and create wrapper for stable diffusion
-    text_encoder = CLIPTextModel.from_pretrained(
-        model_path, subfolder="text_encoder"
-    )
-    vae = AutoencoderKL.from_pretrained(
-        model_path, subfolder="vae"
-    )
-    unet = UNet2DConditionModel.from_pretrained(
-        model_path, subfolder="unet"
-    )
-
-    text_encoder.resize_token_embeddings(len(tokenizer))
-    token_embeds = text_encoder.get_input_embeddings().weight.data
-    token_embeds[placeholder_token_id] = token_embeds[initializer_token_id]
-
-    def freeze_params(params):
-        for param in params:
-            param.requires_grad = False
-
-    # Freeze vae and unet
-    freeze_params(vae.parameters())
-    freeze_params(unet.parameters())
-    # Freeze all parameters except for the token embeddings in text encoder
-    params_to_freeze = itertools.chain(
-        text_encoder.text_model.encoder.parameters(),
-        text_encoder.text_model.final_layer_norm.parameters(),
-        text_encoder.text_model.embeddings.position_embedding.parameters(),
-    )
-    freeze_params(params_to_freeze)
-    train_dataset = TextualInversionDataset(
-        data_root=save_path,
-        tokenizer=tokenizer,
-        size=512,
-        placeholder_token=placeholder_token,
-        repeats=100,
-        learnable_property=textualinversion_prefs['what_to_teach'], #Option selected above between object and style
-        center_crop=False,
-        set="train",
-    )
-    def create_dataloader(train_batch_size=1):
-        return torch.utils.data.DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
-    noise_scheduler = DDPMScheduler.from_pretrained(model_path, subfolder="scheduler")
-    #noise_scheduler = DDPMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000, tensor_format="pt")
-    def training_function(text_encoder, vae, unet):
-        logger = get_logger(__name__)
-
-        train_batch_size = textualinversion_prefs["train_batch_size"]
-        gradient_accumulation_steps = textualinversion_prefs["gradient_accumulation_steps"]
-        learning_rate = textualinversion_prefs["learning_rate"]
-        max_train_steps = textualinversion_prefs["max_train_steps"]
-        output_dir = textualinversion_prefs["output_dir"]
-        accelerator = Accelerator(gradient_accumulation_steps=gradient_accumulation_steps)
-        train_dataloader = create_dataloader(train_batch_size)
-        if textualinversion_prefs["scale_lr"]:
-            learning_rate = (learning_rate * gradient_accumulation_steps * train_batch_size * accelerator.num_processes)
-        # Initialize the optimizer
-        optimizer = torch.optim.AdamW(
-            text_encoder.get_input_embeddings().parameters(),  # only optimize the embeddings
-            lr=learning_rate,
-        )
-        text_encoder, optimizer, train_dataloader = accelerator.prepare(text_encoder, optimizer, train_dataloader)
-        vae.to(accelerator.device)
-        unet.to(accelerator.device)
-        vae.eval()
-        unet.eval()
-        # We need to recalculate our total training steps as the size of the training dataloader may have changed.
-        num_update_steps_per_epoch = math.ceil(len(train_dataloader) / gradient_accumulation_steps)
-        num_train_epochs = math.ceil(max_train_steps / num_update_steps_per_epoch)
-        clear_last()
-        # Train!
-        total_batch_size = train_batch_size * accelerator.num_processes * gradient_accumulation_steps
-
-        prt("***** Running training *****")
-        prt(f"  Num examples = {len(train_dataset)}")
-        prt(f"  Instantaneous batch size per device = {train_batch_size}")
-        prt(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
-        prt(f"  Gradient Accumulation steps = {gradient_accumulation_steps}")
-        prt(f"  Total optimization steps = {max_train_steps}")
-        progress = ProgressBar(bar_height=8)
-        prt(progress)
-        progress_bar = tqdm(range(max_train_steps), disable=not accelerator.is_local_main_process)
-        progress_bar.set_description("Steps")
-        global_step = 0
-
-        for epoch in range(num_train_epochs):
-            text_encoder.train()
-            for step, batch in enumerate(train_dataloader):
-                with accelerator.accumulate(text_encoder):
-                    # Convert images to latent space
-                    latents = vae.encode(batch["pixel_values"]).latent_dist.sample().detach()
-                    latents = latents * 0.18215
-
-                    # Sample noise that we'll add to the latents
-                    noise = torch.randn(latents.shape).to(latents.device)
-                    bsz = latents.shape[0]
-                    # Sample a random timestep for each image
-                    timesteps = torch.randint(0, noise_scheduler.num_train_timesteps, (bsz,), device=latents.device).long()
-
-                    # Add noise to the latents according to the noise magnitude at each timestep
-                    # (this is the forward diffusion process)
-                    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-
-                    # Get the text embedding for conditioning
-                    encoder_hidden_states = text_encoder(batch["input_ids"])[0]
-
-                    # Predict the noise residual
-                    noise_pred = unet(noisy_latents, timesteps, encoder_hidden_states).sample
-
-                    loss = F.mse_loss(noise_pred, noise, reduction="none").mean([1, 2, 3]).mean()
-                    accelerator.backward(loss)
-
-                    # Zero out the gradients for all token embeddings except the newly added
-                    # embeddings for the concept, as we only want to optimize the concept embeddings
-                    if accelerator.num_processes > 1:
-                        grads = text_encoder.module.get_input_embeddings().weight.grad
-                    else:
-                        grads = text_encoder.get_input_embeddings().weight.grad
-                    # Get the index for tokens that we want to zero the grads for
-                    index_grads_to_zero = torch.arange(len(tokenizer)) != placeholder_token_id
-                    grads.data[index_grads_to_zero, :] = grads.data[index_grads_to_zero, :].fill_(0)
-
-                    optimizer.step()
-                    optimizer.zero_grad()
-
-                # Checks if the accelerator has performed an optimization step behind the scenes
-                if accelerator.sync_gradients:
-                    progress_bar.update(1)
-                    global_step += 1
-                    progress.value = (global_step + 1) / max_train_steps
-                    progress.tooltip = f'[{(global_step + 1)} / {max_train_steps}]'
-                    progress.update()
-
-                logs = {"loss": loss.detach().item()}
-                progress_bar.set_postfix(**logs)
-
-                if global_step >= max_train_steps:
-                    break
-
-            accelerator.wait_for_everyone()
-
-
-        # Create the pipeline using using the trained modules and save it.
-        if accelerator.is_main_process:
-            pipeline = StableDiffusionPipeline(
-                text_encoder=accelerator.unwrap_model(text_encoder),
-                vae=vae,
-                unet=unet,
-                tokenizer=tokenizer,
-                scheduler=PNDMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", skip_prk_steps=True),
-                feature_extractor=CLIPFeatureExtractor.from_pretrained("openai/clip-vit-base-patch32"),
-                **safety,
-            )
-            pipeline.save_pretrained(output_dir)
-            # Also save the newly trained embeddings
-            learned_embeds = accelerator.unwrap_model(text_encoder).get_input_embeddings().weight[placeholder_token_id]
-            learned_embeds_dict = {placeholder_token: learned_embeds.detach().cpu()}
-            torch.save(learned_embeds_dict, os.path.join(output_dir, "learned_embeds.bin"))
-
-    import accelerate
-    try:
-        accelerate.notebook_launcher(training_function, args=(text_encoder, vae, unet))
-    except Exception as e:
-      clear_last()
-      alert_msg(page, "ERROR: CUDA Ran Out of Memory. Try reducing parameters and try again...", content=Text(str(e)))
-      with torch.no_grad():
-        torch.cuda.empty_cache()
-      return
-    clear_last()
-    #title Save your newly created concept to the [library of concepts](https://huggingface.co/sd-concepts-library)?
-    save_concept_to_public_library = textualinversion_prefs['save_concept']
-    name_of_your_concept = textualinversion_prefs['name_of_your_concept']
-    # `hf_token_write`: leave blank if you logged in with a token with `write access` in the [Initial Setup](#scrollTo=KbzZ9xe6dWwf). If not, [go to your tokens settings and create a write access token](https://huggingface.co/settings/tokens)
-    hf_token_write = prefs['HuggingFace_api_key']
-
-    if(save_concept_to_public_library):
-        from huggingface_hub import HfApi, HfFolder, CommitOperationAdd
-        from huggingface_hub import create_repo
-        api = HfApi()
-        your_username = api.whoami()["name"]
-        repo_id = f"sd-concepts-library/{format_filename(name_of_your_concept, use_dash=True)}"
-        output_dir = textualinversion_prefs["output_dir"]
-        if(not hf_token_write):
-            with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
-        else:
-            hf_token = hf_token_write
-        if(textualinversion_prefs['where_to_save_concept'] == "Public Library"):
-            #Join the Concepts Library organization if you aren't part of it already
-            run_sp(f"curl -X POST -H 'Authorization: Bearer '{hf_token} -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-concepts-library/share/VcLXJtzwwxnHYCkNMLpSJCdnNFZHQwWywv", realtime=False)
-            # curl -X POST -H 'Authorization: Bearer '$hf_token -H 'Content-Type: application/json' https://huggingface.co/organizations/sd-concepts-library/share/VcLXJtzwwxnHYCkNMLpSJCdnNFZHQwWywv
-        else:
-            repo_id = f"{your_username}/{format_filename(name_of_your_concept, use_dash=True)}"
-        images_upload = os.listdir(save_path)
-        image_string = ""
-        repo_id = f"sd-concepts-library/{format_filename(name_of_your_concept, use_dash=True)}"
-        for i, image in enumerate(images_upload):
-            image_string = f'''{image_string}![{placeholder_token} {i}](https://huggingface.co/{repo_id}/resolve/main/concept_images/{image})
-        '''
-        if(textualinversion_prefs['what_to_teach'] == "style"):
-            what_to_teach_article = f"a `{textualinversion_prefs['what_to_teach']}`"
-        else:
-            what_to_teach_article = f"an `{textualinversion_prefs['what_to_teach']}`"
-        description = textualinversion_prefs['readme_description']
-        if bool(description.strip()):
-            description = textualinversion_prefs['readme_description'] + '\n\n'
-        readme_text = f'''---
-license: mit
----
-### {name_of_your_concept} by {your_username} using [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb)
-This is the `{placeholder_token}` concept taught to Stable Diffusion via Textual Inversion. You can load this concept into the [Stable Diffusion Deluxe](https://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb) notebook. You can also train your own concepts and load them into the concept libraries there too, or using [this notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_textual_inversion_training.ipynb).
-
-{description}Here is the new concept you will be able to use as {what_to_teach_article}:
-{image_string}
-'''
-        #Save the readme to a file
-        readme_file = open("README.md", "w")
-        readme_file.write(readme_text)
-        readme_file.close()
-        #Save the token identifier to a file
-        text_file = open("token_identifier.txt", "w")
-        text_file.write(placeholder_token)
-        text_file.close()
-        #Save the type of teached thing to a file
-        type_file = open("type_of_concept.txt","w")
-        type_file.write(textualinversion_prefs['what_to_teach'])
-        type_file.close()
-        operations = [
-            CommitOperationAdd(path_in_repo="learned_embeds.bin", path_or_fileobj=f"{output_dir}/learned_embeds.bin"),
-            CommitOperationAdd(path_in_repo="token_identifier.txt", path_or_fileobj="token_identifier.txt"),
-            CommitOperationAdd(path_in_repo="type_of_concept.txt", path_or_fileobj="type_of_concept.txt"),
-            CommitOperationAdd(path_in_repo="README.md", path_or_fileobj="README.md"),
-        ]
-        try:
-          create_repo(repo_id, private=True, token=hf_token)
-        except Exception as e:
-          alert_msg(page, f"ERROR Creating repo {repo_id}... Make sure your HF token has Write access.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
-          return
-        api = HfApi()
-        api.create_commit(
-            repo_id=repo_id,
-            operations=operations,
-            commit_message=f"Upload the concept {name_of_your_concept} embeds and token",
-            token=hf_token
-        )
-        api.upload_folder(
-            folder_path=save_path,
-            path_in_repo="concept_images",
-            repo_id=repo_id,
-            token=hf_token
-        )
-        prefs['custom_model'] = repo_id
-        prefs['custom_models'].append({'name': name_of_your_concept, 'path':repo_id})
-        page.custom_model.value = repo_id
-        try:
-          page.custom_model.update()
-        except Exception: pass
-        prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token to your Prompt text.", on_tap_link=lambda e: e.page.launch_url(e.data)))
-    if prefs['enable_sounds']: page.snd_alert.play()
-
-imagenet_templates_small = [
-    "a photo of a {}",
-    "a rendering of a {}",
-    "a cropped photo of the {}",
-    "the photo of a {}",
-    "a photo of a clean {}",
-    "a photo of a dirty {}",
-    "a dark photo of the {}",
-    "a photo of my {}",
-    "a photo of the cool {}",
-    "a close-up photo of a {}",
-    "a bright photo of the {}",
-    "a cropped photo of a {}",
-    "a photo of the {}",
-    "a good photo of the {}",
-    "a photo of one {}",
-    "a close-up photo of the {}",
-    "a rendition of the {}",
-    "a photo of the clean {}",
-    "a rendition of a {}",
-    "a photo of a nice {}",
-    "a good photo of a {}",
-    "a photo of the nice {}",
-    "a photo of the small {}",
-    "a photo of the weird {}",
-    "a photo of the large {}",
-    "a photo of a cool {}",
-    "a photo of a small {}",
-]
-
-imagenet_style_templates_small = [
-    "a painting in the style of {}",
-    "a rendering in the style of {}",
-    "a cropped painting in the style of {}",
-    "the painting in the style of {}",
-    "a clean painting in the style of {}",
-    "a dirty painting in the style of {}",
-    "a dark painting in the style of {}",
-    "a picture in the style of {}",
-    "a cool painting in the style of {}",
-    "a close-up painting in the style of {}",
-    "a bright painting in the style of {}",
-    "a cropped painting in the style of {}",
-    "a good painting in the style of {}",
-    "a close-up painting in the style of {}",
-    "a rendition in the style of {}",
-    "a nice painting in the style of {}",
-    "a small painting in the style of {}",
-    "a weird painting in the style of {}",
-    "a large painting in the style of {}",
-]
-
-class TextualInversionDataset(Dataset):
-    import random as rnd
-    def __init__(
-        self,
-        data_root,
-        tokenizer,
-        learnable_property="object",  # [object, style]
-        size=textualinversion_prefs['max_size'],
-        repeats=100,
-        interpolation="bicubic",
-        flip_p=0.5,
-        set="train",
-        placeholder_token="*",
-        center_crop=False,
-    ):
-        self.data_root = data_root
-        self.tokenizer = tokenizer
-        self.learnable_property = learnable_property
-        self.size = size
-        self.placeholder_token = placeholder_token
-        self.center_crop = center_crop
-        self.flip_p = flip_p
-        self.image_paths = [os.path.join(self.data_root, file_path) for file_path in os.listdir(self.data_root)]
-        self.num_images = len(self.image_paths)
-        self._length = self.num_images
-        if set == "train":
-            self._length = self.num_images * repeats
-        self.interpolation = {
-            "linear": PIL.Image.LINEAR,
-            "bilinear": PIL.Image.BILINEAR,
-            "bicubic": PIL.Image.BICUBIC,
-            "lanczos": PIL.Image.LANCZOS,
-        }[interpolation]
-        self.templates = imagenet_style_templates_small if learnable_property == "style" else imagenet_templates_small
-        self.flip_transform = transforms.RandomHorizontalFlip(p=self.flip_p)
-
-    def __len__(self):
-        return self._length
-
-    def __getitem__(self, i):
-        import random as rnd
-        example = {}
-        image = PILImage.open(self.image_paths[i % self.num_images])
-        if not image.mode == "RGB":
-            image = image.convert("RGB")
-        placeholder_string = self.placeholder_token
-        text = rnd.choice(self.templates).format(placeholder_string)
-        example["input_ids"] = self.tokenizer(
-            text,
-            padding="max_length",
-            truncation=True,
-            max_length=self.tokenizer.model_max_length,
-            return_tensors="pt",
-        ).input_ids[0]
-        # default to score-sde preprocessing
-        img = np.array(image).astype(np.uint8)
-        if self.center_crop:
-            crop = min(img.shape[0], img.shape[1])
-            h, w, = (
-                img.shape[0],
-                img.shape[1],
-            )
-            img = img[(h - crop) // 2 : (h + crop) // 2, (w - crop) // 2 : (w + crop) // 2]
-        image = PILImage.fromarray(img)
-        image = image.resize((self.size, self.size), resample=self.interpolation)
-        image = self.flip_transform(image)
-        image = np.array(image).astype(np.uint8)
-        image = (image / 127.5 - 1.0).astype(np.float32)
-        example["pixel_values"] = torch.from_numpy(image).permute(2, 0, 1)
-        return example
 
 
 def run_LoRA_dreambooth(page):
@@ -27791,25 +26798,23 @@ def run_converter(page):
     model_name = converter_prefs['model_name']
     model_path = converter_prefs['model_path']
     if not bool(converter_prefs['model_name']):
-      alert(page, "Provide a name to call the converted custom model")
+      alert_msg(page, "Provide a name to call the converted custom model")
       return
     if not bool(model_path):
-      alert(page, "Provide the path to the custom model to convert")
+      alert_msg(page, "Provide the path to the custom model to convert")
       return
     model_file = format_filename(model_name, use_dash=True)
     if converter_prefs['from_format'] == 'ckpt':
       model_file += '.ckpt'
     page.converter_output.controls.clear()
+    installer = Installing("Initializing Converter Tools...")
+    prt(installer)
     custom_models = os.path.join(root_dir, 'custom_models',)
     custom_path = os.path.join(custom_models, format_filename(model_name, use_dash=True))
     checkpoint_file = os.path.join(custom_models, model_file)
-    if not os.path.exists(custom_path):
-      os.makedirs(custom_path, exist_ok=True)
-    try:
-      import omegaconf
-    except Exception:
-      run_sp("pip install omegaconf", realtime=False)
-      pass
+    make_dir(custom_path)
+    pip_install("omegaconf gdown", installer=installer)
+    installer.status("...get Diffusers")
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
@@ -27817,6 +26822,7 @@ def run_converter(page):
     scripts_dir = os.path.join(diffusers_dir, "scripts")
     progress = ProgressBar(bar_height=8)
 
+    installer.status("...downloading")
     if model_path.startswith('https://drive'):
       import gdown
       gdown.download(model_path, checkpoint_file, quiet=True)
@@ -27836,6 +26842,7 @@ def run_converter(page):
     else:
       alert_msg(page, f"Couldn't recognize source model file path {model_path}.")
       return
+    clear_last()
     prt(Text(f'Converting {model_file} to {converter_prefs["to_format"]}...', weight=FontWeight.BOLD))
     prt(progress)
 
@@ -28056,6 +27063,7 @@ def run_checkpoint_merger(page):
         prt(Img(src=fpath))
     if checkpoint_merger_prefs['save_model']:
         private = False if checkpoint_merger_prefs['where_to_save_model'] == "Public HuggingFace" else True
+        from huggingface_hub import HfFolder, create_repo, Repository
         if(not prefs['HuggingFace_api_key']):
             with open(HfFolder.path_token, 'r') as fin: hf_token = fin.read();
         else:
@@ -28162,14 +27170,7 @@ def run_tortoise_tts(page):
       os.chdir(root_dir)
       run_process("git clone https://github.com/jnordberg/tortoise-tts.git", page=page)
     os.chdir(tortoise_dir)
-    try:
-      import pydub
-    except Exception:
-      installer.status("...installing ffmpeg & pydub")
-      run_process("pip install -q ffmpeg", page=page)
-      run_process("pip install -q pydub", page=page)
-      import pydub
-      pass
+    pip_install("ffmpeg pydub", installer=installer)
     try:
       from tortoise.api import TextToSpeech
     except Exception:
@@ -28311,8 +27312,8 @@ def run_audio_ldm(page):
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
     progress = ProgressBar(bar_height=8)
-    state_text = Text(" Downloading Audio LDM Packages...", weight=FontWeight.BOLD)
-    prt(Row([ProgressRing(), state_text]))
+    installer = Installing("Downloading Audio LDM Packages...", )
+    prt(installer)
     audioLDM_dir = os.path.join(root_dir, "audioldm-text-to-audio-generation")
     #voice_dir = os.path.join(audioLDM_dir, 'audioldm', 'voices')
     if not os.path.isdir(audioLDM_dir):
@@ -28324,19 +27325,7 @@ def run_audio_ldm(page):
     try:
         from audioldm import text_to_audio, build_model
     except Exception:
-        try:
-            run_process("pip install einops", page=page)
-            run_process("pip install -q pyyaml", page=page)
-            run_process("pip install -q soundfile", page=page)
-            run_process("pip install -q librosa", page=page)
-            run_process("pip install -q pandas", page=page)
-            run_process("pip install -q gradio", page=page)
-            run_process("pip install -q torchlibrosa", page=page)
-        except Exception as e:
-            clear_last()
-            alert_msg(page, "Error Installing AudioLDM requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
-            return
-        pass
+        pip_install("einops pyyaml soundfile librosa torchlibrosa pandas gradio", installer=installer, q=True)
     finally:
         from audioldm import text_to_audio, build_model
     import soundfile as sf
@@ -28361,12 +27350,11 @@ def run_audio_ldm(page):
       alert_msg(page, "Error generating text_to_audio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
       return
     save_dir = os.path.join(root_dir, 'audio_out', audioLDM_prefs['batch_folder_name'])
-    if not os.path.exists(save_dir):
-      os.makedirs(save_dir, exist_ok=True)
+    make_dir(save_dir)
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(audioLDM_prefs['batch_folder_name']):
       audio_out = os.path.join(audio_out, audioLDM_prefs['batch_folder_name'])
-    os.makedirs(audio_out, exist_ok=True)
+    make_dir(audio_out)
     #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm-tts", 'audioldm', 'voices'))
     #print(str(voice_dirs))
     fname = format_filename(audioLDM_prefs['text'])
@@ -28379,11 +27367,7 @@ def run_audio_ldm(page):
         sf.write(fname, waveform[i, 0], samplerate=16000)
     #torchaudio.save(fname, gen.squeeze(0).cpu(), 24000)
     #IPython.display.Audio('generated.wav')
-    clear_last()
-    clear_last()
-    #a_out = Audio(src=fname, autoplay=False)
-    #page.overlay.append(a_out)
-    #page.update()
+    clear_last(2)
     display_name = fname
     #a.tofile(f"/content/dance-{i}.wav")
     if storage_type == "Colab Google Drive":
@@ -28421,78 +27405,12 @@ def run_audio_ldm2(page):
       progress.update()
     installer = Installing("Loading Audio LDM-2 Packages...")
     prt(installer)
-    
-    '''audioLDM2_dir = os.path.join(root_dir, "AudioLDM2")
-    #voice_dir = os.path.join(audioLDM2_dir, 'audioldm2', 'voices')
-    if not os.path.isdir(audioLDM2_dir):
-      os.chdir(root_dir)
-      installer.status("...clone haoheliu/AudioLDM2")
-      run_process("git clone https://github.com/haoheliu/AudioLDM2", page=page)
-    os.chdir(audioLDM2_dir)
-    import sys
-    sys.path.append(os.path.join(audioLDM2_dir, 'audioldm2'))
-    try:
-        from audioldm2 import text_to_audio, build_model
-    except Exception:
-        try:
-            installer.status("...install einops")
-            run_process("pip install einops", page=page)
-            installer.status("...install pyyaml")
-            run_process("pip install -q pyyaml", page=page)
-            installer.status("...install soundfile")
-            run_process("pip install -q soundfile", page=page)
-            installer.status("...install chardet")
-            run_process("pip install -q librosa chardet", page=page)
-            installer.status("...install scipy")
-            run_process("pip install -q pandas scipy", page=page)
-            installer.status("...install gradio")
-            run_process("pip install -q gradio", page=page)
-            installer.status("...install torchlibrosa")
-            run_process("pip install -q torchlibrosa", page=page)
-            installer.status("...install unidecode phonemizer ftfy timm")
-            run_process("pip install -q unidecode phonemizer ftfy timm", page=page)
-            installer.status("...install haoheliu/AudioLDM2.git")
-            run_process("pip install git+https://github.com/haoheliu/AudioLDM2.git", page=page)
-            #sudo apt-get install espeak
-            #export PHONEMIZER_ESPEAK_LIBRARY=$(find /opt/homebrew/Cellar/espeak -name "libespeak.dylib" | sort -r | head -n 1)
-            os.environ["TOKENIZERS_PARALLELISM"] = "true"
-        except Exception as e:
-            clear_last()
-            alert_msg(page, "Error Installing AudioLDM-2 requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
-            return
-        pass
-    finally:
-        from audioldm2 import text_to_audio, build_model
-    '''
-    try:
-        import soundfile as sf
-    except ImportError:
-        installer.status("...install soundfile")
-        run_process("pip install -q soundfile", page=page)
-        import soundfile as sf
-        pass
-    try:
-        import scipy
-    except ImportError:
-        installer.status("...install scipy")
-        run_process("pip install -q pandas scipy", page=page)
-        import scipy
-        pass
+    pip_install("soundfile pandas scipy", installer=installer)
+    import soundfile as sf
+    import scipy
     if audioLDM2_prefs['save_mp3']:
-        try:
-            import ffmpeg
-        except ImportError as e:
-            installer.status("...installing ffmpeg")
-            run_sp("pip install -q ffmpeg", realtime=False)
-            import ffmpeg
-            pass
-        try:
-            import pydub
-        except ImportError:
-            installer.status("...installing pydub")
-            run_sp("pip install -q pydub", realtime=False)
-            import pydub
-            pass
+        pip_install("ffmpeg pydub", q=True, installer=installer)
+        import ffmpeg, pydub
     from diffusers import AudioLDM2Pipeline
     model_id = audioLDM2_prefs['model_name']
     if 'loaded_ldm2' not in status:
@@ -28545,12 +27463,11 @@ def run_audio_ldm2(page):
       alert_msg(page, "Error generating AudioLDM2 waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
       return
     save_dir = os.path.join(root_dir, 'audio_out', audioLDM2_prefs['batch_folder_name'])
-    if not os.path.exists(save_dir):
-      os.makedirs(save_dir, exist_ok=True)
+    make_dir(save_dir)
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(audioLDM2_prefs['batch_folder_name']):
       audio_out = os.path.join(audio_out, audioLDM2_prefs['batch_folder_name'])
-    os.makedirs(audio_out, exist_ok=True)
+    make_dir(audio_out)
     #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm2-tts", 'audioldm2', 'voices'))
     #print(str(voice_dirs))
     # waveform = [(16000, np.random.randn(16000)), (16000, np.random.randn(16000))]
@@ -28629,35 +27546,10 @@ def run_music_ldm(page):
       progress.update()
     installer = Installing("Loading Music LDM Packages...")
     prt(installer)
-    try:
-        import soundfile as sf
-    except ImportError:
-        installer.status("...install soundfile")
-        run_process("pip install -q soundfile", page=page)
-        import soundfile as sf
-        pass
-    try:
-        import scipy
-    except ImportError:
-        installer.status("...install scipy")
-        run_process("pip install -q pandas scipy", page=page)
-        import scipy
-        pass
+    pip_install("soundfile pandas scipy", q=True, installer=installer)
     if musicLDM_prefs['save_mp3']:
-        try:
-            import ffmpeg
-        except ImportError as e:
-            installer.status("...installing ffmpeg")
-            run_sp("pip install -q ffmpeg", realtime=False)
-            import ffmpeg
-            pass
-        try:
-            import pydub
-        except ImportError:
-            installer.status("...installing pydub")
-            run_sp("pip install -q pydub", realtime=False)
-            import pydub
-            pass
+        pip_install("ffmpeg pydub", q=True, installer=installer)
+        import pydub, ffmpeg
     from diffusers import MusicLDMPipeline, PNDMScheduler
     model_id = musicLDM_prefs['model_name']
     if 'loaded_ldm' not in status:
@@ -28784,12 +27676,7 @@ def run_bark(page):
     progress = ProgressBar(bar_height=8)
     installer = Installing("Downloading Bark Packages...")
     prt(installer)
-    try:
-        import scipy
-    except ModuleNotFoundError:
-        installer.status("...installing scipy")
-        run_process("pip install -qq --upgrade scipy", page=page)
-        pass
+    pip_install("scipy", installer=installer)
     from scipy.io.wavfile import write as write_wav
     import sys
     sys.path.append(os.path.join(root_dir, 'audioldm'))
@@ -28887,12 +27774,13 @@ def run_riffusion(page):
     if not status['installed_diffusers']:
       alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
       return
+    
     progress = ProgressBar(bar_height=8)
-    state_text = Text(" Downloading Riffusion Packages...", weight=FontWeight.BOLD)
-    prt(Row([ProgressRing(), state_text]))
+    installer = Installing("Downloading Riffusion Packages...")
+    prt(installer)
     riffusion_dir = os.path.join(root_dir, "riffusion-inference")
-    #voice_dir = os.path.join(riffusion_dir, 'audioldm', 'voices')
     if not os.path.isdir(riffusion_dir):
+      installer.status("...cloning riffusion-inference")
       os.chdir(root_dir) # -b v0.3.0
       run_process("git clone https://github.com/hmartiro/riffusion-inference", page=page)
     os.chdir(riffusion_dir)
@@ -28902,6 +27790,7 @@ def run_riffusion(page):
         from riffusion.spectrogram_image_converter import SpectrogramImageConverter
     except Exception:
         try:
+            installer.status("...installing requirements")
             run_process("pip install -r requirements.txt", page=page, cwd=riffusion_dir)
         except Exception as e:
             clear_last()
@@ -28956,6 +27845,7 @@ def run_riffusion(page):
 
     if pipe_riffusion == None or (init_audio == None and riffusion_prefs['loaded_pipe'] == "image") or (init_audio != None and riffusion_prefs['loaded_pipe'] == "text"):
       clear_pipes()
+      installer.status("...initializing pipeline")
       try:
         if init_audio == None:
             from diffusers import DiffusionPipeline #, custom_pipeline="AlanB/lpw_stable_diffusion_mod"
@@ -29050,27 +27940,17 @@ def run_mubert(page):
     def play_audio(e):
       e.control.data.play()
     progress = ProgressBar(bar_height=8)
-    state_text = Text(" Downloading Mubert Packages...", weight=FontWeight.BOLD)
-    prt(Row([ProgressRing(), state_text]))
+    installer = Installing("Downloading Mubert Packages...", )
+    prt(installer)
     mubert_dir = os.path.join(root_dir, "mubert-songs")
     if bool(mubert_prefs['batch_folder_name']):
         mubert_dir = os.path.join(mubert_dir, mubert_prefs['batch_folder_name'])
-    if not os.path.exists(mubert_dir):
-        os.makedirs(mubert_dir)
+    make_dir(mubert_dir)
     import time
-    try:
-        from sentence_transformers import SentenceTransformer
-    except Exception:
-        run_process("pip install sentence_transformers", page=page, show=True, print=True)
-        from sentence_transformers import SentenceTransformer
-        pass
-    try:
-        import httpx
-    except ModuleNotFoundError:
-        run_process("pip install httpx", page=page)
-        import httpx
-        pass
-
+    pip_install("sentence_transformers httpx", installer=installer)
+    from sentence_transformers import SentenceTransformer
+    import httpx
+    
     MUBERT_TAGS_STRING = 'tribal,action,kids,neo-classic,run 130,pumped,jazz / funk,ethnic,dubtechno,reggae,acid jazz,liquidfunk,funk,witch house,tech house,underground,artists,mystical,disco,sensorium,r&b,agender,psychedelic trance / psytrance,peaceful,run 140,piano,run 160,setting,meditation,christmas,ambient,horror,cinematic,electro house,idm,bass,minimal,underscore,drums,glitchy,beautiful,technology,tribal house,country pop,jazz & funk,documentary,space,classical,valentines,chillstep,experimental,trap,new jack swing,drama,post-rock,tense,corporate,neutral,happy,analog,funky,spiritual,sberzvuk special,chill hop,dramatic,catchy,holidays,fitness 90,optimistic,orchestra,acid techno,energizing,romantic,minimal house,breaks,hyper pop,warm up,dreamy,dark,urban,microfunk,dub,nu disco,vogue,keys,hardcore,aggressive,indie,electro funk,beauty,relaxing,trance,pop,hiphop,soft,acoustic,chillrave / ethno-house,deep techno,angry,dance,fun,dubstep,tropical,latin pop,heroic,world music,inspirational,uplifting,atmosphere,art,epic,advertising,chillout,scary,spooky,slow ballad,saxophone,summer,erotic,jazzy,energy 100,kara mar,xmas,atmospheric,indie pop,hip-hop,yoga,reggaeton,lounge,travel,running,folk,chillrave & ethno-house,detective,darkambient,chill,fantasy,minimal techno,special,night,tropical house,downtempo,lullaby,meditative,upbeat,glitch hop,fitness,neurofunk,sexual,indie rock,future pop,jazz,cyberpunk,melancholic,happy hardcore,family / kids,synths,electric guitar,comedy,psychedelic trance & psytrance,edm,psychedelic rock,calm,zen,bells,podcast,melodic house,ethnic percussion,nature,heavy,bassline,indie dance,techno,drumnbass,synth pop,vaporwave,sad,8-bit,chillgressive,deep,orchestral,futuristic,hardtechno,nostalgic,big room,sci-fi,tutorial,joyful,pads,minimal 170,drill,ethnic 108,amusing,sleepy ambient,psychill,italo disco,lofi,house,acoustic guitar,bassline house,rock,k-pop,synthwave,deep house,electronica,gabber,nightlife,sport & fitness,road trip,celebration,electro,disco house,electronic'
     MUBERT_TAGS = np.array(MUBERT_TAGS_STRING.split(','))
     MUBERT_LICENSE = "ttmmubertlicense#f0acYBenRcfeFpNT4wpYGaTQIyDI4mJGv5MfIhBFz97NXDwDNFHmMRsBSzmGsJwbTpP1A6i07AXcIeAHo5"
@@ -29490,19 +28370,8 @@ def run_voice_fixer(page):
     local_path = ""
     if audio_path.startswith("http"):
         if audio_path.startswith("https://youtu") or 'youtube' in audio_path:
-            try:
-                import ffmpeg
-            except ImportError as e:
-                installer.status("...installing ffmpeg")
-                run_sp("pip install -q ffmpeg", realtime=False)
-                pass
-            try:
-                import yt_dlp
-            except ImportError as e:
-                installer.status("...installing yt_dlp")
-                run_sp("pip install yt_dlp", realtime=False)
-                import yt_dlp
-                pass
+            pip_install("ffmpeg yt_dlp", installer=installer)
+            import yt_dlp
             f_name = ""
             def cb(d):
                 nonlocal f_name
@@ -32369,30 +31238,7 @@ def run_controlnet_video2video(page):
             clear_last()
             alert_msg(page, "Error Installing ControlNet Video Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    try:
-        import ffmpeg
-    except ImportError as e:
-        installer.status("...installing ffmpeg")
-        run_sp("pip install -q ffmpeg", realtime=False)
-        pass
-    try:
-        import cv2
-    except ModuleNotFoundError:
-        run_sp("pip install opencv-python", realtime=False)
-        import cv2
-        pass
-    try:
-        import click
-    except ImportError as e:
-        installer.status("...installing click")
-        run_sp("pip install -q click", realtime=False)
-        pass
-    try:
-        import moviepy
-    except ImportError as e:
-        installer.status("...installing moviepy")
-        run_sp("pip install -q moviepy", realtime=False)
-        pass
+    pip_install("ffmpeg opencv-python|cv2 click moviepy mediapipe controlnet-aux|controlnet_aux watchdog", q=True, installer=installer)
     try:
         import xformers
     except ModuleNotFoundError:
@@ -32400,24 +31246,6 @@ def run_controlnet_video2video(page):
         #run_sp("pip install --pre -U triton", realtime=False)
         run_sp("pip install -U xformers", realtime=False)
         status['installed_xformers'] = True
-        pass
-    try:
-        import mediapipe
-    except ImportError as e:
-        installer.status("...installing mediapipe")
-        run_sp("pip install -q mediapipe", realtime=False)
-        pass
-    try:
-        import controlnet_aux
-    except ImportError as e:
-        installer.status("...installing controlnet-aux")
-        run_sp("pip install -q controlnet-aux", realtime=False)
-        pass
-    try:
-        import watchdog
-    except ImportError as e:
-        installer.status("...installing watchdog")
-        run_sp("pip install -q watchdog", realtime=False)
         pass
     clear_pipes()
 
@@ -32434,11 +31262,9 @@ def run_controlnet_video2video(page):
     if bool(controlnet_video2video_prefs['batch_folder_name']):
         batch_output = os.path.join(stable_dir, controlnet_video2video_prefs['batch_folder_name'])
     else: batch_output = stable_dir
-    if not os.path.exists(batch_output):
-        os.makedirs(batch_output)
+    make_dir(batch_output)
     output_path = os.path.join(prefs['image_output'], controlnet_video2video_prefs['batch_folder_name'])
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
+    make_dir(output_path)
     init_vid = controlnet_video2video_prefs['init_video']
     if init_vid.startswith('http'):
         init_vid = download_file(init_vid, batch_output)
@@ -32707,7 +31533,7 @@ def run_deepfloyd(page, from_list=False):
     except ModuleNotFoundError:
         installer.status("...HuggingFace Hub")
         run_process("pip install huggingface_hub --upgrade", page=page)
-        import torch
+        from huggingface_hub import notebook_login, HfFolder, login
         pass
     if not os.path.exists(HfFolder.path_token):
         try:
@@ -33417,7 +32243,17 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     pip_install("sentencepiece", installer=installer, upgrade=True)
     use_8bit = pixart_alpha_prefs['use_8bit']
     if use_8bit:
-        pip_install("bitsandbytes", q=True, installer=installer)
+        try:
+          os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+          import bitsandbytes
+        except ModuleNotFoundError:
+          if sys.platform.startswith("win"):
+              run_sp("pip install bitsandbytes-windows", realtime=False)
+          else:
+              run_sp("pip install bitsandbytes", realtime=False)
+          import bitsandbytes
+          pass
+        #pip_install("bitsandbytes", q=True, installer=installer)
     if pixart_alpha_prefs['clean_caption']:
         pip_install("beautifulsoup4|beautifulsoup ftfy", installer=installer)
     cpu_offload = pixart_alpha_prefs['cpu_offload']
@@ -34247,7 +33083,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
             fname = f'{ldm3d_prefs["file_prefix"]}{fname}'
             image_path = available_file(txt2img_output, fname+"-rgb", i, no_num=True)
             depth_image_path = available_file(txt2img_output, fname+"-depth", i, no_num=True)
-            rgb_image, depth_image = image.rgb[i], image.depth[i]
+            rgb_image, depth_image = images.rgb[i], images.depth[i]
             rgb_image.save(image_path)
             depth_image.save(depth_image_path)
             output_file = image_path.rpartition(slash)[2]
@@ -35974,66 +34810,8 @@ def run_roop(page):
             clear_last()
             alert_msg(page, "Error Installing Point-E Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    try:
-        import ffmpeg
-    except ImportError as e:
-        installer.status("...installing ffmpeg")
-        run_sp("pip install -q ffmpeg", realtime=False)
-        pass
-    try:
-        import cv2
-    except ModuleNotFoundError:
-        run_sp("pip install opencv-python", realtime=False)
-        import cv2
-        pass
-    try:
-        import onnx
-    except ImportError as e:
-        installer.status("...installing onnx")
-        run_sp("pip install -q onnx==1.14.0", realtime=False)
-        pass
-    try:
-        import insightface
-    except ImportError as e:
-        installer.status("...installing insightface")
-        run_sp("pip install -q insightface==0.7.3", realtime=False)
-        pass
-    try:
-        import tk
-    except ImportError as e:
-        installer.status("...installing tk")
-        run_sp("pip install -q tk==0.1.0", realtime=False)
-        pass
-    try:
-        import customtkinter
-    except ImportError as e:
-        installer.status("...installing customtkinter")
-        run_sp("pip install -q customtkinter==5.1.3", realtime=False)
-        pass
-    try:
-        import onnxruntime
-    except ImportError as e:
-        installer.status("...installing onnxruntime")
-        run_sp("pip install -q onnxruntime-gpu==1.15.0", realtime=False)
-        pass
-    try:
-        import opennsfw2
-    except ImportError as e:
-        installer.status("...installing opennsfw2")
-        run_sp("pip install -q opennsfw2==0.10.2", realtime=False)
-        try:
-            import protobuf
-        except ImportError as e:
-            installer.status("...installing protobuf") #3.20.*
-            run_sp("pip install -q protobuf==4.24.3", realtime=False)
-            pass
-        pass
-    try:
-        import gfpgan
-    except ImportError as e:
-        installer.status("...installing gfpgan")
-        run_sp("pip install -q gfpgan", realtime=False)
-        pass
+    pip_install("ffmpeg opencv-python|cv2 onnx==1.14.0 insightface==0.7.3 tk==0.1.0 customtkinter==5.1.3 onnxruntime-gpu==1.15.0|onnxruntime opennsfw2==0.10.2 protobuf==4.24.3 gfpgan", installer=installer)
+    
     clear_pipes()
 
     from PIL import ImageOps
@@ -36206,18 +34984,7 @@ def run_video_retalking(page):
         installer.status("...unziping BFM")
         run_sp(f"unzip {os.path.join(video_retalking_checkpoints, 'BFM.zip')} -d BFM", realtime=False, cwd=video_retalking_checkpoints)
         os.remove(os.path.join(video_retalking_checkpoints, 'BFM.zip'))
-    try:
-        import ffmpeg
-    except ImportError as e:
-        installer.status("...installing ffmpeg")
-        run_sp("apt install ffmpeg", realtime=False)
-        pass
-    try:
-        import cv2
-    except ModuleNotFoundError:
-        run_sp("pip install opencv-python", realtime=False)
-        import cv2
-        pass
+    pip_install("ffmpeg opencv-python|cv2", installer=installer)
     clear_pipes()
     import glob
     from base64 import b64encode
@@ -36313,14 +35080,11 @@ def run_video_retalking(page):
     try:
         run_process(cmd, cwd=video_retalking_dir, page=page, realtime=True)
     except Exception as e:
-        clear_last()
-        clear_last()
+        clear_last(2)
         alert_msg(page, "Error running Python inference.", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
         return
     shutil.copy(video_file, output_file)
-    clear_last()
-    clear_last()
-    clear_last()
+    clear_last(3)
     autoscroll(True)
     #TODO: Upscale Image
     if os.path.isfile(output_file):
@@ -36398,39 +35162,8 @@ def run_animate_diff(page):
         run_sp("pip install -U xformers", realtime=False)
         status['installed_xformers'] = True
         pass
-    try:
-        import ffmpeg
-    except ImportError as e:
-        installer.status("...installing ffmpeg")
-        run_sp("pip install -q ffmpeg-python", realtime=False)
-        pass
-    try:
-        import cv2
-    except ModuleNotFoundError:
-        installer.status("...installing opencv")
-        run_process("pip install -q opencv-python", page=page)
-        import cv2
-        pass
-    try:
-        import onnxruntime
-    except Exception:
-        installer.status("...installing onnxruntime-gpu")
-        run_sp("pip install onnxruntime-gpu", realtime=False)
-        pass
-    try:
-        import sentencepiece
-    except Exception:
-        installer.status("...installing sentencepiece")
-        run_sp("pip install sentencepiece>=0.1.99", realtime=False)
-        pass
-    try:
-        import safetensors
-    except ModuleNotFoundError:
-        installer.status("...installing safetensors")
-        run_process("pip install --upgrade safetensors", page=page)
-        import safetensors
-        from safetensors import safe_open
-        pass
+    pip_install("ffmpeg-python|ffmpeg opencv-python|cv2 onnxruntime-gpu|onnxruntime sentencepiece>=0.1.99 safetensors", installer=installer)
+    from safetensors import safe_open
     try:
         from animatediff.cli import generate
     except ModuleNotFoundError:
@@ -37126,79 +35859,7 @@ def run_animate_diff(page):
               pass
         time.sleep(2)
         vidobserver.stop()
-    '''
-    num = 0
-    for image in images:
-        random_seed += num
-        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
-        image_path = available_file(os.path.join(stable_dir, animate_diff_prefs['batch_folder_name']), fname, num)
-        unscaled_path = image_path
-        output_file = image_path.rpartition(slash)[2]
-        image.save(image_path)
-        out_path = image_path.rpartition(slash)[0]
-        upscaled_path = os.path.join(out_path, output_file)
-        if not animate_diff_prefs['display_upscaled_image'] or not animate_diff_prefs['apply_ESRGAN_upscale']:
-            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
-        if animate_diff_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if animate_diff_prefs["face_enhance"] else ''
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {animate_diff_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            image_path = upscaled_path
-            os.chdir(stable_dir)
-            if animate_diff_prefs['display_upscaled_image']:
-                time.sleep(0.6)
-                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(animate_diff_prefs["enlarge_scale"]), height=height * float(animate_diff_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
-                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        if prefs['save_image_metadata']:
-            img = PILImage.open(image_path)
-            metadata = PngInfo()
-            metadata.add_text("artist", prefs['meta_ArtistName'])
-            metadata.add_text("copyright", prefs['meta_Copyright'])
-            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {animate_diff_prefs['enlarge_scale']}x with ESRGAN" if animate_diff_prefs['apply_ESRGAN_upscale'] else "")
-            metadata.add_text("pipeline", "AnimateDiff")
-            if prefs['save_config_in_metadata']:
-              config_json = animate_diff_prefs.copy()
-              config_json['model_path'] = model_path
-              config_json['scheduler_mode'] = prefs['scheduler_mode']
-              config_json['seed'] = random_seed
-              del config_json['num_images']
-              del config_json['width']
-              del config_json['height']
-              del config_json['display_upscaled_image']
-              del config_json['batch_folder_name']
-              if not config_json['apply_ESRGAN_upscale']:
-                del config_json['enlarge_scale']
-                del config_json['apply_ESRGAN_upscale']
-              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-            img.save(image_path, pnginfo=metadata)
-        #TODO: PyDrive
-        if storage_type == "Colab Google Drive":
-            new_file = available_file(os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name']), fname, num)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        elif bool(prefs['image_output']):
-            new_file = available_file(os.path.join(prefs['image_output'], animate_diff_prefs['batch_folder_name']), fname, num)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
-        num += 1
-        '''
+
     os.chdir(root_dir)
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -37340,91 +36001,6 @@ def run_hotshot_xl(page):
             prt(f"Saved Video file to {output_file}")
         else:
             prt(Row([ImageButton(src=output_file, data=output_file, width=width * scale, height=height * scale, show_subtitle=True, page=page)], alignment=MainAxisAlignment.CENTER))
-
-    '''if hotshot_xl_prefs['export_to_video']:
-        from diffusers.utils import export_to_video
-        video_path = export_to_video(frames)
-        shutil.copy(video_path, available_file(local_output, filename, 0, ext="mp4", no_num=True))
-        shutil.copy(video_path, available_file(batch_output, filename, 0, ext="mp4", no_num=True))
-    import cv2
-    from PIL.PngImagePlugin import PngInfo
-    num = 0
-    for image in frames:
-        random_seed += num
-        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
-        image_path = available_file(batch_output, fname, num)
-        unscaled_path = image_path
-        output_file = image_path.rpartition(slash)[2]
-        #uint8_image = (image * 255).round().astype("uint8")
-        #np_image = image.cpu().numpy()
-        #print(f"image: {type(image)}, np_image: {type(np_image)}")
-        #print(f"image: {type(image)} to {image_path}")
-        cv2.imwrite(image_path, image)
-        #PILImage.fromarray(np_image).save(image_path)
-        out_path = image_path.rpartition(slash)[0]
-        upscaled_path = os.path.join(out_path, output_file)
-        if not hotshot_xl_prefs['display_upscaled_image'] or not hotshot_xl_prefs['apply_ESRGAN_upscale']:
-            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
-        if hotshot_xl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if hotshot_xl_prefs["face_enhance"] else ''
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {hotshot_xl_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            image_path = upscaled_path
-            os.chdir(stable_dir)
-            if hotshot_xl_prefs['display_upscaled_image']:
-                time.sleep(0.6)
-                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(hotshot_xl_prefs["enlarge_scale"]), height=height * float(hotshot_xl_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
-                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        if prefs['save_image_metadata']:
-            img = PILImage.open(image_path)
-            metadata = PngInfo()
-            metadata.add_text("artist", prefs['meta_ArtistName'])
-            metadata.add_text("copyright", prefs['meta_Copyright'])
-            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {hotshot_xl_prefs['enlarge_scale']}x with ESRGAN" if hotshot_xl_prefs['apply_ESRGAN_upscale'] else "")
-            metadata.add_text("pipeline", "Text-To-Video")
-            if prefs['save_config_in_metadata']:
-              config_json = hotshot_xl_prefs.copy()
-              config_json['model_path'] = model_id
-              config_json['scheduler_mode'] = prefs['scheduler_mode']
-              config_json['seed'] = random_seed
-              del config_json['video_length']
-              del config_json['width']
-              del config_json['height']
-              del config_json['display_upscaled_image']
-              del config_json['batch_folder_name']
-              del config_json['lower_memory']
-              if not config_json['apply_ESRGAN_upscale']:
-                del config_json['enlarge_scale']
-                del config_json['apply_ESRGAN_upscale']
-              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-            img.save(image_path, pnginfo=metadata)
-        #TODO: PyDrive
-        if storage_type == "Colab Google Drive":
-            new_file = available_file(os.path.join(prefs['image_output'], hotshot_xl_prefs['batch_folder_name']), fname, num)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        elif bool(prefs['image_output']):
-            new_file = available_file(os.path.join(prefs['image_output'], hotshot_xl_prefs['batch_folder_name']), fname, num)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
-        num += 1'''
     #prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     prt(f"Done creating video... Check {batch_output}")
     autoscroll(False)
@@ -37499,8 +36075,7 @@ def run_rerender_a_video(page):
     #if not os.path.exists(batch_output):
     #    os.makedirs(batch_output)
     output_path = os.path.join(prefs['image_output'], rerender_a_video_prefs['batch_folder_name'])
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
+    make_dir(output_path)
     init_vid = rerender_a_video_prefs['init_video']
     if init_vid.startswith('http'):
         init_vid = download_file(init_vid, uploads_dir, ext="mp4")
@@ -37513,12 +36088,9 @@ def run_rerender_a_video(page):
         video_file += ".mp4"
     shutil.copy(init_vid, os.path.join(video_dir, video_file))
     video_out_path = os.path.join(video_dir, rerender_a_video_prefs['batch_folder_name'])
-    if not os.path.exists(video_out_path):
-        os.makedirs(video_out_path)
-    
+    make_dir(video_out_path)
     lora_dir = os.path.join(rerender_a_video_dir, 'models')
-    if not os.path.isdir(lora_dir):
-        os.makedirs(lora_dir)
+    make_dir(lora_dir)
     lora_path = ""
     if rerender_a_video_prefs['dreambooth_lora'] == "Custom":
         lora = rerender_a_video_prefs['custom_lora']
@@ -37792,13 +36364,11 @@ def run_materialdiffusion(page):
         else:
             images = rep_version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
     except Exception as e:
-        clear_last()
-        clear_last()
+        clear_last(2)
         alert_msg(page, f"ERROR: Couldn't create your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
         return
     autoscroll(True)
-    clear_last()
-    clear_last()
+    clear_last(2)
     txt2img_output = stable_dir
     batch_output = prefs['image_output']
     #print(str(images))
@@ -37937,11 +36507,9 @@ def run_DiT(page, from_list=False):
     s = "s" if DiT_prefs['num_images'] > 1 else ""
     prt(f"Generating DiT{s} of your Image...")
     batch_output = os.path.join(stable_dir, DiT_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    make_dir(batch_output)
     batch_output = os.path.join(prefs['image_output'], DiT_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    make_dir(batch_output)
     for pr in DiT_prompts:
         for num in range(DiT_prefs['num_images']):
             prt(progress)
@@ -38714,8 +37282,7 @@ def run_zoe_depth(page):
         pipe_zoe_depth = torch.hub.load(zoe_depth_dir, zoe_depth_prefs["zoe_model"], pretrained=True).to(torch_device).eval()
         zoe_depth_prefs['loaded_model'] = zoe_depth_prefs['zoe_model']
     batch_output = os.path.join(prefs['image_output'], zoe_depth_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-        os.makedirs(batch_output)
+    make_dir(batch_output)
     installer.set_message("Running ZoeDepth on your Image...")
     installer.show_progress(False)
     installer.status("...infering depth")
@@ -38749,8 +37316,7 @@ def run_zoe_depth(page):
     mesh = trimesh.Trimesh(vertices=verts, faces=triangles, vertex_colors=colors)
     mesh.export(glb_path)
     autoscroll(True)
-    clear_last()
-    clear_last()
+    clear_last(2)
     prt(ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page))
     if zoe_depth_prefs['colorize']:
         prt(ImageButton(src=colored_path, width=colored.shape[1], height=colored.shape[0], data=colored_path, subtitle=colored_path, page=page))
@@ -38885,8 +37451,7 @@ def run_instant_ngp(page):
     output_video_path = os.path.join(scene_path, "output_video.mp4")
     python scripts/run.py {snapshot_path} --video_camera_path {video_camera_path} --video_n_seconds 2 --video_fps 25 --width 720 --height 720 --video_output {output_video_path}
     print(f"Generated video saved to:\n{output_video_path}")'''
-    clear_last()
-    clear_last()
+    clear_last(2)
     prt(Markdown(f"## Your model was saved successfully to _{output_dir}_.\nNow take those files and load then locally on Windows following [instant-ngp gui instructions](https://github.com/NVlabs/instant-ngp#testbed-controls) to export videos and meshes or try MeshLab... (wish we can do that for ya here)", on_tap_link=lambda e: e.page.launch_url(e.data)))
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -38982,7 +37547,6 @@ def run_dall_e(page, from_list=False):
         prt("Generating your Dall-E 2 Image...")
         prt(progress)
         autoscroll(False)
-
         try:
             if bool(init_image) and bool(dall_e_prefs['variation']):
                 response = openai_client.images.create_variation(image=open(init_file, 'rb'), size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
@@ -39032,7 +37596,6 @@ def run_dall_e(page, from_list=False):
             if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=image_path, data=new_file, width=size, height=size, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-
             #if save_to_GDrive:
             batch_output = os.path.join(prefs['image_output'], dall_e_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
@@ -39172,7 +37735,6 @@ def run_dall_e_3(page, from_list=False):
         prt("Generating your Dall-E 3 Image...")
         prt(progress)
         autoscroll(False)
-
         try:
             if bool(init_image) and bool(dall_e_3_prefs['variation']):
                 response = client.images.create_variation(image=open(init_file, 'rb'), size=dall_e_3_prefs['size'], n=dall_e_3_prefs['num_images'])
@@ -39488,12 +38050,10 @@ def run_kandinsky(page, from_list=False, with_params=False):
                     callback_on_step_end=callback_fnc,
                 ).images
         except Exception as e:
-            clear_last()
-            clear_last()
+            clear_last(2)
             alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Text(str(e)))
             return
-        clear_last()
-        clear_last()
+        clear_last(2)
         autoscroll(True)
         txt2img_output = stable_dir
         batch_output = prefs['image_output']
@@ -39681,7 +38241,7 @@ def run_kandinsky21(page):
                 mask_img = ImageOps.invert(mask_img.convert('RGB'))
         mask_img = mask_img.resize((kandinsky21_prefs['width'], kandinsky21_prefs['height']), resample=PILImage.NEAREST)
         mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
-        mask_img = numpy.asarray(mask_img)
+        mask_img = np.asarray(mask_img)
         #mask_img.save(mask_file)
     #print(f'Resize to {width}x{height}')
     task_type = "inpainting" if bool(kandinsky21_prefs['init_image']) and bool(kandinsky21_prefs['mask_image']) else "text2img"
@@ -39717,12 +38277,10 @@ def run_kandinsky21(page):
             #images = pipe_kandinsky.generate_text2img(kandinsky21_prefs['prompt'], batch_size=kandinsky21_prefs['num_images'], w=kandinsky21_prefs['width'], h=kandinsky21_prefs['height'], num_steps=kandinsky21_prefs['steps'], denoised_type=kandinsky21_prefs['denoised_type'], dynamic_threshold_v=kandinsky21_prefs['dynamic_threshold_v'], sampler=kandinsky21_prefs['sampler'], ddim_eta=kandinsky21_prefs['ddim_eta'], guidance_scale=kandinsky21_prefs['guidance_scale'])
             images = pipe_kandinsky.generate_text2img(kandinsky21_prefs['prompt'], batch_size=kandinsky21_prefs['num_images'], w=kandinsky21_prefs['width'], h=kandinsky21_prefs['height'], num_steps=kandinsky21_prefs['steps'], prior_cf_scale=kandinsky21_prefs['prior_cf_scale'], prior_steps=str(kandinsky21_prefs['prior_steps']), sampler=kandinsky21_prefs['sampler'], guidance_scale=kandinsky21_prefs['guidance_scale'])
     except Exception as e:
-        clear_last()
-        clear_last()
+        clear_last(2)
         alert_msg(page, f"ERROR: Something went wrong generating images...", content=Text(str(e)))
         return
-    clear_last()
-    clear_last()
+    clear_last(2)
     autoscroll(True)
     txt2img_output = stable_dir
     batch_output = prefs['image_output']
@@ -39901,12 +38459,10 @@ def run_kandinsky_fuse(page):
             callback_on_step_end=callback_fnc,
         ).images
     except Exception as e:
-        clear_last()
-        clear_last()
+        clear_last(2)
         alert_msg(page, f"ERROR: Something went wrong generating images...", content=Text(str(e)))
         return
-    clear_last()
-    clear_last()
+    clear_last(2)
     autoscroll(True)
     txt2img_output = stable_dir
     batch_output = prefs['image_output']
@@ -40058,12 +38614,10 @@ def run_kandinsky21_fuse(page):
     try:
         images = pipe_kandinsky.mix_images(images_texts, weights, batch_size=kandinsky21_fuse_prefs['num_images'], w=kandinsky21_fuse_prefs['width'], h=kandinsky21_fuse_prefs['height'], num_steps=kandinsky21_fuse_prefs['steps'], prior_cf_scale=kandinsky21_fuse_prefs['prior_cf_scale'], prior_steps=str(kandinsky21_fuse_prefs['prior_steps']), sampler=kandinsky21_fuse_prefs['sampler'], guidance_scale=kandinsky21_fuse_prefs['guidance_scale'])
     except Exception as e:
-        clear_last()
-        clear_last()
+        clear_last(2)
         alert_msg(page, f"ERROR: Something went wrong generating images...", content=Text(str(e)))
         return
-    clear_last()
-    clear_last()
+    clear_last(2)
     autoscroll(True)
     txt2img_output = stable_dir
     batch_output = prefs['image_output']
@@ -40295,12 +38849,10 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                 ).images
 
             except Exception as e:
-                clear_last()
-                clear_last()
+                clear_last(2)
                 alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Text(str(e)))
                 return
-            clear_last()
-            clear_last()
+            clear_last(2)
             autoscroll(True)
             txt2img_output = stable_dir
             batch_output = prefs['image_output']
@@ -40498,9 +39050,7 @@ def run_deep_daze(page):
     input = PILImage.open(fname)
     input.save(image_path)
     #shutil.copy(fname, image_path)
-    clear_last()
-    clear_last()
-    clear_last()
+    clear_last(3)
     autoscroll(True)
     if not deep_daze_prefs['display_upscaled_image'] or not deep_daze_prefs['apply_ESRGAN_upscale']:
         prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -40696,7 +39246,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         title=Text("📨  Contact Us"), content=Column([
           Text("If you want to reach Alan Bedian/Skquark, Inc. for any reason, feel free to send me a message (as long as it's not spam) by Email or on Discord @Skquark#0394 where I'm usually available."),
           Text("If you're a developer and want to help with this project (or one of my other almost done apps) then you can Join my Discord Channel and get involved. It's fairly quiet in there though..."),
-          Row([ft.FilledButton("Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")), ft.FilledButton("Skquark Discord", on_click=lambda _:page.launch_url("https://discord.gg/fTraJ96Z"))], alignment=MainAxisAlignment.CENTER),
+          Row([ft.FilledButton("Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")), ft.FilledButton("Skquark Discord", on_click=lambda _:page.launch_url("https://discord.gg/fTraJ96Z")), ft.FilledButton("Skquark.com", on_click=lambda _:page.launch_url("https://Skquark.com"))], alignment=MainAxisAlignment.CENTER),
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("👁️‍🗨️  Maybe...", on_click=close_contact_dlg)], actions_alignment=MainAxisAlignment.END,
     )
@@ -40710,7 +39260,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     donate_dlg = AlertDialog(
         title=Text("🎁  Donate to the Cause"), content=Column([
           Text("This app has been a one-man labour of love with a lot of effort poured into it over several months. It's powerful enough to be a paid commercial application, however it's all open-source code behind it created by many contributers to make the tools as cool as they are."),
-          Text("While we offer this software free of charge, your support would be greatly appreciated to continue the efforts to keep making it better. If you find value in this software and are able to show some love, any amount you can offer is welcomed..."),
+          Text("While we offer this software free of charge, your support would be greatly appreciated to continue the efforts to keep making it better. If you find value in this software and are able to show some love, any amount you can offer is welcomed... I don't even own a GPU good enough to run my own app locally!"),
           Text("If you're technical enough, you can also donate by making contributions to the code, offering suggestions for improvements, adding to the Community Fine-Tuned Models list, or whatever enhancements to the project you can provide..."),
           Row([ft.FilledButton("Donate with PayPal", on_click=lambda _:page.launch_url("https://paypal.me/StarmaTech")), ft.FilledButton("Donate with Venmo", on_click=lambda _:page.launch_url("https://venmo.com/u/Alan-Bedian"))], alignment=MainAxisAlignment.CENTER),
         ], scroll=ScrollMode.AUTO),
