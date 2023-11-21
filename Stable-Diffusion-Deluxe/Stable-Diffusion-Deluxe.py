@@ -729,8 +729,8 @@ def buildImageAIs(page):
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
-            Tab(text="Dall-E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
-            Tab(text="Dall-E 3", content=page.DallE3, icon=icons.BLUR_ON),
+            Tab(text="DALL•E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
+            Tab(text="DALL•E 3", content=page.DallE3, icon=icons.BLUR_ON),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             Tab(text="DeepDaze", content=page.DeepDaze, icon=icons.FACE),
         ],
@@ -789,6 +789,7 @@ def buildVideoAIs(page):
     page.Video_ReTalking = buildVideoReTalking(page)
     page.AnimateDiff = buildAnimateDiff(page)
     page.HotshotXL = buildHotshotXL(page)
+    page.LCMInterpolation = buildLCMInterpolation(page)
     page.Rerender_a_video = buildRerender_a_video(page)
 
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
@@ -806,6 +807,7 @@ def buildVideoAIs(page):
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="TemporalNet-XL", content=page.TemporalNet_XL, icon=icons.HOURGLASS_BOTTOM),
+            Tab(text="LCM Interpolation", content=page.LCMInterpolation, icon=icons.TRANSFER_WITHIN_A_STATION),
             Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
         ],
     )
@@ -1743,8 +1745,8 @@ def buildInstallers(page):
         page.ESRGAN_block_dalle.height = None
         page.ESRGAN_block_kandinsky.height = None
         page.ESRGAN_block_kandinsky_fuse.height = None
-        page.ESRGAN_block_kandinsky2.height = None
-        page.ESRGAN_block_kandinsky21_fuse.height = None
+        #page.ESRGAN_block_kandinsky21.height = None
+        #page.ESRGAN_block_kandinsky21_fuse.height = None
         page.ESRGAN_block_kandinsky_controlnet.height = None
         page.ESRGAN_block_deepfloyd.height = None
         page.ESRGAN_block_reference.height = None
@@ -1777,8 +1779,8 @@ def buildInstallers(page):
         page.ESRGAN_block_kandinsky.update()
         page.ESRGAN_block_kandinsky_fuse.update()
         page.ESRGAN_block_kandinsky_controlnet.update()
-        page.ESRGAN_block_kandinsky2.update()
-        page.ESRGAN_block_kandinsky21_fuse.update()
+        #page.ESRGAN_block_kandinsky21.update()
+        #page.ESRGAN_block_kandinsky21_fuse.update()
         page.ESRGAN_block_deepfloyd.update()
         page.ESRGAN_block_wuerstchen.update()
         page.ESRGAN_block_pixart_alpha.update()
@@ -9066,7 +9068,7 @@ lcm_prefs = {
     "width": 1024,
     "height":1024,
     "guidance_scale":4.5,
-    'num_inference_steps': 30,
+    'num_inference_steps': 8,
     "seed": 0,
     'init_image': '',
     'init_image_strength': 0.8,
@@ -9123,7 +9125,7 @@ def buildLCM(page):
     batch_folder_name = TextField(label="Batch Folder Name", value=lcm_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=lcm_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=lcm_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
-    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=lcm_prefs, key='num_inference_steps')
+    steps = SliderRow(label="Number of Steps", min=0, max=40, divisions=40, pref=lcm_prefs, key='num_inference_steps')
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lcm_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lcm_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lcm_prefs, key='height')
@@ -9159,6 +9161,190 @@ def buildLCM(page):
             page.ESRGAN_block_lcm,
             parameters_row,
             page.lcm_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+lcm_interpolation_prefs = {
+    "prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "lcm-",
+    "num_images": 1,
+    "mixes": [],
+    "num_interpolation_steps": 60,
+    "steps":8,
+    "width": 512,
+    "height":512,
+    "guidance_scale":8,
+    'process_batch_size': 4,
+    "embedding_interpolation_type": "lerp",
+    "latent_interpolation_type": "slerp",
+    "save_video": True,
+    "interpolate_video": True,
+    "source_fps": 8,
+    "target_fps": 24,
+    "seed": 0,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildLCMInterpolation(page):
+    global prefs, lcm_interpolation_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            lcm_interpolation_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            lcm_interpolation_prefs[pref] = float(e.control.value)
+          else:
+            lcm_interpolation_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        lcm_interpolation_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def lcm_interpolation_help(e):
+      def close_lcm_interpolation_dlg(e):
+        nonlocal lcm_interpolation_help_dlg
+        lcm_interpolation_help_dlg.open = False
+        page.update()
+      lcm_interpolation_help_dlg = AlertDialog(title=Text("🙅   Help with LCM Interpolation Pipeline"), content=Column([
+          Text("This pipeline extends the Latent Consistency Pipeline to allow for interpolation of the latent space between multiple prompts. It is similar to the Stable Diffusion Interpolate and unCLIP Interpolate community pipelines."),
+          #Text(""),
+          Markdown(""),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🔲  The Space Between... ", on_click=close_lcm_interpolation_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = lcm_interpolation_help_dlg
+      lcm_interpolation_help_dlg.open = True
+      page.update()
+    def add_prompt(e):
+        if not bool(lcm_interpolation_prefs['prompt']): return
+        layer = {'prompt': lcm_interpolation_prefs['prompt']}
+        lcm_interpolation_prefs['mixes'].append(layer)
+        fuse_layers.controls.append(ListTile(title=Row([Text(layer['prompt'], weight=FontWeight.BOLD)], alignment=MainAxisAlignment.SPACE_BETWEEN), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.EDIT, text="Edit Text Layer", on_click=edit_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE, text="Delete Text Layer", on_click=delete_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+              PopupMenuItem(icon=icons.ARROW_UPWARD, text="Move Up", on_click=move_up, data=layer),
+              PopupMenuItem(icon=icons.ARROW_DOWNWARD, text="Move Down", on_click=move_down, data=layer),
+          ]), data=layer, on_click=edit_layer))
+        fuse_layers.update()
+        lcm_interpolation_prefs['prompt'] = ""
+        prompt.value = ""
+        prompt.update()
+    def delete_layer(e):
+        lcm_interpolation_prefs['mixes'].remove(e.control.data)
+        for c in fuse_layers.controls:
+          if c.data['prompt'] == e.control.data['prompt']:
+              fuse_layers.controls.remove(c)
+              break
+        fuse_layers.update()
+    def delete_all_layers(e):
+        lcm_interpolation_prefs['mixes'].clear()
+        fuse_layers.controls.clear()
+        fuse_layers.update()
+    def move_down(e):
+        idx = lcm_interpolation_prefs['mixes'].index(e.control.data)
+        if idx < (len(lcm_interpolation_prefs['mixes']) - 1):
+          d = lcm_interpolation_prefs['mixes'].pop(idx)
+          lcm_interpolation_prefs['mixes'].insert(idx+1, d)
+          dr = fuse_layers.controls.pop(idx)
+          fuse_layers.controls.insert(idx+1, dr)
+          fuse_layers.update()
+    def move_up(e):
+        idx = lcm_interpolation_prefs['mixes'].index(e.control.data)
+        if idx > 0:
+          d = lcm_interpolation_prefs['mixes'].pop(idx)
+          lcm_interpolation_prefs['mixes'].insert(idx-1, d)
+          dr = fuse_layers.controls.pop(idx)
+          fuse_layers.controls.insert(idx-1, dr)
+          fuse_layers.update()
+    def edit_layer(e):
+        data = e.control.data
+        prompt_value = data["prompt"]
+        image_value = ""
+        def close_dlg(e):
+            dlg_edit.open = False
+            page.update()
+        def save_layer(e):
+            layer = None
+            for l in lcm_interpolation_prefs['mixes']:
+                if data["prompt"] == l["prompt"]:
+                    layer = l
+                    layer['prompt'] = prompt_text.value
+                    break
+            for c in fuse_layers.controls:
+                if 'prompt' not in data: continue
+                if c.data['prompt'] == data['prompt']:
+                    c.title.controls[0].value = layer['prompt']
+                    c.update()
+                    break
+            layer['prompt'] = prompt_text.value
+            dlg_edit.open = False
+            e.control.update()
+            page.update()
+        prompt_text = TextField(label="Interpolation Prompt Text", value=prompt_value, multiline=True)
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Interpolation Prompt"), content=Container(Column([prompt_text], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window_width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = dlg_edit
+        dlg_edit.open = True
+        page.update()
+    def toggle_video(e):
+        lcm_interpolation_prefs['save_video'] = e.control.value
+        video_container.visible = lcm_interpolation_prefs['save_video']
+        video_container.update()
+    add_prompt_btn = ft.FilledButton("➕ Add Prompt", width=150, on_click=add_prompt)
+    prompt = TextField(label="Interpolation Prompt Text", value=lcm_interpolation_prefs['prompt'], filled=True, expand=True, multiline=True, on_submit=add_prompt, on_change=lambda e:changed(e,'prompt'))
+    prompt_row = Row([prompt, add_prompt_btn])
+    fuse_layers = Column([], spacing=0)
+    batch_folder_name = TextField(label="Batch Folder Name", value=lcm_interpolation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=lcm_interpolation_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    num_interpolation_steps = SliderRow(label="Interpolation Steps", min=0, max=200, divisions=200, pref=lcm_interpolation_prefs, key='num_interpolation_steps', tooltip="Number of Image Frames between each Prompt to Interpolate.")
+    process_batch_size = SliderRow(label="Process Batch Size", min=0, max=20, divisions=20, pref=lcm_interpolation_prefs, key='process_batch_size', tooltip="The batch size to use for processing the images. This is useful when generating a large number of images and you want to avoid running out of memory.")
+    steps = SliderRow(label="Number of Inference Steps", min=0, max=40, divisions=40, pref=lcm_interpolation_prefs, key='steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lcm_interpolation_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=lcm_interpolation_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=1024, divisions=14, multiple=32, suffix="px", pref=lcm_interpolation_prefs, key='height')
+    embedding_interpolation_type = Dropdown(label="Embedding Interpolation Type", tooltip="The type of interpolation to use for interpolating between text embeddings.", width=220, options=[dropdown.Option("lerp"), dropdown.Option("slerp")], value=lcm_interpolation_prefs['embedding_interpolation_type'], autofocus=False, on_change=lambda e:changed(e, 'embedding_interpolation_type'))
+    latent_interpolation_type = Dropdown(label="Latent Interpolation Type", tooltip="The type of interpolation to use for interpolating between latents.", width=220, options=[dropdown.Option("lerp"), dropdown.Option("slerp")], value=lcm_interpolation_prefs['latent_interpolation_type'], autofocus=False, on_change=lambda e:changed(e, 'latent_interpolation_type'))
+    save_video = Switcher(label="Save Video", value=lcm_interpolation_prefs['save_video'], on_change=toggle_video)
+    interpolate_video = Switcher(label="Interpolate", value=lcm_interpolation_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    source_fps = SliderRow(label="Source FPS", min=0, max=30, suffix="fps", divisions=30, expand=1, pref=lcm_interpolation_prefs, key='source_fps')
+    target_fps = SliderRow(label="Target FPS", min=0, max=30, suffix="fps", divisions=30, expand=1, pref=lcm_interpolation_prefs, key='target_fps')
+    video_container = Container(content=Row([interpolate_video, source_fps, target_fps], expand=True), expand=True, visible=lcm_interpolation_prefs['save_video'])
+    seed = TextField(label="Seed", width=90, value=str(lcm_interpolation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=lcm_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=lcm_interpolation_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=lcm_interpolation_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=lcm_interpolation_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_lcm_interpolation = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_lcm_interpolation.height = None if status['installed_ESRGAN'] else 0
+    if not lcm_interpolation_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🧶   Run LCM Interpolation", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lcm_interpolation(page))
+    parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    page.lcm_interpolation_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("👪  LCM Interpolation", "Transition the Latent Consistancy between multiple text prompts... Good fast results in only 4 Steps!", actions=[IconButton(icon=icons.HELP, tooltip="Help with LCM Settings", on_click=lcm_interpolation_help)]),
+            prompt_row,
+            fuse_layers,
+            Divider(height=5, thickness=4),
+            num_interpolation_steps,
+            process_batch_size,
+            steps,
+            guidance, width_slider, height_slider,
+            Row([embedding_interpolation_type, latent_interpolation_type]),
+            Row([save_video, video_container]),
+            ResponsiveRow([Row([seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_lcm_interpolation,
+            parameters_row,
+            page.lcm_interpolation_output
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -10957,7 +11143,7 @@ animate_diff_prefs = {
     'compile': prefs['enable_torch_compile'],
     'control_task': 'Canny',
     'control_frame': '0',
-    'original_image': '',    
+    'original_image': '',
     'conditioning_scale': 1.0,
     'control_guidance_start': 0.0,
     'control_guidance_end': 1.0,
@@ -10975,11 +11161,18 @@ animate_diff_prefs = {
     'ip_adapter_layers': {},
     'ip_adapter_scale': 0.5,
     'ip_adapter_is_plus': True,
+    'ip_adapter_is_full_face': False,
     'ip_adapter_is_plus_face': False,
     'ip_adapter_light': False,
+    'use_img2img': False,
+    'img2img_image': '',
+    'img2img_frame': '0',
+    'img2img_layers': {},
+    'img2img_strength': 0.7,
     'is_simple_composite': False,
     'motion_loras': [],
     'motion_loras_strength': 0.5,
+    'apply_lcm_lora': False,
     'num_images': 1,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -11025,21 +11218,21 @@ animate_diff_motion_modules = [
     {'name': 'mm_sd_v14', 'file': 'mm_sd_v14.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v14.ckpt'},
     {'name': 'mm_sd_v15', 'file': 'mm_sd_v15.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt'},
     {'name': 'mm_sd_v15_v2', 'file': 'mm_sd_v15_v2.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15_v2.ckpt'},
+    {'name': 'mm_sdxl_v10_beta', 'file': 'mm_sdxl_v10_beta.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sdxl_v10_beta.ckpt'},
     {'name': 'improved3DMotion', 'file': 'improved3DMotion_improved3DV1.ckpt', 'path': 'https://civitai.com/api/download/models/178017?type=Model&format=PickleTensor'},
     {'name': 'TemporalDiff', 'file': 'temporaldiffMotion_v10.ckpt', 'path': 'https://civitai.com/api/download/models/160418?type=Model&format=PickleTensor'},
     {'name': 'YoinkoorLab NSFW', 'file': 'yoinkoorlabsNSFWMotion_godmodev20.ckpt', 'path': 'https://civitai.com/api/download/models/177016?type=Model&format=PickleTensor'},
     {'name': 'Improved Humans', 'file': 'improvedHumansMotion_refinedHumanMovement.ckpt', 'path': 'https://civitai.com/api/download/models/174464?type=Model&format=PickleTensor'},
     {'name': 'ZlikwidDiff', 'file': 'zlikwiddiffV1_v10.ckpt', 'path': 'https://civitai.com/api/download/models/178745?type=Model&format=PickleTensor'},
     {'name': 'Viddle-Pix2Pix', 'file': 'viddle-pix2pix-animatediff-v1.ckpt', 'path': 'https://huggingface.co/viddle/viddle-pix2pix-animatediff/resolve/main/viddle-pix2pix-animatediff-v1.ckpt'},
-    #{'name': 'mm_sdxl_v10_beta', 'file': 'mm_sdxl_v10_beta.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sdxl_v10_beta.ckpt'},
 ]
 animate_diff_motion_loras = [
     {'name': 'Zoom-In', 'file': 'v2_lora_ZoomOut.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_ZoomOut.ckpt'},
     {'name': 'Zoom-Out', 'file': 'v2_lora_ZoomIn.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_ZoomIn.ckpt'},
     {'name': 'Pan-Left', 'file': 'v2_lora_PanLeft.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_PanLeft.ckpt'},
     {'name': 'Pan-Right', 'file': 'v2_lora_PanRight.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_PanRight.ckpt'},
-    {'name': 'Pan-Up', 'file': 'v2_lora_PanUp.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_PanUp.ckpt'},
-    {'name': 'Pan-Down', 'file': 'v2_lora_PanDown.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_PanDown.ckpt'},
+    {'name': 'Tilt-Up', 'file': 'v2_lora_TiltUp.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_TiltUp.ckpt'},
+    {'name': 'Tilt-Down', 'file': 'v2_lora_TiltDown.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_TiltDown.ckpt'},
     {'name': 'Clockwise', 'file': 'v2_lora_RollingClockwise.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_RollingClockwise.ckpt'},
     {'name': 'Anti-clockwise', 'file': 'v2_lora_RollingAnticlockwise.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_RollingAnticlockwise.ckpt'},
 ]
@@ -11379,6 +11572,45 @@ def buildAnimateDiff(page):
         animate_diff_prefs['ip_adapter_layers'].clear()
         ip_adapter_layers.controls.clear()
         ip_adapter_layers.update()
+    
+    def toggle_img2img(e):
+        animate_diff_prefs['use_img2img'] = e.control.value
+        img2img_strength.show = animate_diff_prefs['use_img2img']
+        img2img_container.height=None if animate_diff_prefs['use_img2img'] else 0
+        img2img_container.update()
+        img2img_strength.update()
+    def add_img2img_layer(e):
+        img2img_image = {str(int(animate_diff_prefs['img2img_frame'])): animate_diff_prefs['img2img_image']}
+        updating = False
+        if str(int(animate_diff_prefs['img2img_frame'])) in animate_diff_prefs['img2img_layers']:
+            updating = True
+        animate_diff_prefs['img2img_layers'].update(img2img_image)
+        title = Markdown(f"**{str(int(animate_diff_prefs['img2img_frame']))}:** {animate_diff_prefs['img2img_image']}")
+        if updating:
+            animate_diff_prefs['img2img_layers'][str(int(animate_diff_prefs['img2img_frame']))] = animate_diff_prefs['img2img_image']
+            for l in img2img_layers.controls:
+                if next(iter(l.data.items()))[0] == str(int(animate_diff_prefs['img2img_frame'])):
+                    l.title = title
+                    l.update()
+                    l.data = img2img_image
+        else:
+            img2img_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+              items=[
+                  PopupMenuItem(icon=icons.DELETE, text="Delete Img2Img Frame", on_click=delete_img2img_layer, data=img2img_image),
+                  PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Frames", on_click=delete_all_img2img_layers, data=img2img_image),
+              ]), data=img2img_image))
+        img2img_layers.update()
+    def delete_img2img_layer(e):
+        del animate_diff_prefs['img2img_layers'][next(iter(e.control.data.items()))[0]]
+        for c in img2img_layers.controls:
+          if next(iter(c.data.items()))[0] ==  next(iter(e.control.data.items()))[0]:
+             img2img_layers.controls.remove(c)
+             break
+        img2img_layers.update()
+    def delete_all_img2img_layers(e):
+        animate_diff_prefs['img2img_layers'].clear()
+        img2img_layers.controls.clear()
+        img2img_layers.update()
     def changed_motion_lora(e):
         on = e.control.value
         if e.control.data in animate_diff_prefs['motion_loras']:
@@ -11426,6 +11658,7 @@ def buildAnimateDiff(page):
     save_video = Switcher(label="Save Video", value=animate_diff_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
     is_loop = Switcher(label="Loop", value=animate_diff_prefs['is_loop'], on_change=lambda e:changed(e,'is_loop'))
     is_simple_composite = Switcher(label="Simple Composite", value=animate_diff_prefs['is_simple_composite'], on_change=lambda e:changed(e,'is_simple_composite'))
+    apply_lcm_lora = Switcher(label="Apply LCM LoRA", value=animate_diff_prefs['apply_lcm_lora'], on_change=lambda e:changed(e,'apply_lcm_lora'))
     control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile", "QR_Code_Monster_v1", "QR_Code_Monster_v2", "Mediapipe_Face"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
     original_image = FileInput(label="Original Image or Video Clip", pref=animate_diff_prefs, key='original_image', ftype="picture", expand=True, page=page)
     control_frame = TextField(label="Frame", width=76, value="0", keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'control_frame', ptype='int'))
@@ -11445,14 +11678,27 @@ def buildAnimateDiff(page):
     add_frame_btn = ft.FilledButton("➕ Add Frame", width=144, on_click=add_ip_layer)
     ip_adapter_scale = SliderRow(label="IP-Adapter Scale", min=0.0, max=1.0, divisions=20, round=2, expand=True, pref=animate_diff_prefs, key='ip_adapter_scale', tooltip="")
     ip_adapter_is_plus = Checkbox(label="IP-Adapter Plus", value=animate_diff_prefs['ip_adapter_is_plus'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_is_plus'))
+    ip_adapter_is_full_face = Checkbox(label="IP-Adapter Full Face", value=animate_diff_prefs['ip_adapter_is_full_face'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_is_full_face'))
     ip_adapter_is_plus_face = Checkbox(label="IP-Adapter Plus Face", value=animate_diff_prefs['ip_adapter_is_plus_face'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_is_plus_face'))
     ip_adapter_light = Checkbox(label="IP-Adapter Light", value=animate_diff_prefs['ip_adapter_light'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'ip_adapter_light'))
     ip_adapter_container = Container(animate_size=animation.Animation(700, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, alignment = alignment.top_left, height = None if animate_diff_prefs['use_ip_adapter'] else 0, padding=padding.only(top=4), content=Column([
       Row([ip_adapter_frame, ip_adapter_image, add_frame_btn]),
       ip_adapter_layers,
-      Row([ip_adapter_scale, ip_adapter_is_plus, ip_adapter_is_plus_face, ip_adapter_light]),
+      Row([ip_adapter_scale, ip_adapter_is_plus, ip_adapter_is_full_face, ip_adapter_is_plus_face, ip_adapter_light]),
       Divider(thickness=2, height=4),
     ]))
+    img2img_layers = Column([], spacing=0)
+    use_img2img = Switcher(label="Use Image2Image Layers", value=animate_diff_prefs['use_img2img'], on_change=toggle_img2img)
+    img2img_frame = TextField(label="Frame", width=76, value="0", keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'img2img_frame'))
+    img2img_image = FileInput(label="Init Img2Img Image", pref=animate_diff_prefs, key='img2img_image', expand=True, page=page)
+    add_img2img_frame_btn = ft.FilledButton("➕ Add Frame", width=144, on_click=add_img2img_layer)
+    img2img_strength = SliderRow(label="Denoising Strength", min=0.0, max=1.0, divisions=20, round=2, expand=True, visible=False, pref=animate_diff_prefs, key='img2img_strength', tooltip="The smaller the value, the closer the result will be to the initial image.")
+    img2img_container = Container(animate_size=animation.Animation(700, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, alignment = alignment.top_left, height = None if animate_diff_prefs['use_img2img'] else 0, padding=padding.only(top=4), content=Column([
+      Row([img2img_frame, img2img_image, add_img2img_frame_btn]),
+      img2img_layers,
+      Divider(thickness=2, height=4),
+    ]))
+
     upscale_tile = Switcher(label="Upscale Tile", value=animate_diff_prefs['upscale_tile'], on_change=lambda e:changed(e,'upscale_tile'))
     upscale_ip2p = Switcher(label="Upscale IP2P", value=animate_diff_prefs['upscale_ip2p'], on_change=lambda e:changed(e,'upscale_ip2p'))
     upscale_lineart_anime = Switcher(label="Upscale LineArt Anime", value=animate_diff_prefs['upscale_lineart_anime'], on_change=lambda e:changed(e,'upscale_lineart_anime'))
@@ -11505,6 +11751,8 @@ def buildAnimateDiff(page):
         Divider(thickness=2, height=4),
         use_ip_adapter, 
         ip_adapter_container,
+        Row([use_img2img, img2img_strength]),
+        img2img_container,
         ref_image,
         Row([upscale_tile, upscale_ip2p, upscale_lineart_anime]),
         ResponsiveRow([upscale_steps, upscale_guidance_scale]),
@@ -11513,7 +11761,7 @@ def buildAnimateDiff(page):
         #ResponsiveRow([Container(Text("Motion Module LoRAs:"), col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}), motion_loras_checkboxes]),
         motion_loras_checkboxes,
         motion_loras_strength,
-        Row([motion_module, scheduler, batch_folder_name]),
+        Row([motion_module, scheduler, batch_folder_name, apply_lcm_lora]),
         Row([is_loop, save_frames, save_gif, save_video, is_simple_composite]),
         page.ESRGAN_block_animate_diff,
         #Row([jump_length, jump_n_sample, seed]),
@@ -12276,13 +12524,13 @@ def buildDallE2(page):
     if not dall_e_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page, from_list=True))
-    parameters_button = ElevatedButton(content=Text(value="🖼️   Run Dall-E 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page))
+    parameters_button = ElevatedButton(content=Text(value="🖼️   Run DALL•E 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page))
 
     parameters_row = Row([parameters_button, list_button], spacing=22)#, alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.dall_e_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("👺  OpenAI Dall-E 2", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
+            Header("👺  OpenAI DALL•E 2", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
             prompt,
             img_block, page.ESRGAN_block_dalle,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
@@ -12418,13 +12666,13 @@ def buildDallE3(page):
     if not dall_e_3_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e_3(page, from_list=True))
-    parameters_button = ElevatedButton(content=Text(value="🙌   Run Dall-E 3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e_3(page))
+    parameters_button = ElevatedButton(content=Text(value="🙌   Run DALL•E 3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e_3(page))
 
     parameters_row = Row([parameters_button, list_button], spacing=22)#, alignment=MainAxisAlignment.SPACE_BETWEEN)
     dall_e_3_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🏇  OpenAI Dall-E 3", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
+            Header("🏇  OpenAI DALL•E 3", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
             prompt,
             Row([hd_quality, natural_style]),
             #img_block,
@@ -12787,8 +13035,8 @@ def buildKandinsky21(page):
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky21_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky21_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky2 = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_kandinsky2.height = None if status['installed_ESRGAN'] else 0
+    page.ESRGAN_block_kandinsky21 = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kandinsky21.height = None if status['installed_ESRGAN'] else 0
     if not kandinsky21_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
@@ -12805,7 +13053,7 @@ def buildKandinsky21(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
             ResponsiveRow([Row([n_images, sampler], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
-            page.ESRGAN_block_kandinsky2,
+            page.ESRGAN_block_kandinsky21,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.kandinsky21_output
@@ -16707,6 +16955,7 @@ pipe_SAG = None
 pipe_attend_and_excite = None
 pipe_lmd_plus = None
 pipe_lcm = None
+pipe_lcm_interpolation = None
 pipe_ldm3d = None
 pipe_ldm3d_upscale = None
 pipe_panorama = None
@@ -16871,6 +17120,12 @@ def get_diffusers(page):
         #print("invisible_watermark")
         run_sp("pip install invisible-watermark", realtime=False) #pip install --no-deps invisible-watermark>=0.2.0
         pass
+    try:
+        import peft
+    except ModuleNotFoundError:
+        #print("peft")
+        run_sp("pip install --upgrade git+https://github.com/huggingface/peft.git", realtime=False)
+        pass
     '''try:
         import accelerate
     except ModuleNotFoundError:
@@ -16914,12 +17169,6 @@ def get_diffusers(page):
         #print("accelerate")
         run_sp("pip install git+https://github.com/huggingface/accelerate.git", realtime=False)
         import accelerate
-        pass
-    try:
-        import peft
-    except ModuleNotFoundError:
-        #print("peft")
-        run_sp("pip install --upgrade git+https://github.com/huggingface/peft.git", realtime=False)
         pass
     try:
         import diffusers
@@ -19104,6 +19353,12 @@ def clear_lcm_pipe():
     del pipe_lcm
     flush()
     pipe_lcm = None
+def clear_lcm_interpolation_pipe():
+  global pipe_lcm_interpolation
+  if pipe_lcm_interpolation is not None:
+    del pipe_lcm_interpolation
+    flush()
+    pipe_lcm_interpolation = None
 def clear_ldm3d_pipe():
   global pipe_ldm3d, pipe_ldm3d_upscale
   if pipe_ldm3d is not None:
@@ -19367,6 +19622,7 @@ def clear_pipes(allbut=None):
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'lmd_plus' in but: clear_lmd_plus_pipe()
     if not 'lcm' in but: clear_lcm_pipe()
+    if not 'lcm_interpolation' in but: clear_lcm_interpolation_pipe()
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
@@ -19416,17 +19672,19 @@ def pil_to_base64(image):
     base64_string = base64.b64encode(image_bytes).decode('utf-8')
     return base64_string
 
-def available_file(folder, name, idx=0, ext='png', no_num=False):
+def available_file(folder, name, idx=0, ext='png', no_num=False, zfill=None):
   available = False
   while not available:
     # Todo, check if using PyDrive2
     if no_num:
       if not os.path.isfile(os.path.join(folder, f'{name}.{ext}')):
         return os.path.join(folder, f'{name}.{ext}')
-    if os.path.isfile(os.path.join(folder, f'{name}-{idx}.{ext}')):
+    i = str(idx) if zfill is None else str(idx).zfill(zfill)
+    if os.path.isfile(os.path.join(folder, f'{name}-{i}.{ext}')):
       idx += 1
     else: available = True
-  return os.path.join(folder, f'{name}-{idx}.{ext}')
+    
+  return os.path.join(folder, f'{name}-{i}.{ext}')
 
 def available_folder(folder, name, idx):
   available = False
@@ -32250,7 +32508,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
           if sys.platform.startswith("win"):
               run_sp("pip install bitsandbytes-windows", realtime=False)
           else:
-              run_sp("pip install bitsandbytes", realtime=False)
+              run_sp("pip install bitsandbytes", realtime=False, upgrade=True)
           import bitsandbytes
           pass
         #pip_install("bitsandbytes", q=True, installer=installer)
@@ -32474,10 +32732,18 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         page.LMD_Plus.controls = page.LMD_Plus.controls[:1]
     progress = ProgressBar(bar_height=8)
     total_steps = lmd_plus_prefs['num_inference_steps']
-    def callback_fnc(pipe, step, timestep, callback_kwargs):
+    def callback_fn(pipe, step, timestep, callback_kwargs):
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
       #total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
@@ -32607,7 +32873,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 guidance_scale=pr['guidance_scale'],
                 gligen_scheduled_sampling_beta=lmd_plus_prefs['gligen_scheduled_sampling_beta'],
                 generator=generator,
-                callback_on_step_end=callback_fnc,
+                callback=callback_fnc,
                 lmd_guidance_kwargs={}
             ).images
         except Exception as e:
@@ -32922,6 +33188,162 @@ def run_lcm(page, from_list=False, with_params=False):
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_lcm_interpolation(page):
+    global lcm_interpolation_prefs, pipe_lcm_interpolation, prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if len(lcm_interpolation_prefs['mixes']) < 2:
+      alert_msg(page, "You must provide layers to interpolate to process your image generation...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.LCMInterpolation.controls.append(line)
+      page.LCMInterpolation.update()
+    def clear_last(lines=1):
+      clear_line(page.LCMInterpolation, lines=lines)
+    def autoscroll(scroll=True):
+      page.LCMInterpolation.auto_scroll = scroll
+      page.LCMInterpolation.update()
+    def clear_list():
+      page.LCMInterpolation.controls = page.LCMInterpolation.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = lcm_interpolation_prefs['steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    clear_list()
+    autoscroll(True)
+    prt(Installing("Installing LCM Interpolation Engine & Models... See console log for progress."))
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    from diffusers import DiffusionPipeline
+    images_texts = []
+    mix_names = []
+    for mix in lcm_interpolation_prefs['mixes']:
+        if 'prompt' in mix:
+            images_texts.append(mix['prompt'])
+            mix_names.append(mix['prompt'])
+    mix_name = " - ".join(mix_names)
+    #print(f'Resize to {width}x{height}')
+    model = "SimianLuo/LCM_Dreamshaper_v7" #get_model(prefs['model_ckpt'])['path']
+    if pipe_lcm_interpolation == None or status['loaded_model'] != model:
+        clear_pipes()
+        try:
+            pipe_lcm_interpolation = DiffusionPipeline.from_pretrained(model, custom_pipeline="latent_consistency_interpolate", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_lcm_interpolation = optimize_pipe(pipe_lcm_interpolation)
+            #pipe_lcm_interpolation.enable_vae_slicing()
+            if prefs['enable_torch_compile']:
+                pipe_lcm_interpolation.unet.to(memory_format=torch.channels_last)
+                pipe_lcm_interpolation.unet = torch.compile(pipe_lcm_interpolation.unet, mode="reduce-overhead", fullgraph=True)
+            else:
+                pipe_lcm_interpolation.to("cuda")
+            status['loaded_model'] = model
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing LCM, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+    else:
+        clear_pipes("lcm_interpolation")
+    clear_last()
+    prt("Generating your LCM Interpolation Image...")
+    prt(progress)
+    autoscroll(False)
+    random_seed = int(lcm_interpolation_prefs['seed']) if int(lcm_interpolation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.Generator(device="cuda").manual_seed(random_seed)
+    try:
+        images = pipe_lcm_interpolation(
+            prompt=images_texts,
+            #num_images_per_prompt=lcm_interpolation_prefs['num_images'],
+            height=lcm_interpolation_prefs['height'],
+            width=lcm_interpolation_prefs['width'],
+            num_interpolation_steps=lcm_interpolation_prefs['num_interpolation_steps'],
+            num_inference_steps=lcm_interpolation_prefs['steps'],
+            guidance_scale=lcm_interpolation_prefs['guidance_scale'],
+            embedding_interpolation_type=lcm_interpolation_prefs['embedding_interpolation_type'],
+            latent_interpolation_type=lcm_interpolation_prefs['latent_interpolation_type'],
+            process_batch_size=lcm_interpolation_prefs['process_batch_size'],
+            generator=generator,
+            callback_on_step_end=callback_fnc,
+        ).images
+    except Exception as e:
+        clear_last(2)
+        alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    clear_last(2)
+    autoscroll(True)
+    txt2img_output = stable_dir
+    batch_output = prefs['image_output']
+    if images is None:
+        prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+        return
+    idx = 0
+    for image in images:
+        fname = format_filename(mix_name)
+        #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+        fname = f'{lcm_interpolation_prefs["file_prefix"]}{fname}'
+        txt2img_output = stable_dir
+        if bool(lcm_interpolation_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, lcm_interpolation_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        image_path = available_file(txt2img_output, fname, idx, zfill=4)
+        image.save(image_path)
+        new_file = image_path.rpartition(slash)[2]
+        if not lcm_interpolation_prefs['display_upscaled_image'] or not lcm_interpolation_prefs['apply_ESRGAN_upscale']:
+            #prt(Row([Img(src=image_path, width=lcm_interpolation_prefs['width'], height=lcm_interpolation_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=image_path, width=lcm_interpolation_prefs['width'], height=lcm_interpolation_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        batch_output = os.path.join(prefs['image_output'], lcm_interpolation_prefs['batch_folder_name'])
+        if not os.path.exists(batch_output):
+            os.makedirs(batch_output)
+        if storage_type == "PyDrive Google Drive":
+            newFolder = gdrive.CreateFile({'title': lcm_interpolation_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+            newFolder.Upload()
+            batch_output = newFolder
+        out_path = batch_output# if save_to_GDrive else txt2img_output
+
+        if lcm_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            upscale_image(image_path, upscaled_path, scale=lcm_interpolation_prefs["enlarge_scale"], face_enhance=lcm_interpolation_prefs["face_enhance"])
+            if lcm_interpolation_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([Img(src=upscaled_path, width=lcm_interpolation_prefs['width'] * float(lcm_interpolation_prefs["enlarge_scale"]), height=lcm_interpolation_prefs['height'] * float(lcm_interpolation_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        else:
+            time.sleep(0.2)
+            shutil.copy(image_path, os.path.join(out_path, new_file))
+        # TODO: Add Metadata
+        prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+        idx += 1
+    if lcm_interpolation_prefs['save_video']:
+        try:
+            installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+            prt(installer)
+            out_file = available_file(out_dir, fname, no_num=True, ext="mp4")
+            if lcm_interpolation_prefs['interpolate_video']:
+                installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                interpolate_video(images, input_fps=lcm_interpolation_prefs['source_fps'], output_fps=lcm_interpolation_prefs['target_fps'], output_video=out_file, installer=installer)
+            else:
+                frames_to_video(out_path, pattern=fname+"-%04d.png", input_fps=lcm_interpolation_prefs['source_fps'], output_fps=lcm_interpolation_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            pass
+        clear_last()
+        prt(f"Video saved to {out_file}")
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+    if lcm_interpolation_prefs['save_video']:
+        try:
+            prt(Row([VideoContainer(out_file, fps=lcm_interpolation_prefs['target_fps'], width=lcm_interpolation_prefs['width'], height=lcm_interpolation_prefs['height'])], alignment=MainAxisAlignment.CENTER))
+        except:
+            pass
 
 def run_ldm3d(page, from_list=False, with_params=False):
     global ldm3d_prefs, pipe_ldm3d, pipe_ldm3d_upscale, prefs
@@ -35362,6 +35784,8 @@ def run_animate_diff(page):
         'path': lora_path,
         'motion_module': f"models{slash}motion-module{slash}{mm_ckpt}",
         #'motion_module': os.path.join(motion_module, f"{animate_diff_prefs['motion_module']}.ckpt"),
+        'apply_lcm_lora': animate_diff_prefs['apply_lcm_lora'],
+        'lcm_lora_scale': 1.0,
         'compile': prefs['enable_torch_compile'],
         'seed': seeds,
         'scheduler': animate_diff_prefs['scheduler'],
@@ -35599,21 +36023,20 @@ def run_animate_diff(page):
           "control_guidance_end": float(l['control_guidance_end']),
           "control_scale_list":scale_list,
         }
-    for f, ip_image in animate_diff_prefs['ip_adapter_layers'].items():
-        if bool(ip_image):
-            ip_adapter_image_dir = os.path.join(animatediff_dir, 'data', 'ip_adapter_image', 'test')
+    if bool(ip_image):
+        ip_adapter_image_dir = os.path.join(animatediff_dir, 'data', 'ip_adapter_image', 'test')
+        if os.path.isdir(ip_adapter_image_dir):
+            os.rmdir(ip_adapter_image_dir)
+        make_dir(ip_adapter_image_dir)
+        for f, ip_image in animate_diff_prefs['ip_adapter_layers'].items():
             img_path = os.path.join(ip_adapter_image_dir, f'{str(f).zfill(4)}.png')
             installer.status(f"...saving {os.path.basename(ip_image)}")
             #TODO: Resize image
             if os.path.isfile(ip_image):
                 shutil.copy(ip_image, img_path)
             elif ip_image.startswith('https://drive'):
-                try:
-                  import gdown
-                except ImportError:
-                  run_sp("pip -q install gdown")
-                finally:
-                  import gdown
+                pip_install("gdown")
+                import gdown
                 gdown.download(ip_image, img_path, quiet=True)
             elif ip_image.startswith('http'):
                 download_file(ip_image, img_path)
@@ -35622,10 +36045,35 @@ def run_animate_diff(page):
       "input_image_dir": f"ip_adapter_image{slash}test",
       "save_input_image": False,
       "scale": animate_diff_prefs['ip_adapter_scale'],
+      "is_full_face": animate_diff_prefs['ip_adapter_is_full_face'],
       "is_plus_face": animate_diff_prefs['ip_adapter_is_plus_face'],
       "is_plus": animate_diff_prefs['ip_adapter_is_plus'],
       "is_light": animate_diff_prefs['ip_adapter_light']
     }
+    if animate_diff_prefs['use_img2img']:
+        img2img_image_dir = os.path.join(animatediff_dir, 'data', 'img2img_image', 'test')
+        if os.path.isdir(img2img_image_dir):
+            os.rmdir(img2img_image_dir)
+        make_dir(img2img_image_dir)
+        for f, img2img_image in animate_diff_prefs['img2img_layers'].items():
+            if bool(img2img_image):
+                img_path = os.path.join(img2img_image_dir, f'{str(f).zfill(4)}.png')
+                installer.status(f"...saving {os.path.basename(img2img_image)}")
+                #TODO: Resize image
+                if os.path.isfile(img2img_image):
+                    shutil.copy(img2img_image, img_path)
+                elif img2img_image.startswith('https://drive'):
+                    pip_install("gdown")
+                    import gdown
+                    gdown.download(img2img_image, img_path, quiet=True)
+                elif img2img_image.startswith('http'):
+                    download_file(img2img_image, img_path)
+        img2img_map = {
+            "enable": animate_diff_prefs['use_img2img'],
+            "init_image_dir": f"img2img_image{slash}test",
+            "save_init_image": True,
+            "denoising_strength": animate_diff_prefs['img2img_strength'],
+        }
     motion_lora_map = {}
     for m in animate_diff_prefs['motion_loras']:
       for mm in animate_diff_motion_loras:
@@ -35679,6 +36127,8 @@ def run_animate_diff(page):
     prompts_json['motion_lora_map'] = motion_lora_map
     prompts_json['controlnet_map'] = controlnet_map
     prompts_json['ip_adapter_map'] = ip_adapter_map
+    if animate_diff_prefs['use_img2img']:
+        prompts_json['img2img_map'] = img2img_map
     prompts_json['upscale_config'] = upscale_config
     #if bool(lora_path):
     #    prompts_json['lora_scale'] = animate_diff_prefs['lora_alpha']
@@ -35901,8 +36351,8 @@ def run_hotshot_xl(page):
     hotshot_xl_dir = os.path.join(root_dir, "Hotshot-XL")
     if not os.path.exists(hotshot_xl_dir):
         installer.status("...hotshotco/Hotshot-XL")
-        #run_sp("git clone https://github.com/hotshotco/Hotshot-XL", realtime=False, cwd=root_dir)
-        run_sp("git clone https://github.com/Skquark/Hotshot-XL", realtime=False, cwd=root_dir)
+        run_sp("git clone https://github.com/hotshotco/Hotshot-XL", realtime=False, cwd=root_dir)
+        #run_sp("git clone https://github.com/Skquark/Hotshot-XL", realtime=False, cwd=root_dir)
     try:
         pip_install("appdirs==1.4.4 certifi==2023.7.22 charset-normalizer==3.3.0 click==8.1.7 cmake decorator==4.4.2 docker-pycreds==0.4.0 einops filelock==3.12.4 fsspec==2023.9.2 gitdb==4.0.10 GitPython==3.1.37 idna==3.4 imageio imageio-ffmpeg importlib-metadata==6.8.0 Jinja2==3.1.2 lit==17.0.2 MarkupSafe==2.1.3 moviepy mpmath==1.3.0 networkx==3.1 numpy pathtools proglog==0.1.10 protobuf==4.24.3 psutil PyYAML regex safetensors sentry-sdk==1.31.0 setproctitle==1.3.3 six==1.16.0 smmap==5.0.1 sympy==1.12 tokenizers==0.14.0 tqdm transformers triton typing_extensions urllib3 wandb zipp==3.17.0", installer=installer)
         #pip_install("nvidia-cublas-cu11==11.10.3.66 nvidia-cuda-cupti-cu11==11.7.101 nvidia-cuda-nvrtc-cu11==11.7.99 nvidia-cuda-runtime-cu11==11.7.99 nvidia-cudnn-cu11==8.5.0.96 nvidia-cufft-cu11==10.9.0.58 nvidia-curand-cu11==10.2.10.91 nvidia-cusolver-cu11==11.4.0.1 nvidia-cusparse-cu11==11.7.4.91 nvidia-nccl-cu11==2.14.3 nvidia-nvtx-cu11==11.7.91")
@@ -37479,7 +37929,7 @@ def run_dall_e(page, from_list=False):
     try:
         import openai
     except:
-        prt(Installing("Installing OpenAi Dall-E 2 API..."))
+        prt(Installing("Installing OpenAi DALL•E 2 API..."))
         run_process("pip install -q openai", realtime=False)
         clear_last()
         import openai
@@ -37544,7 +37994,7 @@ def run_dall_e(page, from_list=False):
             mask_img.save(mask_file)
         #print(f'Resize to {width}x{height}')
         #clear_pipes()
-        prt("Generating your Dall-E 2 Image...")
+        prt("Generating your DALL•E 2 Image...")
         prt(progress)
         autoscroll(False)
         try:
@@ -37644,7 +38094,7 @@ def run_dall_e_3(page, from_list=False):
       alert_msg(page, "You must provide a text prompt to process your image generation...")
       return
     if not bool(prefs['OpenAI_api_key']):
-      alert_msg(page, "You must provide your OpenAI API Key in Settings to process your Dall-E 3 Creation...")
+      alert_msg(page, "You must provide your OpenAI API Key in Settings to process your DALL•E 3 Creation...")
       return
     def prt(line):
       if type(line) == str:
@@ -37667,7 +38117,7 @@ def run_dall_e_3(page, from_list=False):
             raise ModuleNotFoundError("Forcing update")
         if force_updates or True: raise ModuleNotFoundError("Forcing update")
     except:
-        prt(Installing("Installing OpenAi Dall-E 3 API..."))
+        prt(Installing("Installing OpenAi DALL•E 3 API..."))
         run_process("pip install -q --upgrade openai", realtime=False)
         clear_last()
         import openai
@@ -37732,7 +38182,7 @@ def run_dall_e_3(page, from_list=False):
             mask_img = mask_img.resize((w, h), resample=PILImage.NEAREST)
             mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
             mask_img.save(mask_file)
-        prt("Generating your Dall-E 3 Image...")
+        prt("Generating your DALL•E 3 Image...")
         prt(progress)
         autoscroll(False)
         try:
@@ -39870,9 +40320,17 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     installer.status("...copying photo frames")
     for f in os.listdir(photos_dir):
         os.remove(os.path.join(photos_dir, f))
-    for f in os.listdir(frames_dir):
-        if f.endswith('png') or f.endswith('jpg'):
-            shutil.copy(os.path.join(frames_dir, f), os.path.join(photos_dir, f))
+    if isinstance(frames_dir, List):
+        for n, f in enumerate(frames_dir):
+            if isinstance(f, str):
+                if f.endswith('png') or f.endswith('jpg'):
+                    shutil.copy(f, os.path.join(photos_dir, f))
+            else:
+                f.save(os.path.join(photos_dir, str(n).zfill(4)))
+    else:
+        for f in os.listdir(frames_dir):
+            if f.endswith('png') or f.endswith('jpg'):
+                shutil.copy(os.path.join(frames_dir, f), os.path.join(photos_dir, f))
     #run_sp(f"mkdir -p frames", cwd=frames_dir, realtime=False)
     if bool(input_fps):
         recursive_interpolation_passes = int((output_fps - input_fps) / input_fps)

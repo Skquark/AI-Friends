@@ -2,8 +2,9 @@ finetuned_models = [
     #{"name": "Stable Diffusion v1.5", "path": "runwayml/stable-diffusion-v1-5", "prefix": "", "revision": "fp16"},
     #{"name": "Stable Diffusion v1.4", "path": "CompVis/stable-diffusion-v1-4", "prefix": "", "revision": "fp16"},
     {"name": "Midjourney v4 style", "path": "prompthero/midjourney-v4-diffusion", "prefix": "mdjrny-v4 style "},
+    {"name": "Midjourney-mini", "path": "openskyml/midjourney-mini", "prefix": ""},
+    {"name": "OpenDiffusion v1", "path": "openskyml/open-diffusion-v1", "prefix": ""},
     {"name": "Openjourney", "path": "prompthero/openjourney", "prefix": "mdjrny-v4 style "},
-    {"name": "Openjourney LoRA", "path": "prompthero/openjourney-lora", "prefix": ""},
     {"name": "Openjourney v2", "path": "prompthero/openjourney-v2", "prefix": ""},
     {"name": "Future Diffusion", "path": "nitrosocke/Future-Diffusion", "prefix": "future style "},
     #{"name": "Absolute Realism 1.81", "path": "Lykon/absolute-realism-1.81", "prefix": ""},
@@ -160,12 +161,12 @@ finetuned_models = [
     #{"name": "reasonableDrink Dreams", "path": "elRivx/reasonableDrink", "prefix": "reasonableDrink "},
 ]
 LoRA_models = [
+    {'name': 'LCM LoRA', 'path': 'latent-consistency/lcm-lora-sdv1-5', 'prefix':''},
     {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'},
     {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'},
     {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''},
     {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '},
     {'name': 'Analog.Redmond', 'path': 'artificialguybr/analogredmond', 'prefix':'AnalogRedmAF'},
-    {'name': 'LCM LoRA', 'path': 'latent-consistency/lcm-lora-sdv1-5', 'prefix':''},
 ]
 SDXL_models = [
     {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "variant": "fp16"},
@@ -181,6 +182,7 @@ SDXL_models = [
     {"name": "Hassaku-XL", "path": "femboysLover/Hassaku-fp16-XL", "prefix": "", "variant": "fp16"},
     {"name": "Juggernaut XL 5", "path": "stablediffusionapi/juggernaut-xl-v5", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Juggernaut XL 6", "path": "Jeroenvv1985/Juggernaut_v6", "prefix": "", "variant": "fp16", "use_safetensors": True},
+    {"name": "Midjourney-V4 XL", "path": "openskyml/midjourney-v4-xl", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "ProtVision-XL 1", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": "", "variant": "fp16"},
     {"name": "ProtVision-XL 3", "path": "stablediffusionapi/protovisionxl-v3", "prefix": ""},
     {"name": "RealCartoon-XL 4", "path": "frankjoshua/realcartoonXL_v4", "prefix": "", "variant": "fp16"},
@@ -200,6 +202,8 @@ SDXL_LoRA_models = [
     {"name": "Aether Ghost", "path": "joachimsallstrom/aether-ghost-lora-for-sdxl", "weights": "Aether_Ghost_v1.1_LoRA.safetensors", "prefix": "transparent ghost"}, 
     {"name": "Aether Bubbles & Foam", "path": "joachimsallstrom/aether-bubbles-foam-lora-for-sdxl", "weights": "Aether_Bubbles_And_Foam_v1_SDXL_LoRA.safetensors", "prefix": "made of bath foam and soap bubbles,"},
     {"name": "Aether Ghost", "path": "joachimsallstrom/aether-ghost-lora-for-sdxl", "weights": "Aether_Ghost_v1.1_LoRA.safetensors", "prefix": "transparent ghost"},
+    {"name": "DALL•E 3 XL", "path": "openskyml/dalle-3-xl", "weights": "Dall-e_3_0.3-v2.safetensors", "prefix": ""}, 
+    {"name": "InkPunk-XL", "path": "openskyml/inkpunk-diffusion-xl", "weights": "IPXL_v8.safetensors", "prefix": ""}, 
     {"name": "Vulcan SDXL", "path": "davizca87/vulcan", "weights": "v5lcnXL-000004.safetensors", "prefix": "v5lcn"}, 
     {"name": "Lego Minifig XL", "path": "nerijs/lego-minifig-xl", "weights": "legominifig-v1.0-000003.safetensors", "prefix": "lego minifig"}, 
     {"name": "Embroidery Style", "path": "ostris/embroidery_style_lora_sdxl", "weights": "embroidered_style_v1_sdxl.safetensors", "prefix": ""}, 
