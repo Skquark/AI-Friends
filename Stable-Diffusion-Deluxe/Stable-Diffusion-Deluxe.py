@@ -669,6 +669,7 @@ def buildImageAIs(page):
     page.unCLIP_ImageInterpolation = buildUnCLIP_ImageInterpolation(page)
     page.UnCLIP_ImageVariation = buildUnCLIP_ImageVariation(page)
     page.BLIPDiffusion = buildBLIPDiffusion(page)
+    page.IP_Adapter = buildIP_Adapter(page)
     page.Reference = buildReference(page)
     page.ControlNetQR = buildControlNetQR(page)
     page.ControlNetSegmentAnything = buildControlNetSegmentAnything(page)
@@ -719,6 +720,7 @@ def buildImageAIs(page):
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="BLIP-Diffusion", content=page.BLIPDiffusion, icon=icons.RADAR),
+            Tab(text="IP-Adapter", content=page.IP_Adapter, icon=icons.ROOM_PREFERENCES),
             Tab(text="Reference-Only", content=page.Reference, icon=icons.CRISIS_ALERT),
             Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
             Tab(text="EDICT Edit", content=page.EDICT, icon=icons.AUTO_AWESOME),
@@ -6087,6 +6089,148 @@ def buildBLIPDiffusion(page):
     ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, ddim_eta, seed,
     return c
 
+ip_adapter_models = [
+    {'name': 'SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15.bin'},
+    {'name': 'Plus SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-plus_sd15.bin'},
+    {'name': 'Plus Face SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-plus-face_sd15.bin'},
+    {'name': 'Full Face SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-full-face_sd15.bin'},
+    {'name': 'Light SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15_light.bin'},
+]
+ip_adapter_SDXL_models = [
+    {'name': 'SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sdxl.bin'},
+    {'name': 'Plus SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter-plus_sdxl_vit-h.bin'},
+    {'name': 'Plus Face SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter-plus-face_sdxl_vit-h.bin'},
+    {'name': 'SDXL ViT-H', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sdxl_vit-h.bin'},
+    #{'name': 'Light SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sd15_light.bin'},
+]
+ip_adapter_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "sd-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4.5,
+    'num_inference_steps': 8,
+    "seed": 0,
+    'ip_adapter_image':'',
+    'ip_adapter_strength': 0.8,
+    'init_image': '',
+    'init_image_strength': 0.8,
+    'mask_image': '',
+    'alpha_mask': False,
+    'invert_mask': False,
+    'use_SDXL': False,
+    "cpu_offload": False,
+    "cpu_only": False,
+    "ip_adapter_model": "SD v1.5",
+    "ip_adapter_SDXL_model": "SDXL",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildIP_Adapter(page):
+    global prefs, ip_adapter_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            ip_adapter_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            ip_adapter_prefs[pref] = float(e.control.value)
+          else:
+            ip_adapter_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def ip_adapter_help(e):
+      def close_ip_adapter_dlg(e):
+        nonlocal ip_adapter_help_dlg
+        ip_adapter_help_dlg.open = False
+        page.update()
+      ip_adapter_help_dlg = AlertDialog(title=Text("🙅   Help with IP-Adapter Pipeline"), content=Column([
+          Text("IP-Adapter is an effective and lightweight adapter that adds image prompting capabilities to a diffusion model. This adapter works by decoupling the cross-attention layers of the image and text features. All the other model components are frozen and only the embedded image features in the UNet are trained. As a result, IP-Adapter files are typically only ~100MBs."),
+          Text("IP-Adapter works with most of our pipelines, including Stable Diffusion, Stable Diffusion XL (SDXL), ControlNet, T2I-Adapter, AnimateDiff. And you can use any custom models finetuned from the same base models. It also works with LCM-Lora out of box."),
+          Markdown("[Project](https://ip-adapter.github.io/) | [Paper](https://arxiv.org/abs/2308.06721) | [GitHub Code](https://github.com/tencent-ailab/IP-Adapter) | [Checkpoint Models](https://huggingface.co/h94/IP-Adapter)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("IP-Adapter was contributed by [okotaku](https://github.com/okotaku), Tencent, okotaku, sayakpaul, yiyixuxu, Patrick von Platen and Steven Liu ..", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🏃  Adapt This...", on_click=close_ip_adapter_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = ip_adapter_help_dlg
+      ip_adapter_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        ip_adapter_prefs['ip_adapter_model'] = e.control.value
+        ip_adapter_custom_model.visible = e.control.value == "Custom"
+        ip_adapter_custom_model.update()
+    def toggle_SDXL(e):
+        ip_adapter_prefs['use_SDXL'] = e.control.value
+        ip_adapter_model.visible = not ip_adapter_prefs['use_SDXL']
+        ip_adapter_SDXL_model.visible = ip_adapter_prefs['use_SDXL']
+        ip_adapter_model.update()
+        ip_adapter_SDXL_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        ip_adapter_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text (optional)", value=ip_adapter_prefs['prompt'], filled=True, hint_text="Leave blank for Image Variation", multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=ip_adapter_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=ip_adapter_prefs, key='ip_adapter_image', expand=True, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=ip_adapter_prefs, key='ip_adapter_strength', expand=True, col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    init_image = FileInput(label="Init Image (optional)", pref=ip_adapter_prefs, key='init_image', page=page, col={'md':6})
+    mask_image = FileInput(label="Mask Image (optional)", pref=ip_adapter_prefs, key='mask_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=ip_adapter_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=ip_adapter_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=ip_adapter_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=ip_adapter_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=40, divisions=40, pref=ip_adapter_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=ip_adapter_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=ip_adapter_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=ip_adapter_prefs, key='height')
+    use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline", value=ip_adapter_prefs['use_SDXL'], on_change=toggle_SDXL, tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=ip_adapter_prefs['ip_adapter_model'], visible=not ip_adapter_prefs['use_SDXL'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=ip_adapter_prefs['ip_adapter_SDXL_model'], visible=ip_adapter_prefs['use_SDXL'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_custom_model = TextField(label="Custom IP_Adapter Model (URL or Path)", value=ip_adapter_prefs['custom_model'], expand=True, visible=ip_adapter_prefs['ip_adapter_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=ip_adapter_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    cpu_only = Switcher(label="CPU Only (not yet)", value=ip_adapter_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
+    seed = TextField(label="Seed", width=90, value=str(ip_adapter_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=ip_adapter_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=ip_adapter_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ip_adapter_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=ip_adapter_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_ip_adapter = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_ip_adapter.height = None if status['installed_ESRGAN'] else 0
+    if not ip_adapter_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🪞   Run IP-Adapter", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ip_adapter(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ip_adapter(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ip_adapter(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.ip_adapter_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🦊  IP-Adapter", "Image Prompting capabilities to Transfer Subject with or without Prompt...", actions=[IconButton(icon=icons.HELP, tooltip="Help with IP_Adapter Settings", on_click=ip_adapter_help)]),
+            Row([ip_adapter_model, ip_adapter_SDXL_model, ip_adapter_image]),
+            Row([use_SDXL, ip_adapter_strength]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([init_image, mask_image]),
+            init_image_strength,
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_ip_adapter,
+            parameters_row,
+            page.ip_adapter_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
 
 reference_prefs = {
     'ref_image': '',
@@ -16992,6 +17136,7 @@ fuyu_model = None
 fuyu_processor = None
 pipe_blip_diffusion = None
 pipe_reference = None
+pipe_ip_adapter = None
 pipe_controlnet_qr = None
 pipe_controlnet_segment = None
 pipe_kandinsky_controlnet_prior = None
@@ -19464,6 +19609,12 @@ def clear_reference_pipe():
     del pipe_reference
     flush()
     pipe_reference = None
+def clear_ip_adapter_pipe():
+  global pipe_ip_adapter
+  if pipe_ip_adapter is not None:
+    del pipe_ip_adapter
+    flush()
+    pipe_ip_adapter = None
 def clear_controlnet_qr_pipe():
   global pipe_controlnet_qr, pipe_controlnet
   if pipe_controlnet_qr is not None:
@@ -19627,6 +19778,7 @@ def clear_pipes(allbut=None):
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
     if not 'fuyu' in but: clear_fuyu_pipe()
+    if not 'ip_adapter' in but: clear_ip_adapter_pipe()
     if not 'reference' in but: clear_reference_pipe()
     if not 'controlnet_qr' in but: clear_controlnet_qr_pipe()
     if not 'controlnet_segment' in but: clear_controlnet_segment_pipe()
@@ -23447,6 +23599,305 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_ip_adapter(page, from_list=False, with_params=False):
+    global ip_adapter_prefs, pipe_ip_adapter, prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    ip_adapter_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            ip_adapter_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':ip_adapter_prefs['guidance_scale'], 'num_inference_steps':ip_adapter_prefs['num_inference_steps'], 'width':ip_adapter_prefs['width'], 'height':ip_adapter_prefs['height'], 'init_image':ip_adapter_prefs['init_image'], 'mask_image':ip_adapter_prefs['mask_image'], 'init_image_strength':ip_adapter_prefs['init_image_strength'], 'num_images':ip_adapter_prefs['num_images'], 'seed':ip_adapter_prefs['seed']})
+        else:
+            ip_adapter_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'mask_image':p['mask_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      ip_adapter_prompts.append({'prompt': ip_adapter_prefs['prompt'], 'negative_prompt':ip_adapter_prefs['negative_prompt'], 'guidance_scale':ip_adapter_prefs['guidance_scale'], 'num_inference_steps':ip_adapter_prefs['num_inference_steps'], 'width':ip_adapter_prefs['width'], 'height':ip_adapter_prefs['height'], 'init_image':ip_adapter_prefs['init_image'], 'mask_image':ip_adapter_prefs['mask_image'], 'init_image_strength':ip_adapter_prefs['init_image_strength'], 'num_images':ip_adapter_prefs['num_images'], 'seed':ip_adapter_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.IP_Adapter.controls.append(line)
+        if update:
+          page.IP_Adapter.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.IP_Adapter, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.IP_Adapter.auto_scroll = scroll
+        page.IP_Adapter.update()
+      else:
+        page.IP_Adapter.auto_scroll = scroll
+        page.IP_Adapter.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.IP_Adapter.controls = page.IP_Adapter.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = ip_adapter_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing IP-Adapter Engine & Models... See console for progress.")
+    prt(installer)
+    use_SDXL = ip_adapter_prefs['use_SDXL']
+    if use_SDXL:
+        model = get_SDXL_model(prefs['SDXL_model'])
+        ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == p_adapter_prefs['ip_adapter_SDXL_model'])
+    else:
+        model = get_model(prefs['model_ckpt'])
+        ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == p_adapter_prefs['ip_adapter_model'])
+    model_id = model['path']
+    variant = {'variant': model['revision']} if 'revision' in model else {}
+    variant = {'variant': model['variant']} if 'variant' in model else variant
+    if 'loaded_ip_adapter_mode' not in status: status['loaded_ip_adapter_mode'] = ""
+    if 'loaded_ip_adapter' not in status: status['loaded_ip_adapter'] = ""
+    if status['loaded_ip_adapter'] != model_id:
+        clear_pipes()
+    else:
+        clear_pipes("ip_adapter")
+    if bool(ip_adapter_prefs['init_image']) and bool(ip_adapter_prefs['mask_image']):
+        mode = "inpaint"
+    elif bool(ip_adapter_prefs['init_image']):
+        mode = "img2img"
+    else:
+        mode = "txt2img"
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = ip_adapter_prefs['cpu_offload']
+    from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpaint
+    def change_mode(pipe, mode):
+        status['loaded_ip_adapter_mode'] = mode
+        if mode == "inpaint":
+            return AutoPipelineForInpaint.from_pipe(pipe)
+        elif mode == "img2img":
+            return AutoPipelineForImage2Image.from_pipe(pipe)
+        else:
+            return AutoPipelineForText2Image.from_pipe(pipe)
+    if pipe_ip_adapter == None:
+        installer.status(f"...loading {model_id}")
+        try:
+            if mode == "inpaint":
+                pipe_ip_adapter = AutoPipelineForInpaint.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
+                status['loaded_ip_adapter_mode'] = "inpaint"
+            elif mode == "img2img":
+                pipe_ip_adapter = AutoPipelineForImage2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
+                status['loaded_ip_adapter_mode'] = "img2img"
+            else:
+                pipe_ip_adapter = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
+                status['loaded_ip_adapter_mode'] = "txt2img"
+            #pipe_ip_adapter = pipeline_scheduler(pipe_ip_adapter)
+            if use_SDXL:
+                pipe_ip_adapter = optimize_SDXL_pipe(pipe_ip_adapter)
+            else:
+                pipe_ip_adapter = optimize_pipe(pipe_ip_adapter)
+            pipe_ip_adapter.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing IP-Adapter...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_ip_adapter'] = model_id
+    else:
+        clear_pipes('ip_adapter')
+        if status['loaded_ip_adapter_mode'] != mode:
+            try:
+                pipe_ip_adapter = change_mode(pipe_ip_adapter, mode)
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR in {mode} IP-Adapter AutoPipeline from_pipe...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+        if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_ip_adapter = pipeline_scheduler(pipe_ip_adapter)
+    pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=p_adapter_model['subfolder'], weight_name=p_adapter_model['weight_name'])
+    pipe_ip_adapter.set_ip_adapter_scale(ip_adapter_prefs['ip_adapter_strength'])
+    if ip_adapter_prefs['ip_adapter_image'].startswith('http'):
+        ip_adapter_image = PILImage.open(requests.get(ip_adapter_prefs['ip_adapter_image'], stream=True).raw)
+    else:
+        if os.path.isfile(ip_adapter_prefs['ip_adapter_image']):
+            ip_adapter_image = PILImage.open(ip_adapter_prefs['ip_adapter_image'])
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your ip_adapter_image {ip_adapter_prefs['ip_adapter_image']}")
+            return
+    #init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+    ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
+    clear_last()
+    s = "" if len(ip_adapter_prompts) == 0 else "s"
+    prt(f"Generating your IP-Adapter Image{s}...")
+    for pr in ip_adapter_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        init_img = None
+        mask_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        if bool(pr['mask_image']):
+            fname = pr['mask_image'].rpartition(slash)[2]
+            if pr['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['mask_image']):
+                    mask_img = PILImage.open(pr['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                    return
+            mask_img = mask_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
+        mode = "inpaint" if bool(init_img) and bool(mask_img) else "img2img" if bool(init_img) else "txt2img"
+        try:
+            if status['loaded_ip_adapter_mode'] != mode:
+                pipe_ip_adapter = change_mode(pipe_ip_adapter, mode)
+            if mode == "inpaint":
+                images = pipe_ip_adapter(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    #height=pr['height'],
+                    #width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    ip_adapter_image=ip_adapter_image,
+                    init_image=init_img,
+                    mask_image=mask_img,
+                    init_image_strength=pr['init_image_strength'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+            elif mode == "img2img":
+                images = pipe_ip_adapter(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    #height=pr['height'],
+                    #width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    ip_adapter_image=ip_adapter_image,
+                    init_image=init_img,
+                    init_image_strength=pr['init_image_strength'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+            else:
+                images = pipe_ip_adapter(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    ip_adapter_image=ip_adapter_image,
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(ip_adapter_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, ip_adapter_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{ip_adapter_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not ip_adapter_prefs['display_upscaled_image'] or not ip_adapter_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], ip_adapter_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': ip_adapter_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if ip_adapter_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=ip_adapter_prefs["enlarge_scale"], face_enhance=ip_adapter_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if ip_adapter_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(ip_adapter_prefs["enlarge_scale"]), height=pr['height'] * float(ip_adapter_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {ip_adapter_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"IP-Adapter")
+                if prefs['save_config_in_metadata']:
+                    config_json = ip_adapter_prefs.copy()
+                    config_json['model_path'] = model_id
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], ip_adapter_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], ip_adapter_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_reference(page, from_list=False):
     global reference_prefs, pipe_reference
@@ -32951,7 +33402,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_lcm(page, from_list=False, with_params=False):
-    global lcm_prefs, pipe_lcm, prefs
+    global lcm_prefs, pipe_lcm, prefs, status
     if not status['installed_diffusers']:
       alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
       return
@@ -33098,7 +33549,7 @@ def run_lcm(page, from_list=False, with_params=False):
                     init_image=init_img,
                     init_image_strength=pr['init_image_strength'],
                     generator=generator,
-                    callback_on_step_end=callback_fnc,
+                    #callback_on_step_end=callback_fnc,
                 ).images
             else:
                 if status['loaded_lcm_mode'] != "Text2Image":
@@ -33112,7 +33563,7 @@ def run_lcm(page, from_list=False, with_params=False):
                     num_inference_steps=pr['num_inference_steps'],
                     guidance_scale=pr['guidance_scale'],
                     generator=generator,
-                    callback_on_step_end=callback_fnc,
+                    #callback_on_step_end=callback_fnc,
                 ).images
         except Exception as e:
             clear_last()
@@ -33272,7 +33723,7 @@ def run_lcm_interpolation(page):
             latent_interpolation_type=lcm_interpolation_prefs['latent_interpolation_type'],
             process_batch_size=lcm_interpolation_prefs['process_batch_size'],
             generator=generator,
-            callback_on_step_end=callback_fnc,
+            #callback_on_step_end=callback_fnc,
         ).images
     except Exception as e:
         clear_last(2)

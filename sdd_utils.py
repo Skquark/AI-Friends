@@ -251,6 +251,20 @@ SDXL_LoRA_models = [
     {"name": "LCM LoRA SDXL", "path": "latent-consistency/lcm-lora-sdxl", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     #{"name": "", "path": "", "weights": "", "prefix": ""},
 ]
+ip_adapter_models = [
+    {'name': 'SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15.bin'},
+    {'name': 'Plus SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-plus_sd15.bin'},
+    {'name': 'Plus Face SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-plus-face_sd15.bin'},
+    {'name': 'Full Face SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-full-face_sd15.bin'},
+    {'name': 'Light SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15_light.bin'},
+]
+ip_adapter_SDXL_models = [
+    {'name': 'SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sdxl.bin'},
+    {'name': 'Plus SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter-plus_sdxl_vit-h.bin'},
+    {'name': 'Plus Face SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter-plus-face_sdxl_vit-h.bin'},
+    {'name': 'SDXL ViT-H', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sdxl_vit-h.bin'},
+    #{'name': 'Light SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sd15_light.bin'},
+]
 
 # Search https://openmodeldb.info/?q=real-esrgan
 Real_ESRGAN_models = [
