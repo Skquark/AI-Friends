@@ -8000,11 +8000,20 @@ controlnet_prefs = {
     'seed': 0,
     'eta': 0,
     'show_processed_image': False,
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_strength': 0.8,
     'use_init_video': False,
     'init_video': '',
     'fps': 12,
     'start_time': 0,
     'end_time': 0,
+    'use_image2image': False,
+    'init_image': '',
+    'mask_image': '',
+    'alpha_mask': False,
+    'invert_mask': False,
     'file_prefix': 'controlnet-',
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -8167,6 +8176,16 @@ def buildControlNet(page):
         controlnet_prefs['multi_controlnets'].clear()
         multi_layers.controls.clear()
         multi_layers.update()
+    def toggle_img2img(e):
+        controlnet_prefs['use_image2image'] = e.control.value
+        img2img_row.height = None if e.control.value else 0
+        img2img_row.update()
+    def toggle_ip_adapter(e):
+        controlnet_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
     original_image = TextField(label="Original Drawing", value=controlnet_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
@@ -8196,6 +8215,19 @@ def buildControlNet(page):
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_prefs, key='max_size')
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=controlnet_prefs['use_ip_adapter'], on_change=toggle_ip_adapter)
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=controlnet_prefs['ip_adapter_model'], visible=controlnet_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_prefs['use_image2image'], on_change=toggle_img2img)
+    init_image = FileInput(label="Init Image", pref=controlnet_prefs, key='init_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_prefs, key='mask_image', expand=True, page=page)
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=controlnet_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    alpha_mask = Checkbox(label="Alpha Mask", value=controlnet_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
+    img2img_row = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]), height=None if controlnet_prefs['use_image2image'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -8225,6 +8257,10 @@ def buildControlNet(page):
         guidance,
         eta_row,
         max_row,
+        use_image2image,
+        img2img_row,
+        Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+        ip_adapter_container,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet,
@@ -8254,6 +8290,10 @@ controlnet_xl_prefs = {
     'seed': 0,
     'eta': 0,
     'show_processed_image': False,
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_SDXL_model': 'SDXL',
+    'ip_adapter_strength': 0.8,
     'use_init_video': False,
     'init_video': '',
     'fps': 12,
@@ -8429,6 +8469,12 @@ def buildControlNetXL(page):
         controlnet_xl_prefs['use_image2image'] = e.control.value
         img2img_row.height = None if e.control.value else 0
         img2img_row.update()
+    def toggle_ip_adapter(e):
+        controlnet_xl_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_SDXL_model.visible = e.control.value
+        ip_adapter_SDXL_model.update()
     original_image = TextField(label="Original Drawing", value=controlnet_xl_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
@@ -8462,12 +8508,18 @@ def buildControlNetXL(page):
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_xl_prefs, key='max_size')
     
     use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_xl_prefs['use_image2image'], on_change=toggle_img2img)
-    init_image = FileInput(label="Init Image (optional)", pref=controlnet_xl_prefs, key='init_image', expand=True, page=page)
+    init_image = FileInput(label="Init Image", pref=controlnet_xl_prefs, key='init_image', expand=True, page=page)
     mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_xl_prefs, key='mask_image', expand=True, page=page)
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=controlnet_xl_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     alpha_mask = Checkbox(label="Alpha Mask", value=controlnet_xl_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
     img2img_row = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]), height=None if controlnet_xl_prefs['use_image2image'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
-
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=controlnet_xl_prefs['use_ip_adapter'], on_change=toggle_ip_adapter)
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=controlnet_xl_prefs['ip_adapter_SDXL_model'], visible=controlnet_xl_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_xl_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_xl_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_xl_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_xl_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_xl_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -8475,7 +8527,7 @@ def buildControlNetXL(page):
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_xl_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_xl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
     page.controlnet_xl_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
@@ -8499,6 +8551,8 @@ def buildControlNetXL(page):
         max_row,
         use_image2image,
         img2img_row,
+        Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
+        ip_adapter_container,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xl_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet,
@@ -23665,10 +23719,10 @@ def run_ip_adapter(page, from_list=False, with_params=False):
     use_SDXL = ip_adapter_prefs['use_SDXL']
     if use_SDXL:
         model = get_SDXL_model(prefs['SDXL_model'])
-        ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == p_adapter_prefs['ip_adapter_SDXL_model'])
+        ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == ip_adapter_prefs['ip_adapter_SDXL_model'])
     else:
         model = get_model(prefs['model_ckpt'])
-        ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == p_adapter_prefs['ip_adapter_model'])
+        ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == ip_adapter_prefs['ip_adapter_model'])
     model_id = model['path']
     variant = {'variant': model['revision']} if 'revision' in model else {}
     variant = {'variant': model['variant']} if 'variant' in model else variant
@@ -23732,7 +23786,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                 return
         if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_ip_adapter = pipeline_scheduler(pipe_ip_adapter)
-    pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=p_adapter_model['subfolder'], weight_name=p_adapter_model['weight_name'])
+    pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
     pipe_ip_adapter.set_ip_adapter_scale(ip_adapter_prefs['ip_adapter_strength'])
     if ip_adapter_prefs['ip_adapter_image'].startswith('http'):
         ip_adapter_image = PILImage.open(requests.get(ip_adapter_prefs['ip_adapter_image'], stream=True).raw)
@@ -30739,9 +30793,10 @@ def run_controlnet(page, from_list=False):
         page.ControlNet.update()
     progress = ProgressBar(bar_height=8)
     total_steps = controlnet_prefs['steps']
-    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
+      #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
@@ -30800,7 +30855,7 @@ def run_controlnet(page, from_list=False):
         try:
           import cv2
         except ModuleNotFoundError:
-          installer.status("...installing opencd")
+          installer.status("...installing opencv")
           run_sp("pip install opencv-contrib-python", realtime=False)
           import cv2
           pass
@@ -31105,15 +31160,38 @@ def run_controlnet(page, from_list=False):
       if v != None and k in loaded_controlnet:
         del v
         controlnet_models[k] = None
+    controlnet_type = "text2image"
+    if controlnet_prefs['use_image2image']:
+        if bool(controlnet_prefs['init_image']):
+            if bool(controlnet_prefs['mask_image']) or controlnet_prefs['alpha_mask']:
+                controlnet_type = "inpaint"
+            else:
+                controlnet_type = "image2image"
+    use_ip_adapter = controlnet_prefs['use_ip_adapter']
+    if 'loaded_ip_adapter' not in status: status['loaded_ip_adapter'] = ""
+    if use_ip_adapter:
+        ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == controlnet_prefs['ip_adapter_model'])
+    else:
+        ip_adapter_model = None
+    if controlnet_type != status['loaded_controlnet_type']:
+        clear_pipes()
     model = get_model(prefs['model_ckpt'])
     model_path = model['path']
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_prefs["control_task"]:
         #if controlnet_prefs["use_SDXL"]:
         #TODO: pipe_controlnet = StableDiffusionXLControlNetPipeline
-        pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        if controlnet_type == "text2image":
+            pipe_controlnet = StableDiffusionControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        elif controlnet_type == "image2image":
+            from diffusers import StableDiffusionControlNetImg2ImgPipeline
+            pipe_controlnet = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        elif controlnet_type == "inpaint":
+            from diffusers import StableDiffusionControlNetInpaintPipeline
+            pipe_controlnet = StableDiffusionControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
         pipe_controlnet = optimize_pipe(pipe_controlnet, vae_slicing=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_prefs["control_task"]
+        status['loaded_controlnet_type'] = controlnet_type
     #else:
         #pipe_controlnet.controlnet=controlnet
     pipe_controlnet = pipeline_scheduler(pipe_controlnet)
@@ -31121,6 +31199,59 @@ def run_controlnet(page, from_list=False):
         from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
         pipe_controlnet.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
         pipe_controlnet.controlnet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+    init_img = None
+    mask_img = None
+    if bool(controlnet_prefs['init_image'] and controlnet_prefs['use_image2image']):
+        if controlnet_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(controlnet_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_prefs['init_image']):
+                init_img = PILImage.open(controlnet_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {controlnet_prefs['init_image']}")
+                return
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
+        if bool(controlnet_prefs['alpha_mask']):
+            init_img = init_img.convert("RGBA")
+        else:
+            init_img = init_img.convert("RGB")
+        init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if not bool(controlnet_prefs['mask_image']) and bool(controlnet_prefs['alpha_mask']):
+            mask_img = init_img.convert('RGBA')
+            red, green, blue, alpha = PILImage.Image.split(init_img)
+            mask_img = alpha.convert('L')
+        elif bool(controlnet_prefs['mask_image']):
+            if controlnet_prefs['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(controlnet_prefs['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(controlnet_prefs['mask_image']):
+                    mask_img = PILImage.open(controlnet_prefs['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {controlnet_prefs['mask_image']}")
+                    return
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if controlnet_prefs['invert_mask'] and not controlnet_prefs['alpha_mask']:
+            from PIL import ImageOps
+            mask_img = ImageOps.invert(mask_img.convert('RGB'))
+    if use_ip_adapter:
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet.set_ip_adapter_scale(controlnet_prefs['ip_adapter_strength'])
+        if controlnet_prefs['ip_adapter_image'].startswith('http'):
+            ip_adapter_image = PILImage.open(requests.get(controlnet_prefs['ip_adapter_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_prefs['ip_adapter_image']):
+                ip_adapter_image = PILImage.open(controlnet_prefs['ip_adapter_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your ip_adapter_image {controlnet_prefs['ip_adapter_image']}")
+                return
+        ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
+        status['loaded_ip_adapter'] = ip_adapter_model
+        ip_adapter_args = {'ip_adapter_image': ip_adapter_image}
+    else:
+        ip_adapter_args = {}
     clear_last()
     prt(f"Generating ControlNet {controlnet_prefs['control_task']} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_prefs['batch_folder_name'])
@@ -31156,10 +31287,26 @@ def run_controlnet(page, from_list=False):
         try:
             random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+            if controlnet_type == "text2image":
+                if not controlnet_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+            elif controlnet_type == "image2image":
+                if not controlnet_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+            elif controlnet_type == "inpaint":
+                if not controlnet_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, mask=mask_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, mask=mask_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+            '''
             if not controlnet_prefs['use_init_video']:
-                images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], num_images_per_prompt=controlnet_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
             else:
-                images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_prefs['steps'], guidance_scale=controlnet_prefs['guidance_scale'], eta=controlnet_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images'''
         except Exception as e:
             #clear_last()
             clear_last()
@@ -31294,9 +31441,10 @@ def run_controlnet_xl(page, from_list=False):
         page.ControlNetXL.update()
     progress = ProgressBar(bar_height=8)
     total_steps = controlnet_xl_prefs['steps']
-    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
+      #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
@@ -31666,6 +31814,12 @@ def run_controlnet_xl(page, from_list=False):
                 controlnet_type = "inpaint"
             else:
                 controlnet_type = "image2image"
+    use_ip_adapter = controlnet_xl_prefs['use_ip_adapter']
+    if 'loaded_ip_adapter' not in status: status['loaded_ip_adapter'] = ""
+    if use_ip_adapter:
+        ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_xl_prefs['ip_adapter_SDXL_model'])
+    else:
+        ip_adapter_model = None
     if controlnet_type != status['loaded_controlnet_type']:
         clear_pipes()
     #model = get_model(prefs['model_ckpt'])
@@ -31726,7 +31880,22 @@ def run_controlnet_xl(page, from_list=False):
         if controlnet_xl_prefs['invert_mask'] and not controlnet_xl_prefs['alpha_mask']:
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
-
+    if use_ip_adapter:
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet.set_ip_adapter_scale(controlnet_xl_prefs['ip_adapter_strength'])
+        if controlnet_xl_prefs['ip_adapter_image'].startswith('http'):
+            ip_adapter_image = PILImage.open(requests.get(controlnet_xl_prefs['ip_adapter_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_xl_prefs['ip_adapter_image']):
+                ip_adapter_image = PILImage.open(controlnet_xl_prefs['ip_adapter_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your ip_adapter_image {controlnet_xl_prefs['ip_adapter_image']}")
+                return
+        ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
+        status['loaded_ip_adapter'] = ip_adapter_model
+        ip_adapter_args = {'ip_adapter_image': ip_adapter_image}
+    else:
+        ip_adapter_args = {}
     clear_last()
     prt(f"Generating ControlNet-XL {controlnet_xl_prefs['control_task']} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_xl_prefs['batch_folder_name'])
@@ -31765,19 +31934,19 @@ def run_controlnet_xl(page, from_list=False):
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             if controlnet_type == "text2image":
                 if not controlnet_xl_prefs['use_init_video']:
-                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
                 else:
-                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
             elif controlnet_type == "image2image":
                 if not controlnet_xl_prefs['use_init_video']:
-                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
                 else:
-                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
             elif controlnet_type == "inpaint":
                 if not controlnet_xl_prefs['use_init_video']:
-                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, mask=mask_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, mask=mask_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
                 else:
-                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, mask=mask_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, callback_steps=1).images
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, mask=mask_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
         except Exception as e:
             #clear_last()
             clear_last()
@@ -40032,7 +40201,7 @@ def main(page: Page):
     def open_url(e):
         page.launch_url(e.data)
     def exit_disconnect(e):
-        save_settings_file(page)
+        save_settings_file(page, change_icon=is_Colab)
         if is_Colab:
           #run_sp("install pyautogui", realtime=False)
           #import pyautogui
