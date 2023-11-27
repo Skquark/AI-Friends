@@ -65,24 +65,21 @@ elif storage_type == "PyDrive Google Drive":
 stable_dir = os.path.join(root_dir, 'Stable_Diffusion')
 if not os.path.exists(stable_dir):
   os.makedirs(stable_dir)
-#if not os.path.exists(image_output):
-#  os.makedirs(image_output)
 sample_data = '/content/sample_data'
 if os.path.exists(sample_data):
   for f in os.listdir(sample_data):
     os.remove(os.path.join(sample_data, f))
   os.rmdir(sample_data)
 os.chdir(stable_dir)
-#loaded_Stability_api = False
-#loaded_img2img = False
-#use_Stability_api = False
 def version_checker():
   try:
     response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/DSD_version.txt")
     current_v = response.text.strip()
     if current_v != SDD_version:
       print(f'A new update is available. You are running {SDD_version} and {current_v} is up. We recommended refreshing Stable Diffusion Deluxe for the latest cool features or fixes.\nhttps://colab.research.google.com/github/Skquark/AI-Friends/blob/main/Stable_Diffusion_Deluxe.ipynb\nChangelog if interested: https://github.com/Skquark/AI-Friends/commits/main/Stable_Diffusion_Deluxe.ipynb')
-  except: pass #Probably offline
+  except:
+    print("No Internet connection found. Some features may not work...")
+    pass
 def ng():
   response = requests.get("https://raw.githubusercontent.com/Skquark/AI-Friends/main/_ng")
   ng_list = response.text.strip().split('\n')
@@ -118,7 +115,7 @@ def wget(url, to):
 try:
   import flet
 except ImportError as e:
-  run_sp("pip install flet==0.12.0.dev1793 --upgrade --quiet")
+  run_sp("pip install flet --upgrade --quiet")
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
@@ -268,6 +265,7 @@ def load_settings_file():
       'higher_vram_mode': False,
       'enable_xformers': False,
       'enable_attention_slicing': True,
+      'enable_bitsandbytes': False,
       'memory_optimization': "None",
       'sequential_cpu_offload': False,
       'vae_slicing': True,
@@ -513,6 +511,8 @@ status = {
     'changed_prompt_remixer': False,
     'changed_prompt_brainstormer': False,
     'changed_prompt_writer': False,
+    'kandinsky_3': 'Kandinsky 3.0',
+    'kandinsky_version': 'Kandinsky 3.0',
     'kandinsky_2_2': True,
     'kandinsky_fuse_2_2': True,
     'initialized': False,
@@ -691,7 +691,7 @@ def buildImageAIs(page):
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
     page.DallE3 = buildDallE3(page)
-    page.Kandinsky = buildKandinsky(page) if status['kandinsky_2_2'] else buildKandinsky21(page)
+    page.Kandinsky = buildKandinsky3(page) if status['kandinsky_version'] == "Kandinsky 3.0" else buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page) if status['kandinsky_fuse_2_2'] else buildKandinsky21Fuse(page)
     page.KandinskyControlNet = buildKandinskyControlNet(page)
     page.DiT = buildDiT(page)
@@ -901,6 +901,7 @@ if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
 if 'memory_optimization' not in prefs: prefs['memory_optimization'] = 'None'
 if 'enable_xformers' not in prefs: prefs['enable_xformers'] = False
 if 'enable_attention_slicing' not in prefs: prefs['enable_attention_slicing'] = True
+if 'enable_bitsandbytes' not in prefs: prefs['enable_bitsandbytes'] = False
 if 'sequential_cpu_offload' not in prefs: prefs['sequential_cpu_offload'] = False
 if 'vae_slicing' not in prefs: prefs['vae_slicing'] = True
 if 'vae_tiling' not in prefs: prefs['vae_tiling'] = False
@@ -1392,6 +1393,7 @@ def buildInstallers(page):
   SDXL_model_row = Row([SDXL_model, SDXL_custom_model, model_card_SDXL], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
 
   enable_xformers = Checkbox(label="Enable Xformers Mem Efficient Attention", tooltip="If using Torch < 2, speeds up diffusion process.", value=prefs['enable_xformers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_xformers'))
+  enable_bitsandbytes = Checkbox(label="Enable BitsandBytes", tooltip="For 8-Bit Low-Mem Optimizers and Trainers.", value=prefs['enable_bitsandbytes'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_bitsandbytes'))
   memory_optimization = Dropdown(label="Enable Memory Optimization", width=290, options=[dropdown.Option("None"), dropdown.Option("Attention Slicing")], value=prefs['memory_optimization'], on_change=lambda e:changed(e, 'memory_optimization'))
   if version.parse(torch.__version__) < version.parse("2.0.0"):
       memory_optimization.options.append(dropdown.Option("Xformers Mem Efficient Attention"))
@@ -1500,7 +1502,7 @@ def buildInstallers(page):
                                 Container(content=None, height=4), Row([scheduler_mode, scheduler_help_btn]),
                                  Row([enable_attention_slicing, higher_vram_mode, enable_xformers,#memory_optimization,
                                       ]),
-                                 Row([enable_vae_slicing, enable_vae_tiling]),
+                                 Row([enable_vae_slicing, enable_vae_tiling, enable_bitsandbytes]),
                                  #enable_attention_slicing,
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
                                  Row([enable_freeu, enable_tome, enable_torch_compile]),
@@ -1561,7 +1563,12 @@ def buildInstallers(page):
         else:
           page.banner.content.controls.append(Text(msg.strip(), weight=FontWeight.BOLD, color=colors.GREEN_600))
         page.update()
+      def set_status(msg=""):
+        page.status_msg = msg
+        page.banner.update()
+        page.update()
       page.console_msg = console_msg
+      page.status = set_status
       if status['changed_installers']:
         save_settings_file(page, change_icon=False)
         status['changed_installers'] = False
@@ -12882,6 +12889,127 @@ def buildDallE3(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+
+kandinsky_3_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "kandinsky-",
+    "num_images": 1,
+    "steps":25,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4,
+    #'prior_guidance_scale': 4.0,
+    #'prior_steps': 25,
+    "init_image": '',
+    "strength": 0.3,
+    "mask_image": '',
+    "invert_mask": False,
+    "seed": 0,
+    "kandinsky_model": "Kandinsky 3",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildKandinsky3(page):
+    global prefs, kandinsky_3_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            kandinsky_3_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            kandinsky_3_prefs[pref] = float(e.control.value)
+          else:
+            kandinsky_3_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def kandinsky_3_help(e):
+      def close_kandinsky_3_dlg(e):
+        nonlocal kandinsky_3_help_dlg
+        kandinsky_3_help_dlg.open = False
+        page.update()
+      kandinsky_3_help_dlg = AlertDialog(title=Text("🙅   Help with Kandinsky Pipeline"), content=Column([
+          Markdown("Kandinsky inherits best practices from [DALL-E 2](https://arxiv.org/abs/2204.06125) and [Latent Diffusion](https://huggingface.co/docs/diffusers/api/pipelines/latent_diffusion), while introducing some new ideas.\nIt uses [CLIP](https://huggingface.co/docs/transformers/model_doc/clip) for encoding images and text, and a diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach enhances the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation.\nThe Kandinsky model is created by [Arseniy Shakhmatov](https://github.com/cene555), [Anton Razzhigaev](https://github.com/razzant), [Aleksandr Nikolich](https://github.com/AlexWortega), [Igor Pavlov](https://github.com/boomb0om), [Andrey Kuznetsov](https://github.com/kuznetsoffandrey) and [Denis Dimitrov](https://github.com/denndimitrov) and the original codebase can be found [here](https://github.com/ai-forever/Kandinsky-2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
+          Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky_3_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = kandinsky_3_help_dlg
+      kandinsky_3_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        kandinsky_3_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_version(e):
+        status['kandinsky_version'] = e.control.value
+        if '2.1' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky21(page)
+        elif '2.2' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky(page)
+        elif '3.0' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky3(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "Kandinsky":
+            t.content = page.Kandinsky
+            break
+        page.ImageAIs.update()
+        page.update()
+    prompt = TextField(label="Prompt Text", value=kandinsky_3_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=kandinsky_3_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_3_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=kandinsky_3_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    steps = TextField(label="Number of Steps", value=kandinsky_3_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=kandinsky_3_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=kandinsky_3_prefs, key='steps')
+    #prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=kandinsky_3_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
+    #prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, expand=True, pref=kandinsky_3_prefs, key='prior_steps', col={'xs':12, 'md':6})
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kandinsky_3_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=kandinsky_3_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=kandinsky_3_prefs, key='height')
+    init_image = FileInput(label="Init Image", pref=kandinsky_3_prefs, key='init_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image", pref=kandinsky_3_prefs, key='mask_image', expand=True, page=page)
+    #, mask_image, invert_mask
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky_3_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
+    image_pickers = Container(content=ResponsiveRow([init_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_3_prefs, key='strength')
+    img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    seed = TextField(label="Seed", width=90, value=str(kandinsky_3_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_3_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_3_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=kandinsky_3_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=kandinsky_3_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kandinsky = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_kandinsky.height = None if status['installed_ESRGAN'] else 0
+    if not kandinsky_3_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    kandinsky_version = Dropdown(width=155, options=[dropdown.Option("Kandinsky 3.0"), dropdown.Option("Kandinsky 2.2"), dropdown.Option("Kandinsky 2.1")], value=status['kandinsky_version'], on_change=change_version)
+    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky3(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky3(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.Kandinsky_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
+            Header("🎎  Kandinsky 3.0", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_3_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            #ResponsiveRow([prior_steps, prior_guidance_scale]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            img_block,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_kandinsky,
+            parameters_row,
+            page.Kandinsky_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 kandinsky_prefs = {
     "prompt": '',
     "negative_prompt": '',
@@ -13008,6 +13136,20 @@ def buildKandinsky(page):
             break
         page.ImageAIs.update()
         page.update()
+    def change_version(e):
+        status['kandinsky_version'] = e.control.value
+        if '2.1' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky21(page)
+        elif '2.2' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky(page)
+        elif '3.0' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky3(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "Kandinsky":
+            t.content = page.Kandinsky
+            break
+        page.ImageAIs.update()
+        page.update()
     prompt = TextField(label="Prompt Text", value=kandinsky_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=kandinsky_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -13052,10 +13194,12 @@ def buildKandinsky(page):
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page, from_list=True, with_params=True))
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    #label="Kandinsky Version", 
+    kandinsky_version = Dropdown(width=150, options=[dropdown.Option("Kandinsky 3.0"), dropdown.Option("Kandinsky 2.2"), dropdown.Option("Kandinsky 2.1")], value=status['kandinsky_version'], on_change=change_version)
     page.kandinsky_output = Column([])
     c = Column([Container(
-        padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🎎  Kandinsky 2.2", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
+        padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18, on_click=switch_version))
+            Header("🎎  Kandinsky 2.2", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #param_rows, #dropdown_row,
             ResponsiveRow([prior_steps, prior_guidance_scale]),
@@ -13199,6 +13343,20 @@ def buildKandinsky21(page):
             break
         page.ImageAIs.update()
         page.update()
+    def change_version(e):
+        status['kandinsky_version'] = e.control.value
+        if '2.1' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky21(page)
+        elif '2.2' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky(page)
+        elif '3.0' in status['kandinsky_version']:
+            page.Kandinsky = buildKandinsky3(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "Kandinsky":
+            t.content = page.Kandinsky
+            break
+        page.ImageAIs.update()
+        page.update()
     prompt = TextField(label="Prompt Text", value=kandinsky21_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=kandinsky21_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=kandinsky21_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
@@ -13237,13 +13395,14 @@ def buildKandinsky21(page):
     page.ESRGAN_block_kandinsky21.height = None if status['installed_ESRGAN'] else 0
     if not kandinsky21_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
+    kandinsky_version = Dropdown(width=155, options=[dropdown.Option("Kandinsky 3.0"), dropdown.Option("Kandinsky 2.2"), dropdown.Option("Kandinsky 2.1")], value=status['kandinsky_version'], on_change=change_version)
     parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 2.1", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
 
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.kandinsky21_output = Column([])
     c = Column([Container(
-        padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🎎  Kandinsky 2.1", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[ft.OutlinedButton(content=Text("Switch to 2.2", size=18), on_click=switch_version), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky21_help)]),
+        padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.2", size=18), on_click=switch_version)
+            Header("🎎  Kandinsky 2.1", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky21_help)]),
             prompt,
             #param_rows, #dropdown_row,
             ResponsiveRow([prior_steps, prior_cf_scale]),
@@ -17313,17 +17472,32 @@ def get_diffusers(page):
         #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
         #if install_xformers(page):
         status['installed_xformers'] = True
+    if prefs['enable_bitsandbytes']:
+        try:
+            os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+            import bitsandbytes
+        except ModuleNotFoundError:
+            page.status("...installing bitsandbytes")
+            if sys.platform.startswith("win"):
+                run_sp("pip install bitsandbytes-windows", realtime=False)
+            else:
+                run_sp("pip install bitsandbytes", realtime=False)
+            import bitsandbytes
+            page.status()
+            pass
     try:
         import imwatermark
     except ModuleNotFoundError:
-        #print("invisible_watermark")
+        page.status("...installing invisible_watermark")
         run_sp("pip install invisible-watermark", realtime=False) #pip install --no-deps invisible-watermark>=0.2.0
+        page.status()
         pass
     try:
         import peft
     except ModuleNotFoundError:
-        #print("peft")
+        page.status("...installing peft")
         run_sp("pip install --upgrade git+https://github.com/huggingface/peft.git", realtime=False)
+        page.status()
         pass
     '''try:
         import accelerate
@@ -17353,8 +17527,10 @@ def get_diffusers(page):
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         #print("transformers")
+        page.status("...installing transformers")
         run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
         #run_process("pip install --upgrade transformers~=4.28", page=page)
+        page.status()
         pass
     #run_process("pip install -q huggingface_hub", page=page)
     '''try:
@@ -17365,42 +17541,49 @@ def get_diffusers(page):
     try:
         import accelerate
     except ModuleNotFoundError:
-        #print("accelerate")
+        page.status("...installing accelerate")
         run_sp("pip install git+https://github.com/huggingface/accelerate.git", realtime=False)
         import accelerate
+        page.status()
         pass
     try:
         import diffusers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        #print("diffusers")
+        page.status("...installing diffusers")
         #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
+        page.status()
         pass
     try:
         import scipy
     except ModuleNotFoundError:
-        #print("scipy")
+        page.status("...installing scipy")
         run_process("pip install -upgrade scipy", page=page)
+        page.status()
         pass
     try:
         import ftfy
     except ModuleNotFoundError:
-        #print("ftfy")
+        page.status("...installing ftfy")
         run_process("pip install --upgrade ftfy", page=page)
+        page.status()
         pass
     try:
         import safetensors
     except ModuleNotFoundError:
-        #print("safetensors")
+        page.status("...installing safetensors")
         run_process("pip install --upgrade safetensors~=0.3", page=page)
         import safetensors
         from safetensors import safe_open
+        page.status()
         pass
     try:
         import ipywidgets
     except ModuleNotFoundError:
+        page.status("...installing ipywidgets")
         run_process('pip install -qq "ipywidgets>=7,<8"', page=page)
+        page.status()
         pass
 
     from huggingface_hub import notebook_login, HfApi, HfFolder, login
@@ -19049,6 +19232,7 @@ def get_stability(page):
     )
     SD_sampler = client.get_sampler_from_str(prefs['generation_sampler'].lower())'''
     # New way, other is obsolete
+    page.status("installing stability")
     import requests
     api_host = os.getenv('API_HOST', 'https://api.stability.ai')
     stability_url = f"{api_host}/v1/engines/list" #user/account"
@@ -19057,8 +19241,9 @@ def get_stability(page):
       alert_msg(page, "ERROR with Stability-ai: " + str(response.text))
       return
     payload = response.json()
-    print(str(payload))
+    #print(str(payload))
     status['installed_stability'] = True
+    page.status()
 
 '''
 def update_stability():
@@ -21421,6 +21606,7 @@ def start_diffusion(page):
     bfolder = fpath.rpartition(slash)[2]
     if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
       prt('Applying Real-ESRGAN Upscaling to images...')
+      #upscale_image(images,)
       os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
       upload_folder = 'upload'
       result_folder = 'results'
@@ -33931,10 +34117,10 @@ def run_lcm_interpolation(page):
         out_path = batch_output# if save_to_GDrive else txt2img_output
 
         if lcm_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, upscaled_path, scale=lcm_interpolation_prefs["enlarge_scale"], face_enhance=lcm_interpolation_prefs["face_enhance"])
+            upscale_image(image_path, image_path, scale=lcm_interpolation_prefs["enlarge_scale"], face_enhance=lcm_interpolation_prefs["face_enhance"])
             if lcm_interpolation_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=upscaled_path, width=lcm_interpolation_prefs['width'] * float(lcm_interpolation_prefs["enlarge_scale"]), height=lcm_interpolation_prefs['height'] * float(lcm_interpolation_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=image_path, width=lcm_interpolation_prefs['width'] * float(lcm_interpolation_prefs["enlarge_scale"]), height=lcm_interpolation_prefs['height'] * float(lcm_interpolation_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             time.sleep(0.2)
             shutil.copy(image_path, os.path.join(out_path, new_file))
@@ -33945,7 +34131,7 @@ def run_lcm_interpolation(page):
         try:
             installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
             prt(installer)
-            out_file = available_file(out_dir, fname, no_num=True, ext="mp4")
+            out_file = available_file(out_path, fname, no_num=True, ext="mp4")
             if lcm_interpolation_prefs['interpolate_video']:
                 installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
                 interpolate_video(images, input_fps=lcm_interpolation_prefs['source_fps'], output_fps=lcm_interpolation_prefs['target_fps'], output_video=out_file, installer=installer)
@@ -38889,6 +39075,270 @@ def run_dall_e_3(page, from_list=False):
     if prefs['enable_sounds']: page.snd_alert.play()
 
 loaded_kandinsky_task = ""
+def run_kandinsky3(page, from_list=False, with_params=False):
+    global kandinsky_3_prefs, pipe_kandinsky, prefs, loaded_kandinsky_task
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if int(status['cpu_memory']) <= 10:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 3 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
+      return
+    kandinsky_3_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            kandinsky_3_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':kandinsky_3_prefs['init_image'], 'mask_image':kandinsky_3_prefs['mask_image'], 'guidance_scale':kandinsky_3_prefs['guidance_scale'], 'steps':kandinsky_3_prefs['steps'], 'width':kandinsky_3_prefs['width'], 'height':kandinsky_3_prefs['height'], 'strength':kandinsky_3_prefs['strength'], 'num_images':kandinsky_3_prefs['num_images'], 'seed':kandinsky_3_prefs['seed']})
+        else:
+            kandinsky_3_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':p['init_image'], 'mask_image':p['mask_image'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(kandinsky_3_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      kandinsky_3_prompts.append({'prompt': kandinsky_3_prefs['prompt'], 'negative_prompt':kandinsky_3_prefs['negative_prompt'], 'init_image':kandinsky_3_prefs['init_image'], 'mask_image':kandinsky_3_prefs['mask_image'], 'guidance_scale':kandinsky_3_prefs['guidance_scale'], 'steps':kandinsky_3_prefs['steps'], 'width':kandinsky_3_prefs['width'], 'height':kandinsky_3_prefs['height'], 'strength':kandinsky_3_prefs['strength'], 'num_images':kandinsky_3_prefs['num_images'], 'seed':kandinsky_3_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Kandinsky.controls.append(line)
+        if update:
+          page.Kandinsky.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.Kandinsky, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Kandinsky.auto_scroll = scroll
+        page.Kandinsky.update()
+      else:
+        page.Kandinsky.auto_scroll = scroll
+        page.Kandinsky.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Kandinsky.controls = page.Kandinsky.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = kandinsky_3_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None: #(pipe, step, timestep, callback_kwargs):#
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    model_id = "kandinsky-community/kandinsky-3" if kandinsky_3_prefs['kandinsky_model'] == "Kandinsky 3" else "kandinsky-community/kandinsky-2-2-decoder"
+    installer = Installing(f"Installing {kandinsky_3_prefs['kandinsky_model']} Engine & Models... See console log for progress.")
+    clear_pipes("kandinsky")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = False
+    for pr in kandinsky_3_prompts:
+        prt(installer)
+        init_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            #init_file = os.path.join(save_dir, fname)
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        mask_img = None
+        if bool(pr['mask_image']):
+            fname = pr['mask_image'].rpartition(slash)[2]
+            if pr['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['mask_image']):
+                    mask_img = PILImage.open(pr['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                    return
+            if kandinsky_3_prefs['invert_mask']:
+                mask_img = ImageOps.invert(mask_img.convert('RGB'))
+            mask_img = mask_img.resize((pr['width'], pr['height']), resample=PILImage.NEAREST)
+            mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
+        task_type = "inpainting" if bool(pr['init_image']) and bool(pr['mask_image']) else "img2img" if bool(pr['init_image']) and not bool(pr['mask_image']) else "text2img"
+        installer.status(f"...{kandinsky_3_prefs['kandinsky_model']} {task_type} Pipeline")
+        if pipe_kandinsky == None:
+            clear_pipes('kandinsky')
+            try:
+                if task_type == "text2img":
+                    from diffusers import AutoPipelineForText2Image
+                    pipe_kandinsky = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                elif task_type == "img2img":
+                    from diffusers import AutoPipelineForImage2Image
+                    pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                elif task_type == "inpainting":
+                    from diffusers import AutoPipelineForInpainting#"kandinsky-community/kandinsky-2-2-decoder-inpaint"
+                    pipe_kandinsky = AutoPipelineForInpainting.from_pretrained(model_id+"-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                if prefs['enable_torch_compile']:
+                    installer.status(f"...Torch compiling unet")
+                    pipe_kandinsky.unet.to(memory_format=torch.channels_last)
+                    pipe_kandinsky.unet = torch.compile(pipe_kandinsky.unet, mode="reduce-overhead", fullgraph=True)
+                    pipe_kandinsky = pipe_kandinsky.to("cuda")
+                elif cpu_offload:
+                    pipe_kandinsky.enable_model_cpu_offload()
+                else:
+                    pipe_kandinsky.to("cuda")
+                loaded_kandinsky_task = task_type
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR Initializing Kandinsky, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+                return
+        elif loaded_kandinsky_task != task_type:
+            clear_pipes('kandinsky')
+            try:
+                if task_type == "text2img":
+                    from diffusers import AutoPipelineForText2Image
+                    pipe_kandinsky = AutoPipelineForText2Image.from_pipe(pipe_kandinsky)
+                elif task_type == "img2img":
+                    from diffusers import AutoPipelineForImage2Image
+                    pipe_kandinsky = AutoPipelineForImage2Image.from_pipe(pipe_kandinsky)
+                elif task_type == "inpainting":
+                    from diffusers import AutoPipelineForInpainting#"kandinsky-community/kandinsky-2-2-decoder-inpaint"
+                    pipe_kandinsky = AutoPipelineForInpainting.from_pipe(pipe_kandinsky)
+                loaded_kandinsky_task = task_type
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR Converting Kandinsky from pipe...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+                return
+        else:
+            clear_pipes('kandinsky')
+        clear_last()
+        prt(f"Generating your {kandinsky_3_prefs['kandinsky_model']} Image...")
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        try:
+            if task_type == "text2img":
+                images = pipe_kandinsky(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    width=pr['width'],
+                    height=pr['height'],
+                    num_inference_steps=pr['steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+            elif task_type == "img2img":
+                images = pipe_kandinsky(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    image=init_img,
+                    strength=pr['strength'],
+                    num_images_per_prompt=pr['num_images'],
+                    width=pr['width'],
+                    height=pr['height'],
+                    num_inference_steps=pr['steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+            elif task_type == "inpainting":
+                images = pipe_kandinsky(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    image=init_img,
+                    mask_image=mask_img,
+                    num_images_per_prompt=pr['num_images'],
+                    width=pr['width'],
+                    height=pr['height'],
+                    num_inference_steps=pr['steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                ).images
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Text(str(e)))
+            return
+        clear_last(2)
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(kandinsky_3_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, kandinsky_3_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        #print(str(images))
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            fname = f'{kandinsky_3_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not kandinsky_3_prefs['display_upscaled_image'] or not kandinsky_3_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if kandinsky_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=kandinsky_3_prefs["enlarge_scale"], face_enhance=kandinsky_3_prefs["face_enhance"])
+                if kandinsky_3_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_3_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"Kandinsky 3 {task_type}")
+                if prefs['save_config_in_metadata']:
+                    #metadata.add_text("title", kandinsky_3_prefs['file_name'])
+                    # TODO: Merge Metadata with pr[]
+                    config_json = kandinsky_3_prefs.copy()
+                    config_json['model_path'] = "kandinsky-community/kandinsky-2-2-decoder"
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            new_file = available_file(os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name']), fname, 0)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 def run_kandinsky(page, from_list=False, with_params=False):
     global kandinsky_prefs, pipe_kandinsky, pipe_kandinsky_prior, prefs, loaded_kandinsky_task
     if not status['installed_diffusers']:
@@ -40385,11 +40835,11 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         page.banner.open = False
         page.update()
     #leading=Icon(icons.DOWNLOADING, color=colors.AMBER, size=40),
-    page.banner = Banner(bgcolor=colors.SECONDARY_CONTAINER, content=Column([]), actions=[TextButton("Close", on_click=close_banner)])
+    page.status_msg = Text("")
+    page.banner = Banner(bgcolor=colors.SECONDARY_CONTAINER, content=Column([]), actions=[Row([page.status_msg, TextButton("Close", on_click=close_banner)])])
     def show_banner_click(e):
         page.banner.open = True
         page.update()
-
     page.add(t)
     initState(page)
     if not status['initialized']:
