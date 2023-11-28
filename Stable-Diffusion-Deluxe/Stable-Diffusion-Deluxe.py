@@ -1334,7 +1334,7 @@ def buildInstallers(page):
 * **K-Euler Ancestral -** Uses ancestral sampling with Euler method steps. This is a fast scheduler which can often generate good outputs in 30-40 steps. One of my personal favorites with the subtleties.
 * **DEIS Multistep -** Diffusion Exponential Integrator Sampler modifies the polynomial fitting formula in log-rho space instead of the original linear `t` space in the DEIS paper. The modification enjoys closed-form coefficients for exponential multistep update instead of replying on the numerical solver. aims to accelerate the sampling process while maintaining high sample quality. 
 * **UniPC Multistep -** Unified Predictor-Corrector inspired by the predictor-corrector method in ODE solvers, it can achieve high-quality image generation in 5-10 steps. Combines UniC and UniP to create a powerful image improvement tool.
-* **Heun Discrete -** A more accurate improvement to Euler’s method, but needs to predict noise twice in each step, so it is twice as slow as Euler. Uses a correction step to reduce error and is thus an example of a predictor–corrector algorithm.
+* **Heun Discrete -** A more accurate improvement to Euler's method, but needs to predict noise twice in each step, so it is twice as slow as Euler. Uses a correction step to reduce error and is thus an example of a predictor–corrector algorithm.
 * **Karras Heun Discrete -** Uses a different noise schedule empirically found by Tero Karras et al. Takes large steps at first and small steps at the end. In the context of DPMs, it's employed to simulate the evolution of data over time. 
 * **K-DPM2 Ancestral -** Karras Diffusion Probabilistic Model Solver is accurate up to the second order. Ancestral sampling traces the data's evolution backward in time, from its final form back to its initial noisy state.
 * **K-DPM2 Discrete -** The solver discretizes the diffusion process into smaller time steps. This discretization allows for efficient and accurate sampling, balanced between speed and sample quality.
@@ -9059,6 +9059,7 @@ pixart_alpha_prefs = {
     'num_inference_steps': 30,
     "seed": 0,
     "clean_caption": True,
+    "resolution_binning": True,
     #"mask_feature": True,
     "cpu_offload": True,
     "use_8bit": False,
@@ -9119,6 +9120,7 @@ def buildPixArtAlpha(page):
     pixart_model = Dropdown(label="PixArt-α Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-α Model (URL or Path)", value=pixart_alpha_prefs['custom_model'], expand=True, visible=pixart_alpha_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     clean_caption = Switcher(label="Clean Caption", value=pixart_alpha_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
+    resolution_binning = Switcher(label="Resolution Binning", value=pixart_alpha_prefs['resolution_binning'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'resolution_binning'), tooltip="The requested height and width are first mapped to the closest resolutions using `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to the requested resolution. Useful for generating non-square images.")
     #mask_feature = Switcher(label="Feature Mask", value=pixart_alpha_prefs['mask_feature'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'mask_feature'), tooltip="If enabled, the text embeddings will be masked.")
     cpu_offload = Switcher(label="CPU Offload", value=pixart_alpha_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     use_8bit = Switcher(label="Use 8-bit Precision", value=pixart_alpha_prefs['use_8bit'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_8bit'), tooltip="Runs with under 8GB VRAM by loading the text encoder in 8-bit numerical precision. Reduces quality & loads slower.")
@@ -9139,13 +9141,13 @@ def buildPixArtAlpha(page):
     page.pixart_alpha_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🧚  PixArt-αlpha", "Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis.", actions=[IconButton(icon=icons.HELP, tooltip="Help with PixArt-α Settings", on_click=pixart_alpha_help)]),
+            Header("🧚  PixArt-αlpha", "Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis... Note: Uses a lot of RAM & Space, may run out.", actions=[IconButton(icon=icons.HELP, tooltip="Help with PixArt-α Settings", on_click=pixart_alpha_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #ResponsiveRow([num_inference_steps]),
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([pixart_model, pixart_custom_model]),
-            Row([clean_caption, cpu_offload, use_8bit]),
+            Row([clean_caption, resolution_binning, cpu_offload, use_8bit]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_pixart_alpha,
             parameters_row,
@@ -17485,6 +17487,7 @@ def get_diffusers(page):
             import bitsandbytes
             page.status()
             pass
+        pip_install("sentencepiece")
     try:
         import imwatermark
     except ModuleNotFoundError:
@@ -17742,21 +17745,21 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "UniPC Multistep":
       from diffusers import UniPCMultistepScheduler
       s = UniPCMultistepScheduler.from_pretrained(model, subfolder="scheduler")
-    elif scheduler_mode == "Score-SDE-Vp":
-      from diffusers import ScoreSdeVpScheduler
-      s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
-      use_custom_scheduler = True
-    elif scheduler_mode == "Score-SDE-Ve":
-      from diffusers import ScoreSdeVeScheduler
-      s = ScoreSdeVeScheduler() #(num_train_timesteps=2000, snr=0.15, sigma_min=0.01, sigma_max=1348, sampling_eps=1e-5, correct_steps=1, tensor_format="pt"
-      use_custom_scheduler = True
+    #elif scheduler_mode == "Score-SDE-Vp":
+    #  from diffusers import ScoreSdeVpScheduler
+    #  s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
+    #  use_custom_scheduler = True
+    #elif scheduler_mode == "Score-SDE-Ve":
+    #  from diffusers import ScoreSdeVeScheduler
+    #  s = ScoreSdeVeScheduler() #(num_train_timesteps=2000, snr=0.15, sigma_min=0.01, sigma_max=1348, sampling_eps=1e-5, correct_steps=1, tensor_format="pt"
+    #  use_custom_scheduler = True
+    #elif scheduler_mode == "Karras-Ve":
+    #  from diffusers import KarrasVeScheduler
+    #  s = KarrasVeScheduler() #(sigma_min=0.02, sigma_max=100, s_noise=1.007, s_churn=80, s_min=0.05, s_max=50, tensor_format="pt")
+    #  use_custom_scheduler = True
     elif scheduler_mode == "DDPM":
       from diffusers import DDPMScheduler
       s = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt")
-      use_custom_scheduler = True
-    elif scheduler_mode == "Karras-Ve":
-      from diffusers import KarrasVeScheduler
-      s = KarrasVeScheduler() #(sigma_min=0.02, sigma_max=100, s_noise=1.007, s_churn=80, s_min=0.05, s_max=50, tensor_format="pt")
       use_custom_scheduler = True
     elif scheduler_mode == "LMS": #no more
       from diffusers import LMSScheduler
@@ -17858,21 +17861,21 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None):
     elif scheduler_mode == "LCM":
       from diffusers import LCMScheduler
       s = LCMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
-    elif scheduler_mode == "Score-SDE-Vp":
-      from diffusers import ScoreSdeVpScheduler
-      s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
-      use_custom_scheduler = True
-    elif scheduler_mode == "Score-SDE-Ve":
-      from diffusers import ScoreSdeVeScheduler
-      s = ScoreSdeVeScheduler() #(num_train_timesteps=2000, snr=0.15, sigma_min=0.01, sigma_max=1348, sampling_eps=1e-5, correct_steps=1, tensor_format="pt"
-      use_custom_scheduler = True
+    #elif scheduler_mode == "Score-SDE-Vp":
+    #  from diffusers import ScoreSdeVpScheduler
+    #  s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
+    #  use_custom_scheduler = True
+    #elif scheduler_mode == "Score-SDE-Ve":
+    #  from diffusers import ScoreSdeVeScheduler
+    #  s = ScoreSdeVeScheduler() #(num_train_timesteps=2000, snr=0.15, sigma_min=0.01, sigma_max=1348, sampling_eps=1e-5, correct_steps=1, tensor_format="pt"
+    #  use_custom_scheduler = True
+    #elif scheduler_mode == "Karras-Ve":
+    #  from diffusers import KarrasVeScheduler
+    #  s = KarrasVeScheduler() #(sigma_min=0.02, sigma_max=100, s_noise=1.007, s_churn=80, s_min=0.05, s_max=50, tensor_format="pt")
+    #  use_custom_scheduler = True
     elif scheduler_mode == "DDPM":
       from diffusers import DDPMScheduler
       s = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt")
-      use_custom_scheduler = True
-    elif scheduler_mode == "Karras-Ve":
-      from diffusers import KarrasVeScheduler
-      s = KarrasVeScheduler() #(sigma_min=0.02, sigma_max=100, s_noise=1.007, s_churn=80, s_min=0.05, s_max=50, tensor_format="pt")
       use_custom_scheduler = True
     elif scheduler_mode == "LMS": #no more
       from diffusers import LMSScheduler
@@ -19337,6 +19340,9 @@ def get_ESRGAN(page, model="realesr-general-x4v3", installer=None):
 def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=False, model="realesr-general-x4v3", installer=None):
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
+    if not isinstance(source, list): source = [source]
+    if not os.path.isdir(target): target = os.path.dirname(target)
+    saves = {}
     if method=="Real-ESRGAN": #TODO: Add more ESRGAN model options
         ESRGAN_folder = os.pisath.join(dist_dir, 'Real-ESRGAN')
         if not status['installed_ESRGAN']:
@@ -19358,10 +19364,12 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
         os.mkdir(upload_folder)
         os.mkdir(result_folder)
         #TODO: Support source as list
-        fname = os.path.basename(source).rpartition('.')[0]
-        short_name = f'{fname[:80]}.png'
-        dst_path = os.path.join(upload_folder, short_name)
-        shutil.copy(source, dst_path)
+        for i in source:
+            fname = os.path.basename(i)
+            short_name = f'{fname[:80]}.png'
+            dst_path = os.path.join(upload_folder, short_name)
+            shutil.copy(i, dst_path)
+            saves[short_name] = fname
         faceenhance = ' --face_enhance' if face_enhance else ''
         stat(f"Upscaling {method} {scale}X")
         try:
@@ -19372,10 +19380,17 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
             return
         out_file = short_name.rpartition('.')[0] + '_out.png'
         stat("Saving output")
-        shutil.move(os.path.join(result_folder, out_file), target)
+        filenames = os.listdir(result_folder)
+        for oname in filenames:
+            #fparts = oname.rpartition('_out')
+            #fname_clean = fparts[0] + fparts[2]
+            fname_clean = saves[oname]
+            opath = os.path.join(target, fname_clean)
+            shutil.move(os.path.join(result_folder, oname), opath)
+        #shutil.move(os.path.join(result_folder, out_file), target)
         # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
     elif method=="SRFormer":
-        SRFormer_dir = os.path.join(dist, "SRFormer")
+        SRFormer_dir = os.path.join(dist_dir, "SRFormer")
         if not os.path.isdir(SRFormer_dir):
             stat(f"Installing {method}...")
             run_sp("git clone https://github.com/HVision-NKU/SRFormer", cwd=root_dir)
@@ -19389,6 +19404,12 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
             shutil.rmtree(result_folder)
         os.mkdir(upload_folder)
         os.mkdir(result_folder)
+        for i in source:
+            fname = os.path.basename(i)
+            short_name = f'{fname[:80]}.png'
+            dst_path = os.path.join(upload_folder, short_name)
+            shutil.copy(i, dst_path)
+            saves[short_name] = fname
         x = int(scale)
         if x < 2: x = 2
         if x > 4: x = 4
@@ -19402,7 +19423,7 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
         to = os.path.dirname(target)
         for f in os.listdir(result_folder):
             img = os.path.join(result_folder, f)
-            out = os.path.join(to, f)
+            out = os.path.join(to, saves[f])
             shutil.move(img, out)
     else: #TODO: Add SwinIR, DAT and other Upscale methods
         print(f"Unknown upscale method {method}")
@@ -33379,7 +33400,8 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                     num_inference_steps=pr['num_inference_steps'],
                     guidance_scale=pr['guidance_scale'],
                     clean_caption=pixart_alpha_prefs['clean_caption'],
-                    #mask_feature=pixart_alpha_prefs['mask_feature'],
+                    use_resolution_binning=pixart_alpha_prefs['resolution_binning'],
+                    #mask_feature=pixart_alpha_prefs['mask_feature'],resolution_binning
                     generator=generator,
                     callback=callback_fnc,
                 ).images
@@ -33402,6 +33424,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                     guidance_scale=pr['guidance_scale'],
                     output_type="latent",
                     clean_caption=pixart_alpha_prefs['clean_caption'],
+                    use_resolution_binning=pixart_alpha_prefs['resolution_binning'],
                     generator=generator,
                     callback=callback_fnc,
                 ).images
@@ -33865,8 +33888,6 @@ def run_lcm(page, from_list=False, with_params=False):
         status['loaded_lcm'] = lcm_model
     else:
         clear_pipes('lcm')
-        if prefs['scheduler_mode'] != status['loaded_scheduler']:
-            pipe_lcm = pipeline_scheduler(pipe_lcm)
     clear_last()
     s = "" if len(lcm_prompts) == 0 else "s"
     prt(f"Generating your LCM Image{s}...")
@@ -41900,6 +41921,10 @@ def show_port(adr, height=500):
     document.body.append(fm)
   })();
   """ % (adr, height) ))
+#pip_install("PyDrive2|pydrive2")
+#from pydrive2.auth import GoogleAuth
+#gauth = GoogleAuth()
+#gauth.LocalWebserverAuth()
 #r = requests.get('http://localhost:4040/api/tunnels')
 #url = r.json()['tunnels'][0]['public_url']
 #print(url)
