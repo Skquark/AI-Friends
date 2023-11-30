@@ -784,6 +784,7 @@ def buildVideoAIs(page):
     page.InfiniteZoom = buildInfiniteZoom(page)
     page.Potat1 = buildPotat1(page)
     page.StableAnimation = buildStableAnimation(page)
+    page.SVD = buildSVD(page)
     page.ControlNet = buildControlNet(page)
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.TemporalNet_XL = buildTemporalNet_XL(page)
@@ -798,6 +799,7 @@ def buildVideoAIs(page):
         tabs=[
             Tab(text="AnimateDiff", content=page.AnimateDiff, icon=icons.AUTO_MODE),
             Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
+            Tab(text="SVD Image-to-Video", content=page.SVD, icon=icons.SLOW_MOTION_VIDEO),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
@@ -1563,12 +1565,7 @@ def buildInstallers(page):
         else:
           page.banner.content.controls.append(Text(msg.strip(), weight=FontWeight.BOLD, color=colors.GREEN_600))
         page.update()
-      def set_status(msg=""):
-        page.status_msg = msg
-        page.banner.update()
-        page.update()
       page.console_msg = console_msg
-      page.status = set_status
       if status['changed_installers']:
         save_settings_file(page, change_icon=False)
         status['changed_installers'] = False
@@ -9782,6 +9779,7 @@ text_to_video_zero_prefs = {
     't1': 47,
     'input_video': '',
     'prep_type': 'Zero Shot',
+    'use_SDXL': False,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -9871,6 +9869,7 @@ def buildTextToVideoZero(page):
     t1 = SliderRow(label="Timestep t1", min=43, max=50, divisions=7, pref=text_to_video_zero_prefs, key='t1', tooltip="Should be in the range [t0 + 1, num_inference_steps - 1]")
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_zero_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_zero_prefs, key='height')
+    use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline", value=text_to_video_zero_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Model.")
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=text_to_video_zero_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=text_to_video_zero_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
     batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_zero_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -9891,7 +9890,7 @@ def buildTextToVideoZero(page):
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_zero_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
-        Row([export_to_video]),
+        Row([export_to_video, use_SDXL]),
         num_frames,
         num_inference_row,
         guidance,
@@ -11078,6 +11077,134 @@ def buildStableAnimation(page):
         ]),
         page.stable_animation_output,
         clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+svd_prefs = {
+    'prompt': '',
+    'negative_prompt': '',
+    'init_image': '',
+    'svd_model': 'SVD-img2vid-XT',
+    'num_inference_steps': 25,
+    'min_guidance_scale': 1.0,
+    'max_guidance_scale': 3.0,
+    'fps': 8,
+    'target_fps': 30,
+    'motion_bucket_id': 127,#180
+    'num_frames': 25,
+    'decode_chunk_size': 14,
+    'noise_aug_strength': 0.02,
+    'export_to_video': True,
+    "interpolate_video": True,
+    'seed': 0,
+    'max_size': 1024,
+    'width': 1024,
+    'height': 576,
+    'cpu_offload': False,
+    'num_videos': 1,
+    'resume_frame': False,
+    'continue_times': 1,
+    'file_prefix': 'svd-',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildSVD(page):
+    global svd_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            svd_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            svd_prefs[pref] = float(e.control.value)
+          else:
+            svd_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def svd_help(e):
+      def close_svd_dlg(e):
+        nonlocal svd_help_dlg
+        svd_help_dlg.open = False
+        page.update()
+      svd_help_dlg = AlertDialog(title=Text("💁   Help with SVD Image-To-Video"), content=Column([
+          Text("Stable Video Diffusion (SVD) Image-to-Video is a diffusion model that takes in a still image as a conditioning frame, and generates a video from it. The SVD checkpoint is trained to generate 14 frames and the SVD-XT checkpoint is further finetuned to generate 25 frames. (SVD) Image-to-Video is a latent diffusion model trained to generate short video clips from an image conditioning. This model was trained to generate 14 frames at resolution 576x1024 given a context frame of the same size. We also finetune the widely used f8-decoder for temporal consistency. Developed and funded by Stability AI."),
+          Text("The generated videos are rather short (<= 4sec), and the model does not achieve perfect photorealism. The model may generate videos without motion, or very slow camera pans. The model cannot be controlled through text. The model cannot render legible text. Faces and people in general may not be generated properly. The autoencoding part of the model is lossy."),
+          Markdown("[Huggingface Model](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid) | [GitHub repository](https://github.com/Stability-AI/generative-models) | [Paper](https://stability.ai/research/stable-video-diffusion-scaling-latent-video-diffusion-models-to-large-datasets)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🆒  Extra cool... ", on_click=close_svd_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = svd_help_dlg
+      svd_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        svd_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def toggle_resume(e):
+        svd_prefs['resume_frame'] = e.control.value
+        resume_container.visible = svd_prefs['resume_frame']
+        resume_container.update()
+    #prompt = TextField(label="Animation Prompt Text", value=svd_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    #negative_prompt  = TextField(label="Negative Prompt Text", value=svd_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image", pref=svd_prefs, key='init_image', filled=True, page=page)
+    svd_model = Dropdown(label="SVD Model", width=200, options=[dropdown.Option("SVD-img2vid-XT"), dropdown.Option("SVD-img2vid")], value=svd_prefs['svd_model'], on_change=lambda e: changed(e, 'svd_model'))
+    #num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=svd_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=svd_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    min_guidance = SliderRow(label="Min Guidance Scale", min=0, max=10, divisions=20, round=1, pref=svd_prefs, key='min_guidance_scale', col={'sm':6}, tooltip="Used for the classifier free guidance with first frame.")
+    max_guidance = SliderRow(label="Max Guidance Scale", min=0, max=10, divisions=20, round=1, pref=svd_prefs, key='max_guidance_scale', col={'sm':6}, tooltip="Used for the classifier free guidance with last frame.")
+    motion_bucket_id = SliderRow(label="Motion Bucket ID", min=1, max=300, divisions=299, pref=svd_prefs, key='motion_bucket_id', tooltip="Increasing the motion bucket id will increase the motion of the generated video.")
+    decode_chunk_size = SliderRow(label="Decode Chunk Size", min=1, max=25, divisions=24, pref=svd_prefs, key='decode_chunk_size', tooltip="The number of frames to decode at a time. The higher the chunk size, the higher the temporal consistency between frames, but also the higher the memory consumption. By default, the decoder will decode all frames at once for maximal quality. Reduce `decode_chunk_size` to reduce memory usage.")
+    noise_aug_strength = SliderRow(label="Noise Augmented Strength", min=0.0, max=0.1, divisions=20, round=3, pref=svd_prefs, key='noise_aug_strength', tooltip="The amount of noise added to the init image, the higher it is the less the video will look like the init image. Increase it for more motion.")
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=svd_prefs, key='fps', tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
+    #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=svd_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=svd_prefs, key='height')
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=svd_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=svd_prefs, key='max_size')
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=svd_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=svd_prefs, key='height')
+    interpolate_video = Switcher(label="Interpolate Video", value=svd_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    cpu_offload = Switcher(label="CPU Offload", value=svd_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=svd_prefs['num_videos'], on_change=lambda e: changed(e, 'num_videos'))
+    file_prefix = TextField(label="Filename Prefix", value=svd_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    batch_folder_name = TextField(label="Video Folder Name", value=svd_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    resume_frame = Switcher(label="Resume from Last Frame", value=svd_prefs['resume_frame'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume, tooltip="Continues generating frames in chunks for videos longer than 14 or 25 frame limit.")
+    resume_container = Container(content=NumberPicker(label="Times to Continue: ", min=1, max=10, value=svd_prefs['continue_times'], on_change=lambda e: changed(e, 'continue_times')), visible=svd_prefs['resume_frame'])
+    seed = TextField(label="Seed", width=90, value=str(svd_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=svd_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=svd_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=svd_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=svd_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_svd = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_svd.height = None if status['installed_ESRGAN'] else 0
+    if not svd_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🍃  Stable Video Diffusion Image-To-Video Synthesis", "Generate high resolution (576x1024) 2-4 second videos conditioned on the input image...", actions=[IconButton(icon=icons.HELP, tooltip="Help with SVD Settings", on_click=svd_help)]),
+        #ResponsiveRow([prompt, negative_prompt]),
+        init_image,
+        decode_chunk_size,
+        motion_bucket_id,
+        noise_aug_strength,
+        #num_frames,
+        fps,
+        Row([resume_frame, resume_container]),
+        num_inference_row,
+        ResponsiveRow([min_guidance, max_guidance]),
+        max_size,
+        #width_slider, height_slider,
+        page.ESRGAN_block_svd,
+        Row([svd_model, interpolate_video, cpu_offload]),
+        Row([num_videos, seed, batch_folder_name, file_prefix]),
+        Row([
+            ElevatedButton(content=Text("🪭  Run SVD", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_svd(page)),
+        ]),
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
@@ -12936,9 +13063,10 @@ def buildKandinsky3(page):
         kandinsky_3_help_dlg.open = False
         page.update()
       kandinsky_3_help_dlg = AlertDialog(title=Text("🙅   Help with Kandinsky Pipeline"), content=Column([
-          Markdown("Kandinsky inherits best practices from [DALL-E 2](https://arxiv.org/abs/2204.06125) and [Latent Diffusion](https://huggingface.co/docs/diffusers/api/pipelines/latent_diffusion), while introducing some new ideas.\nIt uses [CLIP](https://huggingface.co/docs/transformers/model_doc/clip) for encoding images and text, and a diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach enhances the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation.\nThe Kandinsky model is created by [Arseniy Shakhmatov](https://github.com/cene555), [Anton Razzhigaev](https://github.com/razzant), [Aleksandr Nikolich](https://github.com/AlexWortega), [Igor Pavlov](https://github.com/boomb0om), [Andrey Kuznetsov](https://github.com/kuznetsoffandrey) and [Denis Dimitrov](https://github.com/denndimitrov) and the original codebase can be found [here](https://github.com/ai-forever/Kandinsky-2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("Kandinsky 3.0 is an open-source text-to-image diffusion model built upon the Kandinsky2-x model family. In comparison to its predecessors, enhancements have been made to the text understanding and visual quality of the model, achieved by increasing the size of the text encoder and Diffusion U-Net models, respectively. Its architecture includes 3 main components: 1) FLAN-UL2, which is an encoder decoder model based on the T5 architecture. 2) New U-Net architecture featuring BigGAN-deep blocks doubles depth while maintaining the same number of parameters. 3) Sber-MoVQGAN is a decoder proven to have superior results in image restoration.  Kandinsky inherits best practices from [DALL-E 2](https://arxiv.org/abs/2204.06125) and [Latent Diffusion](https://huggingface.co/docs/diffusers/api/pipelines/latent_diffusion), while introducing some new ideas.\nIt uses [CLIP](https://huggingface.co/docs/transformers/model_doc/clip) for encoding images and text, and a diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach enhances the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation.\nThe Kandinsky model is created by [Arseniy Shakhmatov](https://github.com/cene555), [Anton Razzhigaev](https://github.com/razzant), [Aleksandr Nikolich](https://github.com/AlexWortega), [Igor Pavlov](https://github.com/boomb0om), [Andrey Kuznetsov](https://github.com/kuznetsoffandrey) and [Denis Dimitrov](https://github.com/denndimitrov) and the original codebase can be found [here](https://github.com/ai-forever/Kandinsky-2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
+          Markdown("Kandinsky 3 is created by [Vladimir Arkhipkin](https://github.com/oriBetelgeuse),[Anastasia Maltseva](https://github.com/NastyaMittseva),[Igor Pavlov](https://github.com/boomb0om),[Andrei Filatov](https://github.com/anvilarth),[Arseniy Shakhmatov](https://github.com/cene555),[Andrey Kuznetsov](https://github.com/kuznetsoffandrey),[Denis Dimitrov](https://github.com/denndimitrov), [Zein Shaheen](https://github.com/zeinsh). Check out the [Kandinsky Community](https://huggingface.co/kandinsky-community) organization on the Hub for the official model checkpoints for tasks like text-to-image, image-to-image, and inpainting.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky_3_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = kandinsky_3_help_dlg
       kandinsky_3_help_dlg.open = True
@@ -17317,6 +17445,7 @@ pipe_lcm = None
 pipe_lcm_interpolation = None
 pipe_ldm3d = None
 pipe_ldm3d_upscale = None
+pipe_svd = None
 pipe_panorama = None
 pipe_DiT = None
 pipe_dance = None
@@ -17773,48 +17902,49 @@ def model_scheduler(model, big3=False):
       s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
     return s
 
-def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None):
+def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None, trailing=False):
     global status
     scheduler_mode = prefs['scheduler_mode'] if scheduler is None else scheduler
+    args = {} if not trailing else {'timestep_spacing': 'trailing'}
     if scheduler_mode == "LMS Discrete":
       from diffusers import LMSDiscreteScheduler
-      s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "PNDM":
       from diffusers import PNDMScheduler
-      s = PNDMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = PNDMScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "DDIM":
       from diffusers import DDIMScheduler
-      s = DDIMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = DDIMScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif big3:
       from diffusers import DDIMScheduler
-      s = DDIMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = DDIMScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "DPM Solver":
       from diffusers import DPMSolverMultistepScheduler #"hf-internal-testing/tiny-stable-diffusion-torch"
-      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "DPM Solver Singlestep":
       from diffusers import DPMSolverSinglestepScheduler
-      s = DPMSolverSinglestepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = DPMSolverSinglestepScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "DPM Solver Inverse":
       from diffusers import DPMSolverMultistepInverseScheduler
-      s = DPMSolverMultistepInverseScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = DPMSolverMultistepInverseScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "DPM Stochastic":
       from diffusers import DPMSolverSDEScheduler
-      s = DPMSolverSDEScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = DPMSolverSDEScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "SDE-DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler #"hf-internal-testing/tiny-stable-diffusion-torch"
-      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = DPMSolverMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
       s.config.algorithm_type = 'sde-dpmsolver++'
     elif scheduler_mode == "K-Euler Discrete":
       from diffusers import EulerDiscreteScheduler
-      s = EulerDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = EulerDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
-      s = EulerAncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = EulerAncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "Karras-LMS":
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
       scheduler_config = s.get_scheduler_config()
-      s = LMSDiscreteScheduler(**scheduler_config, use_karras_sigmas=True)
+      s = LMSDiscreteScheduler(**scheduler_config, use_karras_sigmas=True, **args)
     elif scheduler_mode == "DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
       try:
@@ -17836,31 +17966,32 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None):
         solver_order=2,
         #denoise_final=True,
         lower_order_final=True,
+        **args
       )
     elif scheduler_mode == "Heun Discrete":
       from diffusers import HeunDiscreteScheduler
-      s = HeunDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = HeunDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "Karras Heun Discrete":
       from diffusers import HeunDiscreteScheduler
-      s = HeunDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, use_karras_sigmas=True)
+      s = HeunDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, use_karras_sigmas=True, **args)
     elif scheduler_mode == "K-DPM2 Ancestral":
       from diffusers import KDPM2AncestralDiscreteScheduler
-      s = KDPM2AncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = KDPM2AncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "K-DPM2 Discrete":
       from diffusers import KDPM2DiscreteScheduler
-      s = KDPM2DiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = KDPM2DiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "IPNDM":
       from diffusers import IPNDMScheduler
-      s = IPNDMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = IPNDMScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "DEIS Multistep":
       from diffusers import DEISMultistepScheduler
-      s = DEISMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = DEISMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "UniPC Multistep":
       from diffusers import UniPCMultistepScheduler
-      s = UniPCMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = UniPCMultistepScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "LCM":
       from diffusers import LCMScheduler
-      s = LCMScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
+      s = LCMScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     #elif scheduler_mode == "Score-SDE-Vp":
     #  from diffusers import ScoreSdeVpScheduler
     #  s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -17875,18 +18006,18 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None):
     #  use_custom_scheduler = True
     elif scheduler_mode == "DDPM":
       from diffusers import DDPMScheduler
-      s = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt")
+      s = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt", **args)
       use_custom_scheduler = True
     elif scheduler_mode == "LMS": #no more
       from diffusers import LMSScheduler
-      s = LMSScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
+      s = LMSScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", **args)
       #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, tensor_format="pt")
       use_custom_scheduler = True
     #print(f"Loaded Schedueler {scheduler_mode} {type(scheduler)}")
     else:
       print(f"Unknown scheduler request {scheduler_mode} - Using LMS Discrete")
       from diffusers import LMSDiscreteScheduler
-      s = LMSDiscreteScheduler.from_config(p.scheduler.config)
+      s = LMSDiscreteScheduler.from_config(p.scheduler.config, **args)
     p.scheduler = s
     status['loaded_scheduler'] = scheduler_mode
     return p
@@ -19771,6 +19902,12 @@ def clear_ldm3d_pipe():
     flush()
     pipe_ldm3d = None
     pipe_ldm3d_upscale = None
+def clear_svd_pipe():
+  global pipe_svd
+  if pipe_svd is not None:
+    del pipe_svd
+    flush()
+    pipe_svd = None
 def clear_panorama_pipe():
   global pipe_panorama
   if pipe_panorama is not None:
@@ -20035,6 +20172,7 @@ def clear_pipes(allbut=None):
     if not 'lcm' in but: clear_lcm_pipe()
     if not 'lcm_interpolation' in but: clear_lcm_interpolation_pipe()
     if not 'ldm3d' in but: clear_ldm3d_pipe()
+    if not 'svd' in but: clear_svd_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
     if not 'fuyu' in but: clear_fuyu_pipe()
@@ -20704,7 +20842,11 @@ def start_diffusion(page):
         #precision_scope = autocast if prefs['precision']=="autocast" else nullcontext
         SDXL_negative_conditions = {'negative_original_size':(512, 512), 'negative_crops_coords_top_left':(0, 0), 'negative_target_size':(1024, 1024)} if not prefs['SDXL_negative_conditions'] else {}
         if lcm_lora:
-          arg['guidance_scale'] = 1.0
+          arg['guidance_scale'] = 0.0
+        if status['installed_SDXL'] and prefs['use_SDXL'] and prefs['SDXL_model'] == "SDXL-Turbo":
+          arg['guidance_scale'] = 0.0
+          if arg['steps'] > 8:
+            arg['steps'] = 4
         try:
           if use_custom_scheduler and not bool(arg['init_image']) and not bool(arg['mask_image']) and not bool(arg['prompt2']):
             # Not implemented correctly anymore, old code but might reuse custom
@@ -20829,6 +20971,8 @@ def start_diffusion(page):
                 elif prefs['scheduler_mode'] != status['loaded_scheduler']:
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL)
                   pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
+                if prefs['SDXL_model'] == "SDXL-Turbo":
+                  pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
               else:
                 clear_pipes("txt2img")
                 if pipe is None or status['loaded_task'] != "inpaint":
@@ -20965,6 +21109,8 @@ def start_diffusion(page):
                 elif prefs['scheduler_mode'] != status['loaded_scheduler']:
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL)
                   pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
+                if prefs['SDXL_model'] == "SDXL-Turbo":
+                  pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion_img2img")
                 if pipe_alt_diffusion_img2img is None:
@@ -21129,6 +21275,8 @@ def start_diffusion(page):
                 elif prefs['scheduler_mode'] != status['loaded_scheduler']:
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL)
                   pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
+                if prefs['SDXL_model'] == "SDXL-Turbo":
+                  pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion")
                 if pipe_alt_diffusion is None:
@@ -33411,6 +33559,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                 #del text_encoder
                 #del pipe_pixart_alpha_encoder
                 #flush()
+                pipe_pixart_alpha = PixArtAlphaPipeline.from_pretrained(pixart_model, text_encoder=None, torch_dtype=torch.float16).to("cuda")
                 latents = pipe_pixart_alpha(
                     negative_prompt=None, 
                     prompt_embeds=prompt_embeds,
@@ -33505,6 +33654,9 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                 out_path = new_file
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    del text_encoder
+    #del pipe_pixart_alpha_encoder
+    flush()
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -33651,7 +33803,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         installer.status(f"...initialize LMD+ Pipeline")
         try:
             from diffusers import DiffusionPipeline
-            pipe_lmd_plus = DiffusionPipeline.from_pretrained(lmd_plus_model, custom_pipeline="AlanB/llm_grounded_diffusion_fix", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_lmd_plus = DiffusionPipeline.from_pretrained(lmd_plus_model, custom_pipeline="AlanB/llm_grounded_diffusion_fix", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None, requires_safety_checker=False)
             #custom_pipeline="llm_grounded_diffusion"
             #pipe_lmd_plus = pipeline_scheduler(pipe_lmd_plus)
             if prefs['enable_torch_compile']:
@@ -33682,10 +33834,10 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         prompt_full = llm_template.format(prompt=pr['prompt'].strip().rstrip("."), width=pr['width'], height=pr['height'])
-        
         response = get_response(prompt_full, AI_engine=lmd_plus_prefs['AI_engine'])
+        clear_last()
         prt(Markdown(response))
-        
+        prt(progress)
         phrases, boxes, bg_prompt, neg_prompt = pipe_lmd_plus.parse_llm_response(response.strip())
         if bool(pr['negative_prompt']):
             neg_prompt += f", {pr['negative_prompt']}"
@@ -34266,8 +34418,8 @@ def run_ldm3d(page, from_list=False, with_params=False):
             pipe_ldm3d.set_progress_bar_config(disable=True)
             if ldm3d_prefs['use_upscale']:
                 installer.status(f"...initialize LDM3D Upscale Pipeline")
-                from diffusers import StableDiffusionUpscaleLDM3DPipeline
-                pipe_ldm3d_upscale = StableDiffusionUpscaleLDM3DPipeline.from_pretrained("Intel/ldm3d-sr")
+                from diffusers import DiffusionPipeline#StableDiffusionUpscaleLDM3DPipeline
+                pipe_ldm3d_upscale = DiffusionPipeline.from_pretrained("Intel/ldm3d-sr", custom_pipeline="pipeline_stable_diffusion_upscale_ldm3d")#StableDiffusionUpscaleLDM3DPipeline.from_pretrained("Intel/ldm3d-sr")
                 pipe_ldm3d_upscale.to("cuda")
                 '''low_res_img = Image.open(f"lemons_ldm3d_rgb.jpg").convert("RGB")
                 low_res_depth = Image.open(f"lemons_ldm3d_depth.png").convert("L")
@@ -34306,7 +34458,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
                 target_width=pr['width'] * 2
                 target_height=pr['height'] * 2
                 prt(f"Upscaling Image to {target_width}x{target_height}...")
-                images = pipe_ldm3d_upscale(prompt=pr['prompt'], rgb=images.rgb, depth=images.depth, num_inference_steps=pr['num_inference_steps'], target_res=[target_width, target_height]).images
+                images = pipe_ldm3d_upscale(prompt="high quality high resolution uhd 4k image", rgb=images.rgb, depth=images.depth, num_inference_steps=pr['num_inference_steps'], target_res=[target_width, target_height]).images
                 clear_last()
         except Exception as e:
             clear_last()
@@ -34427,7 +34579,6 @@ def run_text_to_video(page):
     clear_list()
     autoscroll(True)
     prt(Installing("Installing Text-To-Video Pipeline..."))
-    #), dropdown.Option(), dropdown.Option(), dropdown.Option(), dropdown.Option(
     if text_to_video_prefs['model'] == "damo-vilab/text-to-video-ms-1.7b":
         model_id = "damo-vilab/text-to-video-ms-1.7b"
     elif text_to_video_prefs['model'] == "modelscope-damo-text2video-synthesis":
@@ -34619,15 +34770,22 @@ def run_text_to_video_zero(page):
     autoscroll(True)
     prt(Installing("Installing Text-To-Video Zero Pipeline..."))
     import cv2
-    #model_id = "damo-vilab/text-to-video-ms-1.7b"
-    clear_pipes()
-    #clear_pipes('text_to_video_zero')
+    model_id = get_model(prefs['model_ckpt'])['path'] if not text_to_video_zero_prefs['use_SDXL'] else get_SDXL_model(prefs['SDXL_model'])['path']
+    if 'loaded_text_to_video_zero' not in status: status['loaded_text_to_video_zero'] = ""
+    if model_id != status['loaded_text_to_video_zero']:
+        clear_pipes()
+    else:
+        clear_pipes('text_to_video_zero')
     torch.cuda.empty_cache()
     torch.cuda.reset_max_memory_allocated()
     torch.cuda.reset_peak_memory_stats()
     if pipe_text_to_video_zero is None:
-        from diffusers import TextToVideoZeroPipeline, DPMSolverMultistepScheduler
-        pipe_text_to_video_zero = TextToVideoZeroPipeline.from_pretrained(model_path, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        if not text_to_video_zero_prefs['use_SDXL']:
+            from diffusers import TextToVideoZeroPipeline, DPMSolverMultistepScheduler
+            pipe_text_to_video_zero = TextToVideoZeroPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        else:
+            from diffusers import TextToVideoZeroSDXLPipeline, DPMSolverMultistepScheduler
+            pipe_text_to_video_zero = TextToVideoZeroSDXLPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
         if prefs['enable_freeu']:
             pipe_text_to_video_zero.enable_freeu(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
@@ -34635,8 +34793,8 @@ def run_text_to_video_zero(page):
         pipe_text_to_video_zero = pipe_text_to_video_zero.to(torch_device)
         #pipe_text_to_video_zero = optimize_pipe(pipe_text_to_video_zero, vae_tiling=True, vae=True, to_gpu=False)
         pipe_text_to_video_zero.set_progress_bar_config(disable=True)
-    else:
-        pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
+    #else:
+    #    pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
     try:
         import imageio
     except ModuleNotFoundError:
@@ -34750,7 +34908,7 @@ def run_text_to_video_zero(page):
             metadata.add_text("pipeline", "Text-To-Video Zero")
             if prefs['save_config_in_metadata']:
               config_json = text_to_video_zero_prefs.copy()
-              config_json['model_path'] = model_path
+              config_json['model_path'] = model_id
               config_json['scheduler_mode'] = prefs['scheduler_mode']
               config_json['seed'] = random_seed
               del config_json['num_frames']
@@ -36024,6 +36182,167 @@ def run_stable_animation(page):
         except Exception as e:
             print(f"Error showing VideoPlayer: {e}")
             pass
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_svd(page):
+    global svd_prefs, prefs, status, pipe_svd
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if not bool(svd_prefs['init_image']):
+      alert_msg(page, "You need to provide an Initial Image to animate before using...")
+      return
+    if not bool(svd_prefs['batch_folder_name']):
+      alert_msg(page, "You need to provide a unique Video Folder Name for your project...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.SVD.controls.append(line)
+      page.SVD.update()
+    def clear_last(lines=1):
+      clear_line(page.SVD, lines=lines)
+    def clear_list():
+      page.SVD.controls = page.SVD.controls[:1]
+    def autoscroll(scroll=True):
+      page.SVD.auto_scroll = scroll
+      page.SVD.update()
+    
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing SVD Image-To-Video Pipeline...")
+    prt(installer)
+    model_id = "stabilityai/stable-video-diffusion-img2vid-xt" if 'XT' in svd_prefs['svd_model'] else "stabilityai/stable-video-diffusion-img2vid"
+    svd_prefs['num_frames'] = 25 if 'XT' in svd_prefs['svd_model'] else 14
+    from diffusers import StableVideoDiffusionPipeline
+    if 'loaded_svd' not in status: status['loaded_svd'] = ""
+    if model_id != status['loaded_svd']:
+        clear_pipes()
+    else:
+        clear_pipes("svd")
+    if pipe_svd == None:
+        pipe_svd = StableVideoDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        if svd_prefs['cpu_offload']:
+            pipe_svd.enable_model_cpu_offload()
+            pipe_svd.unet.enable_forward_chunking()
+        else:
+            pipe_svd.to(torch_device)
+        if prefs['enable_torch_compile']:
+            #pipe_svd.unet.to(memory_format=torch.channels_last)
+            pipe_svd.unet = torch.compile(pipe_svd.unet, mode="reduce-overhead", fullgraph=True)
+        status['loaded_svd'] = model_id
+    #clear_pipes('svd')
+    vid_length = svd_prefs['num_frames'] / svd_prefs['fps']
+    if svd_prefs['resume_frame']:
+        vid_length = vid_length * (svd_prefs['continue_times'] + 1)
+    clear_last()
+    progress = Progress(f"Generating Stable Video of your Image... Length: {round(vid_length, 1)} seconds")
+    #progress = ProgressBar(bar_height=8)
+    #total_steps = svd_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.progress.value = percent
+      progress.progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.progress.update()
+    #prt(f"Generating Stable Video of your Image... Length: {round(vid_length, 1)} seconds")
+    prt(progress)
+    autoscroll(False)
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    if svd_prefs['init_image'].startswith('http'):
+      init_img = PILImage.open(requests.get(svd_prefs['init_image'], stream=True).raw)
+    else:
+      if os.path.isfile(svd_prefs['init_image']):
+        init_img = PILImage.open(svd_prefs['init_image'])
+      else:
+        alert_msg(page, f"ERROR: Couldn't find your init_image {svd_prefs['init_image']}")
+        return
+    width, height = init_img.size
+    width, height = scale_dimensions(width, height, svd_prefs['max_size'])
+    init_img = init_img.resize((width, height), resample=PILImage.Resampling.BICUBIC)
+    init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    batch_output = os.path.join(prefs['image_output'], svd_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    random_seed = int(svd_prefs['seed']) if int(svd_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    generator = torch.manual_seed(random_seed)
+    try:
+        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], num_videos_per_prompt=svd_prefs['num_videos'], generator=generator, callback_on_step_end=callback_fnc).frames
+        if svd_prefs['resume_frame']:
+            new_frames = []
+            for n, f in enumerate(frames_batch):
+                new_frames[n] = []
+                last_frame = f[-1]
+                for t in range(svd_prefs['continue_times']):
+                    progress.status(f"...Video {n}, Continue {t + 1}/{svd_prefs['continue_times']}")
+                    frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator, callback_on_step_end=callback_fnc).frames[0]
+                    new_frames[n].append(frames_continued)
+                    last_frame = frames_continued[-1]
+            for n, c in enumerate(new_frames):
+                frames_batch[n].append(c)
+    except Exception as e:
+      clear_last()
+      alert_msg(page, f"ERROR: SVD Image-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+      return
+    clear_last()
+    autoscroll(True)
+    b = 0
+    for frames in frames_batch:
+        frames_dir = os.path.join(batch_output, f"frames-{b}")
+        exists = True
+        while exists:
+            if os.path.isdir(frames_dir):
+                b += 1
+                frames_dir = os.path.join(batch_output, f"frames-{b}")
+            else:
+                exists = False
+        make_dir(frames_dir)
+        idx = 0
+        for image in frames:
+            fname = f"{svd_prefs['file_prefix']}{format_filename(svd_prefs['batch_folder_name'])}-{b}"
+            image_path = available_file(frames_dir, fname, idx, zfill=4)
+            image.save(image_path)
+            new_file = os.path.basename(image_path)
+            if not svd_prefs['display_upscaled_image'] or not svd_prefs['apply_ESRGAN_upscale']:
+                #prt(Row([Img(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if svd_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, image_path, scale=svd_prefs["enlarge_scale"], face_enhance=svd_prefs["face_enhance"])
+                if svd_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([Img(src=image_path, width=svd_prefs['width'] * float(svd_prefs["enlarge_scale"]), height=svd_prefs['height'] * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            #else:
+            #    time.sleep(0.2)
+            #    shutil.copy(image_path, os.path.join(frames_dir, new_file))
+            # TODO: Add Metadata
+            prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            idx += 1
+        if svd_prefs['save_video']:
+            try:
+                installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                prt(installer)
+                out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                if svd_prefs['interpolate_video']:
+                    interpolate_video(frames, input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer)
+                else:
+                    installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                    frames_to_video(batch_output, pattern=fname+"-%04d.png", input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                pass
+            clear_last()
+            prt(f"Video saved to {out_file}")
+            #prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
+        b += 1
+    #filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    video_path = ""
+    prt(f"Done creating animation... Check {batch_output}")
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -40855,12 +41174,19 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     def close_banner(e):
         page.banner.open = False
         page.update()
+    page.close_banner = close_banner
     #leading=Icon(icons.DOWNLOADING, color=colors.AMBER, size=40),
     page.status_msg = Text("")
-    page.banner = Banner(bgcolor=colors.SECONDARY_CONTAINER, content=Column([]), actions=[Row([page.status_msg, TextButton("Close", on_click=close_banner)])])
+    page.banner = Banner(bgcolor=colors.SECONDARY_CONTAINER, content=Column([]), actions=[Row([page.status_msg, TextButton("Close", on_click=page.close_banner)])])
     def show_banner_click(e):
         page.banner.open = True
         page.update()
+    def set_status(msg=""):
+        page.status_msg.value = msg
+        page.status_msg.update()
+        page.banner.update()
+        page.update()
+    page.status = set_status
     page.add(t)
     initState(page)
     if not status['initialized']:
@@ -40883,7 +41209,7 @@ class Header(UserControl):
         return self.column
 
 class FileInput(UserControl):
-    def __init__(self, label="Initial Image", ftype="image", pref="", key="", expand=False, col=None, max_size=None, output_dir=None, page=None):
+    def __init__(self, label="Initial Image", ftype="image", pref="", key="", expand=False, col=None, filled=False, max_size=None, output_dir=None, page=None):
         super().__init__()
         self.label = label
         self.ftype = ftype
@@ -40891,6 +41217,7 @@ class FileInput(UserControl):
         self.key = key
         self.expand = expand
         self.col = col
+        self.filled = filled
         self.max_size = max_size
         self.output_dir = output_dir
         self.page = page
@@ -40950,7 +41277,7 @@ class FileInput(UserControl):
             self.pref[self.key] = e.control.value
         self.file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
         self.page.overlay.append(self.file_picker)
-        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
+        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, autofocus=False, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
         return self.textfield
 
 class ImageButton(UserControl):
@@ -41261,6 +41588,26 @@ class Installing(UserControl):
         self.progress.visible = show
         self.progress.update()
 
+class Progress(UserControl):
+    def __init__(self, message=""):
+        super().__init__()
+        self.message = message
+        self.build()
+    def build(self):
+        self.message_txt = Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
+        self.details = Text("")
+        self.progress = ProgressBar(bar_height=8)
+        return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details]), self.progress]), padding=padding.only(left=9, bottom=4))
+    def set_message(self, msg):
+        self.message_txt.value = msg
+        self.message_txt.update()
+    def status(self, msg):
+        self.details.value = msg
+        self.details.update()
+    def show_progress(self, show):
+        self.progress.visible = show
+        self.progress.update()
+
 def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgrade=False, q=False):
     arg = ""
     if upgrade: arg += "--upgrade "
@@ -41360,9 +41707,17 @@ def clear_line(column, lines=1, update=True):
     if update:
         column.update()
 
-def make_dir(path):
-    if not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
+def prt_line(line, column, size=17, update=True, from_list=False, page=None):
+    if type(line) == str:
+      line = Text(line, size=size)
+    if from_list:
+      page.imageColumn.controls.append(line)
+      if update:
+        page.imageColumn.update()
+    else:
+      column.controls.append(line)
+      if update:
+        column.update()
 
 def nudge(column, page=None):
     ''' Force an autoscroll column to go down. Mainly to show ProgressBar not scrolling to bottom.'''
@@ -41374,6 +41729,10 @@ def nudge(column, page=None):
     if page is not None:
         page.update()
     
+def make_dir(path):
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
+
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')

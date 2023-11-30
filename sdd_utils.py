@@ -170,6 +170,7 @@ LoRA_models = [
 ]
 SDXL_models = [
     {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "variant": "fp16"},
+    {"name": "SDXL-Turbo", "path": "stabilityai/sdxl-turbo", "prefix": "", "variant": "fp16"},
     {"name": "Animagine-XL", "path": "Linaqruf/animagine-xl", "prefix": "", "variant": "fp16"},
     {"name": "Anime-XL", "path": "stablediffusionapi/animexl-xuebimix", "prefix": "", "variant": "fp16"},
     {"name": "Counterfeit-XL", "path": "gsdf/CounterfeitXL", "prefix": "", "variant": "fp16"},
@@ -182,8 +183,10 @@ SDXL_models = [
     {"name": "Hassaku-XL", "path": "femboysLover/Hassaku-fp16-XL", "prefix": "", "variant": "fp16"},
     {"name": "Juggernaut XL 5", "path": "stablediffusionapi/juggernaut-xl-v5", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Juggernaut XL 6", "path": "Jeroenvv1985/Juggernaut_v6", "prefix": "", "variant": "fp16", "use_safetensors": True},
+    {"name": "Juggernaut XL 7", "path": "GraydientPlatformAPI/juggernaut7-xl", "prefix": "", "variant": "fp16"},
     {"name": "Midjourney-V4 XL", "path": "openskyml/midjourney-v4-xl", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "ProtVision-XL 1", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": "", "variant": "fp16"},
+    {"name": "Poltergeist Mix", "path": "EnD-Diffusers/PoltergeistMix-SDXLfp16", "prefix": "", "variant": "fp16"},
     {"name": "ProtVision-XL 3", "path": "stablediffusionapi/protovisionxl-v3", "prefix": ""},
     {"name": "RealCartoon-XL 4", "path": "frankjoshua/realcartoonXL_v4", "prefix": "", "variant": "fp16"},
     #{"name": "Realism Engine XL", "path": "stablediffusionapi/realism-engine-sdxl", "prefix": "", "variant": "fp16", "use_safetensors": True},
