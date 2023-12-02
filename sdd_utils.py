@@ -165,7 +165,8 @@ LoRA_models = [
     {'name': 'Dog Example', 'path':'patrickvonplaten/lora_dreambooth_dog_example'},
     {'name': 'SayakPaul LoRA-T4', 'path': 'sayakpaul/sd-model-finetuned-lora-t4'},
     {'name':'Openjourney LoRA', 'path':'prompthero/openjourney-lora', 'prefix': ''},
-    {'name':'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '},
+    {'name': 'Transformers Style', 'path':'AlanB/TransformersStyle', 'prefix': 'TransformersStyle', 'weights': 'TransformersStyle.safetensors'},
+    {'name': 'Analog Diffusion', 'path':'https://replicate.delivery/pbxt/IzbeguwVsW3PcC1gbiLy5SeALwk4sGgWroHagcYIn9I960bQA/tmpjlodd7vazekezip.safetensors', 'prefix':'<1> '},
     {'name': 'Analog.Redmond', 'path': 'artificialguybr/analogredmond', 'prefix':'AnalogRedmAF'},
 ]
 SDXL_models = [
@@ -183,7 +184,7 @@ SDXL_models = [
     {"name": "Hassaku-XL", "path": "femboysLover/Hassaku-fp16-XL", "prefix": "", "variant": "fp16"},
     {"name": "Juggernaut XL 5", "path": "stablediffusionapi/juggernaut-xl-v5", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Juggernaut XL 6", "path": "Jeroenvv1985/Juggernaut_v6", "prefix": "", "variant": "fp16", "use_safetensors": True},
-    {"name": "Juggernaut XL 7", "path": "GraydientPlatformAPI/juggernaut7-xl", "prefix": "", "variant": "fp16"},
+    {"name": "Juggernaut XL 7", "path": "jakebabbidge/juggernaut-xl-7-diffusers", "prefix": ""},
     {"name": "Midjourney-V4 XL", "path": "openskyml/midjourney-v4-xl", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "ProtVision-XL 1", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": "", "variant": "fp16"},
     {"name": "Poltergeist Mix", "path": "EnD-Diffusers/PoltergeistMix-SDXLfp16", "prefix": "", "variant": "fp16"},
@@ -217,6 +218,7 @@ SDXL_LoRA_models = [
     {"name": "CAG Coinmaker", "path": "davizca87/c-a-g-coinmaker", "weights": "c01n-000010.safetensors", "prefix": "c01n"},
     {"name": "Cyborg Style", "path": "goofyai/cyborg_style_xl", "weights": "cyborg_style_xl-off.safetensors", "prefix": "cyborg style"},
     {"name": "Toy.Redmond", "path": "artificialguybr/ToyRedmond-ToyLoraForSDXL10", "weights": "ToyRedmond-FnkRedmAF.safetensors", "prefix": "FnkRedmAF"},
+    {"name": "Transformers Style XL", "path": "AlanB/TransformersStyleXL", "weights": "TransformersStyleXL.safetensors", "prefix": "TransformersStyle"},
     {"name": "Voxel XL", "path": "Fictiverse/Voxel_XL_Lora", "weights": "VoxelXL_v1.safetensors", "prefix": "voxel style"},
     {"name": "Lego BrickHeadz", "path": "nerijs/lego-brickheadz-xl", "weights": "legobrickheadz-v1.0-000004.safetensors", "prefix": "lego brickheadz"},
     {"name": "Cinematic-2", "path": "jbilcke-hf/sdxl-cinematic-2", "weights": "pytorch_lora_weights.safetensors", "prefix": "cinematic-2"},

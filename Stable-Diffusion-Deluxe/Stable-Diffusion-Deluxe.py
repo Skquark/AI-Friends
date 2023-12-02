@@ -250,6 +250,9 @@ def load_settings_file():
       'theme_mode': 'Dark',
       'theme_color': 'Green',
       'enable_sounds': True,
+      'show_stats': False,
+      'stats_used': True,
+      'stats_update': 5,
       'start_in_installation': False,
       'disable_nsfw_filter': True,
       'retry_attempts': 3,
@@ -298,6 +301,8 @@ def load_settings_file():
       'install_SAG': False,
       'install_panorama': False,
       'install_upscale': False,
+      'upscale_method': 'Real-ESRGAN',
+      'upscale_model': 'RealESRGAN_x4plus',
       'safety_config': 'Strong',
       'use_imagic': False,
       'SD_compel': False,
@@ -457,6 +462,7 @@ if not hasattr(PILImage, 'Resampling'):  # Allow Pillow<9.0
    PILImage.Resampling = PILImage
 import random as rnd
 import io, shutil, traceback, string, datetime, threading
+import asyncio
 from packaging import version
 from contextlib import redirect_stdout
 try:
@@ -907,6 +913,11 @@ if 'enable_bitsandbytes' not in prefs: prefs['enable_bitsandbytes'] = False
 if 'sequential_cpu_offload' not in prefs: prefs['sequential_cpu_offload'] = False
 if 'vae_slicing' not in prefs: prefs['vae_slicing'] = True
 if 'vae_tiling' not in prefs: prefs['vae_tiling'] = False
+if 'show_stats' not in prefs: prefs['show_stats'] = False
+if 'stats_used' not in prefs: prefs['stats_used'] = True
+if 'stats_update' not in prefs: prefs['stats_update'] = 5
+if 'upscale_method' not in prefs: prefs['upscale_method'] = 'Real-ESRGAN'
+if 'upscale_model' not in prefs: prefs['upscale_model'] = 'RealESRGAN_x4plus'
 if 'use_inpaint_model' not in prefs: prefs['use_inpaint_model'] = False
 if 'cache_dir' not in prefs: prefs['cache_dir'] = ''
 if 'Replicate_api_key' not in prefs: prefs['Replicate_api_key'] = ''
@@ -1032,6 +1043,9 @@ def initState(page):
       page.show_install_fab(True)
       page.update()
       current_tab = 1
+    if prefs['show_stats']:
+      start_thread(prefs['stats_update'], page, update_stats(page))
+      #start_polling(prefs['stats_update'], update_stats(page))
 
 def buildSettings(page):
   global prefs, status
@@ -13119,7 +13133,7 @@ def buildKandinsky3(page):
     if not kandinsky_3_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     kandinsky_version = Dropdown(width=155, options=[dropdown.Option("Kandinsky 3.0"), dropdown.Option("Kandinsky 2.2"), dropdown.Option("Kandinsky 2.1")], value=status['kandinsky_version'], on_change=change_version)
-    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky(page))
+    parameters_button = ElevatedButton(content=Text(value="✨   Run Kandinsky 3", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky3(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky3(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky3(page, from_list=True, with_params=True))
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
@@ -13132,8 +13146,8 @@ def buildKandinsky3(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_kandinsky,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Kandinsky_output
         ],
@@ -13337,8 +13351,8 @@ def buildKandinsky(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
             #Row([batch_folder_name, file_prefix]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_kandinsky,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.kandinsky_output
@@ -13539,8 +13553,8 @@ def buildKandinsky21(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
-            ResponsiveRow([Row([n_images, sampler], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_kandinsky21,
+            ResponsiveRow([Row([n_images, sampler], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.kandinsky21_output
@@ -13884,8 +13898,8 @@ def buildKandinskyFuse(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             #Row([batch_folder_name, file_prefix]),
             #Row([n_images, sampler]),
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_kandinsky_fuse,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.kandinsky_fuse_output
@@ -14225,8 +14239,8 @@ def buildKandinsky21Fuse(page):
             ResponsiveRow([prior_steps, prior_cf_scale]),
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
-            ResponsiveRow([Row([n_images, sampler], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_kandinsky21_fuse,
+            ResponsiveRow([Row([n_images, sampler], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.kandinsky21_fuse_output
@@ -14396,8 +14410,8 @@ def buildKandinskyControlNet(page):
             #prior_cf_scale,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             #Row([batch_folder_name, file_prefix]),
-            ResponsiveRow([Row([n_images, batch_size, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_kandinsky_controlnet,
+            ResponsiveRow([Row([n_images, batch_size, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
             parameters_row,
             page.kandinsky_controlnet_output
@@ -17603,6 +17617,7 @@ def get_diffusers(page):
         #run_process("pip install https://github.com/metrolobo/xformers_wheels/releases/download/1d31a3ac/xformers-0.0.14.dev0-cp37-cp37m-linux_x86_64.whl", page=page)
         #if install_xformers(page):
         status['installed_xformers'] = True
+    page.console_msg("Installing Hugging Face Diffusers Pipeline...")
     if prefs['enable_bitsandbytes']:
         try:
             os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
@@ -17631,36 +17646,27 @@ def get_diffusers(page):
         run_sp("pip install --upgrade git+https://github.com/huggingface/peft.git", realtime=False)
         page.status()
         pass
-    '''try:
-        import accelerate
-    except ModuleNotFoundError:
-        page.console_msg("Installing Hugging Face Accelerate Package...")
-        run_process("pip install --upgrade accelerate -q", page=page) #~=0.18
-        #run_process("pip install --upgrade git+https://github.com/huggingface/accelerate.git -q", page=page)
-        #run_sp("python -c from accelerate.utils import write_basic_config; write_basic_config(mixed_precision='fp16')")
-        from accelerate.utils import write_basic_config
-        #write_basic_config(mixed_precision='fp16')
-        pass'''
+    
     page.console_msg("Installing Hugging Face Diffusers Pipeline...")
     try:
         import transformers
         #print(f"transformers=={transformers.__version__}")
-        if transformers.__version__ == "4.21.3": #Workaround because CLIP-Interrogator required other version
+        if version.parse(transformers.__version__) == version.parse("4.21.3"): #Workaround because CLIP-Interrogator required other version
+          page.status("...uninstalling transformers")
           run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
           run_process("pip uninstall -y clip-interrogator", realtime=False)
           run_process("pip uninstall -y transformers", realtime=False)
           #run_process("pip uninstall -q transformers==4.21.3", page=page, realtime=False)
-        if transformers.__version__ == "4.23.1": # Kandinsky conflict
-          run_process("pip uninstall -y transformers", realtime=False)
+        #if transformers.__version__ == "4.23.1": # Kandinsky conflict
+        #  run_process("pip uninstall -y transformers", realtime=False)
     except ModuleNotFoundError:
         pass
     try:
         import transformers
         if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
-        #print("transformers")
         page.status("...installing transformers")
-        run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
+        run_process("pip install --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
         #run_process("pip install --upgrade transformers~=4.28", page=page)
         page.status()
         pass
@@ -21046,21 +21052,22 @@ def start_diffusion(page):
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   #, target_size=(arg['width'], arg['height'])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
-                total_steps = int(arg['steps'] * (1 - high_noise_frac))
-                if prefs['SDXL_compel']:
-                  prompt_embed, pooled = compel_refiner(pr)
-                  negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
-                  #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
-                  del prompt_embed, negative_embed, pooled, negative_pooled
-                else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                if high_noise_frac != 1:
+                  total_steps = int(arg['steps'] * (1 - high_noise_frac))
+                  if prefs['SDXL_compel']:
+                    prompt_embed, pooled = compel_refiner(pr)
+                    negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
+                    #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                    del prompt_embed, negative_embed, pooled, negative_pooled
+                  else:
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
@@ -21186,22 +21193,23 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                   #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
-                total_steps = int(arg['steps'] * (1 - high_noise_frac))
-                if prefs['SDXL_compel']:
-                  pipe_used += " w/ Compel"
-                  prompt_embed, pooled = compel_refiner(pr)
-                  negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
-                  #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
-                  del prompt_embed, negative_embed, pooled, negative_pooled
-                else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                if high_noise_frac != 1:
+                  total_steps = int(arg['steps'] * (1 - high_noise_frac))
+                  if prefs['SDXL_compel']:
+                    pipe_used += " w/ Compel"
+                    prompt_embed, pooled = compel_refiner(pr)
+                    negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
+                    #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    del prompt_embed, negative_embed, pooled, negative_pooled
+                  else:
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                 #images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -21355,20 +21363,21 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
                   del pooled, negative_pooled
                 else:
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", output_type="latent", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
-                total_steps = int(arg['steps'] * (1 - high_noise_frac))
-                if prefs['SDXL_compel']:
-                  prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
-                  negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
-                  #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
-                  images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
-                  #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
-                else:
-                  images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt' if bool(arg['negative_prompt']) else "blurry"], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                if high_noise_frac != 1:
+                  total_steps = int(arg['steps'] * (1 - high_noise_frac))
+                  if prefs['SDXL_compel']:
+                    prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
+                    negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
+                    #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                    del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
+                  else:
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt' if bool(arg['negative_prompt']) else "blurry"], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
@@ -33802,8 +33811,10 @@ def run_lmd_plus(page, from_list=False, with_params=False):
     if pipe_lmd_plus == None:
         installer.status(f"...initialize LMD+ Pipeline")
         try:
+            torch.backends.cuda.enable_flash_sdp(False)
+            torch.backends.cuda.enable_mem_efficient_sdp(True)
             from diffusers import DiffusionPipeline
-            pipe_lmd_plus = DiffusionPipeline.from_pretrained(lmd_plus_model, custom_pipeline="AlanB/llm_grounded_diffusion_fix", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, safety_checker=None, requires_safety_checker=False)
+            pipe_lmd_plus = DiffusionPipeline.from_pretrained(lmd_plus_model, custom_pipeline="AlanB/llm_grounded_diffusion_fix", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None) #, requires_safety_checker=False
             #custom_pipeline="llm_grounded_diffusion"
             #pipe_lmd_plus = pipeline_scheduler(pipe_lmd_plus)
             if prefs['enable_torch_compile']:
@@ -33813,7 +33824,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             elif cpu_offload:
                 pipe_lmd_plus.enable_model_cpu_offload()
             else:
-                pipe_lmd_plus.to(torch_device)
+                pipe_lmd_plus = pipe_lmd_plus.to(torch_device)
             pipe_lmd_plus.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
@@ -33832,7 +33843,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         autoscroll(False)
         total_steps = pr['num_inference_steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
-        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        generator = torch.Generator().manual_seed(random_seed)
         prompt_full = llm_template.format(prompt=pr['prompt'].strip().rstrip("."), width=pr['width'], height=pr['height'])
         response = get_response(prompt_full, AI_engine=lmd_plus_prefs['AI_engine'])
         clear_last()
@@ -33853,12 +33864,11 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 num_inference_steps=pr['num_inference_steps'],
                 guidance_scale=pr['guidance_scale'],
                 gligen_scheduled_sampling_beta=lmd_plus_prefs['gligen_scheduled_sampling_beta'],
-                generator=generator,
+                #generator=generator,
                 callback=callback_fnc,
                 lmd_guidance_kwargs={}
             ).images
         except Exception as e:
-            clear_last()
             clear_last()
             alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
@@ -34191,7 +34201,7 @@ def run_lcm_interpolation(page):
     progress = ProgressBar(bar_height=8)
     total_steps = lcm_interpolation_prefs['steps']
     def callback_fnc(pipe, step, timestep, callback_kwargs):
-      callback_fnc.has_been_called = True
+      #callback_fnc.has_been_called = True
       nonlocal progress
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
@@ -34672,27 +34682,7 @@ def run_text_to_video(page):
         if not text_to_video_prefs['display_upscaled_image'] or not text_to_video_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if text_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if text_to_video_prefs["face_enhance"] else ''
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {text_to_video_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            image_path = upscaled_path
-            os.chdir(stable_dir)
+            upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"], face_enhance=text_to_video_prefs["face_enhance"])
             if text_to_video_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_prefs["enlarge_scale"]), height=height * float(text_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -34874,29 +34864,8 @@ def run_text_to_video_zero(page):
         if not text_to_video_zero_prefs['display_upscaled_image'] or not text_to_video_zero_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if text_to_video_zero_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if text_to_video_zero_prefs["face_enhance"] else ''
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {text_to_video_zero_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            image_path = upscaled_path
-            os.chdir(stable_dir)
+            upscale_image(image_path, upscaled_path, scale=text_to_video_zero_prefs["enlarge_scale"], face_enhance=text_to_video_zero_prefs["face_enhance"])
             if text_to_video_zero_prefs['display_upscaled_image']:
-                time.sleep(0.2)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_zero_prefs["enlarge_scale"]), height=height * float(text_to_video_zero_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if prefs['save_image_metadata']:
@@ -35125,27 +35094,7 @@ def run_video_to_video(page):
         if not video_to_video_prefs['display_upscaled_image'] or not video_to_video_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if video_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if video_to_video_prefs["face_enhance"] else ''
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {video_to_video_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            image_path = upscaled_path
-            os.chdir(stable_dir)
+            upscale_image(image_path, upscaled_path, scale=video_to_video_prefs["enlarge_scale"], face_enhance=video_to_video_prefs["face_enhance"])
             if video_to_video_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(video_to_video_prefs["enlarge_scale"]), height=height * float(video_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -36137,14 +36086,6 @@ def run_stable_animation(page):
             img.save(image_path, pnginfo=metadata)
         if not stable_animation_prefs['display_upscaled_image'] or not stable_animation_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
-        '''if storage_type == "Colab Google Drive":
-            new_file = available_file(os.path.join(prefs['image_output'], stable_animation_prefs['batch_folder_name']), fname, num, no_num=True)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        elif bool(prefs['image_output']):
-            new_file = available_file(os.path.join(prefs['image_output'], stable_animation_prefs['batch_folder_name']), fname, num, no_num=True)
-            out_path = new_file
-            shutil.copy(image_path, new_file)'''
         prt(Row([Text(image_path)], alignment=MainAxisAlignment.CENTER))
     except Exception as e:
       #clear_last()
@@ -36269,8 +36210,8 @@ def run_svd(page):
     make_dir(batch_output)
     random_seed = int(svd_prefs['seed']) if int(svd_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     generator = torch.manual_seed(random_seed)
-    try:
-        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], num_videos_per_prompt=svd_prefs['num_videos'], generator=generator, callback_on_step_end=callback_fnc).frames
+    try: #, callback_on_step_end=callback_fnc
+        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], num_videos_per_prompt=svd_prefs['num_videos'], generator=generator).frames
         if svd_prefs['resume_frame']:
             new_frames = []
             for n, f in enumerate(frames_batch):
@@ -36278,7 +36219,7 @@ def run_svd(page):
                 last_frame = f[-1]
                 for t in range(svd_prefs['continue_times']):
                     progress.status(f"...Video {n}, Continue {t + 1}/{svd_prefs['continue_times']}")
-                    frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator, callback_on_step_end=callback_fnc).frames[0]
+                    frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
                     new_frames[n].append(frames_continued)
                     last_frame = frames_continued[-1]
             for n, c in enumerate(new_frames):
@@ -36320,7 +36261,7 @@ def run_svd(page):
             # TODO: Add Metadata
             prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             idx += 1
-        if svd_prefs['save_video']:
+        if svd_prefs['export_to_video']:
             try:
                 installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
                 prt(installer)
@@ -36900,6 +36841,7 @@ def run_animate_diff(page):
     context = min(animate_diff_prefs['video_length'], animate_diff_prefs['context'])
 
     def extract_frames(video_file, fps, save_dir, start_frame=0):
+        import cv2
         vidcap = cv2.VideoCapture(video_file)
         source_fps = vidcap.get(cv2.CAP_PROP_FPS)
         count = 0
@@ -37151,12 +37093,8 @@ def run_animate_diff(page):
                     if os.path.isfile(ip_image):
                         shutil.copy(ip_image, img_path)
                     elif ip_image.startswith('https://drive'):
-                        try:
-                          import gdown
-                        except ImportError:
-                          run_sp("pip -q install gdown")
-                        finally:
-                          import gdown
+                        pip_install("gdown", installer=installer)
+                        import gdown
                         gdown.download(ip_image, img_path, quiet=True)
                     elif ip_image.startswith('http'):
                         download_file(ip_image, img_path)
@@ -37181,7 +37119,7 @@ def run_animate_diff(page):
             if os.path.isfile(ip_image):
                 shutil.copy(ip_image, img_path)
             elif ip_image.startswith('https://drive'):
-                pip_install("gdown")
+                pip_install("gdown", installer=installer)
                 import gdown
                 gdown.download(ip_image, img_path, quiet=True)
             elif ip_image.startswith('http'):
@@ -37209,7 +37147,7 @@ def run_animate_diff(page):
                 if os.path.isfile(img2img_image):
                     shutil.copy(img2img_image, img_path)
                 elif img2img_image.startswith('https://drive'):
-                    pip_install("gdown")
+                    pip_install("gdown", installer=installer)
                     import gdown
                     gdown.download(img2img_image, img_path, quiet=True)
                 elif img2img_image.startswith('http'):
@@ -37345,31 +37283,7 @@ def run_animate_diff(page):
     #prt(f"Running {cmd}")
     #console = RunConsole(show_progress=False)
     #prt(console)
-    '''try:
-        #from animatediff import get_dir
-        from animatediff.cli import generate, logger
-    except ModuleNotFoundError:
-        prt(f"Running {cmd}")
-        pass'''
     try:
-      '''try:
-          from animatediff.cli import generate, logger
-          from animatediff import get_dir
-          os.chdir(animatediff_dir)
-          config_dir = get_dir("config")
-          config_path = config_dir.joinpath("prompts/sdd_prompt.json")
-          out_dir = generate(
-              config_path=config_path,#json_file),
-              #model_name_or_path=Path("models/StableDiffusion"),#sd_models),
-              width=animate_diff_prefs['width'],
-              height=animate_diff_prefs['height'],
-              length=animate_diff_prefs['video_length'],
-              context=context,
-              stride=animate_diff_prefs['stride'],
-              save_merged=animate_diff_prefs['save_gif'],
-              use_xformers=status['installed_xformers'],
-          )
-      except ModuleNotFoundError:'''
       print(f"Running {cmd}")
       clear_last()
       prt("Generating AnimateDiff of your Prompts... See console for progress.")
@@ -37387,8 +37301,6 @@ def run_animate_diff(page):
       observer.stop()
       alert_msg(page, f"ERROR: Couldn't run AnimateDiff for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
       return
-    #clear_last()
-    #clear_last()
     if animate_diff_prefs['upscale_tile'] or animate_diff_prefs['upscale_ip2p'] or animate_diff_prefs['upscale_lineart_anime']:
         u_w = int(w * float(animate_diff_prefs['width']))
         u_h = int(h * float(animate_diff_prefs['height']))
@@ -37427,7 +37339,6 @@ def run_animate_diff(page):
               #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
               #prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
               page.update()
-              #prt(progress)
               time.sleep(0.2)
               autoscroll(False)
         video_handler = VidHandler()
@@ -37443,7 +37354,6 @@ def run_animate_diff(page):
               prt(installer)
               out_file = available_file(out_dir, "interpolated", no_num=True, ext="mp4")
               interpolate_video(dir, input_fps=8, output_fps=30, output_video=out_file, installer=installer)
-              #else:
               installer.set_message("Running RiFE Temporal Video Interpolation...")
               run_sp(interpolate_cmd, cwd=animatediff_dir, realtime=True)
               installer.show_progress(False)
@@ -37644,12 +37554,6 @@ def run_rerender_a_video(page):
             clear_last()
             alert_msg(page, "Error Installing Rerender_A_Video Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    '''try:
-        import controlnet_aux
-    except ImportError as e:
-        installer.status("...installing controlnet-aux")
-        run_sp("pip install -q controlnet-aux", realtime=False)
-        pass'''
     #import logging
     #logging.set_verbosity_error()
     clear_pipes()
@@ -38003,33 +37907,9 @@ def run_materialdiffusion(page):
         out_path = batch_output# if save_to_GDrive else txt2img_output
 
         if materialdiffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if materialdiffusion_prefs["face_enhance"] else ''
-            faceenhance = ''
-            #python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {enlarge_scale}{faceenhance}
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {materialdiffusion_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            #print(f'move {root_dir}Real-ESRGAN/{result_folder}/{out_file} to {fpath}')
-            #shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            # !python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-            os.chdir(stable_dir)
+            upscale_image(image_path, upscaled_path, scale=materialdiffusion_prefs["enlarge_scale"])
             if materialdiffusion_prefs['display_upscaled_image']:
-                time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             try:
@@ -38145,29 +38025,9 @@ def run_DiT(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if DiT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{num}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #print(f'Moving {fpath} to {dst_path}')
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    #faceenhance = ' --face_enhance' if DiT_prefs["face_enhance"] else ''
-                    faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {DiT_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    upscale_image(image_path, upscaled_path, scale=DiT_prefs["enlarge_scale"], face_enhance=DiT_prefs["face_enhance"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
                     if DiT_prefs['display_upscaled_image']:
-                        time.sleep(0.6)
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(DiT_prefs["enlarge_scale"]), height=512 * float(DiT_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if prefs['save_image_metadata']:
@@ -39202,27 +39062,8 @@ def run_dall_e(page, from_list=False):
                 batch_output = newFolder
 
             if dall_e_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{idx}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                faceenhance = ' --face_enhance' if dall_e_prefs["face_enhance"] else ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {dall_e_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
                 upscaled_path = new_path
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-                os.chdir(stable_dir)
+                upscale_image(image_path, upscaled_path, scale=dall_e_prefs["enlarge_scale"], face_enhance=dall_e_prefs["face_enhance"])
                 if dall_e_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -39384,25 +39225,8 @@ def run_dall_e_3(page, from_list=False):
                 batch_output = newFolder
 
             if dall_e_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{idx}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                shutil.copy(image_path, dst_path)
-                faceenhance = ' --face_enhance' if dall_e_3_prefs["face_enhance"] else ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {dall_e_3_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
                 upscaled_path = new_path
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-                os.chdir(stable_dir)
+                upscale_image(image_path, upscaled_path, scale=dall_e_3_prefs["enlarge_scale"], face_enhance=dall_e_3_prefs["face_enhance"])
                 if dall_e_3_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=w * float(dall_e_3_prefs["enlarge_scale"]), height=h * float(dall_e_3_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -39529,13 +39353,13 @@ def run_kandinsky3(page, from_list=False, with_params=False):
             try:
                 if task_type == "text2img":
                     from diffusers import AutoPipelineForText2Image
-                    pipe_kandinsky = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "img2img":
                     from diffusers import AutoPipelineForImage2Image
-                    pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForImage2Image.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 elif task_type == "inpainting":
                     from diffusers import AutoPipelineForInpainting#"kandinsky-community/kandinsky-2-2-decoder-inpaint"
-                    pipe_kandinsky = AutoPipelineForInpainting.from_pretrained(model_id+"-inpaint", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_kandinsky = AutoPipelineForInpainting.from_pretrained(model_id+"-inpaint", variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if prefs['enable_torch_compile']:
                     installer.status(f"...Torch compiling unet")
                     pipe_kandinsky.unet.to(memory_format=torch.channels_last)
@@ -39548,7 +39372,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
                 loaded_kandinsky_task = task_type
             except Exception as e:
                 clear_last()
-                alert_msg(page, f"ERROR Initializing Kandinsky, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+                alert_msg(page, f"ERROR Initializing Kandinsky, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 return
         elif loaded_kandinsky_task != task_type:
             clear_pipes('kandinsky')
@@ -41011,12 +40835,12 @@ def main(page: Page):
     def maximize_window(e):
         if page.window_maximized:
           page.window_maximized = False
-          appbar.actions[2].icon=icons.CHECK_BOX_OUTLINE_BLANK
-          appbar.actions[2].tooltip = "Maximize Window"
+          appbar.actions[3].icon=icons.CHECK_BOX_OUTLINE_BLANK
+          appbar.actions[3].tooltip = "Maximize Window"
         else:
           page.window_maximized = True
-          appbar.actions[2].icon=icons.FILTER_NONE
-          appbar.actions[2].tooltip = "Restore Window"
+          appbar.actions[3].icon=icons.FILTER_NONE
+          appbar.actions[3].tooltip = "Restore Window"
         page.update()
     def get_memory():
         from subprocess import getoutput
@@ -41134,12 +40958,13 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
       page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
     app_icon_color = colors.AMBER_800
     space = " "  if (page.width if page.web else page.window_width) >= 1024 else ""
+    page.stats = Column([Text("", size=10), Text("", size=10)], tight=True, spacing=4)
     appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window_width) if page.web else page.window_width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
       center_title=True,
       bgcolor=colors.SURFACE,
       leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
       #leading_width=40,
-      actions=[PopupMenuButton(items=[
+      actions=[page.stats, PopupMenuButton(items=[
           PopupMenuItem(text="🤔  Help/Info", on_click=open_help_dlg),
           PopupMenuItem(text="👏  Credits", on_click=open_credits_dlg),
           PopupMenuItem(text="🤧  Issues/Suggestions", on_click=lambda _:page.launch_url("https://github.com/Skquark/AI-Friends/issues")),
@@ -41733,6 +41558,67 @@ def make_dir(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
+global polling_task
+
+async def poll_and_update(s, run):
+    while True:
+        run()
+        await asyncio.sleep(s)
+
+def stop_polling():
+    global polling_task
+    polling_task.cancel()
+
+def start_polling(s, run):
+    global polling_task
+    polling_task = asyncio.create_task(poll_and_update(s, run))
+
+def background_update(s, page, run):
+    #print(f"{s} {page}")
+    while True:
+        update_stats(page)
+        time.sleep(s)
+
+def start_thread(s, page, run):
+    global polling_task
+    polling_task = threading.Thread(target=background_update, args=(s, page, run))
+    polling_task.daemon = True
+    polling_task.start()
+    
+def get_memory_stats(used=True):
+    try:
+        #status['cpu_memory'] = psutil.virtual_memory().total / (1024 * 1024 * 1024)
+        #status['gpu_memory'] = torch.cuda.get_device_properties(0).total_memory / (1024 * 1024 * 1024)
+        status['cpu_used'] = psutil.virtual_memory().used / (1024 * 1024 * 1024)
+        status['gpu_used'] = torch.cuda.max_memory_allocated(device=torch.device("cuda")) / (1024 * 1024 * 1024)
+        gpu_mem = f"{status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB"
+    except Exception:
+        status['gpu_used'] = 0
+        gpu_mem = "N/A"
+        pass
+    if not used:
+        ram = float(status['cpu_memory']) - float(status['cpu_used'])
+        if gpu_mem == "N/A":
+            return f"Free VRAM: None", f"Free RAM: {ram:.1f}GB"
+        vram = float(status['gpu_memory']) - float(status['gpu_used'])
+        return f"Free VRAM: {vram:.1f}GB", f"FreeRAM: {ram:.1f}GB"
+    else:
+        return f"VRAM: {gpu_mem}", f"RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB"
+
+def update_stats(page):
+    try:
+        vram, ram = get_memory_stats(prefs['stats_used'])
+        page.stats.controls[0].value = vram
+        page.stats.controls[1].value = ram
+        page.stats.update()
+        page.appbar.update()
+    except Exception as e:
+        print(e)
+        pass
+
+def start_stats(page):
+    start_polling(prefs['stats_update'], update_stats(page))
+
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
@@ -41756,12 +41642,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         #run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
         #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False)
         pip_install("tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image apache-beam==2.34.0 google-cloud-bigquery-storage==1.1.0 natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
-    try:
-        import gdown
-    except ModuleNotFoundError:
-        if installer != None:
-            installer.status("...installing gdown")
-        run_sp(f"pip install --upgrade gdown", cwd=root_dir, realtime=False)
+    pip_install("gdown", upgrade=True, installer=installer)
     if not os.path.exists(saved_model_dir):
         run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
@@ -41770,7 +41651,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     installer.status("...copying photo frames")
     for f in os.listdir(photos_dir):
         os.remove(os.path.join(photos_dir, f))
-    if isinstance(frames_dir, List):
+    if isinstance(frames_dir, list):
         for n, f in enumerate(frames_dir):
             if isinstance(f, str):
                 if f.endswith('png') or f.endswith('jpg'):
