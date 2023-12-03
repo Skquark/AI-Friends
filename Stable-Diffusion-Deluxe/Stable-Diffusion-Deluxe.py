@@ -865,8 +865,8 @@ def buildExtras(page):
     extrasTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Real-ESRGAN Batch Upscaler", content=page.ESRGAN_upscaler, icon=icons.PHOTO_SIZE_SELECT_LARGE),
-            Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
             Tab(text="Model Manager", content=page.CustomModelManager, icon=icons.DIFFERENCE),
+            Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
             Tab(text="Background Remover", content=page.BackgroundRemover, icon=icons.WALLPAPER),
             #Tab(text="Kandinsky 2.1", content=page.Kandinsky21, icon=icons.AC_UNIT),
@@ -1044,7 +1044,7 @@ def initState(page):
       page.update()
       current_tab = 1
     if prefs['show_stats']:
-      start_thread(prefs['stats_update'], page, update_stats(page))
+      start_thread(page)
       #start_polling(prefs['stats_update'], update_stats(page))
 
 def buildSettings(page):
@@ -1126,6 +1126,26 @@ def buildSettings(page):
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters for Uncensored Images", value=prefs['disable_nsfw_filter'], tooltip="If you're over 18 & promise not to abuse, allow Not Safe For Work. Otherwise, will filter mature content...", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
   retry_attempts = Container(NumberPicker(label="Retry Attempts if Not Safe", min=0, max=8, value=prefs['retry_attempts'], on_change=lambda e:changed(e, 'retry_attempts')), padding=padding.only(left=20), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   retry_attempts.width = 0 if prefs['disable_nsfw_filter'] else None
+  def toggle_stats(e):
+      global stop_thread
+      prefs['show_stats'] = e.control.value
+      if prefs['show_stats']:
+          start_thread(page)
+      else:
+          stop_thread = True
+          page.stats.controls[0].value = ""
+          page.stats.controls[1].value = ""
+          page.stats.update()
+      stats_settings.width = 0 if not prefs['show_stats'] else None
+      stats_settings.update()
+  def toggle_used(e):
+      prefs['stats_used'] = e.control.value
+      update_stats(page)
+  show_stats = Checkbox(label="Show Memory Stats", tooltip="Gives an updating VRAM and RAM information on top appbar.", value=prefs['show_stats'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_stats)
+  stats_used = Checkbox(label="Memory Used", tooltip="Otherwise show available free memory", value=prefs['stats_used'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_used)
+  stats_settings = Container(Row([stats_used, NumberPicker(label=" Update Interval (s):", min=1, max=30, value=prefs['stats_update'], on_change=lambda e:changed(e, 'stats_update'))]), padding=padding.only(left=0), animate_size=animation.Animation(700, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  stats_settings.width = 0 if not prefs['show_stats'] else None
+  
   api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google PaLM API Token** from https://developers.generativeai.google/tutorials/setup\n\n\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key (optional)", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
@@ -1149,7 +1169,7 @@ def buildSettings(page):
         Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window_width) > 712 else Column([meta_ArtistName, meta_Copyright]),
         Row([save_config_in_metadata, save_config_json]),
         Row([theme_mode, theme_color]),
-        Row([enable_sounds, start_in_installation]),
+        Row([enable_sounds, start_in_installation, show_stats, stats_settings]),
         HuggingFace_api,
         Stability_api,
         OpenAI_api,
@@ -2999,7 +3019,7 @@ def buildPromptsList(page):
         return
       if len(prompts) < 1:
         if not bool(prompt_text.value):
-          alert_msg(p, "Add some Prompts to the Batch List before running, or at least fill in Prompt Text first.")
+          alert_msg(p.page, "Add some Prompts to the Batch List before running, or at least fill in Prompt Text first.")
           return
         add_prompt(e)
       page.tabs.selected_index = 4
@@ -15867,7 +15887,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌫️  Training text-to-image Low-Rank Adaptation of Large Language Models (LoRA)", "Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)]),
+        Header("🌫️  Training Text-to-Image Low-Rank Adaptation of Large Language Models (LoRA)", "Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)]),
         ResponsiveRow([validation_prompt, name_of_your_model]),
         Row([num_validation_images, validation_epochs, train_batch_size]),
         Row([prior_preservation, gradient_checkpointing]),
@@ -16126,7 +16146,7 @@ def buildCheckpointMerger(page):
     alpha_row = SliderRow(label="Alpha Interpolation", min=0.0, max=1.0, divisions=20, round=2, pref=checkpoint_merger_prefs, key='alpha', tooltip="The interpolation parameter. Ranges from 0 to 1.  It affects the ratio in which the checkpoints are merged. A 0.8 alpha would mean that the first model checkpoints would affect the final result far less than an alpha of 0.2")
     interp = Dropdown(label="Interpolation Method", width=250, options=[dropdown.Option("weighted_sum"), dropdown.Option("sigmoid"), dropdown.Option("inv_sigmoid"), dropdown.Option("add_difference")], value=checkpoint_merger_prefs['interp'], on_change=lambda e: changed(e, 'interp'))
     #The interpolation method to use for the merging. Supports "sigmoid", "inv_sigmoid", "add_difference" and None. For merging three checkpoints, only "add_difference" is supported.
-    model_ckpt = Dropdown(label="Model Checkpoint", options=[
+    model_ckpt = Dropdown(label="Model Checkpoint", width=300, options=[
         dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"),
         dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4")], value=checkpoint_merger_prefs['selected_model'], on_change=lambda e: changed(e, 'selected_model'))
     for mod in finetuned_models:
@@ -19481,7 +19501,7 @@ def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=Fa
     if not os.path.isdir(target): target = os.path.dirname(target)
     saves = {}
     if method=="Real-ESRGAN": #TODO: Add more ESRGAN model options
-        ESRGAN_folder = os.pisath.join(dist_dir, 'Real-ESRGAN')
+        ESRGAN_folder = os.path.join(dist_dir, 'Real-ESRGAN')
         if not status['installed_ESRGAN']:
             stat(f"Installing {method}")
             get_ESRGAN(None, model=model, installer=installer)
@@ -27776,7 +27796,6 @@ def run_LoRA(page):
     progress = ProgressBar(bar_height=8)
     prt(progress)
     if(LoRA_prefs['save_model']):
-
       private = False if LoRA_prefs['where_to_save_model'] == "Public HuggingFace" else True
       output_dir = LoRA_args.output_dir
       if(not prefs['HuggingFace_api_key']):
@@ -27882,7 +27901,6 @@ Images used for training this model:
       #]
       print(repo_id)
       print(model_card)
-
 
       with open(os.path.join(output_dir, ".gitignore"), "w+") as gitignore:
         if "step_*" not in gitignore:
@@ -40834,13 +40852,13 @@ def main(page: Page):
         page.update()
     def maximize_window(e):
         if page.window_maximized:
-          page.window_maximized = False
-          appbar.actions[3].icon=icons.CHECK_BOX_OUTLINE_BLANK
-          appbar.actions[3].tooltip = "Maximize Window"
+            page.window_maximized = False
+            appbar.actions[3].icon=icons.CHECK_BOX_OUTLINE_BLANK
+            appbar.actions[3].tooltip = "Maximize Window"
         else:
-          page.window_maximized = True
-          appbar.actions[3].icon=icons.FILTER_NONE
-          appbar.actions[3].tooltip = "Restore Window"
+            page.window_maximized = True
+            appbar.actions[3].icon=icons.FILTER_NONE
+            appbar.actions[3].tooltip = "Restore Window"
         page.update()
     def get_memory():
         from subprocess import getoutput
@@ -40953,18 +40971,21 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     page.etas = []
     page.theme_mode = prefs['theme_mode'].lower()
     if prefs['theme_mode'] == 'Dark':
-      page.dark_theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())#, use_material3=True)
+        page.dark_theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())#, use_material3=True)
     else:
-      page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
+        page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
     app_icon_color = colors.AMBER_800
     space = " "  if (page.width if page.web else page.window_width) >= 1024 else ""
     page.stats = Column([Text("", size=10), Text("", size=10)], tight=True, spacing=4)
-    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window_width) if page.web else page.window_width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE))], alignment=MainAxisAlignment.CENTER), expand=True), elevation=20,
+    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window_width) if page.web else page.window_width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE, overflow=ft.TextOverflow.ELLIPSIS, expand=True))], alignment=MainAxisAlignment.CENTER, expand=True), expand=False), elevation=20,
       center_title=True,
       bgcolor=colors.SURFACE,
+      toolbar_height=46,
+      leading_width=46,
       leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
       #leading_width=40,
-      actions=[page.stats, PopupMenuButton(items=[
+      actions=[ft.GestureDetector(page.stats, on_tap=lambda _:update_stats(page), on_secondary_tap=lambda _:clear_pipes()), 
+        PopupMenuButton(items=[
           PopupMenuItem(text="🤔  Help/Info", on_click=open_help_dlg),
           PopupMenuItem(text="👏  Credits", on_click=open_credits_dlg),
           PopupMenuItem(text="🤧  Issues/Suggestions", on_click=lambda _:page.launch_url("https://github.com/Skquark/AI-Friends/issues")),
@@ -40974,22 +40995,22 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
           #PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect) if is_Colab else PopupMenuItem(),
       ])])
     if is_Colab:
-      appbar.actions[0].items.append(PopupMenuItem())
-      appbar.actions[0].items.append(PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect))
+        appbar.actions[1].items.append(PopupMenuItem())
+        appbar.actions[1].items.append(PopupMenuItem(text="❎  Exit/Disconnect Runtime", on_click=exit_disconnect))
     else:
-      appbar.actions.append(IconButton(icon=icons.MINIMIZE, tooltip="Minimize Window", on_click=minimize_window))
-      appbar.actions.append(IconButton(icon=icons.CHECK_BOX_OUTLINE_BLANK, tooltip="Maximize Window", on_click=maximize_window))
-      appbar.actions.append(IconButton(icon=icons.CLOSE, tooltip="❎  Exit Application", on_click=exit_disconnect))
-      page.window_title_bar_hidden = True
+        appbar.actions.append(IconButton(icon=icons.MINIMIZE, tooltip="Minimize Window", on_click=minimize_window))
+        appbar.actions.append(IconButton(icon=icons.CHECK_BOX_OUTLINE_BLANK, tooltip="Maximize Window", on_click=maximize_window))
+        appbar.actions.append(IconButton(icon=icons.CLOSE, tooltip="❎  Exit Application", on_click=exit_disconnect))
+        page.window_title_bar_hidden = True
     page.appbar = appbar
     def app_icon_save():
-      app_icon_color = colors.GREEN_800
-      appbar.leading = IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Saving Settings File")
-      appbar.update()
-      time.sleep(0.6)
-      app_icon_color = colors.AMBER_800
-      appbar.leading = IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save())
-      appbar.update()
+        app_icon_color = colors.GREEN_800
+        appbar.leading = IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Saving Settings File")
+        appbar.update()
+        time.sleep(0.6)
+        app_icon_color = colors.AMBER_800
+        appbar.leading = IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save())
+        appbar.update()
     page.app_icon_save = app_icon_save
     page.vertical_alignment = MainAxisAlignment.START
     page.horizontal_alignment = CrossAxisAlignment.START
@@ -41124,20 +41145,24 @@ class ImageButton(UserControl):
         #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
         #Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True),
         def download_image(e):
-          print(f"{type(self.data)} {self.data}")
-          if is_Colab:
-            self.page.launch_url(self.data)
-            from google.colab import files
-            if os.path.isfile(self.data):
-              files.download(self.data)
-            else:
-              time.sleep(5)
-              files.download(self.data)
-          else:
+            print(f"{type(self.data)} {self.data}")
+            if is_Colab:
               self.page.launch_url(self.data)
-          self.page.snack_bar = SnackBar(content=Text(f"📲  Downloading {self.data}... May have to Stop Script for Downloads to start in Colab."))
-          self.page.snack_bar.open = True
-          self.page.update()
+              from google.colab import files
+              if os.path.isfile(self.data):
+                  files.download(self.data)
+              else:
+                  time.sleep(4)
+                  files.download(self.data)
+            else:#, initial_directory=
+                self.file_saver.save_file(dialog_title="Save Image to...", allowed_extensions=["png", "PNG"], file_name=os.path.splitext(os.path.basename(self.data))[0], file_type=ft.FilePickerFileType.IMAGE)
+            self.page.snack_bar = SnackBar(content=Text(f"📲  Downloading {self.data}... May have to Stop Script for Downloads to start in Colab."))
+            self.page.snack_bar.open = True
+            self.page.update()
+        def file_saver_result(e: FilePickerResultEvent):
+            if e.path != None:
+                shutil.copy(os.path.join(self.data), os.path.join(e.path))
+        
         def copy_path(e):
             self.page.set_clipboard(self.data)
             self.page.snack_bar = SnackBar(content=Text(f"📋  {self.data} copied to clipboard... Paste as Init Image."))
@@ -41179,7 +41204,7 @@ class ImageButton(UserControl):
             items = [
                 PopupMenuItem(text="View Image", icon=icons.FULLSCREEN, on_click=image_details),
                 PopupMenuItem(text="Copy Path", icon=icons.CONTENT_PASTE, on_click=copy_path),
-                PopupMenuItem(text="Download Locally", icon=icons.DOWNLOAD, on_click=download_image),
+                PopupMenuItem(text="Download Locally" if is_Colab else "Save As", icon=icons.DOWNLOAD, on_click=download_image),
                 PopupMenuItem(text="Delete Image", icon=icons.DELETE, on_click=delete_image),
             ], tooltip="👁️", expand=True,
             content=Row([self.image], expand=True),
@@ -41188,6 +41213,8 @@ class ImageButton(UserControl):
             alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START)], horizontal_alignment=CrossAxisAlignment.CENTER if self.center else CrossAxisAlignment.START)
         if self.show_subtitle:
             self.column.controls.append(Row([Text(self.subtitle)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START))
+        self.file_saver = FilePicker(on_result=file_saver_result)
+        self.page.overlay.append(self.file_saver)
         return self.column
 
 
@@ -41558,34 +41585,22 @@ def make_dir(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
-global polling_task
-
-async def poll_and_update(s, run):
-    while True:
-        run()
-        await asyncio.sleep(s)
-
-def stop_polling():
-    global polling_task
-    polling_task.cancel()
-
-def start_polling(s, run):
-    global polling_task
-    polling_task = asyncio.create_task(poll_and_update(s, run))
-
-def background_update(s, page, run):
-    #print(f"{s} {page}")
-    while True:
+stop_thread = False
+def background_update(page):
+    global stop_thread
+    while not stop_thread:
         update_stats(page)
-        time.sleep(s)
+        time.sleep(prefs['stats_update'])
 
-def start_thread(s, page, run):
-    global polling_task
-    polling_task = threading.Thread(target=background_update, args=(s, page, run))
+def start_thread(page):
+    global stop_thread
+    stop_thread = False
+    polling_task = threading.Thread(target=background_update, args=(page,))
     polling_task.daemon = True
     polling_task.start()
     
 def get_memory_stats(used=True):
+    global status
     try:
         #status['cpu_memory'] = psutil.virtual_memory().total / (1024 * 1024 * 1024)
         #status['gpu_memory'] = torch.cuda.get_device_properties(0).total_memory / (1024 * 1024 * 1024)
@@ -41615,9 +41630,6 @@ def update_stats(page):
     except Exception as e:
         print(e)
         pass
-
-def start_stats(page):
-    start_polling(prefs['stats_update'], update_stats(page))
 
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
