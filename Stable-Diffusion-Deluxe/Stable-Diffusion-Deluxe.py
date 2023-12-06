@@ -263,6 +263,7 @@ def load_settings_file():
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
       'AIHorde_api_key': "0000000000",
+      'luma_api_key': "",
       'HuggingFace_username': "",
       'scheduler_mode': "DDIM",
       'higher_vram_mode': False,
@@ -302,7 +303,7 @@ def load_settings_file():
       'install_panorama': False,
       'install_upscale': False,
       'upscale_method': 'Real-ESRGAN',
-      'upscale_model': 'RealESRGAN_x4plus',
+      'upscale_model': 'realesr-general-x4v3',
       'safety_config': 'Strong',
       'use_imagic': False,
       'SD_compel': False,
@@ -537,7 +538,7 @@ if not os.path.exists(sdd_utils_py) or force_updates:
     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
 #sys.path.append(sdd_utils_py)
 import sdd_utils
-from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists
+from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS
 
 def save_settings_file(page, change_icon=True):
   if change_icon:
@@ -685,6 +686,7 @@ def buildImageAIs(page):
     page.CLIPstyler = buildCLIPstyler(page)
     page.MagicMix = buildMagicMix(page)
     page.SemanticGuidance = buildSemanticGuidance(page)
+    page.DemoFusion = buildDemoFusion(page)
     page.PaintByExample = buildPaintByExample(page)
     page.InstructPix2Pix = buildInstructPix2Pix(page)
     page.ControlNet = buildControlNet(page)
@@ -719,6 +721,7 @@ def buildImageAIs(page):
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
             Tab(text="LMD+", content=page.LMD_Plus, icon=icons.HIGHLIGHT_ALT),
             Tab(text="LCM", content=page.LCM, icon=icons.MEMORY),
+            Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
@@ -752,6 +755,7 @@ def build3DAIs(page):
     page.ZoeDepth = buildZoeDepth(page)
     page.LDM3D = buildLDM3D(page)
     page.InstantNGP = buildInstantNGP(page)
+    page.Luma = buildLuma(page)
     diffusersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="DreamFusion 3D", content=page.DreamFusion, icon=icons.THREED_ROTATION),
@@ -760,6 +764,7 @@ def build3DAIs(page):
             Tab(text="ZoeDepth 3D", content=page.ZoeDepth, icon=icons.GRADIENT),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
+            Tab(text="Luma Video-to-3D", content=page.Luma, icon=icons.NIGHTS_STAY),
         ],
     )
     return diffusersTabs
@@ -917,7 +922,7 @@ if 'show_stats' not in prefs: prefs['show_stats'] = False
 if 'stats_used' not in prefs: prefs['stats_used'] = True
 if 'stats_update' not in prefs: prefs['stats_update'] = 5
 if 'upscale_method' not in prefs: prefs['upscale_method'] = 'Real-ESRGAN'
-if 'upscale_model' not in prefs: prefs['upscale_model'] = 'RealESRGAN_x4plus'
+if 'upscale_model' not in prefs: prefs['upscale_model'] = 'realesr-general-x4v3'
 if 'use_inpaint_model' not in prefs: prefs['use_inpaint_model'] = False
 if 'cache_dir' not in prefs: prefs['cache_dir'] = ''
 if 'Replicate_api_key' not in prefs: prefs['Replicate_api_key'] = ''
@@ -980,6 +985,7 @@ if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] 
 if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
 if 'AI_engine' not in prefs['prompt_generator']: prefs['prompt_generator']['AI_engine'] = 'ChatGPT-3.5 Turbo'
 if 'AI_engine' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AI_engine'] = 'ChatGPT-3.5 Turbo'
+if 'luma_api_key' not in prefs: prefs['luma_api_key'] = ''
 if 'AIHorde_api_key' not in prefs: prefs['AIHorde_api_key'] = '0000000000'
 if 'install_AIHorde_api' not in prefs: prefs['install_AIHorde_api'] = False
 if 'use_AIHorde_api' not in prefs: prefs['use_AIHorde_api'] = False
@@ -1573,8 +1579,27 @@ def buildInstallers(page):
   AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=350, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
   AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, AIHorde_model, AIHorde_sampler, AIHorde_post_processing]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
-
-  install_ESRGAN = Switcher(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], on_change=lambda e:changed(e, 'install_ESRGAN'), tooltip="Recommended to enlarge & sharpen all images as they're made.")
+  def toggle_upscale(e):
+      prefs['install_ESRGAN'] = e.control.value
+      upscale_settings.height=None if prefs['install_ESRGAN'] else 0
+      upscale_settings.update()
+      page.update()
+  def change_upscale_model(e):
+      prefs['upscale_model'] = e.control.value
+      for u in Real_ESRGAN_models:
+        if u['name'] == prefs['upscale_model']:
+          model_info.value = f"  [**Model Card**]({u['info']})"
+          model_info.update()
+  install_ESRGAN = Switcher(label="Install Real-ESRGAN AI Upscaler", value=prefs['install_ESRGAN'], disabled=status['installed_ESRGAN'], on_change=toggle_upscale, tooltip="Recommended to enlarge & sharpen all images as they're made.")
+  upscale_model = Dropdown(label="ESRGAN Upscale Model", hint_text="", width=300, options=[], value=prefs['upscale_model'], autofocus=False, on_change=change_upscale_model)
+  for u in Real_ESRGAN_models:
+    upscale_model.options.append(dropdown.Option(u['name']))
+    if u['name'] == prefs['upscale_model']:
+      current_model = u
+  model_info = Markdown(f"  [**Model Info**]({current_model['info']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+  upscale_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=4), content=Row([upscale_model, model_info]))
+  upscale_settings.height = None if prefs['install_ESRGAN'] else 0
+  
   install_OpenAI = Switcher(label="Install OpenAI GPT-3 Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], on_change=lambda e:changed(e, 'install_OpenAI'), tooltip="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.")
   install_TextSynth = Switcher(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], on_change=lambda e:changed(e, 'install_TextSynth'), tooltip="Alternative Text AI for brainstorming & rewriting your prompts. Pretty smart..")
   diffusers_settings.height = None if prefs['install_diffusers'] else 0
@@ -1916,7 +1941,7 @@ def buildInstallers(page):
         AIHorde_settings,
         #install_CLIP_guided,
         #clip_settings,
-        install_ESRGAN,
+        install_ESRGAN, upscale_settings,
         install_OpenAI,
         install_TextSynth,
         #install_button,
@@ -5663,6 +5688,70 @@ def buildInstantNGP(page):
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO)
+    return c
+
+
+luma_vid_to_3d_prefs = {
+    'init_video': '',
+    'title': '',
+    'luma_api_key': '',
+    'camera_type': 'Normal Perspective',
+    'batch_folder_name': '',
+}
+def buildLuma(page):
+    global luma_vid_to_3d_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            luma_vid_to_3d_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            luma_vid_to_3d_prefs[pref] = float(e.control.value)
+          else:
+            luma_vid_to_3d_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def changed_pref(e, pref=None):
+      if pref is not None:
+        prefs[pref] = e.control.value
+        status['changed_parameters'] = True
+    def luma_vid_to_3d_help(e):
+      def close_luma_vid_to_3d_dlg(e):
+        nonlocal luma_vid_to_3d_help_dlg
+        luma_vid_to_3d_help_dlg.open = False
+        page.update()
+      luma_vid_to_3d_help_dlg = AlertDialog(title=Text("🙅   Help with LumaLabs API"), content=Column([
+          Text("Luma's NeRF and meshing models are available through their API, giving you access to the world's best 3D modeling and reconstruction capabilities. At a dollar a scene or object. Today it costs anywhere from $60-$1500 and 2-10wk, and rounds of back and forth to have 3D models created. At a dollar a model, and around 30 min of compute now we can imagine 3D models for entire inventories for e-commerce, and every previz scene for VFX. The API expects video walkthroughs of objects or scenes, looking outside in, from 2-3 levels. The output is an interactive 3D scene that can be embedded directly, coarse textured models to build interactions on in traditional 3D pipelines, and pre-rendered 360 images and videos."),
+          Markdown("[Luma-API](https://lumalabs.ai/luma-api) | [Capture Practices](https://docs.lumalabs.ai/MCrGAEukR4orR9) | [Client Docs](https://documenter.getpostman.com/view/24305418/2s93CRMCas)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🌚  Who needs 3D scanner? ", on_click=close_luma_vid_to_3d_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = luma_vid_to_3d_help_dlg
+      luma_vid_to_3d_help_dlg.open = True
+      page.update()
+    init_video = FileInput(label="Video Walk-thru or Walk-around", pref=luma_vid_to_3d_prefs, key='init_video', ftype="video", page=page)
+    camera_type = Dropdown(label="Camera Type", width=200, options=[dropdown.Option("Normal Perspective"), dropdown.Option("Fisheye Lens"), dropdown.Option("Equirectangular 360")], value=luma_vid_to_3d_prefs['camera_type'], on_change=lambda e:changed(e,'camera_type'))
+    title = TextField(label="Project Title", value=luma_vid_to_3d_prefs['title'], on_change=lambda e:changed(e,'title'))
+    luma_api_key = TextField(label="LumaLabs.ai API Key", value=prefs['luma_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e,'luma_api_key'))
+    api_instructions = Markdown("Sign-up and get your LumaLabs.ai API Key here [https://lumalabs.ai/dashboard/api](https://lumalabs.ai/dashboard/api), you should get 10 models free.", on_tap_link=lambda e: e.page.launch_url(e.data))
+    batch_folder_name = TextField(label="Batch Folder Name", value=luma_vid_to_3d_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    page.luma_vid_to_3d_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.luma_vid_to_3d_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🌔  LumaLabs Video-to-3D API", "Costs $1 per Model, takes ~30min, but well worth it for these NeRF and meshing models in their cloud...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LumaLabs API Settings", on_click=luma_vid_to_3d_help)]),
+        init_video,
+        title,
+        Divider(thickness=2, height=4),
+        api_instructions,
+        luma_api_key,
+        Row([camera_type, batch_folder_name]),
+        ElevatedButton(content=Text("🌜  Get Luma Vid-to-3D", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_luma_vid_to_3d(page)),
+        page.luma_vid_to_3d_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
 
@@ -12027,7 +12116,7 @@ def buildAnimateDiff(page):
     is_loop = Switcher(label="Loop", value=animate_diff_prefs['is_loop'], on_change=lambda e:changed(e,'is_loop'))
     is_simple_composite = Switcher(label="Simple Composite", value=animate_diff_prefs['is_simple_composite'], on_change=lambda e:changed(e,'is_simple_composite'))
     apply_lcm_lora = Switcher(label="Apply LCM LoRA", value=animate_diff_prefs['apply_lcm_lora'], on_change=lambda e:changed(e,'apply_lcm_lora'))
-    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile", "QR_Code_Monster_v1", "QR_Code_Monster_v2", "Mediapipe_Face"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
+    control_task = Dropdown(label="ControlNet Task", width=215, options=[dropdown.Option(t) for t in ['Canny', 'OpenPose', "SoftEdge", "Shuffle", "Depth", "Inpaint", "LineArt", "MLSD", "NormalBAE", "IP2P", "Scribble", "Seg", "LineArt", "LineArt_Anime", "Tile", "QR_Code_Monster_v1", "QR_Code_Monster_v2", "Mediapipe_Face", "AnimateDiff ControlNet"]], value=animate_diff_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
     original_image = FileInput(label="Original Image or Video Clip", pref=animate_diff_prefs, key='original_image', ftype="picture", expand=True, page=page)
     control_frame = TextField(label="Frame", width=76, value="0", keyboard_type=KeyboardType.NUMBER, tooltip="", on_change=lambda e:changed(e,'control_frame', ptype='int'))
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
@@ -13135,7 +13224,7 @@ def buildKandinsky3(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=kandinsky_3_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=kandinsky_3_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=kandinsky_3_prefs, key='height')
-    init_image = FileInput(label="Init Image", pref=kandinsky_3_prefs, key='init_image', expand=True, page=page)
+    init_image = FileInput(label="Init Image (optional)", pref=kandinsky_3_prefs, key='init_image', expand=True, page=page)
     mask_image = FileInput(label="Mask Image", pref=kandinsky_3_prefs, key='mask_image', expand=True, page=page)
     #, mask_image, invert_mask
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=kandinsky_3_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'), col={'xs':2, 'md':1})
@@ -14873,6 +14962,115 @@ def buildSemanticGuidance(page):
         clear_button,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+demofusion_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    'view_batch_size': 16,
+    'cosine_scale_1': 3.0,
+    'cosine_scale_2': 1.0,
+    'cosine_scale_3': 1.0,
+    'sigma': 0.8,
+    'multi_decoder': True,
+    "steps":50,
+    "width": 3072,
+    "height": 3072,
+    'sigma': 4.0,
+    'stride': 64,
+    "guidance_scale":7.5,
+    "seed": 0,
+    'cpu_offload': True,
+    "batch_folder_name": '',
+    "file_prefix": "demofusion-",
+    "num_images": 1,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildDemoFusion(page):
+    global prefs, demofusion_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            demofusion_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            demofusion_prefs[pref] = float(e.control.value)
+          else:
+            demofusion_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def demofusion_help(e):
+      def close_demofusion_dlg(e):
+        nonlocal demofusion_help_dlg
+        demofusion_help_dlg.open = False
+        page.update()
+      demofusion_help_dlg = AlertDialog(title=Text("🙅   Help with DemoFusion Pipeline"), content=Column([
+          Text('High-resolution image generation with Generative Artificial Intelligence (GenAI) has immense potential but, due to the enormous capital investment required for training, it is increasingly centralised to a few large corporations, and hidden behind paywalls. This paper aims to democratise high-resolution GenAI by advancing the frontier of high-resolution generation while remaining accessible to a broad audience. We demonstrate that existing Latent Diffusion Models (LDMs) possess untapped potential for higher-resolution image generation. Our novel DemoFusion framework seamlessly extends open-source GenAI models, employing Progressive Upscaling, Skip Residual, and Dilated Sampling mechanisms to achieve higher-resolution image generation. The progressive nature of DemoFusion requires more passes, but the intermediate results can serve as "previews", facilitating rapid prompt iteration.'),
+          #Text(""),
+          Markdown("[Paper](https://arxiv.org/abs/2311.16973) | [Original GitHub](https://github.com/PRIS-CV/DemoFusion) | [Ruoyi Du](https://github.com/RuoyiDu)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🏡  Go Big or...", on_click=close_demofusion_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = demofusion_help_dlg
+      demofusion_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        demofusion_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=demofusion_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=demofusion_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=demofusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=demofusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    #steps = TextField(label="Number of Steps", value=demofusion_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=demofusion_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=100, divisions=100, pref=demofusion_prefs, key='steps')
+    sigma = SliderRow(label="Sigma", min=0, max=6, divisions=60, round=1, pref=demofusion_prefs, key='sigma', col={'xs':12, 'md':6}, tooltip="The standard value of the Gaussian filter. Larger sigma promotes the global guidance of dilated sampling, but has the potential of over-smoothing.")
+    stride = SliderRow(label="Stride", min=0, max=100, divisions=100, pref=demofusion_prefs, key='stride', tooltip="The stride of moving local patches. A smaller stride is better for alleviating seam issues, but it also introduces additional computational overhead and inference time.")
+    view_batch_size = SliderRow(label="View Batch Size", min=0, max=50, divisions=50, pref=demofusion_prefs, key='view_batch_size', tooltip="The batch size for multiple denoising paths. Typically, a larger batch size can result in higher efficiency but comes with increased GPU memory requirements.")
+    cosine_scale_1 = SliderRow(label="Cosine Scale 1", min=0, max=5, divisions=10, round=1, expand=True, pref=demofusion_prefs, key='cosine_scale_1', col={'xs':12, 'md':4}, tooltip="Control the strength of skip-residual. For specific impacts, please refer to Appendix C in the DemoFusion paper.")
+    cosine_scale_2 = SliderRow(label="Cosine Scale 2", min=0, max=5, divisions=10, round=1, expand=True, pref=demofusion_prefs, key='cosine_scale_2', col={'xs':12, 'md':4}, tooltip="Control the strength of dilated sampling. For specific impacts, please refer to Appendix C in the DemoFusion paper.")
+    cosine_scale_3 = SliderRow(label="Cosine Scale 3", min=0, max=5, divisions=10, round=1, expand=True, pref=demofusion_prefs, key='cosine_scale_3', col={'xs':12, 'md':4}, tooltip="Control the strength of the Gaussian filter. For specific impacts, please refer to Appendix C in the DemoFusion paper.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=20, divisions=40, round=1, pref=demofusion_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=4096, divisions=31, multiple=128, suffix="px", pref=demofusion_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=4096, divisions=31, multiple=128, suffix="px", pref=demofusion_prefs, key='height')
+    multi_decoder = Switcher(label="Multi Decoder", value=demofusion_prefs['multi_decoder'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'multi_decoder'), tooltip="Determine whether to use a tiled decoder. Generally, when the resolution exceeds 3072x3072, a tiled decoder becomes necessary.")
+    cpu_offload = Switcher(label="CPU Offload", value=demofusion_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    seed = TextField(label="Seed", width=90, value=str(demofusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=demofusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=demofusion_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=demofusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=demofusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_demofusion = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_demofusion.height = None if status['installed_ESRGAN'] else 0
+    if not demofusion_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="💥   Run DemoFusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_demofusion(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_demofusion(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_demofusion(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.demofusion_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("💣  DemoFusion", "Democratising High-Resolution Image Generation With No $$$. SDXL with Clean Upscaling, 3 Phase Denoising/Decoding, slow but real quality...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DemoFusion Settings", on_click=demofusion_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            #ResponsiveRow([stride, sigma]),
+            stride, sigma,
+            view_batch_size,
+            ResponsiveRow([cosine_scale_1, cosine_scale_2, cosine_scale_3]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([multi_decoder, cpu_offload]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_demofusion,
+            parameters_row,
+            page.demofusion_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 class State:
@@ -17472,6 +17670,7 @@ pipe_paint_by_example = None
 pipe_instruct_pix2pix = None
 pipe_alt_diffusion = None
 pipe_alt_diffusion_img2img = None
+pipe_demofusion = None
 pipe_SAG = None
 pipe_attend_and_excite = None
 pipe_lmd_plus = None
@@ -19438,12 +19637,13 @@ def get_AIHorde(page):
       pass
     status['installed_AIHorde'] = True
 
-def get_ESRGAN(page, model="realesr-general-x4v3", installer=None):
+def get_ESRGAN(page, model=None, installer=None):
     global status
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
     ESRGAN_folder = os.path.join(dist_dir, 'Real-ESRGAN')
     pretrained = os.path.join(ESRGAN_folder, 'experiments', 'pretrained_models')
+    if model == None: model = prefs['upscale_model']
     if not os.path.isdir(ESRGAN_folder):
         os.chdir(dist_dir)
         stat(f"Installing Real-ESRGAN")
@@ -19458,14 +19658,15 @@ def get_ESRGAN(page, model="realesr-general-x4v3", installer=None):
         run_sp(f"rm -r BSRGAN/testsets/RealSRSet", cwd=ESRGAN_folder)
     # Search https://openmodeldb.info/?q=real-esrgan
     model_url = ""
-    '''for m in Real_ESRGAN_models:
+    for m in Real_ESRGAN_models:
         if m['name'] == model:
             model_url = m['url']
             break
-    if bool(model_url):
+    if not bool(model_url):
         print(f"ESRGAN model {model} not found.")
-        return'''
-    if model =="realesr-general-x4v3":
+        return
+    
+    '''if model =="realesr-general-x4v3":
         model_url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth"
     elif model == "RealESRGAN_x2plus":
         model_url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth"
@@ -19482,7 +19683,7 @@ def get_ESRGAN(page, model="realesr-general-x4v3", installer=None):
     elif model == "RealisticRescaler":
         model_url = "https://drive.google.com/drive/folders/13OC-hQNz_S-kX0EVjVgNO1eoGvcXrTfk?usp=sharing"
     elif model == "RealESRGAN_x4plus_anime":
-        model_url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"
+        model_url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"'''
     if not os.path.isfile(os.path.join(pretrained, f"{model}.pth")):
         stat(f"downloading {model}.pth")
         if 'drive.google' in model_url:
@@ -19494,12 +19695,13 @@ def get_ESRGAN(page, model="realesr-general-x4v3", installer=None):
     os.chdir(root_dir)
     status['installed_ESRGAN'] = True
 
-def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=False, model="realesr-general-x4v3", installer=None):
+def upscale_image(source, target, method="Real-ESRGAN", scale=4, face_enhance=False, model=None, installer=None):
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
     if not isinstance(source, list): source = [source]
     if not os.path.isdir(target): target = os.path.dirname(target)
     saves = {}
+    if model == None: model = prefs['upscale_model']
     if method=="Real-ESRGAN": #TODO: Add more ESRGAN model options
         ESRGAN_folder = os.path.join(dist_dir, 'Real-ESRGAN')
         if not status['installed_ESRGAN']:
@@ -19897,6 +20099,12 @@ def clear_SAG_pipe():
     del pipe_SAG
     flush()
     pipe_SAG = None
+def clear_demofusion_pipe():
+  global pipe_demofusion
+  if pipe_demofusion is not None:
+    del pipe_demofusion
+    flush()
+    pipe_demofusion = None
 def clear_attend_and_excite_pipe():
   global pipe_attend_and_excite
   if pipe_attend_and_excite is not None:
@@ -20193,6 +20401,7 @@ def clear_pipes(allbut=None):
     if not 'paint_by_example' in but: clear_paint_by_example_pipe()
     if not 'instruct_pix2pix' in but: clear_instruct_pix2pix_pipe()
     if not 'SAG' in but: clear_SAG_pipe()
+    if not 'demofusion' in but: clear_demofusion_pipe()
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
     if not 'lmd_plus' in but: clear_lmd_plus_pipe()
     if not 'lcm' in but: clear_lcm_pipe()
@@ -20869,7 +21078,7 @@ def start_diffusion(page):
         SDXL_negative_conditions = {'negative_original_size':(512, 512), 'negative_crops_coords_top_left':(0, 0), 'negative_target_size':(1024, 1024)} if not prefs['SDXL_negative_conditions'] else {}
         if lcm_lora:
           arg['guidance_scale'] = 0.0
-        if status['installed_SDXL'] and prefs['use_SDXL'] and prefs['SDXL_model'] == "SDXL-Turbo":
+        if (status['installed_SDXL'] and prefs['use_SDXL'] and prefs['SDXL_model'] == "SDXL-Turbo") or ((not status['installed_SDXL'] or not prefs['use_SDXL']) and prefs['model_ckpt'] == "SD-Turbo"):
           arg['guidance_scale'] = 0.0
           if arg['steps'] > 8:
             arg['steps'] = 4
@@ -21172,6 +21381,8 @@ def start_diffusion(page):
                   clear_last()
                 else:
                   pipe = get_SD_pipe(task="img2img")
+                if prefs['model_ckpt'] == "SD-Turbo":
+                  pipe = pipeline_scheduler(pipe_SDXL, trailing=True)
               '''if pipe_img2img is None:
                 try:
                   pipe_img2img = get_img2img_pipe()
@@ -21352,6 +21563,8 @@ def start_diffusion(page):
                 else:
                   pipe = get_SD_pipe(task="txt2img")
                 #print(pipe)
+                if prefs['model_ckpt'] == "SD-Turbo":
+                  pipe = pipeline_scheduler(pipe_SDXL, trailing=True)
               '''with io.StringIO() as buf, redirect_stdout(buf):
                 get_text2image(page)
                 output = buf.getvalue()
@@ -21601,29 +21814,7 @@ def start_diffusion(page):
           w = int(arg['width'] * prefs["enlarge_scale"])
           h = int(arg['height'] * prefs["enlarge_scale"])
           prt(Row([Text(f'Enlarging {prefs["enlarge_scale"]}X to {w}x{h}')], alignment=MainAxisAlignment.CENTER))
-          os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-          upload_folder = 'upload'
-          result_folder = 'results'
-          if os.path.isdir(upload_folder):
-              shutil.rmtree(upload_folder)
-          if os.path.isdir(result_folder):
-              shutil.rmtree(result_folder)
-          os.mkdir(upload_folder)
-          os.mkdir(result_folder)
-          short_name = f'{fname[:80]}-{num}.png'
-          dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-          #print(f'Moving {fpath} to {dst_path}')
-          #shutil.move(fpath, dst_path)
-          shutil.copy(fpath, dst_path)
-          faceenhance = ' --face_enhance' if prefs["face_enhance"] else ''
-          #python inference_realesrgan.py -n RealESRGAN_x4plus -i upload --outscale {enlarge_scale}{faceenhance}
-          run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-          out_file = short_name.rpartition('.')[0] + '_out.png'
-          #print(f'move {root_dir}Real-ESRGAN/{result_folder}/{out_file} to {fpath}')
-          #shutil.move(f'{root_dir}Real-ESRGAN/{result_folder}/{out_file}', fpath)
-          shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), fpath)
-          # !python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-          os.chdir(stable_dir)
+          upscale_image(fpath, fpath, scale=prefs["enlarge_scale"], face_enhance=prefs["face_enhance"])
           clear_last(update=False)
 
         config_json = arg.copy()
@@ -21804,8 +21995,8 @@ def start_diffusion(page):
     bfolder = fpath.rpartition(slash)[2]
     if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
       prt('Applying Real-ESRGAN Upscaling to images...')
-      #upscale_image(images,)
-      os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+      upscale_image(images, fpath, scale=prefs["enlarge_scale"], face_enhance=prefs["face_enhance"])
+      '''os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
       upload_folder = 'upload'
       result_folder = 'results'
       if os.path.isdir(upload_folder):
@@ -21826,7 +22017,7 @@ def start_diffusion(page):
         fname_clean = fparts[0] + fparts[2]
         opath = os.path.join(fpath, fname_clean)
         shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, oname), opath)
-      os.chdir(stable_dir)
+      os.chdir(stable_dir)'''
     os.makedirs(os.path.join(batch_output, bfolder), exist_ok=True)
     imgs = os.listdir(fpath)
     for i in imgs:
@@ -23982,25 +24173,8 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if blip_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{idx}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                shutil.copy(image_path, dst_path)
-                faceenhance = ' --face_enhance' if blip_diffusion_prefs["face_enhance"] else ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {blip_diffusion_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                upscale_image(image_path, upscaled_path, scale=blip_diffusion_prefs["enlarge_scale"], face_enhance=blip_diffusion_prefs["face_enhance"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
                 if blip_diffusion_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -24303,7 +24477,6 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             if ip_adapter_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=ip_adapter_prefs["enlarge_scale"], face_enhance=ip_adapter_prefs["face_enhance"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
                 if ip_adapter_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(ip_adapter_prefs["enlarge_scale"]), height=pr['height'] * float(ip_adapter_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if prefs['save_image_metadata']:
@@ -24500,27 +24673,8 @@ def run_reference(page, from_list=False):
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     time.sleep(0.6)
                 if reference_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{num}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #print(f'Moving {fpath} to {dst_path}')
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    #faceenhance = ' --face_enhance' if reference_prefs["face_enhance"] else ''
-                    faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {reference_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    upscale_image(image_path, upscaled_path, scale=reference_prefs["enlarge_scale"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
                     if reference_prefs['display_upscaled_image']:
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(reference_prefs["enlarge_scale"]), height=height * float(reference_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         time.sleep(0.6)
@@ -24797,27 +24951,8 @@ def run_controlnet_qr(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if controlnet_qr_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{num}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #print(f'Moving {fpath} to {dst_path}')
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    #faceenhance = ' --face_enhance' if controlnet_qr_prefs["face_enhance"] else ''
-                    faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {controlnet_qr_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    upscale_image(image_path, upscaled_path, scale=controlnet_qr_prefs["enlarge_scale"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
                     if controlnet_qr_prefs['display_upscaled_image']:
                         time.sleep(0.6)
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(controlnet_qr_prefs["enlarge_scale"]), height=height * float(controlnet_qr_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -25059,27 +25194,8 @@ def run_controlnet_segment(page, from_list=False):
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     time.sleep(0.8)
                 if controlnet_segment_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{num}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #print(f'Moving {fpath} to {dst_path}')
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    #faceenhance = ' --face_enhance' if controlnet_segment_prefs["face_enhance"] else ''
-                    faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {controlnet_segment_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    upscale_image(image_path, upscaled_path, scale=controlnet_segment_prefs["enlarge_scale"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
                     if controlnet_segment_prefs['display_upscaled_image']:
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(controlnet_segment_prefs["enlarge_scale"]), height=height * float(controlnet_segment_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         time.sleep(0.6)
@@ -25254,27 +25370,8 @@ def run_EDICT(page):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if EDICT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{num}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                #faceenhance = ' --face_enhance' if EDICT_prefs["face_enhance"] else ''
-                faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {EDICT_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                upscale_image(image_path, upscaled_path, scale=EDICT_prefs["enlarge_scale"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
                 if EDICT_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(EDICT_prefs["enlarge_scale"]), height=height * float(EDICT_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -25481,27 +25578,8 @@ def run_DiffEdit(page):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if DiffEdit_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{num}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                #faceenhance = ' --face_enhance' if DiffEdit_prefs["face_enhance"] else ''
-                faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {DiffEdit_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                upscale_image(image_path, upscaled_path, scale=DiffEdit_prefs["enlarge_scale"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
                 if DiffEdit_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(DiffEdit_prefs["enlarge_scale"]), height=height * float(DiffEdit_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -25840,11 +25918,9 @@ def run_semantic(page):
     prt(progress)
     autoscroll(False)
     batch_output = os.path.join(stable_dir, semantic_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    make_dir(batch_output)
     batch_output = os.path.join(prefs['image_output'], semantic_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    make_dir(batch_output)
     random_seed = int(semantic_prefs['seed']) if int(semantic_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     #generator = torch.manual_seed(random_seed)
@@ -25889,32 +25965,14 @@ def run_semantic(page):
         if not semantic_prefs['display_upscaled_image'] or not semantic_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if semantic_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if semantic_prefs["face_enhance"] else ''
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {semantic_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            upscale_image(image_path, upscaled_path, scale=semantic_prefs["enlarge_scale"])
             image_path = upscaled_path
-            os.chdir(stable_dir)
             if semantic_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(semantic_prefs["enlarge_scale"]), height=height * float(semantic_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if prefs['save_image_metadata']:
+            from PIL.PngImagePlugin import PngInfo
             img = PILImage.open(image_path)
             metadata = PngInfo()
             metadata.add_text("artist", prefs['meta_ArtistName'])
@@ -25947,6 +26005,190 @@ def run_semantic(page):
             shutil.copy(image_path, new_file)
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_demofusion(page, from_list=False, with_params=False):
+    global demofusion_prefs, pipe_demofusion, prefs
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    demofusion_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            demofusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':demofusion_prefs['guidance_scale'], 'steps':demofusion_prefs['steps'], 'width':demofusion_prefs['width'], 'height':demofusion_prefs['height'], 'num_images':demofusion_prefs['num_images'], 'seed':demofusion_prefs['seed']})
+        else:
+            demofusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(demofusion_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      demofusion_prompts.append({'prompt': demofusion_prefs['prompt'], 'negative_prompt':demofusion_prefs['negative_prompt'], 'guidance_scale':demofusion_prefs['guidance_scale'], 'steps':demofusion_prefs['steps'], 'width':demofusion_prefs['width'], 'height':demofusion_prefs['height'], 'num_images':demofusion_prefs['num_images'], 'seed':demofusion_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.DemoFusion.controls.append(line)
+        if update:
+          page.DemoFusion.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.DemoFusion, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.DemoFusion.auto_scroll = scroll
+        page.DemoFusion.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.DemoFusion.controls = page.DemoFusion.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = demofusion_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing DemoFusion Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("demofusion")
+    #from pipeline_demofusion_sdxl import DemoFusionSDXLPipeline
+    #model_ckpt = get_SDXL_model(prefs['SDXL_model'])['path']
+    model_ckpt = "stabilityai/stable-diffusion-xl-base-1.0"
+    if pipe_demofusion == None:
+        #clear_pipes('demofusion')
+        try:
+            from diffusers import DiffusionPipeline, AutoencoderKL
+            vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+            pipe_demofusion = DiffusionPipeline.from_pretrained(model_ckpt, custom_pipeline="pipeline_demofusion_sdxl", custom_revision="main", torch_dtype=torch.float16, variant="fp16", vae=vae, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling unet")
+                #pipe_demofusion.unet.to(memory_format=torch.channels_last)
+                pipe_demofusion.unet = torch.compile(pipe_demofusion.unet, mode="reduce-overhead", fullgraph=True)
+                pipe_demofusion = pipe_demofusion.to("cuda")
+            elif demofusion_prefs['cpu_offload']:
+                pipe_demofusion.enable_model_cpu_offload()
+            else:
+                pipe_demofusion = pipe_demofusion.to("cuda")
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing DemoFusion...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    else:
+        clear_pipes('demofusion')
+    clear_last()
+    txt2img_output = os.path.join(stable_dir, demofusion_prefs['batch_folder_name'])
+    make_dir(txt2img_output)
+    batch_output = os.path.join(prefs['image_output'], demofusion_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    s = "" if len(demofusion_prompts) == 0 else "s"
+    prt(f"Generating your DemoFusion Image{s}...")
+    for pr in demofusion_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        try:
+            images = pipe_demofusion(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                sigma=demofusion_prefs['sigma'],
+                stride=demofusion_prefs['stride'],
+                view_batch_size=demofusion_prefs['view_batch_size'],
+                cosine_scale_1=demofusion_prefs['cosine_scale_1'],
+                cosine_scale_2=demofusion_prefs['cosine_scale_2'],
+                cosine_scale_3=demofusion_prefs['cosine_scale_3'],
+                num_images_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['steps'],
+                guidance_scale=pr['guidance_scale'],
+                generator=generator,
+                callback=callback_fnc,
+            )
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last()
+        autoscroll(True)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{demofusion_prefs["file_prefix"]}{fname}{seed_suffix}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not demofusion_prefs['display_upscaled_image'] or not demofusion_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': demofusion_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if demofusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=demofusion_prefs["enlarge_scale"], faceenhance=demofusion_prefs["face_enhance"])
+                image_path = upscaled_path
+                if demofusion_prefs['display_upscaled_image']:
+                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                from PIL.PngImagePlugin import PngInfo
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {demofusion_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"DemoFusion")
+                if prefs['save_config_in_metadata']:
+                    config_json = demofusion_prefs.copy()
+                    config_json['model_path'] = model_ckpt
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(batch_output, fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(batch_output, fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -29786,28 +30028,8 @@ def run_unCLIP(page, from_list=False):
                     w = int(unCLIP_prefs['width'] * unCLIP_prefs["enlarge_scale"])
                     h = int(unCLIP_prefs['height'] * unCLIP_prefs["enlarge_scale"])
                     prt(Row([Text(f'Enlarging {unCLIP_prefs["enlarge_scale"]}X to {w}x{h}')], alignment=MainAxisAlignment.CENTER))
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{num}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #print(f'Moving {fpath} to {dst_path}')
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    #faceenhance = ' --face_enhance' if unCLIP_prefs["face_enhance"] else ''
-                    faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {unCLIP_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    upscaled_path = os.path.join(out_path, output_file)
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    upscale_image(image_path, upscaled_path, scale=unCLIP_prefs["enlarge_scale"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
                     clear_last()
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
@@ -29978,27 +30200,8 @@ def run_unCLIP_image_variation(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_image_variation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{num}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #print(f'Moving {fpath} to {dst_path}')
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    #faceenhance = ' --face_enhance' if unCLIP_image_variation_prefs["face_enhance"] else ''
-                    faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {unCLIP_image_variation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    upscale_image(image_path, upscaled_path, scale=unCLIP_image_variation_prefs["enlarge_scale"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
                     if unCLIP_image_variation_prefs['display_upscaled_image']:
                         time.sleep(0.6)
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_image_variation_prefs["enlarge_scale"]), height=512 * float(unCLIP_image_variation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -30163,27 +30366,8 @@ def run_unCLIP_interpolation(page, from_list=False):
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if unCLIP_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{num}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #print(f'Moving {fpath} to {dst_path}')
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    #faceenhance = ' --face_enhance' if unCLIP_interpolation_prefs["face_enhance"] else ''
-                    faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {unCLIP_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    upscale_image(image_path, upscaled_path, scale=unCLIP_interpolation_prefs["enlarge_scale"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
 
                 if prefs['save_image_metadata']:
                     img = PILImage.open(image_path)
@@ -30371,27 +30555,8 @@ def run_unCLIP_image_interpolation(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{num}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                #faceenhance = ' --face_enhance' if unCLIP_image_interpolation_prefs["face_enhance"] else ''
-                faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {unCLIP_image_interpolation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                upscale_image(image_path, upscaled_path, scale=unCLIP_image_interpolation_prefs["enlarge_scale"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
                 if unCLIP_image_interpolation_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(unCLIP_image_interpolation_prefs["enlarge_scale"]), height=512 * float(unCLIP_image_interpolation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -30587,27 +30752,8 @@ def run_magic_mix(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if magic_mix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{num}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                #faceenhance = ' --face_enhance' if magic_mix_prefs["face_enhance"] else ''
-                faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {magic_mix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                upscale_image(image_path, upscaled_path, scale=magic_mix_prefs["enlarge_scale"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
                 if magic_mix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(magic_mix_prefs["enlarge_scale"]), height=height * float(magic_mix_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -30785,27 +30931,8 @@ def run_paint_by_example(page):
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
             #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if paint_by_example_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            #faceenhance = ' --face_enhance' if paint_by_example_prefs["face_enhance"] else ''
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {paint_by_example_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            upscale_image(image_path, upscaled_path, scale=paint_by_example_prefs["enlarge_scale"])
             image_path = upscaled_path
-            os.chdir(stable_dir)
             if paint_by_example_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(paint_by_example_prefs["enlarge_scale"]), height=height * float(paint_by_example_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -31071,27 +31198,8 @@ def run_instruct_pix2pix(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if instruct_pix2pix_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{num}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                #faceenhance = ' --face_enhance' if instruct_pix2pix_prefs["face_enhance"] else ''
-                faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {instruct_pix2pix_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                upscale_image(image_path, upscaled_path, scale=instruct_pix2pix_prefs["enlarge_scale"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
                 if instruct_pix2pix_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(instruct_pix2pix_prefs["enlarge_scale"]), height=height * float(instruct_pix2pix_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -31717,28 +31825,8 @@ def run_controlnet(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{num}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                #faceenhance = ' --face_enhance' if controlnet_prefs["face_enhance"] else ''
-                faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {controlnet_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                upscale_image(image_path, upscaled_path, scale=controlnet_prefs["enlarge_scale"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
-
             if prefs['save_image_metadata']:
                 task = and_list(controlnet_prefs['control_task']) if isinstance(controlnet_prefs['control_task'], list) else controlnet_prefs['control_task']
                 img = PILImage.open(image_path)
@@ -32358,28 +32446,8 @@ def run_controlnet_xl(page, from_list=False):
                 prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if controlnet_xl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{num}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                #faceenhance = ' --face_enhance' if controlnet_xl_prefs["face_enhance"] else ''
-                faceenhance = ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {controlnet_xl_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                upscale_image(image_path, upscaled_path, scale=controlnet_xl_prefs["enlarge_scale"])
                 image_path = upscaled_path
-                os.chdir(stable_dir)
-
             if prefs['save_image_metadata']:
                 task = and_list(controlnet_xl_prefs['control_task']) if isinstance(controlnet_xl_prefs['control_task'], list) else controlnet_xl_prefs['control_task']
                 img = PILImage.open(image_path)
@@ -33146,26 +33214,8 @@ def run_deepfloyd(page, from_list=False):
                     #h = int(arg['height'] * prefs["enlarge_scale"])
                     #prt(Row([Text(f'Enlarging {prefs["enlarge_scale"]}X to {w}x{h}')], alignment=MainAxisAlignment.CENTER))
                     prt(Row([Text(f'Enlarging Real-ESRGAN {prefs["enlarge_scale"]}X')], alignment=MainAxisAlignment.CENTER))
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{num}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    #faceenhance = ' --face_enhance' if deepfloyd_prefs["face_enhance"] else ''
-                    faceenhance = ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {deepfloyd_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+                    upscale_image(image_path, upscaled_path, scale=deepfloyd_prefs["enlarge_scale"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
                     clear_last()
                     if deepfloyd_prefs['display_upscaled_image']:
                         time.sleep(0.6)
@@ -33319,112 +33369,96 @@ def run_wuerstchen(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
-        generator = torch.Generator(device="cuda").manual_seed(random_seed)
-        try:
-            images = pipe_wuerstchen(
-                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
-                prior_guidance_scale=wuerstchen_prefs['prior_guidance_scale'],
-                prior_num_inference_steps=wuerstchen_prefs['prior_steps'],
-                prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
-                num_images_per_prompt=pr['num_images'],
-                height=pr['height'],
-                width=pr['width'],
-                num_inference_steps=pr['steps'],
-                decoder_guidance_scale=pr['guidance_scale'],
-                generator=generator,
-                prior_callback_on_step_end=prior_callback_fnc,
-                callback_on_step_end=callback_fnc,
-            ).images
-        except Exception as e:
+        for n in range(pr['num_images']):
+            random_seed = (int(pr['seed']) + n) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device="cuda").manual_seed(random_seed)
+            try:
+                images = pipe_wuerstchen(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    prior_guidance_scale=wuerstchen_prefs['prior_guidance_scale'],
+                    prior_num_inference_steps=wuerstchen_prefs['prior_steps'],
+                    prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
+                    #num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['steps'],
+                    decoder_guidance_scale=pr['guidance_scale'],
+                    generator=generator,
+                    prior_callback_on_step_end=prior_callback_fnc,
+                    callback_on_step_end=callback_fnc,
+                ).images
+            except Exception as e:
+                clear_last()
+                clear_last()
+                alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            #clear_last()
             clear_last()
-            clear_last()
-            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-            return
-        #clear_last()
-        clear_last()
-        autoscroll(True)
-        txt2img_output = stable_dir
-        batch_output = prefs['image_output']
-        txt2img_output = stable_dir
-        if bool(wuerstchen_prefs['batch_folder_name']):
-            txt2img_output = os.path.join(stable_dir, wuerstchen_prefs['batch_folder_name'])
-        if not os.path.exists(txt2img_output):
-            os.makedirs(txt2img_output)
-        if images is None:
-            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
-            return
-        idx = 0
-        for image in images:
-            fname = format_filename(pr['prompt'])
-            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
-            fname = f'{wuerstchen_prefs["file_prefix"]}{fname}'
-            image_path = available_file(txt2img_output, fname, 1)
-            image.save(image_path)
-            output_file = image_path.rpartition(slash)[2]
-            if not wuerstchen_prefs['display_upscaled_image'] or not wuerstchen_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            batch_output = os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name'])
-            if not os.path.exists(batch_output):
-                os.makedirs(batch_output)
-            if storage_type == "PyDrive Google Drive":
-                newFolder = gdrive.CreateFile({'title': wuerstchen_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
-                newFolder.Upload()
-                batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
-            upscaled_path = os.path.join(out_path, output_file)
+            autoscroll(True)
+            txt2img_output = stable_dir
+            batch_output = prefs['image_output']
+            txt2img_output = stable_dir
+            if bool(wuerstchen_prefs['batch_folder_name']):
+                txt2img_output = os.path.join(stable_dir, wuerstchen_prefs['batch_folder_name'])
+            if not os.path.exists(txt2img_output):
+                os.makedirs(txt2img_output)
+            if images is None:
+                prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+                return
+            idx = 0
+            for image in images:
+                fname = format_filename(pr['prompt'])
+                #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+                fname = f'{wuerstchen_prefs["file_prefix"]}{fname}'
+                image_path = available_file(txt2img_output, fname, 1)
+                image.save(image_path)
+                output_file = image_path.rpartition(slash)[2]
+                if not wuerstchen_prefs['display_upscaled_image'] or not wuerstchen_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                batch_output = os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name'])
+                if not os.path.exists(batch_output):
+                    os.makedirs(batch_output)
+                if storage_type == "PyDrive Google Drive":
+                    newFolder = gdrive.CreateFile({'title': wuerstchen_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                    newFolder.Upload()
+                    batch_output = newFolder
+                out_path = image_path.rpartition(slash)[0]
+                upscaled_path = os.path.join(out_path, output_file)
 
-            if wuerstchen_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{idx}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                shutil.copy(image_path, dst_path)
-                faceenhance = ' --face_enhance' if wuerstchen_prefs["face_enhance"] else ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {wuerstchen_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-                image_path = upscaled_path
-                os.chdir(stable_dir)
-                if wuerstchen_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
-                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {wuerstchen_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"Würstchen")
-                if prefs['save_config_in_metadata']:
-                    config_json = wuerstchen_prefs.copy()
-                    config_json['model_path'] = "wuerstchen-community/wuerstchen-2-2-decoder"
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
-            if storage_type == "Colab Google Drive":
-                new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
-                out_path = new_file
-                shutil.copy(image_path, new_file)
-            elif bool(prefs['image_output']):
-                new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
-                out_path = new_file
-                shutil.copy(image_path, new_file)
-            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+                if wuerstchen_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    upscale_image(image_path, upscaled_path, scale=wuerstchen_prefs["enlarge_scale"], faceenhance=wuerstchen_prefs["face_enhance"])
+                    image_path = upscaled_path
+                    if wuerstchen_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                if prefs['save_image_metadata']:
+                    img = PILImage.open(image_path)
+                    metadata = PngInfo()
+                    metadata.add_text("artist", prefs['meta_ArtistName'])
+                    metadata.add_text("copyright", prefs['meta_Copyright'])
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {wuerstchen_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("pipeline", f"Würstchen")
+                    if prefs['save_config_in_metadata']:
+                        config_json = wuerstchen_prefs.copy()
+                        config_json['model_path'] = "wuerstchen-community/wuerstchen-2-2-decoder"
+                        config_json['seed'] = random_seed
+                        del config_json['num_images']
+                        del config_json['display_upscaled_image']
+                        del config_json['batch_folder_name']
+                        if not config_json['apply_ESRGAN_upscale']:
+                            del config_json['enlarge_scale']
+                            del config_json['apply_ESRGAN_upscale']
+                        metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                    img.save(image_path, pnginfo=metadata)
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -33650,6 +33684,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
 
             if pixart_alpha_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=pixart_alpha_prefs["enlarge_scale"], face_enhance=pixart_alpha_prefs["face_enhance"])
+                image_path = upscaled_path
                 if pixart_alpha_prefs['display_upscaled_image']:
                     #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(pixart_alpha_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_alpha_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(pixart_alpha_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_alpha_prefs["enlarge_scale"]), data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -34701,6 +34736,7 @@ def run_text_to_video(page):
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if text_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"], face_enhance=text_to_video_prefs["face_enhance"])
+            image_path = upscaled_path
             if text_to_video_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_prefs["enlarge_scale"]), height=height * float(text_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -34883,6 +34919,7 @@ def run_text_to_video_zero(page):
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if text_to_video_zero_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscale_image(image_path, upscaled_path, scale=text_to_video_zero_prefs["enlarge_scale"], face_enhance=text_to_video_zero_prefs["face_enhance"])
+            image_path = upscaled_path
             if text_to_video_zero_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_zero_prefs["enlarge_scale"]), height=height * float(text_to_video_zero_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -35113,6 +35150,7 @@ def run_video_to_video(page):
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if video_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscale_image(image_path, upscaled_path, scale=video_to_video_prefs["enlarge_scale"], face_enhance=video_to_video_prefs["face_enhance"])
+            image_path = upscaled_path
             if video_to_video_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(video_to_video_prefs["enlarge_scale"]), height=height * float(video_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -36058,24 +36096,8 @@ def run_stable_animation(page):
         upscaled_path = os.path.join(out_path, output_file)
 
         if stable_animation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{num}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            shutil.copy(image_path, dst_path)
-            faceenhance = ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {stable_animation_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+            upscale_image(image_path, upscaled_path, scale=stable_animation_prefs["enlarge_scale"])
             image_path = upscaled_path
-            os.chdir(stable_dir)
             if stable_animation_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(stable_animation_prefs["enlarge_scale"]), height=height * float(stable_animation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -36226,10 +36248,12 @@ def run_svd(page):
     init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     batch_output = os.path.join(prefs['image_output'], svd_prefs['batch_folder_name'])
     make_dir(batch_output)
+    #for v in range(svd_prefs['num_videos']):
+    
     random_seed = int(svd_prefs['seed']) if int(svd_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     generator = torch.manual_seed(random_seed)
     try: #, callback_on_step_end=callback_fnc
-        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], num_videos_per_prompt=svd_prefs['num_videos'], generator=generator).frames
+        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames
         if svd_prefs['resume_frame']:
             new_frames = []
             for n, f in enumerate(frames_batch):
@@ -37071,6 +37095,15 @@ def run_animate_diff(page):
         "control_guidance_end": 1.0,
         "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
       },
+      "animatediff_controlnet": {
+        "enable": False,
+        "use_preprocessor":True,
+        "guess_mode":False,
+        "controlnet_conditioning_scale": 1.0,
+        "control_guidance_start": 0.0,
+        "control_guidance_end": 1.0,
+        "control_scale_list":[0.5,0.4,0.3,0.2,0.1]
+      },
       "controlnet_ref": {
         "enable": bool(ref_image),
         "ref_image": ref_image if bool(ref_image) else "ref_image/ref_sample.png",
@@ -37085,6 +37118,8 @@ def run_animate_diff(page):
     for l in animate_diff_prefs['controlnet_layers']:
         if l['control_task'].startswith("QR"):
             controlnet_task = l['control_task'].lower()
+        elif l['control_task'].startswith("AnimateDiff"):
+            controlnet_task = "animatediff_controlnet"
         else:
             controlnet_task = f"controlnet_{l['control_task'].lower()}"
         try:
@@ -37927,6 +37962,7 @@ def run_materialdiffusion(page):
         if materialdiffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = os.path.join(out_path, new_file)
             upscale_image(image_path, upscaled_path, scale=materialdiffusion_prefs["enlarge_scale"])
+            image_path = upscaled_path
             if materialdiffusion_prefs['display_upscaled_image']:
                 prt(Row([Img(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
@@ -38683,7 +38719,7 @@ def run_zoe_depth(page):
     def autoscroll(scroll=True):
       page.ZoeDepth.auto_scroll = scroll
       page.ZoeDepth.update()
-    if not bool(controlnet_qr_prefs['ref_image']):
+    if not bool(zoe_depth_prefs['ref_image']):
         alert_msg(page, f"ERROR: If using your own QR image, you must provide it.")
         return
     file_name = "zoedepth"
@@ -38928,6 +38964,84 @@ def run_instant_ngp(page):
     clear_last(2)
     prt(Markdown(f"## Your model was saved successfully to _{output_dir}_.\nNow take those files and load then locally on Windows following [instant-ngp gui instructions](https://github.com/NVlabs/instant-ngp#testbed-controls) to export videos and meshes or try MeshLab... (wish we can do that for ya here)", on_tap_link=lambda e: e.page.launch_url(e.data)))
     if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_luma_vid_to_3d(page):
+    global luma_vid_to_3d_prefs
+    def prt(line):
+        if type(line) == str:
+            line = Text(line, size=17)
+        page.Luma.controls.append(line)
+        page.Luma.update()
+    def clear_last(lines=1):
+      clear_line(page.Luma, lines=lines)
+    def clear_list():
+      page.Luma.controls = page.Luma.controls[:1]
+    def autoscroll(scroll=True):
+      page.Luma.auto_scroll = scroll
+      page.Luma.update()
+    if not bool(luma_vid_to_3d_prefs['init_video']):
+        alert_msg(page, f"ERROR: You must provide your mp4 or avi file with a smooth walk-thru of scene or walk-around object.")
+        return
+    if not bool(prefs["luma_api_key"]):
+        alert_msg(page, f"ERROR: You must provide your own LumaLabs.ai API Key to use...")
+        return
+    file_name = format_filename(file_name)
+    installer = Installing("Installing Luma Video-to-3D API Client...")
+    clear_list()
+    prt(installer)
+    pip_install("lumaapi", installer=installer, upgrade=True)
+    from lumaapi import LumaClient, CameraType
+    
+    video_path = luma_vid_to_3d_prefs["init_video"]
+    if video_path.startswith('http'):
+        installer.status("...downloading url")
+        video_path = download_file(video_path, uploads_dir, ext="mp4")
+    else:
+        if not os.path.isfile(video_path):
+            alert_msg(page, f"ERROR: Couldn't find your init_video {video_path}")
+            return
+    title = luma_vid_to_3d_prefs["title"]
+    camera_type = CameraType.EQUIRECTANGULAR if luma_vid_to_3d_prefs["camera_type"] == "Equirectangular 360" else CameraType.FISHEYE if luma_vid_to_3d_prefs["camera_type"] == "Fisheye Lens" else CameraType.NORMAL
+    batch_output = os.path.join(prefs['image_output'], luma_vid_to_3d_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    clear_last()
+    pb = Progress("Running Luma Video-to-3D on your file...")
+    prt(pb)
+    try:
+        luma_client = LumaClient(prefs["luma_api_key"])
+        credits = luma_client.credits()
+        pb.set_message(f"Running Luma Video-to-3D on your file... Credits {credits.remaining}/{credits.total}")
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Problem Authenticating API Client...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    
+    slug = luma_client.submit(video_path, title, cam_model=camera_type)
+    pb.status(f"...submitted with slug: {slug}")
+    while True:
+        status_info = luma_client.status(slug)
+        pb.status(f"...status: {status_info.status}")
+        if status_info.status == "COMPLETE":
+            break
+        time.sleep(5)
+    pb.status(f"...getting {slug}")
+    captures = luma_client.get(title=title)
+    clear_last()
+    autoscroll(True)
+    for capture_info in captures:
+        for artifact in capture_info.latest_run.artifacts:
+            artifact_type = artifact["type"]
+            artifact_url = artifact["url"]
+            ext = artifact_url.rpartition('.')[2]
+            filename = available_file(batch_output, slug, ext=ext, no_num=True)
+            #filename = os.path.join(batch_output, f"{slug}.{ext}")
+            with open(filename, "wb") as f:
+                content = luma_client.get_artifact(slug, artifact_url) 
+                f.write(content)
+            prt(Markdown(f"Saved {artifact_type} [{filename}]({filename})", selectable=True, on_tap_link=lambda e: e.page.launch_url(e.data)))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_dall_e(page, from_list=False):
     global dall_e_prefs, prefs, prompts
@@ -39490,6 +39604,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
 
             if kandinsky_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=kandinsky_3_prefs["enlarge_scale"], face_enhance=kandinsky_3_prefs["face_enhance"])
+                image_path = upscaled_path
                 if kandinsky_3_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -39792,25 +39907,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
             upscaled_path = os.path.join(out_path, output_file)
 
             if kandinsky_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                upload_folder = 'upload'
-                result_folder = 'results'
-                if os.path.isdir(upload_folder):
-                    shutil.rmtree(upload_folder)
-                if os.path.isdir(result_folder):
-                    shutil.rmtree(result_folder)
-                os.mkdir(upload_folder)
-                os.mkdir(result_folder)
-                short_name = f'{fname[:80]}-{idx}.png'
-                dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                #print(f'Moving {fpath} to {dst_path}')
-                #shutil.move(fpath, dst_path)
-                shutil.copy(image_path, dst_path)
-                faceenhance = ' --face_enhance' if kandinsky_prefs["face_enhance"] else ''
-                run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {kandinsky_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                out_file = short_name.rpartition('.')[0] + '_out.png'
-                shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-                # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                upscale_image(image_path, upscaled_path, scale=kandinsky_prefs["enlarge_scale"], face_enhance=kandinsky_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 if kandinsky_prefs['display_upscaled_image']:
@@ -40017,27 +40114,8 @@ def run_kandinsky21(page):
         out_path = batch_output# if save_to_GDrive else txt2img_output
 
         if kandinsky21_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            faceenhance = ' --face_enhance' if kandinsky21_prefs["face_enhance"] else ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {kandinsky21_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-            os.chdir(stable_dir)
+            upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
             if kandinsky21_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -40200,27 +40278,8 @@ def run_kandinsky_fuse(page):
         out_path = batch_output# if save_to_GDrive else txt2img_output
 
         if kandinsky_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            faceenhance = ' --face_enhance' if kandinsky_fuse_prefs["face_enhance"] else ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {kandinsky_fuse_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-            os.chdir(stable_dir)
+            upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"])
             if kandinsky_fuse_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -40355,27 +40414,8 @@ def run_kandinsky21_fuse(page):
         out_path = batch_output# if save_to_GDrive else txt2img_output
 
         if kandinsky21_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-            upload_folder = 'upload'
-            result_folder = 'results'
-            if os.path.isdir(upload_folder):
-                shutil.rmtree(upload_folder)
-            if os.path.isdir(result_folder):
-                shutil.rmtree(result_folder)
-            os.mkdir(upload_folder)
-            os.mkdir(result_folder)
-            short_name = f'{fname[:80]}-{idx}.png'
-            dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-            #print(f'Moving {fpath} to {dst_path}')
-            #shutil.move(fpath, dst_path)
-            shutil.copy(image_path, dst_path)
-            faceenhance = ' --face_enhance' if kandinsky21_fuse_prefs["face_enhance"] else ''
-            run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {kandinsky21_fuse_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-            out_file = short_name.rpartition('.')[0] + '_out.png'
             upscaled_path = os.path.join(out_path, new_file)
-            shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-            # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
-            os.chdir(stable_dir)
+            upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
             if kandinsky21_fuse_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -40591,27 +40631,8 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                 upscaled_path = os.path.join(out_path, output_file)
 
                 if kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-                    upload_folder = 'upload'
-                    result_folder = 'results'
-                    if os.path.isdir(upload_folder):
-                        shutil.rmtree(upload_folder)
-                    if os.path.isdir(result_folder):
-                        shutil.rmtree(result_folder)
-                    os.mkdir(upload_folder)
-                    os.mkdir(result_folder)
-                    short_name = f'{fname[:80]}-{idx}.png'
-                    dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-                    #print(f'Moving {fpath} to {dst_path}')
-                    #shutil.move(fpath, dst_path)
-                    shutil.copy(image_path, dst_path)
-                    faceenhance = ' --face_enhance' if kandinsky_controlnet_prefs["face_enhance"] else ''
-                    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {kandinsky_controlnet_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-                    out_file = short_name.rpartition('.')[0] + '_out.png'
-                    shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
-                    # python inference_realesrgan.py --model_path experiments/pretrained_models/RealESRGAN_x4plus.pth --input upload --netscale 4 --outscale 3.5 --half --face_enhance
+                    upscale_image(image_path, upscaled_path, scale=kandinsky_controlnet_prefs["enlarge_scale"], face_enhance=kandinsky_controlnet_prefs["face_enhance"])
                     image_path = upscaled_path
-                    os.chdir(stable_dir)
                     if kandinsky_controlnet_prefs['display_upscaled_image']:
                         time.sleep(0.6)
                         prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
@@ -40758,28 +40779,9 @@ def run_deep_daze(page):
         prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
         #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     if deep_daze_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-        os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
-        upload_folder = 'upload'
-        result_folder = 'results'
-        if os.path.isdir(upload_folder):
-            shutil.rmtree(upload_folder)
-        if os.path.isdir(result_folder):
-            shutil.rmtree(result_folder)
-        os.mkdir(upload_folder)
-        os.mkdir(result_folder)
-        short_name = f'{fname[:80]}.png'
-        dst_path = os.path.join(dist_dir, 'Real-ESRGAN', upload_folder, short_name)
-        #print(f'Moving {fpath} to {dst_path}')
-        #shutil.move(fpath, dst_path)
-        shutil.copy(image_path, dst_path)
-        #faceenhance = ' --face_enhance' if deep_daze_prefs["face_enhance"] else ''
-        faceenhance = ''
-        run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i upload --outscale {deep_daze_prefs["enlarge_scale"]}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
-        out_file = short_name.rpartition('.')[0] + '_out.png'
         upscaled_path = os.path.join(out_path, output_file)
-        shutil.move(os.path.join(dist_dir, 'Real-ESRGAN', result_folder, out_file), upscaled_path)
+        upscale_image(image_path, upscaled_path, scale=deep_daze_prefs["enlarge_scale"])
         image_path = upscaled_path
-        os.chdir(stable_dir)
     if prefs['save_image_metadata']:
         img = PILImage.open(image_path)
         metadata = PngInfo()
