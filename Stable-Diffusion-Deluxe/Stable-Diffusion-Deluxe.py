@@ -691,6 +691,7 @@ def buildImageAIs(page):
     page.InstructPix2Pix = buildInstructPix2Pix(page)
     page.ControlNet = buildControlNet(page)
     page.ControlNetXL = buildControlNetXL(page)
+    page.ControlNetXS = buildControlNetXS(page)
     page.DeepFloyd = buildDeepFloyd(page)
     page.Wuerstchen = buildWuerstchen(page)
     page.PixArtAlpha = buildPixArtAlpha(page)
@@ -713,6 +714,7 @@ def buildImageAIs(page):
             Tab(text="Instruct Pix2Pix", content=page.InstructPix2Pix, icon=icons.SOLAR_POWER),
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
             Tab(text="ControlNet SDXL", content=page.ControlNetXL, icon=icons.PEST_CONTROL),
+            Tab(text="ControlNet-SX", content=page.ControlNetXS, icon=icons.WEBHOOK),
             Tab(text="Kandinsky", content=page.Kandinsky, icon=icons.TOLL),
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
@@ -801,6 +803,8 @@ def buildVideoAIs(page):
     page.TemporalNet_XL = buildTemporalNet_XL(page)
     page.Roop = buildROOP(page)
     page.Video_ReTalking = buildVideoReTalking(page)
+    page.StyleCrafter = buildStyleCrafter(page)
+    page.RAVE = buildRAVE(page)
     page.AnimateDiff = buildAnimateDiff(page)
     page.HotshotXL = buildHotshotXL(page)
     page.LCMInterpolation = buildLCMInterpolation(page)
@@ -818,6 +822,8 @@ def buildVideoAIs(page):
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
             Tab(text="Hotshot-XL", content=page.HotshotXL, icon=icons.HOT_TUB),
+            Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
+            Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
@@ -1152,7 +1158,7 @@ def buildSettings(page):
   stats_settings = Container(Row([stats_used, NumberPicker(label=" Update Interval (s):", min=1, max=30, value=prefs['stats_update'], on_change=lambda e:changed(e, 'stats_update'))]), padding=padding.only(left=0), animate_size=animation.Animation(700, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   stats_settings.width = 0 if not prefs['show_stats'] else None
   
-  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google PaLM API Token** from https://developers.generativeai.google/tutorials/setup\n\n\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **Replicate API Token** from https://replicate.com/account, for Material Diffusion\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google PaLM API Token** from https://developers.generativeai.google/tutorials/setup\n\n\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key (optional)", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key (optional)", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
@@ -1181,7 +1187,7 @@ def buildSettings(page):
         OpenAI_api,
         PaLM_api,
         TextSynth_api,
-        Replicate_api,
+        #Replicate_api,
         AIHorde_api,
         api_instructions,
         #save_button,
@@ -8691,6 +8697,294 @@ def buildControlNetXL(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+controlnet_xs_prefs = {
+    'original_image': '',
+    'prompt': '',
+    'negative_prompt': 'lowres, text, watermark, cropped, low quality',
+    'use_SDXL': True,
+    'cpu_offload': True,
+    'control_task': 'Canny Map Edge',
+    'conditioning_scale': 1.0,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
+    'multi_controlnets': [],
+    'batch_size': 1,
+    'max_size': 1024,
+    'low_threshold': 100, #1-255
+    'high_threshold': 200, #1-255
+    'steps': 50, #100
+    'guidance_scale': 7.5, #30
+    'seed': 0,
+    'eta': 0,
+    'show_processed_image': False,
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_SDXL_model': 'SDXL',
+    'ip_adapter_strength': 0.8,
+    'use_init_video': False,
+    'init_video': '',
+    'fps': 12,
+    'start_time': 0,
+    'end_time': 0,
+    'use_image2image': False,
+    'init_image': '',
+    'mask_image': '',
+    'alpha_mask': False,
+    'invert_mask': False,
+    'file_prefix': 'controlnet-',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildControlNetXS(page):
+    global controlnet_xs_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            controlnet_xs_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            controlnet_xs_prefs[pref] = float(e.control.value)
+          else:
+            controlnet_xs_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def add_to_controlnet_xs_output(o):
+      page.controlnet_xs_output.controls.append(o)
+      page.controlnet_xs_output.update()
+      if not clear_button.visible:
+        clear_button.visible = True
+        clear_button.update()
+    def clear_output(e):
+      if prefs['enable_sounds']: page.snd_delete.play()
+      page.controlnet_xs_output.controls = []
+      page.controlnet_xs_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def controlnet_xs_help(e):
+      def close_controlnet_xs_dlg(e):
+        nonlocal controlnet_xs_help_dlg
+        controlnet_xs_help_dlg.open = False
+        page.update()
+      controlnet_xs_help_dlg = AlertDialog(title=Text("💁   Help with ControlNet XS"), content=Column([
+          Markdown("ControlNet-XS was introduced in [ControlNet-XS](https://vislearn.github.io/ControlNet-XS/) by Denis Zavadski and Carsten Rother. It is based on the observation that the control model in the [original ControlNet](https://huggingface.co/papers/2302.05543) can be made much smaller and still produce good results. Like the original ControlNet model, you can provide an additional control image to condition and control Stable Diffusion generation. For example, if you provide a depth map, the ControlNet model generates an image that'll preserve the spatial information from the depth map. It is a more flexible and accurate way to control the image generation process. ControlNet-XS generates images with comparable quality to a regular ControlNet, but it is 20-25% faster ([see benchmark](https://github.com/UmerHA/controlnet-xs-benchmark/blob/main/Speed%20Benchmark.ipynb)) and uses ~45% less memory.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text('With increasing computing capabilities, current model architectures appear to follow the trend of simply upscaling all components without validating the necessity for doing so. In this project we investigate the size and architectural design of ControlNet [Zhang et al., 2023] for controlling the image generation process with stable diffusion-based models. We show that a new architecture with as little as 1% of the parameters of the base model achieves state-of-the art results, considerably better than ControlNet in terms of FID score. Hence we call it ControlNet-XS. We provide the code for controlling StableDiffusion-XL [Podell et al., 2023] (Model B, 48M Parameters) and StableDiffusion 2.1 [Rombach et al. 2022] (Model B, 14M Parameters), all under openrail license.'),
+          Markdown("[XS Project Page](https://vislearn.github.io/ControlNet-XS/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Canny Map Edge - A monochrome image with white edges on a black background."),
+          Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Too much control... ", on_click=close_controlnet_xs_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = controlnet_xs_help_dlg
+      controlnet_xs_help_dlg.open = True
+      page.update()
+    def file_picker_result(e: FilePickerResultEvent):
+        if e.files != None:
+          upload_files(e)
+    def on_upload_progress(e: FilePickerUploadEvent):
+      if e.progress == 1:
+        if not slash in e.file_name:
+          fname = os.path.join(root_dir, e.file_name)
+          controlnet_xs_prefs['file_name'] = e.file_name.rpartition('.')[0]
+        else:
+          fname = e.file_name
+          controlnet_xs_prefs['file_name'] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+        if pick_type == "image":
+          original_image.value = fname
+          original_image.update()
+          controlnet_xs_prefs['original_image'] = fname
+        elif pick_type == "video":
+          init_video.value = fname
+          init_video.update()
+          controlnet_xs_prefs['init_video'] = fname
+        page.update()
+    file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
+    def upload_files(e):
+        uf = []
+        if file_picker.result != None and file_picker.result.files != None:
+            for f in file_picker.result.files:
+              if page.web:
+                uf.append(FilePickerUploadFile(f.name, upload_url=e.page.get_upload_url(f.name, 600)))
+              else:
+                on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+            file_picker.upload(uf)
+    page.overlay.append(file_picker)
+    pick_type = ""
+    def pick_original(e):
+        nonlocal pick_type
+        pick_type = "image"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "jpeg"], dialog_title="Pick Original Image File")
+    def pick_video(e):
+        nonlocal pick_type
+        pick_type = "video"
+        file_picker.pick_files(allow_multiple=False, allowed_extensions=["mp4", "avi"], dialog_title="Pick Initial Video File")
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        controlnet_xs_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    def change_task(e):
+        task = e.control.value
+        show = task.startswith("Video")# or task == "Video OpenPose"
+        update = controlnet_xs_prefs['use_init_video'] != show
+        changed(e,'control_task')
+        threshold.height = None if "Canny" in controlnet_xs_prefs['control_task'] else 0
+        threshold.update()
+        if update:
+            original_image.visible = not show
+            original_image.update()
+            init_video.visible = show
+            init_video.update()
+            vid_params.height = None if show else 0
+            vid_params.update()
+            conditioning_scale.visible = not show
+            conditioning_scale.update()
+            add_layer_btn.visible = not show
+            add_layer_btn.update()
+            multi_layers.visible = not show
+            multi_layers.update()
+            run_prompt_list.visible = not show
+            run_prompt_list.update()
+            controlnet_xs_prefs['use_init_video'] = show
+    def change_eta(e):
+        changed(e, 'eta', ptype="float")
+        eta_value.value = f" {controlnet_xs_prefs['eta']}"
+        eta_value.update()
+        eta_row.update()
+    def add_layer(e):
+        layer = {'control_task': controlnet_xs_prefs['control_task'], 'original_image': controlnet_xs_prefs['original_image'], 'conditioning_scale': controlnet_xs_prefs['conditioning_scale'], 'control_guidance_start': controlnet_xs_prefs['control_guidance_start'], 'control_guidance_end': controlnet_xs_prefs['control_guidance_end'], 'use_init_video': False}
+        if controlnet_xs_prefs['control_task'] == "Video Canny Edge" or controlnet_xs_prefs['control_task'] == "Video OpenPose":
+          layer['use_init_video'] = True
+          layer['init_video'] = controlnet_xs_prefs['init_video']
+          layer['fps'] = controlnet_xs_prefs['fps']
+          layer['start_time'] = controlnet_xs_prefs['start_time']
+          layer['end_time'] = controlnet_xs_prefs['end_time']
+          controlnet_xs_prefs['init_video'] = ""
+          init_video.value = ""
+          original_image.update()
+        controlnet_xs_prefs['multi_controlnets'].append(layer)
+        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['init_video'] if layer['use_init_video'] else layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']} - Start: {layer['control_guidance_start']}, End: {layer['control_guidance_end']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+          ]), data=layer))
+        multi_layers.update()
+        controlnet_xs_prefs['original_image'] = ""
+        original_image.value = ""
+        original_image.update()
+    def delete_layer(e):
+        controlnet_xs_prefs['multi_controlnets'].remove(e.control.data)
+        for c in multi_layers.controls:
+          if c.data['original_image'] == e.control.data['original_image']:
+             multi_layers.controls.remove(c)
+             break
+        multi_layers.update()
+    def delete_all_layers(e):
+        controlnet_xs_prefs['multi_controlnets'].clear()
+        multi_layers.controls.clear()
+        multi_layers.update()
+    def toggle_img2img(e):
+        controlnet_xs_prefs['use_image2image'] = e.control.value
+        img2img_row.height = None if e.control.value else 0
+        img2img_row.update()
+    def toggle_ip_adapter(e):
+        controlnet_xs_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_SDXL_model.visible = e.control.value
+        ip_adapter_SDXL_model.update()
+    original_image = TextField(label="Original Drawing", value=controlnet_xs_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    prompt = TextField(label="Prompt Text", value=controlnet_xs_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline", value=controlnet_xs_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
+    cpu_offload = Switcher(label="CPU Offload", value=controlnet_xs_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xs_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xs_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    control_task = Dropdown(label="ControlNet Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Depth")], value=controlnet_xs_prefs['control_task'], on_change=change_task)
+    #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xs_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xs_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xs_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
+    #add_layer_btn = IconButton(icons.ADD, tooltip="Add Multi-ControlNetXS Layer", on_click=add_layer)
+    add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
+    multi_layers = Column([], spacing=0)
+    seed = TextField(label="Seed", width=90, value=str(controlnet_xs_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    #use_init_video = Tooltip(message="Input a short mp4 file to animate with.", content=Switcher(label="Use Init Video", value=controlnet_xs_prefs['use_init_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_init_video))
+    init_video = TextField(label="Init Video Clip", value=controlnet_xs_prefs['init_video'], expand=True, visible=controlnet_xs_prefs['use_init_video'], on_change=lambda e:changed(e,'init_video'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_video))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=controlnet_xs_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    start_time = TextField(label="Start Time (s)", value=controlnet_xs_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
+    end_time = TextField(label="End Time (0 for all)", value=controlnet_xs_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
+    vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_xs_prefs['use_init_video'] else 0)
+
+    num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_xs_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_xs_prefs, key='guidance_scale')
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_xs_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=controlnet_xs_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold.height = None if controlnet_xs_prefs['control_task'] == "Canny Map Edge" else 0
+    eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(controlnet_xs_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
+    eta_value = Text(f" {controlnet_xs_prefs['eta']}", weight=FontWeight.BOLD)
+    eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
+    page.etas.append(eta_row)
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_xs_prefs, key='max_size')
+    
+    use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_xs_prefs['use_image2image'], on_change=toggle_img2img)
+    init_image = FileInput(label="Init Image", pref=controlnet_xs_prefs, key='init_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_xs_prefs, key='mask_image', expand=True, page=page)
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=controlnet_xs_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    alpha_mask = Checkbox(label="Alpha Mask", value=controlnet_xs_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
+    img2img_row = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]), height=None if controlnet_xs_prefs['use_image2image'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=controlnet_xs_prefs['use_ip_adapter'], on_change=toggle_ip_adapter)
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=controlnet_xs_prefs['ip_adapter_SDXL_model'], visible=controlnet_xs_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_xs_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_xs_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_xs_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    file_prefix = TextField(label="Filename Prefix",  value=controlnet_xs_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_xs_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_xs_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=controlnet_xs_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_xs_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_xs_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    page.controlnet_xs_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.controlnet_xs_output.controls) > 0
+    run_prompt_list = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_xs(page, from_list=True))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🕸  ControlNet-XS Image+Text-to-Image", "Faster & Smaller Controlnet Image Conditioning Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetXS Settings", on_click=controlnet_xs_help)]),
+        Row([control_task, original_image, init_video, add_layer_btn]),
+        conditioning_scale,
+        Row([control_guidance_start, control_guidance_end]),
+        multi_layers,
+        vid_params,
+        Divider(thickness=2, height=4),
+        ResponsiveRow([prompt, negative_prompt]),
+        threshold,
+        num_inference_row,
+        guidance,
+        eta_row,
+        max_row,
+        Row([use_SDXL, cpu_offload]),
+        #use_image2image,
+        #img2img_row,
+        #Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
+        #ip_adapter_container,
+        show_processed_image,
+        Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xs_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
+        page.ESRGAN_block_controlnet,
+        Row([ElevatedButton(content=Text("⛹️  Run ControlNet-XS", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_xs(page)),
+             run_prompt_list]),
+        page.controlnet_xs_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 controlnet_video2video_prefs = {
     'init_video': '',
@@ -9639,10 +9933,10 @@ def buildLCMInterpolation(page):
     embedding_interpolation_type = Dropdown(label="Embedding Interpolation Type", tooltip="The type of interpolation to use for interpolating between text embeddings.", width=220, options=[dropdown.Option("lerp"), dropdown.Option("slerp")], value=lcm_interpolation_prefs['embedding_interpolation_type'], autofocus=False, on_change=lambda e:changed(e, 'embedding_interpolation_type'))
     latent_interpolation_type = Dropdown(label="Latent Interpolation Type", tooltip="The type of interpolation to use for interpolating between latents.", width=220, options=[dropdown.Option("lerp"), dropdown.Option("slerp")], value=lcm_interpolation_prefs['latent_interpolation_type'], autofocus=False, on_change=lambda e:changed(e, 'latent_interpolation_type'))
     save_video = Switcher(label="Save Video", value=lcm_interpolation_prefs['save_video'], on_change=toggle_video)
-    interpolate_video = Switcher(label="Interpolate", value=lcm_interpolation_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    interpolate_vid = Switcher(label="Interpolate", value=lcm_interpolation_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
     source_fps = SliderRow(label="Source FPS", min=0, max=30, suffix="fps", divisions=30, expand=1, pref=lcm_interpolation_prefs, key='source_fps')
     target_fps = SliderRow(label="Target FPS", min=0, max=30, suffix="fps", divisions=30, expand=1, pref=lcm_interpolation_prefs, key='target_fps')
-    video_container = Container(content=Row([interpolate_video, source_fps, target_fps], expand=True), expand=True, visible=lcm_interpolation_prefs['save_video'])
+    video_container = Container(content=Row([interpolate_vid, source_fps, target_fps], expand=True), expand=True, visible=lcm_interpolation_prefs['save_video'])
     seed = TextField(label="Seed", width=90, value=str(lcm_interpolation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=lcm_interpolation_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=lcm_interpolation_prefs, key='enlarge_scale')
@@ -11563,6 +11857,293 @@ def buildVideoReTalking(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+style_crafter_prefs = {
+    'init_video': '',
+    'init_image': '',
+    'style_images': [],
+    'prompt': '',
+    'negative_prompt': '',
+    'num_inference_steps': 50,
+    'guidance_scale': 7.0,
+    'eta': 1.0,
+    'style_strength': 1.0,
+    'export_to_video': True,
+    'save_frames': False,
+    "output_video": True,
+    'seed': 0,
+    'width': 512,
+    'height': 320,
+    'max_size': 1024,
+    'n_samples': 1,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildStyleCrafter(page):
+    global style_crafter_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            style_crafter_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            style_crafter_prefs[pref] = float(e.control.value)
+          else:
+            style_crafter_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def style_crafter_help(e):
+      def close_style_crafter_dlg(e):
+        nonlocal style_crafter_help_dlg
+        style_crafter_help_dlg.open = False
+        page.update()
+      style_crafter_help_dlg = AlertDialog(title=Text("💁   Help with Style Crafter"), content=Column([
+          Text("We present StyleCrafter, a generic method that enhances pre-trained T2V models with style control, supporting Style-Guided Text-to-Image Generation and Style-Guided Text-to-Video Generation. Text-to-video (T2V) models have shown remarkable capabilities in generating diverse videos. However, they struggle to produce user-desired stylized videos due to (i) text's inherent clumsiness in expressing specific styles and (ii) the generally degraded style fidelity. To address these challenges, we introduce StyleCrafter, a generic method that enhances pre-trained T2V models with a style control adapter, enabling video generation in any style by providing a reference image. Considering the scarcity of stylized video datasets, we propose to first train a style control adapter using style-rich image datasets, then transfer the learned stylization ability to video generation through a tailor-made finetuning paradigm. To promote content-style disentanglement, we remove style descriptions from the text prompt and extract style information solely from the reference image using a decoupling learning strategy. Additionally, we design a scale-adaptive fusion module to balance the influences of text-based content features and image-based style features, which helps generalization across various text and style combinations. styleCrafter efficiently generates high-quality stylized videos that align with the content of the texts and resemble the style of the reference images. Experiments demonstrate that our approach is more flexible and efficient than existing competitors."),
+          Text("We propose a method to equip pre-trained Text-to-Video (T2V) models with a style adapter, allowing for the generation of stylized videos based on both a text prompt and a style reference image. The overview diagram is illustrated as the following figure. In this framework, the textual description dictates the video content, while the style image governs the visual style, ensuring a disentangled control over the video generation process. Given the limited availability of stylized videos, we employ a two-stage training strategy. Initially, we utilize an image dataset abundant in artistic styles to learn reference-based style modulation. Subsequently, adaptation finetuning on a mixed dataset of style images and realistic videos is conducted to improve the temporal quality of the generated videos."),
+          Markdown("Credits go to [GongyeLiu](https://github.com/GongyeLiu), [Menghan Xia](https://menghanxia.github.io/), [Yong Zhang](https://yzhang2016.github.io), [Haoxin Chen](https://scholar.google.com/citations?user=6UPJSvwAAAAJ&hl=zh-CN&oi=ao), [Jinbo Xing](https://doubiiu.github.io/), [Xintao Wang](https://xinntao.github.io/), [Yujiu Yang](https://scholar.google.com/citations?user=4gH3sxsAAAAJ&hl=zh-CN&oi=ao), [Ying Shan](https://scholar.google.com/citations?hl=en&user=4oXBp9UAAAAJ&view_op=list_works&sortby=pubdate)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Project Page](https://gongyeliu.github.io/StyleCrafter.github.io/) | [Paper](https://arxiv.org/abs/2312.00330) | [GitHub Code](https://github.com/GongyeLiu/StyleCrafter) | [HuggingFace Space](https://huggingface.co/spaces/liuhuohuo/StyleCrafter)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("👸  So Pretty... ", on_click=close_style_crafter_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = style_crafter_help_dlg
+      style_crafter_help_dlg.open = True
+      page.update()
+    def delete_image(e):
+        f = e.control.data
+        if os.path.isfile(f):
+          os.remove(f)
+          for i, fl in enumerate(page.style_file_list.controls):
+            if fl.title.value == f:
+              del page.style_file_list.controls[i]
+              page.style_file_list.update()
+              continue
+    def delete_all_images(e):
+        for fl in page.style_file_list.controls:
+          f = fl.title.value
+          if os.path.isfile(f):
+            os.remove(f)
+        page.style_file_list.controls.clear()
+        page.style_file_list.update()
+    def image_details(e):
+        img = e.control.data
+        #TODO: Get file size & resolution
+        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=img, gapless_playback=True)]), sound=False)
+    def add_file(fpath, update=True):
+        page.style_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[#TODO: View Image
+              PopupMenuItem(icon=icons.INFO, text="Image Details", on_click=image_details, data=fpath),
+              PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
+          ]), data=fpath, on_click=image_details))
+        if update: page.style_file_list.update()
+    def add_image(e):
+        save_dir = uploads_dir
+        if not os.path.exists(save_dir):
+          os.mkdir(save_dir)
+        if init_image.value.startswith('http'):
+          import requests
+          from io import BytesIO
+          response = requests.get(init_image.value)
+          fpath = os.path.join(save_dir, init_image.value.rpartition(slash)[2])
+          model_image = PILImage.open(BytesIO(response.content)).convert("RGB")
+          width, height = model_image.size
+          width, height = scale_dimensions(width, height, style_crafter_prefs['resolution'])
+          model_image = model_image.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+          model_image.save(fpath)
+          add_file(fpath)
+        elif os.path.isfile(init_image.value):
+          fpath = os.path.join(save_dir, init_image.value.rpartition(slash)[2])
+          original_img = PILImage.open(init_image.value)
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, style_crafter_prefs['max_size'])
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+          original_img.save(fpath)
+          #shutil.copy(init_image.value, fpath)
+          add_file(fpath)
+        elif os.path.isdir(init_image.value):
+          for f in os.listdir(init_image.value):
+            file_path = os.path.join(init_image.value, f)
+            if os.path.isdir(file_path): continue
+            if f.lower().endswith(('.png', '.jpg', '.jpeg')):
+              fpath = os.path.join(save_dir, f)
+              original_img = PILImage.open(file_path)
+              width, height = original_img.size
+              width, height = scale_dimensions(width, height, style_crafter_prefs['max_size'])
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+              original_img.save(fpath)
+              #shutil.copy(file_path, fpath)
+              add_file(fpath)
+        else:
+          if bool(init_image.value):
+            alert_msg(page, "Couldn't find a valid File, Path or URL...")
+          #else:
+          #  pick_path(e)
+          return
+        init_image.value = ""
+        init_image.update()
+        
+    prompt = TextField(label="Stylized Video Prompt Text", value=style_crafter_prefs['prompt'], col={'md': 9}, filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=style_crafter_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    #init_video = FileInput(label="Init Video Clip", pref=style_crafter_prefs, key='init_video', ftype="video", page=page)
+    init_image = FileInput(label="Input Style Image", pref=style_crafter_prefs, key='init_image', expand=1, ftype="image", page=page)
+    add_image_button = ElevatedButton(content=Text("Add Style Image"), on_click=add_image)
+    page.style_file_list = Column([], tight=True, spacing=0)
+
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=style_crafter_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=style_crafter_prefs, key='guidance_scale')
+    #strength = SliderRow(label="Init Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=style_crafter_prefs, key='strength', tooltip="Conceptually, indicates how much to transform the Reference Image over the Vid Generation. Higher value give less influence.")
+    #max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=style_crafter_prefs, key='max_size')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=style_crafter_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=style_crafter_prefs, key='height')
+    style_strength = SliderRow(label="Style Strength", min=0.0, max=1.0, divisions=10, round=1, pref=style_crafter_prefs, key='style_strength', col={'lg':6}, tooltip="")
+    output_video = Tooltip(message="Otherwise will Save Image with style", content=Switcher(label="Output Animated Video", value=style_crafter_prefs['output_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'output_video')))
+    interpolate_vid = Switcher(label="Interpolate Video", value=style_crafter_prefs['export_to_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'export_to_video'))
+    save_frames = Tooltip(message="Save Frames", content=Switcher(label="Save Frames", value=style_crafter_prefs['save_frames'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames')))
+    #model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=style_crafter_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=style_crafter_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(style_crafter_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("👗  StyleCrafter Text-to-Video-or-Image", "Enhancing Stylized Video or ImageGeneration with Style Adapter...", actions=[IconButton(icon=icons.HELP, tooltip="Help with StyleCrafter Settings", on_click=style_crafter_help)]),
+        #ResponsiveRow([prompt, negative_prompt]),
+        prompt,
+        #init_video,
+        Row([init_image, add_image_button]),
+        page.style_file_list,
+        num_inference_row,
+        guidance,
+        style_strength,
+        #max_row,
+        width_slider, height_slider,
+        Row([output_video, interpolate_vid, save_frames]),
+        Row([seed, batch_folder_name]),
+        Row([ElevatedButton(content=Text("🚤   Run StyleCrafter", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_style_crafter(page)),]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+rave_prefs = {
+    'init_video': '',
+    'prompt': '',
+    'negative_prompt': '',
+    'control_task': 'SoftEdge HED',
+    'control_tasks': [],
+    'conditioning_scale': 1.8,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
+    'controlnet_strength': 0.9,
+    'num_inference_steps': 50,
+    'num_inversion_steps': 50,
+    'max_size': 512,
+    'give_control_inversion': True,
+    'is_ddim_inversion': False,
+    'is_shuffle': False,
+    'save_frames': True,
+    'seed': 0,
+    'batch_size': 1,
+    'batch_size_vae': 1,
+    'file_prefix': 'rave-',
+    'output_name': '',
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildRAVE(page):
+    global rave_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            rave_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            rave_prefs[pref] = float(e.control.value)
+          else:
+            rave_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def rave_help(e):
+      def close_rave_dlg(e):
+        nonlocal rave_help_dlg
+        rave_help_dlg.open = False
+        page.update()
+      rave_help_dlg = AlertDialog(title=Text("💁   Help with RAVE"), content=Column([
+          Text("RAVE is a zero-shot, lightweight, and fast framework for text-guided video editing, supporting videos of any length utilizing text-to-image pretrained diffusion models."),
+          Text('Recent advancements in diffusion-based models have demonstrated significant success in generating images from text. However, video editing models have not yet reached the same level of visual quality and user control. To address this, we introduce RAVE, a zero-shot video editing method that leverages pre-trained text-to-image diffusion models without additional training. RAVE takes an input video and a text prompt to produce high-quality videos while preserving the original motion and semantic structure. It employs a novel noise shuffling strategy, leveraging spatio-temporal interactions between frames, to produce temporally consistent videos faster than existing methods. It is also efficient in terms of memory requirements, allowing it to handle longer videos. RAVE is capable of a wide range of edits, from local attribute modifications to shape transformations. In order to demonstrate the versatility of RAVE, we create a comprehensive video evaluation dataset ranging from object-focused scenes to complex human activities like dancing and typing, and dynamic scenes featuring swimming fish and boats. Our qualitative and quantitative experiments highlight the effectiveness of RAVE in diverse video editing scenarios compared to existing methods.'),
+          Markdown("Credits go to [Ozgur Kara](https://karaozgur.com/), [Bariscan Kurtkaya](https://bariscankurtkaya.github.io/), [Hidir Yesiltepe](https://sites.google.com/view/hidir-yesiltepe), [James M. Rehg](https://scholar.google.com/citations?hl=en&user=8kA3eDwAAAAJ), [Pinar Yanardag](https://scholar.google.com/citations?user=qzczdd8AAAAJ&hl=en), Georgia Institute of Technology, KUIS AI Center, University of Illinois Urbana-Champaign, Virginia Tech", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          #Text(""),
+          Text("LineArt - An image with line art, usually black lines on a white background."),
+          Text("Canny Map Edge - A monochrome image with white edges on a black background."),
+          Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
+          Text("SoftEdge HED - A monochrome image with white soft edges on a black background."),
+          Markdown("[GitHub Code](https://github.com/rehg-lab/RAVE) | [arXiv](https://arxiv.org/abs/2312.04524) | [Paper](https://rave-video.github.io/static/pdfs/RAVE.pdf) | [Project Page](https://rave-video.github.io/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("💺  Real Smooth... ", on_click=close_rave_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = rave_help_dlg
+      rave_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        rave_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=rave_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=rave_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    #a_prompt = TextField(label="Additional Prompt Text", value=rave_prefs['a_prompt'], multiline=True, filled=True, col={'md':4}, on_change=lambda e:changed(e,'a_prompt'))
+    #'aesthetic', 'lineart21', 'hed', 'hed21', 'canny', 'canny21', 'openpose', 'openpose21', 'depth', 'depth21', 'normal', 'mlsd'
+    control_task = Dropdown(label="ControlNet Task", width=220, options=[dropdown.Option(t) for t in ['LineArt Realistic', 'LineArt Coarse', "LineArt Standard", "LineArt Anime", "LineArt Anime Denoise", "SoftEdge HED", "SoftEdge HEDsafe", "SoftEdge PIDInet", "SoftEdge PIDsafe", "Canny", "Depth Leres", "Depth Leres++", "Depth Midas", "Depth Zoe"]], value=rave_prefs['control_task'], on_change=lambda e:changed(e,'control_task'))
+    #conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=rave_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `rave_conditioning_scale` before they are added to the residual in the original unet.")
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0.0, max=5.0, divisions=50, round=1, pref=rave_prefs, key='conditioning_scale', tooltip="Strength of the ControlNet Mask.")
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=rave_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=rave_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
+
+    controlnet_strength = SliderRow(label="ControlNet Strength", min=0.0, max=1.0, divisions=20, round=2, pref=rave_prefs, key='controlnet_strength', tooltip="How much influence the controlnet annotator's output is used to guide the denoising process.")
+    init_video = FileInput(label="Init Video Clip", pref=rave_prefs, key='init_video', ftype="video", expand=True, page=page)
+    #fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=rave_prefs, key='fps', tooltip="The FPS to extract from the init video clip.")
+    num_inference_steps = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=rave_prefs, key='num_inference_steps', tooltip="Steps during the sampling process.")
+    num_inversion_steps = SliderRow(label="Number of Inversion Steps", min=1, max=100, divisions=99, pref=rave_prefs, key='num_inversion_steps', tooltip="Steps during the inversion process.")
+    #prompt_strength = SliderRow(label="Prompt Strength", min=0, max=30, divisions=60, round=1, pref=rave_prefs, key='prompt_strength', tooltip="How much influence the prompt has on the output. Guidance Scale.")
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=48, multiple=16, suffix="px", pref=rave_prefs, key='max_size')
+    give_control_inversion = Switcher(label="Smooth Boundary", value=rave_prefs['give_control_inversion'], tooltip="Give control to the inversion.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'give_control_inversion'))
+    is_ddim_inversion = Switcher(label="DDIM Inversion", value=rave_prefs['is_ddim_inversion'], tooltip="Use ddim for inversion", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'is_ddim_inversion'))
+    is_shuffle = Switcher(label="Shuffling Between Grids", value=rave_prefs['is_shuffle'], tooltip="Apply shuffling between the grids.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'is_shuffle'))
+    save_frames = Switcher(label="Save Frames", value=rave_prefs['save_frames'], tooltip="Save the dumped frames to images_out batch folder. Otherwise only saves final video, keeping pngs in temp folder.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames'))
+    seed = TextField(label="Seed", value=rave_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width=120, on_change=lambda e:changed(e,'seed', ptype="int"))
+    file_prefix = TextField(label="Filename Prefix",  value=rave_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
+    output_name = TextField(label="Output Name", value=rave_prefs['output_name'], on_change=lambda e:changed(e,'output_name'))
+    batch_size = NumberPicker(label="Batch Size: ", min=1, max=4, value=rave_prefs['batch_size'], tooltip="Batch size of grids (e.g. 4 grids run in parallel)", on_change=lambda e: changed(e, 'batch_size'))
+    batch_size_vae = NumberPicker(label="VAE Batch Size: ", min=1, max=4, value=rave_prefs['batch_size_vae'], tooltip="Batch size for the VAE (e.g. 1 grid runs in parallel for the VAE)", on_change=lambda e: changed(e, 'batch_size_vae'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=rave_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=rave_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=rave_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=rave_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🐦‍⬛  RAVE Video-to-Video", "Randomized Noise Shuffling for Fast and Consistent Video Editing with Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with RAVE Vid2Vid Settings", on_click=rave_help)]),
+        ResponsiveRow([prompt, negative_prompt]),
+        Row([control_task, init_video]),
+        conditioning_scale,
+        Row([control_guidance_start, control_guidance_end]),
+        controlnet_strength,
+        num_inference_steps,
+        num_inversion_steps,
+        max_size,
+        #ResponsiveRow([motion_alpha, motion_sigma]),
+        #ResponsiveRow([max_dimension, min_dimension]),
+        Row([batch_size, batch_size_vae, give_control_inversion, is_ddim_inversion, is_shuffle]),
+        Row([seed, output_name, batch_folder_name, file_prefix]),
+        page.ESRGAN_block_controlnet,
+        Row([ElevatedButton(content=Text("💀  Run RAVE on Video", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_rave(page))]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 animate_diff_prefs = {
     'prompt': '',
@@ -12594,6 +13175,10 @@ def buildMaterialDiffusion(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
+    def changed_pref(e, pref=None):
+      if pref is not None:
+        prefs[pref] = e.control.value
+        status['changed_parameters'] = True
     def pick_files_result(e: FilePickerResultEvent):
         if e.files:
             img = e.files
@@ -12695,6 +13280,8 @@ def buildMaterialDiffusion(page):
     strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     #strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=0.9, divisions=16, suffix="%", pref=materialdiffusion_prefs, key='prompt_strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    api_instructions = Markdown("Get **Replicate API Token** from [https://replicate.com/account](https://replicate.com/account)", on_tap_link=lambda e: e.page.launch_url(e.data))
+    Replicate_api = TextField(label="Replicate API Key", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e, 'Replicate_api_key'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=materialdiffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=materialdiffusion_prefs, key='enlarge_scale')
     #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=materialdiffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
@@ -12718,6 +13305,8 @@ def buildMaterialDiffusion(page):
             width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block, page.ESRGAN_block_material,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
+            api_instructions,
+            Replicate_api,
             param_rows,
             #batch_row,
             #number_row,
@@ -13158,6 +13747,7 @@ kandinsky_3_prefs = {
     "strength": 0.3,
     "mask_image": '',
     "invert_mask": False,
+    "cpu_offload": False,
     "seed": 0,
     "kandinsky_model": "Kandinsky 3",
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -13231,6 +13821,7 @@ def buildKandinsky3(page):
     image_pickers = Container(content=ResponsiveRow([init_image]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     strength_slider = SliderRow(label="Init Image Strength", min=0.1, max=0.9, divisions=16, round=2, pref=kandinsky_3_prefs, key='strength')
     img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    cpu_offload = Switcher(label="CPU Offload", value=kandinsky_3_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     seed = TextField(label="Seed", width=90, value=str(kandinsky_3_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=kandinsky_3_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=kandinsky_3_prefs, key='enlarge_scale')
@@ -13256,7 +13847,7 @@ def buildKandinsky3(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             img_block,
             page.ESRGAN_block_kandinsky,
-            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            ResponsiveRow([Row([n_images, seed, cpu_offload], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Kandinsky_output
         ],
@@ -18501,14 +19092,14 @@ def get_text2image(page):
         from transformers import CLIPTextModel, CLIPTokenizer
         from diffusers import AutoencoderKL, UNet2DConditionModel
         # 1. Load the autoencoder model which will be used to decode the latents into image space.
-        vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", use_auth_token=True)
+        vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae")
         # 2. Load the tokenizer and text encoder to tokenize and encode the text.
         tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
         text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
         if prefs['higher_vram_mode']:
-          unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", use_auth_token=True, device_map="auto")
+          unet = UNet2DConditionModel.from_pretrained(model_path, subfolder="unet", device_map="auto")
         else:
-          unet = UNet2DConditionModel.from_pretrained(model_path, variant="fp16", torch_dtype=torch.float16, subfolder="unet", use_auth_token=True, device_map="auto")
+          unet = UNet2DConditionModel.from_pretrained(model_path, variant="fp16", torch_dtype=torch.float16, subfolder="unet", device_map="auto")
         vae = vae.to(torch_device)
         text_encoder = text_encoder.to(torch_device)
         #if enable_attention_slicing:
@@ -18850,7 +19441,7 @@ def get_imagic_pipe():
       else:
         return pipe_imagic
   if True:
-    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", use_auth_token=True, **safety)
+    pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", **safety)
   else:
     pipe_imagic = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/imagic_stable_diffusion_mod", revision="fp16", torch_dtype=torch.float16, **safety)
   #pipe_imagic = pipe_imagic.to(torch_device)
@@ -18881,7 +19472,7 @@ def get_composable_pipe():
         return pipe_composable
   #if prefs['higher_vram_mode']:
   if True:
-    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", use_auth_token=True, feature_extractor=None, safety_checker=None)
+    pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", feature_extractor=None, safety_checker=None)
   else:
     pipe_composable = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/composable_stable_diffusion_mod", revision="fp16", torch_dtype=torch.float16, feature_extractor=None, safety_checker=None)
   #pipe_composable = pipe_composable.to(torch_device)
@@ -32499,6 +33090,527 @@ def run_controlnet_xl(page, from_list=False):
     del hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_controlnet_xs(page, from_list=False):
+    global controlnet_xs_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_xs_models
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if not bool(controlnet_xs_prefs['original_image']) and len(controlnet_xs_prefs['multi_controlnets']) == 0:
+      alert_msg(page, "You must provide the Original Image to process...")
+      return
+    if not bool(controlnet_xs_prefs['prompt']) and not from_list:
+      alert_msg(page, "You must provide a Prompt to paint in your image...")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.ControlNetXS.controls.append(line)
+        #page.controlnet_xs_output.controls.append(line)
+        if update:
+          page.ControlNetXS.update()
+          #page.controlnet_xs_output.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.ControlNetXS, lines=lines)
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.ControlNetXS.controls = page.ControlNetXS.controls[:1]
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.ControlNetXS.auto_scroll = scroll
+        page.ControlNetXS.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = controlnet_xs_prefs['steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None: #(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    controlnet_xs_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_xs_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_xs_prefs['original_image'], 'conditioning_scale': controlnet_xs_prefs['conditioning_scale'], 'control_guidance_start': controlnet_xs_prefs['control_guidance_start'], 'control_guidance_end': controlnet_xs_prefs['control_guidance_end'], 'seed': p['seed']}
+        controlnet_xs_prompts.append(control)
+      page.tabs.selected_index = 4
+      page.tabs.update()
+      #page.controlnet_xs_output.controls.clear()
+    else:
+      if not bool(controlnet_xs_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      original = controlnet_xs_prefs['original_image']
+      conditioning_scale = controlnet_xs_prefs['conditioning_scale']
+      control_guidance_start = controlnet_xs_prefs['control_guidance_start']
+      control_guidance_end = controlnet_xs_prefs['control_guidance_end']
+      if len(controlnet_xs_prefs['multi_controlnets']) > 0:
+        original = []
+        conditioning_scale = []
+        control_guidance_start = []
+        control_guidance_end = []
+        for c in controlnet_xs_prefs['multi_controlnets']:
+          original.append(c['original_image'])
+          conditioning_scale.append(c['conditioning_scale'])
+          control_guidance_start.append(c['control_guidance_start'])
+          control_guidance_end.append(c['control_guidance_end'])
+      control = {'prompt':controlnet_xs_prefs['prompt'], 'negative_prompt': controlnet_xs_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'control_guidance_start':control_guidance_start, 'control_guidance_end': control_guidance_end, 'seed': controlnet_xs_prefs['seed']}
+      if controlnet_xs_prefs['use_init_video']:
+        control['init_video'] = controlnet_xs_prefs['init_video']
+        control['start_time'] = controlnet_xs_prefs['start_time']
+        control['end_time'] = controlnet_xs_prefs['end_time']
+        control['fps'] = controlnet_xs_prefs['fps']
+      controlnet_xs_prompts.append(control)
+      #page.controlnet_xs_output.controls.clear()
+    autoscroll(True)
+    clear_list()
+    prt(Divider(thickness=2, height=4))
+    installer = Installing("Installing ControlNet-XS Packages...")
+    prt(installer)
+    if status['loaded_controlnet'] == controlnet_xs_prefs["control_task"]:
+        clear_pipes('controlnet')
+    else:
+        clear_pipes()
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    from PIL.PngImagePlugin import PngInfo
+    try:
+        try:
+          import cv2
+        except ModuleNotFoundError:
+          installer.status("...installing opencv")
+          run_sp("pip install opencv-contrib-python", realtime=False)
+          import cv2
+          pass
+        try:
+          from controlnet_aux import MLSDdetector
+        except ModuleNotFoundError:
+          installer.status("...installing controlnet-aux")
+          run_sp("pip install --upgrade controlnet-aux", realtime=False)
+          #run_sp("pip install git+https://github.com/patrickvonplaten/controlnet_aux.git")
+          pass
+        from controlnet_aux import MLSDdetector
+        from controlnet_aux import OpenposeDetector
+        from diffusers import StableDiffusionXLControlNetXSPipeline, StableDiffusionControlNetXSPipeline, ControlNetXSModel, ControlNetModel, AutoencoderKL
+        #run_sp("pip install scikit-image", realtime=False)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR Installing Required Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        flush()
+        return
+    canny_checkpoint = "UmerHA/ConrolNetXS-SD2.1-canny"
+    canny_SDXL_checkpoint = "UmerHA/ConrolNetXS-SDXL-canny"
+    depth_checkpoint = "UmerHA/ConrolNetXS-SD2.1-depth"
+    depth_SDXL_checkpoint = "UmerHA/ConrolNetXS-SDXL-depth"
+    hed = None
+    openpose = None
+    depth_estimator = None
+    feature_extractor = None
+    mlsd = None
+    image_processor = None
+    image_segmentor = None
+    normal = None
+    lineart = None
+    shuffle = None
+    original_img = None
+    def get_controlnet(task):
+        nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        if controlnet_xs_models[task] != None:
+            return controlnet_xs_models[task]
+        if "Canny Map" in task or task == "Video Canny Edge":
+            controlnet_xs_models[task] = ControlNetXSModel.from_pretrained(canny_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            task = "Canny Map Edge"
+        elif "Depth" in task:
+            from transformers import DPTFeatureExtractor, DPTForDepthEstimation
+            depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
+            feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
+            controlnet_xs_models[task] = ControlNetXSModel.from_pretrained(depth_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
+        return controlnet_xs_models[task]
+    width, height = 0, 0
+    def resize_for_condition_image(input_image: PILImage, resolution: int):
+        input_image = input_image.convert("RGB")
+        W, H = input_image.size
+        k = float(resolution) / min(H, W)
+        H *= k
+        W *= k
+        H = int(round(H / 64.0)) * 64
+        W = int(round(W / 64.0)) * 64
+        img = input_image.resize((W, H), resample=PILImage.LANCZOS)
+        return img
+    def prep_image(task, img):
+        nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+        nonlocal width, height
+        if isinstance(img, str):
+          if img.startswith('http'):
+              #response = requests.get(controlnet_xs_prefs['original_image'])
+              #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+              original_img = PILImage.open(requests.get(img, stream=True).raw)
+          else:
+              if os.path.isfile(img):
+                  original_img = PILImage.open(img)
+              else:
+                  alert_msg(page, f"ERROR: Couldn't find your original_image {img}")
+                  return
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, controlnet_xs_prefs['max_size'])
+          #print(f"Size: {width}x{height}")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        #return original_img
+        try:
+            if 'Canny' in task: # == "Canny Map Edge" or task == "Video Canny Edge":
+                input_image = np.array(original_img)
+                input_image = cv2.Canny(input_image, controlnet_xs_prefs['low_threshold'], controlnet_xs_prefs['high_threshold'])
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                original_img = PILImage.fromarray(input_image)
+            elif "Depth" in task:
+                original_img = feature_extractor(images=original_img, return_tensors="pt").pixel_values.to("cuda")
+                with torch.no_grad(), torch.autocast("cuda"):
+                    depth_map = depth_estimator(original_img).predicted_depth
+                depth_map = torch.nn.functional.interpolate(
+                    depth_map.unsqueeze(1),
+                    size=(1024, 1024),
+                    mode="bicubic",
+                    align_corners=False,
+                )
+                depth_min = torch.amin(depth_map, dim=[1, 2, 3], keepdim=True)
+                depth_max = torch.amax(depth_map, dim=[1, 2, 3], keepdim=True)
+                depth_map = (depth_map - depth_min) / (depth_max - depth_min)
+                original_img = torch.cat([depth_map] * 3, dim=1)
+                original_img = original_img.permute(0, 2, 3, 1).cpu().numpy()[0]
+                original_img = PILImage.fromarray((original_img * 255.0).clip(0, 255).astype(np.uint8))
+            return original_img
+        except Exception as e:
+            #clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR Preparing ControlNet-XL {controlnet_xs_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
+    def prep_video(vid):
+        nonlocal width, height
+        if vid.startswith('http'):
+            init_vid = download_file(vid, stable_dir)
+        else:
+            if os.path.isfile(vid):
+                init_vid = vid
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_video {vid}")
+                return
+        try:
+            start_time = float(controlnet_xs_prefs['start_time'])
+            end_time = float(controlnet_xs_prefs['end_time'])
+            fps = int(controlnet_xs_prefs['fps'])
+            max_size = controlnet_xs_prefs['max_size']
+        except Exception:
+            alert_msg(page, "Make sure your Numbers are actual numbers...")
+            return
+        prt("Extracting Frames from Video Clip")
+        try:
+            cap = cv2.VideoCapture(init_vid)
+        except Exception as e:
+            alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
+            clear_last()
+            return
+        count = 0
+        video = []
+        frames = []
+        width = height = 0
+        cap.set(cv2.CAP_PROP_FPS, fps)
+        video_length = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        start_frame = int(start_time * fps)
+        if end_time == 0 or end_time == 0.0:
+            end_frame = int(video_length)
+        else:
+            end_frame = int(end_time * fps)
+        total = end_frame - start_frame
+        for i in range(start_frame, end_frame):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            success, image = cap.read()
+            if success:
+                #filename = os.path.join(output_dir, f'{file_prefix}{count}.png')
+                if width == 0:
+                    shape = image.shape
+                    width, height = scale_dimensions(shape[1], shape[0], max=max_size, multiple=16)
+                image = cv2.resize(image, (width, height), interpolation = cv2.INTER_AREA)
+                #cv2.imwrite(os.path.join(output_dir, filename), image)
+                image = prep_image(controlnet_xs_prefs['control_task'], PILImage.fromarray(image))
+                video.append(image)
+                count += 1
+        cap.release()
+        clear_last()
+        return video
+    loaded_controlnet = None
+    if len(controlnet_xs_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_xs_prefs['use_init_video']:
+        controlnet = []
+        loaded_controlnet = []
+        for c in controlnet_xs_prefs['multi_controlnets']:
+            controlnet.append(get_controlnet(c['control_task']))
+            loaded_controlnet.append(c['control_task'])
+        if len(controlnet) == 1:
+            controlnet = controlnet[0]
+            loaded_controlnet = loaded_controlnet[0]
+    else:
+        controlnet = get_controlnet(controlnet_xs_prefs['control_task'])
+        loaded_controlnet = controlnet_xs_prefs['control_task']
+    for k, v in controlnet_xs_models.items():
+      if v != None and k in loaded_controlnet:
+        del v
+        controlnet_xs_models[k] = None
+    controlnet_type = "text2image"
+    if controlnet_xs_prefs['use_image2image']:
+        if bool(controlnet_xs_prefs['init_image']):
+            if bool(controlnet_xs_prefs['mask_image']) or controlnet_xs_prefs['alpha_mask']:
+                controlnet_type = "inpaint"
+            else:
+                controlnet_type = "image2image"
+    use_ip_adapter = controlnet_xs_prefs['use_ip_adapter']
+    if 'loaded_ip_adapter' not in status: status['loaded_ip_adapter'] = ""
+    if use_ip_adapter:
+        ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_xs_prefs['ip_adapter_SDXL_model'])
+    else:
+        ip_adapter_model = None
+    
+    #model = get_model(prefs['model_ckpt'])
+    model_path = "stabilityai/stable-diffusion-xl-base-1.0" if controlnet_xs_prefs['use_SDXL'] else "stabilityai/stable-diffusion-2-1" 
+    if controlnet_type != status['loaded_controlnet_type'] or model_path != status['loaded_model']:
+        clear_pipes()
+    
+    if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_xs_prefs["control_task"]:
+        if controlnet_xs_prefs['use_SDXL']:
+            vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
+            if controlnet_type == "text2image":
+                pipe_controlnet = StableDiffusionXLControlNetXSPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            elif controlnet_type == "image2image":
+                from diffusers import StableDiffusionXLControlNetImg2ImgPipeline
+                pipe_controlnet = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            elif controlnet_type == "inpaint":
+                from diffusers import StableDiffusionXLControlNetInpaintPipeline
+                pipe_controlnet = StableDiffusionXLControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_controlnet.enable_model_cpu_offload()
+            #pipe_controlnet = optimize_SDXL(pipe_controlnet, vae_slicing=True, vae_tiling=True)
+        else:
+            if controlnet_type == "text2image":
+                pipe_controlnet = StableDiffusionControlNetXSPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            elif controlnet_type == "image2image":
+                from diffusers import StableDiffusionControlNetImg2ImgPipeline
+                pipe_controlnet = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            elif controlnet_type == "inpaint":
+                from diffusers import StableDiffusionControlNetInpaintPipeline
+                pipe_controlnet = StableDiffusionControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_controlnet.enable_model_cpu_offload()
+            #pipe_controlnet = optimize_SDXL(pipe_controlnet, vae_slicing=True, vae_tiling=True)
+        if prefs['enable_torch_compile']:
+            installer.status(f"...Torch compiling unet")
+            pipe_controlnet.to(memory_format=torch.channels_last)
+            pipe_controlnet.unet.to(memory_format=torch.channels_last)
+            pipe_controlnet.unet = torch.compile(pipe_controlnet.unet, mode="reduce-overhead", fullgraph=True)
+            pipe_controlnet.controlnet.to(memory_format=torch.channels_last)
+            pipe_controlnet.controlnet = torch.compile(pipe_controlnet.unet, mode="reduce-overhead", fullgraph=True)
+        elif controlnet_xs_prefs['cpu_offload']:
+            pipe_controlnet.enable_model_cpu_offload()
+        else:
+            pipe_controlnet.to("cuda")
+        status['loaded_controlnet'] = loaded_controlnet #controlnet_xs_prefs["control_task"]
+        status['loaded_controlnet_type'] = controlnet_type
+        status['loaded_model'] = model_path
+    pipe_controlnet = pipeline_scheduler(pipe_controlnet)
+    if controlnet_xs_prefs['use_init_video']:
+        from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
+        pipe_controlnet.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+        pipe_controlnet.controlnet.set_attn_processor(CrossFrameAttnProcessor(batch_size=2))
+    init_img = None
+    mask_img = None
+    if bool(controlnet_xs_prefs['init_image'] and controlnet_xs_prefs['use_image2image']):
+        if controlnet_xs_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(controlnet_xs_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_xs_prefs['init_image']):
+                init_img = PILImage.open(controlnet_xs_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {controlnet_xs_prefs['init_image']}")
+                return
+        width, height = init_img.size
+        width, height = scale_dimensions(width, height, controlnet_xs_prefs['max_size'])
+        if bool(controlnet_xs_prefs['alpha_mask']):
+            init_img = init_img.convert("RGBA")
+        else:
+            init_img = init_img.convert("RGB")
+        init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if not bool(controlnet_xs_prefs['mask_image']) and bool(controlnet_xs_prefs['alpha_mask']):
+            mask_img = init_img.convert('RGBA')
+            red, green, blue, alpha = PILImage.Image.split(init_img)
+            mask_img = alpha.convert('L')
+        elif bool(controlnet_xs_prefs['mask_image']):
+            if controlnet_xs_prefs['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(controlnet_xs_prefs['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(controlnet_xs_prefs['mask_image']):
+                    mask_img = PILImage.open(controlnet_xs_prefs['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {controlnet_xs_prefs['mask_image']}")
+                    return
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, controlnet_xs_prefs['max_size'])
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        if controlnet_xs_prefs['invert_mask'] and not controlnet_xs_prefs['alpha_mask']:
+            from PIL import ImageOps
+            mask_img = ImageOps.invert(mask_img.convert('RGB'))
+    if use_ip_adapter:
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet.set_ip_adapter_scale(controlnet_xs_prefs['ip_adapter_strength'])
+        if controlnet_xs_prefs['ip_adapter_image'].startswith('http'):
+            ip_adapter_image = PILImage.open(requests.get(controlnet_xs_prefs['ip_adapter_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_xs_prefs['ip_adapter_image']):
+                ip_adapter_image = PILImage.open(controlnet_xs_prefs['ip_adapter_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your ip_adapter_image {controlnet_xs_prefs['ip_adapter_image']}")
+                return
+        ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
+        status['loaded_ip_adapter'] = ip_adapter_model
+        ip_adapter_args = {'ip_adapter_image': ip_adapter_image}
+    else:
+        ip_adapter_args = {}
+    clear_last()
+    prt(f"Generating ControlNet-XS {controlnet_xs_prefs['control_task']} of your Image...")
+    batch_output = os.path.join(stable_dir, controlnet_xs_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], controlnet_xs_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    for pr in controlnet_xs_prompts:
+        prt(progress)
+        autoscroll(False)
+        filename = f"{controlnet_xs_prefs['file_prefix']}{format_filename(pr['prompt'])}"
+        filename = filename[:int(prefs['file_max_length'])]
+        if len(controlnet_xs_prefs['multi_controlnets']) > 0 and not from_list and not controlnet_xs_prefs['use_init_video']:
+            original_img = []
+            for c in controlnet_xs_prefs['multi_controlnets']:
+                original_img.append(prep_image(c['control_task'], c['original_image']))
+                if controlnet_xs_prefs['show_processed_image']:
+                    processed_img = available_file(batch_output, f"{filename}-{c['control_task'].partition(' ')[0]}", 0, no_num=True)
+                    w, h = original_img[-1].size
+                    original_img[-1].save(processed_img)
+                    prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+        elif not controlnet_xs_prefs['use_init_video']:
+            original_img = prep_image(controlnet_xs_prefs['control_task'], pr['original_image'])
+            if controlnet_xs_prefs['show_processed_image']:
+                processed_img = available_file(batch_output, f"{filename}-{controlnet_xs_prefs['control_task'].partition(' ')[0]}", 0, no_num=True)
+                w, h = original_img.size
+                original_img.save(processed_img)
+                prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+        else:
+            video_img = prep_video(pr['original_image'])
+            latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
+   
+        try:
+            random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device="cpu").manual_seed(random_seed)
+            if controlnet_type == "text2image":
+                if not controlnet_xs_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xs_prefs['steps'], guidance_scale=controlnet_xs_prefs['guidance_scale'], eta=controlnet_xs_prefs['eta'], num_images_per_prompt=controlnet_xs_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xs_prefs['steps'], guidance_scale=controlnet_xs_prefs['guidance_scale'], eta=controlnet_xs_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, **ip_adapter_args).images
+            elif controlnet_type == "image2image":
+                if not controlnet_xs_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xs_prefs['steps'], guidance_scale=controlnet_xs_prefs['guidance_scale'], eta=controlnet_xs_prefs['eta'], num_images_per_prompt=controlnet_xs_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xs_prefs['steps'], guidance_scale=controlnet_xs_prefs['guidance_scale'], eta=controlnet_xs_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, **ip_adapter_args).images
+            elif controlnet_type == "inpaint":
+                if not controlnet_xs_prefs['use_init_video']:
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, mask=mask_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xs_prefs['steps'], guidance_scale=controlnet_xs_prefs['guidance_scale'], eta=controlnet_xs_prefs['eta'], num_images_per_prompt=controlnet_xs_prefs['batch_size'], height=height, width=width, generator=generator, callback=callback_fnc, **ip_adapter_args).images
+                else:
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=init_img, mask=mask_img, control_image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xs_prefs['steps'], guidance_scale=controlnet_xs_prefs['guidance_scale'], eta=controlnet_xs_prefs['eta'], height=height, width=width, generator=generator, callback=callback_fnc, **ip_adapter_args).images
+        except Exception as e:
+            #clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR Generating ControlNet-XL {controlnet_xs_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
+        clear_pipes('controlnet')
+        clear_last()
+        #clear_last()
+        autoscroll(True)
+        #filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
+        
+        #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+        num = 0
+        for image in images:
+            random_seed += num
+            fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+            image_path = available_file(os.path.join(stable_dir, controlnet_xs_prefs['batch_folder_name']), fname, num)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            #PILImage.fromarray(image).save(image_path)
+            image.save(image_path)
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+            new_file = available_file(batch_output, fname, num)
+            if not controlnet_xs_prefs['display_upscaled_image'] or not controlnet_xs_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=new_file, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if controlnet_xs_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=controlnet_xs_prefs["enlarge_scale"])
+                image_path = upscaled_path
+            if prefs['save_image_metadata']:
+                task = and_list(controlnet_xs_prefs['control_task']) if isinstance(controlnet_xs_prefs['control_task'], list) else controlnet_xs_prefs['control_task']
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {controlnet_xs_prefs['enlarge_scale']}x with ESRGAN" if controlnet_xs_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", "ControlNet-XS " + task)
+                if prefs['save_config_in_metadata']:
+                  config_json = controlnet_xs_prefs.copy()
+                  config_json['model_path'] = model_path
+                  config_json['seed'] = random_seed
+                  config_json['prompt'] = pr['prompt']
+                  config_json['negative_prompt'] = pr['negative_prompt']
+                  del config_json['batch_size']
+                  del config_json['max_size']
+                  del config_json['display_upscaled_image']
+                  del config_json['batch_folder_name']
+                  if not config_json['apply_ESRGAN_upscale']:
+                    del config_json['enlarge_scale']
+                    del config_json['apply_ESRGAN_upscale']
+                  metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            #TODO: PyDrive
+            if storage_type == "Colab Google Drive":
+                #new_file = available_file(output_path, fname, num)
+                #out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                #new_file = available_file(output_path, fname, num)
+                #out_path = new_file
+                shutil.copy(image_path, new_file)
+            if controlnet_xs_prefs['display_upscaled_image']:
+                prt(Row([ImageButton(src=new_file, data=new_file, width=width * float(controlnet_xs_prefs["enlarge_scale"]), height=height * float(controlnet_xs_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            num += 1
+    autoscroll(False)
+    del hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_controlnet_tile_upscale(page, source_image, prompt="best quality", scale_factor=2.5):
     global controlnet_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_models
@@ -33559,7 +34671,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
           pass
         #pip_install("bitsandbytes", q=True, installer=installer)
     if pixart_alpha_prefs['clean_caption']:
-        pip_install("beautifulsoup4|beautifulsoup ftfy", installer=installer)
+        pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     text_encoder = None
     cpu_offload = pixart_alpha_prefs['cpu_offload']
     pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else pixart_alpha_prefs['pixart_custom_model']
@@ -36660,6 +37772,364 @@ def run_video_retalking(page):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_style_crafter(page):
+    global style_crafter_prefs, prefs, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.StyleCrafter.controls.append(line)
+      page.StyleCrafter.update()
+    def clear_last(lines=1):
+      clear_line(page.StyleCrafter, lines=lines)
+    def clear_list():
+      page.TextToVideo.controls = page.StyleCrafter.controls[:1]
+    def autoscroll(scroll=True):
+      page.StyleCrafter.auto_scroll = scroll
+      page.StyleCrafter.update()
+    if not bool(style_crafter_prefs['prompt']):
+      alert_msg(page, "You must provide the Stylized Prompt to process...")
+      return
+    progress = ProgressBar(bar_height=8)
+
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Style Crafter Pipeline...")
+    prt(installer)
+    try:
+        import cv2
+    except ModuleNotFoundError:
+        installer.status("...installing cv2")
+        run_sp("pip install opencv-contrib-python", realtime=False)
+        import cv2
+        pass
+    pip_install("decord==0.6.0 einops imageio omegaconf pandas pytorch_lightning==1.9.3 PyYAML setuptools moviepy av xformers gradio timm scikit-learn open_clip_torch==2.22.0 kornia", installer=installer, upgrade=True)
+    style_crafter_dir = os.path.join(root_dir, "StyleCrafter")
+    checkpoints_dir = os.path.join(style_crafter_dir, "checkpoints")
+    
+    if not os.path.exists(style_crafter_dir):
+        try:
+            installer.status("...cloning GongyeLiu/StyleCrafter.git")
+            run_sp("git clone https://github.com/GongyeLiu/StyleCrafter.git", cwd=root_dir, realtime=False)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"Error Installing github.com/GongyeLiu/StyleCrafter...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    sys.path.append(0, os.path.join(style_crafter_dir, "scripts", "evaluation"))
+    try:
+        installer.status("...install open_clip")
+        run_sp("git lfs install", cwd=os.path.join(checkpoints_dir, "open_clip"), realtime=False)
+        run_sp("git clone https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K", cwd=os.path.join(checkpoints_dir, "open_clip"), realtime=False)
+        installer.status("...get Text2Video-512 ckpt")
+        download_file("https://huggingface.co/VideoCrafter/Text2Video-512/blob/main/model.ckpt", to=os.path.join(checkpoints_dir, "videocrafter_t2v_320_512"))
+        installer.status("...get adapter_v1.pth")
+        download_file("https://huggingface.co/liuhuohuo/StyleCrafter/blob/main/adapter_v1.pth", to=os.path.join(checkpoints_dir, "stylecrafter"))
+        installer.status("...get temporal_v1.pth")
+        download_file("https://huggingface.co/liuhuohuo/StyleCrafter/blob/main/temporal_v1.pth", to=os.path.join(checkpoints_dir, "stylecrafter"))
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"Error Setting up Dependancies...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    import numpy as np
+    from PIL import Image as PILImage
+    from PIL import ImageOps
+    outputs_dir = os.path.join(style_crafter_dir, "outputs")
+    if os.path.exists(outputs_dir):
+        shutil.rmtree(outputs_dir, ignore_errors=True)
+    make_dir(outputs_dir)
+    save_dir = os.path.join(style_crafter_dir, "my_eval_data")
+    if os.path.exists(save_dir):
+        shutil.rmtree(save_dir, ignore_errors=True)
+    make_dir(save_dir)
+    prompt_json = os.path.join(save_dir, 'eval_prompt.json')
+    #frames_dir = os.path.join(save_dir, 'frames')
+    #make_dir(frames_dir)
+    batch_output = os.path.join(prefs['image_output'], style_crafter_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    output_frames_dir = os.path.join(save_dir, 'output_frames')
+    make_dir(output_frames_dir)
+    style_images = []
+    init_images = []
+    for fl in page.style_file_list.controls:
+        f = fl.title.value
+        style_images.append(f)
+    if len(style_images) == 0:
+        if bool(style_crafter_prefs['init_image']):
+            style_images.append(style_crafter_prefs['init_image'])
+        else:
+            alert_msg(page, f"ERROR: You need to provide Input Style Image(s)")
+            return
+    #init_image = style_crafter_prefs['init_image']
+    #if bool(init_image):
+    for init_image in style_images:
+        fname = init_image.rpartition(slash)[2]
+        init_file = os.path.join(save_dir, "data", fname)
+        if init_image.startswith('http'):
+            init_img = PILImage.open(requests.get(init_image, stream=True).raw)
+        else:
+            if os.path.isfile(init_image):
+                init_img = PILImage.open(init_image)
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {init_image}")
+                return
+        init_img = init_img.resize((style_crafter_prefs['max_size'], style_crafter_prefs['max_size']), resample=PILImage.Resampling.LANCZOS)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        init_img.save(init_file)
+        init_images.append(f'data/{os.path.basename(init_file)}')
+    if len(init_images) == 1:
+        init_images = init_images[0]
+    clear_last()
+    prt(f"Generating Style Crafter on Frames with your Prompt... See console for progress.")
+    fname = format_filename(style_crafter_prefs['prompt'])
+    prompt_list = [{'prompt': style_crafter_prefs['prompt'], 'style_path': init_images}]
+    with open(prompt_json, "w") as f:
+        json.dump(prompt_list, f, ensure_ascii=False, indent=4)
+    random_seed = int(style_crafter_prefs['seed']) if int(style_crafter_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    config="configs/inference_video_320_512.yaml"
+    ckpt="checkpoints/videocrafter_t2v_320_512/model.ckpt"
+    adapter_ckpt="checkpoints/stylecrafter/adapter_v1.pth"
+    temporal_ckpt="checkpoints/stylecrafter/temporal_v1.pth"
+    prompt_dir="my_eval_data"
+    filename="eval_prompt.json"
+    res_dir="output"
+    n_samples=1
+    total_steps = style_crafter_prefs['num_inference_steps']
+    cmd = f'python scripts/evaluation/style_inference.py --out_type "{"video" if style_crafter_prefs["output_video"] else "image"}" --adapter_ckpt {adapter_ckpt} --temporal_ckpt {temporal_ckpt} --seed {random_seed} --ckpt_path {ckpt} --base {config} --savedir {res_dir}'
+    cmd += f' --n_samples {n_samples} --bs {style_crafter_prefs["batch_size"]} --height {style_crafter_prefs["height"]} --width {style_crafter_prefs["width"]} --unconditional_guidance_scale 15.0 --unconditional_guidance_scale_style {style_crafter_prefs["guidance_scale"]} --ddim_steps {total_steps} --ddim_eta {style_crafter_prefs["eta"]} --prompt_dir {prompt_dir} --filename {filename}'
+    
+    prt(f"Running {cmd}")
+    try:
+        run_process(cmd, cwd=style_crafter_dir, page=page, realtime=True)
+    except Exception as e:
+        clear_last(2)
+        alert_msg(page, "Error running Python.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    clear_last(2)
+    frame_files = [f for f in os.listdir(outputs_dir) if f.endswith('.png')]
+    #frame_files = sorted(os.listdir(frames_dir), key=int(frame_filename[5:-4]))
+    for i, frame_file in enumerate(frame_files):
+        # Use the original video frame to create Canny edge-detected image as the conditioning image for the first ControlNetModel
+        #prt(progress)
+        #autoscroll(False)
+        image_path = os.path.join(outputs_dir, frame_file)
+        output_path = os.path.join(batch_output, frame_file)#os.path.join(outputs_dir, f"frame{str(i).zfill(4)}.png")
+        shutil.copy(image_path, output_path)
+        #w, h = image.size
+        #image.save(output_path)
+        #clear_last()
+        #autoscroll(True)
+        prt(Row([Img(src=output_path, fit=ImageFit.CONTAIN, width=style_crafter_prefs["width"], height=style_crafter_prefs["height"], gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Text(output_path)], alignment=MainAxisAlignment.CENTER))
+    installer = Installing(f"Saving Video File... Frames at {outputs_dir if not style_crafter_prefs['save_frames'] else batch_output}")
+    prt(installer)
+    #if style_crafter_prefs['save_frames']:
+    #    shutil.copytree(output_frames_dir, save_frames_dir, dirs_exist_ok=True)
+    video_out = available_file(batch_output, fname, 0, no_num=True, ext="mp4")
+    interpolate_video(outputs_dir, output_video=video_out, input_fps=8, output_fps=25, installer=installer)
+    clear_last
+    prt(f"Saved to {video_out}")
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_rave(page):
+    global rave_prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.RAVE.controls.append(line)
+      page.RAVE.update()
+    def clear_last(lines=1):
+      clear_line(page.RAVE, lines=lines)
+    def autoscroll(scroll=True):
+        page.RAVE.auto_scroll = scroll
+        page.RAVE.update()
+    if not bool(rave_prefs['init_video']):
+        alert_msg(page, "You must provide a target init video...")
+        return
+    if not bool(rave_prefs['prompt']):
+        alert_msg(page, "You must provide an interesting prompt to guide the video...")
+        return
+    if not bool(rave_prefs['batch_folder_name']):
+        alert_msg(page, "You must give a unique Batch Folder Name to save to...")
+        return
+    page.RAVE.controls = page.RAVE.controls[:1]
+    autoscroll()
+    installer = Installing("Installing RAVE Libraries...")
+    prt(installer)
+    rave_dir = os.path.join(root_dir, "RAVE")
+    if not os.path.exists(rave_dir):
+        try:
+            installer.status("...cloning rehg-lab/RAVE")
+            run_sp("git clone https://github.com/rehg-lab/RAVE.git", cwd=root_dir, realtime=False)
+            installer.status("...installing RAVE requirements")
+            #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
+            pip_install("addict==2.4.0 basicsr==1.4.2 beautifulsoup4|bs4 caffe2==0.8.1 cityscapesscripts==2.2.2 dominate==2.9.0 einops external==0.0.1 fairscale==0.4.13 ftfy fvcore==0.1.5.post20221221 hydra-core==1.3.2 imageio imutils iopath==0.1.10 kornia==0.7.0 lmdb==1.4.1 matplotlib mc mediapipe mmdet==3.2.0 mmpose==1.2.0 omegaconf onnx==1.15.0 onnxruntime==1.16.3 opencv_python openvino==2023.2.0 packaging pandas parrots==0.1.7 prettytable==3.9.0 Pygments==2.17.2 pytorch_lightning==2.1.2 PyYAML|yaml regex scipy setuptools Shapely==2.0.2 skimage==0.0 std_msgs==0.0.1 tabulate==0.9.0 tensorboardX==2.6.2.2 tensorflow==2.15.0.post1 termcolor==2.4.0 tifffile==2023.7.10 timm tqdm turbojpeg==0.0.2 yapf==0.40.2 watchdog", installer=installer, upgrade=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing RAVE Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_pipes()
+    import yaml
+    from PIL import ImageOps
+    if bool(rave_prefs['output_name']):
+        fname = format_filename(rave_prefs['output_name'], force_underscore=True)
+    elif bool(rave_prefs['prompt']):
+        fname = format_filename(rave_prefs['prompt'], force_underscore=True)
+    elif bool(rave_prefs['batch_folder_name']):
+        fname = format_filename(rave_prefs['batch_folder_name'], force_underscore=True)
+    else: fname = "output"
+    if bool(rave_prefs['file_prefix']):
+        fname = f"{rave_prefs['file_prefix']}{fname}"
+    data_dir = os.path.join(rave_dir, "data")
+    results_dir = os.path.join(rave_dir, "results")
+    if os.path.exists(results_dir):
+        shutil.rmtree(results_dir, ignore_errors=True)
+    make_dir(results_dir)
+    #if bool(rave_prefs['batch_folder_name']):
+    #    batch_output = os.path.join(stable_dir, rave_prefs['batch_folder_name'])
+    #else: batch_output = stable_dir
+    #if not os.path.exists(batch_output):
+    #    os.makedirs(batch_output)
+    output_path = os.path.join(prefs['image_output'], rave_prefs['batch_folder_name'])
+    make_dir(output_path)
+    init_vid = rave_prefs['init_video']
+    if init_vid.startswith('http'):
+        init_vid = download_file(init_vid, uploads_dir, ext="mp4")
+    else:
+        if not os.path.isfile(init_vid):
+            alert_msg(page, f"ERROR: Couldn't find your init_video {init_vid}")
+            return
+    installer.status("...scaleing video")
+    w, h = scale_video(init_vid, os.path.join(data_dir, f"{fname}.mp4"), rave_prefs["max_size"])
+    #shutil.copy(init_vid, os.path.join(data_dir, f"{fname}.mp4"))
+    #video_out_path = os.path.join(data_dir, rave_prefs['batch_folder_name'])
+    #make_dir(video_out_path)
+    installer.status("...preparing yaml")
+    random_seed = int(rave_prefs['seed']) if int(rave_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
+    config_yaml_file = os.path.join(rave_dir, "configs", "sdd_rave.yaml")
+    config_yaml = {
+        "video_name": fname,
+        "preprocess_name": rave_prefs['control_task'].lower().replace(' ', '_'),
+        "batch_size": rave_prefs['batch_size'],
+        "batch_size_vae": rave_prefs['batch_size_vae'],
+        "cond_step_start": 1 - rave_prefs['controlnet_strength'],
+        "controlnet_conditioning_scale": rave_prefs['controlnet_conditioning_scale'],
+        "controlnet_guidance_end": rave_prefs['controlnet_guidance_end'],
+        "controlnet_guidance_start": rave_prefs['controlnet_guidance_start'],
+        "give_control_inversion": rave_prefs['give_control_inversion'],
+        "grid_size": 3,
+        "sample_size": -1,
+        "pad": 1,
+        "guidance_scale": rave_prefs['guidance_scale'],
+        "inversion_prompt": "",
+        "is_ddim_inversion": rave_prefs['is_ddim_inversion'],
+        "is_shuffle": rave_prefs['is_shuffle'],
+        "negative_prompts": rave_prefs['negative_prompt'],
+        "positive_prompts": rave_prefs['prompt'],
+        "is_shuffle": rave_prefs['is_shuffle'],
+        "num_inference_steps": rave_prefs['num_inference_steps'],
+        "num_inversion_steps": rave_prefs['num_inversion_steps'],
+        "save_folder": fname,
+        "seed": random_seed,
+        "model_id": 'None', #['CIVIT_AI/diffusers_models/realisticVisionV60B1_v51VAE']
+    }
+    with open(config_yaml_file, "w") as outfile:
+        yaml.dump(config_yaml, outfile, sort_keys=False)
+    #output_file = os.path.join(output_path, f"{fname}{'.mp4' if is_video else '.png'}")
+    if not os.path.exists(config_yaml_file):
+        print(f"Error creating json file {config_yaml_file}")
+    clear_last()
+    progress = ProgressBar(bar_height=8)
+    prt(f"Generating your RAVE...")
+    prt(progress)
+    autoscroll(False)
+    cmd = f'python scripts/run_experiment.py configs/sdd_rave.yaml'
+    img_idx = 0
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    class Handler(FileSystemEventHandler):
+      def __init__(self):
+        super().__init__()
+      def on_created(self, event):
+        nonlocal img_idx, w, h
+        if event.is_directory:
+          return None
+        elif event.event_type == 'created' and (event.src_path.endswith("png") or event.src_path.endswith("jpg") or event.src_path.endswith("gif")):
+          autoscroll(True)
+          if w == 0:
+            time.sleep(0.2)
+            try:
+              frame = PILImage.open(event.src_path)
+              w, h = frame.size
+              clear_last()
+            except Exception:
+              pass
+          clear_last()
+          if rave_prefs['save_frames']:
+            fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+          else:
+            fpath = event.src_path
+          #prt(Divider(height=6, thickness=2))
+          prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
+          page.update()
+          prt(progress)
+          if rave_prefs['save_frames']:
+            fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+            shutil.copy(event.src_path, fpath)
+          time.sleep(0.2)
+          autoscroll(False)
+          img_idx += 1
+        elif event.event_type == 'created' and (event.src_path.endswith("mp4") or event.src_path.endswith("avi")):
+          autoscroll(True)
+          #clear_last()
+          prt(Divider(height=6, thickness=2))
+          fpath = os.path.join(output_path, event.src_path.rpartition(slash)[2])
+          time.sleep(0.2)
+          shutil.copy(event.src_path, fpath)
+          prt(f"Video saved to {fpath} from {event.src_path}")
+          #prt(Row([VideoContainer(event.src_path)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([VideoPlayer(video_file=event.src_path, width=w, height=h)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([ImageButton(src=event.src_path, data=fpath, width=w, height=h, subtitle=f"Frame {img_idx} - {event.src_path}", center=True, page=page)], alignment=MainAxisAlignment.CENTER))
+          #prt(Row([Text(f'{event.src_path}')], alignment=MainAxisAlignment.CENTER))
+          #page.update()Image
+          #prt(progress)
+          time.sleep(0.2)
+          autoscroll(False)
+    image_handler = Handler()
+    observer = Observer()
+    observer.schedule(image_handler, results_dir, recursive=True)
+    observer.start()
+    #console = RunConsole(f"Running {cmd}")
+    #console.run_process(cmd, cwd=rave_dir)
+    #prt(f"Running {cmd}")
+    #prt(progress)
+    try:
+        #TODO: Parse output to get percent current for progress callback_fnc
+        run_sp(cmd, cwd=rave_dir, realtime=True)
+    except Exception as e:
+        clear_last()
+        observer.stop()
+        alert_msg(page, "Error running Rave Python", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    #clear_last()
+    observer.stop()
+    #clear_last()
+    autoscroll(True)
+    #TODO: Upscale Image
+    if os.path.isfile(output_file):
+        prt(f"Saved video to {output_file}")
+        #prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
+        #prt(Row([VideoPlayer(video_file=output_file, width=width, height=height)], alignment=MainAxisAlignment.CENTER))
+    else:
+        prt("Error Generating Output File! Maybe NSFW Image detected or Out of Memory?")
+    prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 def run_animate_diff(page):
     global animate_diff_prefs, prefs, status, pipe_animate_diff, model_path
     #if not status['installed_diffusers']:
@@ -39453,7 +40923,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
-    cpu_offload = False
+    cpu_offload = kandinsky_3_prefs['cpu_offload']
     for pr in kandinsky_3_prompts:
         prt(installer)
         init_img = None
@@ -41130,10 +42600,19 @@ class FileInput(UserControl):
             self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
         def changed(e):
             self.pref[self.key] = e.control.value
+            self.textfield.focus()
         self.file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
         self.page.overlay.append(self.file_picker)
         self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, autofocus=False, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
         return self.textfield
+    @property
+    def value(self):
+        return self.textfield.value
+    @value.setter
+    def value(self, value):
+        self.pref[self.key] = value
+        self.textfield.value = value
+        self.textfield.update()
 
 class ImageButton(UserControl):
     def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, src_base64=None, fit=ImageFit.SCALE_DOWN, show_subtitle=False, page=None):
@@ -41743,6 +43222,20 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
     video.output(output_video)
     return output_video
 
+
+def scale_video(video_path, to, max_size):
+    try:
+        from moviepy.editor import VideoFileClip
+    except Exception:
+        pip_install("moviepy")
+        from moviepy.editor import VideoFileClip
+        pass
+    video = VideoFileClip(video_path)
+    original_width, original_height = video.size
+    width, height = scale_dimensions(original_width, original_height, max_size)
+    resized_video = video.resize(width=width, height=height)
+    resized_video.write_videofile(to)
+    return width, height
 
 class VideoPlayer(UserControl):
     def __init__(self, video_file="", width=500, height=500):

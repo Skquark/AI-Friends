@@ -187,6 +187,7 @@ SDXL_models = [
     {"name": "Juggernaut XL 5", "path": "stablediffusionapi/juggernaut-xl-v5", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Juggernaut XL 6", "path": "Jeroenvv1985/Juggernaut_v6", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Juggernaut XL 7", "path": "jakebabbidge/juggernaut-xl-7-diffusers", "prefix": ""},
+    {"name": "Ludica-Playground", "path": "artificialguybr/Ludica-PlaygroundV2Finetuned", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Midjourney-V4 XL", "path": "openskyml/midjourney-v4-xl", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Playground v2", "path": "playgroundai/playground-v2-1024px-aesthetic", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Poltergeist Mix", "path": "EnD-Diffusers/PoltergeistMix-SDXLfp16", "prefix": "", "variant": "fp16"},
