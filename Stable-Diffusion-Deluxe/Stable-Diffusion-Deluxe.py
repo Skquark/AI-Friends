@@ -697,6 +697,7 @@ def buildImageAIs(page):
     page.PixArtAlpha = buildPixArtAlpha(page)
     page.LMD_Plus = buildLMD_Plus(page)
     page.LCM = buildLCM(page)
+    page.LCMInterpolation = buildLCMInterpolation(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
     page.DallE3 = buildDallE3(page)
@@ -721,9 +722,10 @@ def buildImageAIs(page):
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
+            Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
             Tab(text="LMD+", content=page.LMD_Plus, icon=icons.HIGHLIGHT_ALT),
             Tab(text="LCM", content=page.LCM, icon=icons.MEMORY),
-            Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
+            Tab(text="LCM Interpolation", content=page.LCMInterpolation, icon=icons.TRANSFER_WITHIN_A_STATION),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
@@ -807,7 +809,6 @@ def buildVideoAIs(page):
     page.RAVE = buildRAVE(page)
     page.AnimateDiff = buildAnimateDiff(page)
     page.HotshotXL = buildHotshotXL(page)
-    page.LCMInterpolation = buildLCMInterpolation(page)
     page.Rerender_a_video = buildRerender_a_video(page)
 
     videoAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
@@ -821,14 +822,13 @@ def buildVideoAIs(page):
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
-            Tab(text="Hotshot-XL", content=page.HotshotXL, icon=icons.HOT_TUB),
             Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
             Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
+            Tab(text="Hotshot-XL", content=page.HotshotXL, icon=icons.HOT_TUB),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
             Tab(text="TemporalNet-XL", content=page.TemporalNet_XL, icon=icons.HOURGLASS_BOTTOM),
-            Tab(text="LCM Interpolation", content=page.LCMInterpolation, icon=icons.TRANSFER_WITHIN_A_STATION),
             Tab(text="ControlNet Init-Video", content=page.ControlNet, icon=icons.HUB),
         ],
     )
@@ -6322,7 +6322,7 @@ def buildIP_Adapter(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=ip_adapter_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=ip_adapter_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=ip_adapter_prefs, key='height')
-    use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline", value=ip_adapter_prefs['use_SDXL'], on_change=toggle_SDXL, tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
+    use_SDXL = Switcher(label="Use Stable Diffusion XL", value=ip_adapter_prefs['use_SDXL'], on_change=toggle_SDXL, tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=ip_adapter_prefs['ip_adapter_model'], visible=not ip_adapter_prefs['use_SDXL'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
@@ -6528,6 +6528,7 @@ controlnet_qr_prefs = {
     'qr_content': '',
     'border_thickness': 5,
     'use_image': False,
+    'selected_mode': 'link',
     'prompt': '',
     'negative_prompt': 'ugly, disfigured, low quality, blurry, nsfw',
     'guidance_scale': 8.0,
@@ -6644,6 +6645,21 @@ def buildControlNetQR(page):
         qr_content.update()
         ref_image.visible = e.control.value
         ref_image.update()
+    def change_mode(e):
+        controlnet_qr_prefs['selected_mode'] = e.data
+        image_mode = e.data.split('"')[1] == "image"
+        qr_generator.height = None if not image_mode else 0
+        qr_generator.update()
+        qr_content.visible = not image_mode
+        qr_content.update()
+        ref_image.visible = image_mode
+        ref_image.update()
+    selected_mode = ft.SegmentedButton(on_change=change_mode, selected={controlnet_qr_prefs['selected_mode']}, allow_multiple_selection=False,
+        segments=[
+            ft.Segment(value="link", label=ft.Text("URL Text"), icon=ft.Icon(ft.icons.LINK)),
+            ft.Segment(value="image", label=ft.Text("QR Image"), icon=ft.Icon(ft.icons.QR_CODE)),
+        ],
+    )
     qr_content = TextField(label="QR Code Content (URL or whatever text)", value=controlnet_qr_prefs['qr_content'], expand=True, visible=not controlnet_qr_prefs['use_image'], on_change=lambda e:changed(e,'qr_content'))
     init_image = TextField(label="Initial Image (optional)", value=controlnet_qr_prefs['init_image'], expand=True, on_change=lambda e:changed(e,'init_image'), height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     ref_image = TextField(label="ControlNet QR Code Image", value=controlnet_qr_prefs['ref_image'], expand=True, visible=controlnet_qr_prefs['use_image'], on_change=lambda e:changed(e,'ref_image'), height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_ref))
@@ -6679,7 +6695,7 @@ def buildControlNetQR(page):
       padding=padding.only(18, 14, 20, 10),
       content=Column([
         Header("🔗  ControlNet QRCode Art Generator", "ControlNet Img2Img for Inpainting QR Code with Prompt and/or Init Image...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetQR Settings", on_click=controlnet_qr_help)]),
-        Row([use_image, qr_content, ref_image]),
+        Row([selected_mode, qr_content, ref_image]),
         qr_generator,
         ResponsiveRow([prompt, negative_prompt]),
         Row([controlnet_version, init_image]),
@@ -8895,7 +8911,7 @@ def buildControlNetXS(page):
         ip_adapter_SDXL_model.update()
     original_image = TextField(label="Original Drawing", value=controlnet_xs_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Prompt Text", value=controlnet_xs_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline", value=controlnet_xs_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
+    use_SDXL = Switcher(label="Use Stable Diffusion XL", value=controlnet_xs_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
     cpu_offload = Switcher(label="CPU Offload", value=controlnet_xs_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xs_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xs_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
@@ -9531,7 +9547,7 @@ def buildPixArtAlpha(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pixart_alpha_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_alpha_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_alpha_prefs, key='height')
-    pixart_model = Dropdown(label="PixArt-α Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
+    pixart_model = Dropdown(label="PixArt-α Model", width=230, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512"), dropdown.Option("PixArt-LCM-XL-2-1024-MS")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-α Model (URL or Path)", value=pixart_alpha_prefs['custom_model'], expand=True, visible=pixart_alpha_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     clean_caption = Switcher(label="Clean Caption", value=pixart_alpha_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
     resolution_binning = Switcher(label="Resolution Binning", value=pixart_alpha_prefs['resolution_binning'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'resolution_binning'), tooltip="The requested height and width are first mapped to the closest resolutions using `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to the requested resolution. Useful for generating non-square images.")
@@ -9750,7 +9766,7 @@ def buildLCM(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lcm_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lcm_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lcm_prefs, key='height')
-    lcm_model = Dropdown(label="LCM Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("LCM_Dreamshaper_v7")], value=lcm_prefs['lcm_model'], on_change=changed_model)
+    lcm_model = Dropdown(label="LCM Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("LCM_Dreamshaper_v7"), dropdown.Option("LCM_Dreamshaper_v8")], value=lcm_prefs['lcm_model'], on_change=changed_model)
     lcm_custom_model = TextField(label="Custom LCM Model (URL or Path)", value=lcm_prefs['custom_model'], expand=True, visible=lcm_prefs['lcm_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=lcm_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     cpu_only = Switcher(label="CPU Only (not yet)", value=lcm_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
@@ -9800,7 +9816,7 @@ lcm_interpolation_prefs = {
     'process_batch_size': 4,
     "embedding_interpolation_type": "lerp",
     "latent_interpolation_type": "slerp",
-    "save_video": True,
+    "save_video": False,
     "interpolate_video": True,
     "source_fps": 8,
     "target_fps": 24,
@@ -10286,7 +10302,7 @@ def buildTextToVideoZero(page):
     t1 = SliderRow(label="Timestep t1", min=43, max=50, divisions=7, pref=text_to_video_zero_prefs, key='t1', tooltip="Should be in the range [t0 + 1, num_inference_steps - 1]")
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_zero_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_zero_prefs, key='height')
-    use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline", value=text_to_video_zero_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Model.")
+    use_SDXL = Switcher(label="Use Stable Diffusion XL", value=text_to_video_zero_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Model.")
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=text_to_video_zero_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     #lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=text_to_video_zero_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
     batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_zero_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -10838,7 +10854,7 @@ def buildInfiniteZoom(page):
     #max_size = SliderRow(label="Max Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='max_size')
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='height')
-    use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline", value=infinite_zoom_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
+    use_SDXL = Switcher(label="Use Stable Diffusion XL", value=infinite_zoom_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
     inpainting_model = Dropdown(label="Inpainting Model", width=386, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers","parlance/dreamlike-diffusion-1.0-inpainting","ghunkins/stable-diffusion-liberty-inpainting"]], value=infinite_zoom_prefs['inpainting_model'], on_change=lambda e: changed(e, 'inpainting_model'))
     save_frames = Switcher(label="Save Frames", value=infinite_zoom_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
     save_gif = Switcher(label="Save Animated GIF", value=infinite_zoom_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
@@ -11867,6 +11883,7 @@ style_crafter_prefs = {
     'guidance_scale': 7.0,
     'eta': 1.0,
     'style_strength': 1.0,
+    'selected_mode': 'video',
     'export_to_video': True,
     'save_frames': False,
     "output_video": True,
@@ -11988,7 +12005,7 @@ def buildStyleCrafter(page):
     negative_prompt  = TextField(label="Negative Prompt Text", value=style_crafter_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     #init_video = FileInput(label="Init Video Clip", pref=style_crafter_prefs, key='init_video', ftype="video", page=page)
     init_image = FileInput(label="Input Style Image", pref=style_crafter_prefs, key='init_image', expand=1, ftype="image", page=page)
-    add_image_button = ElevatedButton(content=Text("Add Style Image"), on_click=add_image)
+    add_image_button = ft.FilledButton(content=Text("➕  Add Image"), on_click=add_image)
     page.style_file_list = Column([], tight=True, spacing=0)
 
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=style_crafter_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -12001,6 +12018,21 @@ def buildStyleCrafter(page):
     output_video = Tooltip(message="Otherwise will Save Image with style", content=Switcher(label="Output Animated Video", value=style_crafter_prefs['output_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'output_video')))
     interpolate_vid = Switcher(label="Interpolate Video", value=style_crafter_prefs['export_to_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'export_to_video'))
     save_frames = Tooltip(message="Save Frames", content=Switcher(label="Save Frames", value=style_crafter_prefs['save_frames'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames')))
+    def change_mode(e):
+        style_crafter_prefs['selected_mode'] = e.data
+        mode = e.data.split('"')[1].title()
+        prompt.label = f"Stylized {mode} Prompt Text"
+        prompt.update()
+        interpolate_vid.visible = mode == "Video"
+        save_frames.visible = mode == "Video"
+        interpolate_vid.update()
+        save_frames.update()
+    selected_mode = ft.SegmentedButton(on_change=change_mode, selected={style_crafter_prefs['selected_mode']}, allow_multiple_selection=False,
+        segments=[
+            ft.Segment(value="video", label=ft.Text("Video"), icon=ft.Icon(ft.icons.VIDEO_CAMERA_BACK)),
+            ft.Segment(value="image", label=ft.Text("Image"), icon=ft.Icon(ft.icons.IMAGE)),
+        ],
+    )
     #model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=style_crafter_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
     batch_folder_name = TextField(label="Batch Folder Name", value=style_crafter_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     seed = TextField(label="Seed", width=90, value=str(style_crafter_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -12018,7 +12050,7 @@ def buildStyleCrafter(page):
         style_strength,
         #max_row,
         width_slider, height_slider,
-        Row([output_video, interpolate_vid, save_frames]),
+        Row([selected_mode, interpolate_vid, save_frames]),
         Row([seed, batch_folder_name]),
         Row([ElevatedButton(content=Text("🚤   Run StyleCrafter", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_style_crafter(page)),]),
       ]
@@ -25464,7 +25496,7 @@ def run_controlnet_qr(page, from_list=False):
     if not os.path.isdir(batch_output):
         os.makedirs(batch_output)
     batch_size = controlnet_qr_prefs['batch_size']
-    if controlnet_qr_prefs['use_image']:
+    if controlnet_qr_prefs['selected_mode'].split('"')[1] == "image":#controlnet_qr_prefs['use_image']:
         if not bool(controlnet_qr_prefs['ref_image']):
             alert_msg(page, f"ERROR: If using your own QR image, you must provide it.")
             return
@@ -34674,18 +34706,19 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
         pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     text_encoder = None
     cpu_offload = pixart_alpha_prefs['cpu_offload']
-    pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else pixart_alpha_prefs['pixart_custom_model']
+    pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else "PixArt-alpha/PixArt-LCM-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-LCM-XL-2-1024-MS" else pixart_alpha_prefs['pixart_custom_model']
     if 'loaded_pixart_8bit' not in status: status['loaded_pixart_8bit'] = use_8bit
     if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
     if pixart_model != status['loaded_pixart'] or use_8bit != status['loaded_pixart_8bit']:
         clear_pipes()
+    scheduler = {'scheduler': 'LCM'} if 'LCM' in pixart_model else {}
     if pipe_pixart_alpha == None:
         installer.status(f"...initialize PixArtAlpha Pipeline")
         try:
             from diffusers import PixArtAlphaPipeline
             if not use_8bit:
                 pipe_pixart_alpha = PixArtAlphaPipeline.from_pretrained(pixart_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha)
+                pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha, **scheduler)
                 if prefs['enable_torch_compile']:
                     installer.status(f"...Torch compiling transformer")
                     pipe_pixart_alpha.transformer = torch.compile(pipe_pixart_alpha.transformer, mode="reduce-overhead", fullgraph=True)
@@ -34701,7 +34734,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                 pipe_pixart_alpha_encoder = PixArtAlphaPipeline.from_pretrained(pixart_model, text_encoder=text_encoder, transformer=None, device_map="auto", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...loading pipeline")
                 pipe_pixart_alpha = PixArtAlphaPipeline.from_pretrained(pixart_model, text_encoder=None, torch_dtype=torch.float16).to("cuda")
-                pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha)
+                pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha, **scheduler)
             pipe_pixart_alpha.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
@@ -34712,7 +34745,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     else:
         clear_pipes('pixart_alpha')
         if prefs['scheduler_mode'] != status['loaded_scheduler']:
-            pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha)
+            pipe_pixart_alpha = pipeline_scheduler(pipe_pixart_alpha, **scheduler)
     clear_last()
     s = "" if len(pixart_alpha_prompts) == 0 else "s"
     prt(f"Generating your PixArt-α Image{s}...")
@@ -34722,6 +34755,12 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
         total_steps = pr['num_inference_steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        guidance_scale = pr['guidance_scale']
+        num_inference_steps = pr['num_inference_steps']
+        if 'LCM' in pixart_model:
+            guidance_scale = 0.
+            if num_inference_steps > 10:
+                num_inference_steps = 8
         try:
             if not use_8bit:
                 images = pipe_pixart_alpha(
@@ -34729,8 +34768,8 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                     num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
-                    num_inference_steps=pr['num_inference_steps'],
-                    guidance_scale=pr['guidance_scale'],
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
                     clean_caption=pixart_alpha_prefs['clean_caption'],
                     use_resolution_binning=pixart_alpha_prefs['resolution_binning'],
                     #mask_feature=pixart_alpha_prefs['mask_feature'],resolution_binning
@@ -34753,8 +34792,8 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                     height=pr['height'],
                     width=pr['width'],
                     num_images_per_prompt=pr['num_images'],
-                    num_inference_steps=pr['num_inference_steps'],
-                    guidance_scale=pr['guidance_scale'],
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
                     output_type="latent",
                     clean_caption=pixart_alpha_prefs['clean_caption'],
                     use_resolution_binning=pixart_alpha_prefs['resolution_binning'],
@@ -35190,7 +35229,7 @@ def run_lcm(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     cpu_offload = lcm_prefs['cpu_offload']
-    lcm_model = "SimianLuo/LCM_Dreamshaper_v7" if lcm_prefs['lcm_model'] == "LCM_Dreamshaper_v7" else "PixArt-alpha/PixArt-XL-2-512x512" if lcm_prefs['lcm_model'] == "PixArt-XL-2-512x512" else lcm_prefs['lcm_custom_model']
+    lcm_model = "SimianLuo/LCM_Dreamshaper_v7" if lcm_prefs['lcm_model'] == "LCM_Dreamshaper_v7" else "Lykon/dreamshaper-8-lcm" if lcm_prefs['lcm_model'] == "LCM_Dreamshaper_v8" else lcm_prefs['lcm_custom_model']
     if 'loaded_lcm' not in status: status['loaded_lcm'] = ""
     if 'loaded_lcm_mode' not in status: status['loaded_lcm_mode'] = ""
     if lcm_model != status['loaded_lcm']:
@@ -35234,7 +35273,7 @@ def run_lcm(page, from_list=False, with_params=False):
         autoscroll(False)
         total_steps = pr['num_inference_steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
-        generator = torch.Generator(device="cuda").manual_seed(random_seed)
+        generator = torch.Generator(device="cpu").manual_seed(random_seed)
         init_img = None
         if bool(pr['init_image']):
             fname = pr['init_image'].rpartition(slash)[2]
@@ -37793,7 +37832,7 @@ def run_style_crafter(page):
 
     clear_list()
     autoscroll(True)
-    installer = Installing("Installing Style Crafter Pipeline...")
+    installer = Installing("Installing StyleCrafter Pipeline...")
     prt(installer)
     try:
         import cv2
@@ -37801,12 +37840,13 @@ def run_style_crafter(page):
         installer.status("...installing cv2")
         run_sp("pip install opencv-contrib-python", realtime=False)
         import cv2
-        pass
-    pip_install("decord==0.6.0 einops imageio omegaconf pandas pytorch_lightning==1.9.3 PyYAML setuptools moviepy av xformers gradio timm scikit-learn open_clip_torch==2.22.0 kornia", installer=installer, upgrade=True)
+        pass #pytorch_lightning==1.9.3
+    pip_install("decord einops imageio omegaconf pandas pytorch_lightning PyYAML|yaml setuptools moviepy av xformers gradio timm scikit-learn|sklearn open_clip_torch==2.22.0|open_clip kornia", installer=installer, upgrade=True)
+    status['installed_xformers'] = True
     style_crafter_dir = os.path.join(root_dir, "StyleCrafter")
     checkpoints_dir = os.path.join(style_crafter_dir, "checkpoints")
     
-    if not os.path.exists(style_crafter_dir):
+    if not os.path.exists(style_crafter_dir) or force_updates:
         try:
             installer.status("...cloning GongyeLiu/StyleCrafter.git")
             run_sp("git clone https://github.com/GongyeLiu/StyleCrafter.git", cwd=root_dir, realtime=False)
@@ -37814,7 +37854,7 @@ def run_style_crafter(page):
             clear_last()
             alert_msg(page, f"Error Installing github.com/GongyeLiu/StyleCrafter...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    sys.path.append(0, os.path.join(style_crafter_dir, "scripts", "evaluation"))
+    sys.path.append(os.path.join(style_crafter_dir, "scripts", "evaluation"))
     try:
         installer.status("...install open_clip")
         run_sp("git lfs install", cwd=os.path.join(checkpoints_dir, "open_clip"), realtime=False)
@@ -37825,6 +37865,7 @@ def run_style_crafter(page):
         download_file("https://huggingface.co/liuhuohuo/StyleCrafter/blob/main/adapter_v1.pth", to=os.path.join(checkpoints_dir, "stylecrafter"))
         installer.status("...get temporal_v1.pth")
         download_file("https://huggingface.co/liuhuohuo/StyleCrafter/blob/main/temporal_v1.pth", to=os.path.join(checkpoints_dir, "stylecrafter"))
+        installer.status("")
     except Exception as e:
         clear_last()
         alert_msg(page, f"Error Setting up Dependancies...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -37847,6 +37888,8 @@ def run_style_crafter(page):
     make_dir(batch_output)
     output_frames_dir = os.path.join(save_dir, 'output_frames')
     make_dir(output_frames_dir)
+    data_dir = os.path.join(save_dir, 'data')
+    make_dir(data_dir)
     style_images = []
     init_images = []
     for fl in page.style_file_list.controls:
@@ -37862,7 +37905,7 @@ def run_style_crafter(page):
     #if bool(init_image):
     for init_image in style_images:
         fname = init_image.rpartition(slash)[2]
-        init_file = os.path.join(save_dir, "data", fname)
+        init_file = os.path.join(data_dir, fname)
         if init_image.startswith('http'):
             init_img = PILImage.open(requests.get(init_image, stream=True).raw)
         else:
@@ -37878,11 +37921,16 @@ def run_style_crafter(page):
     if len(init_images) == 1:
         init_images = init_images[0]
     clear_last()
-    prt(f"Generating Style Crafter on Frames with your Prompt... See console for progress.")
+    prt(f"Generating StyleCrafter on Frames with your Prompt... See console for progress.")
     fname = format_filename(style_crafter_prefs['prompt'])
+    class CustomEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, dict) and len(obj) == 1:
+                return [obj]
+            return super().default(obj)
     prompt_list = [{'prompt': style_crafter_prefs['prompt'], 'style_path': init_images}]
     with open(prompt_json, "w") as f:
-        json.dump(prompt_list, f, ensure_ascii=False, indent=4)
+        json.dump(prompt_list, f, ensure_ascii=False, indent=4, cls=CustomEncoder)
     random_seed = int(style_crafter_prefs['seed']) if int(style_crafter_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     config="configs/inference_video_320_512.yaml"
     ckpt="checkpoints/videocrafter_t2v_320_512/model.ckpt"
@@ -37892,13 +37940,13 @@ def run_style_crafter(page):
     filename="eval_prompt.json"
     res_dir="output"
     n_samples=1
-    total_steps = style_crafter_prefs['num_inference_steps']
-    cmd = f'python scripts/evaluation/style_inference.py --out_type "{"video" if style_crafter_prefs["output_video"] else "image"}" --adapter_ckpt {adapter_ckpt} --temporal_ckpt {temporal_ckpt} --seed {random_seed} --ckpt_path {ckpt} --base {config} --savedir {res_dir}'
+    total_steps = style_crafter_prefs['num_inference_steps']#{"video" if style_crafter_prefs["output_video"] else "image"}
+    mode = style_crafter_prefs["selected_mode"].split('"')[1]
+    cmd = f'python scripts/evaluation/style_inference.py --out_type "{mode}" --adapter_ckpt {adapter_ckpt} --temporal_ckpt {temporal_ckpt} --seed {random_seed} --ckpt_path {ckpt} --base {config} --savedir {res_dir}'
     cmd += f' --n_samples {n_samples} --bs {style_crafter_prefs["batch_size"]} --height {style_crafter_prefs["height"]} --width {style_crafter_prefs["width"]} --unconditional_guidance_scale 15.0 --unconditional_guidance_scale_style {style_crafter_prefs["guidance_scale"]} --ddim_steps {total_steps} --ddim_eta {style_crafter_prefs["eta"]} --prompt_dir {prompt_dir} --filename {filename}'
-    
     prt(f"Running {cmd}")
     try:
-        run_process(cmd, cwd=style_crafter_dir, page=page, realtime=True)
+        run_sp(cmd, cwd=style_crafter_dir, realtime=True)
     except Exception as e:
         clear_last(2)
         alert_msg(page, "Error running Python.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -37907,26 +37955,20 @@ def run_style_crafter(page):
     frame_files = [f for f in os.listdir(outputs_dir) if f.endswith('.png')]
     #frame_files = sorted(os.listdir(frames_dir), key=int(frame_filename[5:-4]))
     for i, frame_file in enumerate(frame_files):
-        # Use the original video frame to create Canny edge-detected image as the conditioning image for the first ControlNetModel
-        #prt(progress)
-        #autoscroll(False)
         image_path = os.path.join(outputs_dir, frame_file)
         output_path = os.path.join(batch_output, frame_file)#os.path.join(outputs_dir, f"frame{str(i).zfill(4)}.png")
         shutil.copy(image_path, output_path)
-        #w, h = image.size
-        #image.save(output_path)
-        #clear_last()
-        #autoscroll(True)
         prt(Row([Img(src=output_path, fit=ImageFit.CONTAIN, width=style_crafter_prefs["width"], height=style_crafter_prefs["height"], gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         prt(Row([Text(output_path)], alignment=MainAxisAlignment.CENTER))
-    installer = Installing(f"Saving Video File... Frames at {outputs_dir if not style_crafter_prefs['save_frames'] else batch_output}")
-    prt(installer)
-    #if style_crafter_prefs['save_frames']:
-    #    shutil.copytree(output_frames_dir, save_frames_dir, dirs_exist_ok=True)
-    video_out = available_file(batch_output, fname, 0, no_num=True, ext="mp4")
-    interpolate_video(outputs_dir, output_video=video_out, input_fps=8, output_fps=25, installer=installer)
-    clear_last
-    prt(f"Saved to {video_out}")
+    if mode == "video":
+        installer = Installing(f"Saving Video File... Frames at {outputs_dir if not style_crafter_prefs['save_frames'] else batch_output}")
+        prt(installer)
+        #if style_crafter_prefs['save_frames']:
+        #    shutil.copytree(output_frames_dir, save_frames_dir, dirs_exist_ok=True)
+        video_out = available_file(batch_output, fname, 0, no_num=True, ext="mp4")
+        interpolate_video(outputs_dir, output_video=video_out, input_fps=8, output_fps=25, installer=installer)
+        clear_last
+        prt(f"Saved to {video_out}")
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -42447,6 +42489,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("💸  Much appreciated", on_click=close_donate_dlg)], actions_alignment=MainAxisAlignment.END,
     )
+    #page.window_full_screen = True
     page.etas = []
     page.theme_mode = prefs['theme_mode'].lower()
     if prefs['theme_mode'] == 'Dark':
