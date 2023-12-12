@@ -330,6 +330,11 @@ def load_settings_file():
       'install_conceptualizer': False,
       'use_conceptualizer': False,
       'concepts_model': 'cat-toy',
+      'use_ip_adapter': False,
+      'ip_adapter_image': '',
+      'ip_adapter_model': 'SD v1.5',
+      'ip_adapter_SDXL_model': 'SDXL',
+      'ip_adapter_strength': 0.8,
       'model_ckpt': 'Stable Diffusion v1.5',
       'finetuned_model': 'Midjourney v4 style',
       'dreambooth_model': 'disco-diffusion-style',
@@ -510,6 +515,7 @@ status = {
     'loaded_controlnet_type': '',
     'loaded_SDXL': '',
     'loaded_SDXL_model': '',
+    'loaded_ip_adapter': '',
     'changed_settings': False,
     'changed_installers': False,
     'changed_parameters': False,
@@ -1011,6 +1017,12 @@ if 'prompt_style' not in prefs: prefs['prompt_style'] = "cinematic-default"
 if 'prompt_styles' not in prefs: prefs['prompt_styles'] = ["cinematic-default"]
 if 'prompt_styler' not in prefs: prefs['prompt_styler'] = ""
 if 'prompt_styler_multi' not in prefs: prefs['prompt_styler_multi'] = False
+if 'use_ip_adapter' not in prefs: prefs['use_ip_adapter'] = False
+if 'ip_adapter_image' not in prefs: prefs['ip_adapter_image'] = ""
+if 'ip_adapter_model' not in prefs: prefs['ip_adapter_model'] = "SD v1.5"
+if 'ip_adapter_SDXL_model' not in prefs: prefs['ip_adapter_SDXL_model'] = "SDXL"
+if 'ip_adapter_strength' not in prefs: prefs['ip_adapter_strength'] = 0.8
+
 if bool(prefs['init_image']):
     if not os.path.isfile(prefs['init_image']): prefs['init_image'] = ""
 if bool(prefs['mask_image']):
@@ -2338,6 +2350,25 @@ def buildParameters(page):
   LoRA_block = Container(ResponsiveRow([Column([Row([page.LoRA_model, custom_LoRA_model, add_LoRA_layer]), active_LoRA_layers], col={'md': 6}), 
                                         Column([Row([page.SDXL_LoRA_model, custom_SDXL_LoRA_model, add_SDXL_LoRA_layer]), active_SDXL_LoRA_layers], col={'md': 6})]), padding=padding.only(top=6, left=10), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   LoRA_block.height = None if prefs['use_LoRA_model'] else 0
+  def toggle_ip_adapter(e):
+      prefs['use_ip_adapter'] = e.control.value
+      ip_adapter_container.height = None if e.control.value else 0
+      ip_adapter_container.update()
+      ip_adapter_model.visible = e.control.value
+      ip_adapter_model.update()
+      ip_adapter_SDXL_model.visible = e.control.value
+      ip_adapter_SDXL_model.update()
+  use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Applies to Pipelines for SD 1.5, SDXL, Inpainting, Self-Attention Guidance, Attend & Excite, Safe and Panorama")
+  ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=prefs['ip_adapter_model'], visible=prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+  for m in ip_adapter_models:
+      ip_adapter_model.options.append(dropdown.Option(m['name']))
+  ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=prefs['ip_adapter_SDXL_model'], visible=prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+  for m in ip_adapter_SDXL_models:
+      ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+  ip_adapter_image = FileInput(label="IP-Adapter Image", pref=prefs, key='ip_adapter_image', page=page)
+  ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+  ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
   centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
   use_interpolation = Switcher(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
   interpolation_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['num_interpolation_steps'], on_change=change_interpolation_steps, expand=True)
@@ -2442,7 +2473,10 @@ def buildParameters(page):
         eta,
         width_slider, height_slider, #Divider(height=9, thickness=2),
         page.interpolation_block, page.img_block, page.use_safe, page.use_SDXL, page.SDXL_params, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
-        use_LoRA_model, LoRA_block, page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
+        use_LoRA_model, LoRA_block,
+        Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
+        ip_adapter_container,
+        page.use_imagic, page.use_depth2img, page.use_composable, page.use_upscale, page.ESRGAN_block,
         #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
         #parameters_row,
       ],
@@ -7973,6 +8007,11 @@ instruct_pix2pix_prefs = {
     'end_time': 0,
     'control_v': 'v1.1',
     'use_SDXL': False,
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_SDXL_model': 'SDXL',
+    'ip_adapter_strength': 0.8,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -8097,6 +8136,25 @@ def buildInstructPix2Pix(page):
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=instruct_pix2pix_prefs, key='max_size')
+    def toggle_ip_adapter(e):
+        instruct_pix2pix_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+        ip_adapter_SDXL_model.visible = e.control.value
+        ip_adapter_SDXL_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=instruct_pix2pix_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=instruct_pix2pix_prefs['ip_adapter_model'], visible=instruct_pix2pix_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=instruct_pix2pix_prefs['ip_adapter_SDXL_model'], visible=instruct_pix2pix_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=instruct_pix2pix_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=instruct_pix2pix_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if instruct_pix2pix_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
     batch_folder_name = TextField(label="Batch Folder Name", value=instruct_pix2pix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=instruct_pix2pix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=instruct_pix2pix_prefs, key='enlarge_scale')
@@ -8121,7 +8179,9 @@ def buildInstructPix2Pix(page):
         image_guidance,
         eta_row,
         max_row,
-        use_SDXL,
+        use_SDXL,#, ip_adapter_SDXL_model
+        Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+        ip_adapter_container,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=instruct_pix2pix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_instruct_pix2pix,
         Row([ElevatedButton(content=Text("🏖️  Run Instruct Pix2Pix", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instruct_pix2pix(page)),
@@ -9713,6 +9773,10 @@ lcm_prefs = {
     "cpu_only": False,
     "lcm_model": "LCM_Dreamshaper_v7",
     "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_strength': 0.8,
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
     "face_enhance": prefs['face_enhance'],
@@ -9766,6 +9830,20 @@ def buildLCM(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lcm_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lcm_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lcm_prefs, key='height')
+    def toggle_ip_adapter(e):
+        lcm_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=lcm_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=lcm_prefs['ip_adapter_model'], visible=lcm_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=lcm_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=lcm_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if lcm_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
     lcm_model = Dropdown(label="LCM Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("LCM_Dreamshaper_v7"), dropdown.Option("LCM_Dreamshaper_v8")], value=lcm_prefs['lcm_model'], on_change=changed_model)
     lcm_custom_model = TextField(label="Custom LCM Model (URL or Path)", value=lcm_prefs['custom_model'], expand=True, visible=lcm_prefs['lcm_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=lcm_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
@@ -9793,6 +9871,8 @@ def buildLCM(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([lcm_model, lcm_custom_model]),
+            Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
             Row([cpu_offload, cpu_only]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_lcm,
@@ -10001,6 +10081,10 @@ ldm3d_prefs = {
     "use_upscale": False,
     "ldm3d_model": "Intel/ldm3d-4c",
     "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_strength': 0.8,
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
     "face_enhance": prefs['face_enhance'],
@@ -10052,6 +10136,20 @@ def buildLDM3D(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=ldm3d_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=ldm3d_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=ldm3d_prefs, key='height')
+    def toggle_ip_adapter(e):
+        ldm3d_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=ldm3d_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=ldm3d_prefs['ip_adapter_model'], visible=ldm3d_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=ldm3d_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=ldm3d_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if ldm3d_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
     ldm3d_model = Dropdown(label="LDM3D Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("Intel/ldm3d-4c"), dropdown.Option("Intel/ldm3d-pano"), dropdown.Option("Intel/ldm3d")], value=ldm3d_prefs['ldm3d_model'], on_change=changed_model)
     ldm3d_custom_model = TextField(label="Custom LDM3D Model (URL or Path)", value=ldm3d_prefs['custom_model'], expand=True, visible=ldm3d_prefs['ldm3d_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=ldm3d_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
@@ -10078,6 +10176,8 @@ def buildLDM3D(page):
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([ldm3d_model, ldm3d_custom_model]),
+            Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
             Row([cpu_offload, use_upscale]),
             page.ESRGAN_block_ldm3d,
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -19146,12 +19246,12 @@ def get_text2image(page):
       model = get_model(prefs['model_ckpt'])
       model_url = f"https://huggingface.co/{model['path']}"
       alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace {model["name"]} Model Cards to use Checkpoint',
-                content=Column([Markdown(f'[{model_url}]({model_url})', on_tap_link=open_url), Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+                content=Column([Markdown(f'[{model_url}]({model_url})', selectable=True, on_tap_link=open_url), Text(str(e), selectable=True), Text(str(traceback.format_exc()).strip(), selectable=True)]))
     except Exception as e:
       model = get_model(prefs['model_ckpt'])
       model_url = f"https://huggingface.co/{model['path']}"
       alert_msg(page, f'ERROR Loading Pipeline with {model["name"]}',
-                content=Column([Markdown(f'[{model_url}]({model_url})', on_tap_link=open_url), Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+                content=Column([Markdown(f'[{model_url}]({model_url})', selectable=True, on_tap_link=open_url), Text(str(e), selectable=True), Text(str(traceback.format_exc()).strip(), selectable=True)]))
 
 # I thought it's what I wanted, but current implementation does same as mine but doesn't clear memory between
 def get_mega_pipe():
@@ -19274,6 +19374,7 @@ def get_SD_pipe(task="txt2img"):
       compel_proc = Compel(tokenizer=pipe.tokenizer, text_encoder=pipe.text_encoder, truncate_long_prompts=False)
   pipe.set_progress_bar_config(disable=True)
   status['loaded_task'] = task
+  status['loaded_model'] = model_path
   return pipe
 
 def get_txt2img_pipe():
@@ -21277,7 +21378,21 @@ def start_diffusion(page):
               if prefix[-1] != ' ':
                 prefix += ' '
         #lora = get_LoRA_model(prefs['LoRA_model'])
-
+    ip_adapter_arg = {}
+    if prefs['use_ip_adapter']:
+      ip_adapter_img = None
+      if prefs['ip_adapter_image'].startswith('http'):
+        i_response = requests.get(prefs['ip_adapter_image'])
+        ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+      else:
+        if os.path.isfile(prefs['ip_adapter_image']):
+          ip_adapter_img = PILImage.open(prefs['ip_adapter_image'])
+        else:
+          clear_last()
+          prt(f"ERROR: Couldn't find your ip_adapter_image {prefs['ip_adapter_image']}")
+      if bool(ip_adapter_img):
+        ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        
     for p in updated_prompts:
       pr = ""
       images = None
@@ -21818,7 +21933,7 @@ def start_diffusion(page):
                   pipe_img2img = get_img2img_pipe()
                   clear_last()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
-                if status['loaded_SDXL'] == "inpainting":
+                if status['loaded_SDXL'] == "inpainting" and get_SDXL_model(prefs['SDXL_model'])['path'] == status['loaded_SDXL_model']:
                   clear_pipes("SDXL")
                 else:
                   clear_pipes()
@@ -21831,9 +21946,13 @@ def start_diffusion(page):
                   pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
                 if prefs['SDXL_model'] == "SDXL-Turbo":
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               else:
                 clear_pipes("txt2img")
-                if pipe is None or status['loaded_task'] != "inpaint":
+                if pipe is None or status['loaded_task'] != "inpaint" or status['loaded_model'] != get_model(prefs['model_ckpt'])['path']:
                   #prt(Installing("Initializing Long Prompt Weighting Inpaint Pipeline..."))
                   prt(Installing("Initializing Stable Diffusion Inpaint Pipeline..."))
                   pipe = get_SD_pipe(task="inpaint")
@@ -21841,6 +21960,10 @@ def start_diffusion(page):
                   clear_last()
                 else:
                   pipe = get_SD_pipe(task="inpaint")
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               '''if pipe_img2img is None:
                 try:
                   pipe_img2img = get_img2img_pipe()
@@ -21904,12 +22027,12 @@ def start_diffusion(page):
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   #, target_size=(arg['width'], arg['height'])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
@@ -21932,10 +22055,10 @@ def start_diffusion(page):
                   prompt_embed = compel_proc.build_conditioning_tensor(pr)
                   negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
                   [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength=1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs).images
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength=1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs, **ip_adapter_arg).images
                   del prompt_embed, negative_embed
                 else:
-                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength=1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs).images
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", mask_image=mask_img, image=init_img, height=arg['height'], width=arg['width'], strength=1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs, **ip_adapter_arg).images
 
               clear_last()
               page.auto_scrolling(True)
@@ -21957,7 +22080,7 @@ def start_diffusion(page):
                     pipe_versatile_variation = get_versatile_variation_pipe()
                     clear_last()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
-                if status['loaded_SDXL'] == "image2image":
+                if status['loaded_SDXL'] == "image2image" and get_SDXL_model(prefs['SDXL_model'])['path'] == status['loaded_SDXL_model']:
                   clear_pipes("SDXL")
                 else:
                   clear_pipes()
@@ -21970,6 +22093,10 @@ def start_diffusion(page):
                   pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
                 if prefs['SDXL_model'] == "SDXL-Turbo":
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion_img2img")
                 if pipe_alt_diffusion_img2img is None:
@@ -21988,6 +22115,10 @@ def start_diffusion(page):
                   prt(Installing("Initializing Inpaint Pipeline..."))
                   pipe_img2img = get_img2img_pipe()
                   clear_last()
+                  if bool(ip_adapter_arg):
+                    ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                    pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                    pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_imagic'] and status['installed_imagic']:
                 clear_pipes("imagic")
                 if pipe_imagic is None:
@@ -21996,7 +22127,7 @@ def start_diffusion(page):
                   clear_last()
               else:
                 clear_pipes("txt2img")
-                if pipe is None or status['loaded_task'] != "img2img":
+                if pipe is None or status['loaded_task'] != "img2img" or status['loaded_model'] != get_model(prefs['model_ckpt'])['path']:
                   #prt(Installing("Initializing Long Prompt Weighting Image2Image Pipeline..."))
                   prt(Installing("Initializing Stable Diffusion Image2Image Pipeline..."))
                   pipe = get_SD_pipe(task="img2img")
@@ -22006,6 +22137,10 @@ def start_diffusion(page):
                   pipe = get_SD_pipe(task="img2img")
                 if prefs['model_ckpt'] == "SD-Turbo":
                   pipe = pipeline_scheduler(pipe_SDXL, trailing=True)
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               '''if pipe_img2img is None:
                 try:
                   pipe_img2img = get_img2img_pipe()
@@ -22047,12 +22182,12 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                   #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
@@ -22076,7 +22211,7 @@ def start_diffusion(page):
               elif prefs['use_inpaint_model'] and status['installed_img2img']:
                 pipe_used = "Diffusers Inpaint Image-to-Image"
                 white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
-                images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **ip_adapter_arg).images
               elif prefs['use_imagic'] and status['installed_imagic']:
                 pipe_used = "iMagic Image-to-Image"
                 #only one element tensors can be converted to Python scalars
@@ -22101,10 +22236,10 @@ def start_diffusion(page):
                   prompt_embed = compel_proc.build_conditioning_tensor(pr)
                   negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
                   [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=init_img, target_size=(arg['height'], arg['width']), strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs).images
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, image=init_img, target_size=(arg['height'], arg['width']), strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs, **ip_adapter_arg).images
                   del prompt_embed, negative_embed
                 else:
-                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", image=init_img, target_size=(arg['height'], arg['width']), strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs).images
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", image=init_img, target_size=(arg['height'], arg['width']), strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs, **ip_adapter_arg).images
 
               clear_last()
               page.auto_scrolling(True)
@@ -22126,7 +22261,7 @@ def start_diffusion(page):
                   pipe_composable = get_composable_pipe()
                   clear_last()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
-                if status['loaded_SDXL'] == "text2image":
+                if status['loaded_SDXL'] == "text2image" and get_SDXL_model(prefs['SDXL_model'])['path'] == status['loaded_SDXL_model']:
                   clear_pipes("SDXL")
                 else:
                   clear_pipes()
@@ -22139,6 +22274,10 @@ def start_diffusion(page):
                   pipe_SDXL_refiner = pipeline_scheduler(pipe_SDXL_refiner)
                 if prefs['SDXL_model'] == "SDXL-Turbo":
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion")
                 if pipe_alt_diffusion is None:
@@ -22151,12 +22290,20 @@ def start_diffusion(page):
                   prt(Installing("Initializing Self-Attention Guidance Text2Image Pipeline..."))
                   pipe_SAG = get_SAG_pipe()
                   clear_last()
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                  pipe_SAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_SAG.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
                 clear_pipes("attend_and_excite")
                 if pipe_attend_and_excite is None:
                   prt(Installing("Initializing Attend and Excite Text2Image Pipeline..."))
                   pipe_attend_and_excite = get_attend_and_excite_pipe()
                   clear_last()
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                  pipe_attend_and_excite.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_attend_and_excite.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_versatile'] and status['installed_versatile']:
                 clear_pipes("versatile_text2img")
                 if pipe_versatile_text2img is None:
@@ -22169,15 +22316,23 @@ def start_diffusion(page):
                   prt(Installing("Initializing Safe Stable Diffusion Pipeline..."))
                   pipe_safe = get_safe_pipe()
                   clear_last()
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                  pipe_safe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_safe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_panorama'] and status['installed_panorama']:
                 clear_pipes("panorama")
                 if pipe_panorama is None:
                   prt(Installing("Initializing Panorama MultiDiffusion Pipeline..."))
                   pipe_panorama = get_panorama_pipe()
                   clear_last()
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                  pipe_panorama.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_panorama.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               else:
                 clear_pipes("txt2img")
-                if pipe is None or status['loaded_task'] != "txt2img":
+                if pipe is None or status['loaded_task'] != "txt2img" or status['loaded_model'] != get_model(prefs['model_ckpt'])['path']:
                   #prt(Installing("Initializing Long Prompt Weighting Text2Image Pipeline..."))
                   prt(Installing("Initializing Stable Diffusion Text2Image Pipeline..."))
                   pipe = get_SD_pipe(task="txt2img")
@@ -22188,6 +22343,10 @@ def start_diffusion(page):
                 #print(pipe)
                 if prefs['model_ckpt'] == "SD-Turbo":
                   pipe = pipeline_scheduler(pipe_SDXL, trailing=True)
+                if bool(ip_adapter_arg):
+                  ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               '''with io.StringIO() as buf, redirect_stdout(buf):
                 get_text2image(page)
                 output = buf.getvalue()
@@ -22219,10 +22378,10 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                   del pooled, negative_pooled
                 else:
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
@@ -22245,7 +22404,7 @@ def start_diffusion(page):
                 #arg['width'] = size
                 #arg['height'] = size
                 with torch.autocast("cuda"): #, height=arg['height'], width=arg['width']
-                  images = pipe_SAG(prompt=pr, negative_prompt=arg['negative_prompt'], sag_scale=prefs['sag_scale'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                  images = pipe_SAG(prompt=pr, negative_prompt=arg['negative_prompt'], sag_scale=prefs['sag_scale'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **ip_adapter_arg).images
               elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
                 pipe_used = "Attend and Excite Text-to-Image"
                 size = pipe_attend_and_excite.unet.config.sample_size * pipe_attend_and_excite.vae_scale_factor
@@ -22270,7 +22429,7 @@ def start_diffusion(page):
                 print(f"indices: {token_indices}")
                 #, negative_prompt=arg['negative_prompt'], num_images_per_prompt=int(arg['batch_size'])
                 #images = pipe_attend_and_excite(prompt=ptext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                images = pipe_attend_and_excite(prompt=ptext, negative_prompt=ntext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), height=arg['height'], width=arg['width'], num_images_per_prompt=int(arg['batch_size']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+                images = pipe_attend_and_excite(prompt=ptext, negative_prompt=ntext, token_indices=token_indices, max_iter_to_alter=int(prefs['max_iter_to_alter']), height=arg['height'], width=arg['width'], num_images_per_prompt=int(arg['batch_size']), num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **ip_adapter_arg).images
               elif prefs['use_versatile'] and status['installed_versatile']:
                 pipe_used = "Versatile Text-to-Image"
                 images = pipe_versatile_text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -22278,13 +22437,13 @@ def start_diffusion(page):
                 pipe_used = "MultiDiffusion Panorama Text-to-Image"
                 arg['width'] = prefs['panorama_width']
                 arg['height'] = 512
-                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, circular_padding=prefs['panorama_circular_padding']).images
+                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, circular_padding=prefs['panorama_circular_padding'], **ip_adapter_arg).images
               elif prefs['use_safe'] and status['installed_safe']:
                 from diffusers.pipelines.stable_diffusion_safe import SafetyConfig
                 s = prefs['safety_config']
                 safety = SafetyConfig.WEAK if s == 'Weak' else SafetyConfig.MEDIUM if s == 'Medium' else SafetyConfig.STRONG if s == 'Strong' else SafetyConfig.MAX if s == 'Max' else SafetyConfig.STRONG
                 pipe_used = f"Safe Diffusion {safety}"
-                images = pipe_safe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **safety).images
+                images = pipe_safe(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, **safety, **ip_adapter_arg).images
               else:
                 pipe_used = "Stable Diffusion Text-to-Image"
                 if pipe is None:
@@ -22295,10 +22454,10 @@ def start_diffusion(page):
                   prompt_embed = compel_proc.build_conditioning_tensor(pr)
                   negative_embed = compel_proc.build_conditioning_tensor(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
                   [prompt_embed, negative_embed] = compel_proc.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs).images
+                  images = pipe(prompt_embeds=prompt_embed, negative_prompt_embeds=negative_embed, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs, **ip_adapter_arg).images
                   del prompt_embed, negative_embed
                 else:
-                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs).images
+                  images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs, **ip_adapter_arg).images
                 #pipe_used = "Long Prompt Weight Text-to-Image"
                 #images = pipe.text2img(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
               '''if prefs['precision'] == "autocast":
@@ -24948,7 +25107,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                 status['loaded_ip_adapter_mode'] = "txt2img"
             #pipe_ip_adapter = pipeline_scheduler(pipe_ip_adapter)
             if use_SDXL:
-                pipe_ip_adapter = optimize_SDXL_pipe(pipe_ip_adapter)
+                pipe_ip_adapter = optimize_SDXL(pipe_ip_adapter)
             else:
                 pipe_ip_adapter = optimize_pipe(pipe_ip_adapter)
             pipe_ip_adapter.set_progress_bar_config(disable=True)
@@ -31680,7 +31839,8 @@ def run_instruct_pix2pix(page, from_list=False):
     autoscroll(True)
     clear_list()
     prt(Divider(thickness=2, height=4))
-    prt(Installing(f"Installing Instruct-Pix2Pix{' SDXL' if instruct_pix2pix_prefs['use_SDXL'] else ''} Pipeline..."))
+    installer = Installing(f"Installing Instruct-Pix2Pix{' SDXL' if instruct_pix2pix_prefs['use_SDXL'] else ''} Pipeline...")
+    prt(installer)
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
@@ -31709,6 +31869,26 @@ def run_instruct_pix2pix(page, from_list=False):
         #pipe_instruct_pix2pix = pipe_instruct_pix2pix.to(torch_device)
         status['loaded_instructpix2pix'] = model_id
     pipeline_scheduler(pipe_instruct_pix2pix)
+    ip_adapter_arg = {}
+    if not instruct_pix2pix_prefs['use_SDXL']:
+      if instruct_pix2pix_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if instruct_pix2pix_prefs['ip_adapter_image'].startswith('http'):
+          i_response = requests.get(instruct_pix2pix_prefs['ip_adapter_image'])
+          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+          if os.path.isfile(instruct_pix2pix_prefs['ip_adapter_image']):
+            ip_adapter_img = PILImage.open(instruct_pix2pix_prefs['ip_adapter_image'])
+          else:
+            clear_last()
+            prt(f"ERROR: Couldn't find your ip_adapter_image {instruct_pix2pix_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == instruct_pix2pix_prefs['ip_adapter_model'])
+            pipe_instruct_pix2pix.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_instruct_pix2pix.set_ip_adapter_scale(instruct_pix2pix_prefs['ip_adapter_strength'])
     clear_last()
     prt("Generating Instruct-Pix2Pix of your Image...")
     prt(progress)
@@ -31802,9 +31982,9 @@ def run_instruct_pix2pix(page, from_list=False):
           if instruct_pix2pix_prefs['use_init_video']:
             from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
             pipe_instruct_pix2pix.unet.set_attn_processor(CrossFrameAttnProcessor(batch_size=3))
-            images = pipe_instruct_pix2pix([pr['prompt']] * len(video), image=video, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback_on_step_end=callback_fnc).images
+            images = pipe_instruct_pix2pix([pr['prompt']] * len(video), image=video, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_arg).images
           else:
-            images = pipe_instruct_pix2pix(pr['prompt'], image=original_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback_on_step_end=callback_fnc).images
+            images = pipe_instruct_pix2pix(pr['prompt'], image=original_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=instruct_pix2pix_prefs['num_inference_steps'], eta=instruct_pix2pix_prefs['eta'], image_guidance_scale=instruct_pix2pix_prefs['guidance_scale'], num_images_per_prompt=instruct_pix2pix_prefs['num_images'], generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_arg).images
         except Exception as e:
           clear_last()
           alert_msg(page, f"ERROR: Couldn't run Instruct-Pix2Pix on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
@@ -32310,7 +32490,7 @@ def run_controlnet(page, from_list=False):
             pipe_controlnet = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         elif controlnet_type == "inpaint":
             from diffusers import StableDiffusionControlNetInpaintPipeline
-            pipe_controlnet = StableDiffusionControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_controlnet = StableDiffusionControlNetInpaintPipeline.from_pretrained(model_path, controlnet=controlnet, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_controlnet.enable_model_cpu_offload()
         pipe_controlnet = optimize_pipe(pipe_controlnet, vae_slicing=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_prefs["control_task"]
@@ -32378,11 +32558,9 @@ def run_controlnet(page, from_list=False):
     clear_last()
     prt(f"Generating ControlNet {controlnet_prefs['control_task']} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    make_dir(batch_output)
     batch_output = os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    make_dir(batch_output)
     for pr in controlnet_prompts:
         prt(progress)
         autoscroll(False)
@@ -35265,6 +35443,26 @@ def run_lcm(page, from_list=False, with_params=False):
         status['loaded_lcm'] = lcm_model
     else:
         clear_pipes('lcm')
+    ip_adapter_arg = {}
+    if lcm_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if lcm_prefs['ip_adapter_image'].startswith('http'):
+          i_response = requests.get(lcm_prefs['ip_adapter_image'])
+          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+          if os.path.isfile(lcm_prefs['ip_adapter_image']):
+            ip_adapter_img = PILImage.open(lcm_prefs['ip_adapter_image'])
+          else:
+            clear_last()
+            prt(f"ERROR: Couldn't find your ip_adapter_image {lcm_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == lcm_prefs['ip_adapter_model'])
+            pipe_lcm.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_lcm.set_ip_adapter_scale(lcm_prefs['ip_adapter_strength'])
+
     clear_last()
     s = "" if len(lcm_prompts) == 0 else "s"
     prt(f"Generating your LCM Image{s}...")
@@ -35303,6 +35501,7 @@ def run_lcm(page, from_list=False, with_params=False):
                     init_image_strength=pr['init_image_strength'],
                     generator=generator,
                     #callback_on_step_end=callback_fnc,
+                    **ip_adapter_arg,
                 ).images
             else:
                 if status['loaded_lcm_mode'] != "Text2Image":
@@ -35317,6 +35516,7 @@ def run_lcm(page, from_list=False, with_params=False):
                     guidance_scale=pr['guidance_scale'],
                     generator=generator,
                     #callback_on_step_end=callback_fnc,
+                    **ip_adapter_arg,
                 ).images
         except Exception as e:
             clear_last()
@@ -35659,6 +35859,26 @@ def run_ldm3d(page, from_list=False, with_params=False):
         clear_pipes('ldm3d')
         if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_ldm3d = pipeline_scheduler(pipe_ldm3d)
+    ip_adapter_arg = {}
+    if ldm3d_prefs['use_ip_adapter']:
+      installer.status(f"...initialize IP-Adapter")
+      ip_adapter_img = None
+      if ldm3d_prefs['ip_adapter_image'].startswith('http'):
+        i_response = requests.get(ldm3d_prefs['ip_adapter_image'])
+        ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+      else:
+        if os.path.isfile(ldm3d_prefs['ip_adapter_image']):
+          ip_adapter_img = PILImage.open(ldm3d_prefs['ip_adapter_image'])
+        else:
+          clear_last()
+          prt(f"ERROR: Couldn't find your ip_adapter_image {ldm3d_prefs['ip_adapter_image']}")
+      if bool(ip_adapter_img):
+        ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+      if bool(ip_adapter_arg):
+          ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == ldm3d_prefs['ip_adapter_model'])
+          pipe_ldm3d.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+          pipe_ldm3d.set_ip_adapter_scale(ldm3d_prefs['ip_adapter_strength'])
+
     clear_last()
     s = "" if len(ldm3d_prompts) == 0 else "s"
     prt(f"Generating your LDM3D Image{s}...")
@@ -35678,6 +35898,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
                 guidance_scale=pr['guidance_scale'],
                 generator=generator,
                 callback=callback_fnc,
+                **ip_adapter_arg,
             ).images
             if ldm3d_prefs['use_upscale']:
                 target_width=pr['width'] * 2
@@ -42889,10 +43110,7 @@ class SliderRow(UserControl):
             #e.control.update()
             #e.page.update()
         self.slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-        if newest_flet:
-            self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), round=self.round, label="{value}" + self.suffix, value=float(self.pref[self.key]), tooltip=self.tooltip, expand=True, on_change=change_slider)
-        else:
-            self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), label="{value}" + self.suffix, value=float(self.pref[self.key]), tooltip=self.tooltip, expand=True, on_change=change_slider)
+        self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), round=self.round, label="{value}" + self.suffix, value=float(self.pref[self.key]), tooltip=self.tooltip, expand=True, on_change=change_slider)
         self.slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
         slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
         
@@ -43742,7 +43960,4 @@ def show_port(adr, height=500):
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
-  if newest_flet:
-    ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=os.path.abspath(root_dir), upload_dir=os.path.abspath(root_dir), use_color_emoji=True)
-  else:
-    ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir)
+  ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=os.path.abspath(root_dir), upload_dir=os.path.abspath(root_dir), use_color_emoji=True)
