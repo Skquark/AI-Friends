@@ -546,6 +546,16 @@ if not os.path.exists(sdd_utils_py) or force_updates:
 import sdd_utils
 from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS
 
+try:
+    from panzoom import PanZoom
+except ModuleNotFoundError:
+    panzoom_control = os.path.join(dist_dir, "flet_panzoom_control")
+    if not os.path.isdir(panzoom_control):
+        run_sp("git clone https://github.com/Petrox/flet_panzoom_control.git", cwd=dist_dir, realtime=False)
+    sys.path.append(panzoom_control)
+    from panzoom import PanZoom
+    pass
+
 def save_settings_file(page, change_icon=True):
   if change_icon:
     page.app_icon_save()
@@ -12305,6 +12315,7 @@ animate_diff_prefs = {
     'overlap': 12,
     'stride': 4,
     'context': 16,
+    'context_schedule': "Uniform",
     'clip_skip': 1,
     'save_frames': True,
     'save_gif': True,
@@ -12876,6 +12887,7 @@ def buildAnimateDiff(page):
     upscale_strength = SliderRow(label="Upscale Strength", min=0, max=1, divisions=10, round=1, expand=True, pref=animate_diff_prefs, key='upscale_strength', col={'md': 6}, tooltip="")
     upscale_guidance_scale = SliderRow(label="Upscale Guidance", min=0, max=20, divisions=40, round=1, pref=animate_diff_prefs, col={'md': 6}, key='upscale_guidance_scale')
     upscale_slider = SliderRow(label="Upscale Amount", min=1, max=4, divisions=12, round=2, suffix="x", pref=animate_diff_prefs, col={'md': 6}, key='upscale_amount')
+    context_schedule = Dropdown(label="Context Schedule", width=136, options=[dropdown.Option(t) for t in ['Uniform', 'Shuffle', "Composite"]], value=animate_diff_prefs['context_schedule'], on_change=lambda e:changed(e,'context_schedule'))
     
     batch_folder_name = TextField(label="Batch Folder Name (required)", value=animate_diff_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     num_videos = NumberPicker(label="Number of Videos: ", min=1, max=8, value=animate_diff_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
@@ -12924,14 +12936,14 @@ def buildAnimateDiff(page):
         Row([use_img2img, img2img_strength]),
         img2img_container,
         ref_image,
-        Row([upscale_tile, upscale_ip2p, upscale_lineart_anime]),
+        Row([upscale_tile, upscale_ip2p, upscale_lineart_anime, apply_lcm_lora]),
         ResponsiveRow([upscale_steps, upscale_guidance_scale]),
         ResponsiveRow([upscale_strength, upscale_slider]),
         #Row([Text("Enable Motion Module LoRAs:"), motion_loras_strength]),
         #ResponsiveRow([Container(Text("Motion Module LoRAs:"), col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}), motion_loras_checkboxes]),
         motion_loras_checkboxes,
         motion_loras_strength,
-        Row([motion_module, scheduler, batch_folder_name, apply_lcm_lora]),
+        Row([motion_module, scheduler, context_schedule, batch_folder_name]),
         Row([is_loop, save_frames, save_gif, save_video, is_simple_composite]),
         page.ESRGAN_block_animate_diff,
         #Row([jump_length, jump_n_sample, seed]),
@@ -21202,6 +21214,22 @@ def available_folder(folder, name, idx):
       idx += 1
     else: available = True
   return os.path.join(folder, f'{name}-{idx}')
+
+def filepath_to_url(path):
+    windows_path_pattern = re.compile(r"(.)\:\/")
+    linux_path_pattern = re.compile(r"^\/")
+    path = path.replace('\\', '/')
+    is_windows_path = windows_path_pattern.match(path)
+    is_linux_path = linux_path_pattern.match(path)
+    if is_windows_path:
+        drive_letter = windows_path_pattern.match(path).group(1)
+        path = re.sub(windows_path_pattern, f"file:///{drive_letter}:/", path)
+    elif is_linux_path:
+        path = re.sub(linux_path_pattern, "file:///", path)
+    else:
+        path = f"file:///{path}"
+    path = path.replace(" ", "%20")
+    return path
 
 #import asyncio
 #async
@@ -38663,6 +38691,7 @@ def run_animate_diff(page):
         'compile': prefs['enable_torch_compile'],
         'seed': seeds,
         'scheduler': animate_diff_prefs['scheduler'],
+        'context_schedule': animate_diff_prefs['context_schedule'].lower(),
         'steps': int(animate_diff_prefs['steps']),
         'guidance_scale': float(animate_diff_prefs['guidance_scale']),
         'clip_skip': int(animate_diff_prefs['clip_skip']),
@@ -40729,7 +40758,6 @@ def run_luma_vid_to_3d(page):
     if not bool(prefs["luma_api_key"]):
         alert_msg(page, f"ERROR: You must provide your own LumaLabs.ai API Key to use...")
         return
-    file_name = format_filename(file_name)
     installer = Installing("Installing Luma Video-to-3D API Client...")
     clear_list()
     prt(installer)
@@ -40745,6 +40773,7 @@ def run_luma_vid_to_3d(page):
             alert_msg(page, f"ERROR: Couldn't find your init_video {video_path}")
             return
     title = luma_vid_to_3d_prefs["title"]
+    file_name = format_filename(title)
     camera_type = CameraType.EQUIRECTANGULAR if luma_vid_to_3d_prefs["camera_type"] == "Equirectangular 360" else CameraType.FISHEYE if luma_vid_to_3d_prefs["camera_type"] == "Fisheye Lens" else CameraType.NORMAL
     batch_output = os.path.join(prefs['image_output'], luma_vid_to_3d_prefs['batch_folder_name'])
     make_dir(batch_output)
@@ -40759,30 +40788,35 @@ def run_luma_vid_to_3d(page):
         clear_last()
         alert_msg(page, f"ERROR: Problem Authenticating API Client...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         return
-    
     slug = luma_client.submit(video_path, title, cam_model=camera_type)
     pb.status(f"...submitted with slug: {slug}")
     while True:
         status_info = luma_client.status(slug)
-        pb.status(f"...status: {status_info.status}")
-        if status_info.status == "COMPLETE":
+        capture_status = str(status_info.status)
+        if '.' in capture_status:
+            capture_status = capture_status.rpartition('.')[2]
+        pb.status(f"...status: {capture_status}")
+        if str(capture_status) == "COMPLETE":
             break
         time.sleep(5)
     pb.status(f"...getting {slug}")
-    captures = luma_client.get(title=title)
+    captures = luma_client.get(title)
     clear_last()
     autoscroll(True)
     for capture_info in captures:
         for artifact in capture_info.latest_run.artifacts:
             artifact_type = artifact["type"]
             artifact_url = artifact["url"]
-            ext = artifact_url.rpartition('.')[2]
-            filename = available_file(batch_output, slug, ext=ext, no_num=True)
-            #filename = os.path.join(batch_output, f"{slug}.{ext}")
-            with open(filename, "wb") as f:
-                content = luma_client.get_artifact(slug, artifact_url) 
-                f.write(content)
-            prt(Markdown(f"Saved {artifact_type} [{filename}]({filename})", selectable=True, on_tap_link=lambda e: e.page.launch_url(e.data)))
+            fname = artifact_url.rpartition('/')[2]
+            ext = fname.rpartition('.')[2]
+            fname = fname.rpartition('.')[0]
+            filename = available_file(batch_output, fname, ext=ext, no_num=True)
+            fname = os.path.basename(filename).rpartition('.')[0]
+            #print(f"type: {artifact_type} url:{artifact_url}")
+            filename = download_file(artifact_url, batch_output, fname, ext=ext)
+            #if ext == "jpg":
+            f = filepath_to_url(filename)
+            prt(Markdown(f"Saved {artifact_type} [{fname}]({f})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -42879,7 +42913,7 @@ class FileInput(UserControl):
         self.textfield.update()
 
 class ImageButton(UserControl):
-    def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, src_base64=None, fit=ImageFit.SCALE_DOWN, show_subtitle=False, page=None):
+    def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, src_base64=None, fit=ImageFit.SCALE_DOWN, show_subtitle=False, zoom=False, page=None):
         super().__init__()
         self.src = src
         self.src_base64 = src_base64
@@ -42891,6 +42925,7 @@ class ImageButton(UserControl):
         self.data = data or src
         self.fit = fit
         self.show_subtitle = show_subtitle
+        self.zoom = zoom
         self.page = page
         self.build()
     def build(self):
@@ -42952,13 +42987,17 @@ class ImageButton(UserControl):
               self.image = Img(src_base64=self.src_base64, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
             else:
               self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
+        if self.zoom:
+            self.image = PanZoom(self.image, self.width, self.height,
+                      width=self.width,
+                      height=self.height)#, on_click=lambda e: print(f'CLICK {e.local_x} {e.local_y}'))
         self.column = Column([Row([PopupMenuButton(
             items = [
                 PopupMenuItem(text="View Image", icon=icons.FULLSCREEN, on_click=image_details),
                 PopupMenuItem(text="Copy Path", icon=icons.CONTENT_PASTE, on_click=copy_path),
                 PopupMenuItem(text="Download Locally" if is_Colab else "Save As", icon=icons.DOWNLOAD, on_click=download_image),
                 PopupMenuItem(text="Delete Image", icon=icons.DELETE, on_click=delete_image),
-            ], tooltip="👁️", expand=True,
+            ], expand=True, tooltip="👁️",
             content=Row([self.image], expand=True),
             #content=Row([Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START),
             data=self.src if self.data==None else self.data, width=self.width, height=self.height)],
@@ -42971,7 +43010,7 @@ class ImageButton(UserControl):
 
 
 class NumberPicker(UserControl):
-    def __init__(self, label="", value=1, min=0, max=20, step=1, height=50, tooltip=None, on_change=None):
+    def __init__(self, label="", value=1, min=0, max=20, step=1, height=45, tooltip=None, on_change=None):
         super().__init__()
         self.value = value
         self.min = min
@@ -43014,7 +43053,7 @@ class NumberPicker(UserControl):
               e.control = self
               if self.on_change is not None:
                 self.on_change(e)
-        self.txt_number = TextField(value=str(self.value), text_align=TextAlign.CENTER, width=55, height=self.height, content_padding=padding.only(top=4), keyboard_type=KeyboardType.NUMBER, on_change=changed)
+        self.txt_number = TextField(value=str(self.value), text_align=TextAlign.CENTER, width=55, height=self.height, content_padding=padding.only(top=0), keyboard_type=KeyboardType.NUMBER, on_change=changed)
         label_text = Text(self.label) if not self.tooltip else Tooltip(message=self.tooltip, content=Text(self.label))
         return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
