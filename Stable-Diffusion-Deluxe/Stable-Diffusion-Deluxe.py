@@ -18550,12 +18550,15 @@ def get_diffusers(page):
         if version.parse(torch.__version__) < version.parse("2.0.0"):
             torch_installed = False
     if not torch_installed:
+        import importlib
         page.console_msg("Upgrading Torch 2.1.0 Packages...")
         run_process("pip uninstall --yes torch torchaudio torchvision torchtext torchdata", page=page)
         if is_Colab:
             run_process("pip install torch torchaudio torchvision torchtext torchdata", page=page)
         else: #TODO: Check OS and run platform specific
             run_process("pip install torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu118", page=page)
+        import torch
+        importlib.reload(torch)
     if prefs['enable_xformers']:#prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
         try:
             import xformers
@@ -18608,13 +18611,17 @@ def get_diffusers(page):
         import transformers
         #print(f"transformers=={transformers.__version__}")
         if version.parse(transformers.__version__) == version.parse("4.21.3"): #Workaround because CLIP-Interrogator required other version
-          page.status("...uninstalling transformers")
-          run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
-          run_process("pip uninstall -y clip-interrogator", realtime=False)
+            page.status("...uninstalling transformers")
+            run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
+            run_process("pip uninstall -y clip-interrogator", realtime=False)
+            run_process("pip uninstall -y transformers", realtime=False)
+        elif version.parse(transformers.__version__).base_version < version.parse("4.37.0").base_version:
+          import importlib
+          page.status(f"...uninstalling transformers {transformers.__version__}")
           run_process("pip uninstall -y transformers", realtime=False)
-          #run_process("pip uninstall -q transformers==4.21.3", page=page, realtime=False)
-        #if transformers.__version__ == "4.23.1": # Kandinsky conflict
-        #  run_process("pip uninstall -y transformers", realtime=False)
+          page.status("...installing transformers")
+          run_process("pip install --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
+          importlib.reload(transformers)
     except ModuleNotFoundError:
         pass
     try:
@@ -27082,6 +27089,8 @@ def run_image2text(page):
         run_process("pip install ftfy regex tqdm timm fairscale requests", realtime=False)
         #run_sp("pip install --upgrade transformers==4.21.2", realtime=False)
         run_process("pip install -q transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
+        import importlib
+        importlib.reload(transformers)
         run_process("pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip", realtime=False)
         run_process("pip install -e git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
         run_process("pip clone https://github.com/pharmapsychotic/clip-interrogator.git", realtime=False)
@@ -42957,7 +42966,10 @@ class ImageButton(UserControl):
             self.page.update()
         def image_details(e):
           #TODO: Get size & meta
-            alert_msg(self.page, "Image Details", content=Column([Text(self.subtitle or self.data, selectable=True), Img(src=self.data, gapless_playback=True)], horizontal_alignment=CrossAxisAlignment.CENTER), sound=False)
+            img = Img(src=self.data, gapless_playback=True)
+            #if self.zoom:
+            #img = PanZoom(img, self.width, self.height, width=self.width, height=self.height)
+            alert_msg(self.page, "Image Details", content=Column([Text(self.subtitle or self.data, selectable=True), img], horizontal_alignment=CrossAxisAlignment.CENTER), sound=False)
         def delete_image(e):
             #self.image = Container(content=None)
             if os.path.exists(self.src):
