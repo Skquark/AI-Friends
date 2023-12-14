@@ -864,27 +864,27 @@ prompt_styles = [
     },
     {
         "name": "MK Coloring Book",
-        "prompt": "centered black and white high contrast line drawing, coloring book style, {prompt}. monochrome, blank white background",
+        "prompt": "Centered black and white high contrast line drawing, coloring book style, {prompt}. monochrome, blank white background",
         "negative_prompt": "greyscale, gradients, shadows,shadow, colored, Red, Blue, Yellow, Green, Orange, Purple, Pink, Brown, Gray, Beige, Turquoise, Lavender, Cyan, Magenta, Olive, Indigo, black background"
     },
     {
         "name": "MK Singer Sargent",
-        "prompt": "Oil painting by John Singer Sargent {prompt}. Elegant, refined, masterful technique,realistic portrayal, subtle play of light, captivating expression, rich details, harmonious colors, skillful composition, brush strokes, chiaroscuro.",
+        "prompt": "Oil painting by John Singer Sargent, {prompt}. Elegant, refined, masterful technique,realistic portrayal, subtle play of light, captivating expression, rich details, harmonious colors, skillful composition, brush strokes, chiaroscuro.",
         "negative_prompt": "realistic, photorealistic, abstract, overly stylized, excessive contrasts, distorted, bright colors,disorder."
     },
     {
         "name": "MK Pollock",
-        "prompt": "Oil painting by Jackson Pollock {prompt}. Abstract expressionism, drip painting, chaotic composition, energetic, spontaneous, unconventional technique, dynamic, bold, distinctive, vibrant, intense, expressive, energetic, layered, non-representational, gestural.",
+        "prompt": "Oil painting by Jackson Pollock, {prompt}. Abstract expressionism, drip painting, chaotic composition, energetic, spontaneous, unconventional technique, dynamic, bold, distinctive, vibrant, intense, expressive, energetic, layered, non-representational, gestural.",
         "negative_prompt": "(realistic)1.5, (photorealistic)1.5, representational, calm, ordered composition, precise lines, detailed forms, subdued colors, quiet, static, traditional, figurative."
     },
     {
         "name": "MK Basquiat",
-        "prompt": "Artwork by Jean-Michel Basquiat {prompt}. Neo-expressionism, street art influence, graffiti-inspired, raw, energetic, bold colors, dynamic composition, chaotic, layered, textural, expressive, spontaneous, distinctive, symbolic,energetic brushstrokes.",
+        "prompt": "Artwork by Jean-Michel Basquiat, {prompt}. Neo-expressionism, street art influence, graffiti-inspired, raw, energetic, bold colors, dynamic composition, chaotic, layered, textural, expressive, spontaneous, distinctive, symbolic,energetic brushstrokes.",
         "negative_prompt": "(realistic)1.5, (photorealistic)1.5, calm, precise lines, conventional composition, subdued"    
 	},
 	{
        "name": "MK Andy Warhol",
-       "prompt": "Artwork in the style of Andy Warhol {prompt}. Pop art, vibrant colors, bold compositions, repetition of iconic imagery, celebrity culture, commercial aesthetics, mass production influence, stylized simplicity, cultural commentary, graphical elements, distinctive portraits.",
+       "prompt": "Artwork in the style of Andy Warhol, {prompt}. Pop art, vibrant colors, bold compositions, repetition of iconic imagery, celebrity culture, commercial aesthetics, mass production influence, stylized simplicity, cultural commentary, graphical elements, distinctive portraits.",
        "negative_prompt": "subdued colors, realistic, lack of repetition, minimalistic."
     },
     {
@@ -1034,12 +1034,12 @@ prompt_styles = [
     },
     {
         "name": "MK vintage-airline-poster",
-        "prompt": "vintage airline poster {prompt}. classic aviation fonts, pastel colors, elegant aircraft illustrations, scenic destinations, distressed textures, retro travel allure",
+        "prompt": "Vintage airline poster {prompt}. classic aviation fonts, pastel colors, elegant aircraft illustrations, scenic destinations, distressed textures, retro travel allure",
         "negative_prompt": "modern fonts, bold colors, hyper-realistic, sleek design"
     },
     {
         "name": "MK vintage-travel-poster",
-        "prompt": "vintage travel poster {prompt}. retro fonts, muted colors, scenic illustrations, iconic landmarks, distressed textures, nostalgic vibes",
+        "prompt": "Vintage travel poster {prompt}. retro fonts, muted colors, scenic illustrations, iconic landmarks, distressed textures, nostalgic vibes",
         "negative_prompt": "modern fonts, vibrant colors, hyper-realistic, sleek design"
     },
     {
@@ -1099,7 +1099,7 @@ prompt_styles = [
     },
     {
         "name": "MK pictorialism",
-        "prompt": "Pictorialism illustration{prompt}. soft focus, atmospheric effects, artistic interpretation, tonality, muted colors, evocative storytelling",
+        "prompt": "Pictorialism illustration {prompt}. soft focus, atmospheric effects, artistic interpretation, tonality, muted colors, evocative storytelling",
         "negative_prompt": "sharp focus, high contrast, realistic depiction, vivid colors"
     },
     {
@@ -1129,12 +1129,12 @@ prompt_styles = [
     },
     {
         "name": "MK ron-english-style",
-        "prompt": "Painting by Ron English {prompt}. pop-surrealism, cultural subversion, iconic mash-ups, vibrant and bold colors, satirical commentary",
+        "prompt": "Painting by Ron English, {prompt}. pop-surrealism, cultural subversion, iconic mash-ups, vibrant and bold colors, satirical commentary",
         "negative_prompt": "traditional, monochromatic"
     },
     {
         "name": "MK shepard-fairey-style",
-        "prompt": "Painting by Shepard Fairey {prompt}. street art, political activism, iconic stencils, bold typography, high contrast, red, black, and white color palette",
+        "prompt": "Painting by Shepard Fairey, {prompt}. street art, political activism, iconic stencils, bold typography, high contrast, red, black, and white color palette",
         "negative_prompt": "traditional, muted colors"
     }
 ]

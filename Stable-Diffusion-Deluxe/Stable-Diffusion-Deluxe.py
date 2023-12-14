@@ -1177,6 +1177,7 @@ def buildSettings(page):
       update_stats(page)
   show_stats = Checkbox(label="Show Memory Stats", tooltip="Gives an updating VRAM and RAM information on top appbar.", value=prefs['show_stats'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_stats)
   stats_used = Checkbox(label="Memory Used", tooltip="Otherwise show available free memory", value=prefs['stats_used'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_used)
+  page.stats_used = stats_used
   stats_settings = Container(Row([stats_used, NumberPicker(label=" Update Interval (s):", min=1, max=30, value=prefs['stats_update'], on_change=lambda e:changed(e, 'stats_update'))]), padding=padding.only(left=0), animate_size=animation.Animation(700, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   stats_settings.width = 0 if not prefs['show_stats'] else None
   
@@ -2828,14 +2829,16 @@ def buildPromptsList(page):
         negative_prompt = negative_prompt_text.value
         negative = None
         if bool(negative_prompt):
-          if '_' in negative_prompt:
-            negative_prompt = nsp_parse(negative_prompt)
-          negative = {'negative_prompt': negative_prompt}
+            if '_' in negative_prompt:
+                negative_prompt = nsp_parse(negative_prompt)
+            negative_prompt = prompt_parse(negative_prompt)
+            negative = {'negative_prompt': negative_prompt}
         for pr in prompts_list:
-          if bool(pr.strip()):
-            if '_' in pr:
-              pr = nsp_parse(pr)
-            add_to_prompts(pr.strip(), negative)
+            if bool(pr.strip()):
+                if '_' in pr:
+                    pr = nsp_parse(pr)
+                pr = prompt_parse(pr)
+                add_to_prompts(pr.strip(), negative)
         status['changed_prompts'] = True
         close_dlg(e)
       def close_dlg(e):
@@ -2848,11 +2851,11 @@ def buildPromptsList(page):
       page.update()
   def copy_prompts(e):
       def copy_prompts_list(pl):
-        nonlocal text_list, enter_text
-        page.set_clipboard(enter_text.value)
-        page.snack_bar = SnackBar(content=Text(f"📋   Prompt Text copied to clipboard..."))
-        page.snack_bar.open = True
-        close_dlg(e)
+          nonlocal text_list, enter_text
+          page.set_clipboard(enter_text.value)
+          page.snack_bar = SnackBar(content=Text(f"📋   Prompt Text copied to clipboard..."))
+          page.snack_bar.open = True
+          close_dlg(e)
       def close_dlg(e):
           dlg_copy.open = False
           page.update()
@@ -2932,6 +2935,7 @@ def buildPromptsList(page):
   def add_to_prompts(p, arg=None):
       global prompts
       update_args()
+      p = prompt_parse(p)
       dream = Dream(p)
       if arg is not None:
         if 'prompt' in arg: del arg['prompt']
@@ -19018,6 +19022,23 @@ finally:
     torch_device = "cuda" if torch.cuda.is_available() else "cpu"
     if torch_device == "cpu": print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API, AIHorde & OpenAI, but not Diffusers...")
 
+if torch_device == "cuda":
+    try:
+        import transformers
+        if version.parse(transformers.__version__).base_version < version.parse("4.37.0").base_version:
+            import importlib
+            print(f"Uninstalling old transformers v{transformers.__version__}")
+            run_sp("pip uninstall -y transformers", realtime=False)
+            print("Installing newest transformers...")
+            run_sp("pip install --upgrade -qq git+https://github.com/huggingface/transformers.git", realtime=True)
+            #importlib.reload(transformers)
+            #try:
+            #    sys.exit()
+            #except SystemExit:
+            raise SystemExit("Please Restart Session and run all again to Upgrade... Sorry.")
+    except ModuleNotFoundError:
+        pass
+
 try:
     import psutil
 except ModuleNotFoundError:
@@ -22851,6 +22872,18 @@ def start_diffusion(page):
         shutil.copy(os.path.join(fpath, i), os.path.join(batch_output, bfolder, i))
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def prompt_parse(prompt):
+    '''Convert A1111 weights to Compel format'''
+    if ')' not in prompt and ']' not in prompt:
+        return prompt
+    else:
+        # Find and replace all instances of the colon format with the desired format
+        prompt = re.sub(r'\(([^:]+):([\d.]+)\)', r'(\1)\2', prompt)
+        # Find and replace square brackets with round brackets and assign weight
+        prompt = re.sub(r'\[([^:\]]+)\]', r'(\1)0.909090909', prompt)
+        # Handle the general case of [x:number] and convert it to (x)0.9
+        prompt = re.sub(r'\[([^:]+):[\d.]+\]', r'(\1)0.9', prompt)
+        return prompt
 
 nspterminology = None
 
@@ -28763,19 +28796,24 @@ def run_LoRA(page):
       return
     page.LoRA_output.controls.clear()
     page.LoRA_output.update()
-    prt(Installing("Downloading LoRA Conceptualizers"))
+    installer = Installing("Downloading LoRA Conceptualizers")
+    prt(installer)
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
       os.chdir(root_dir)
+      installer.status("...clone diffusers")
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
     run_process('pip install git+https://github.com/Skquark/diffusers.git#egg=diffusers[training]', cwd=root_dir, realtime=False)
     os.chdir(diffusers_dir)
+    installer.status("...install training")
     run_sp('pip install -e ".[training]"', cwd=diffusers_dir, realtime=False)
     #LoRA_dir = os.path.join(diffusers_dir, "examples", "dreambooth")
     LoRA_dir = os.path.join(diffusers_dir, "examples", "text_to_image")
     os.chdir(LoRA_dir)
+    installer.status("...installing requirements")
     run_sp("pip install -r requirements.txt", cwd=LoRA_dir, realtime=False)
-    run_process("pip install -qq bitsandbytes", page=page)
+    pip_install("bitsandbytes", installer=installer)
+    installer.status("...accelerate config")
     run_sp("accelerate config default", realtime=False)
     #from accelerate.utils import write_basic_config
     #write_basic_config()
@@ -35936,7 +35974,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
                 generator=generator,
                 callback=callback_fnc,
                 **ip_adapter_arg,
-            ).images
+            )
             if ldm3d_prefs['use_upscale']:
                 target_width=pr['width'] * 2
                 target_height=pr['height'] * 2
@@ -37626,7 +37664,7 @@ def run_svd(page):
         pipe_svd = StableVideoDiffusionPipeline.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         if svd_prefs['cpu_offload']:
             pipe_svd.enable_model_cpu_offload()
-            pipe_svd.unet.enable_forward_chunking()
+            #pipe_svd.unet.enable_forward_chunking()
         else:
             pipe_svd.to(torch_device)
         if prefs['enable_torch_compile']:
@@ -37664,8 +37702,8 @@ def run_svd(page):
         return
     width, height = init_img.size
     width, height = scale_dimensions(width, height, svd_prefs['max_size'])
-    init_img = init_img.resize((width, height), resample=PILImage.Resampling.BICUBIC)
-    init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    init_img = init_img.resize((width, height))#, resample=PILImage.Resampling.BICUBIC)
+    #init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     batch_output = os.path.join(prefs['image_output'], svd_prefs['batch_folder_name'])
     make_dir(batch_output)
     #for v in range(svd_prefs['num_videos']):
@@ -42770,7 +42808,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
       leading_width=46,
       leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
       #leading_width=40,
-      actions=[ft.GestureDetector(page.stats, on_tap=lambda _:update_stats(page), on_secondary_tap=lambda _:clear_pipes()), 
+      actions=[ft.GestureDetector(page.stats, on_tap=lambda _:update_stats(page), on_double_tap=lambda _:toggle_stats(page), on_long_press_end=lambda _:clear_pipes()), 
         PopupMenuButton(items=[
           PopupMenuItem(text="🤔  Help/Info", on_click=open_help_dlg),
           PopupMenuItem(text="👏  Credits", on_click=open_credits_dlg),
@@ -43431,6 +43469,13 @@ def update_stats(page):
         print(e)
         pass
 
+def toggle_stats(page):
+    global prefs
+    prefs['stats_used'] = not prefs['stats_used']
+    page.stats_used.value = prefs['stats_used']
+    page.stats_used.update()
+    update_stats(page)
+    
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
