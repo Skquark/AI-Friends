@@ -534,7 +534,7 @@ status = {
 if 'last_updated' in prefs:
     last_time = datetime.datetime.strptime(prefs['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
     #diff = datetime.datetime.now() - last_time
-    if last_time >  datetime.datetime.now() - datetime.timedelta(days=4):
+    if last_time <  datetime.datetime.now() - datetime.timedelta(days=4):
         force_updates = True
 else:
     force_updates = True
@@ -551,7 +551,7 @@ try:
 except ModuleNotFoundError:
     panzoom_control = os.path.join(dist_dir, "flet_panzoom_control")
     if not os.path.isdir(panzoom_control):
-        run_sp("git clone https://github.com/Petrox/flet_panzoom_control.git", cwd=dist_dir, realtime=False)
+        run_sp("git clone -q https://github.com/Petrox/flet_panzoom_control.git", cwd=dist_dir, realtime=False)
     sys.path.append(panzoom_control)
     from panzoom import PanZoom
     pass
@@ -19038,6 +19038,23 @@ if torch_device == "cuda":
             raise SystemExit("Please Restart Session and run all again to Upgrade... Sorry.")
     except ModuleNotFoundError:
         pass
+try:
+    subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+except subprocess.CalledProcessError:
+    os_name = os.name.lower()
+    if os_name == "posix":
+        install_command = "curl -fsSL https://git-scm.com/download/linux/latest.tar.gz | tar xz && mv git-*/bin/git /usr/bin/git"
+    elif os_name == "nt":
+        install_command = "curl -fsSL https://git-scm.com/download/Win64/Git-2.39.0-windows-x64.exe | tar xz && mv Git/bin/git.exe /usr/bin/git.exe"
+    else:
+        print(f"Unsupported operating system for git: {os_name}")
+        pass
+    try:
+        print("Installing latest GIT library....")
+        subprocess.run(install_command, shell=True, check=True)
+    except subprocess.CalledProcessError:
+        print(f"Git installation failed on {os_name}. Please manually install it...")
+    pass
 
 try:
     import psutil
