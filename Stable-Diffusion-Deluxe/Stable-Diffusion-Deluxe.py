@@ -467,8 +467,7 @@ from PIL import Image as PILImage # Avoids flet conflict
 if not hasattr(PILImage, 'Resampling'):  # Allow Pillow<9.0
    PILImage.Resampling = PILImage
 import random as rnd
-import io, shutil, traceback, string, datetime, threading
-import asyncio
+import io, shutil, traceback, string, gc, datetime, time, threading
 from packaging import version
 from contextlib import redirect_stdout
 try:
@@ -477,6 +476,18 @@ except ModuleNotFoundError:
   run_sp("pip install numpy", realtime=False)
   import numpy as np
   pass
+try:
+    import psutil
+except ModuleNotFoundError:
+    run_sp("pip install -U psutil", realtime=False)
+    import psutil
+    pass
+try:
+    import cv2
+except ModuleNotFoundError:
+    run_sp("pip install opencv-python", realtime=False)
+    import cv2
+    pass
 
 if 'prefs' not in locals():
     raise ValueError("Setup not initialized. Run the previous code block first and authenticate your Drive storage.")
@@ -540,30 +551,25 @@ else:
     force_updates = True
 
 sdd_utils_py = os.path.join(root_dir, "sdd_utils.py")
+sdd_components_py = os.path.join(root_dir, "sdd_components.py")
 if not os.path.exists(sdd_utils_py) or force_updates:
     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
+if not os.path.exists(sdd_components_py) or force_updates:
+    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_components.py", to=root_dir, raw=False, replace=True)
 #sys.path.append(sdd_utils_py)
 import sdd_utils
 from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS
-
-try:
-    from panzoom import PanZoom
-except ModuleNotFoundError:
-    panzoom_control = os.path.join(dist_dir, "flet_panzoom_control")
-    if not os.path.isdir(panzoom_control):
-        run_sp("git clone -q https://github.com/Petrox/flet_panzoom_control.git", cwd=dist_dir, realtime=False)
-    sys.path.append(panzoom_control)
-    from panzoom import PanZoom
-    pass
+import sdd_components
+from sdd_components import PanZoom, VideoContainer
 
 def save_settings_file(page, change_icon=True):
-  if change_icon:
-    page.app_icon_save()
-  if not os.path.isfile(saved_settings_json):
-    settings_path = saved_settings_json.rpartition(slash)[0]
-    os.makedirs(settings_path, exist_ok=True)
-  with open(saved_settings_json, "w") as write_file:
-    json.dump(prefs, write_file, indent=4)
+    if change_icon:
+        page.app_icon_save()
+    if not os.path.isfile(saved_settings_json):
+        settings_path = saved_settings_json.rpartition(slash)[0]
+        os.makedirs(settings_path, exist_ok=True)
+    with open(saved_settings_json, "w") as write_file:
+        json.dump(prefs, write_file, indent=4)
 
 current_tab = 0
 def tab_on_change (e):
@@ -11710,7 +11716,7 @@ def buildSVD(page):
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=svd_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=svd_prefs, key='height')
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=svd_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
-    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=svd_prefs, key='max_size')
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=16, multiple=64, suffix="px", pref=svd_prefs, key='max_size')
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=svd_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=svd_prefs, key='height')
     interpolate_video = Switcher(label="Interpolate Video", value=svd_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
@@ -19035,37 +19041,28 @@ if torch_device == "cuda":
             #try:
             #    sys.exit()
             #except SystemExit:
-            raise SystemExit("Please Restart Session and run all again to Upgrade... Sorry.")
+            raise SystemExit("Please Restart Session and run all again to Upgrade... Sorry, only workaround.")
     except ModuleNotFoundError:
         pass
-try:
-    subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-except subprocess.CalledProcessError:
-    os_name = os.name.lower()
-    if os_name == "posix":
-        install_command = "curl -fsSL https://git-scm.com/download/linux/latest.tar.gz | tar xz && mv git-*/bin/git /usr/bin/git"
-    elif os_name == "nt":
-        install_command = "curl -fsSL https://git-scm.com/download/Win64/Git-2.39.0-windows-x64.exe | tar xz && mv Git/bin/git.exe /usr/bin/git.exe"
-    else:
-        print(f"Unsupported operating system for git: {os_name}")
-        pass
-    try:
-        print("Installing latest GIT library....")
-        subprocess.run(install_command, shell=True, check=True)
-    except subprocess.CalledProcessError:
-        print(f"Git installation failed on {os_name}. Please manually install it...")
-    pass
 
-try:
-    import psutil
-except ModuleNotFoundError:
-    run_sp("pip install -U psutil", realtime=False)
-    import psutil
-    pass
-import gc
-#from torch.amp.autocast_mode import autocast
-from random import random
-import time
+if not is_Colab:
+    try:
+        subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        os_name = os.name.lower()
+        if os_name == "posix":
+            install_command = "curl -fsSL https://git-scm.com/download/linux/latest.tar.gz | tar xz && mv git-*/bin/git /usr/bin/git"
+        elif os_name == "nt":
+            install_command = "curl -fsSL https://git-scm.com/download/Win64/Git-2.39.0-windows-x64.exe | tar xz && mv Git/bin/git.exe /usr/bin/git.exe"
+        else:
+            print(f"Unsupported OS for Git: {os_name}. Install manually.")
+            pass
+        try:
+            print("Installing latest GIT library....")
+            subprocess.run(install_command, shell=True, check=True)
+        except subprocess.CalledProcessError:
+            print(f"Git installation failed on {os_name}. Please manually install it...")
+        pass
 
 status['cpu_memory'] = psutil.virtual_memory().total / (1024 * 1024 * 1024)
 try:
@@ -21692,12 +21689,6 @@ def start_diffusion(page):
         import requests
         from io import BytesIO
         import base64
-        try:
-            import cv2
-        except ModuleNotFoundError:
-            run_sp("pip install opencv-python", realtime=False)
-            import cv2
-            pass
         api_host = 'https://stablehorde.net/api'
         engine_id = prefs['AIHorde_model']
         api_check_url = f"{api_host}/v2/generate/check/"
@@ -24255,12 +24246,6 @@ def run_init_video(page):
     page.add_to_init_video_output(Installing("Processing Video File..."))
     page.add_to_init_video_output(progress)
     try:
-        import cv2
-    except ModuleNotFoundError:
-        run_process("pip install -q opencv-python", page=page)
-        import cv2
-        pass
-    try:
         cap = cv2.VideoCapture(video_file)
     except Exception as e:
         alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
@@ -24653,13 +24638,6 @@ def run_background_remover(page):
         from huggingface_hub import hf_hub_download
         pass
     try:
-        import cv2
-    except ModuleNotFoundError:
-        installer.status("...installing opencv")
-        run_sp("pip install opencv-python", realtime=False)
-        import cv2
-        pass
-    try:
         import onnx
     except ImportError as e:
         installer.status("...installing onnx")
@@ -24676,7 +24654,6 @@ def run_background_remover(page):
         pipe_background_remover = hf_hub_download('nateraw/background-remover-files', 'modnet.onnx', repo_type='dataset')
     from io import BytesIO
     from PIL import ImageOps
-    import cv2
     import numpy as np
     import onnxruntime
     import requests
@@ -32009,12 +31986,6 @@ def run_instruct_pix2pix(page, from_list=False):
               return
         prt("Extracting Frames from Video Clip")
         try:
-            import cv2
-        except ModuleNotFoundError:
-            run_process("pip install -q opencv-contrib-python", page=page)
-            import cv2
-            pass
-        try:
             cap = cv2.VideoCapture(init_vid)
         except Exception as e:
             alert_msg(page, "ERROR Reading Video File. May be Incompatible Format...")
@@ -32247,13 +32218,6 @@ def run_controlnet(page, from_list=False):
     from PIL import ImageOps
     from PIL.PngImagePlugin import PngInfo
     try:
-        try:
-          import cv2
-        except ModuleNotFoundError:
-          installer.status("...installing opencv")
-          run_sp("pip install opencv-contrib-python", realtime=False)
-          import cv2
-          pass
         try:
           from controlnet_aux import MLSDdetector
         except ModuleNotFoundError:
@@ -32874,13 +32838,6 @@ def run_controlnet_xl(page, from_list=False):
     from PIL.PngImagePlugin import PngInfo
     try:
         try:
-          import cv2
-        except ModuleNotFoundError:
-          installer.status("...installing opencv")
-          run_sp("pip install opencv-contrib-python", realtime=False)
-          import cv2
-          pass
-        try:
           from controlnet_aux import MLSDdetector
         except ModuleNotFoundError:
           installer.status("...installing controlnet-aux")
@@ -33494,13 +33451,6 @@ def run_controlnet_xs(page, from_list=False):
     from PIL import ImageOps
     from PIL.PngImagePlugin import PngInfo
     try:
-        try:
-          import cv2
-        except ModuleNotFoundError:
-          installer.status("...installing opencv")
-          run_sp("pip install opencv-contrib-python", realtime=False)
-          import cv2
-          pass
         try:
           from controlnet_aux import MLSDdetector
         except ModuleNotFoundError:
@@ -36190,7 +36140,6 @@ def run_text_to_video(page):
         #print(f"video_path: {video_path}")
     #video = frames.cpu().numpy()
     #print(f"video: {video}")
-    import cv2
     from PIL.PngImagePlugin import PngInfo
     num = 0
     for image in frames:
@@ -36288,7 +36237,6 @@ def run_text_to_video_zero(page):
     clear_list()
     autoscroll(True)
     prt(Installing("Installing Text-To-Video Zero Pipeline..."))
-    import cv2
     model_id = get_model(prefs['model_ckpt'])['path'] if not text_to_video_zero_prefs['use_SDXL'] else get_SDXL_model(prefs['SDXL_model'])['path']
     if 'loaded_text_to_video_zero' not in status: status['loaded_text_to_video_zero'] = ""
     if model_id != status['loaded_text_to_video_zero']:
@@ -36470,12 +36418,6 @@ def run_video_to_video(page):
     installer = Installing("Installing Video-To-Video Pipeline...")
     prt(installer)
     #), dropdown.Option(), dropdown.Option(), dropdown.Option(), dropdown.Option(
-    try:
-        import cv2
-    except ModuleNotFoundError:
-        run_sp("pip install opencv-contrib-python", realtime=False)
-        import cv2
-        pass
     #model_id = "cerspense/zeroscope_v2_XL"
     if video_to_video_prefs['model'] == "damo-vilab/text-to-video-ms-1.7b":
         model_id = "damo-vilab/text-to-video-ms-1.7b"
@@ -36604,7 +36546,6 @@ def run_video_to_video(page):
         #print(f"video_path: {video_path}")
     #video = frames.cpu().numpy()
     #print(f"video: {video}")
-    import cv2
     from PIL.PngImagePlugin import PngInfo
     num = 0
     for image in frames:
@@ -36703,13 +36644,6 @@ def run_controlnet_temporalnet(page):
     autoscroll(True)
     installer = Installing("Installing Controlnet TemporalNet XL Pipeline...")
     prt(installer)
-    try:
-        import cv2
-    except ModuleNotFoundError:
-        installer.status("...installing cv2")
-        run_sp("pip install opencv-contrib-python", realtime=False)
-        import cv2
-        pass
     from diffusers import StableDiffusionXLControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
     from diffusers.utils import load_image
     import numpy as np
@@ -36883,8 +36817,6 @@ def run_infinite_zoom(page):
     from PIL import Image as PILImage
     from io import BytesIO
     import numpy as np
-    import random as rnd
-    import cv2
     os.environ["CUDA_VISIBLE_DEVICES"]="0"
     #from IPython.display import clear_output
     from datetime import datetime
@@ -37294,7 +37226,6 @@ def run_potat1(page):
         video_path = export_to_video(frames)
         shutil.copy(video_path, available_file(local_output, filename, 0, ext="mp4", no_num=True))
         shutil.copy(video_path, available_file(batch_output, filename, 0, ext="mp4", no_num=True))
-    import cv2
     from PIL.PngImagePlugin import PngInfo
     num = 0
     for image in frames:
@@ -37414,7 +37345,6 @@ def run_stable_animation(page):
     clear_list()
     autoscroll(True)
     prt(Installing("Installing Stable Animation Stability.ai Pipeline..."))
-    #import cv2
     #run_sp('pip install "stability_sdk[anim_ui]"', realtime=True)
     try:
         from stability_sdk import api
@@ -37718,9 +37648,9 @@ def run_svd(page):
         alert_msg(page, f"ERROR: Couldn't find your init_image {svd_prefs['init_image']}")
         return
     width, height = init_img.size
-    width, height = scale_dimensions(width, height, svd_prefs['max_size'])
+    width, height = scale_dimensions(width, height, svd_prefs['max_size'], multiple=64)
     init_img = init_img.resize((width, height))#, resample=PILImage.Resampling.BICUBIC)
-    #init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     batch_output = os.path.join(prefs['image_output'], svd_prefs['batch_folder_name'])
     make_dir(batch_output)
     #for v in range(svd_prefs['num_videos']):
@@ -38147,13 +38077,7 @@ def run_style_crafter(page):
     autoscroll(True)
     installer = Installing("Installing StyleCrafter Pipeline...")
     prt(installer)
-    try:
-        import cv2
-    except ModuleNotFoundError:
-        installer.status("...installing cv2")
-        run_sp("pip install opencv-contrib-python", realtime=False)
-        import cv2
-        pass #pytorch_lightning==1.9.3
+    #pytorch_lightning==1.9.3
     pip_install("decord einops imageio omegaconf pandas pytorch_lightning PyYAML|yaml setuptools moviepy av xformers gradio timm scikit-learn|sklearn open_clip_torch==2.22.0|open_clip kornia", installer=installer, upgrade=True)
     status['installed_xformers'] = True
     style_crafter_dir = os.path.join(root_dir, "StyleCrafter")
@@ -38719,7 +38643,6 @@ def run_animate_diff(page):
     context = min(animate_diff_prefs['video_length'], animate_diff_prefs['context'])
 
     def extract_frames(video_file, fps, save_dir, start_frame=0):
-        import cv2
         vidcap = cv2.VideoCapture(video_file)
         source_fps = vidcap.get(cv2.CAP_PROP_FPS)
         count = 0
@@ -43619,7 +43542,6 @@ class VideoPlayer(UserControl):
         self.height = height
         self.build()
     def build(self):
-        import cv2
         import threading
         import time
         import base64
@@ -43697,312 +43619,6 @@ class AudioPlayer(UserControl):
         self.button = IconButton(icon=self.icon, icon_size=48, tooltip=f"Duration: {dur}", on_click=self.play_audio, data=self.data)
         self.row = Row([self.button, Text(self.display)])
         return self.row
-
-
-class VideoContainer(Container):
-    """This will show a video you choose."""
-    def __init__(
-            self,
-            video_path: str,
-            fps: int = 0,
-            play_after_loading=True,
-            video_frame_fit_type: ft.ImageFit = None,
-            video_progress_bar=True,
-            video_play_button=True,
-            exec_after_full_loaded=None,
-            only_show_cover=False,
-            content=None,
-            ref=None,
-            key=None,
-            width=None,
-            height=None,
-            left=None,
-            top=None,
-            right=None,
-            bottom=None,
-            expand=None,
-            col=None,
-            opacity=None,
-            rotate=None,
-            scale=None,
-            offset=None,
-            aspect_ratio=None,
-            animate_opacity=None,
-            animate_size=None,
-            animate_position=None,
-            animate_rotation=None,
-            animate_scale=None,
-            animate_offset=None,
-            on_animation_end=None,
-            tooltip=None,
-            visible=None,
-            disabled=None,
-            data=None,
-            padding=None,
-            margin=None,
-            alignment=None,
-            bgcolor=None,
-            gradient=None,
-            blend_mode=BlendMode.NONE,
-            border=None,
-            border_radius=None,
-            image_src=None,
-            image_src_base64=None,
-            image_repeat=None,
-            image_fit=None,
-            image_opacity=1.0,#OptionalNumber = None,
-            shape=None,
-            clip_behavior=None,
-            ink=None,
-            animate=None,
-            blur=None,
-            shadow=None,
-            url=None,
-            url_target=None,
-            theme=None,
-            theme_mode=None,
-            on_click=None,
-            on_long_press=None,
-            on_hover=None
-    ):
-        super().__init__(content, ref, key, width, height, left, top, right, bottom, expand, col, opacity, rotate,
-                         scale, offset, aspect_ratio, animate_opacity, animate_size, animate_position, animate_rotation,
-                         animate_scale, animate_offset, on_animation_end, tooltip, visible, disabled, data, padding,
-                         margin, alignment, bgcolor, gradient, blend_mode, border, border_radius, image_src,
-                         image_src_base64, image_repeat, image_fit, image_opacity, shape, clip_behavior, ink, animate,
-                         blur, shadow, url, url_target, theme, theme_mode, on_click, on_long_press, on_hover)
-        self.__cur_play_frame = 0
-        self.__video_pause_button = None
-        self.__video_play_button = None
-        self.__video_is_play = False
-        self.vid_duration = None
-        self.fps = fps
-        self.__video_is_full_loaded = None
-        self.video_frames = None
-        self.exec_after_full_loaded = exec_after_full_loaded
-        if not os.path.isfile(video_path):
-            raise FileNotFoundError("Cannot find the video at the path you set.")
-        self.all_frames_of_video = []
-        self.frame_length = 0
-        self.__video_played = False
-        self.video_progress_bar = video_progress_bar
-        self.video_play_button = video_play_button
-        if video_frame_fit_type is None:
-            self.video_frame_fit_type = ft.ImageFit.CONTAIN
-        self.__ui()
-        if only_show_cover:
-            self.read_video_cover(video_path)
-            return
-        if play_after_loading:
-            print("Please wait the video is loading..\nThis will take a time based on your video size...")
-            self.read_the_video(video_path)
-        else:
-            threading.Thread(target=self.read_the_video, args=[video_path], daemon=True).start()
-        self.audio_path = None
-        self.__audio_path = None
-        self.get_video_duration(video_path)
-        self.__frame_per_sleep = 1.0 / self.fps
-
-    def show_play(self):
-        self.__video_is_play = False
-        self.__video_play_button.visible = True
-        self.__video_pause_button.visible = False
-        self.__video_play_button.update()
-        self.__video_pause_button.update()
-
-    def show_pause(self):
-        self.__video_is_play = True
-        self.__video_play_button.visible = False
-        self.__video_pause_button.visible = True
-        self.__video_play_button.update()
-        self.__video_pause_button.update()
-
-    def __ui(self):
-        # the video tools control
-        self.video_tool_stack = Stack(expand=False)
-        self.content = self.video_tool_stack
-        self.image_frames_viewer = Image(expand=True, visible=False, fit=self.video_frame_fit_type)
-        self.video_tool_stack.controls.append(Row([self.image_frames_viewer], alignment=ft.MainAxisAlignment.CENTER))
-        self.__video_progress_bar = Container(height=2, bgcolor=ft.colors.BLUE_200)
-        self.video_tool_stack.controls.append(Row([self.__video_progress_bar], alignment=ft.MainAxisAlignment.START))
-
-        def play_video(e):
-            print(e)
-            if self.__video_is_play:
-                self.pause()
-                self.show_play()
-            else:
-                self.show_pause()
-                self.play()
-
-        self.__video_play_button = IconButton(
-            icon=icons.SMART_DISPLAY,
-            icon_color=colors.WHITE54,
-            icon_size=60,
-            data=0,
-            style=ButtonStyle(
-                elevation=4,
-            ),
-            on_click=play_video,
-            visible=True
-        )
-        self.__video_pause_button = IconButton(
-            icon=icons.PAUSE_PRESENTATION,
-            icon_color=colors.WHITE54,
-            icon_size=60,
-            data=0,
-            style=ButtonStyle(
-                elevation=4,
-            ),
-            on_click=play_video,
-            visible=False
-        )
-        self.video_tool_stack.controls.append(
-            Container(
-                content=Row(
-                    controls=[
-                        self.__video_play_button,
-                        self.__video_pause_button
-                    ]
-                ),
-                padding=padding.only(25, 10, 10, 10),
-                left=0,
-                bottom=0,
-            ),
-        )
-        if not self.video_progress_bar:
-            self.__video_progress_bar.visible = False
-        if not self.video_play_button:
-            self.__video_play_button.visible = False
-
-    def update_video_progress(self, frame_number):
-        if not self.video_progress_bar:
-            return
-        percent_of_progress = frame_number / self.video_frames * 1
-        if self.width:
-            self.__video_progress_bar.width = percent_of_progress * 1 * self.width
-        else:
-            self.__video_progress_bar.width = percent_of_progress * 1 * self.page.width
-        if self.__video_progress_bar.page is not None:
-            try:
-                self.__video_progress_bar.update()
-            except Exception as e:
-                pattern = r"control with ID '(.*)' not found"
-                match = re.search(pattern, e.args[0])
-                if not match:
-                    print(e)
-                return
-
-    def update(self):
-        self.image_frames_viewer.fit = self.video_frame_fit_type
-        self.__video_progress_bar.visible = self.video_progress_bar
-        return super().update()
-
-    def play(self):
-        """Play the video. (it's not blocking, because its on thread)."""
-        if self.page is None:
-            raise Exception("The control must be on page first.")
-        self.__video_played = True
-        threading.Thread(target=self.__play, daemon=True).start()
-
-    def __play(self):
-        self.image_frames_viewer.visible = True
-        num = self.__cur_play_frame
-        video_frames_len = len(self.all_frames_of_video)
-        for index, i in enumerate(self.all_frames_of_video[self.__cur_play_frame:-1]):
-            if not self.__video_played:
-                self.__cur_play_frame = self.__cur_play_frame + index
-                break
-            if index + self.__cur_play_frame == video_frames_len - 2:
-                self.__cur_play_frame = 0
-            threading.Thread(target=self.update_video_progress, args=[num], daemon=True).start()
-            self.image_frames_viewer.src_base64 = i
-            try:
-                self.image_frames_viewer.update()
-            except Exception as e:
-                pattern = r"control with ID '(.*)' not found"
-                match = re.search(pattern, e.args[0])
-                if not match:
-                    print(e)
-                return
-            time.sleep(self.__frame_per_sleep)
-            num += 1
-        self.show_play()
-
-    def pause(self):
-        self.__video_played = False
-
-    def read_video_cover(self, video_path):
-        video = cv2.VideoCapture(video_path)
-        frame_count = video.get(cv2.CAP_PROP_FRAME_COUNT)
-        slice_frame_num = frame_count / 2
-        video.set(cv2.CAP_PROP_POS_FRAMES, slice_frame_num)
-        success, frame = video.read()
-        _, buffer = cv2.imencode('.jpg', frame)
-        encoded_frame = base64.b64encode(buffer).decode('utf-8')
-        if self.image_frames_viewer.src_base64 is None:
-            self.image_frames_viewer.src_base64 = encoded_frame
-            self.image_frames_viewer.visible = True
-            if self.image_frames_viewer.page is not None:
-                self.image_frames_viewer.update()
-        video.release()
-
-    def read_the_video(self, video_path):
-        video = cv2.VideoCapture(video_path)
-        success, frame = video.read()
-        while success:
-            _, buffer = cv2.imencode('.jpg', frame)
-            encoded_frame = base64.b64encode(buffer).decode('utf-8')
-            self.all_frames_of_video.append(encoded_frame)
-            if self.image_frames_viewer.src_base64 is None:
-                self.image_frames_viewer.src_base64 = encoded_frame
-                self.image_frames_viewer.visible = True
-                if self.image_frames_viewer.page is not None:
-                    self.image_frames_viewer.update()
-            success, frame = video.read()
-        video.release()
-        self.__video_is_full_loaded = True
-        if self.exec_after_full_loaded:
-            self.exec_after_full_loaded()
-        self.frame_length = len(self.all_frames_of_video)
-        return self.all_frames_of_video
-
-    def get_video_duration(self, video_path):
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            print("Error opening video file")
-            return
-        if self.fps == 0:
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            self.fps = fps
-        total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-        self.video_frames = total_frames
-        duration = total_frames / fps
-        self.vid_duration = duration
-        cap.release()
-''' Sample alt Object format
-class Component(UserControl):
-    def __init__(self):
-        super().__init__()
-        self.build()
-    def search(self, e):
-        pass
-    def build(self):
-        self.expand = True
-        #self.table
-        self.parameter = Ref[TextField]()
-        return Column(controls=[])
-class Main:
-    def __init__(self):
-        self.page = None
-    def __call__(self, page: Page):
-        self.page = page
-        page.title = "Alternative Boot experiment"
-        self.add_stuff()
-    def add_stuff(self):
-        self.page.add(Text("Some text", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45)
-        self.page.update()
-main = Main()'''
 
 port = 80
 if tunnel_type == "ngrok":
