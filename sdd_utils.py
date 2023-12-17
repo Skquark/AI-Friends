@@ -199,6 +199,7 @@ SDXL_models = [
     {"name": "RealVis-XL", "path": "SG161222/RealVisXL_V2.0", "prefix": "", "variant": "fp16"},
     {"name": "Segmind SSD-1B", "path": "segmind/SSD-1B", "prefix": "", "variant": "fp16"},
     {"name": "Segmind SSD-1B Anime", "path": "furusu/SSD-1B-anime", "prefix": "", "variant": "fp16"},
+    {"name": "Segmind Vega", "path": "segmind/Segmind-Vega", "prefix": "", "variant": "fp16"},
     {"name": "ThinkDiffusion-XL", "path": "ThinkDiffusion/ThinkDiffusionXL", "prefix": "", "variant": "fp16"},
     {"name": "Unstable-Diffusers", "path": "stablediffusionapi/sdxl-unstable-diffusers-y", "prefix": "", "variant": "fp16"},
     #{"name": "CrystalClear XL", "path": "ckpt/crystalclear-xl", "prefix": "", "revision": "fp16", "use_safetensors": True},
@@ -260,6 +261,7 @@ SDXL_LoRA_models = [
     {"name": "Hair Style", "path": "CiroN2022/hair-style", "weights": "hair_style.safetensors", "prefix": "crazy alternate hairstyle"},
     {"name": "Mosaic Style", "path": "CiroN2022/mosaic-style", "weights": "mosaic.safetensors", "prefix": "mosaic"},
     {"name": "Watercolor Style", "path": "ostris/watercolor_style_lora_sdxl", "weights": "watercolor_v1_sdxl.safetensors", "prefix": ""},
+    {"name": "Segmind-VegaRT LCM", "path": "segmind/Segmind-VegaRT", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "LCM LoRA SDXL", "path": "latent-consistency/lcm-lora-sdxl", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     #{"name": "", "path": "", "weights": "", "prefix": ""},
 ]

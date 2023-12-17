@@ -15,6 +15,7 @@ force_updates = False
 SDD_version = "v1.9.0"
 import os, subprocess, sys, shutil, re
 import random as rnd
+from pathlib import Path
 root_dir = '/content/'
 dist_dir = root_dir
 is_Colab = True
@@ -60,8 +61,6 @@ if save_to_GDrive:
   if not os.path.isdir(os.path.join(root_dir, 'drive')):
     from google.colab import drive
     drive.mount(os.path.join(root_dir, 'drive'))
-elif storage_type == "PyDrive Google Drive":
-  "pip install PyDrive2"
 stable_dir = os.path.join(root_dir, 'Stable_Diffusion')
 if not os.path.exists(stable_dir):
   os.makedirs(stable_dir)
@@ -119,16 +118,10 @@ except ImportError as e:
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
-'''try:
-  from flet_ivid import VideoContainer
-except ModuleNotFoundError:
-  run_sp("pip install --upgrade flet_ivid")
-  from flet_ivid import VideoContainer
-  pass'''
 try:
   import requests
 except ModuleNotFoundError:
-  run_sp("pip install -q requests", realtime=True)
+  run_sp("pip install -q requests", realtime=False)
   import requests
   pass
 try:
@@ -196,7 +189,6 @@ if storage_type == "PyDrive Google Drive":
     gauth.SaveCredentialsFile(Google_OAuth_client_secret_json)
   gdrive = GoogleDrive(gauth)
 slash = '/'
-from pathlib import Path
 if not is_Colab:
     image_output = os.path.join(Path.home(), "Pictures", "Stable_Diffusion")
     if "\\" in image_output:
@@ -1187,11 +1179,11 @@ def buildSettings(page):
   stats_settings = Container(Row([stats_used, NumberPicker(label=" Update Interval (s):", min=1, max=30, value=prefs['stats_update'], on_change=lambda e:changed(e, 'stats_update'))]), padding=padding.only(left=0), animate_size=animation.Animation(700, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   stats_settings.width = 0 if not prefs['show_stats'] else None
   
-  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google PaLM API Token** from https://developers.generativeai.google/tutorials/setup\n\n\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google Gemini API Token** from https://developers.generativeai.google/tutorials/setup\n\n\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key (optional)", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key (optional)", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
-  PaLM_api = TextField(label="Google PaLM API Key (optional)", value=prefs['PaLM_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'PaLM_api_key'))
+  PaLM_api = TextField(label="Google Gemini API Key (optional)", value=prefs['PaLM_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'PaLM_api_key'))
   TextSynth_api = TextField(label="TextSynth API Key (optional)", value=prefs['TextSynth_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'TextSynth_api_key'))
   Replicate_api = TextField(label="Replicate API Key (optional)", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Replicate_api_key'))
   AIHorde_api = TextField(label="AIHorde API Key (optional)", value=prefs['AIHorde_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'AIHorde_api_key'))
@@ -3209,7 +3201,7 @@ def buildPromptGenerator(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3278,7 +3270,7 @@ def buildPromptRemixer(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3364,7 +3356,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b"), dropdown.Option("Google PaLM")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b"), dropdown.Option("Google Gemini")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -4238,6 +4230,7 @@ image2text_prefs = {
     'method': 'Fuyu-8B',
     'mode': 'Best',
     'fuyu_mode': 'Detailed Caption',
+    'gemini_mode': 'Detailed Caption',
     'request_mode': 'Caption',
     'slow_workers': True,
     'trusted_workers': False,
@@ -4286,7 +4279,7 @@ def buildImage2Text(page):
         i2t_help_dlg.open = False
         page.update()
       i2t_help_dlg = AlertDialog(title=Text("💁   Help with Image2Text CLIP Interrogator"), content=Column([
-          Text("You have 3 methods to get a caption prompt from you input image. Using Mode of Best, Classic or Fast will use the older BLIP models that work great but takes longer to run. The Fuyu-8B is a much faster captioning technique using Transformers, and can give Detailed Coco-style prompts or simpler captioning. You can also use AIHorde to process the caption interrogation in the cloud using Stable Horde services without using your GPU."),
+          Text("You have 4 methods to get a caption prompt from you input image. Using BLIP Interrogation Mode with Best, Classic or Fast will use the older BLIP models that work great but takes longer to run. The latest is Google Gemini Pro Vision API is very impressive and fast, using your Bard API key for free. The Fuyu-8B is a much faster captioning technique using Transformers, and can give Detailed Coco-style prompts or simpler captioning. You can also use AIHorde to process the caption interrogation in the cloud using Stable Horde services without using your GPU."),
           Text("Fuyu-8B by AdeptAI Labs is a small version of the multimodal model. It has a much simpler architecture and training procedure than other multi-modal models, which makes it easier to understand, scale, and deploy. It’s designed from the ground up for digital agents, so it can support arbitrary image resolutions, answer questions about graphs and diagrams, answer UI-based questions, and do fine-grained localization on screen images. It’s fast - we can get responses for large images in less than 100 milliseconds."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😪  Okay then... ", on_click=close_i2t_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = i2t_help_dlg
@@ -4313,7 +4306,12 @@ def buildImage2Text(page):
         original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
         original_img.save(fpath)
         #shutil.move(fname, fpath)
-        page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
+        page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.INFO, text="Image Details", on_click=image_details, data=fpath),
+              PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
+          ]), data=fpath, on_click=image_details))
         page.image2text_file_list.update()
         image2text_prefs['images'].append(fpath)
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
@@ -4330,6 +4328,28 @@ def buildImage2Text(page):
                 #uf.append(FilePickerUploadFile(f.name, upload_url=f.path))
             file_picker.upload(uf)
     page.overlay.append(file_picker)
+    def delete_image(e):
+        f = e.control.data
+        if os.path.isfile(f):
+          os.remove(f)
+          for i, fl in enumerate(page.image2text_file_list.controls):
+            if fl.title.value == f:
+              del page.image2text_file_list.controls[i]
+              page.image2text_file_list.update()
+              continue
+        if f in image2text_prefs['images']:
+          image2text_prefs['images'].remove(f)
+    def delete_all_images(e):
+        for fl in page.image2text_file_list.controls:
+          f = fl.title.value
+          if os.path.isfile(f):
+            os.remove(f)
+        page.image2text_file_list.controls.clear()
+        page.image2text_file_list.update()
+        image2text_prefs['images'].clear()
+    def image_details(e):
+        img = e.control.data
+        alert_msg(e.page, "Image Details", content=Image(src=img), sound=False)
     def add_image(e):
         save_dir = os.path.join(root_dir, 'image2text')
         if not os.path.exists(save_dir):
@@ -4344,9 +4364,6 @@ def buildImage2Text(page):
           width, height = scale_dimensions(width, height, image2text_prefs['max_size'])
           original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
-          page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
-          page.image2text_file_list.update()
-          image2text_prefs['images'].append(fpath)
         elif os.path.isfile(image_path.value):
           fpath = os.path.join(save_dir, image_path.value.rpartition(slash)[2])
           original_img = PILImage.open(image_path.value)
@@ -4355,9 +4372,6 @@ def buildImage2Text(page):
           original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
           original_img.save(fpath)
           #shutil.copy(image_path.value, fpath)
-          page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
-          page.image2text_file_list.update()
-          image2text_prefs['images'].append(fpath)
         elif os.path.isdir(image_path.value):
           for f in os.listdir(image_path.value):
             file_path = os.path.join(image_path.value, f)
@@ -4370,15 +4384,20 @@ def buildImage2Text(page):
               original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
               original_img.save(fpath)
               #shutil.copy(file_path, fpath)
-              page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True))
-              page.image2text_file_list.update()
-              image2text_prefs['images'].append(fpath)
         else:
           if bool(image_path.value):
             alert_msg(page, "Couldn't find a valid File, Path or URL...")
           else:
             pick_path(e)
           return
+        page.image2text_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.INFO, text="Image Details", on_click=image_details, data=fpath),
+              PopupMenuItem(icon=icons.DELETE, text="Delete Image", on_click=delete_image, data=fpath),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All", on_click=delete_all_images, data=fpath),
+          ]), data=fpath, on_click=image_details))
+        page.image2text_file_list.update()
+        image2text_prefs['images'].append(fpath)
         image_path.value = ""
         image_path.update()
     page.image2text_list = Column([], spacing=0)
@@ -4386,7 +4405,7 @@ def buildImage2Text(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_image2text(p):
-      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=10, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.image2text_list.update()
       image2text_list_buttons.visible = True
       image2text_list_buttons.update()
@@ -4415,12 +4434,19 @@ def buildImage2Text(page):
       request_mode.update()
       fuyu_mode.visible = method=="Fuyu-8B"
       fuyu_mode.update()
-      question_prompt.visible = method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question"
+      gemini_mode.visible = method=="Google Gemini Pro"
+      gemini_mode.update()
+      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question")
       question_prompt.update()
     def change_fuyu(e):
       fuyu = e.control.value
       changed(e,'fuyu_mode')
       question_prompt.visible = fuyu=="Question"
+      question_prompt.update()
+    def change_gemini(e):
+      gemini = e.control.value
+      changed(e,'gemini_mode')
+      question_prompt.visible = gemini=="Question"
       question_prompt.update()
     def clear_prompts(e):
       if prefs['enable_sounds']: page.snd_delete.play()
@@ -4436,11 +4462,12 @@ def buildImage2Text(page):
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
-    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
+    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
     #use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
     mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
     request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
     fuyu_mode = Dropdown(label="Fuyu Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['fuyu_mode'], visible=image2text_prefs['method']=="Fuyu-8B", on_change=change_fuyu)
+    gemini_mode = Dropdown(label="Gemini Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
     AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), visible=image2text_prefs['method']=="AIHorde Crowdsourced", animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -4458,7 +4485,7 @@ def buildImage2Text(page):
       content=Column([
         Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create text prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
         #mode,
-        Row([method, fuyu_mode, mode, request_mode, question_prompt, AIHorde_row]),
+        Row([method, fuyu_mode, mode, request_mode, gemini_mode, question_prompt, AIHorde_row]),
         max_row,
         Row([image_path, add_image_button]),
         page.image2text_file_list,
@@ -9738,7 +9765,7 @@ def buildLMD_Plus(page):
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lmd_plus_prefs, key='height')
     lmd_plus_model = Dropdown(label="LMD+ Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("longlian/lmd_plus")], value=lmd_plus_prefs['lmd_plus_model'], on_change=changed_model)
     lmd_plus_custom_model = TextField(label="Custom LMD_Plus Model (URL or Path)", value=lmd_plus_prefs['custom_model'], expand=True, visible=lmd_plus_prefs['lmd_plus_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=lmd_plus_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=lmd_plus_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, expand=True, pref=lmd_plus_prefs, key='temperature', tooltip="Softmax value used to module the next token probabilities", col={'lg':6})
     gligen_scheduled_sampling_beta = SliderRow(label="Gligen Scheduled Sampling Beta", min=0, max=1, divisions=10, round=1, pref=lmd_plus_prefs, key='gligen_scheduled_sampling_beta', tooltip="Scheduled Sampling factor from GLIGEN: Open-Set Grounded Text-to-Image Generation. Scheduled Sampling factor is only varied for scheduled sampling during inference for improved quality and controllability.", col={'lg':6})
     cpu_offload = Switcher(label="CPU Offload", value=lmd_plus_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
@@ -17926,7 +17953,7 @@ def buildWhisper(page):
     audio_file = FileInput(label="Input Media File (MP3, MP4, AVI, URL or YouTube URL)", pref=whisper_prefs, key='audio_file', ftype="media", page=page)
     model_size = Dropdown(label="Whisper Model Size", width=200, options=[dropdown.Option("tiny"), dropdown.Option("base"), dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large"), dropdown.Option("large-v2"), dropdown.Option("large-v3")], value=whisper_prefs['model_size'], on_change=lambda e: changed(e, 'model_size'))
     trim_audio = Checkbox(label="Trim Audio to 30s", value=whisper_prefs['trim_audio'], tooltip="Prefers a short audio chunk", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trim_audio'))
-    AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google PaLM")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     AI_temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, expand=True, pref=whisper_prefs, key="AI_temperature")
     reformat = Checkbox(label="Reformat grammar and structure of transcript", value=whisper_prefs['reformat'], tooltip=whisper_requests['reformat'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'reformat'))
     rewrite = Checkbox(label="Rewrite and edit content of transcript", value=whisper_prefs['rewrite'], tooltip=whisper_requests['rewrite'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'rewrite'))
@@ -22986,24 +23013,45 @@ def run_prompt_generator(page):
       alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
       return
     status['installed_OpenAI'] = True
-  if prefs['prompt_generator']['AI_engine'] == "Google PaLM":
+  if prefs['prompt_generator']['AI_engine'] == "Google Gemini":
     if not bool(prefs['PaLM_api_key']):
-      alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+      alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
       return
     try:
-      import google.generativeai as palm
+      import google.generativeai as genai
+      if force_updates: raise ModuleNotFoundError("Forcing update")
     except:
-      page.prompt_generator_list.controls.append(Installing("Installing PaLM MakerSuite Library..."))
+      page.prompt_generator_list.controls.append(Installing("Installing Google MakerSuite Library..."))
       page.prompt_generator_list.update()
       run_sp("pip install --upgrade google-generativeai", realtime=False)
-      import google.generativeai as palm
+      import google.generativeai as genai
       del page.prompt_generator_list.controls[-1]
       page.prompt_generator_list.update()
       pass
     try:
-      palm.configure(api_key=prefs['PaLM_api_key'])
+      genai.configure(api_key=prefs['PaLM_api_key'])
     except:
-      alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+      alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
+      return
+    gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
+  if prefs['prompt_generator']['AI_engine'] == "Google Gemini Pro":
+    if not bool(prefs['PaLM_api_key']):
+      alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
+      return
+    try:
+      import vertexai
+    except:
+      page.prompt_generator_list.controls.append(Installing("Installing Vertex AI Gemini SDK Library..."))
+      page.prompt_generator_list.update()
+      run_sp("pip install --upgrade google-cloud-aiplatform", realtime=False)
+      from vertexai.preview.generative_models import GenerativeModel
+      del page.prompt_generator_list.controls[-1]
+      page.prompt_generator_list.update()
+      pass
+    try:
+      run_sp("gcloud auth application-default login", realtime=True)
+    except:
+      alert_msg(page, "Invalid Google Cloud Authentication. Change in Settings...")
       return
   prompts_gen = []
   prompt_results = []
@@ -23044,11 +23092,15 @@ def run_prompt_generator(page):
         messages=[{"role": "user", "content": prompt}]
       )
       result = response.choices[0].message.content.strip()#["choices"][0]["message"]["content"].strip()
-    elif prefs['prompt_generator']['AI_engine'] == "Google PaLM":
+    elif prefs['prompt_generator']['AI_engine'] == "Google Gemini":
       #print(palm.list_models())
-      completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_generator']['AI_temperature'], max_output_tokens=1024)
+      completion = gemini_model.generate_content(prompt, generation_config={
+          'temperature': prefs['prompt_generator']['AI_temperature'],
+          'max_output_tokens': 1024
+      })
+      #completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_generator']['AI_temperature'], max_output_tokens=1024)
       #print(str(completion))
-      result = completion.result.strip()
+      result = completion.text.strip()
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -23136,25 +23188,27 @@ def run_prompt_remixer(page):
       alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
       return
     status['installed_OpenAI'] = True
-  if prefs['prompt_remixer']['AI_engine'] == "Google PaLM":
+  if prefs['prompt_remixer']['AI_engine'] == "Google Gemini":
     if not bool(prefs['PaLM_api_key']):
-      alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+      alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
       return
     try:
-      import google.generativeai as palm
+      import google.generativeai as genai
+      if force_updates: raise ModuleNotFoundError("Forcing update")
     except:
-      page.prompt_remixer_list.controls.append(Installing("Installing PaLM MakerSuite Library..."))
+      page.prompt_remixer_list.controls.append(Installing("Installing Google MakerSuite Library..."))
       page.prompt_remixer_list.update()
       run_sp("pip install --upgrade google-generativeai", realtime=False)
-      import google.generativeai as palm
+      import google.generativeai as genai
       del page.prompt_remixer_list.controls[-1]
       page.prompt_remixer_list.update()
       pass
     try:
-      palm.configure(api_key=prefs['PaLM_api_key'])
+      genai.configure(api_key=prefs['PaLM_api_key'])
     except:
-      alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+      alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
       return
+    gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
   prompts_remix = []
   prompt_results = []
 
@@ -23183,10 +23237,14 @@ def run_prompt_remixer(page):
       gpt_model = "gpt-4-1106-preview" if "Turbo" in prefs['prompt_remixer']['AI_engine'] else "gpt-4"
       response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       result = response.choices[0].message.content.strip()
-    elif prefs['prompt_remixer']['AI_engine'] == "Google PaLM":
-      completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_remixer']['AI_temperature'], max_output_tokens=1024)
+    elif prefs['prompt_remixer']['AI_engine'] == "Google Gemini":
+      completion = gemini_model.generate_content(prompt, generation_config={
+          'temperature': prefs['prompt_remixer']['AI_temperature'],
+          'max_output_tokens': 1024
+      })
+      #completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_remixer']['AI_temperature'], max_output_tokens=1024)
       #print(str(completion.result))
-      result = completion.result.strip()
+      result = completion.text.strip()
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -23369,25 +23427,27 @@ def run_prompt_brainstormer(page):
         alert_msg(page, f"Missing HuggingFace_api_key... Define your key in Settings.")
         return
     #ask_OpenAI_instead = False #@param {type:'boolean'}
-    if prefs['prompt_brainstormer']['AI_engine'] == "Google PaLM":
+    if prefs['prompt_brainstormer']['AI_engine'] == "Google Gemini":
       if not bool(prefs['PaLM_api_key']):
-        alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+        alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
         return
       try:
-        import google.generativeai as palm
+        import google.generativeai as genai
+        if force_updates: raise ModuleNotFoundError("Forcing update")
       except:
-        page.prompt_brainstormer_list.controls.append(Installing("Installing PaLM MakerSuite Library..."))
+        page.prompt_brainstormer_list.controls.append(Installing("Installing Google MakerSuite Library..."))
         page.prompt_brainstormer_list.update()
         run_sp("pip install --upgrade google-generativeai", realtime=False)
-        import google.generativeai as palm
+        import google.generativeai as genai
         del page.prompt_brainstormer_list.controls[-1]
         page.prompt_brainstormer_list.update()
         pass
       try:
-        palm.configure(api_key=prefs['PaLM_api_key'])
+        genai.configure(api_key=prefs['PaLM_api_key'])
       except:
-        alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+        alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
         return
+      gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
     
     prompt_request_modes = [
         "visually detailed wording, flowing sentences, extra long descriptions",
@@ -23496,9 +23556,13 @@ def run_prompt_brainstormer(page):
           del page.prompt_brainstormer_list.controls[-1]
           page.prompt_brainstormer_list.update()
         result = stable_lm_request(request, temperature=prefs['prompt_brainstormer']['AI_temperature'])
-      elif prefs['prompt_brainstormer']['AI_engine'] == "Google PaLM":
-        completion = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=prefs['prompt_brainstormer']['AI_temperature'], max_output_tokens=1024)
-        result = completion.result.strip()
+      elif prefs['prompt_brainstormer']['AI_engine'] == "Google Gemini":
+        completion = gemini_model.generate_content(request, generation_config={
+            'temperature': prefs['prompt_brainstormer']['AI_temperature'],
+            'max_output_tokens': 1024
+        })
+        #completion = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=prefs['prompt_brainstormer']['AI_temperature'], max_output_tokens=1024)
+        result = completion.text.strip()
       del page.prompt_brainstormer_list.controls[-1]
       page.prompt_brainstormer_list.update()
       if '*' in result:
@@ -27105,6 +27169,46 @@ def run_image2text(page):
             clear_last()
             i2t_prompts.append(prompt)
             page.add_to_image2text(prompt)
+    elif image2text_prefs['method'] == "Google Gemini Pro":
+        installer = Installing("Installing Google MakerSuite Library......")
+        prt(installer)
+        if not bool(prefs['PaLM_api_key']):
+          alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
+          return
+        try:
+          import google.generativeai as genai
+          if force_updates: raise ModuleNotFoundError("Forcing update")
+        except:
+          run_sp("pip install --upgrade google-generativeai", realtime=False)
+          import google.generativeai as genai
+          pass
+        try:
+          genai.configure(api_key=prefs['PaLM_api_key'])
+        except:
+          alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
+          return
+        gemini_model = genai.GenerativeModel(model_name='gemini-pro-vision')
+        folder_path = image2text_prefs['folder_path']
+        prompt_mode = "What is happening in this image? Describe it in visual details, artistic style, related artist names, colors and composition." if 'Detailed' in image2text_prefs['gemini_mode'] else "Generate an image prompt with art styles, Poetic Captions, flowing adjectives, and detailed captions." if 'Poetic' in image2text_prefs['gemini_mode'] else "Generate a technical detailed caption, describing all subjects, adjectives, styles, observations, colors and technical details to recreate." if 'Technical' in image2text_prefs['gemini_mode'] else "Generate a coco-style caption with art style.\n" if 'Simple' in image2text_prefs['gemini_mode'] else image2text_prefs['question']
+        i2t_prompts = []
+        clear_last()
+        for file in image2text_prefs['images']:
+            prt(f"Interrogating Images to Describe Prompt...")
+            prt(progress)
+            image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
+            try:
+                response = gemini_model.generate_content([prompt_mode, image], stream=True, generation_config={'max_output_tokens': 1024})
+                response.resolve()
+                prompt = response.text
+                prompt = prompt.replace('*', '').replace('\n', ' ').strip()
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't run Google Gemini Pro Vision request for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            clear_last()
+            clear_last()
+            i2t_prompts.append(prompt)
+            page.add_to_image2text(prompt)
     elif image2text_prefs['method'] == "BLIP-Interrogation":
         installer = Installing("Downloading Image2Text CLIP-Interrogator Blips...")
         prt(installer)
@@ -30510,22 +30614,24 @@ def run_whisper(page):
                     alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
                     return
                 installer.status("")
-        elif whisper_prefs['AI_engine'] == "Google PaLM":
+        elif whisper_prefs['AI_engine'] == "Google Gemini":
             if not bool(prefs['PaLM_api_key']):
-                alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+                alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
                 return
             try:
-                import google.generativeai as palm
+                import google.generativeai as genai
+                if force_updates: raise ModuleNotFoundError("Forcing update")
             except:
-                installer.status("Installing PaLM MakerSuite Library...")
+                installer.status("Installing Google MakerSuite Library...")
                 run_sp("pip install --upgrade google-generativeai", realtime=False)
-                import google.generativeai as palm
+                import google.generativeai as genai
                 pass
             try:
-                palm.configure(api_key=prefs['PaLM_api_key'])
+                genai.configure(api_key=prefs['PaLM_api_key'])
             except:
-                alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+                alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
                 return
+            gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
             installer.status("")
     def question(request):
         if whisper_prefs['AI_engine'] == "OpenAI GPT-3":
@@ -30535,12 +30641,16 @@ def run_whisper(page):
             response = openai_client.chat.completions.create(model="gpt-3.5-turbo-16k", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
             result = response.choices[0].message.content.strip()
         elif "GPT-4" in whisper_prefs['AI_engine']:
-            gpt_model = "gpt-4-1106-preview" if "Trubo" in whisper_prefs['AI_engine'] else "gpt-4"
+            gpt_model = "gpt-4-1106-preview" if "Turbo" in whisper_prefs['AI_engine'] else "gpt-4"
             response = openai_client.chat.completions.create(model=gpt_model, temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
             result = response.choices[0].message.content.strip()
-        elif whisper_prefs['AI_engine'] == "Google PaLM":
-            response = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=whisper_prefs['AI_temperature'], max_output_tokens=1024)
-            result = response.result.strip()
+        elif whisper_prefs['AI_engine'] == "Google Gemini":
+            response = gemini_model.generate_content(request, generation_config={
+                'temperature': whisper_prefs['AI_temperature'],
+                'max_output_tokens': 1024
+            })
+            #response = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=whisper_prefs['AI_temperature'], max_output_tokens=1024)
+            result = response.text.strip()
         if '*' in result:
             result = result.replace('*', '').strip()
         return result
@@ -35196,22 +35306,24 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
             return
         status['installed_OpenAI'] = True
-    elif lmd_plus_prefs['AI_engine'] == "Google PaLM":
+    elif lmd_plus_prefs['AI_engine'] == "Google Gemini":
         if not bool(prefs['PaLM_api_key']):
-            alert_msg(page, "You must provide your Google PaLM MakerSuite API key in Settings first")
+            alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
             return
         try:
-            import google.generativeai as palm
+            import google.generativeai as genai
+            if force_updates: raise ModuleNotFoundError("Forcing update")
         except:
-            installer.status("...installing PaLM MakerSuite Library")
+            installer.status("...installing Google MakerSuite Library")
             run_sp("pip install --upgrade google-generativeai", realtime=False)
-            import google.generativeai as palm
+            import google.generativeai as genai
             pass
         try:
-            palm.configure(api_key=prefs['PaLM_api_key'])
+            genai.configure(api_key=prefs['PaLM_api_key'])
         except:
-            alert_msg(page, "Invalid Google PaLM API Key. Change in Settings...")
+            alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
             return
+        gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
     def get_response(prompt_full, AI_engine="ChatGPT-3.5 Turbo", temperature=0.7):
         if AI_engine == "OpenAI GPT-3":
             response = openai_client.completions.create(engine="text-davinci-003", prompt=prompt_full, max_tokens=2400, temperature=prefs['prompt_generator']['AI_temperature'], presence_penalty=1)
@@ -35231,9 +35343,13 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 messages=[{"role": "user", "content": prompt_full}]
             )
             result = response.choices[0].message.content.strip()
-        elif AI_engine == "Google PaLM":
-            completion = palm.generate_text(model='models/text-bison-001', prompt=prompt_full, temperature=temperature, max_output_tokens=1024)
-            result = completion.result.strip()
+        elif AI_engine == "Google Gemini":
+            completion = gemini_model.generate_content(prompt_full, generation_config={
+                'temperature': temperature,
+                'max_output_tokens': 1024
+            })
+            #completion = palm.generate_text(model='models/text-bison-001', prompt=prompt_full, temperature=temperature, max_output_tokens=1024)
+            result = completion.text.strip()
         return result
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
@@ -42740,6 +42856,9 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
     app_icon_color = colors.AMBER_800
     space = " "  if (page.width if page.web else page.window_width) >= 1024 else ""
+    def clear_memory(e):
+        clear_pipes()
+        if prefs['enable_sounds']: page.snd_delete.play()
     page.stats = Column([Text("", size=10), Text("", size=10)], tight=True, spacing=4)
     appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window_width) if page.web else page.window_width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE, overflow=ft.TextOverflow.ELLIPSIS, expand=True))], alignment=MainAxisAlignment.CENTER, expand=True), expand=False), elevation=20,
       center_title=True,
@@ -42748,7 +42867,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
       leading_width=46,
       leading=IconButton(icon=icons.LOCAL_FIRE_DEPARTMENT_OUTLINED, icon_color=app_icon_color, icon_size=32, tooltip="Save Settings File", on_click=lambda _: app_icon_save()),
       #leading_width=40,
-      actions=[ft.GestureDetector(page.stats, on_tap=lambda _:update_stats(page), on_double_tap=lambda _:toggle_stats(page), on_long_press_end=lambda _:clear_pipes()), 
+      actions=[ft.GestureDetector(page.stats, on_tap=lambda _:update_stats(page), on_double_tap=lambda _:toggle_stats(page), on_long_press_end=clear_memory), 
         PopupMenuButton(items=[
           PopupMenuItem(text="🤔  Help/Info", on_click=open_help_dlg),
           PopupMenuItem(text="👏  Credits", on_click=open_credits_dlg),
