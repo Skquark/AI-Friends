@@ -707,6 +707,7 @@ def buildImageAIs(page):
     page.ControlNetXL = buildControlNetXL(page)
     page.ControlNetXS = buildControlNetXS(page)
     page.DeepFloyd = buildDeepFloyd(page)
+    page.Amused = buildAmused(page)
     page.Wuerstchen = buildWuerstchen(page)
     page.PixArtAlpha = buildPixArtAlpha(page)
     page.LMD_Plus = buildLMD_Plus(page)
@@ -734,6 +735,7 @@ def buildImageAIs(page):
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
+            Tab(text="Amused", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
@@ -771,6 +773,7 @@ def build3DAIs(page):
     page.Point_E = buildPoint_E(page)
     page.Shap_E = buildShap_E(page)
     page.ZoeDepth = buildZoeDepth(page)
+    page.MarigoldDepth = buildMarigoldDepth(page)
     page.LDM3D = buildLDM3D(page)
     page.InstantNGP = buildInstantNGP(page)
     page.Luma = buildLuma(page)
@@ -780,6 +783,7 @@ def build3DAIs(page):
             Tab(text="Point-E 3D", content=page.Point_E, icon=icons.SWIPE_UP),
             Tab(text="Shap-E 3D", content=page.Shap_E, icon=icons.PRECISION_MANUFACTURING),
             Tab(text="ZoeDepth 3D", content=page.ZoeDepth, icon=icons.GRADIENT),
+            Tab(text="MarigoldDepth", content=page.MarigoldDepth, icon=icons.FILTER_VINTAGE),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
             Tab(text="Luma Video-to-3D", content=page.Luma, icon=icons.NIGHTS_STAY),
@@ -1841,6 +1845,7 @@ def buildInstallers(page):
         #page.ESRGAN_block_kandinsky21_fuse.height = None
         page.ESRGAN_block_kandinsky_controlnet.height = None
         page.ESRGAN_block_deepfloyd.height = None
+        page.ESRGAN_block_amused.height = None
         page.ESRGAN_block_reference.height = None
         page.ESRGAN_block_wuerstchen.height = None
         page.ESRGAN_block_pixart_alpha.height = None
@@ -1874,6 +1879,7 @@ def buildInstallers(page):
         #page.ESRGAN_block_kandinsky21.update()
         #page.ESRGAN_block_kandinsky21_fuse.update()
         page.ESRGAN_block_deepfloyd.update()
+        page.ESRGAN_block_amused.update()
         page.ESRGAN_block_wuerstchen.update()
         page.ESRGAN_block_pixart_alpha.update()
         page.ESRGAN_block_lmd_plus.update()
@@ -5562,6 +5568,66 @@ def buildZoeDepth(page):
         ElevatedButton(content=Text("✊  Get Zoe Depth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_zoe_depth(page)),
         page.zoe_depth_output,
         clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+marigold_depth_prefs = {
+    'init_image': '',
+    'denoising_steps': 10,
+    'ensemble_size': 10,
+    'match_input_res': True,
+    'color_map': 'Spectral', #
+    'processing_res': 768,
+    'batch_folder_name': '',
+}
+def buildMarigoldDepth(page):
+    global marigold_depth_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            marigold_depth_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            marigold_depth_prefs[pref] = float(e.control.value)
+          else:
+            marigold_depth_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def marigold_depth_help(e):
+      def close_marigold_depth_dlg(e):
+        nonlocal marigold_depth_help_dlg
+        marigold_depth_help_dlg.open = False
+        page.update()
+      marigold_depth_help_dlg = AlertDialog(title=Text("🙅   Help with Marigold Depth"), content=Column([
+          Text("Marigold is a universal monocular depth estimator that delivers accurate and sharp predictions in the wild. Based on Stable Diffusion, it is trained exclusively with synthetic depth data and excels in zero-shot adaptation to real-world imagery. This pipeline is an official implementation of the inference process. This depth estimation pipeline processes a single input image through multiple diffusion denoising stages to estimate depth maps. These maps are subsequently merged to produce the final output."),
+          Markdown("[Project Page](https://marigoldmonodepth.github.io) | [Paper](https://arxiv.org/abs/2312.02145) | [GitHub](https://github.com/prs-eth/marigold) | [HuggingFace Space](https://huggingface.co/spaces/toshas/marigold)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧊  The depths we go... ", on_click=close_marigold_depth_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = marigold_depth_help_dlg
+      marigold_depth_help_dlg.open = True
+      page.update()
+    init_image = FileInput(label="Initial Image", pref=marigold_depth_prefs, key='init_image', page=page)
+    color_map = Dropdown(label="Colormap", width=150, options=[dropdown.Option(c) for c in ['Spectral', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'coolwarm', 'bwr', 'seismic']], value=marigold_depth_prefs['color_map'], on_change=lambda e:changed(e,'color_map'))
+    match_input_res = Switcher(label="Match Input Resolution", value=marigold_depth_prefs['match_input_res'], on_change=lambda e:changed(e,'match_input_res'), tooltip="Resize depth prediction to match input resolution.")
+    denoising_steps = SliderRow(label="Number of Denoising Steps", min=1, max=50, divisions=49, pref=marigold_depth_prefs, key='denoising_steps', tooltip="Number of denoising steps of each inference pass.")
+    ensemble_size = SliderRow(label="Ensemble Size", min=1, max=50, divisions=49, pref=marigold_depth_prefs, key='ensemble_size', tooltip="Number of inference passes in the ensemble.")
+    #pano_360 = Switcher(label="Input 360 Panoramic", value=marigold_depth_prefs['pano_360'], on_change=lambda e:changed(e,'pano_360'))
+    #colorize = Switcher(label="Show Colorized Depth", value=marigold_depth_prefs['colorize'], on_change=lambda e:changed(e,'colorize'))
+    processing_res = SliderRow(label="Processing Resolution", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=marigold_depth_prefs, key='processing_res')
+    page.marigold_depth_output = Column([])
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🪷  Marigold Depth Estimation", "Monocular depth estimator that delivers accurate & sharp predictions in the wild... Based on SD.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Marigold Depth Settings", on_click=marigold_depth_help)]),
+        init_image,
+        processing_res,
+        denoising_steps,
+        ensemble_size,
+        #Row([match_input_res, pano_360, colorize]),
+        Row([color_map, match_input_res]),
+        ElevatedButton(content=Text("🌺  Get Marigold Depth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_marigold_depth(page)),
+        page.marigold_depth_output,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
@@ -9492,6 +9558,116 @@ def buildDeepFloyd(page):
       ]))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+
+amused_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "amused-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale": 10.0,
+    'num_inference_steps': 12,
+    "seed": 0,
+    'init_image': '',
+    'mask_image': '',
+    'init_image_strength': 0.8,
+    "cpu_offload": False,
+    "cpu_only": False,
+    "amused_model": "amused-256",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildAmused(page):
+    global prefs, amused_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            amused_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            amused_prefs[pref] = float(e.control.value)
+          else:
+            amused_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def amused_help(e):
+      def close_amused_dlg(e):
+        nonlocal amused_help_dlg
+        amused_help_dlg.open = False
+        page.update()
+      amused_help_dlg = AlertDialog(title=Text("🙅   Help with Amused Pipeline"), content=Column([
+          Text("Amused is a lightweight text to image model based off of the muse architecture. Amused is particularly useful in applications that require a lightweight and fast model such as generating many images quickly at once. Amused is a vqvae token based transformer that can generate an image in fewer forward passes than many diffusion models. In contrast with muse, it uses the smaller text encoder CLIP-L/14 instead of t5-xxl. Due to its small parameter count and few forward pass generation process, amused can generate many images quickly. This benefit is seen particularly at larger batch sizes."),
+          Text("Muse is a text-to-image Transformer model that achieves state-of-the-art image generation performance while being significantly more efficient than diffusion or autoregressive models. Muse is trained on a masked modeling task in discrete token space: given the text embedding extracted from a pre-trained large language model (LLM), Muse is trained to predict randomly masked image tokens. Compared to pixel-space diffusion models, such as Imagen and DALL-E 2, Muse is significantly more efficient due to the use of discrete tokens and requiring fewer sampling iterations; compared to autoregressive models, such as Parti, Muse is more efficient due to the use of parallel decoding. The use of a pre-trained LLM enables fine-grained language understanding, translating to high-fidelity image generation and the understanding of visual concepts such as objects, their spatial relationships, pose, cardinality, etc. Our 900M parameter model achieves a new SOTA on CC3M, with an FID score of 6.06. The Muse 3B parameter model achieves an FID of 7.88 on zero-shot COCO evaluation, along with a CLIP score of 0.32. Muse also directly enables a number of image editing applications without the need to fine-tune or invert the model: inpainting, outpainting, and mask-free editing."),
+          Markdown("[Project](https://muse-model.github.io) | [Paper](https://arxiv.org/pdf/2301.00704.pdf) | [HuggingFace Model](https://huggingface.co/huggingface/amused-256)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("Contributors include Suraj Patil, William Berman, Patrick von Platen, Huiwen Chang, Han Zhang, Jarred Barber, AJ Maschinot, Jose Lezama, Lu Jiang Ming-Hsuan Yang, Kevin Murphy, William T. Freeman, Michael Rubinstein, Yuanzhen Li and Dilip Krishnan.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🎢  Very Amusing...", on_click=close_amused_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = amused_help_dlg
+      amused_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        amused_prefs['amused_model'] = e.control.value
+        amused_custom_model.visible = e.control.value == "Custom"
+        amused_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        amused_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=amused_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=amused_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image (optional)", pref=amused_prefs, key='init_image', page=page, col={'md':6})
+    mask_image = FileInput(label="Mask Image (optional)", pref=amused_prefs, key='mask_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=amused_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=amused_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=amused_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=20, step=1, value=amused_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=40, divisions=40, pref=amused_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=amused_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=amused_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=amused_prefs, key='height')
+    amused_model = Dropdown(label="Amused Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("amused-256"), dropdown.Option("amused-512")], value=amused_prefs['amused_model'], on_change=changed_model)
+    amused_custom_model = TextField(label="Custom Amused Model (URL or Path)", value=amused_prefs['custom_model'], expand=True, visible=amused_prefs['amused_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=amused_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    #cpu_only = Switcher(label="CPU Only (not yet)", value=amused_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
+    seed = TextField(label="Seed", width=90, value=str(amused_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=amused_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=amused_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=amused_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=amused_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_amused = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_amused.height = None if status['installed_ESRGAN'] else 0
+    if not amused_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🎠   Run aMUSEd", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_amused(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_amused(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_amused(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.amused_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🎡  Amused Open-MUSE", "Lightweight and Fast vqVAE Masked Generative Transformer Model to make many images quickly at once...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Amused Settings", on_click=amused_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([init_image, mask_image]),
+            init_image_strength,
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([amused_model, amused_custom_model]),
+            #Row([cpu_offload, cpu_only]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_amused,
+            parameters_row,
+            page.amused_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 wuerstchen_prefs = {
     "prompt": '',
     "negative_prompt": '',
@@ -12437,6 +12613,9 @@ animate_diff_motion_modules = [
     {'name': 'mm_sd_v15', 'file': 'mm_sd_v15.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15.ckpt'},
     {'name': 'mm_sd_v15_v2', 'file': 'mm_sd_v15_v2.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sd_v15_v2.ckpt'},
     {'name': 'mm_sdxl_v10_beta', 'file': 'mm_sdxl_v10_beta.ckpt', 'path': 'https://huggingface.co/guoyww/AnimateDiff/resolve/main/mm_sdxl_v10_beta.ckpt'},
+    {'name': 'v3_sd15_mm', 'file': 'v3_sd15_mm.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v3_sd15_mm.ckpt'},
+    {'name': 'Long_mm_16_64_frames', 'file': 'lt_long_mm_16_64_frames.ckpt', 'path': 'https://huggingface.co/Lightricks/LongAnimateDiff/resolve/main/lt_long_mm_16_64_frames.ckpt'},
+    {'name': 'Long_mm_32_frames', 'file': 'lt_long_mm_32_frames.ckpt', 'path': 'https://huggingface.co/Lightricks/LongAnimateDiff/resolve/main/lt_long_mm_32_frames.ckpt'},
     {'name': 'improved3DMotion', 'file': 'improved3DMotion_improved3DV1.ckpt', 'path': 'https://civitai.com/api/download/models/178017?type=Model&format=PickleTensor'},
     {'name': 'TemporalDiff', 'file': 'temporaldiffMotion_v10.ckpt', 'path': 'https://civitai.com/api/download/models/160418?type=Model&format=PickleTensor'},
     {'name': 'YoinkoorLab NSFW', 'file': 'yoinkoorlabsNSFWMotion_godmodev20.ckpt', 'path': 'https://civitai.com/api/download/models/177016?type=Model&format=PickleTensor'},
@@ -12453,6 +12632,7 @@ animate_diff_motion_loras = [
     {'name': 'Tilt-Down', 'file': 'v2_lora_TiltDown.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_TiltDown.ckpt'},
     {'name': 'Clockwise', 'file': 'v2_lora_RollingClockwise.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_RollingClockwise.ckpt'},
     {'name': 'Anti-clockwise', 'file': 'v2_lora_RollingAnticlockwise.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v2_lora_RollingAnticlockwise.ckpt'},
+    {'name': 'v3-SD1.5-Adapter', 'file': 'v3_sd15_adapter.ckpt', 'path': 'https://huggingface.co/guoyww/animatediff/resolve/main/v3_sd15_adapter.ckpt'},
 ]
 
 def buildAnimateDiff(page):
@@ -18474,11 +18654,13 @@ pipe_infinite_zoom = None
 pipe_deepfloyd = None
 pipe_deepfloyd2 = None
 pipe_deepfloyd3 = None
+pipe_amused = None
 pipe_gpt2 = None
 pipe_distil_gpt2 = None
 pipe_background_remover = None
 pipe_shap_e = None
 pipe_zoe_depth = None
+pipe_marigold_depth = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
@@ -18588,7 +18770,7 @@ def get_diffusers(page):
             torch_installed = False
     if not torch_installed:
         import importlib
-        page.console_msg("Upgrading Torch 2.1.0 Packages...")
+        page.console_msg("Upgrading Torch 2.1.0 Packages... You may need to restart session.")
         run_process("pip uninstall --yes torch torchaudio torchvision torchtext torchdata", page=page)
         if is_Colab:
             run_process("pip install torch torchaudio torchvision torchtext torchdata", page=page)
@@ -21023,6 +21205,12 @@ def clear_deepfloyd_pipe():
     pipe_deepfloyd = None
     pipe_deepfloyd2 = None
     pipe_deepfloyd3 = None
+def clear_amused_pipe():
+  global pipe_amused
+  if pipe_amused is not None:
+    del pipe_amused
+    flush()
+    pipe_amused = None
 def clear_blip_diffusion_pipe():
   global pipe_blip_diffusion
   if pipe_blip_diffusion is not None:
@@ -21140,10 +21328,16 @@ def clear_shap_e_pipe():
     del pipe_shap_e
     flush()
     pipe_shap_e = None
+def clear_marigold_depth_pipe():
+  global pipe_marigold_depth
+  if pipe_marigold_depth is not None:
+    del pipe_marigold_depth
+    flush()
+    pipe_marigold_depth = None
 def clear_zoe_depth_pipe():
   global pipe_zoe_depth
   if pipe_zoe_depth is not None:
-    del pipe_spipe_zoe_depthhap_e
+    del pipe_zoe_depth
     flush()
     pipe_zoe_depth = None
 def clear_controlnet_pipe():
@@ -21214,6 +21408,7 @@ def clear_pipes(allbut=None):
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'svd' in but: clear_svd_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
+    if not 'amused' in but: clear_amused_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
     if not 'fuyu' in but: clear_fuyu_pipe()
     if not 'ip_adapter' in but: clear_ip_adapter_pipe()
@@ -21242,6 +21437,7 @@ def clear_pipes(allbut=None):
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     if not 'shap_e' in but: clear_shap_e_pipe()
     if not 'zoe_depth' in but: clear_zoe_depth_pipe()
+    if not 'marigold_depth' in but: clear_marigold_depth_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'stable_lm' in but: clear_stable_lm_pipe()
@@ -27212,14 +27408,14 @@ def run_image2text(page):
     elif image2text_prefs['method'] == "BLIP-Interrogation":
         installer = Installing("Downloading Image2Text CLIP-Interrogator Blips...")
         prt(installer)
-        try:
+        '''try:
             if transformers.__version__ != "4.21.3": # Diffusers conflict
               run_process("pip uninstall -y transformers", realtime=False)
         except Exception:
             pass
-        run_process("pip install ftfy regex tqdm timm fairscale requests", realtime=False)
+        run_process("pip install -q transformers==4.21.3 --upgrade --force-reinstall", realtime=False)'''
         #run_sp("pip install --upgrade transformers==4.21.2", realtime=False)
-        run_process("pip install -q transformers==4.21.3 --upgrade --force-reinstall", realtime=False)
+        run_process("pip install ftfy regex tqdm timm fairscale requests", realtime=False)
         import importlib
         importlib.reload(transformers)
         run_process("pip install -e git+https://github.com/openai/CLIP.git@main#egg=clip", realtime=False)
@@ -34744,6 +34940,277 @@ def run_deepfloyd(page, from_list=False):
         clear_pipes()
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_amused(page, from_list=False, with_params=False):
+    global amused_prefs, pipe_amused, prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    amused_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            amused_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':amused_prefs['guidance_scale'], 'num_inference_steps':amused_prefs['num_inference_steps'], 'width':amused_prefs['width'], 'height':amused_prefs['height'], 'init_image':amused_prefs['init_image'], 'mask_image':amused_prefs['mask_image'], 'init_image_strength':amused_prefs['init_image_strength'], 'num_images':amused_prefs['num_images'], 'seed':amused_prefs['seed']})
+        else:
+            amused_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'mask_image':p['mask_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(amused_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      amused_prompts.append({'prompt': amused_prefs['prompt'], 'negative_prompt':amused_prefs['negative_prompt'], 'guidance_scale':amused_prefs['guidance_scale'], 'num_inference_steps':amused_prefs['num_inference_steps'], 'width':amused_prefs['width'], 'height':amused_prefs['height'], 'init_image':amused_prefs['init_image'], 'mask_image':amused_prefs['mask_image'], 'init_image_strength':amused_prefs['init_image_strength'], 'num_images':amused_prefs['num_images'], 'seed':amused_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Amused.controls.append(line)
+        if update:
+          page.Amused.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.Amused, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Amused.auto_scroll = scroll
+        page.Amused.update()
+      else:
+        page.Amused.auto_scroll = scroll
+        page.Amused.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Amused.controls = page.Amused.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = amused_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Amused Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("amused")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = amused_prefs['cpu_offload']
+    amused_model = "huggingface/amused-512" if amused_prefs['amused_model'] == "amused-512" else "huggingface/amused-256" if amused_prefs['amused_model'] == "amused-256" else amused_prefs['amused_custom_model']
+    if 'loaded_amused' not in status: status['loaded_amused'] = ""
+    if 'loaded_amused_mode' not in status: status['loaded_amused_mode'] = ""
+    if amused_model != status['loaded_amused']:
+        clear_pipes()
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/Amused-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    mem_kwargs = {} if prefs['higher_vram_mode'] else {'variant': "fp16", 'torch_dtype': torch.float16}
+    from diffusers import AmusedPipeline, AmusedImg2ImgPipeline, AmusedInpaintPipeline
+    def get_amused_pipe(mode="Text2Image"):
+        global status
+        try:
+            if mode == "Inpaint":
+                pipe_amused = AmusedInpaintPipeline.from_pretrained(amused_model, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **mem_kwargs)
+            elif mode == "Image2Image":
+                pipe_amused = AmusedImg2ImgPipeline.from_pretrained(amused_model, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **mem_kwargs)
+            else:
+                pipe_amused = AmusedPipeline.from_pretrained(amused_model, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **mem_kwargs)
+            pipe_amused.to(torch_device)
+            pipe_amused.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Amused...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_amused'] = amused_model
+        status['loaded_amused_mode'] = mode
+        return pipe_amused
+    
+    if pipe_amused == None:
+        installer.status(f"...initialize Amused Pipeline")
+        try:
+            if bool(amused_prefs['init_image']) and bool(amused_prefs['mask_image']):
+                pipe_amused = AmusedInpaintPipeline.from_pretrained(amused_model, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **mem_kwargs)
+                status['loaded_amused_mode'] = "Inpaint"
+            elif bool(amused_prefs['init_image']):
+                pipe_amused = AmusedImg2ImgPipeline.from_pretrained(amused_model, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **mem_kwargs)
+                status['loaded_amused_mode'] = "Image2Image"
+            else:
+                pipe_amused = AmusedPipeline.from_pretrained(amused_model, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **mem_kwargs)
+                status['loaded_amused_mode'] = "Text2Image"
+            #if prefs['enable_torch_compile']:
+            #    installer.status(f"...Torch compiling transformer")
+            #    pipe_amused.transformer = torch.compile(pipe_amused.transformer, mode="reduce-overhead", fullgraph=True)
+            #    pipe_amused = pipe_amused.to(torch_device)
+            #elif cpu_offload:
+            #    pipe_amused.enable_model_cpu_offload()
+            #else:
+            pipe_amused.to(torch_device)
+            pipe_amused.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Amused...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_amused'] = amused_model
+    else:
+        clear_pipes('amused')
+    
+    clear_last()
+    s = "" if len(amused_prompts) == 0 else "s"
+    prt(f"Generating your Amused Image{s}...")
+    for pr in amused_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator().manual_seed(random_seed)
+        init_img = None
+        mask_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            max_size = max(pr['width'], pr['height'])
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, max_size, multiple=32)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        if bool(pr['mask_image']):
+            fname = pr['mask_image'].rpartition(slash)[2]
+            if pr['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['mask_image']):
+                    mask_img = PILImage.open(pr['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                    return
+            max_size = max(pr['width'], pr['height'])
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, max_size, multiple=32)
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        if bool(mask_img) and bool(init_img):
+            mode = "Inpainting"
+            mods = {'image': init_img, 'mask': mask_img, 'strength': pr['init_image_strength']}
+        elif bool(init_img):
+            mode = "Image2Image"
+            mods = {'image': init_img, 'strength': pr['init_image_strength']}
+        else:
+            mode = "Text2Image"
+            mods = {'height': pr['height'], 'width': pr['width']}
+        if mode != status['loaded_amused_mode']:
+            prt(Installing(f"Initializing Amused {mode} Pipeline..."))
+            clear_pipes()
+            pipe_amused = get_amused_pipe(mode)
+            clear_last()
+        try:
+            images = pipe_amused(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                generator=generator,
+                callback=callback_fnc,
+                callback_steps = 1,
+                **mods,
+            ).images
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(amused_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, amused_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{amused_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not amused_prefs['display_upscaled_image'] or not amused_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], amused_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': amused_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if amused_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=amused_prefs["enlarge_scale"], face_enhance=amused_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if amused_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(amused_prefs["enlarge_scale"]), height=pr['height'] * float(amused_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {amused_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"Amused {mode}")
+                if prefs['save_config_in_metadata']:
+                    config_json = amused_prefs.copy()
+                    config_json['model_path'] = amused_model
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], amused_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], amused_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 def run_wuerstchen(page, from_list=False, with_params=False):
     global wuerstchen_prefs, pipe_wuerstchen, prefs
     if not status['installed_diffusers']:
@@ -40711,6 +41178,76 @@ def run_zoe_depth(page):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_marigold_depth(page):
+    global marigold_depth_prefs, pipe_marigold_depth
+    def prt(line):
+        if type(line) == str:
+            line = Text(line, size=17)
+        page.MarigoldDepth.controls.append(line)
+        page.MarigoldDepth.update()
+    def clear_last(lines=1):
+      clear_line(page.MarigoldDepth, lines=lines)
+    def clear_list():
+      page.MarigoldDepth.controls = page.MarigoldDepth.controls[:1]
+    def autoscroll(scroll=True):
+      page.MarigoldDepth.auto_scroll = scroll
+      page.MarigoldDepth.update()
+    if not bool(marigold_depth_prefs['ref_image']):
+        alert_msg(page, f"ERROR: If using your own QR image, you must provide it.")
+        return
+    file_name = "Marigold"
+    if marigold_depth_prefs['init_image'].startswith('http'):
+        image = PILImage.open(requests.get(marigold_depth_prefs['init_image'], stream=True).raw)
+        file_name = marigold_depth_prefs['init_image'].rpartition('/')[2]
+    else:
+        if os.path.isfile(marigold_depth_prefs['init_image']):
+            image = PILImage.open(marigold_depth_prefs['init_image'])
+            file_name = os.path.basename(marigold_depth_prefs['init_image'])
+        else:
+            alert_msg(page, f"ERROR: Couldn't find your init_image {marigold_depth_prefs['init_image']}")
+            return
+    if '.' in file_name:
+        file_name = file_name.rpartition('.')[0]
+    file_name = format_filename(file_name)
+    progress = ProgressBar(bar_height=8)
+    installer = Installing("Installing Marigold Depth Pipeline...")
+    clear_list()
+    prt(installer)
+    from diffusers import DiffusionPipeline
+    clear_pipes('marigold_depth')
+    if pipe_marigold_depth == None:
+        installer.status("...loading Bingxin/Marigold")
+        mem_kwargs = {} if prefs['higher_vram_mode'] else {'torch_dtype': torch.float16}
+        pipe_marigold_depth = DiffusionPipeline.from_pretrained("Bingxin/Marigold", custom_pipeline="marigold_depth_estimation", **mem_kwargs)
+        pipe_marigold_depth.to(torch_device)
+    batch_output = os.path.join(prefs['image_output'], marigold_depth_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    clear_last()
+    prt(progress)
+    marigold_output = pipe_marigold_depth(
+        image,                  # Input image.
+        denoising_steps=marigold_depth_prefs['denoising_steps'],     # (optional) Number of denoising steps of each inference pass. Default: 10.
+        ensemble_size=marigold_depth_prefs['ensemble_size'],       # (optional) Number of inference passes in the ensemble. Default: 10.
+        processing_res=marigold_depth_prefs['processing_res'],     # (optional) Maximum resolution of processing. If set to 0: will not resize at all. Defaults to 768.
+        match_input_res=marigold_depth_prefs['match_input_res'],   # (optional) Resize depth prediction to match input resolution.
+        # batch_size=0,           # (optional) Inference batch size, no bigger than `num_ensemble`. If set to 0, the script will automatically decide the proper batch size. Defaults to 0.
+        color_map=marigold_depth_prefs['color_map'],   # (optional) Colormap used to colorize the depth map. Defaults to "Spectral".
+        show_progress_bar=True, # (optional) If true, will show progress bars of the inference progress.
+    )
+    depth_path = available_file(batch_output, file_name, no_num=True)
+    colored_path = available_file(batch_output, f"{file_name}-colored", no_num=True)
+    depth: np.ndarray = marigold_output.depth_np                    # Predicted depth map
+    depth_colored: PILImage.Image = marigold_output.depth_colored      # Colorized prediction
+    # Save as uint16 PNG
+    depth_uint16 = (depth * 65535.0).astype(np.uint16)
+    PILImage.fromarray(depth_uint16).save(depth_path, mode="I;16")
+    depth_colored.save(colored_path)
+    autoscroll(True)
+    clear_last()
+    prt(ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page))
+    prt(ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_instant_ngp(page):
     global instant_ngp_prefs, prefs
