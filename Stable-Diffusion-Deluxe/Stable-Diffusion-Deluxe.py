@@ -9605,7 +9605,7 @@ def buildAmused(page):
       amused_help_dlg = AlertDialog(title=Text("🙅   Help with Amused Pipeline"), content=Column([
           Text("Amused is a lightweight text to image model based off of the muse architecture. Amused is particularly useful in applications that require a lightweight and fast model such as generating many images quickly at once. Amused is a vqvae token based transformer that can generate an image in fewer forward passes than many diffusion models. In contrast with muse, it uses the smaller text encoder CLIP-L/14 instead of t5-xxl. Due to its small parameter count and few forward pass generation process, amused can generate many images quickly. This benefit is seen particularly at larger batch sizes."),
           Text("Muse is a text-to-image Transformer model that achieves state-of-the-art image generation performance while being significantly more efficient than diffusion or autoregressive models. Muse is trained on a masked modeling task in discrete token space: given the text embedding extracted from a pre-trained large language model (LLM), Muse is trained to predict randomly masked image tokens. Compared to pixel-space diffusion models, such as Imagen and DALL-E 2, Muse is significantly more efficient due to the use of discrete tokens and requiring fewer sampling iterations; compared to autoregressive models, such as Parti, Muse is more efficient due to the use of parallel decoding. The use of a pre-trained LLM enables fine-grained language understanding, translating to high-fidelity image generation and the understanding of visual concepts such as objects, their spatial relationships, pose, cardinality, etc. Our 900M parameter model achieves a new SOTA on CC3M, with an FID score of 6.06. The Muse 3B parameter model achieves an FID of 7.88 on zero-shot COCO evaluation, along with a CLIP score of 0.32. Muse also directly enables a number of image editing applications without the need to fine-tune or invert the model: inpainting, outpainting, and mask-free editing."),
-          Markdown("[Project](https://muse-model.github.io) | [Paper](https://arxiv.org/pdf/2301.00704.pdf) | [HuggingFace Model](https://huggingface.co/huggingface/amused-256)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Project](https://muse-model.github.io) | [Paper](https://arxiv.org/pdf/2301.00704.pdf) | [HuggingFace Model](https://huggingface.co/amused/amused-256)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("Contributors include Suraj Patil, William Berman, Patrick von Platen, Huiwen Chang, Han Zhang, Jarred Barber, AJ Maschinot, Jose Lezama, Lu Jiang Ming-Hsuan Yang, Kevin Murphy, William T. Freeman, Michael Rubinstein, Yuanzhen Li and Dilip Krishnan.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🎢  Very Amusing...", on_click=close_amused_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = amused_help_dlg
@@ -19244,8 +19244,11 @@ if torch_device == "cuda":
             import importlib
             print(f"Uninstalling old transformers v{transformers.__version__}")
             run_sp("pip uninstall -y transformers", realtime=False)
-            print("Installing newest transformers...")
-            run_sp("pip install --upgrade -qq git+https://github.com/huggingface/transformers.git", realtime=True)
+            print("Installing newest transformers package...")
+            run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=True)
+            print("Installing newest accelerate package...")
+            run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=True)
+            print("Restart Runtime to apply updates...")
             #importlib.reload(transformers)
             #try:
             #    sys.exit()
@@ -19305,7 +19308,7 @@ start_step = 0
 start_callback = 0
 def callback_step(pipe, i, t, callback_kwargs):
     callback_step.has_been_called = True
-    global pb, start_step, start_callback
+    global pb, start_step, start_callback, abort_run
     now = time.time()
     itsec = ""
     try:
@@ -19323,6 +19326,8 @@ def callback_step(pipe, i, t, callback_kwargs):
     pb.value = percent
     pb.tooltip = f"[{i +1} / {steps}] (Timestep: {t}){itsec}"
     pb.update()
+    if abort_run:
+        pipe._interrupt = True
     return callback_kwargs
 
 def optimize_pipe(p, vae_slicing=False, unet=False, no_cpu=False, vae_tiling=False, to_gpu=True, tome=True, torch_compile=True, model_offload=False, freeu=True, lora=True):
@@ -35013,7 +35018,7 @@ def run_amused(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     cpu_offload = amused_prefs['cpu_offload']
-    amused_model = "huggingface/amused-512" if amused_prefs['amused_model'] == "amused-512" else "huggingface/amused-256" if amused_prefs['amused_model'] == "amused-256" else amused_prefs['amused_custom_model']
+    amused_model = "amused/amused-512" if amused_prefs['amused_model'] == "amused-512" else "amused/amused-256" if amused_prefs['amused_model'] == "amused-256" else amused_prefs['amused_custom_model']
     if 'loaded_amused' not in status: status['loaded_amused'] = ""
     if 'loaded_amused_mode' not in status: status['loaded_amused_mode'] = ""
     if amused_model != status['loaded_amused']:
@@ -41062,8 +41067,8 @@ def run_zoe_depth(page):
     def autoscroll(scroll=True):
       page.ZoeDepth.auto_scroll = scroll
       page.ZoeDepth.update()
-    if not bool(zoe_depth_prefs['ref_image']):
-        alert_msg(page, f"ERROR: If using your own QR image, you must provide it.")
+    if not bool(zoe_depth_prefs['init_image']):
+        alert_msg(page, f"ERROR: You must provide an init image to prrocess.")
         return
     file_name = "zoedepth"
     if zoe_depth_prefs['init_image'].startswith('http'):
@@ -41192,9 +41197,6 @@ def run_marigold_depth(page):
     def autoscroll(scroll=True):
       page.MarigoldDepth.auto_scroll = scroll
       page.MarigoldDepth.update()
-    if not bool(marigold_depth_prefs['ref_image']):
-        alert_msg(page, f"ERROR: If using your own QR image, you must provide it.")
-        return
     file_name = "Marigold"
     if marigold_depth_prefs['init_image'].startswith('http'):
         image = PILImage.open(requests.get(marigold_depth_prefs['init_image'], stream=True).raw)
@@ -41223,6 +41225,7 @@ def run_marigold_depth(page):
     batch_output = os.path.join(prefs['image_output'], marigold_depth_prefs['batch_folder_name'])
     make_dir(batch_output)
     clear_last()
+    prt("Generating Marigold Depth Estimation Images...")
     prt(progress)
     marigold_output = pipe_marigold_depth(
         image,                  # Input image.
@@ -41243,7 +41246,9 @@ def run_marigold_depth(page):
     PILImage.fromarray(depth_uint16).save(depth_path, mode="I;16")
     depth_colored.save(colored_path)
     autoscroll(True)
-    clear_last()
+    clear_last(2)
+    prt(Row([ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page)], alignment=MainAxisAlignment.CENTER))
     prt(ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page))
     prt(ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page))
     autoscroll(False)
