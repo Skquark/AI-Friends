@@ -735,7 +735,7 @@ def buildImageAIs(page):
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
-            Tab(text="Amused", content=page.Amused, icon=icons.ATTRACTIONS),
+            Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
@@ -825,6 +825,7 @@ def buildVideoAIs(page):
     page.Video_ReTalking = buildVideoReTalking(page)
     page.StyleCrafter = buildStyleCrafter(page)
     page.RAVE = buildRAVE(page)
+    page.TokenFlow = buildTokenFlow(page)
     page.AnimateDiff = buildAnimateDiff(page)
     page.HotshotXL = buildHotshotXL(page)
     page.Rerender_a_video = buildRerender_a_video(page)
@@ -842,6 +843,7 @@ def buildVideoAIs(page):
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
             Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
             Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
+            Tab(text="TokenFlow", content=page.TokenFlow, icon=icons.TOKEN),
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
             Tab(text="Hotshot-XL", content=page.HotshotXL, icon=icons.HOT_TUB),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
@@ -11178,7 +11180,7 @@ def buildInfiniteZoom(page):
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='height')
     use_SDXL = Switcher(label="Use Stable Diffusion XL", value=infinite_zoom_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
-    inpainting_model = Dropdown(label="Inpainting Model", width=386, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers","parlance/dreamlike-diffusion-1.0-inpainting","ghunkins/stable-diffusion-liberty-inpainting"]], value=infinite_zoom_prefs['inpainting_model'], on_change=lambda e: changed(e, 'inpainting_model'))
+    inpainting_model = Dropdown(label="Inpainting Model", width=386, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers", "parlance/dreamlike-diffusion-1.0-inpainting", "ghunkins/stable-diffusion-liberty-inpainting", "piyushaaryan011/realistic-vision-inpainting"]], value=infinite_zoom_prefs['inpainting_model'], on_change=lambda e: changed(e, 'inpainting_model'))
     save_frames = Switcher(label="Save Frames", value=infinite_zoom_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
     save_gif = Switcher(label="Save Animated GIF", value=infinite_zoom_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
     save_video = Switcher(label="Save Video", value=infinite_zoom_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
@@ -12362,7 +12364,7 @@ def buildStyleCrafter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👗  StyleCrafter Text-to-Video-or-Image", "Enhancing Stylized Video or ImageGeneration with Style Adapter...", actions=[IconButton(icon=icons.HELP, tooltip="Help with StyleCrafter Settings", on_click=style_crafter_help)]),
+        Header("👗  StyleCrafter Text-to-Video-or-Image", "Enhancing Stylized Video or Image Generation with Style Adapter...", actions=[IconButton(icon=icons.HELP, tooltip="Help with StyleCrafter Settings", on_click=style_crafter_help)]),
         #ResponsiveRow([prompt, negative_prompt]),
         prompt,
         #init_video,
@@ -12499,6 +12501,130 @@ def buildRAVE(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+tokenflow_prefs = {
+    'init_video': '',
+    'prompt': '',
+    'negative_prompt': 'ugly, blurry, low res, unrealistic, unaesthetic',
+    'inversion_prompt': '',
+    'num_inference_steps': 50,
+    'num_inversion_steps': 500,
+    'guidance_scale': 7.5,
+    'fps': 30,
+    'sd_version': '2.1',
+    'num_frames': 40,
+    'export_to_video': False,
+    'seed': 0,
+    'width': 1024,
+    'height': 576,
+    'batch_size': 8,
+    'selected_mode': 'pnp',
+    'pnp_attn_t': 0.5,
+    'pnp_f_t': 0.8,
+    'start': 0.9,
+    'use_ddim_noise': True,
+    'batch_folder_name': '',
+}
+
+def buildTokenFlow(page):
+    global tokenflow_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            tokenflow_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            tokenflow_prefs[pref] = float(e.control.value)
+          else:
+            tokenflow_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def tokenflow_help(e):
+      def close_tokenflow_dlg(e):
+        nonlocal tokenflow_help_dlg
+        tokenflow_help_dlg.open = False
+        page.update()
+      tokenflow_help_dlg = AlertDialog(title=Text("💁   Help with TokenFlow Video-To-Video"), content=Column([
+          Text("The generative AI revolution has been recently expanded to videos. Nevertheless, current state-of-the-art video models are still lagging behind image models in terms of visual quality and user control over the generated content. In this work, we present a framework that harnesses the power of a text-to-image diffusion model for the task of text-driven video editing. Specifically, given a source video and a target text-prompt, our method generates a high-quality video that adheres to the target text, while preserving the spatial layout and dynamics of the input video. Our method is based on our key observation that consistency in the edited video can be obtained by enforcing consistency in the diffusion feature space. We achieve this by explicitly propagating diffusion features based on inter-frame correspondences, readily available in the model. Thus, our framework does not require any training or fine-tuning, and can work in conjunction with any off-the-shelf text-to-image editing method. We demonstrate state-of-the-art editing results on a variety of real-world videos."),
+          Text("We observe that the level of temporal consistency of a video is tightly related to the temporal consistency of its feature representation, as can be seen in the feature visualization below. The features of a natural video have a shared, temporally consistent representation. When editing the video per frame, this consistency breaks. Our method ensures the same level of feature consistency as in the original video features."),
+          Markdown("[Project Page](https://diffusion-tokenflow.github.io) | [GitHub repository](https://github.com/omerbt/TokenFlow) | [Paper](https://diffusion-tokenflow.github.io/TokenFlow_Arxiv.pdf)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Geyer, Michal and Bar-Tal, Omer Bar-Tal, Bagon, Shai and Dekel, Tali, Harry Chen and HuggingFace")
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🌟  Extra Bonus Points... ", on_click=close_tokenflow_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = tokenflow_help_dlg
+      tokenflow_help_dlg.open = True
+      page.update()
+    def change_mode(e):
+        mode = e.data.split('"')[1]
+        tokenflow_prefs['selected_mode'] = mode
+        pnp_container.visible = mode == "pnp"
+        sdedit_container.visible = mode == "sdedit"
+        pnp_container.update()
+        sdedit_container.update()
+        num_inversion_steps.set_value(500 if mode == "pnp" else 100)
+    prompt = TextField(label="Animation Prompt Text", value=tokenflow_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=tokenflow_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    inversion_prompt = TextField(label="Inversion Prompt Describing Video", value=tokenflow_prefs['inversion_prompt'], multiline=True, on_change=lambda e:changed(e,'inversion_prompt'))
+    init_video = FileInput(label="Initial Video Clip", pref=tokenflow_prefs, key='init_video', ftype="video", page=page)
+    num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=tokenflow_prefs, key='num_frames', tooltip="The number of video frames that are generated from init video.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=tokenflow_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    num_inversion_steps = SliderRow(label="Number of Inversion Steps", min=1, max=600, divisions=599, pref=tokenflow_prefs, key='num_inversion_steps', tooltip="Steps during the inversion process.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=tokenflow_prefs, key='guidance_scale')
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=tokenflow_prefs, key='fps')
+    batch_size = SliderRow(label="Batch Size", min=1, max=60, divisions=59, pref=tokenflow_prefs, key='batch_size')
+    #eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=tokenflow_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=tokenflow_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=tokenflow_prefs, key='height')
+    #export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=tokenflow_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=tokenflow_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=tokenflow_prefs, key='height')
+    selected_mode = ft.SegmentedButton(on_change=change_mode, selected={tokenflow_prefs['selected_mode']}, allow_multiple_selection=False,
+        segments=[
+            ft.Segment(value="pnp", label=ft.Text("Plug-and-Play"), icon=ft.Icon(ft.icons.POWER)),
+            ft.Segment(value="sdedit", label=ft.Text("SDEdit"), icon=ft.Icon(ft.icons.AUTO_FIX_NORMAL)),
+        ],
+    )
+    pnp_attn_t = SliderRow(label="Attention Token", min=0, max=1.0, divisions=20, round=1, pref=tokenflow_prefs, key='pnp_attn_t', col={'sm':6}, tooltip="Attention")
+    pnp_f_t = SliderRow(label="Frame Token", min=0, max=1.0, divisions=20, round=1, pref=tokenflow_prefs, key='pnp_f_t', col={'sm':6}, tooltip="Frame")
+    pnp_container = Container(ResponsiveRow([pnp_attn_t, pnp_f_t]), visible = tokenflow_prefs['selected_mode'] == "pnp")
+    start = SliderRow(label="Start Sampling", min=0, max=1.0, divisions=20, round=1, pref=tokenflow_prefs, key='start', expand=True, tooltip="Start sampling from t = start * 1000")
+    use_ddim_noise = Switcher(label="Use DDIM Noise", value=tokenflow_prefs['use_ddim_noise'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_ddim_noise'), tooltip="Use DDIM noise to noise the images. Better structure preservation.")
+    sdedit_container = Container(Row([start, use_ddim_noise]), visible = tokenflow_prefs['selected_mode'] == "sdedit")
+    batch_folder_name = TextField(label="Video Folder Name", value=tokenflow_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    seed = TextField(label="Seed", width=90, value=str(tokenflow_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    sd_version = Dropdown(label="Stable Diffision Version", width=170, options=[dropdown.Option(t) for t in ['1.5', '2.0', '2.1', 'ControlNet', 'depth', 'XL']], value=tokenflow_prefs['sd_version'], on_change=lambda e:changed(e,'sd_version'))
+    #page.tokenflow_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    #clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    #clear_button.visible = len(page.tokenflow_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🌞  TokenFlow Video-To-Video", "Consistent Diffusion Features for Consistent Video Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with TokenFlow Settings", on_click=tokenflow_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        init_video,
+        inversion_prompt,
+        ResponsiveRow([prompt, negative_prompt]),
+        #Row([export_to_video, lower_memory]),
+        num_frames,
+        fps,
+        num_inversion_steps,
+        num_inference_row,
+        guidance,
+        batch_size,
+        Row([Text("Diffusion Mode: "), selected_mode]),
+        pnp_container,
+        sdedit_container,
+        #eta_slider,
+        #width_slider, height_slider,
+        #page.ESRGAN_block_tokenflow,
+        Row([sd_version, seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("🌈  Run TokenFlow", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_tokenflow(page)),
+        ]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 animate_diff_prefs = {
     'prompt': '',
@@ -38994,6 +39120,127 @@ def run_rave(page):
     else:
         prt("Error Generating Output File! Maybe NSFW Image detected or Out of Memory?")
     prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_tokenflow(page):
+    global tokenflow_prefs, prefs, status, pipe_tokenflow, model_path
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.TokenFlow.controls.append(line)
+      page.TokenFlow.update()
+    def clear_last(lines=1):
+      clear_line(page.TokenFlow, lines=lines)
+    def clear_list():
+      page.TokenFlow.controls = page.TokenFlow.controls[:1]
+    def autoscroll(scroll=True):
+      page.TokenFlow.auto_scroll = scroll
+      page.TokenFlow.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = tokenflow_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing TokenFlow Text-To-Video Pipeline...")
+    prt(installer)
+    #model_id = "damo-vilab/text-to-video-ms-1.7b"
+    clear_pipes()
+    tokenflow_dir = os.path.join(root_dir, "tokenflow")
+    if not os.path.exists(tokenflow_dir):
+        installer.status("...Skquark/TokenFlow") #XmYx/TokenFlow
+        run_sp("git clone https://github.com/Skquark/TokenFlow.git", realtime=False, cwd=root_dir)
+    data_dir = os.path.join(tokenflow_dir, "data")
+    pip_install("pillow ftfy opencv-python|cv2 tqdm numpy pyyaml xformers tensorboard av kornia", installer=installer)
+    #clear_pipes('tokenflow')
+    clear_last()
+    #prt("Generating TokenFlow of your Video...")
+    progressbar = Progress("Generating TokenFlow of your Video... See console for progress.")
+    prt(progressbar)
+    autoscroll(False)
+    #batch_output = os.path.join(stable_dir, tokenflow_prefs['batch_folder_name'])
+    #if not os.path.isdir(batch_output):
+    #  os.makedirs(batch_output)
+    #local_output = batch_output
+    batch_output = os.path.join(prefs['image_output'], tokenflow_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    data_folder = format_filename(tokenflow_prefs['batch_folder_name'], use_dash=True)
+    make_dir(os.path.join(data_dir, data_folder))
+    init_vid = tokenflow_prefs['init_video']
+    if init_vid.startswith('http'):
+        progressbar.status("...Downloading Video")
+        init_vid = download_file(init_vid, uploads_dir, ext="mp4")
+    else:
+        if not os.path.isfile(init_vid):
+            alert_msg(page, f"ERROR: Couldn't find your init_video {init_vid}")
+            return
+    video_file = os.path.basename(init_vid)
+    if not video_file.endswith("mp4"):
+        video_file += ".mp4"
+    progressbar.status("...Preparing Run")
+    shutil.copy(init_vid, os.path.join(data_dir, video_file))
+    random_seed = int(tokenflow_prefs['seed']) if int(tokenflow_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    #width = tokenflow_prefs['width']
+    #height = tokenflow_prefs['height']
+    selected_mode = tokenflow_prefs['selected_mode']
+    cache = prefs["cache_dir"]
+    cache_dir = f' --cache_dir "{cache}"' if bool(cache) else '' 
+    #x = " -x" if status['installed_xformers'] else ""
+    import yaml
+    config_yaml = os.path.join(tokenflow_dir, 'config', 'sdd_config.yaml')
+    config = {'seed': random_seed, 'device': torch_device, 'output_path': 'tokenflow-results', 'data_path': f'data/{data_folder}', 'latents_path': 'latents', 'n_inversion_steps': tokenflow_prefs["num_inversion_steps"], 'n_frames': tokenflow_prefs['num_frames']}
+    config['sd_version'] = tokenflow_prefs['sd_version']
+    config['guidance_scale'] = tokenflow_prefs['guidance_scale']
+    config['n_timesteps'] = tokenflow_prefs["num_inference_steps"]
+    config['prompt'] = tokenflow_prefs['prompt']
+    config['negative_prompt'] = tokenflow_prefs['negative_prompt']
+    config['batch_size'] = tokenflow_prefs['batch_size']
+    config['fps'] = tokenflow_prefs['fps']
+    if selected_mode == "pnp":
+        config['pnp_attn_t'] = tokenflow_prefs['pnp_attn_t']
+        config['pnp_f_t'] = tokenflow_prefs['pnp_f_t']
+        run_py = "run_tokenflow_pnp.py"
+    else:
+        config['start'] = tokenflow_prefs['start']
+        config['use_ddim_noise'] = tokenflow_prefs['use_ddim_noise']
+        run_py = "run_tokenflow_sdedit.py"
+    with open(config_yaml, 'w') as file:
+        yaml.dump(config, file)
+    try:
+        progressbar.status("...Preprocessing Inverted Video")
+        run_sp(f'python preprocess.py --data_path "data/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}', cwd=tokenflow_dir)
+               #-W {width} -H {height} -o {batch_output} -d cuda{x}{rw} -s {tokenflow_prefs["num_inference_steps"]} -g {tokenflow_prefs["guidance_scale"]} -f {tokenflow_prefs["fps"]} -T {tokenflow_prefs["num_frames"]}', cwd=data_dir)
+        progressbar.status("...Processing TokenFlow PNP")
+        run_sp(f'python {run_py} --config_path "config/sdd_config.yaml"{cache_dir}', cwd=tokenflow_dir)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: TokenFlow Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    clear_last()
+    autoscroll(True)
+    filename = f"{format_filename(tokenflow_prefs['prompt'])}"
+    #filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    output_path = os.path.join(tokenflow_dir, "tokenflow-results", "tokenflow_PnP.mp4")
+    video_path = available_file(batch_output, filename, ext="mp4", nonum=True)
+    if os.path.exists(output_path):
+        shutil.copy(output_path, video_path)
+        prt(f"Done creating video... Check {video_path}")
+        prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
+    else:
+        prt("Something went wrong generating video...")
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
