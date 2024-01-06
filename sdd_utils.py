@@ -269,6 +269,7 @@ SDXL_LoRA_models = [
     {"name": "Studio Ghibli", "path": "ntc-ai/SDXL-LoRA-slider.Studio-Ghibli-style", "weights": "Studio%20Ghibli%20style.safetensors", "prefix": "Studio Ghibli style"},
     {"name": "Studio Lighting", "path": "ntc-ai/SDXL-LoRA-slider.studio-lighting", "weights": "studio%20lighting.safetensors", "prefix": "StdGBRedmAF, Studio Ghibli"},
     {"name": "Toon", "path": "ntc-ai/SDXL-LoRA-slider.toon", "weights": "toon.safetensors", "prefix": "toon"},
+    {"name": "Ultra Realistic", "path": "ntc-ai/SDXL-LoRA-slider.ultra-realistic-illustration", "weights": "ultra%20realistic%20illustration.safetensors", "prefix": "ultra realistic illustration"},
     {"name": "Unexpected", "path": "ntc-ai/SDXL-LoRA-slider.unexpected", "weights": "unexpected.safetensors", "prefix": "unexpected"},
     {"name": "Unreal-Engine", "path": "ntc-ai/SDXL-LoRA-slider.unreal-engine", "weights": "unreal%20engine.safetensors", "prefix": "unreal engine"},
     {"name": "Very Aesthetic", "path": "ntc-ai/SDXL-LoRA-slider.very-aesthetic", "weights": "very%20aesthetic.safetensors", "prefix": "very aesthetic"},

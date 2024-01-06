@@ -272,6 +272,7 @@ def load_settings_file():
       'tome_ratio': 0.5,
       'enable_freeu': False,
       'freeu_args': {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2},
+      'enable_deepcache': False,
       'cache_dir': '',
       'install_diffusers': True,
       'install_interpolation': False,
@@ -694,6 +695,7 @@ def buildImageAIs(page):
     page.Reference = buildReference(page)
     page.ControlNetQR = buildControlNetQR(page)
     page.ControlNetSegmentAnything = buildControlNetSegmentAnything(page)
+    page.Null_Text = buildNull_Text(page)
     page.EDICT = buildEDICT(page)
     page.DiffEdit = buildDiffEdit(page)
     page.ImageVariation = buildImageVariation(page)
@@ -752,6 +754,7 @@ def buildImageAIs(page):
             Tab(text="IP-Adapter", content=page.IP_Adapter, icon=icons.ROOM_PREFERENCES),
             Tab(text="Reference-Only", content=page.Reference, icon=icons.CRISIS_ALERT),
             Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
+            Tab(text="Null-Text", content=page.Null_Text, icon=icons.FORMAT_OVERLINE),
             Tab(text="EDICT Edit", content=page.EDICT, icon=icons.AUTO_AWESOME),
             Tab(text="DiffEdit", content=page.DiffEdit, icon=icons.AUTO_GRAPH),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
@@ -842,8 +845,8 @@ def buildVideoAIs(page):
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
             Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
-            Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
             Tab(text="TokenFlow", content=page.TokenFlow, icon=icons.TOKEN),
+            Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
             Tab(text="Hotshot-XL", content=page.HotshotXL, icon=icons.HOT_TUB),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
@@ -1025,6 +1028,7 @@ if 'enable_tome' not in prefs: prefs['enable_tome'] = False
 if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
 if 'enable_freeu' not in prefs: prefs['enable_freeu'] = False
 if 'freeu_args' not in prefs: prefs['freeu_args'] = {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2}
+if 'enable_deepcache' not in prefs: prefs['enable_deepcache'] = False
 if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
 if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
 if 'prompt_style' not in prefs: prefs['prompt_style'] = "cinematic-default"
@@ -1482,6 +1486,7 @@ def buildInstallers(page):
   enable_vae_tiling = Checkbox(label="Enable VAE Tiling", tooltip="The VAE will split the input tensor into tiles to compute decoding and encoding in several steps. This is useful to save a large amount of memory and to allow the processing of larger images.", value=prefs['vae_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_tiling'))
   enable_vae_slicing = Checkbox(label="Enable VAE Slicing", tooltip="Sliced VAE decode latents for larger batches of images with limited VRAM. Splits the input tensor in slices to compute decoding in several steps", value=prefs['vae_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_slicing'))
   enable_tome = Checkbox(label="Enable Token Merging", tooltip="ToMe optimizes the Pipelines to create images faster, at the expense of some quality. Works by merging the redundant tokens / patches progressively in the forward pass of a Transformer-based network.", value=prefs['enable_tome'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_tome'))
+  enable_deepcache = Checkbox(label="Enable DeepCache", tooltip="Accelerates pipeline by strategically caching and reusing high-level features while efficiently updating low-level features by taking advantage of the U-Net architecture.", value=prefs['enable_deepcache'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_deepcache'))
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
   enable_torch_compile.visible = not sys.platform.startswith('win')
   enable_freeu = Checkbox(label="Enable FreeU: Free Lunch", tooltip="Technique to improve image quality by rebalancing the contributions from the UNet’s skip connections and backbone feature maps. Applied during inference, does not require any additional training or mem. Works on most pipeline tasks.", value=prefs['enable_freeu'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_freeu'))
@@ -1580,7 +1585,7 @@ def buildInstallers(page):
                                  Row([enable_vae_slicing, enable_vae_tiling, enable_bitsandbytes]),
                                  #enable_attention_slicing,
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
-                                 Row([enable_freeu, enable_tome, enable_torch_compile]),
+                                 Row([enable_freeu, enable_tome, enable_deepcache, enable_torch_compile]),
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, SD_params, install_SDXL, SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
@@ -1838,74 +1843,46 @@ def buildInstallers(page):
           console_msg("Installing Real-ESRGAN Upscaler...")
         status['installed_ESRGAN'] = True
       if prefs['install_ESRGAN']:
-        page.ESRGAN_block.height = None
-        page.ESRGAN_block_material.height = None
-        page.ESRGAN_block_dalle.height = None
-        page.ESRGAN_block_kandinsky.height = None
-        page.ESRGAN_block_kandinsky_fuse.height = None
-        #page.ESRGAN_block_kandinsky21.height = None
-        #page.ESRGAN_block_kandinsky21_fuse.height = None
-        page.ESRGAN_block_kandinsky_controlnet.height = None
-        page.ESRGAN_block_deepfloyd.height = None
-        page.ESRGAN_block_amused.height = None
-        page.ESRGAN_block_reference.height = None
-        page.ESRGAN_block_wuerstchen.height = None
-        page.ESRGAN_block_pixart_alpha.height = None
-        page.ESRGAN_block_lmd_plus.height = None
-        page.ESRGAN_block_blip_diffusion.height = None
-        page.ESRGAN_block_unCLIP.height = None
-        page.ESRGAN_block_unCLIP_image_variation.height = None
-        page.ESRGAN_block_unCLIP_interpolation.height = None
-        page.ESRGAN_block_unCLIP_image_interpolation.height = None
-        page.ESRGAN_block_semantic.height = None
-        page.ESRGAN_block_EDICT.height = None
-        page.ESRGAN_block_DiffEdit.height = None
-        page.ESRGAN_block_magic_mix.height = None
-        page.ESRGAN_block_paint_by_example.height = None
-        page.ESRGAN_block_instruct_pix2pix.height = None
-        page.ESRGAN_block_controlnet.height = None
-        page.ESRGAN_block_controlnet_qr.height = None
-        page.ESRGAN_block_controlnet_segment.height = None
-        page.ESRGAN_block_styler.height = None
-        page.ESRGAN_block_deep_daze.height = None
-        page.ESRGAN_block_DiT.height = None
-        page.ESRGAN_block_text_to_video.height = None
-        page.ESRGAN_block_text_to_video_zero.height = None
-        page.ESRGAN_block_stable_animation.height = None
-        page.ESRGAN_block.update()
-        page.ESRGAN_block_material.update()
-        page.ESRGAN_block_dalle.update()
-        page.ESRGAN_block_kandinsky.update()
-        page.ESRGAN_block_kandinsky_fuse.update()
-        page.ESRGAN_block_kandinsky_controlnet.update()
-        #page.ESRGAN_block_kandinsky21.update()
-        #page.ESRGAN_block_kandinsky21_fuse.update()
-        page.ESRGAN_block_deepfloyd.update()
-        page.ESRGAN_block_amused.update()
-        page.ESRGAN_block_wuerstchen.update()
-        page.ESRGAN_block_pixart_alpha.update()
-        page.ESRGAN_block_lmd_plus.update()
-        page.ESRGAN_block_blip_diffusion.update()
-        page.ESRGAN_block_reference.update()
-        page.ESRGAN_block_unCLIP.update()
-        page.ESRGAN_block_unCLIP_image_variation.update()
-        page.ESRGAN_block_unCLIP_interpolation.update()
-        page.ESRGAN_block_unCLIP_image_interpolation.update()
-        page.ESRGAN_block_semantic.update()
-        page.ESRGAN_block_EDICT.update()
-        page.ESRGAN_block_DiffEdit.update()
-        page.ESRGAN_block_magic_mix.update()
-        page.ESRGAN_block_paint_by_example.update()
-        page.ESRGAN_block_instruct_pix2pix.update()
-        page.ESRGAN_block_controlnet.update()
-        page.ESRGAN_block_controlnet_qr.update()
-        page.ESRGAN_block_controlnet_segment.update()
-        page.ESRGAN_block_styler.update()
-        page.ESRGAN_block_deep_daze.update()
-        page.ESRGAN_block_DiT.update()
-        page.ESRGAN_block_text_to_video.update()
-        page.ESRGAN_block_text_to_video_zero.update()
-        page.ESRGAN_block_stable_animation.update()
+        ESRGAN_blocks = [
+          page.ESRGAN_block,
+          page.ESRGAN_block_material,
+          page.ESRGAN_block_dalle,
+          page.ESRGAN_block_kandinsky,
+          page.ESRGAN_block_kandinsky_fuse,
+          page.ESRGAN_block_kandinsky_controlnet,
+          #page.ESRGAN_block_kandinsky21,
+          #page.ESRGAN_block_kandinsky21_fuse,
+          page.ESRGAN_block_deepfloyd,
+          page.ESRGAN_block_amused,
+          page.ESRGAN_block_wuerstchen,
+          page.ESRGAN_block_pixart_alpha,
+          page.ESRGAN_block_lmd_plus,
+          page.ESRGAN_block_blip_diffusion,
+          page.ESRGAN_block_reference,
+          page.ESRGAN_block_unCLIP,
+          page.ESRGAN_block_unCLIP_image_variation,
+          page.ESRGAN_block_unCLIP_interpolation,
+          page.ESRGAN_block_unCLIP_image_interpolation,
+          page.ESRGAN_block_semantic,
+          page.ESRGAN_block_EDICT,
+          page.ESRGAN_block_DiffEdit,
+          page.ESRGAN_block_null_text,
+          page.ESRGAN_block_magic_mix,
+          page.ESRGAN_block_paint_by_example,
+          page.ESRGAN_block_instruct_pix2pix,
+          page.ESRGAN_block_controlnet,
+          page.ESRGAN_block_controlnet_qr,
+          page.ESRGAN_block_controlnet_segment,
+          page.ESRGAN_block_styler,
+          page.ESRGAN_block_deep_daze,
+          page.ESRGAN_block_DiT,
+          page.ESRGAN_block_text_to_video,
+          page.ESRGAN_block_text_to_video_zero,
+          page.ESRGAN_block_stable_animation,
+        ]
+        for b in ESRGAN_blocks:
+          b.height = None
+          b.update()
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
           import openai
@@ -2260,7 +2237,7 @@ def buildParameters(page):
         lora_layer = LoRA_map
       else:
         lora = prefs['LoRA_model']
-        lora_scale = 1
+        lora_scale = 1.
         lora_layer = {}
         if lora.startswith("Custom"):
           num = 1
@@ -2276,7 +2253,7 @@ def buildParameters(page):
           lora_layer = get_LoRA_model(lora)
           lora_layer['scale'] = lora_scale
         prefs['active_LoRA_layers'].append(lora_layer)
-      lora_scaler = SliderRow(label="Scale", min=0, max=1, divisions=20, round=1, pref=lora_layer, key='scale', tooltip="", expand=True, data=lora_layer, on_change=change_LoRA)
+      lora_scaler = SliderRow(label="Scale", min=-3, max=3, divisions=12, round=1, pref=lora_layer, key='scale', tooltip="", expand=True, data=lora_layer, on_change=change_LoRA)
       title_link = Markdown(f"[**{lora_layer['name']}**](https://huggingface.co/{lora_layer['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
       title = Row([title_link, lora_scaler])#Text(lora_layer['name'])
       active_LoRA_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
@@ -2311,7 +2288,7 @@ def buildParameters(page):
         lora_layer = LoRA_map
       else:
         lora = prefs['SDXL_LoRA_model']
-        lora_scale = 1
+        lora_scale = 1.
         lora_layer = {}
         if lora.startswith("Custom"):
           num = 1
@@ -2327,7 +2304,7 @@ def buildParameters(page):
           lora_layer = get_SDXL_LoRA_model(lora)
           lora_layer['scale'] = lora_scale
         prefs['active_SDXL_LoRA_layers'].append(lora_layer)
-      lora_scaler = SliderRow(label="Scale", min=0, max=1, divisions=20, round=1, pref=lora_layer, key='scale', tooltip="", expand=True, data=lora_layer, on_change=change_SDXL_LoRA)
+      lora_scaler = SliderRow(label="Scale", min=-3, max=3, divisions=12, round=1, pref=lora_layer, key='scale', tooltip="", expand=True, data=lora_layer, on_change=change_SDXL_LoRA)
       title_link = Markdown(f"[**{lora_layer['name']}**](https://huggingface.co/{lora_layer['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
       title = Row([title_link, lora_scaler])
       active_SDXL_LoRA_layers.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
@@ -4475,7 +4452,7 @@ def buildImage2Text(page):
     mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
     request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
     fuyu_mode = Dropdown(label="Fuyu Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['fuyu_mode'], visible=image2text_prefs['method']=="Fuyu-8B", on_change=change_fuyu)
-    gemini_mode = Dropdown(label="Gemini Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
+    gemini_mode = Dropdown(label="Gemini Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
     AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), visible=image2text_prefs['method']=="AIHorde Crowdsourced", animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -7263,6 +7240,92 @@ def buildDiffEdit(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+null_text_prefs = {
+    'target_prompt': '',
+    'negative_prompt': '',
+    'base_prompt': '',
+    'init_image': '',
+    'guidance_scale': 7.5,
+    'num_inference_steps': 50,
+    'num_inner_steps': 10,
+    'seed': 0,
+    'num_images': 1,
+    'batch_folder_name': '',
+    'max_size': 1024,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildNull_Text(page):
+    global null_text_prefs, prefs, pipe_null_text
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            null_text_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            null_text_prefs[pref] = float(e.control.value)
+          else:
+            null_text_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def null_text_help(e):
+      def close_null_text_dlg(e):
+        nonlocal null_text_help_dlg
+        null_text_help_dlg.open = False
+        page.update()
+      null_text_help_dlg = AlertDialog(title=Text("🙅   Help with Null-Text Inversion"), content=Column([
+          Text("This pipeline provides null-text inversion for editing real images. It enables null-text optimization, and DDIM reconstruction via w, w/o null-text optimization. No prompt-to-prompt code is implemented as there is a Prompt2PromptPipeline."),
+          Markdown("[Read Arxiv Paper](https://arxiv.org/pdf/2208.01626.pdf) | [Null-Text Inversion](https://github.com/google/prompt-to-prompt/) | [Junsheng Luan](https://github.com/Junsheng121)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Hertz, Amir and Mokady, Ron and Tenenbaum, Jay and Aberman, Kfir and Pritch, Yael and Cohen-Or, Daniel and HuggingFace team."),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🙃  Edit Away... ", on_click=close_null_text_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = null_text_help_dlg
+      null_text_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        null_text_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    base_prompt = TextField(label="Inverted Prompt Text (describe init-image)", value=null_text_prefs['base_prompt'], col={'md': 12}, multiline=True, on_change=lambda e:changed(e,'base_prompt'))
+    target_prompt = TextField(label="Target Edited Prompt Text", value=null_text_prefs['target_prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'target_prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=null_text_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Initial Image to Edit", pref=null_text_prefs, key='init_image', page=page)
+    #init_image = TextField(label="Initial Image to Edit", value=null_text_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+    seed = TextField(label="Seed", width=90, value=str(null_text_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=null_text_prefs, key='guidance_scale')
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=null_text_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    num_inner_steps = SliderRow(label="Number of Inner Steps", min=1, max=100, divisions=99, pref=null_text_prefs, key='num_inner_steps', tooltip="The number of steps to Invert init-image in the Null Optimization.")
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=null_text_prefs, key='max_size')
+    batch_folder_name = TextField(label="Batch Folder Name", value=null_text_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=null_text_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=null_text_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=null_text_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_null_text = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_null_text.height = None if status['installed_ESRGAN'] else 0
+    if not unCLIP_interpolation_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("😑  Null-Text Inversion Image Editing", "Editing Real Images using Guided Diffusion Models... Exact Diffusion Inversion via Coupled Transformations. Prompt-to-prompt image editing with cross attention control.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=null_text_help)]),
+        init_image,
+        base_prompt,
+        ResponsiveRow([target_prompt, negative_prompt]),
+        #Row([init_image, mask_image, invert_mask]),
+        num_inner_steps,
+        num_inference_row,
+        guidance,
+        #strength,
+        max_row,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=null_text_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
+        page.ESRGAN_block_null_text,
+        ElevatedButton(content=Text("⭕  Run Null-Text Inversion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_null_text(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 unCLIP_prefs = {
     'prompt': '',
@@ -9607,7 +9670,7 @@ def buildAmused(page):
       amused_help_dlg = AlertDialog(title=Text("🙅   Help with Amused Pipeline"), content=Column([
           Text("Amused is a lightweight text to image model based off of the muse architecture. Amused is particularly useful in applications that require a lightweight and fast model such as generating many images quickly at once. Amused is a vqvae token based transformer that can generate an image in fewer forward passes than many diffusion models. In contrast with muse, it uses the smaller text encoder CLIP-L/14 instead of t5-xxl. Due to its small parameter count and few forward pass generation process, amused can generate many images quickly. This benefit is seen particularly at larger batch sizes."),
           Text("Muse is a text-to-image Transformer model that achieves state-of-the-art image generation performance while being significantly more efficient than diffusion or autoregressive models. Muse is trained on a masked modeling task in discrete token space: given the text embedding extracted from a pre-trained large language model (LLM), Muse is trained to predict randomly masked image tokens. Compared to pixel-space diffusion models, such as Imagen and DALL-E 2, Muse is significantly more efficient due to the use of discrete tokens and requiring fewer sampling iterations; compared to autoregressive models, such as Parti, Muse is more efficient due to the use of parallel decoding. The use of a pre-trained LLM enables fine-grained language understanding, translating to high-fidelity image generation and the understanding of visual concepts such as objects, their spatial relationships, pose, cardinality, etc. Our 900M parameter model achieves a new SOTA on CC3M, with an FID score of 6.06. The Muse 3B parameter model achieves an FID of 7.88 on zero-shot COCO evaluation, along with a CLIP score of 0.32. Muse also directly enables a number of image editing applications without the need to fine-tune or invert the model: inpainting, outpainting, and mask-free editing."),
-          Markdown("[Project](https://muse-model.github.io) | [Paper](https://arxiv.org/pdf/2301.00704.pdf) | [HuggingFace Model](https://huggingface.co/amused/amused-256)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Project](https://muse-model.github.io) | [Paper](https://huggingface.co/papers/2401.01808) | [HuggingFace Model](https://huggingface.co/amused/amused-256)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("Contributors include Suraj Patil, William Berman, Patrick von Platen, Huiwen Chang, Han Zhang, Jarred Barber, AJ Maschinot, Jose Lezama, Lu Jiang Ming-Hsuan Yang, Kevin Murphy, William T. Freeman, Michael Rubinstein, Yuanzhen Li and Dilip Krishnan.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🎢  Very Amusing...", on_click=close_amused_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = amused_help_dlg
@@ -9863,6 +9926,7 @@ def buildPixArtAlpha(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             Row([pixart_model, pixart_custom_model]),
             Row([clean_caption, resolution_binning, cpu_offload, use_8bit]),
+            #Can't get wrap to work!! Container(Row([Container(clean_caption), Container(resolution_binning), Container(cpu_offload), Container(use_8bit)], wrap=True, expand=True, width=page.width, alignment=ft.MainAxisAlignment.START), width=800),#], expand=True),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_pixart_alpha,
             parameters_row,
@@ -18738,6 +18802,7 @@ pipe_semantic = None
 pipe_DiffEdit = None
 pipe_EDICT = None
 text_encoder_EDICT = None
+pipe_null_text = None
 pipe_unCLIP = None
 pipe_unCLIP_image_variation = None
 pipe_unCLIP_interpolation = None
@@ -18901,7 +18966,7 @@ def get_diffusers(page):
         if is_Colab:
             run_process("pip install torch torchaudio torchvision torchtext torchdata", page=page)
         else: #TODO: Check OS and run platform specific
-            run_process("pip install torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu118", page=page)
+            run_process("pip install torch torchvision torchaudio torchtext torchdata --index-url https://download.pytorch.org/whl/cu121", page=page)
         import torch
         importlib.reload(torch)
     if prefs['enable_xformers']:#prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
@@ -19001,6 +19066,14 @@ def get_diffusers(page):
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         page.status()
         pass
+    if prrefs['enable_deepcache']:
+        try:
+            import deepcache
+        except ModuleNotFoundError:
+            page.status("...installing DeepCache")
+            run_process("pip install -upgrade DeepCache", page=page)
+            page.status()
+            pass
     try:
         import scipy
     except ModuleNotFoundError:
@@ -19348,7 +19421,7 @@ try:
 except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
     print("Installing PyTorch 2.1.0 with CUDA 1.18")
-    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118", realtime=False)
+    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
     #pip install --pre torch torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/nightly/cu118
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
@@ -19506,6 +19579,15 @@ def optimize_pipe(p, vae_slicing=False, unet=False, no_cpu=False, vae_tiling=Fal
         import tomesd
         pass
       tomesd.apply_patch(p, ratio=prefs['tome_ratio'])
+    if prefs['enable_deepcache']:
+        try:
+            from DeepCache import DeepCacheSDHelper
+        except Exception:
+            run_sp("pip install DeepCache", realtime=False)
+            pass
+        helper = DeepCacheSDHelper(pipe=p)
+        helper.set_params(cache_interval=3, cache_branch_id=0)
+        helper.enable()
     status['loaded_scheduler'] = prefs['scheduler_mode']
     status['loaded_model'] = get_model(prefs['model_ckpt'])['path']
     return p
@@ -19553,6 +19635,15 @@ def optimize_SDXL(p, vae_slicing=False, no_cpu=False, vae_tiling=True, torch_com
         import tomesd
         pass
       tomesd.apply_patch(p, ratio=prefs['tome_ratio'])
+    if prefs['enable_deepcache']:
+        try:
+            from DeepCache import DeepCacheSDHelper
+        except Exception:
+            run_sp("pip install DeepCache", realtime=False)
+            pass
+        helper = DeepCacheSDHelper(pipe=p)
+        helper.set_params(cache_interval=3, cache_branch_id=0)
+        helper.enable()
     if to_gpu:
       p = p.to(torch_device)
     p = pipeline_scheduler(p)
@@ -21142,6 +21233,12 @@ def clear_DiffEdit_pipe():
     del pipe_DiffEdit
     flush()
     pipe_DiffEdit = None
+def clear_null_text_pipe():
+  global pipe_null_text
+  if pipe_null_text is not None:
+    del pipe_null_text
+    flush()
+    pipe_null_text = None
 def clear_unCLIP_pipe():
   global pipe_unCLIP
   if pipe_unCLIP is not None:
@@ -21519,6 +21616,7 @@ def clear_pipes(allbut=None):
     if not 'unCLIP' in but: clear_unCLIP_pipe()
     if not 'EDICT' in but: clear_EDICT_pipe()
     if not 'DiffEdit' in but: clear_DiffEdit_pipe()
+    if not 'null_text' in but: clear_null_text_pipe()
     if not 'unCLIP_image_variation' in but: clear_unCLIP_image_variation_pipe()
     if not 'unCLIP_interpolation' in but: clear_unCLIP_interpolation_pipe()
     if not 'image_variation' in but: clear_image_variation_pipe()
@@ -26856,6 +26954,168 @@ def run_DiffEdit(page):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+
+def run_null_text(page):
+    global null_text_prefs, prefs, status, pipe_null_text, text_encoder_null_text
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    if not bool(null_text_prefs['init_image']):
+      alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
+      return
+    if not bool(null_text_prefs['base_prompt']) or not bool(null_text_prefs['target_prompt']):
+      alert_msg(page, "You must provide a base prompt describing image and target prompt to process...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.Null_Text.controls.append(line)
+      page.Null_Text.update()
+    def clear_last(lines=1):
+      clear_line(page.Null_Text, lines=lines)
+    def autoscroll(scroll=True):
+      page.Null_Text.auto_scroll = scroll
+      page.Null_Text.update()
+    def clear_list():
+      page.Null_Text.controls = page.Null_Text.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = null_text_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    def center_crop_resize(im):
+        width, height = im.size
+        d = min(width, height)
+        left = (width - d) / 2
+        upper = (height - d) / 2
+        right = (width + d) / 2
+        lower = (height + d) / 2
+        return im.crop((left, upper, right, lower)).resize((null_text_prefs['max_size'], null_text_prefs['max_size']))
+    autoscroll(True)
+    clear_list()
+    prt(Installing("Installing Null-Text Inversion Pipeline..."))
+    import requests, random
+    from io import BytesIO
+    from PIL import ImageOps
+    from PIL.PngImagePlugin import PngInfo
+    if null_text_prefs['init_image'].startswith('http'):
+      #response = requests.get(null_text_prefs['init_image'])
+      #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+      original_img = PILImage.open(requests.get(null_text_prefs['init_image'], stream=True).raw)
+    else:
+      if os.path.isfile(null_text_prefs['init_image']):
+        original_img = PILImage.open(null_text_prefs['init_image'])
+      else:
+        alert_msg(page, f"ERROR: Couldn't find your init_image {null_text_prefs['init_image']}")
+        return
+    width, height = original_img.size
+    width, height = scale_dimensions(width, height, null_text_prefs['max_size'])
+    original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+    #original_img = center_crop_resize(original_img)
+    clear_pipes('null_text')
+    torch_dtype = torch.float32
+    #model_id = get_model(prefs['model_ckpt'])['path']
+    model_id = "runwayml/stable-diffusion-v1-5"
+    if pipe_null_text is None:
+        from diffusers.schedulers import DDIMScheduler
+        from examples.community.pipeline_null_text_inversion import NullTextPipeline
+        try:
+            scheduler = DDIMScheduler(num_train_timesteps=1000, beta_start=0.00085, beta_end=0.0120, beta_schedule="scaled_linear")
+            pipe_null_text = NullTextPipeline.from_pretrained(model_id, scheduler = scheduler, torch_dtype=torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to(torch_device)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Couldn't Initialize null_text Pipeline for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_last()
+    prt("Generating Null-Text Inversion of your Image...")
+    prt(progress)
+    autoscroll(False)
+    batch_output = os.path.join(stable_dir, null_text_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], null_text_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    random_seed = int(null_text_prefs['seed']) if int(null_text_prefs['seed']) > 0 else random.randint(0,4294967295)
+    steps = null_text_prefs['num_inference_steps']
+    for i in range(null_text_prefs['num_images']):
+        generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        #generator = torch.manual_seed(random_seed)
+        try:
+            inverted_latent, uncond = pipe_null_text.invert(original_img, null_text_prefs['base_prompt'], num_inner_steps=null_text_prefs['num_inner_steps'], early_stop_epsilon= 1e-5, num_inference_steps = steps)
+            images = pipe_null_text(null_text_prefs['target_prompt'], uncond, inverted_latent, guidance_scale=null_text_prefs['guidance_scale'], num_inference_steps=steps, generator=generator) #.images[0].save(input_image+".output.jpg")
+            #images = pipe_null_text(base_prompt=null_text_prefs['base_prompt'], target_prompt=null_text_prefs['target_prompt'], image=original_img, num_inference_steps=null_text_prefs['num_inference_steps'], strength=null_text_prefs['strength'], guidance_scale=null_text_prefs['guidance_scale'], generator=generator)#.images
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Couldn't null_text Edit your image for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last()
+        clear_last()
+        filename = format_filename(null_text_prefs['target_prompt'])
+        #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+        num = 0
+        for image in images:
+            random_seed += num
+            fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+            image_path = available_file(os.path.join(stable_dir, null_text_prefs['batch_folder_name']), fname, i)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            image.save(image_path)
+            width, height = image.size
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+            if not null_text_prefs['display_upscaled_image'] or not null_text_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if null_text_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=null_text_prefs["enlarge_scale"])
+                image_path = upscaled_path
+                if null_text_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(null_text_prefs["enlarge_scale"]), height=height * float(null_text_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {null_text_prefs['enlarge_scale']}x with ESRGAN" if null_text_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", "Null-Text Inversion")
+                if prefs['save_config_in_metadata']:
+                    config_json = null_text_prefs.copy()
+                    config_json['model_path'] = model_id
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['max_size']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            #TODO: PyDrive
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], null_text_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], null_text_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            time.sleep(0.2)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+            num += 1
+        random_seed += 1
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 def run_CLIPstyler(page):
     def prt(line):
       if type(line) == str:
@@ -27516,7 +27776,7 @@ def run_image2text(page):
           return
         gemini_model = genai.GenerativeModel(model_name='gemini-pro-vision')
         folder_path = image2text_prefs['folder_path']
-        prompt_mode = "What is happening in this image? Describe it in visual details, artistic style, related artist names, colors and composition." if 'Detailed' in image2text_prefs['gemini_mode'] else "Generate an image prompt with art styles, Poetic Captions, flowing adjectives, and detailed captions." if 'Poetic' in image2text_prefs['gemini_mode'] else "Generate a technical detailed caption, describing all subjects, adjectives, styles, observations, colors and technical details to recreate." if 'Technical' in image2text_prefs['gemini_mode'] else "Generate a coco-style caption with art style.\n" if 'Simple' in image2text_prefs['gemini_mode'] else image2text_prefs['question']
+        prompt_mode = "What is happening in this image? Describe it in visual details, artistic style, related artist names, colors and composition." if 'Detailed' in image2text_prefs['gemini_mode'] else "Generate an image prompt with art styles, Poetic Captions, flowing adjectives, and detailed captions." if 'Poetic' in image2text_prefs['gemini_mode'] else "Generate a technical detailed caption, describing all subjects, adjectives, styles, observations, colors and technical details to recreate." if 'Technical' in image2text_prefs['gemini_mode'] else "Generate a coco-style caption with art style.\n" if 'Simple' in image2text_prefs['gemini_mode'] else "Describe the style of this art, with a list of all the known artists it resembles and artistic styles it uses, then lay out the image composition with nouns and descriptive adjectives." if 'Artistic' in image2text_prefs['gemini_mode'] else image2text_prefs['question']
         i2t_prompts = []
         clear_last()
         for file in image2text_prefs['images']:
@@ -38331,6 +38591,15 @@ def run_svd(page):
         if prefs['enable_torch_compile']:
             #pipe_svd.unet.to(memory_format=torch.channels_last)
             pipe_svd.unet = torch.compile(pipe_svd.unet, mode="reduce-overhead", fullgraph=True)
+        if prefs['enable_deepcache']:
+            try:
+                from DeepCache import DeepCacheSDHelper
+            except Exception:
+                run_sp("pip install DeepCache", realtime=False)
+                pass
+            helper = DeepCacheSDHelper(pipe=pipe_svd)
+            helper.set_params(cache_interval=3, cache_branch_id=0)
+            helper.enable()
         status['loaded_svd'] = model_id
     #clear_pipes('svd')
     vid_length = svd_prefs['num_frames'] / svd_prefs['fps']
