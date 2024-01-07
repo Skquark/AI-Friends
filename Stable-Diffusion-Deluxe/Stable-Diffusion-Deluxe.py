@@ -1439,7 +1439,7 @@ def buildInstallers(page):
   model = get_model(prefs['model_ckpt'])
   model_SDXL = get_SDXL_model(prefs['SDXL_model'])
   model_path = model['path']
-  model_ckpt = Container(Dropdown(label="Model Checkpoint", width=262, options=[
+  model_ckpt = Container(Dropdown(label="SD Model Checkpoint", width=262, options=[
       dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"),
       dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"),
       dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
@@ -1486,7 +1486,7 @@ def buildInstallers(page):
   enable_vae_tiling = Checkbox(label="Enable VAE Tiling", tooltip="The VAE will split the input tensor into tiles to compute decoding and encoding in several steps. This is useful to save a large amount of memory and to allow the processing of larger images.", value=prefs['vae_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_tiling'))
   enable_vae_slicing = Checkbox(label="Enable VAE Slicing", tooltip="Sliced VAE decode latents for larger batches of images with limited VRAM. Splits the input tensor in slices to compute decoding in several steps", value=prefs['vae_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_slicing'))
   enable_tome = Checkbox(label="Enable Token Merging", tooltip="ToMe optimizes the Pipelines to create images faster, at the expense of some quality. Works by merging the redundant tokens / patches progressively in the forward pass of a Transformer-based network.", value=prefs['enable_tome'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_tome'))
-  enable_deepcache = Checkbox(label="Enable DeepCache", tooltip="Accelerates pipeline by strategically caching and reusing high-level features while efficiently updating low-level features by taking advantage of the U-Net architecture.", value=prefs['enable_deepcache'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_deepcache'))
+  enable_deepcache = Checkbox(label="Enable DeepCache", tooltip="Accelerates pipeline by strategically caching and reusing high-level features while efficiently updating low-level features by taking advantage of the U-Net architecture. Slightly reduces quality for speed...", value=prefs['enable_deepcache'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_deepcache'))
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
   enable_torch_compile.visible = not sys.platform.startswith('win')
   enable_freeu = Checkbox(label="Enable FreeU: Free Lunch", tooltip="Technique to improve image quality by rebalancing the contributions from the UNet’s skip connections and backbone feature maps. Applied during inference, does not require any additional training or mem. Works on most pipeline tasks.", value=prefs['enable_freeu'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_freeu'))
@@ -2314,7 +2314,7 @@ def buildParameters(page):
         ]), data=lora_layer))
       if LoRA_map == None:
         active_SDXL_LoRA_layers.update()
-  page.LoRA_model = Dropdown(label="LoRA Model Weights", width=220, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
+  page.LoRA_model = Dropdown(label="LoRA Model Weights", width=235, options=[], value=prefs['LoRA_model'], on_change=changed_LoRA)
   if len(prefs['custom_LoRA_models']) > 0:
     for l in prefs['custom_LoRA_models']:
       page.LoRA_model.options.append(dropdown.Option(l['name']))
@@ -2324,7 +2324,7 @@ def buildParameters(page):
   custom_LoRA_model = TextField(label="Custom LoRA Model Path", value=prefs['custom_LoRA_model'], expand=True, on_change=lambda e:changed(e, 'custom_LoRA_model', apply=False))
   custom_LoRA_model.visible = True if prefs['LoRA_model'] == "Custom LoRA Path" else False
   
-  page.SDXL_LoRA_model = Dropdown(label="SDXL LoRA Model Weights", width=220, options=[], value=prefs['SDXL_LoRA_model'], on_change=changed_SDXL_LoRA)
+  page.SDXL_LoRA_model = Dropdown(label="SDXL LoRA Model Weights", width=235, options=[], value=prefs['SDXL_LoRA_model'], on_change=changed_SDXL_LoRA)
   if len(prefs['custom_SDXL_LoRA_models']) > 0:
     for l in prefs['custom_SDXL_LoRA_models']:
       page.SDXL_LoRA_model.options.append(dropdown.Option(l['name']))
@@ -2341,8 +2341,8 @@ def buildParameters(page):
       add_LoRA(None, l)
   for l in prefs['active_SDXL_LoRA_layers']:
       add_SDXL_LoRA(None, l)
-  LoRA_block = Container(ResponsiveRow([Column([Row([page.LoRA_model, custom_LoRA_model, add_LoRA_layer]), active_LoRA_layers], col={'md': 6}), 
-                                        Column([Row([page.SDXL_LoRA_model, custom_SDXL_LoRA_model, add_SDXL_LoRA_layer]), active_SDXL_LoRA_layers], col={'md': 6})]), padding=padding.only(top=6, left=10), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  LoRA_block = Container(ResponsiveRow([Column([Row([page.LoRA_model, custom_LoRA_model, add_LoRA_layer]), active_LoRA_layers], col={'lg': 6}), 
+                                        Column([Row([page.SDXL_LoRA_model, custom_SDXL_LoRA_model, add_SDXL_LoRA_layer]), active_SDXL_LoRA_layers], col={'lg': 6})]), padding=padding.only(top=6, left=10), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   LoRA_block.height = None if prefs['use_LoRA_model'] else 0
   def toggle_ip_adapter(e):
       prefs['use_ip_adapter'] = e.control.value
@@ -19066,9 +19066,9 @@ def get_diffusers(page):
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         page.status()
         pass
-    if prrefs['enable_deepcache']:
+    if prefs['enable_deepcache']:
         try:
-            import deepcache
+            import DeepCache
         except ModuleNotFoundError:
             page.status("...installing DeepCache")
             run_process("pip install -upgrade DeepCache", page=page)
@@ -19447,6 +19447,7 @@ if torch_device == "cuda":
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=True)
             print("Installing newest accelerate package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=True)
+            run_sp("pip install --upgrade huggingface_hub", realtime=False)
             print("Restart Runtime to apply updates...")
             #importlib.reload(transformers)
             #try:
@@ -25123,7 +25124,7 @@ def run_background_remover(page):
         from huggingface_hub import hf_hub_download
     except ModuleNotFoundError:
         installer.status("...HuggingFace Hub")
-        run_process("pip install huggingface_hub --upgrade", page=page)
+        run_process("pip install --upgrade huggingface_hub", page=page)
         from huggingface_hub import hf_hub_download
         pass
     try:
