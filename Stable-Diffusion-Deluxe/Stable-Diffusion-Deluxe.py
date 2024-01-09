@@ -691,6 +691,7 @@ def buildImageAIs(page):
     page.unCLIP_ImageInterpolation = buildUnCLIP_ImageInterpolation(page)
     page.UnCLIP_ImageVariation = buildUnCLIP_ImageVariation(page)
     page.BLIPDiffusion = buildBLIPDiffusion(page)
+    page.AnyText = buildAnyText(page)
     page.IP_Adapter = buildIP_Adapter(page)
     page.Reference = buildReference(page)
     page.ControlNetQR = buildControlNetQR(page)
@@ -751,6 +752,7 @@ def buildImageAIs(page):
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="BLIP-Diffusion", content=page.BLIPDiffusion, icon=icons.RADAR),
+            Tab(text="AnyText", content=page.AnyText, icon=icons.TEXT_ROTATE_VERTICAL),
             Tab(text="IP-Adapter", content=page.IP_Adapter, icon=icons.ROOM_PREFERENCES),
             Tab(text="Reference-Only", content=page.Reference, icon=icons.CRISIS_ALERT),
             Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
@@ -5785,7 +5787,7 @@ def buildInstantNGP(page):
     #where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=instant_ngp_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=instant_ngp_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     #readme_description = TextField(label="Extra README Description", value=instant_ngp_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
-    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=6, multiple=64, suffix="px", pref=instant_ngp_prefs, key='resolution')
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=64, suffix="px", pref=instant_ngp_prefs, key='resolution')
 
     sharpen = Row([Text(" Shapen Images:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=instant_ngp_prefs['sharpen'], on_change=lambda e: changed(e, 'sharpen'))], col={'lg':6})
     exposure = Row([Text(" Image Exposure:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=instant_ngp_prefs['exposure'], on_change=lambda e: changed(e, 'exposure'))], col={'lg':6})
@@ -6346,6 +6348,124 @@ def buildBLIPDiffusion(page):
             page.blip_diffusion_output
         ],
     ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, ddim_eta, seed,
+    return c
+
+anytext_prefs = {
+    "prompt": '',
+    "negative_prompt": 'low-res, bad anatomy, cropped, worst quality, low quality, watermark, unreadable text, messy words, distorted text, disorganized writing',
+    "a_prompt": 'best quality, extremely detailed,4k, HD, supper legible text, clear text edges, clear strokes, neat writing, no watermarks',
+    "file_prefix": "anytext-",
+    "num_images": 1,
+    "width": 768,
+    "height":768,
+    "guidance_scale": 9.0,
+    'num_inference_steps': 20,
+    "eta": 0.0,
+    "seed": 0,
+    'init_image': '',
+    'mask_image': '',
+    'init_image_strength': 0.8,
+    'font_ttf': '',
+    'sort_priority': "↕",# "↔"
+    'revise_pos': True,
+    "batch_folder_name": '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildAnyText(page):
+    global prefs, anytext_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            anytext_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            anytext_prefs[pref] = float(e.control.value)
+          else:
+            anytext_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def anytext_help(e):
+      def close_anytext_dlg(e):
+        nonlocal anytext_help_dlg
+        anytext_help_dlg.open = False
+        page.update()
+      anytext_help_dlg = AlertDialog(title=Text("🙅   Help with AnyText Pipeline"), content=Column([
+          Text("AnyText comprises a diffusion pipeline with two primary elements: an auxiliary latent module and a text embedding module. The former uses inputs like text glyph, position, and masked image to generate latent features for text generation or editing. The latter employs an OCR model for encoding stroke data as embeddings, which blend with image caption embeddings from the tokenizer to generate texts that seamlessly integrate with the background. We employed text-control diffusion loss and text perceptual loss for training to further enhance writing accuracy. The drawing of text positions is crucial to the quality of the resulting image, please do not draw too casually or too small. The number of positions should match the number of text lines, and the size of each position should be matched as closely as possible to the length or width of the corresponding text line. When generating multiple lines, each position is matched with the text line according to a certain rule."),
+          Text('Example Prompt: Photo of caramel macchiato coffee on the table, top-down perspective, with "Any" "Text" written on it'),
+          Markdown("[GitHub](https://github.com/tyxsspa/AnyText) | [Paper](https://arxiv.org/abs/2311.03054) | [HuggingFace Space](https://huggingface.co/spaces/modelscope/AnyText) | [ModelScope](https://modelscope.cn/models/damo/cv_anytext_text_generation_editing/summary)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("Contributors include Yuxiang Tuo and Wangmeng Xiang and Jun-Yan He and Yifeng Geng and Xuansong Xie, and ModelScope Developers.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🔠  Finally, words...", on_click=close_anytext_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = anytext_help_dlg
+      anytext_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        anytext_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label='Prompt with Text in "Double" "Quotes"', value=anytext_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    a_prompt = TextField(label="Additional Prompt Text", value=anytext_prefs['a_prompt'], multiline=True, col={'md':9}, on_change=lambda e:changed(e,'a_prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=anytext_prefs['negative_prompt'], multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Initial Image (optional)", pref=anytext_prefs, key='init_image', page=page, col={'md':6})
+    mask_image = FileInput(label="Text Area Mask (optional)", pref=anytext_prefs, key='mask_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=anytext_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    font_ttf = FileInput(label="Font .ttf File (optional)", pref=anytext_prefs, key='font_ttf', page=page, ftype="font", col={'md':6})
+    batch_folder_name = TextField(label="Batch Folder Name", value=anytext_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=anytext_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=8, step=1, value=anytext_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=1, max=50, divisions=49, pref=anytext_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=anytext_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=64, suffix="px", pref=anytext_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=64, suffix="px", pref=anytext_prefs, key='height')
+    eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=10, round=1, pref=anytext_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    #anytext_model = Dropdown(label="AnyText Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("anytext-256"), dropdown.Option("anytext-512")], value=anytext_prefs['anytext_model'], on_change=changed_model)
+    #anytext_custom_model = TextField(label="Custom AnyText Model (URL or Path)", value=anytext_prefs['custom_model'], expand=True, visible=anytext_prefs['anytext_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    def change_mode(e):
+        anytext_prefs['sort_priority'] = e.data.split('"')[1]
+    sort_priority = ft.SegmentedButton(on_change=change_mode, selected={anytext_prefs['sort_priority']}, allow_multiple_selection=False,
+        segments=[
+            ft.Segment(value="↕", label=ft.Text("↕ Vertical"), icon=ft.Icon(ft.icons.SWAP_VERTICAL_CIRCLE)),
+            ft.Segment(value="↔", label=ft.Text("↔ Horizontal"), icon=ft.Icon(ft.icons.SWAP_HORIZONTAL_CIRCLE)),
+        ], tooltip="When generating multiple lines, each position is matched with the text line according to a certain rule. This determines whether to prioritize sorting from top to bottom or from left to right."
+    )
+    revise_pos = Checkbox(label="Revise Position", value=anytext_prefs['revise_pos'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'revise_pos'), tooltip="Uses the bounding box of the rendered text as the revised position. However, it is occasionally found that the creativity of the generated text is slightly lower using this method.")
+    seed = TextField(label="Seed", width=90, value=str(anytext_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=anytext_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=anytext_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=anytext_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=anytext_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_anytext = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_anytext.height = None if status['installed_ESRGAN'] else 0
+    if not anytext_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="✍️   Run AnyText", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_anytext(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_anytext(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_anytext(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🔤  AnyText", "Multilingual Visual Text Generation and Text Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnyText Settings", on_click=anytext_help)]),
+            prompt,
+            ResponsiveRow([a_prompt, negative_prompt]),
+            ResponsiveRow([init_image, mask_image]),
+            init_image_strength,
+            font_ttf,
+            Row([Text("Sort Priority: "), sort_priority, revise_pos]),
+            steps,
+            guidance, eta,
+            width_slider, height_slider, #Divider(height=9, thickness=2),
+            #Row([anytext_model, anytext_custom_model]),
+            #Row([cpu_offload, cpu_only]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_anytext,
+            parameters_row,
+        ],
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 ip_adapter_models = [
@@ -17214,7 +17334,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
     readme_description = TextField(label="Extra README Description", value=LoRA_prefs['readme_description'], on_change=lambda e:changed(e,'readme_description'))
-    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=6, multiple=64, suffix="px", pref=LoRA_prefs, key='resolution')
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1024, divisions=12, multiple=64, suffix="px", pref=LoRA_prefs, key='resolution')
     image_path = TextField(label="Image File or Folder Path or URL to Train", value=LoRA_prefs['image_path'], on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path), expand=1)
     add_image_button = ElevatedButton(content=Text("Add File or Folder"), on_click=add_image)
     page.lora_file_list = Column([], tight=True, spacing=0)
@@ -18859,6 +18979,7 @@ fuyu_tokenizer = None
 fuyu_model = None
 fuyu_processor = None
 pipe_blip_diffusion = None
+pipe_anytext = None
 pipe_reference = None
 pipe_ip_adapter = None
 pipe_controlnet_qr = None
@@ -21446,6 +21567,12 @@ def clear_blip_diffusion_pipe():
     del pipe_blip_diffusion
     flush()
     pipe_blip_diffusion = None
+def clear_anytext_pipe():
+  global pipe_anydesk
+  if pipe_anydesk is not None:
+    del pipe_anydesk
+    flush()
+    pipe_anydesk = None
 def clear_fuyu_pipe():
   global fuyu_tokenizer, fuyu_model, fuyu_processor
   if fuyu_tokenizer is not None:
@@ -21640,6 +21767,7 @@ def clear_pipes(allbut=None):
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'amused' in but: clear_amused_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
+    if not 'anytext' in but: clear_anytext_pipe()
     if not 'fuyu' in but: clear_fuyu_pipe()
     if not 'ip_adapter' in but: clear_ip_adapter_pipe()
     if not 'reference' in but: clear_reference_pipe()
@@ -25518,7 +25646,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {blip_diffusion_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {blip_diffusion_prefs['enlarge_scale']}x with ESRGAN" if blip_diffusion_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}")
                 if prefs['save_config_in_metadata']:
                     #metadata.add_text("title", blip_diffusion_prefs['file_name'])
@@ -25543,6 +25671,356 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 out_path = new_file
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_anytext(page, from_list=False, with_params=False):
+    global anytext_prefs, pipe_anytext, prefs, status
+    anytext_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            anytext_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':anytext_prefs['guidance_scale'], 'num_inference_steps':anytext_prefs['num_inference_steps'], 'width':anytext_prefs['width'], 'height':anytext_prefs['height'], 'init_image':anytext_prefs['init_image'], 'mask_image':anytext_prefs['mask_image'], 'init_image_strength':anytext_prefs['init_image_strength'], 'num_images':anytext_prefs['num_images'], 'seed':anytext_prefs['seed']})
+        else:
+            anytext_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'mask_image':p['mask_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(anytext_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      anytext_prompts.append({'prompt': anytext_prefs['prompt'], 'negative_prompt':anytext_prefs['negative_prompt'], 'guidance_scale':anytext_prefs['guidance_scale'], 'num_inference_steps':anytext_prefs['num_inference_steps'], 'width':anytext_prefs['width'], 'height':anytext_prefs['height'], 'init_image':anytext_prefs['init_image'], 'mask_image':anytext_prefs['mask_image'], 'init_image_strength':anytext_prefs['init_image_strength'], 'num_images':anytext_prefs['num_images'], 'seed':anytext_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.AnyText.controls.append(line)
+        if update:
+          page.AnyText.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.AnyText, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.AnyText.auto_scroll = scroll
+        page.AnyText.update()
+      else:
+        page.AnyText.auto_scroll = scroll
+        page.AnyText.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.AnyText.controls = page.AnyText.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = anytext_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing AnyText Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("anytext")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    anytext_dir = os.path.join(root_dir, "AnyText")
+    anytext_ttf = os.path.join(anytext_dir, 'fonts', 'horison.ttf')
+    ttf = os.path.basename(anytext_ttf)
+    if not os.path.exists(anytext_dir):
+        installer.status(f"...cloning tyxsspa/AnyText.git")
+        run_sp("git clone https://github.com/tyxsspa/AnyText.git", cwd=root_dir)
+    if bool(anytext_prefs['font_ttf']):
+        if '/' in anytext_prefs['font_ttf']:
+            ttf = anytext_prefs['font_ttf'].rparition('/')[2]
+        elif '\\' in anytext_prefs['font_ttf']:
+            ttf = anytext_prefs['font_ttf'].rparition('\\')[2]
+        if os.path.isfile(os.path.join(anytext_dir, 'fonts', ttf)):
+            anytext_ttf = os.path.join(anytext_dir, 'fonts', ttf)
+        else:
+            if anytext_prefs['font_ttf'].startswith("http"):
+                ttf_path = download_file(anytext_prefs['font_ttf'], to=os.path.join(anytext_dir, "fonts"), ext="ttf")
+            else:
+                ttf_path = os.path.join(anytext_prefs['font_ttf'])
+                if os.path.isfile(ttf_path):
+                    shutil.copy(ttf_path, os.path.join(anytext_dir, 'fonts'))
+                else:
+                    prt("Font Path not found...")
+                    return
+            ttf = os.path.basename(ttf_path)
+            anytext_ttf = os.path.join(anytext_dir, 'fonts', ttf)
+    else:
+        anytext_ttf = os.path.join(anytext_dir, 'fonts', 'horison.ttf')
+        if not os.path.isfile(anytext_ttf):
+            installer.status(f"...downloading horison.ttf")
+            run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_dir, 'fonts', 'horison.zip')}")
+            run_sp(f"unzip {os.path.join(anytext_dir, 'fonts', 'horison.zip')}")
+            os.remove(os.path.join(anytext_dir, 'fonts', 'horison.zip'))
+    pip_install("modelscope omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
+    os.chdir(anytext_dir)
+    try:
+        import xformers
+    except ModuleNotFoundError:
+        installer.status("...installing FaceBook's Xformers")
+        run_sp("pip install -U xformers", realtime=False)
+        status['installed_xformers'] = True
+        pass
+    from modelscope.pipelines import pipeline
+    import cv2, re
+    import numpy as np
+    def count_lines(prompt):
+        prompt = prompt.replace('“', '"')
+        prompt = prompt.replace('”', '"')
+        p = '"(.*?)"'
+        strs = re.findall(p, prompt)
+        if len(strs) == 0:
+            strs = [' ']
+        return len(strs)
+    def generate_rectangles(w, h, n, max_trys=200):
+        img = np.zeros((h, w, 1), dtype=np.uint8)
+        rectangles = []
+        attempts = 0
+        n_pass = 0
+        low_edge = int(max(w, h)*0.3 if n <= 3 else max(w, h)*0.2)  # ~150, ~100
+        while attempts < max_trys:
+            rect_w = min(np.random.randint(max((w*0.5)//n, low_edge), w), int(w*0.8))
+            ratio = np.random.uniform(4, 10)
+            rect_h = max(low_edge, int(rect_w/ratio))
+            rect_h = min(rect_h, int(h*0.8))
+            # gen rotate angle
+            rotation_angle = 0
+            rand_value = np.random.rand()
+            if rand_value < 0.7:
+                pass
+            elif rand_value < 0.8:
+                rotation_angle = np.random.randint(0, 40)
+            elif rand_value < 0.9:
+                rotation_angle = np.random.randint(140, 180)
+            else:
+                rotation_angle = np.random.randint(85, 95)
+            x = np.random.randint(0, w - rect_w)
+            y = np.random.randint(0, h - rect_h)
+            rect_pts = cv2.boxPoints(((rect_w/2, rect_h/2), (rect_w, rect_h), rotation_angle))
+            rect_pts = np.int32(rect_pts)
+            rect_pts += (x, y)
+            if np.any(rect_pts < 0) or np.any(rect_pts[:, 0] >= w) or np.any(rect_pts[:, 1] >= h):
+                attempts += 1
+                continue
+            if any(check_overlap_polygon(rect_pts, rp) for rp in rectangles):
+                attempts += 1
+                continue
+            n_pass += 1
+            cv2.fillPoly(img, [rect_pts], 255)
+            rectangles.append(rect_pts)
+            if n_pass == n:
+                break
+        print("attempts:", attempts)
+        if len(rectangles) != n:
+            prt(f'Failed in auto generate positions after {attempts} attempts, try again!')
+        return img
+    def check_overlap_polygon(rect_pts1, rect_pts2):
+        poly1 = cv2.convexHull(rect_pts1)
+        poly2 = cv2.convexHull(rect_pts2)
+        rect1 = cv2.boundingRect(poly1)
+        rect2 = cv2.boundingRect(poly2)
+        if rect1[0] + rect1[2] >= rect2[0] and rect2[0] + rect2[2] >= rect1[0] and rect1[1] + rect1[3] >= rect2[1] and rect2[1] + rect2[3] >= rect1[1]:
+            return True
+        return False
+    anytext_model = 'damo/cv_anytext_text_generation_editing'
+    if pipe_anytext == None:
+        installer.status(f"...initialize AnyText Pipeline")
+        try:
+            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.1', use_fp16=not prefs['higher_vram'], use_translator=False, font_path= f'fonts/{ttf}')
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_last()
+    s = "" if len(anytext_prompts) == 0 else "s"
+    prt(f"Generating your AnyText Image{s}...")
+    for pr in anytext_prompts:
+        prt(progress)
+        autoscroll(False)
+        n_lines = count_lines(pr['prompt'])
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        params = {
+            "sort_priority": anytext_prefs['sort_priority'],
+            "show_debug": True,
+            "revise_pos": anytext_prefs['revise_pos'],
+            "image_count": pr['num_images'],
+            "ddim_steps": pr['num_inference_steps'],
+            "image_width": pr['width'],
+            "image_height": pr['height'],
+            "strength": pr['strength'],
+            "cfg_scale": pr['guidance_scale'],
+            "a_prompt": pr['a_prompt'],
+            "n_prompt": pr['negative_prompt']
+        }
+        init_img = None
+        mask_img = None
+        width, height = (pr['width'], pr['height'])
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            max_size = max(pr['width'], pr['height'])
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, max_size, multiple=64)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            init_img = np.array(init_img)
+        if bool(pr['mask_image']):
+            fname = pr['mask_image'].rpartition(slash)[2]
+            if pr['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['mask_image']):
+                    mask_img = PILImage.open(pr['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                    return
+            max_size = max(pr['width'], pr['height'])
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, max_size, multiple=64)
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            mask_img = ImageOps.exif_transpose(mask_img).convert("L")
+            alpha_channel = PILImage.new("L", init_img.size, 0)
+            alpha_channel.paste(mask_img, (0, 0))
+            black_areas = PILImage.new("L", mask_img.size, 0)
+            black_areas.paste(mask_img, (0, 0))
+            inverted_mask = PILImage.eval(black_areas, lambda x: 255 - x)
+            result = PILImage.alpha_composite(init_img, PILImage.new("RGBA", init_img.size, (0, 0, 0, 255)))
+            mask_img = result.paste((0, 0, 0, 0), (0, 0), inverted_mask)
+            mask_img = np.array(mask_img)
+        else:
+            mask_img = generate_rectangles(width, height, n_lines, max_trys=500)
+            cv2.imwrite(os.path.join(anytext_dir, 'pos_imgs.png'), 255-mask_img[..., ::-1])
+        input_data = {
+            "prompt": pr['prompt'],
+            "seed": random_seed,
+            "draw_pos": mask_img,
+        }
+        if bool(mask_img) and bool(init_img):
+            mode = 'text-editing'
+            input_data['ori_image'] = init_img
+            input_data['draw_pos'] = mask_img
+        elif bool(init_img):
+            mode = 'text-editing'
+            input_data['ori_image'] = init_img
+        else:
+            mode = 'text-generation'
+        try:
+            images, rtn_code, rtn_warning, debug_info = pipe_anytext(input_data, mode=mode, **params)
+        except Exception as e:
+            clear_last()
+            clear_last()
+            os.chdir(root_dir)
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        if rtn_code == 0:
+            alert_msg(page, f"ERROR: {rtn_warning}", content=Text(str(debug_info)))
+            os.chdir(root_dir)
+            return
+        if rtn_warning:
+            alert_msg(page, f"WARNING: {rtn_warning}", content=Text(str(debug_info)))
+            os.chdir(root_dir)
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(anytext_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, anytext_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            os.chdir(root_dir)
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{anytext_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            cv2.imwrite(image_path, image[..., ::-1])
+            #image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not anytext_prefs['display_upscaled_image'] or not anytext_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], anytext_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': anytext_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if anytext_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=anytext_prefs["enlarge_scale"], face_enhance=anytext_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if anytext_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(anytext_prefs["enlarge_scale"]), height=pr['height'] * float(anytext_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {anytext_prefs['enlarge_scale']}x with ESRGAN" if anytext_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"AnyText {mode}")
+                if prefs['save_config_in_metadata']:
+                    config_json = anytext_prefs.copy()
+                    config_json['model_path'] = anytext_model
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], anytext_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], anytext_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    os.chdir(root_dir)
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -25819,7 +26297,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {ip_adapter_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {ip_adapter_prefs['enlarge_scale']}x with ESRGAN" if ip_adapter_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"IP-Adapter")
                 if prefs['save_config_in_metadata']:
                     config_json = ip_adapter_prefs.copy()
@@ -27672,7 +28150,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {demofusion_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {demofusion_prefs['enlarge_scale']}x with ESRGAN" if demofusion_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"DemoFusion")
                 if prefs['save_config_in_metadata']:
                     config_json = demofusion_prefs.copy()
@@ -35577,7 +36055,7 @@ def run_amused(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {amused_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {amused_prefs['enlarge_scale']}x with ESRGAN" if amused_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"Amused {mode}")
                 if prefs['save_config_in_metadata']:
                     config_json = amused_prefs.copy()
@@ -35779,7 +36257,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     metadata = PngInfo()
                     metadata.add_text("artist", prefs['meta_ArtistName'])
                     metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {wuerstchen_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {wuerstchen_prefs['enlarge_scale']}x with ESRGAN" if wuerstchen_prefs['apply_ESRGAN_upscale'] else "")
                     metadata.add_text("pipeline", f"Würstchen")
                     if prefs['save_config_in_metadata']:
                         config_json = wuerstchen_prefs.copy()
@@ -36044,7 +36522,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {pixart_alpha_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {pixart_alpha_prefs['enlarge_scale']}x with ESRGAN" if pixart_alpha_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"PixArt-α")
                 if prefs['save_config_in_metadata']:
                     config_json = pixart_alpha_prefs.copy()
@@ -36325,7 +36803,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {lmd_plus_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {lmd_plus_prefs['enlarge_scale']}x with ESRGAN" if lmd_plus_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"LMD+")
                 if prefs['save_config_in_metadata']:
                     config_json = lmd_plus_prefs.copy()
@@ -36584,7 +37062,7 @@ def run_lcm(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {lcm_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {lcm_prefs['enlarge_scale']}x with ESRGAN" if lcm_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"LCM")
                 if prefs['save_config_in_metadata']:
                     config_json = lcm_prefs.copy()
@@ -36981,7 +37459,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
                     metadata = PngInfo()
                     metadata.add_text("artist", prefs['meta_ArtistName'])
                     metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {ldm3d_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {ldm3d_prefs['enlarge_scale']}x with ESRGAN" if ldm3d_prefs['apply_ESRGAN_upscale'] else "")
                     metadata.add_text("pipeline", f"LDM3D")
                     if prefs['save_config_in_metadata']:
                         config_json = ldm3d_prefs.copy()
@@ -42549,7 +43027,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_3_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_3_prefs['enlarge_scale']}x with ESRGAN" if kandinsky_3_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"Kandinsky 3 {task_type}")
                 if prefs['save_config_in_metadata']:
                     #metadata.add_text("title", kandinsky_3_prefs['file_name'])
@@ -42857,7 +43335,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 metadata = PngInfo()
                 metadata.add_text("artist", prefs['meta_ArtistName'])
                 metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_prefs['enlarge_scale']}x with ESRGAN" if kandinsky_prefs['apply_ESRGAN_upscale'] else "")
                 metadata.add_text("pipeline", f"Kandinsky 2.1 {task_type}")
                 if prefs['save_config_in_metadata']:
                     #metadata.add_text("title", kandinsky_prefs['file_name'])
@@ -43580,7 +44058,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     metadata = PngInfo()
                     metadata.add_text("artist", prefs['meta_ArtistName'])
                     metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_controlnet_prefs['enlarge_scale']}x with ESRGAN" if unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale'] else "")
+                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_controlnet_prefs['enlarge_scale']}x with ESRGAN" if kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] else "")
                     metadata.add_text("pipeline", f"Kandinsky 2.1 {task_type}")
                     if prefs['save_config_in_metadata']:
                         #metadata.add_text("title", kandinsky_controlnet_prefs['file_name'])
@@ -44058,7 +44536,8 @@ class FileInput(UserControl):
             vid_ext = ["mp4", "avi", "MP4", "AVI"]
             gif_ext = ["gif", "GIF"]
             aud_ext = ["mp3", "wav", "MP3", "WAV"]
-            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+vid_ext if self.ftype == "picture" else img_ext
+            font_ext = ["ttf", "TTF"]
+            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
             self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
         def changed(e):
