@@ -6424,12 +6424,12 @@ def buildAnyText(page):
     eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=10, round=1, pref=anytext_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
     #anytext_model = Dropdown(label="AnyText Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("anytext-256"), dropdown.Option("anytext-512")], value=anytext_prefs['anytext_model'], on_change=changed_model)
     #anytext_custom_model = TextField(label="Custom AnyText Model (URL or Path)", value=anytext_prefs['custom_model'], expand=True, visible=anytext_prefs['anytext_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
-    def change_mode(e):
+    def change_sort(e):
         anytext_prefs['sort_priority'] = e.data.split('"')[1]
-    sort_priority = ft.SegmentedButton(on_change=change_mode, selected={anytext_prefs['sort_priority']}, allow_multiple_selection=False,
+    sort_priority = ft.SegmentedButton(on_change=change_sort, selected={anytext_prefs['sort_priority']}, allow_multiple_selection=False,
         segments=[
-            ft.Segment(value="↕", label=ft.Text("↕ Vertical"), icon=ft.Icon(ft.icons.SWAP_VERTICAL_CIRCLE)),
-            ft.Segment(value="↔", label=ft.Text("↔ Horizontal"), icon=ft.Icon(ft.icons.SWAP_HORIZONTAL_CIRCLE)),
+            ft.Segment(value="↕", label=ft.Text("Vertical ↕"), icon=ft.Icon(ft.icons.SWAP_VERTICAL_CIRCLE)),
+            ft.Segment(value="↔", label=ft.Text("Horizontal ↔"), icon=ft.Icon(ft.icons.SWAP_HORIZONTAL_CIRCLE)),
         ], tooltip="When generating multiple lines, each position is matched with the text line according to a certain rule. This determines whether to prioritize sorting from top to bottom or from left to right."
     )
     revise_pos = Checkbox(label="Revise Position", value=anytext_prefs['revise_pos'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'revise_pos'), tooltip="Uses the bounding box of the rendered text as the revised position. However, it is occasionally found that the creativity of the generated text is slightly lower using this method.")
@@ -16665,6 +16665,7 @@ textualinversion_prefs = {
     'max_size': 512,
     'image_path': '',
     'readme_description': '',
+    'use_SDXL': False,
     'urls': [],
 }
 def buildTextualInversion(page):
@@ -16824,6 +16825,7 @@ def buildTextualInversion(page):
     max_train_steps = TextField(label="Max Training Steps", value=textualinversion_prefs['max_train_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'max_train_steps', ptype='int'), width = 160)
     learning_rate = TextField(label="Learning Rate", value=textualinversion_prefs['learning_rate'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'learning_rate', ptype='float'), width = 160)
     seed = TextField(label="Seed", value=textualinversion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160)
+    use_SDXL = Switcher(label="Train with SDXL", value=textualinversion_prefs['use_SDXL'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e: changed(e, 'use_SDXL'))
     save_concept = Checkbox(label="Save Concept    ", tooltip="", value=textualinversion_prefs['save_concept'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_concept'))
     where_to_save_concept = Dropdown(label="Where to Save Concept", width=250, options=[dropdown.Option("Public Library"), dropdown.Option("Privately to my Profile")], value=textualinversion_prefs['where_to_save_concept'], on_change=lambda e: changed(e, 'where_to_save_concept'))
     output_dir = TextField(label="Prior Preservation Class Folder", value=textualinversion_prefs['output_dir'], on_change=lambda e:changed(e,'output_dir'))
@@ -16846,6 +16848,7 @@ def buildTextualInversion(page):
         Header("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", "Provide a collection of images to conceptualize. Warning: May take over an hour to run the training...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)]),
         Row([what_to_teach, initializer_token]),
         Row([placeholder_token, name_of_your_concept]),
+        use_SDXL,
         Row([validation_prompt, validation_steps, num_vectors]),
         scale_lr,
         Row([gradient_accumulation_steps, repeats, train_batch_size]),
@@ -18891,8 +18894,8 @@ def buildCachedModelManager(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
-if 'pipe' in locals():
-    clear_pipes()
+#if 'pipe' in locals():
+#    clear_pipes()
 use_custom_scheduler = False
 retry_attempts_if_NSFW = 3
 unet = None
@@ -25762,7 +25765,7 @@ def run_anytext(page, from_list=False, with_params=False):
             else:
                 ttf_path = os.path.join(anytext_prefs['font_ttf'])
                 if os.path.isfile(ttf_path):
-                    shutil.copy(ttf_path, os.path.join(anytext_dir, 'fonts'))
+                    shutil.copy(ttf_path, os.path.join(anytext_dir, 'fonts', ttf))
                 else:
                     prt("Font Path not found...")
                     return
@@ -29483,7 +29486,7 @@ def run_textualinversion(page):
     name_of_your_model = textualinversion_prefs['name_of_your_model']
     from argparse import Namespace
     textualinversion_args = Namespace(
-        pretrained_model_name_or_path=model_path,
+        pretrained_model_name_or_path=model_path if not textualinversion_prefs['use_SDXL'] else "stabilityai/stable-diffusion-xl-base-1.0",
         resolution=textualinversion_prefs['resolution'],
         center_crop=True,
         #train_data_dir=save_path,
@@ -29517,7 +29520,10 @@ def run_textualinversion(page):
         output_dir=os.path.join(save_path, format_filename(textualinversion_prefs['name_of_your_concept'], use_dash=True)),
     )
     output_dir = textualinversion_args.output_dir
-    arg_str = "accelerate launch textual_inversion.py"
+    if textualinversion_prefs['use_SDXL']:
+        arg_str = "accelerate launch textual_inversion_sdxl.py"
+    else:
+        arg_str = "accelerate launch textual_inversion.py"
     #arg_str = 'accelerate --mixed_precision="fp16" launch train_text_to_image_lora.py'
     for k, v in vars(textualinversion_args).items():
       if isinstance(v, str):
@@ -29617,8 +29623,8 @@ def run_textualinversion(page):
         if bool(description.strip()):
             description = textualinversion_prefs['readme_description'] + '\n\n'
         readme_text = f'''---
-license: mit
-base_model: {model_path}
+license: creativeml-openrail-m
+base_model: {model_path if not textualinversion_prefs['use_SDXL'] else "stabilityai/stable-diffusion-xl-base-1.0"}
 tags:
 - stable-diffusion
 - stable-diffusion-diffusers
