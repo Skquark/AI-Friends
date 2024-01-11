@@ -519,6 +519,7 @@ status = {
     'loaded_controlnet_type': '',
     'loaded_SDXL': '',
     'loaded_SDXL_model': '',
+    'loaded_ip_adapter_mode': '',
     'loaded_ip_adapter': '',
     'changed_settings': False,
     'changed_installers': False,
@@ -6790,6 +6791,11 @@ controlnet_qr_prefs = {
     'max_size': 768,
     'last_model': '',
     'last_controlnet_model': '',
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_SDXL_model': 'SDXL',
+    'ip_adapter_strength': 0.8,
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
@@ -6923,6 +6929,25 @@ def buildControlNetQR(page):
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_qr_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
     strength = SliderRow(label="Init Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_qr_prefs, key='strength', tooltip="How strong the Initial Image should be over the ControlNet. Higher value give less influence.")
     max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_qr_prefs, key='max_size')
+    def toggle_ip_adapter(e):
+        controlnet_qr_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+        ip_adapter_SDXL_model.visible = e.control.value
+        ip_adapter_SDXL_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=controlnet_qr_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=controlnet_qr_prefs['ip_adapter_model'], visible=controlnet_qr_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=controlnet_qr_prefs['ip_adapter_SDXL_model'], visible=controlnet_qr_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_qr_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_qr_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_qr_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_qr_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
     num_images = NumberPicker(label="Number of Iterations: ", min=1, max=12, value=controlnet_qr_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_qr_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -6945,6 +6970,8 @@ def buildControlNetQR(page):
         qr_generator,
         ResponsiveRow([prompt, negative_prompt]),
         Row([controlnet_version, init_image]),
+        Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
+        ip_adapter_container,
         num_inference_row,
         guidance,
         conditioning_scale,
@@ -21571,11 +21598,11 @@ def clear_blip_diffusion_pipe():
     flush()
     pipe_blip_diffusion = None
 def clear_anytext_pipe():
-  global pipe_anydesk
-  if pipe_anydesk is not None:
-    del pipe_anydesk
+  global pipe_anytext
+  if pipe_anytext is not None:
+    del pipe_anytext
     flush()
-    pipe_anydesk = None
+    pipe_anytext = None
 def clear_fuyu_pipe():
   global fuyu_tokenizer, fuyu_model, fuyu_processor
   if fuyu_tokenizer is not None:
@@ -25747,7 +25774,7 @@ def run_anytext(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     anytext_dir = os.path.join(root_dir, "AnyText")
-    anytext_ttf = os.path.join(anytext_dir, 'fonts', 'horison.ttf')
+    anytext_ttf = os.path.join(anytext_dir, 'font', 'horison.ttf')
     ttf = os.path.basename(anytext_ttf)
     if not os.path.exists(anytext_dir):
         installer.status(f"...cloning tyxsspa/AnyText.git")
@@ -25757,27 +25784,27 @@ def run_anytext(page, from_list=False, with_params=False):
             ttf = anytext_prefs['font_ttf'].rparition('/')[2]
         elif '\\' in anytext_prefs['font_ttf']:
             ttf = anytext_prefs['font_ttf'].rparition('\\')[2]
-        if os.path.isfile(os.path.join(anytext_dir, 'fonts', ttf)):
-            anytext_ttf = os.path.join(anytext_dir, 'fonts', ttf)
+        if os.path.isfile(os.path.join(anytext_dir, 'font', ttf)):
+            anytext_ttf = os.path.join(anytext_dir, 'font', ttf)
         else:
             if anytext_prefs['font_ttf'].startswith("http"):
                 ttf_path = download_file(anytext_prefs['font_ttf'], to=os.path.join(anytext_dir, "fonts"), ext="ttf")
             else:
                 ttf_path = os.path.join(anytext_prefs['font_ttf'])
                 if os.path.isfile(ttf_path):
-                    shutil.copy(ttf_path, os.path.join(anytext_dir, 'fonts', ttf))
+                    shutil.copy(ttf_path, os.path.join(anytext_dir, 'font', ttf))
                 else:
                     prt("Font Path not found...")
                     return
             ttf = os.path.basename(ttf_path)
-            anytext_ttf = os.path.join(anytext_dir, 'fonts', ttf)
+            anytext_ttf = os.path.join(anytext_dir, 'font', ttf)
     else:
-        anytext_ttf = os.path.join(anytext_dir, 'fonts', 'horison.ttf')
+        anytext_ttf = os.path.join(anytext_dir, 'font', 'horison.ttf')
         if not os.path.isfile(anytext_ttf):
             installer.status(f"...downloading horison.ttf")
-            run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_dir, 'fonts', 'horison.zip')}")
-            run_sp(f"unzip {os.path.join(anytext_dir, 'fonts', 'horison.zip')}")
-            os.remove(os.path.join(anytext_dir, 'fonts', 'horison.zip'))
+            run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_dir, 'font', 'horison.zip')}")
+            run_sp(f"unzip {os.path.join(anytext_dir, 'font', 'horison.zip')}")
+            os.remove(os.path.join(anytext_dir, 'font', 'horison.zip'))
     pip_install("modelscope omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
     os.chdir(anytext_dir)
     try:
@@ -25852,7 +25879,7 @@ def run_anytext(page, from_list=False, with_params=False):
     if pipe_anytext == None:
         installer.status(f"...initialize AnyText Pipeline")
         try:
-            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.1', use_fp16=not prefs['higher_vram'], use_translator=False, font_path= f'fonts/{ttf}')
+            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.1', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path= f'font/{ttf}')
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -26100,8 +26127,6 @@ def run_ip_adapter(page, from_list=False, with_params=False):
     model_id = model['path']
     variant = {'variant': model['revision']} if 'revision' in model else {}
     variant = {'variant': model['variant']} if 'variant' in model else variant
-    if 'loaded_ip_adapter_mode' not in status: status['loaded_ip_adapter_mode'] = ""
-    if 'loaded_ip_adapter' not in status: status['loaded_ip_adapter'] = ""
     if status['loaded_ip_adapter'] != model_id:
         clear_pipes()
     else:
@@ -26637,6 +26662,14 @@ def run_controlnet_qr(page, from_list=False):
             else:
                 controlnet_model = "Nacholmo/qr-pattern-sdxl-ControlNet-LLLite"
     #monster-labs/control_v1p_sdxl_qrcode_monster
+    use_ip_adapter = controlnet_qr_prefs['use_ip_adapter']
+    if use_ip_adapter:
+        if use_SDXL:
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_prefs['ip_adapter_SDXL_model'])
+        else:
+            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == controlnet_prefs['ip_adapter_model'])
+    else:
+        ip_adapter_model = None
     if controlnet_qr_prefs['last_model'] == sd_model and controlnet_qr_prefs['last_controlnet_model'] == controlnet_model and pipe_controlnet_qr != None:
         clear_pipes('controlnet_qr')
     else:
@@ -26672,6 +26705,24 @@ def run_controlnet_qr(page, from_list=False):
                 pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
                 pipe_controlnet_qr = optimize_SDXL(pipe_controlnet_qr)
                 pipe_controlnet_qr.set_progress_bar_config(disable=True)
+            if use_ip_adapter:
+                pipe_controlnet_qr.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                pipe_controlnet_qr.set_ip_adapter_scale(controlnet_qr_prefs['ip_adapter_strength'])
+                if controlnet_qr_prefs['ip_adapter_image'].startswith('http'):
+                    ip_adapter_image = PILImage.open(requests.get(controlnet_qr_prefs['ip_adapter_image'], stream=True).raw)
+                else:
+                    if os.path.isfile(controlnet_qr_prefs['ip_adapter_image']):
+                        ip_adapter_image = PILImage.open(controlnet_qr_prefs['ip_adapter_image'])
+                    else:
+                        alert_msg(page, f"ERROR: Couldn't find your ip_adapter_image {controlnet_qr_prefs['ip_adapter_image']}")
+                        return
+                ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
+                status['loaded_ip_adapter'] = ip_adapter_model
+                ip_adapter_args = {'ip_adapter_image': ip_adapter_image}
+            else:
+                status['loaded_ip_adapter'] = ""
+                ip_adapter_args = {}
+                
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing ControlNet QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -26745,7 +26796,7 @@ def run_controlnet_qr(page, from_list=False):
             random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
-                images = pipe_controlnet_qr(prompt=[pr['prompt']] * batch_size, negative_prompt=[pr['negative_prompt']] * batch_size, image=[init_img] * batch_size, control_image=qrcode_image, num_inference_steps=pr['num_inference_steps'], guidance_scale=pr['guidance_scale'], controlnet_conditioning_scale=float(controlnet_qr_prefs['conditioning_scale']), control_guidance_start=controlnet_qr_prefs['control_guidance_start'], control_guidance_end=controlnet_qr_prefs['control_guidance_end'], width=width, height=height, num_images_per_prompt=controlnet_qr_prefs['batch_size'], strength=pr['strength'], generator=generator, callback=callback_fnc, callback_steps=1).images
+                images = pipe_controlnet_qr(prompt=[pr['prompt']] * batch_size, negative_prompt=[pr['negative_prompt']] * batch_size, image=[init_img] * batch_size, control_image=qrcode_image, num_inference_steps=pr['num_inference_steps'], guidance_scale=pr['guidance_scale'], controlnet_conditioning_scale=float(controlnet_qr_prefs['conditioning_scale']), control_guidance_start=controlnet_qr_prefs['control_guidance_start'], control_guidance_end=controlnet_qr_prefs['control_guidance_end'], width=width, height=height, num_images_per_prompt=controlnet_qr_prefs['batch_size'], strength=pr['strength'], generator=generator, callback=callback_fnc, callback_steps=1, **ip_adapter_args).images
             except Exception as e:
                 clear_last()
                 alert_msg(page, "Error running ControlNet-QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -33709,7 +33760,6 @@ def run_controlnet(page, from_list=False):
             else:
                 controlnet_type = "image2image"
     use_ip_adapter = controlnet_prefs['use_ip_adapter']
-    if 'loaded_ip_adapter' not in status: status['loaded_ip_adapter'] = ""
     if use_ip_adapter:
         ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == controlnet_prefs['ip_adapter_model'])
     else:
@@ -34327,7 +34377,6 @@ def run_controlnet_xl(page, from_list=False):
             else:
                 controlnet_type = "image2image"
     use_ip_adapter = controlnet_xl_prefs['use_ip_adapter']
-    if 'loaded_ip_adapter' not in status: status['loaded_ip_adapter'] = ""
     if use_ip_adapter:
         ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_xl_prefs['ip_adapter_SDXL_model'])
     else:
@@ -34815,7 +34864,6 @@ def run_controlnet_xs(page, from_list=False):
             else:
                 controlnet_type = "image2image"
     use_ip_adapter = controlnet_xs_prefs['use_ip_adapter']
-    if 'loaded_ip_adapter' not in status: status['loaded_ip_adapter'] = ""
     if use_ip_adapter:
         ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_xs_prefs['ip_adapter_SDXL_model'])
     else:
@@ -39911,12 +39959,12 @@ def run_tokenflow(page):
     prt(installer)
     #model_id = "damo-vilab/text-to-video-ms-1.7b"
     clear_pipes()
-    tokenflow_dir = os.path.join(root_dir, "tokenflow")
+    tokenflow_dir = os.path.join(root_dir, "TokenFlow")
     if not os.path.exists(tokenflow_dir):
         installer.status("...Skquark/TokenFlow") #XmYx/TokenFlow
         run_sp("git clone https://github.com/Skquark/TokenFlow.git", realtime=False, cwd=root_dir)
     data_dir = os.path.join(tokenflow_dir, "data")
-    pip_install("pillow ftfy opencv-python|cv2 tqdm numpy pyyaml xformers tensorboard av kornia", installer=installer)
+    pip_install("ftfy opencv-python|cv2 tqdm numpy pyyaml|yaml xformers tensorboard av kornia", installer=installer)
     #clear_pipes('tokenflow')
     clear_last()
     #prt("Generating TokenFlow of your Video...")
@@ -39952,7 +40000,7 @@ def run_tokenflow(page):
     cache_dir = f' --cache_dir "{cache}"' if bool(cache) else '' 
     #x = " -x" if status['installed_xformers'] else ""
     import yaml
-    config_yaml = os.path.join(tokenflow_dir, 'config', 'sdd_config.yaml')
+    config_yaml = os.path.join(tokenflow_dir, 'configs', 'sdd_config.yaml')
     config = {'seed': random_seed, 'device': torch_device, 'output_path': 'tokenflow-results', 'data_path': f'data/{data_folder}', 'latents_path': 'latents', 'n_inversion_steps': tokenflow_prefs["num_inversion_steps"], 'n_frames': tokenflow_prefs['num_frames']}
     config['sd_version'] = tokenflow_prefs['sd_version']
     config['guidance_scale'] = tokenflow_prefs['guidance_scale']
@@ -39976,7 +40024,7 @@ def run_tokenflow(page):
         run_sp(f'python preprocess.py --data_path "data/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}', cwd=tokenflow_dir)
                #-W {width} -H {height} -o {batch_output} -d cuda{x}{rw} -s {tokenflow_prefs["num_inference_steps"]} -g {tokenflow_prefs["guidance_scale"]} -f {tokenflow_prefs["fps"]} -T {tokenflow_prefs["num_frames"]}', cwd=data_dir)
         progressbar.status("...Processing TokenFlow PNP")
-        run_sp(f'python {run_py} --config_path "config/sdd_config.yaml"{cache_dir}', cwd=tokenflow_dir)
+        run_sp(f'python {run_py} --config_path "configs/sdd_config.yaml"{cache_dir}', cwd=tokenflow_dir)
     except Exception as e:
         clear_last()
         alert_msg(page, f"ERROR: TokenFlow Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -39988,7 +40036,7 @@ def run_tokenflow(page):
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
     autoscroll(True)
     output_path = os.path.join(tokenflow_dir, "tokenflow-results", "tokenflow_PnP.mp4")
-    video_path = available_file(batch_output, filename, ext="mp4", nonum=True)
+    video_path = available_file(batch_output, filename, ext="mp4", no_num=True)
     if os.path.exists(output_path):
         shutil.copy(output_path, video_path)
         prt(f"Done creating video... Check {video_path}")
