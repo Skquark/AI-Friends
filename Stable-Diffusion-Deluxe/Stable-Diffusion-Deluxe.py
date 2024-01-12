@@ -6978,7 +6978,8 @@ def buildControlNetQR(page):
         strength,
         Row([control_guidance_start, control_guidance_end]),
         max_size,
-        ResponsiveRow([Row([batch_size, num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
+        #batch_size, 
+        ResponsiveRow([Row([num_images], col={'lg':6}), Row([seed, batch_folder_name], col={'lg':6})]),
         page.ESRGAN_block_controlnet_qr,
         Row([ElevatedButton(content=Text("🧑‍💻️  Make ControlNet QR", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_qr(page)),
              ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_qr(page, from_list=True), tooltip="Runs from global Prompt Queue using Image Parameters for Prompt, Neg Prompt, Steps, Guidance, Init Image, Strength and Seed.")]),
@@ -12062,15 +12063,15 @@ svd_prefs = {
     'target_fps': 30,
     'motion_bucket_id': 127,#180
     'num_frames': 25,
-    'decode_chunk_size': 14,
+    'decode_chunk_size': 10,
     'noise_aug_strength': 0.02,
     'export_to_video': True,
     "interpolate_video": True,
     'seed': 0,
-    'max_size': 1024,
+    'max_size': 768,
     'width': 1024,
     'height': 576,
-    'cpu_offload': False,
+    'cpu_offload': not prefs['higher_vram_mode'],
     'num_videos': 1,
     'resume_frame': False,
     'continue_times': 1,
@@ -19187,7 +19188,7 @@ def get_diffusers(page):
         pass
     try:
         import transformers
-        if force_updates: raise ModuleNotFoundError("Forcing update")
+        #if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         page.status("...installing transformers")
         run_process("pip install --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
@@ -19736,6 +19737,7 @@ def optimize_pipe(p, vae_slicing=False, unet=False, no_cpu=False, vae_tiling=Fal
             from DeepCache import DeepCacheSDHelper
         except Exception:
             run_sp("pip install DeepCache", realtime=False)
+            from DeepCache import DeepCacheSDHelper
             pass
         helper = DeepCacheSDHelper(pipe=p)
         helper.set_params(cache_interval=3, cache_branch_id=0)
@@ -19792,6 +19794,7 @@ def optimize_SDXL(p, vae_slicing=False, no_cpu=False, vae_tiling=True, torch_com
             from DeepCache import DeepCacheSDHelper
         except Exception:
             run_sp("pip install DeepCache", realtime=False)
+            from DeepCache import DeepCacheSDHelper
             pass
         helper = DeepCacheSDHelper(pipe=p)
         helper.set_params(cache_interval=3, cache_branch_id=0)
@@ -26666,9 +26669,9 @@ def run_controlnet_qr(page, from_list=False):
     use_ip_adapter = controlnet_qr_prefs['use_ip_adapter']
     if use_ip_adapter:
         if use_SDXL:
-            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_prefs['ip_adapter_SDXL_model'])
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_qr_prefs['ip_adapter_SDXL_model'])
         else:
-            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == controlnet_prefs['ip_adapter_model'])
+            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == controlnet_qr_prefs['ip_adapter_model'])
     else:
         ip_adapter_model = None
     if controlnet_qr_prefs['last_model'] == sd_model and controlnet_qr_prefs['last_controlnet_model'] == controlnet_model and pipe_controlnet_qr != None:
@@ -26690,7 +26693,7 @@ def run_controlnet_qr(page, from_list=False):
                 pipe_controlnet = ControlNetModel.from_pretrained(controlnet_model, torch_dtype=torch.float16)
                 installer.status(f"...get {sd_model}")
                 pipe_controlnet_qr = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(sd_model, controlnet=pipe_controlnet, torch_dtype=torch.float16, variant='fp16', safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...optimizing")
+                installer.status(f"...optimizing pipe")
                 pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
                 pipe_controlnet_qr = optimize_pipe(pipe_controlnet_qr)
                 pipe_controlnet_qr.set_progress_bar_config(disable=True)
@@ -26702,27 +26705,10 @@ def run_controlnet_qr(page, from_list=False):
                 vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16).to("cuda")
                 installer.status(f"...get {sd_model}")
                 pipe_controlnet_qr = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(sd_model, controlnet=pipe_controlnet, vae=vae, variant="fp16", use_safetensors=True, torch_dtype=torch.float16, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                installer.status(f"...optimizing")
+                installer.status(f"...optimizing pipe")
                 pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
                 pipe_controlnet_qr = optimize_SDXL(pipe_controlnet_qr)
                 pipe_controlnet_qr.set_progress_bar_config(disable=True)
-            if use_ip_adapter:
-                pipe_controlnet_qr.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
-                pipe_controlnet_qr.set_ip_adapter_scale(controlnet_qr_prefs['ip_adapter_strength'])
-                if controlnet_qr_prefs['ip_adapter_image'].startswith('http'):
-                    ip_adapter_image = PILImage.open(requests.get(controlnet_qr_prefs['ip_adapter_image'], stream=True).raw)
-                else:
-                    if os.path.isfile(controlnet_qr_prefs['ip_adapter_image']):
-                        ip_adapter_image = PILImage.open(controlnet_qr_prefs['ip_adapter_image'])
-                    else:
-                        alert_msg(page, f"ERROR: Couldn't find your ip_adapter_image {controlnet_qr_prefs['ip_adapter_image']}")
-                        return
-                ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
-                status['loaded_ip_adapter'] = ip_adapter_model
-                ip_adapter_args = {'ip_adapter_image': ip_adapter_image}
-            else:
-                status['loaded_ip_adapter'] = ""
-                ip_adapter_args = {}
                 
         except Exception as e:
             clear_last()
@@ -26731,6 +26717,23 @@ def run_controlnet_qr(page, from_list=False):
         clear_last()
     else:
         pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
+    if use_ip_adapter:
+        pipe_controlnet_qr.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet_qr.set_ip_adapter_scale(controlnet_qr_prefs['ip_adapter_strength'])
+        if controlnet_qr_prefs['ip_adapter_image'].startswith('http'):
+            ip_adapter_image = PILImage.open(requests.get(controlnet_qr_prefs['ip_adapter_image'], stream=True).raw)
+        else:
+            if os.path.isfile(controlnet_qr_prefs['ip_adapter_image']):
+                ip_adapter_image = PILImage.open(controlnet_qr_prefs['ip_adapter_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your ip_adapter_image {controlnet_qr_prefs['ip_adapter_image']}")
+                return
+        ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
+        status['loaded_ip_adapter'] = ip_adapter_model
+        ip_adapter_args = {'ip_adapter_image': ip_adapter_image}
+    else:
+        status['loaded_ip_adapter'] = ""
+        ip_adapter_args = {}
     s = "s" if controlnet_qr_prefs['num_images'] > 1 or controlnet_qr_prefs['batch_size'] > 1 else ""
     prt(f"Generating ControlNet QR{s} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_qr_prefs['batch_folder_name'])
@@ -26740,7 +26743,8 @@ def run_controlnet_qr(page, from_list=False):
     if not os.path.isdir(batch_output):
         os.makedirs(batch_output)
     batch_size = controlnet_qr_prefs['batch_size']
-    if controlnet_qr_prefs['selected_mode'].split('"')[1] == "image":#controlnet_qr_prefs['use_image']:
+    mode = controlnet_qr_prefs['selected_mode'] if '"' not in controlnet_qr_prefs['selected_mode'] else controlnet_qr_prefs['selected_mode'].split('"')[1]
+    if mode == "image":#controlnet_qr_prefs['use_image']:
         if not bool(controlnet_qr_prefs['ref_image']):
             alert_msg(page, f"ERROR: If using your own QR image, you must provide it.")
             return
@@ -27543,7 +27547,9 @@ def run_null_text(page):
       os.chdir(root_dir)
       #installer.status("...clone diffusers")
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
-    sys.path.append(os.path.join(diffusers_dir, "examples"))
+    if str(os.path.join(diffusers_dir, "examples")) not in sys.path:
+      sys.path.append(os.path.join(diffusers_dir, "examples"))
+      sys.path.append(os.path.join(diffusers_dir, "examples", "community"))
     if null_text_prefs['init_image'].startswith('http'):
       #response = requests.get(null_text_prefs['init_image'])
       #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
@@ -39136,6 +39142,7 @@ def run_svd(page):
                 from DeepCache import DeepCacheSDHelper
             except Exception:
                 run_sp("pip install DeepCache", realtime=False)
+                from DeepCache import DeepCacheSDHelper
                 pass
             helper = DeepCacheSDHelper(pipe=pipe_svd)
             helper.set_params(cache_interval=3, cache_branch_id=0)
@@ -39195,6 +39202,7 @@ def run_svd(page):
             for n, c in enumerate(new_frames):
                 frames_batch[n].append(c)
     except Exception as e:
+      print(f"SVD {frames_batch} type: {type(frames_batch)}")
       clear_last()
       alert_msg(page, f"ERROR: SVD Image-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
       return
@@ -39246,7 +39254,7 @@ def run_svd(page):
                 alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 pass
             clear_last()
-            prt(f"Video saved to {out_file}")
+            prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
             #prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
         b += 1
     #filename = filename[:int(prefs['file_max_length'])]
@@ -39567,7 +39575,8 @@ def run_video_retalking(page):
     autoscroll(True)
     #TODO: Upscale Image
     if os.path.isfile(output_file):
-        prt(Row([Text("Saved to {output_file}")], alignment=MainAxisAlignment.CENTER))
+        prt(Markdown(f"Video saved to [{output_file}]({output_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        #prt(Row([Text("Saved to {output_file}")], alignment=MainAxisAlignment.CENTER))
         try:
             prt(Row([VideoContainer(output_file)], alignment=MainAxisAlignment.CENTER))
         except:
@@ -39728,7 +39737,8 @@ def run_style_crafter(page):
         video_out = available_file(batch_output, fname, 0, no_num=True, ext="mp4")
         interpolate_video(outputs_dir, output_video=video_out, input_fps=8, output_fps=25, installer=installer)
         clear_last
-        prt(f"Saved to {video_out}")
+        prt(Markdown(f"Video saved to [{video_out}]({video_out})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+        #prt(f"Saved to {video_out}")
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -39998,7 +40008,7 @@ def run_tokenflow(page):
     if not video_file.endswith("mp4"):
         video_file += ".mp4"
     progressbar.status("...Preparing Run")
-    shutil.copy(init_vid, os.path.join(data_dir, video_file))
+    shutil.copy(init_vid, os.path.join(data_dir, data_folder, video_file))
     random_seed = int(tokenflow_prefs['seed']) if int(tokenflow_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     #width = tokenflow_prefs['width']
     #height = tokenflow_prefs['height']
@@ -40007,14 +40017,27 @@ def run_tokenflow(page):
     cache_dir = f' --cache_dir "{cache}"' if bool(cache) else '' 
     #x = " -x" if status['installed_xformers'] else ""
     import yaml
-    class literal(str):
-        pass
-
     def literal_presenter(dumper, data):
+        #return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
+        if isinstance(data, str):
+            return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
+        return dumper.represent_str(data)
+    def represent_str(dumper, data):
+        if '\n' in data:
+            return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
         return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
-    yaml.add_representer(str, literal_presenter)
+    def represent_none(dumper, _):
+        return dumper.represent_scalar('tag:yaml.org,2002:null', '')
+    def save_yaml(config, yaml_out):
+        with open(yaml_out, 'w') as file:
+            for key, value in config.items():
+                if isinstance(value, str):
+                    file.write(f'{key}: "{value}"\n')
+                else:
+                    file.write(f'{key}: {value}\n')
+
     config_yaml = os.path.join(tokenflow_dir, 'configs', 'sdd_config.yaml')
-    config = {'seed': random_seed, 'device': torch_device, 'output_path': 'tokenflow-results', 'data_path': f'data/{data_folder}', 'latents_path': 'latents', 'n_inversion_steps': tokenflow_prefs["num_inversion_steps"], 'n_frames': tokenflow_prefs['num_frames']}
+    config = {'seed': random_seed, 'device': torch_device, 'output_path': 'tokenflow-results', 'data_path': f'data/{data_folder}/{video_file}', 'latents_path': 'latents', 'n_inversion_steps': tokenflow_prefs["num_inversion_steps"], 'n_frames': tokenflow_prefs['num_frames']}
     config['sd_version'] = tokenflow_prefs['sd_version']
     config['guidance_scale'] = tokenflow_prefs['guidance_scale']
     config['n_timesteps'] = tokenflow_prefs["num_inference_steps"]
@@ -40030,13 +40053,17 @@ def run_tokenflow(page):
         config['start'] = tokenflow_prefs['start']
         config['use_ddim_noise'] = tokenflow_prefs['use_ddim_noise']
         run_py = "run_tokenflow_sdedit.py"
-    with open(config_yaml, 'w') as file:
-        yaml.dump(config, file, indent=4, default_flow_style=False)
+    #with open(config_yaml, 'w') as file:
+    #    #yaml.add_representer(str, literal_presenter)
+    #    yaml.add_representer(str, represent_str)
+    #    yaml.add_representer(type(None), represent_none)
+    #    yaml.dump(config, file, indent=4, default_flow_style=False, sort_keys=False)
+    save_yaml(config, config_yaml)
     try:
         progressbar.status("...Preprocessing Inverted Video")
-        run_sp(f'python preprocess.py --data_path "data/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}', cwd=tokenflow_dir)
+        run_sp(f'python preprocess.py --data_path "data/{data_folder}/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}', cwd=tokenflow_dir)
                #-W {width} -H {height} -o {batch_output} -d cuda{x}{rw} -s {tokenflow_prefs["num_inference_steps"]} -g {tokenflow_prefs["guidance_scale"]} -f {tokenflow_prefs["fps"]} -T {tokenflow_prefs["num_frames"]}', cwd=data_dir)
-        progressbar.status("...Processing TokenFlow PNP")
+        progressbar.status(f"...Processing TokenFlow {selected_mode}")
         run_sp(f'python {run_py} --config_path "configs/sdd_config.yaml"{cache_dir}', cwd=tokenflow_dir, realtime=True)
     except Exception as e:
         clear_last()
@@ -44646,12 +44673,12 @@ class ImageButton(UserControl):
             print(f"{type(self.data)} {self.data}")
             if is_Colab:
               self.page.launch_url(self.data)
-              from google.colab import files
+              '''from google.colab import files
               if os.path.isfile(self.data):
                   files.download(self.data)
               else:
                   time.sleep(4)
-                  files.download(self.data)
+                  files.download(self.data)'''
             else:#, initial_directory=
                 self.file_saver.save_file(dialog_title="Save Image to...", allowed_extensions=["png", "PNG"], file_name=os.path.splitext(os.path.basename(self.data))[0], file_type=ft.FilePickerFileType.IMAGE)
             self.page.snack_bar = SnackBar(content=Text(f"📲  Downloading {self.data}... May have to Stop Script for Downloads to start in Colab."))
@@ -45178,7 +45205,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
                 if f.endswith('png') or f.endswith('jpg'):
                     shutil.copy(f, os.path.join(photos_dir, f))
             else:
-                f.save(os.path.join(photos_dir, str(n).zfill(4)))
+                f.save(os.path.join(photos_dir, str(n).zfill(4) + '.png'))
     else:
         for f in os.listdir(frames_dir):
             if f.endswith('png') or f.endswith('jpg'):
@@ -45220,7 +45247,7 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
     stat("frames_to_video")
-    video = ffmpeg.input(frames_dir + os.path.seperator+ pattern, pattern_type="glob", framerate=input_fps or output_fps)
+    video = ffmpeg.input(frames_dir + slash + pattern, pattern_type="glob", framerate=input_fps or output_fps)
     video = video.pix_fmt('yuv420p')
     if input_fps is not None and input_fps != output_fps:
         stat("changing fps")
