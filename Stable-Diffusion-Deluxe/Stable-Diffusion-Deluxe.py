@@ -13369,7 +13369,7 @@ def buildAnimateDiff(page):
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=animate_diff_prefs, key='height')
     scheduler = Dropdown(label="Scheduler", options=[dropdown.Option("ddim"), dropdown.Option("pndm"), dropdown.Option("lms"), dropdown.Option("euler"), dropdown.Option("euler_a"), dropdown.Option("dpm_2"), dropdown.Option("k_dpm_2"), dropdown.Option("dpm_2_a"), dropdown.Option("k_dpm_2_a"), dropdown.Option("dpmpp_2m"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("unipc"), dropdown.Option("dpmpp_sde"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("dpmpp_2m_sde"), dropdown.Option("k_dpmpp_2m_sde")], width=176, value=animate_diff_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
     #motion_module = Dropdown(label="Motion Module", options=[dropdown.Option("improved3DMotion"), dropdown.Option("mm_sd_v15_v2"), dropdown.Option("mm_sd_v15"), dropdown.Option("mm_sd_v14")], width=176, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
-    motion_module = Dropdown(label="Motion Module", options=[], width=187, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
+    motion_module = Dropdown(label="Motion Module", options=[], width=220, value=animate_diff_prefs['motion_module'], on_change=lambda e: changed(e, 'motion_module'))
     for mm in animate_diff_motion_modules:
         motion_module.options.append(dropdown.Option(mm['name']))
     dreambooth_lora = Dropdown(label="DreamBooth LoRA", options=[dropdown.Option("Custom")], value=animate_diff_prefs['dreambooth_lora'], on_change=changed_lora)
@@ -25779,6 +25779,7 @@ def run_anytext(page, from_list=False, with_params=False):
     if not os.path.exists(anytext_dir):
         installer.status(f"...cloning tyxsspa/AnyText.git")
         run_sp("git clone https://github.com/tyxsspa/AnyText.git", cwd=root_dir)
+    sys.path.append(anytext_dir)
     if bool(anytext_prefs['font_ttf']):
         if '/' in anytext_prefs['font_ttf']:
             ttf = anytext_prefs['font_ttf'].rparition('/')[2]
@@ -25803,7 +25804,7 @@ def run_anytext(page, from_list=False, with_params=False):
         if not os.path.isfile(anytext_ttf):
             installer.status(f"...downloading horison.ttf")
             run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_dir, 'font', 'horison.zip')}")
-            run_sp(f"unzip {os.path.join(anytext_dir, 'font', 'horison.zip')}")
+            run_sp(f"unzip {os.path.join(anytext_dir, 'font', 'horison.zip')}", cwd=os.path.join(anytext_dir, 'font'))
             os.remove(os.path.join(anytext_dir, 'font', 'horison.zip'))
     pip_install("modelscope omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
     os.chdir(anytext_dir)
@@ -27537,6 +27538,12 @@ def run_null_text(page):
     from io import BytesIO
     from PIL import ImageOps
     from PIL.PngImagePlugin import PngInfo
+    diffusers_dir = os.path.join(root_dir, "diffusers")
+    if not os.path.exists(diffusers_dir) or force_updates:
+      os.chdir(root_dir)
+      #installer.status("...clone diffusers")
+      run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
+    sys.path.append(os.path.join(diffusers_dir, "examples"))
     if null_text_prefs['init_image'].startswith('http'):
       #response = requests.get(null_text_prefs['init_image'])
       #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
@@ -40000,6 +40007,12 @@ def run_tokenflow(page):
     cache_dir = f' --cache_dir "{cache}"' if bool(cache) else '' 
     #x = " -x" if status['installed_xformers'] else ""
     import yaml
+    class literal(str):
+        pass
+
+    def literal_presenter(dumper, data):
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
+    yaml.add_representer(str, literal_presenter)
     config_yaml = os.path.join(tokenflow_dir, 'configs', 'sdd_config.yaml')
     config = {'seed': random_seed, 'device': torch_device, 'output_path': 'tokenflow-results', 'data_path': f'data/{data_folder}', 'latents_path': 'latents', 'n_inversion_steps': tokenflow_prefs["num_inversion_steps"], 'n_frames': tokenflow_prefs['num_frames']}
     config['sd_version'] = tokenflow_prefs['sd_version']
@@ -40018,13 +40031,13 @@ def run_tokenflow(page):
         config['use_ddim_noise'] = tokenflow_prefs['use_ddim_noise']
         run_py = "run_tokenflow_sdedit.py"
     with open(config_yaml, 'w') as file:
-        yaml.dump(config, file)
+        yaml.dump(config, file, indent=4, default_flow_style=False)
     try:
         progressbar.status("...Preprocessing Inverted Video")
         run_sp(f'python preprocess.py --data_path "data/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}', cwd=tokenflow_dir)
                #-W {width} -H {height} -o {batch_output} -d cuda{x}{rw} -s {tokenflow_prefs["num_inference_steps"]} -g {tokenflow_prefs["guidance_scale"]} -f {tokenflow_prefs["fps"]} -T {tokenflow_prefs["num_frames"]}', cwd=data_dir)
         progressbar.status("...Processing TokenFlow PNP")
-        run_sp(f'python {run_py} --config_path "configs/sdd_config.yaml"{cache_dir}', cwd=tokenflow_dir)
+        run_sp(f'python {run_py} --config_path "configs/sdd_config.yaml"{cache_dir}', cwd=tokenflow_dir, realtime=True)
     except Exception as e:
         clear_last()
         alert_msg(page, f"ERROR: TokenFlow Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -45331,7 +45344,7 @@ class AudioPlayer(UserControl):
         self.row = Row([self.button, Text(self.display)])
         return self.row
 
-port = 80
+port = 8000
 if tunnel_type == "ngrok":
   #if bool(url):
   #  public_url = url
@@ -45347,7 +45360,7 @@ elif tunnel_type == "localtunnel":
   else:
     import re
     #print(run_sp('lt -p 80', realtime=False))
-    localtunnel = subprocess.Popen(['lt', '--port', '8000', 'http'], stdout=subprocess.PIPE)
+    localtunnel = subprocess.Popen(['lt', '--port', port, 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
     public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
 else: public_url=""
@@ -45400,4 +45413,4 @@ def show_port(adr, height=500):
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
-  ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=os.path.abspath(root_dir), upload_dir=os.path.abspath(root_dir), use_color_emoji=True)
+  ft.app(target=main, view=ft.WEB_BROWSER, port=port, assets_dir=os.path.abspath(root_dir), upload_dir=os.path.abspath(root_dir), use_color_emoji=True)
