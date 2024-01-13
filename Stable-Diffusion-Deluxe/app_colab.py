@@ -2,13 +2,17 @@ import os, subprocess, sys, shutil, re
 
 FLAGS = {}
 for arg in sys.argv[1:]:
-  key, value = arg.split("=")
-  FLAGS[key] = value
-storage_type = FLAGS.get('--storage_type')
-save_to_GDrive = FLAGS.get('--save_to_GDrive') == "True"
-saved_settings_json = FLAGS.get('--saved_settings_json')
-tunnel_type = FLAGS.get('--tunnel_type')
-auto_launch_website = FLAGS.get('--auto_launch_website') == "True"
+  try:
+    key, value = arg.split("=")
+    key = key.lstrip("--")
+    FLAGS[key] = value
+  except ValueError:
+    pass
+storage_type = FLAGS.get('storage_type')
+save_to_GDrive = FLAGS.get('save_to_GDrive') == "True"
+saved_settings_json = FLAGS.get('saved_settings_json')
+tunnel_type = FLAGS.get('tunnel_type')
+auto_launch_website = FLAGS.get('auto_launch_website') == "True"
 force_updates = True
 newest_flet = True
 SDD_version = "v1.9.0"
