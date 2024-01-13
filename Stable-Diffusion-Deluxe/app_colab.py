@@ -1,28 +1,29 @@
-import os, subprocess, sys, shutil, re
+import os, subprocess, sys, shutil, re, argparse
+import random as rnd
 
-FLAGS = {}
-for arg in sys.argv[1:]:
-  try:
-    key, value = arg.split("=")
-    key = key.lstrip("--")
-    FLAGS[key] = value
-  except ValueError:
-    pass
-storage_type = FLAGS.get('storage_type')
-save_to_GDrive = FLAGS.get('save_to_GDrive') == "True"
-saved_settings_json = FLAGS.get('saved_settings_json')
-tunnel_type = FLAGS.get('tunnel_type')
-auto_launch_website = FLAGS.get('auto_launch_website') == "True"
+parser = argparse.ArgumentParser()
+parser.add_argument("--storage_type", type=str, required=True)
+parser.add_argument("--save_to_GDrive", type=bool, default=True)
+parser.add_argument("--saved_settings_json", type=str)
+parser.add_argument("--tunnel_type", type=str)
+parser.add_argument("--auto_launch_website", type=bool, default=False)
+flags = parser.parse_args()
+storage_type = flags.storage_type
+save_to_GDrive = flags.save_to_GDrive
+saved_settings_json = flags.saved_settings_json
+tunnel_type = flags.tunnel_type
+auto_launch_website = flags.auto_launch_website
 force_updates = True
 newest_flet = True
 SDD_version = "v1.9.0"
-import random as rnd
 from IPython.display import clear_output
 root_dir = '/content/'
 dist_dir = root_dir
 is_Colab = True
 try:
   import google.colab
+  from google.colab import output
+  output.enable_custom_widget_manager()
   root_dir = '/content/'
 except:
   root_dir = os.getcwd()
@@ -19035,10 +19036,6 @@ inpaint_model = "stabilityai/stable-diffusion-2-inpainting"
 #"runwayml/stable-diffusion-inpainting"
 scheduler = None
 scheduler_clip = None
-if is_Colab:
-  from google.colab import output
-  output.enable_custom_widget_manager()
-
 
 def get_model(name):
   #dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4", dropdown.Option("Community Finetuned Model", dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")
@@ -31208,11 +31205,12 @@ def run_bark(page):
         bark_model = BetterTransformer.transform(bark_model, keep_original_model=False)
     import soundfile as sf
     clear_pipes()
-    if not bark_prefs['use_bettertransformer']: preload_models()
+    if not bark_prefs['use_bettertransformer']:
+        preload_models()
     clear_last()
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(bark_prefs['batch_folder_name']):
-      audio_out = os.path.join(audio_out, bark_prefs['batch_folder_name'])
+        audio_out = os.path.join(audio_out, bark_prefs['batch_folder_name'])
     os.makedirs(audio_out, exist_ok=True)
     history_prompt = bark_prefs['acoustic_prompt']
     if history_prompt == "Unconditional":
