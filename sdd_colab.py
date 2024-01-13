@@ -450,6 +450,8 @@ def load_settings_file():
 load_settings_file()
 version_checker()
 
+
+
 #@title ## **▶️ Run Stable Diffusion Deluxe** - Flet/Flutter WebUI App
 import flet as ft
 #from flet import *
@@ -19036,6 +19038,10 @@ inpaint_model = "stabilityai/stable-diffusion-2-inpainting"
 #"runwayml/stable-diffusion-inpainting"
 scheduler = None
 scheduler_clip = None
+if is_Colab:
+  from google.colab import output
+  output.enable_custom_widget_manager()
+
 
 def get_model(name):
   #dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4", dropdown.Option("Community Finetuned Model", dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")
@@ -19591,7 +19597,8 @@ except ModuleNotFoundError:
     pass
 finally:
     torch_device = "cuda" if torch.cuda.is_available() else "cpu"
-    if torch_device == "cpu": print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API, AIHorde & OpenAI, but not Diffusers...")
+    if torch_device == "cpu":
+        print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API, AIHorde & OpenAI, but not Diffusers...")
 
 if torch_device == "cuda":
     try:
@@ -23985,7 +23992,7 @@ def run_prompt_brainstormer(page):
           from textsynthpy import TextSynth, Complete
         except ImportError:
           run_sp("pip install textsynthpy", realtime=False)
-          clear_output()
+          #clear_output()
         finally:
           from textsynthpy import TextSynth, Complete
         textsynth = TextSynth(prefs['TextSynth_api_key'], engine=textsynth_engine) # Insert your API key in the previous cell
@@ -31206,11 +31213,11 @@ def run_bark(page):
     import soundfile as sf
     clear_pipes()
     if not bark_prefs['use_bettertransformer']:
-        preload_models()
+      preload_models()
     clear_last()
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(bark_prefs['batch_folder_name']):
-        audio_out = os.path.join(audio_out, bark_prefs['batch_folder_name'])
+      audio_out = os.path.join(audio_out, bark_prefs['batch_folder_name'])
     os.makedirs(audio_out, exist_ok=True)
     history_prompt = bark_prefs['acoustic_prompt']
     if history_prompt == "Unconditional":
@@ -39190,12 +39197,14 @@ def run_svd(page):
     batch_output = os.path.join(prefs['image_output'], svd_prefs['batch_folder_name'])
     make_dir(batch_output)
     #for v in range(svd_prefs['num_videos']):
-    
+    frames_batch = None
     random_seed = int(svd_prefs['seed']) if int(svd_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     generator = torch.manual_seed(random_seed)
     try: #, callback_on_step_end=callback_fnc
         frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames
         if svd_prefs['resume_frame']:
+            if isinstance(frames_batch[0], list):
+                frames_batch = frames_batch[0]
             new_frames = []
             for n, f in enumerate(frames_batch):
                 new_frames[n] = []
@@ -39208,7 +39217,8 @@ def run_svd(page):
             for n, c in enumerate(new_frames):
                 frames_batch[n].append(c)
     except Exception as e:
-      print(f"SVD {frames_batch} type: {type(frames_batch)}")
+      if frames_batch != None:
+          print(f"SVD {frames_batch} type: {type(frames_batch)}")
       clear_last()
       alert_msg(page, f"ERROR: SVD Image-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
       return
@@ -45379,20 +45389,12 @@ class AudioPlayer(UserControl):
 
 port = 8000
 if tunnel_type == "ngrok":
-  #if bool(url):
-  #  public_url = url
-  #else:
     from pyngrok import conf, ngrok
     conf.get_default().ngrok_version = "v3"
     #public_url = ngrok.connect(port = str(port)).public_url
     public_url = ngrok.connect(port).public_url
 elif tunnel_type == "localtunnel":
-  if False:
-  #if bool(url):
-    public_url = url
-  else:
     import re
-    #print(run_sp('lt -p 80', realtime=False))
     localtunnel = subprocess.Popen(['lt', '--port', port, 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
     public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
@@ -45402,8 +45404,6 @@ if bool(public_url):
     import urllib
     if auto_launch_website:
         display(Javascript('window.open("{url}");'.format(url=public_url)))
-        time.sleep(0.7)
-        clear_output()
     print("\nOpen URL in browser to launch app in tab: " + str(public_url))
     if tunnel_type == "localtunnel":
         print("Copy/Paste the Password/Enpoint IP for localtunnel:",urllib.request.urlopen('https://ipv4.icanhazip.com').read().decode('utf8').strip("\n"))
@@ -45436,13 +45436,10 @@ def show_port(adr, height=500):
 #run_sp(f'python -m webbrowser -t "{public_url.public_url}"')
 #webbrowser.open(public_url.public_url, new=0, autoraise=True)
 #webbrowser.open_new_tab(public_url.public_url)
-#ft.app(target=main, view=flet.WEB_BROWSER, port=port, host=socket_host)
-#ft.app(target=main, view=flet.WEB_BROWSER, port=80, host=public_url.public_url)
-#ft.app(target=main, view=flet.WEB_BROWSER, port=port, host="0.0.0.0")
-#ft.app(target=main, view=ft.WEB_BROWSER, port=80, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
 #import logging
 #logging.getLogger("flet_core").setLevel(logging.DEBUG)
 #logging.basicConfig(level=logging.DEBUG)
+#ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
