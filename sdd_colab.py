@@ -45443,7 +45443,7 @@ if tunnel_type == "ngrok":
     public_url = ngrok.connect(port).public_url
 elif tunnel_type == "localtunnel":
     import re
-    localtunnel = subprocess.Popen(['lt', '--port', port, 'http'], stdout=subprocess.PIPE)
+    localtunnel = subprocess.Popen(['lt', '--port', str(port), 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
     public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
 else: public_url=""
