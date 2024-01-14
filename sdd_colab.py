@@ -6461,7 +6461,7 @@ def buildAnyText(page):
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🔤  AnyText", "Multilingual Visual Text Generation and Text Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnyText Settings", on_click=anytext_help)]),
+            Header("🔤  AnyText (under construction)", "Multilingual Visual Text Generation and Text Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnyText Settings", on_click=anytext_help)]),
             prompt,
             ResponsiveRow([a_prompt, negative_prompt]),
             ResponsiveRow([init_image, mask_image]),
@@ -9876,7 +9876,7 @@ def buildAmused(page):
     page.amused_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🎡  Amused Open-MUSE", "Lightweight and Fast vqVAE Masked Generative Transformer Model to make many images quickly at once...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Amused Settings", on_click=amused_help)]),
+            Header("🎡  aMUSEd Open-MUSE", "Lightweight and Fast vqVAE Masked Generative Transformer Model to make many images quickly at once...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Amused Settings", on_click=amused_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([init_image, mask_image]),
             init_image_strength,
@@ -12822,7 +12822,7 @@ def buildTokenFlow(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌞  TokenFlow Video-To-Video", "Consistent Diffusion Features for Consistent Video Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with TokenFlow Settings", on_click=tokenflow_help)]),
+        Header("🌞  TokenFlow Video-To-Video (under construction)", "Consistent Diffusion Features for Consistent Video Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with TokenFlow Settings", on_click=tokenflow_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         init_video,
         inversion_prompt,
@@ -25789,40 +25789,44 @@ def run_anytext(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     anytext_dir = os.path.join(root_dir, "AnyText")
-    anytext_ttf = os.path.join(anytext_dir, 'font', 'horison.ttf')
+    anytext_d = os.path.join(anytext_dir, 'anytext')
+    anytext_font = os.path.join(anytext_d, 'font')
+    anytext_ttf = os.path.join(anytext_font, 'horison.ttf')
     ttf = os.path.basename(anytext_ttf)
     if not os.path.exists(anytext_dir):
         installer.status(f"...cloning tyxsspa/AnyText.git")
-        run_sp("git clone https://github.com/tyxsspa/AnyText.git", cwd=root_dir)
+        run_sp("git clone https://github.com/zgljl2012/AnyText.git", cwd=root_dir)
+        #run_sp("git clone https://github.com/tyxsspa/AnyText.git", cwd=root_dir)
     sys.path.append(anytext_dir)
+    sys.path.append(anytext_d)
     if bool(anytext_prefs['font_ttf']):
         if '/' in anytext_prefs['font_ttf']:
             ttf = anytext_prefs['font_ttf'].rparition('/')[2]
         elif '\\' in anytext_prefs['font_ttf']:
             ttf = anytext_prefs['font_ttf'].rparition('\\')[2]
-        if os.path.isfile(os.path.join(anytext_dir, 'font', ttf)):
-            anytext_ttf = os.path.join(anytext_dir, 'font', ttf)
+        if os.path.isfile(os.path.join(anytext_font, ttf)):
+            anytext_ttf = os.path.join(anytext_font, ttf)
         else:
             if anytext_prefs['font_ttf'].startswith("http"):
-                ttf_path = download_file(anytext_prefs['font_ttf'], to=os.path.join(anytext_dir, "fonts"), ext="ttf")
+                ttf_path = download_file(anytext_prefs['font_ttf'], to=anytext_font, ext="ttf")
             else:
                 ttf_path = os.path.join(anytext_prefs['font_ttf'])
                 if os.path.isfile(ttf_path):
-                    shutil.copy(ttf_path, os.path.join(anytext_dir, 'font', ttf))
+                    shutil.copy(ttf_path, os.path.join(anytext_font, ttf))
                 else:
                     prt("Font Path not found...")
                     return
             ttf = os.path.basename(ttf_path)
-            anytext_ttf = os.path.join(anytext_dir, 'font', ttf)
+            anytext_ttf = os.path.join(anytext_font, ttf)
     else:
-        anytext_ttf = os.path.join(anytext_dir, 'font', 'horison.ttf')
+        anytext_ttf = os.path.join(anytext_font, 'horison.ttf')
         if not os.path.isfile(anytext_ttf):
             installer.status(f"...downloading horison.ttf")
-            run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_dir, 'font', 'horison.zip')}")
-            run_sp(f"unzip {os.path.join(anytext_dir, 'font', 'horison.zip')}", cwd=os.path.join(anytext_dir, 'font'))
-            os.remove(os.path.join(anytext_dir, 'font', 'horison.zip'))
+            run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_font, 'horison.zip')}")
+            run_sp(f"unzip {os.path.join(anytext_font, 'horison.zip')}", cwd=anytext_font)
+            os.remove(os.path.join(anytext_font, 'horison.zip'))
     pip_install("modelscope omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
-    os.chdir(anytext_dir)
+    os.chdir(anytext_d)
     try:
         import xformers
     except ModuleNotFoundError:
@@ -25895,7 +25899,7 @@ def run_anytext(page, from_list=False, with_params=False):
     if pipe_anytext == None:
         installer.status(f"...initialize AnyText Pipeline")
         try:
-            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.1', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path= f'font/{ttf}')
+            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path= f'font/{ttf}')
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -25966,7 +25970,7 @@ def run_anytext(page, from_list=False, with_params=False):
             mask_img = np.array(mask_img)
         else:
             mask_img = generate_rectangles(width, height, n_lines, max_trys=500)
-            cv2.imwrite(os.path.join(anytext_dir, 'pos_imgs.png'), 255-mask_img[..., ::-1])
+            cv2.imwrite(os.path.join(anytext_d, 'pos_imgs.png'), 255-mask_img[..., ::-1])
         input_data = {
             "prompt": pr['prompt'],
             "seed": random_seed,
@@ -27582,7 +27586,8 @@ def run_null_text(page):
     model_id = "runwayml/stable-diffusion-v1-5"
     if pipe_null_text is None:
         from diffusers.schedulers import DDIMScheduler
-        from examples.community.pipeline_null_text_inversion import NullTextPipeline
+        #from examples.community.pipeline_null_text_inversion import NullTextPipeline
+        from pipeline_null_text_inversion import NullTextPipeline
         try:
             scheduler = DDIMScheduler(num_train_timesteps=1000, beta_start=0.00085, beta_end=0.0120, beta_schedule="scaled_linear")
             pipe_null_text = NullTextPipeline.from_pretrained(model_id, scheduler = scheduler, torch_dtype=torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to(torch_device)
@@ -39261,17 +39266,20 @@ def run_svd(page):
                 prt(installer)
                 out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
                 if svd_prefs['interpolate_video']:
-                    interpolate_video(frames, input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer)
+                    interpolate_video(frames_dir, input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer)
                 else:
                     installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
-                    frames_to_video(batch_output, pattern=fname+"-%04d.png", input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                    frames_to_video(frames_dir, pattern=fname+"-%04d.png", input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
             except Exception as e:
                 clear_last()
                 alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 pass
             clear_last()
-            prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
-            #prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
+            if not os.path.isfile(out_file):
+                prt(f"Problem creating video file, but frames still saved...")
+            else:
+                prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+                #prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
         b += 1
     #filename = filename[:int(prefs['file_max_length'])]
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
@@ -44986,9 +44994,12 @@ class Installing(UserControl):
         self.progress.update()
 
 class Progress(UserControl):
-    def __init__(self, message=""):
+    def __init__(self, message="", steps=50):
         super().__init__()
         self.message = message
+        self.steps = steps
+        self.start_step = 0
+        self.start_callback = 0
         self.build()
     def build(self):
         self.message_txt = Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
@@ -45003,6 +45014,43 @@ class Progress(UserControl):
         self.details.update()
     def show_progress(self, show):
         self.progress.visible = show
+        self.progress.update()
+    @property
+    def steps(self):
+        return self.steps
+    @steps.setter
+    def steps(self, value):
+        self.steps = value
+    def callback_step(self, pipe, step, timestep, callback_kwargs):
+        now = time.time()
+        itsec = ""
+        try:
+            self.steps = pipe.num_timesteps
+        except:
+            pass
+        if step < 2:
+            self.start_callback = now
+        else:
+            itsec = f" - {its(now - self.start_step)} - Elapsed: {elapsed(self.start_callback, now)}"
+        self.start_step = now
+        percent = (step +1)/ self.steps
+        self.progress.progress.value = percent
+        self.progress.progress.tooltip = f"[{step +1} / {self.steps}] (Timestep: {timestep}){itsec}"
+        self.progress.progress.update()
+        #if abort_run:
+        #    pipe._interrupt = True
+    def callback_fnc(self, step: int, timestep: int, latents: torch.FloatTensor) -> None:
+        self.callback_fnc.has_been_called = True
+        now = time.time()
+        itsec = ""
+        if step < 2:
+            self.start_callback = now
+        else:
+            itsec = f" - {its(now - self.start_step)} - Elapsed: {elapsed(self.start_callback, now)}"
+        self.start_step = now
+        percent = (step +1)/ self.steps
+        self.progress.value = percent
+        self.progress.tooltip = f"{int(percent * 100)}% [{step +1} / {self.steps}]{itsec}"
         self.progress.update()
 
 def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgrade=False, q=False):
