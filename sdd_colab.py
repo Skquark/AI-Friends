@@ -25828,7 +25828,13 @@ def run_anytext(page, from_list=False, with_params=False):
             run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_font, 'horison.zip')}")
             run_sp(f"unzip {os.path.join(anytext_font, 'horison.zip')}", cwd=anytext_font)
             os.remove(os.path.join(anytext_font, 'horison.zip'))
-    pip_install("modelscope omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
+    try:
+        import modelscope
+    except ModuleNotFoundError:
+        installer.status("...installing modelscope")
+        run_sp("pip install -U git+https://github.com/Skquark/modelscope.git", realtime=False)
+        pass
+    pip_install("omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
     os.chdir(anytext_d)
     try:
         import xformers
@@ -27556,7 +27562,7 @@ def run_null_text(page):
         return im.crop((left, upper, right, lower)).resize((null_text_prefs['max_size'], null_text_prefs['max_size']))
     autoscroll(True)
     clear_list()
-    prt(Installing("Installing Null-Text Inversion Pipeline..."))
+    prt(Installing("Installing Null-Text Inversion Pipeline... See console for progress."))
     import requests, random
     from io import BytesIO
     from PIL import ImageOps
@@ -27582,6 +27588,8 @@ def run_null_text(page):
     width, height = original_img.size
     width, height = scale_dimensions(width, height, null_text_prefs['max_size'])
     original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+    input_image = os.path.join(uploads_dir, os.path.basename(null_text_prefs['init_image']))
+    original_img.save(input_image)
     #original_img = center_crop_resize(original_img)
     clear_pipes('null_text')
     torch_dtype = torch.float32
@@ -27592,7 +27600,7 @@ def run_null_text(page):
         #from examples.community.pipeline_null_text_inversion import NullTextPipeline
         from pipeline_null_text_inversion import NullTextPipeline
         try:
-            scheduler = DDIMScheduler(num_train_timesteps=1000, beta_start=0.00085, beta_end=0.0120, beta_schedule="scaled_linear")
+            scheduler = DDIMScheduler(num_train_timesteps=1000, beta_start=0.00085, beta_end=0.0120, beta_schedule="scaled_linear", steps_offset=1, clip_sample=False)
             pipe_null_text = NullTextPipeline.from_pretrained(model_id, scheduler = scheduler, torch_dtype=torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to(torch_device)
         except Exception as e:
             clear_last()
@@ -27614,7 +27622,7 @@ def run_null_text(page):
         generator = torch.Generator(device="cpu").manual_seed(random_seed)
         #generator = torch.manual_seed(random_seed)
         try:
-            inverted_latent, uncond = pipe_null_text.invert(original_img, null_text_prefs['base_prompt'], num_inner_steps=null_text_prefs['num_inner_steps'], early_stop_epsilon= 1e-5, num_inference_steps = steps)
+            inverted_latent, uncond = pipe_null_text.invert(input_image, null_text_prefs['base_prompt'], num_inner_steps=null_text_prefs['num_inner_steps'], early_stop_epsilon= 1e-5, num_inference_steps = steps)
             images = pipe_null_text(null_text_prefs['target_prompt'], uncond, inverted_latent, guidance_scale=null_text_prefs['guidance_scale'], num_inference_steps=steps, generator=generator) #.images[0].save(input_image+".output.jpg")
             #images = pipe_null_text(base_prompt=null_text_prefs['base_prompt'], target_prompt=null_text_prefs['target_prompt'], image=original_img, num_inference_steps=null_text_prefs['num_inference_steps'], strength=null_text_prefs['strength'], guidance_scale=null_text_prefs['guidance_scale'], generator=generator)#.images
         except Exception as e:
@@ -39174,7 +39182,7 @@ def run_svd(page):
     if svd_prefs['resume_frame']:
         vid_length = vid_length * (svd_prefs['continue_times'] + 1)
     clear_last()
-    progress = Progress(f"Generating Stable Video of your Image... Length: {round(vid_length, 1)} seconds")
+    progress = Progress(f"Generating Stable Video of your Image... Length: {round(vid_length, 1)} seconds", steps=svd_prefs['num_inference_steps'])
     #progress = ProgressBar(bar_height=8)
     #total_steps = svd_prefs['num_inference_steps']
     def callback_fnc(pipe, step, timestep, callback_kwargs):
@@ -39209,7 +39217,7 @@ def run_svd(page):
     random_seed = int(svd_prefs['seed']) if int(svd_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     generator = torch.manual_seed(random_seed)
     try: #, callback_on_step_end=callback_fnc
-        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames
+        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator, callback_on_step_end=progress.callback_alt).frames
         if svd_prefs['resume_frame']:
             if isinstance(frames_batch[0], list):
                 frames_batch = frames_batch[0]
@@ -39219,7 +39227,7 @@ def run_svd(page):
                 last_frame = f[-1]
                 for t in range(svd_prefs['continue_times']):
                     progress.status(f"...Video {n}, Continue {t + 1}/{svd_prefs['continue_times']}")
-                    frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
+                    frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator, callback_on_step_end=progress.callback_alt).frames[0]
                     new_frames[n].append(frames_continued)
                     last_frame = frames_continued[-1]
             for n, c in enumerate(new_frames):
@@ -45019,10 +45027,10 @@ class Progress(UserControl):
         self.progress.visible = show
         self.progress.update()
     @property
-    def steps(self):
+    def total_steps(self):
         return self.steps
-    @steps.setter
-    def steps(self, value):
+    @total_steps.setter
+    def total_steps(self, value):
         self.steps = value
     def callback_step(self, pipe, step, timestep, callback_kwargs):
         now = time.time()
@@ -45042,6 +45050,18 @@ class Progress(UserControl):
         self.progress.progress.update()
         #if abort_run:
         #    pipe._interrupt = True
+    def callback_alt(self, step: int, timestep: int, callback_kwargs) -> None:
+        now = time.time()
+        itsec = ""
+        if step < 2:
+            self.start_callback = now
+        else:
+            itsec = f" - {its(now - self.start_step)} - Elapsed: {elapsed(self.start_callback, now)}"
+        self.start_step = now
+        percent = (step +1)/ self.steps
+        self.progress.value = percent
+        self.progress.tooltip = f"{int(percent * 100)}% [{step +1} / {self.steps}]{itsec}"
+        self.progress.update()
     def callback_fnc(self, step: int, timestep: int, latents: torch.FloatTensor) -> None:
         self.callback_fnc.has_been_called = True
         now = time.time()
