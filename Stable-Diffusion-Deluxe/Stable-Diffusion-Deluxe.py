@@ -1088,6 +1088,10 @@ def initState(page):
       page.show_install_fab(True)
       page.update()
       current_tab = 1
+    else:
+      page.tabs.selected_index = 0
+      page.tabs.update()
+      page.update()
     if prefs['show_stats']:
       start_thread(page)
       #start_polling(prefs['stats_update'], update_stats(page))
@@ -45473,9 +45477,9 @@ def show_port(adr, height=500):
 #run_sp(f'python -m webbrowser -t "{public_url.public_url}"')
 #webbrowser.open(public_url.public_url, new=0, autoraise=True)
 #webbrowser.open_new_tab(public_url.public_url)
-#import logging
-#logging.getLogger("flet_core").setLevel(logging.DEBUG)
-#logging.basicConfig(level=logging.DEBUG)
+import logging
+logging.getLogger("flet_core").setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 #ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)

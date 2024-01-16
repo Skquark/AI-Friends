@@ -3,10 +3,10 @@ import random as rnd
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--storage_type", type=str, required=True)
-parser.add_argument("--save_to_GDrive", type=bool, default=True)
+parser.add_argument("--save_to_GDrive", type=bool, default=True, action='store_true')
 parser.add_argument("--saved_settings_json", type=str)
 parser.add_argument("--tunnel_type", type=str)
-parser.add_argument("--auto_launch_website", type=bool, default=False)
+parser.add_argument("--auto_launch_website", type=bool, default=False, action='store_true')
 flags = parser.parse_args()
 storage_type = flags.storage_type
 save_to_GDrive = flags.save_to_GDrive
@@ -1099,6 +1099,10 @@ def initState(page):
       page.show_install_fab(True)
       page.update()
       current_tab = 1
+    else:
+      page.tabs.selected_index = 0
+      page.tabs.update()
+      page.update()
     if prefs['show_stats']:
       start_thread(page)
       #start_polling(prefs['stats_update'], update_stats(page))
@@ -45484,9 +45488,9 @@ def show_port(adr, height=500):
 #run_sp(f'python -m webbrowser -t "{public_url.public_url}"')
 #webbrowser.open(public_url.public_url, new=0, autoraise=True)
 #webbrowser.open_new_tab(public_url.public_url)
-#import logging
-#logging.getLogger("flet_core").setLevel(logging.DEBUG)
-#logging.basicConfig(level=logging.DEBUG)
+import logging
+logging.getLogger("flet_core").setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 #ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
