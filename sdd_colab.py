@@ -3,16 +3,15 @@ import random as rnd
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--storage_type", type=str, required=True)
-parser.add_argument("--save_to_GDrive", type=bool, default=True, action='store_true')
 parser.add_argument("--saved_settings_json", type=str)
 parser.add_argument("--tunnel_type", type=str)
-parser.add_argument("--auto_launch_website", type=bool, default=False, action='store_true')
+parser.add_argument("--auto_launch_website", default=False, action='store_true')
 flags = parser.parse_args()
 storage_type = flags.storage_type
-save_to_GDrive = flags.save_to_GDrive
 saved_settings_json = flags.saved_settings_json
 tunnel_type = flags.tunnel_type
 auto_launch_website = flags.auto_launch_website
+save_to_GDrive = True
 force_updates = True
 newest_flet = True
 SDD_version = "v1.9.0"
@@ -45488,9 +45487,9 @@ def show_port(adr, height=500):
 #run_sp(f'python -m webbrowser -t "{public_url.public_url}"')
 #webbrowser.open(public_url.public_url, new=0, autoraise=True)
 #webbrowser.open_new_tab(public_url.public_url)
-import logging
-logging.getLogger("flet_core").setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+#import logging
+#logging.getLogger("flet_core").setLevel(logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 #ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
