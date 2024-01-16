@@ -2940,7 +2940,7 @@ def buildPromptsList(page):
         dream.arg = arg
       #if prefs['']
       prompts.append(dream)
-      prompts_list.controls.append(ListTile(title=Text(p, max_lines=6, style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=editPrompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+      prompts_list.controls.append(ListTile(title=Text(p, max_lines=6, theme_style=TextThemeStyle.BODY_LARGE), dense=True, data=dream, on_click=editPrompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[
               PopupMenuItem(icon=icons.EDIT, text="Edit Prompt", on_click=editPrompt, data=dream),
               PopupMenuItem(icon=icons.DELETE, text="Delete Prompt", on_click=delete_prompt, data=dream),
@@ -3159,7 +3159,7 @@ def buildImages(page):
       page.imageColumn.update()
       c.update()
     page.auto_scrolling = auto_scrolling
-    page.imageColumn = Column([Text("▶️   Start Run from Prompts List.  Get ready...", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT)], scroll=ScrollMode.AUTO, auto_scroll=True)
+    page.imageColumn = Column([Text("▶️   Start Run from Prompts List.  Get ready...", theme_style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT)], scroll=ScrollMode.AUTO, auto_scroll=True)
     c = Container(padding=padding.only(18, 12, 0, 0), content=page.imageColumn)
     return c
 
@@ -3173,7 +3173,7 @@ def buildPromptGenerator(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_prompt_generator(p):
-      page.prompt_generator_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.prompt_generator_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_generator_list.update()
       generator_list_buttons.visible = True
       generator_list_buttons.update()
@@ -3248,7 +3248,7 @@ def buildPromptRemixer(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_prompt_remixer(p):
-      page.prompt_remixer_list.controls.append(ListTile(title=Text(p, max_lines=4, style=TextThemeStyle.BODY_LARGE), dense=True, data=p, on_click=lambda _: add_to_prompt_list(p)))
+      page.prompt_remixer_list.controls.append(ListTile(title=Text(p, max_lines=4, theme_style=TextThemeStyle.BODY_LARGE), dense=True, data=p, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_remixer_list.update()
       remixer_list_buttons.visible = True
       remixer_list_buttons.update()
@@ -3325,7 +3325,7 @@ def buildPromptBrainstormer(page):
         else: alert_msg(page, "You must provide your HuggingFace API Key in settings first before using this Request Mode...")
     page.prompt_brainstormer_list = Column([], spacing=0)
     def add_to_prompt_brainstormer(p):
-      page.prompt_brainstormer_list.controls.append(Text(p, style=TextThemeStyle.BODY_LARGE, selectable=True))
+      page.prompt_brainstormer_list.controls.append(Text(p, theme_style=TextThemeStyle.BODY_LARGE, selectable=True))
       page.prompt_brainstormer_list.update()
       brainstormer_list_buttons.visible = True
       brainstormer_list_buttons.update()
@@ -3382,7 +3382,7 @@ def buildPromptWriter(page):
         page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_prompt_writer(p):
-      page.prompt_writer_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.prompt_writer_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_writer_list.update()
       writer_list_buttons.visible = True
       writer_list_buttons.update()
@@ -3464,7 +3464,7 @@ def buildMagicPrompt(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_magic_prompt(p):
-      page.magic_prompt_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.magic_prompt_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.magic_prompt_list.update()
       magic_list_buttons.visible = True
       magic_list_buttons.update()
@@ -3541,7 +3541,7 @@ def buildDistilGPT2(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_distil_gpt2(p):
-      page.distil_gpt2_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.distil_gpt2_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.distil_gpt2_list.update()
       distil_list_buttons.visible = True
       distil_list_buttons.update()
@@ -3830,7 +3830,7 @@ def buildPromptStyler(page):
             pr = styler[0].replace("{prompt}", prefs['prompt_styler'])
             pr = to_title(pr, sentence=True, clean=False)
             negative = styler[1]
-            styler_results.controls.append(ListTile(title=Text(pr, max_lines=3, style=TextThemeStyle.BODY_LARGE), subtitle=Text(f"Negative: {negative}", max_lines=3), data=s, dense=True, on_click=add_to_prompt_list))
+            styler_results.controls.append(ListTile(title=Text(pr, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), subtitle=Text(f"Negative: {negative}", max_lines=3), data=s, dense=True, on_click=add_to_prompt_list))
         styler_list_buttons = Row([
             ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
             add_all_to_prompts_btn,
@@ -4404,7 +4404,7 @@ def buildImage2Text(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_image2text(p):
-      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=10, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=10, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.image2text_list.update()
       image2text_list_buttons.visible = True
       image2text_list_buttons.update()
@@ -4639,7 +4639,7 @@ def buildBLIP2Image2Text(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_BLIP2_image2text(p):
-      page.BLIP2_image2text_list.controls.append(ListTile(title=Text(p, max_lines=3, style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.BLIP2_image2text_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.BLIP2_image2text_list.update()
       BLIP2_image2text_list_buttons.visible = True
       BLIP2_image2text_list_buttons.update()
@@ -11239,7 +11239,7 @@ def buildInfiniteZoom(page):
             if k == 'prompt': continue
             params.append(f'{to_title(k)}: {v}')
         sub = ', '.join(params)
-        return ListTile(title=Text(animate_prompt['prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=animate_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        return ListTile(title=Text(animate_prompt['prompt'], max_lines=6, theme_style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=animate_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[PopupMenuItem(icon=icons.EDIT, text="Edit Animation Prompt", on_click=lambda e: edit_infinite_zoom(animate_prompt), data=animate_prompt),
                  PopupMenuItem(icon=icons.DELETE, text="Delete Animation Prompt", on_click=lambda e: del_infinite_zoom(animate_prompt), data=animate_prompt)]), on_click=lambda e: edit_infinite_zoom(animate_prompt))
     def edit_infinite_zoom(edit=None):
@@ -11273,7 +11273,7 @@ def buildInfiniteZoom(page):
                             if k == 'prompt': continue
                             params.append(f'{to_title(k)}: {v}')
                         sub = ', '.join(params)
-                        t.title = Text(infinite_zoom_prompt['prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE)
+                        t.title = Text(infinite_zoom_prompt['prompt'], max_lines=6, theme_style=TextThemeStyle.BODY_LARGE)
                         t.subtitle = Text(sub)
                         t.data = infinite_zoom_prompt
                         t.update()
@@ -13078,7 +13078,7 @@ def buildAnimateDiff(page):
             if k == 'prompt': continue
             params.append(f'{to_title(k)}: {v}')
         sub = ', '.join(params)
-        return ListTile(title=Text(animate_prompt['prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=animate_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        return ListTile(title=Text(animate_prompt['prompt'], max_lines=6, theme_style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=animate_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[PopupMenuItem(icon=icons.EDIT, text="Edit Animation Prompt", on_click=lambda e: edit_animate_diff(animate_prompt), data=animate_prompt),
                  PopupMenuItem(icon=icons.DELETE, text="Delete Animation Prompt", on_click=lambda e: del_animate_diff(animate_prompt), data=animate_prompt)]), on_click=lambda e: edit_animate_diff(animate_prompt))
     def edit_animate_diff(edit=None):
@@ -13113,7 +13113,7 @@ def buildAnimateDiff(page):
                             if k == 'prompt': continue
                             params.append(f'{to_title(k)}: {v}')
                         sub = ', '.join(params)
-                        t.title = Text(animate_diff_prompt['prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE)
+                        t.title = Text(animate_diff_prompt['prompt'], max_lines=6, theme_style=TextThemeStyle.BODY_LARGE)
                         t.subtitle = Text(sub)
                         t.data = animate_diff_prompt
                         t.update()
@@ -16145,7 +16145,7 @@ def buildSemanticGuidance(page):
             if k == 'editing_prompt': continue
             params.append(f'{to_title(k)}: {v}')
         sub = ', '.join(params)
-        return ListTile(title=Text(semantic_prompt['editing_prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=semantic_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        return ListTile(title=Text(semantic_prompt['editing_prompt'], max_lines=6, theme_style=TextThemeStyle.BODY_LARGE), subtitle=Text(sub), dense=True, data=semantic_prompt, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[PopupMenuItem(icon=icons.EDIT, text="Edit Semantic Prompt", on_click=lambda e: edit_semantic(semantic_prompt), data=semantic_prompt),
                  PopupMenuItem(icon=icons.DELETE, text="Delete Semantic Prompt", on_click=lambda e: del_semantic(semantic_prompt), data=semantic_prompt)]), on_click=lambda e: edit_semantic(semantic_prompt))
     def edit_semantic(edit=None):
@@ -16176,7 +16176,7 @@ def buildSemanticGuidance(page):
                             if k == 'editing_prompt': continue
                             params.append(f'{to_title(k)}: {v}')
                         sub = ', '.join(params)
-                        t.title = Text(semantic_prompt['editing_prompt'], max_lines=6, style=TextThemeStyle.BODY_LARGE)
+                        t.title = Text(semantic_prompt['editing_prompt'], max_lines=6, theme_style=TextThemeStyle.BODY_LARGE)
                         t.subtitle = Text(sub)
                         t.data = semantic_prompt
                         t.update()
@@ -16243,7 +16243,7 @@ def buildSemanticGuidance(page):
         Header("🧩  Semantic Guidance for Diffusion Models - SEGA", "Text-to-Image Generation with Latent Editing to apply or remove multiple concepts from an image with advanced controls....", actions=[IconButton(icon=icons.HELP, tooltip="Help with Semantic Guidance Settings", on_click=semantic_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
-        Row([Text("Editing Semantic Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
+        Row([Text("Editing Semantic Prompts", theme_style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
                     Row([ft.FilledTonalButton("Clear Prompts", on_click=clear_semantic_prompts), ft.FilledButton("Add Editing Prompt", on_click=lambda e: edit_semantic(None))])], alignment=MainAxisAlignment.SPACE_BETWEEN),
         page.semantic_prompts,
         Divider(thickness=2, height=4),
@@ -18620,7 +18620,7 @@ def buildVoiceFixer(page):
 def buildCustomModelManager(page):
     global prefs
     def title_header(title, type):
-        return Row([Text(title, style=TextThemeStyle.BODY_LARGE),
+        return Row([Text(title, theme_style=TextThemeStyle.BODY_LARGE),
                     ft.FilledButton(f"Add {type} Model", on_click=lambda e: add_model(type))], alignment=MainAxisAlignment.SPACE_BETWEEN)
     def model_tile(name, path, token, type, weights=""):
         return ListTile(title=Row([Text(name, weight=FontWeight.BOLD), Text(path + (f" - {weights}" if bool(weights) else "")), Text(token)], alignment=MainAxisAlignment.SPACE_BETWEEN), data=type, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
@@ -19608,10 +19608,10 @@ if torch_device == "cuda":
             print(f"Uninstalling old transformers v{transformers.__version__}")
             run_sp("pip uninstall -y transformers", realtime=False)
             print("Installing newest transformers package...")
-            run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=True)
+            run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=False)
             print("Installing newest accelerate package...")
-            run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=True)
-            run_sp("pip install --upgrade huggingface_hub", realtime=False)
+            run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=False)
+            run_sp("pip install --upgrade -q huggingface_hub", realtime=False)
             print("Restart Runtime to apply updates...")
             #importlib.reload(transformers)
             #try:
@@ -42603,7 +42603,7 @@ def run_dall_e(page, from_list=False):
     try:
         import openai
     except:
-        prt(Installing("Installing OpenAi DALL•E 2 API..."))
+        prt(Installing("Installing OpenAI DALL•E 2 API..."))
         run_process("pip install -q openai", realtime=False)
         clear_last()
         import openai
@@ -42718,7 +42718,7 @@ def run_dall_e(page, from_list=False):
             out_path = batch_output# if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
             if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, data=new_file, width=size, height=size, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=image_path, data=new_path, width=size, height=size, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             #if save_to_GDrive:
             if storage_type == "PyDrive Google Drive":
@@ -42763,13 +42763,13 @@ def run_dall_e_3(page, from_list=False):
     progress = ProgressBar(bar_height=8)
     try:
         import openai
-        print(f"OpenAI {version.parse(openai.__version__).base_version} v{openai.__version__}")
-        if version.parse(openai.__version__).base_version < version.parse("1.2.2"):
+        #print(f"OpenAI {version.parse(openai.__version__).base_version} v{openai.__version__}")
+        if version.parse(openai.__version__).base_version < version.parse("1.7.2"):
             run_process("pip uninstall -y openai", realtime=False)
             raise ModuleNotFoundError("Forcing update")
         if force_updates or True: raise ModuleNotFoundError("Forcing update")
     except:
-        prt(Installing("Installing OpenAi DALL•E 3 API..."))
+        prt(Installing("Installing OpenAI DALL•E 3 API..."))
         run_process("pip install -q --upgrade openai", realtime=False)
         clear_last()
         import openai
@@ -42882,7 +42882,7 @@ def run_dall_e_3(page, from_list=False):
             out_path = batch_output# if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
             if not dall_e_3_prefs['display_upscaled_image'] or not dall_e_3_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, data=new_file, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([ImageButton(src=image_path, data=new_path, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "PyDrive Google Drive":
                 newFolder = gdrive.CreateFile({'title': dall_e_3_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
@@ -44589,7 +44589,7 @@ class Header(UserControl):
         self.build()
     def build(self):
         #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
-        self.column = Column([Row([Column([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Text(self.subtitle, style="titleSmall", color=colors.TERTIARY) if bool(self.subtitle) else Container(content=None)], spacing=4, expand=True), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=1, vertical_alignment=CrossAxisAlignment.END), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT) if self.divider else Container(content=None), Container(content=None, height=3)], spacing=2)
+        self.column = Column([Row([Column([Text(self.title, theme_style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Text(self.subtitle, theme_style=TextThemeStyle.TITLE_SMALL, color=colors.TERTIARY) if bool(self.subtitle) else Container(content=None)], spacing=4, expand=True), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=1, vertical_alignment=CrossAxisAlignment.END), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT) if self.divider else Container(content=None), Container(content=None, height=3)], spacing=2)
         return self.column
 
 class FileInput(UserControl):
@@ -44694,7 +44694,7 @@ class ImageButton(UserControl):
         #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
         #Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True),
         def download_image(e):
-            print(f"{type(self.data)} {self.data}")
+            #print(f"{type(self.data)} {self.data}")
             if is_Colab:
               self.page.launch_url(self.data)
               '''from google.colab import files
@@ -44704,14 +44704,16 @@ class ImageButton(UserControl):
                   time.sleep(4)
                   files.download(self.data)'''
             else:#, initial_directory=
-                self.file_saver.save_file(dialog_title="Save Image to...", allowed_extensions=["png", "PNG"], file_name=os.path.splitext(os.path.basename(self.data))[0], file_type=ft.FilePickerFileType.IMAGE)
-            self.page.snack_bar = SnackBar(content=Text(f"📲  Downloading {self.data}... May have to Stop Script for Downloads to start in Colab."))
+                self.file_saver = FilePicker(on_result=file_saver_result)
+                self.page.overlay.append(self.file_saver)
+                self.page.update()
+                self.file_saver.save_file(dialog_title="Save Image to...", allowed_extensions=["png", "PNG"], file_name=os.path.basename(self.data), file_type=ft.FilePickerFileType.IMAGE)
+            self.page.snack_bar = SnackBar(content=Text(f"📲  Downloading {self.data}...{' May have to Stop Script for Downloads to start in Colab.' if is_Colab else ''}"))
             self.page.snack_bar.open = True
             self.page.update()
         def file_saver_result(e: FilePickerResultEvent):
             if e.path != None:
                 shutil.copy(os.path.join(self.data), os.path.join(e.path))
-        
         def copy_path(e):
             self.page.set_clipboard(self.data)
             self.page.snack_bar = SnackBar(content=Text(f"📋  {self.data} copied to clipboard... Paste as Init Image."))
@@ -44769,8 +44771,6 @@ class ImageButton(UserControl):
             alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START)], horizontal_alignment=CrossAxisAlignment.CENTER if self.center else CrossAxisAlignment.START)
         if self.show_subtitle:
             self.column.controls.append(Row([Text(self.subtitle)], alignment=MainAxisAlignment.CENTER if self.center else MainAxisAlignment.START))
-        self.file_saver = FilePicker(on_result=file_saver_result)
-        self.page.overlay.append(self.file_saver)
         return self.column
 
 
@@ -44979,10 +44979,10 @@ class Installing(UserControl):
         self.message = message
         self.build()
     def build(self):
-        self.message_txt = Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
+        self.message_txt = Text(self.message, theme_style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
         self.details = Text("")
         self.progress = ProgressRing()
-        return Container(content=Row([self.progress, Container(content=None, width=1), self.message_txt, Container(content=None, expand=True), self.details]), padding=padding.only(left=9, bottom=4))
+        return Container(content=Row([self.progress, Container(content=None, width=1), self.message_txt, Container(content=None, expand=True), self.details]), padding=padding.only(left=9, bottom=10))
     def set_message(self, msg):
         self.message_txt.value = msg
         self.message_txt.update()
@@ -45002,10 +45002,10 @@ class Progress(UserControl):
         self.start_callback = 0
         self.build()
     def build(self):
-        self.message_txt = Text(self.message, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
+        self.message_txt = Text(self.message, theme_style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3)
         self.details = Text("")
         self.progress = ProgressBar(bar_height=8)
-        return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details]), self.progress]), padding=padding.only(left=9, bottom=4))
+        return Container(content=Column([Row([self.message_txt, Container(content=None, expand=True), self.details]), self.progress]), padding=padding.only(left=9, bottom=10))
     def set_message(self, msg):
         self.message_txt.value = msg
         self.message_txt.update()
@@ -45035,7 +45035,7 @@ class Progress(UserControl):
         self.start_step = now
         percent = (step +1)/ self.steps
         self.progress.progress.value = percent
-        self.progress.progress.tooltip = f"[{step +1} / {self.steps}] (Timestep: {timestep}){itsec}"
+        self.progress.progress.tooltip = f"{int(percent * 100)}% [{step +1} / {self.steps}] (Timestep: {timestep:.1f}){itsec}"
         self.progress.progress.update()
         #if abort_run:
         #    pipe._interrupt = True
@@ -45092,7 +45092,7 @@ class RunConsole(UserControl):
         self.build()
     def add_text(self, text):
         try:
-          self.column.controls.append(Text(text, style="titleSmall", color=colors.ON_SURFACE_VARIANT))
+          self.column.controls.append(Text(text, theme_style=TextThemeStyle.TITLE_SMALL, color=colors.ON_SURFACE_VARIANT))
           self.column.update()
         except Exception:
           pass
@@ -45125,7 +45125,7 @@ class RunConsole(UserControl):
         self.container = Container(content=self.column, border_radius=ft.border_radius.all(16), height=self.height, bgcolor=colors.SURFACE_VARIANT, padding=ft.padding.symmetric(10, 12))
         self.main_column = Column([])
         if bool(self.title):
-            self.main_column.controls.append(Text(self.title, style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3))
+            self.main_column.controls.append(Text(self.title, theme_style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3))
         self.main_column.controls.append(self.container)
         if self.show_progress:
             self.main_column.controls.append(ProgressBar(bar_height=8))
