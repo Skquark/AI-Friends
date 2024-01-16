@@ -7403,7 +7403,7 @@ null_text_prefs = {
     'seed': 0,
     'num_images': 1,
     'batch_folder_name': '',
-    'max_size': 1024,
+    'max_size': 1024 if prefs['higher_vram_mode'] else 720,
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": 2.0,
     "display_upscaled_image": False,
@@ -24236,7 +24236,7 @@ def run_magic_prompt(page):
     try:
         import jinja2
     except:
-        run_sp("pip install -q jinja2==3.0.3")
+        run_sp("pip install -q jinja2==3.1.3")
         pass
     try:
         from transformers import pipeline, set_seed
@@ -25819,20 +25819,24 @@ def run_anytext(page, from_list=False, with_params=False):
             run_sp(f"unzip {os.path.join(anytext_font, 'horison.zip')}", cwd=anytext_font)
             os.remove(os.path.join(anytext_font, 'horison.zip'))
     try:
-        import modelscope
-    except ModuleNotFoundError:
-        installer.status("...installing modelscope")
-        run_sp("pip install -U git+https://github.com/Skquark/modelscope.git", realtime=False)
-        pass
-    pip_install("omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
-    os.chdir(anytext_d)
-    try:
         import xformers
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         run_sp("pip install -U xformers", realtime=False)
         status['installed_xformers'] = True
         pass
+    try:
+        import modelscope
+    except ModuleNotFoundError:
+        import importlib
+        installer.status("...installing modelscope")
+        run_sp("pip install modelscope", realtime=True)
+        installer.status("...installing Skquark/modelscope")
+        run_sp("pip install -U git+https://github.com/Skquark/modelscope.git", realtime=True)
+        importlib.reload(modelscope)
+        pass
+    pip_install("omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
+    os.chdir(anytext_d)
     from modelscope.pipelines import pipeline
     import cv2, re
     import numpy as np
@@ -27597,7 +27601,7 @@ def run_null_text(page):
             alert_msg(page, f"ERROR: Couldn't Initialize null_text Pipeline for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     clear_last()
-    prt("Generating Null-Text Inversion of your Image...")
+    prt("Generating Null-Text Inversion of your Image... See console for progress.")
     prt(progress)
     autoscroll(False)
     batch_output = os.path.join(stable_dir, null_text_prefs['batch_folder_name'])
@@ -27630,6 +27634,9 @@ def run_null_text(page):
             image_path = available_file(os.path.join(stable_dir, null_text_prefs['batch_folder_name']), fname, i)
             unscaled_path = image_path
             output_file = image_path.rpartition(slash)[2]
+            if isinstance(image, str):
+              print(image)
+              image = PILImage.open(image)
             image.save(image_path)
             width, height = image.size
             out_path = image_path.rpartition(slash)[0]
@@ -39206,8 +39213,8 @@ def run_svd(page):
     frames_batch = None
     random_seed = int(svd_prefs['seed']) if int(svd_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     generator = torch.manual_seed(random_seed)
-    try: #, callback_on_step_end=callback_fnc
-        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator, callback_on_step_end=progress.callback_alt).frames
+    try: #, callback_on_step_end=callback_fnc , callback_on_step_end=progress.callback_alt
+        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames
         if svd_prefs['resume_frame']:
             if isinstance(frames_batch[0], list):
                 frames_batch = frames_batch[0]
@@ -39217,7 +39224,7 @@ def run_svd(page):
                 last_frame = f[-1]
                 for t in range(svd_prefs['continue_times']):
                     progress.status(f"...Video {n}, Continue {t + 1}/{svd_prefs['continue_times']}")
-                    frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator, callback_on_step_end=progress.callback_alt).frames[0]
+                    frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
                     new_frames[n].append(frames_continued)
                     last_frame = frames_continued[-1]
             for n, c in enumerate(new_frames):
@@ -40925,7 +40932,7 @@ def run_hotshot_xl(page):
         run_sp("git clone https://github.com/hotshotco/Hotshot-XL", realtime=False, cwd=root_dir)
         #run_sp("git clone https://github.com/Skquark/Hotshot-XL", realtime=False, cwd=root_dir)
     try:
-        pip_install("appdirs==1.4.4 certifi==2023.7.22 charset-normalizer==3.3.0 click==8.1.7 cmake decorator==4.4.2 docker-pycreds==0.4.0 einops filelock==3.12.4 fsspec==2023.9.2 gitdb==4.0.10 GitPython==3.1.37 idna==3.4 imageio imageio-ffmpeg importlib-metadata==6.8.0 Jinja2==3.1.2 lit==17.0.2 MarkupSafe==2.1.3 moviepy mpmath==1.3.0 networkx==3.1 numpy pathtools proglog==0.1.10 protobuf==4.24.3 psutil PyYAML regex safetensors sentry-sdk==1.31.0 setproctitle==1.3.3 six==1.16.0 smmap==5.0.1 sympy==1.12 tokenizers==0.14.0 tqdm transformers triton typing_extensions urllib3 wandb zipp==3.17.0", installer=installer)
+        pip_install("appdirs==1.4.4 certifi==2023.7.22 charset-normalizer==3.3.0 click==8.1.7 cmake decorator==4.4.2 docker-pycreds==0.4.0 einops filelock==3.12.4 fsspec==2023.9.2 gitdb==4.0.10 GitPython==3.1.37 idna==3.4 imageio imageio-ffmpeg importlib-metadata==6.8.0 Jinja2==3.1.3 lit==17.0.2 MarkupSafe==2.1.3 moviepy mpmath==1.3.0 networkx==3.1 numpy pathtools proglog==0.1.10 protobuf==4.24.3 psutil PyYAML regex safetensors sentry-sdk==1.31.0 setproctitle==1.3.3 six==1.16.0 smmap==5.0.1 sympy==1.12 tokenizers==0.14.0 tqdm transformers triton typing_extensions urllib3 wandb zipp==3.17.0", installer=installer)
         #pip_install("nvidia-cublas-cu11==11.10.3.66 nvidia-cuda-cupti-cu11==11.7.101 nvidia-cuda-nvrtc-cu11==11.7.99 nvidia-cuda-runtime-cu11==11.7.99 nvidia-cudnn-cu11==8.5.0.96 nvidia-cufft-cu11==10.9.0.58 nvidia-curand-cu11==10.2.10.91 nvidia-cusolver-cu11==11.4.0.1 nvidia-cusparse-cu11==11.7.4.91 nvidia-nccl-cu11==2.14.3 nvidia-nvtx-cu11==11.7.91")
         run_sp("apt-get install git-lfs", realtime=False)
         run_sp("git lfs install", realtime=False)
