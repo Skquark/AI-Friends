@@ -12185,7 +12185,7 @@ def buildSVD(page):
         #width_slider, height_slider,
         page.ESRGAN_block_svd,
         Row([svd_model, interpolate_video, cpu_offload]),
-        Row([num_videos, seed, batch_folder_name, file_prefix]),
+        Row([seed, batch_folder_name, file_prefix]), #num_videos, 
         Row([
             ElevatedButton(content=Text("🪭  Run SVD", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_svd(page)),
         ]),
@@ -25840,9 +25840,10 @@ def run_anytext(page, from_list=False, with_params=False):
     except ModuleNotFoundError:
         import importlib
         installer.status("...installing modelscope")
-        run_sp("pip install modelscope", realtime=True)
+        run_sp("pip install modelscope", realtime=False)
         installer.status("...installing Skquark/modelscope")
         run_sp("pip install -U git+https://github.com/Skquark/modelscope.git", realtime=True)
+        import modelscope
         importlib.reload(modelscope)
         pass
     pip_install("omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
@@ -27627,7 +27628,7 @@ def run_null_text(page):
         #generator = torch.manual_seed(random_seed)
         try:
             inverted_latent, uncond = pipe_null_text.invert(input_image, null_text_prefs['base_prompt'], num_inner_steps=null_text_prefs['num_inner_steps'], early_stop_epsilon= 1e-5, num_inference_steps = steps)
-            images = pipe_null_text(null_text_prefs['target_prompt'], uncond, inverted_latent, guidance_scale=null_text_prefs['guidance_scale'], num_inference_steps=steps, generator=generator) #.images[0].save(input_image+".output.jpg")
+            images = pipe_null_text(null_text_prefs['target_prompt'], uncond, inverted_latent, guidance_scale=null_text_prefs['guidance_scale'], num_inference_steps=steps) #.images[0].save(input_image+".output.jpg"), generator=generator
             #images = pipe_null_text(base_prompt=null_text_prefs['base_prompt'], target_prompt=null_text_prefs['target_prompt'], image=original_img, num_inference_steps=null_text_prefs['num_inference_steps'], strength=null_text_prefs['strength'], guidance_scale=null_text_prefs['guidance_scale'], generator=generator)#.images
         except Exception as e:
             clear_last()
@@ -39236,7 +39237,7 @@ def run_svd(page):
             for t in range(svd_prefs['continue_times']):
                 progress.status(f"...Continue {t + 1}/{svd_prefs['continue_times']}")
                 frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
-                frames_batch.append(frames_continued)
+                frames_batch.extend(frames_continued)
                 last_frame = frames_continued[-1]
             #for n, c in enumerate(new_frames):
                 #frames_batch[n].append(c)
@@ -39275,30 +39276,30 @@ def run_svd(page):
                 prt(Row([Img(src=image_path, width=svd_prefs['width'] * float(svd_prefs["enlarge_scale"]), height=svd_prefs['height'] * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         #else:
         #    time.sleep(0.2)
-        #    shutil.copy(image_path, os.path.join(frames_dir, new_file))
+        shutil.copy(image_path, os.path.join(frames_dir, new_file))
         # TODO: Add Metadata
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
         #idx += 1
-        if svd_prefs['export_to_video']:
-            try:
-                installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
-                prt(installer)
-                out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
-                if svd_prefs['interpolate_video']:
-                    interpolate_video(frames_dir, input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer)
-                else:
-                    installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
-                    frames_to_video(frames_dir, pattern=fname+"-%04d.png", input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
-            except Exception as e:
-                clear_last()
-                alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
-                pass
-            clear_last()
-            if not os.path.isfile(out_file):
-                prt(f"Problem creating video file, but frames still saved...")
+    if svd_prefs['export_to_video']:
+        try:
+            installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+            prt(installer)
+            out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+            if svd_prefs['interpolate_video']:
+                interpolate_video(frames_dir, input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer)
             else:
-                prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
-                #prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
+                installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                frames_to_video(frames_dir, pattern=fname+"-%04d.png", input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            pass
+        clear_last()
+        if not os.path.isfile(out_file):
+            prt(f"Problem creating video file, but frames still saved...")
+        else:
+            prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+            #prt(Row([VideoContainer(out_file)], alignment=MainAxisAlignment.CENTER))
         b += 1
     #filename = filename[:int(prefs['file_max_length'])]
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
@@ -45284,7 +45285,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
             installer.status("...installing frame-interpolation requirements")
         #run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
         #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False)
-        pip_install("tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image apache-beam==2.34.0 google-cloud-bigquery-storage==1.1.0 natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
+        pip_install("tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam==2.34.0|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
     pip_install("gdown", upgrade=True, installer=installer)
     if not os.path.exists(saved_model_dir):
         run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
