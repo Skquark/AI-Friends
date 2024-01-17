@@ -6365,6 +6365,7 @@ anytext_prefs = {
     "height":768,
     "guidance_scale": 9.0,
     'num_inference_steps': 20,
+    "strength": 1.0,
     "eta": 0.0,
     "seed": 0,
     'init_image': '',
@@ -6417,13 +6418,14 @@ def buildAnyText(page):
     negative_prompt = TextField(label="Negative Prompt Text", value=anytext_prefs['negative_prompt'], multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Initial Image (optional)", pref=anytext_prefs, key='init_image', page=page, col={'md':6})
     mask_image = FileInput(label="Text Area Mask (optional)", pref=anytext_prefs, key='mask_image', page=page, col={'md':6})
-    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=anytext_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=2.0, divisions=40, round=2, pref=anytext_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     font_ttf = FileInput(label="Font .ttf File (optional)", pref=anytext_prefs, key='font_ttf', page=page, ftype="font", col={'md':6})
     batch_folder_name = TextField(label="Batch Folder Name", value=anytext_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=anytext_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     n_images = NumberPicker(label="Number of Images", min=1, max=8, step=1, value=anytext_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
     steps = SliderRow(label="Number of Steps", min=1, max=50, divisions=49, pref=anytext_prefs, key='num_inference_steps')
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=anytext_prefs, key='guidance_scale')
+    #strength = SliderRow(label="Strength", min=0, max=2, divisions=20, round=1, pref=anytext_prefs, key='strength', tooltip="How strong to influence")
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=64, suffix="px", pref=anytext_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=64, suffix="px", pref=anytext_prefs, key='height')
     eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=10, round=1, pref=anytext_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
@@ -25945,7 +25947,7 @@ def run_anytext(page, from_list=False, with_params=False):
             "ddim_steps": pr['num_inference_steps'],
             "image_width": pr['width'],
             "image_height": pr['height'],
-            "strength": pr['strength'],
+            "strength": pr['init_image_strength'],
             "cfg_scale": pr['guidance_scale'],
             "a_prompt": pr['a_prompt'],
             "n_prompt": pr['negative_prompt']
@@ -45302,7 +45304,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
-    saved_model = 'pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
+    saved_model = './pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
     installer.status("...copying photo frames")
     for f in os.listdir(photos_dir):
         os.remove(os.path.join(photos_dir, f))
@@ -45325,7 +45327,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         recursive_interpolation_passes = recursive_interpolation_passes or 1
     if installer != None:
         installer.status("...running frame-interpolation")
-    run_sp(f"python -m eval.interpolator_cli --model_path {saved_model} --pattern 'photos' --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=False)
+    run_sp(f"python -m eval.interpolator_cli --model_path '{saved_model}' --pattern '{photos_dir}' --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=True)
     if os.path.exists(interpolated):
         if denoise or sharpen or deflicker:
             video = ffmpeg.input(interpolated)
@@ -45382,7 +45384,9 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
             output_video = os.path.join(output_video, "interpolated.mp4")
     else:
         output_video = os.path.join(os.path.dirname(frames_dir), "interpolated.mp4")
-    video.output(output_video)
+    if installer is not None: installer.status("...running ffmpeg")
+    ffmpeg.output(video, output_video).run(overwrite_output=True)
+    #video.output(output_video)
     return output_video
 
 
