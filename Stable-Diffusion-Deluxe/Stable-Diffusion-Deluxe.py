@@ -21892,11 +21892,12 @@ def filepath_to_url(path):
     path = path.replace(" ", "%20")
     return path
 
+abort_run = False
 #import asyncio
 #async
 def start_diffusion(page):
   global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale, pipe_SDXL, pipe_SDXL_refiner
-  global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps, compel_proc, compel_base, compel_refiner
+  global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps, compel_proc, compel_base, compel_refiner, abort_run
   def prt(line, update=True):
     if type(line) == str:
       line = Text(line)
@@ -21914,9 +21915,8 @@ def start_diffusion(page):
     if update:
       page.imageColumn.update()
       page.Images.update()
-  abort_run = False
   def abort_diffusion(e):
-    nonlocal abort_run
+    #nonlocal abort_run
     abort_run = True
     page.snd_error.play()
     page.snd_delete.play()
@@ -25902,7 +25902,7 @@ def run_anytext(page, from_list=False, with_params=False):
     if pipe_anytext == None:
         installer.status(f"...initialize AnyText Pipeline")
         try:
-            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path= f'font/{ttf}')
+            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path= f'anytext/font/{ttf}')
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -39214,21 +39214,22 @@ def run_svd(page):
     random_seed = int(svd_prefs['seed']) if int(svd_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     generator = torch.manual_seed(random_seed)
     try: #, callback_on_step_end=callback_fnc , callback_on_step_end=progress.callback_alt
-        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames
+        frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
         if svd_prefs['resume_frame']:
-            if isinstance(frames_batch[0], list):
-                frames_batch = frames_batch[0]
-            new_frames = []
-            for n, f in enumerate(frames_batch):
-                new_frames[n] = []
-                last_frame = f[-1]
-                for t in range(svd_prefs['continue_times']):
-                    progress.status(f"...Video {n}, Continue {t + 1}/{svd_prefs['continue_times']}")
-                    frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
-                    new_frames[n].append(frames_continued)
-                    last_frame = frames_continued[-1]
-            for n, c in enumerate(new_frames):
-                frames_batch[n].append(c)
+            #if isinstance(frames_batch[0], list):
+            #    frames_batch = frames_batch[0]
+            #new_frames = frames_batch
+            #for n, f in enumerate(frames_batch):
+                #print(f"n: {n} f:{f} {type(f)}")
+            #new_frames[n] = []
+            last_frame = frames_batch[-1]
+            for t in range(svd_prefs['continue_times']):
+                progress.status(f"...Continue {t + 1}/{svd_prefs['continue_times']}")
+                frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
+                frames_batch.append(frames_continued)
+                last_frame = frames_continued[-1]
+            #for n, c in enumerate(new_frames):
+                #frames_batch[n].append(c)
     except Exception as e:
       if frames_batch != None:
           print(f"SVD {frames_batch} type: {type(frames_batch)}")
@@ -39238,36 +39239,36 @@ def run_svd(page):
     clear_last()
     autoscroll(True)
     b = 0
-    for frames in frames_batch:
-        frames_dir = os.path.join(batch_output, f"frames-{b}")
-        exists = True
-        while exists:
-            if os.path.isdir(frames_dir):
-                b += 1
-                frames_dir = os.path.join(batch_output, f"frames-{b}")
-            else:
-                exists = False
-        make_dir(frames_dir)
-        idx = 0
-        for image in frames:
-            fname = f"{svd_prefs['file_prefix']}{format_filename(svd_prefs['batch_folder_name'])}-{b}"
-            image_path = available_file(frames_dir, fname, idx, zfill=4)
-            image.save(image_path)
-            new_file = os.path.basename(image_path)
-            if not svd_prefs['display_upscaled_image'] or not svd_prefs['apply_ESRGAN_upscale']:
-                #prt(Row([Img(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                prt(Row([ImageButton(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            if svd_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, image_path, scale=svd_prefs["enlarge_scale"], face_enhance=svd_prefs["face_enhance"])
-                if svd_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
-                    prt(Row([Img(src=image_path, width=svd_prefs['width'] * float(svd_prefs["enlarge_scale"]), height=svd_prefs['height'] * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            #else:
-            #    time.sleep(0.2)
-            #    shutil.copy(image_path, os.path.join(frames_dir, new_file))
-            # TODO: Add Metadata
-            prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
-            idx += 1
+    #for frames in frames_batch:
+    frames_dir = os.path.join(batch_output, f"frames-{b}")
+    exists = True
+    while exists:
+        if os.path.isdir(frames_dir):
+            b += 1
+            frames_dir = os.path.join(batch_output, f"frames-{b}")
+        else:
+            exists = False
+    make_dir(frames_dir)
+    #idx = 0
+    for image in frames_batch:
+        fname = f"{svd_prefs['file_prefix']}{format_filename(svd_prefs['batch_folder_name'])}-{b}"
+        image_path = available_file(frames_dir, fname, 0, zfill=4)
+        image.save(image_path)
+        new_file = os.path.basename(image_path)
+        if not svd_prefs['display_upscaled_image'] or not svd_prefs['apply_ESRGAN_upscale']:
+            #prt(Row([Img(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+        if svd_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            upscale_image(image_path, image_path, scale=svd_prefs["enlarge_scale"], face_enhance=svd_prefs["face_enhance"])
+            if svd_prefs['display_upscaled_image']:
+                time.sleep(0.6)
+                prt(Row([Img(src=image_path, width=svd_prefs['width'] * float(svd_prefs["enlarge_scale"]), height=svd_prefs['height'] * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        #else:
+        #    time.sleep(0.2)
+        #    shutil.copy(image_path, os.path.join(frames_dir, new_file))
+        # TODO: Add Metadata
+        prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+        #idx += 1
         if svd_prefs['export_to_video']:
             try:
                 installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
@@ -45293,6 +45294,8 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     else:
         for f in os.listdir(frames_dir):
             if f.endswith('png') or f.endswith('jpg'):
+                if len(f) > 8:
+                    f = f[-8:]
                 shutil.copy(os.path.join(frames_dir, f), os.path.join(photos_dir, f))
     #run_sp(f"mkdir -p frames", cwd=frames_dir, realtime=False)
     if bool(input_fps):
