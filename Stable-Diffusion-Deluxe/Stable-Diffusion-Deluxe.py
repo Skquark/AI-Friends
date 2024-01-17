@@ -25816,7 +25816,7 @@ def run_anytext(page, from_list=False, with_params=False):
             ttf = os.path.basename(ttf_path)
             anytext_ttf = os.path.join(anytext_font, ttf)
     else:
-        anytext_ttf = os.path.join(anytext_font, 'horison.ttf')
+        anytext_ttf = os.path.join(anytext_font, 'Horison.ttf')
         if not os.path.isfile(anytext_ttf):
             installer.status(f"...downloading horison.ttf")
             run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_font, 'horison.zip')}")
@@ -25840,7 +25840,23 @@ def run_anytext(page, from_list=False, with_params=False):
         import modelscope
         importlib.reload(modelscope)
         pass
-    pip_install("omegaconf pytorch-lightning sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
+    try:
+        #import torchmetrics
+        from torchmetrics.utilities.imports import _compare_version
+    except ModuleNotFoundError:
+        import importlib
+        installer.status("...installing torchmetrics")
+        run_sp("pip install -U torchmetrics==0.11.4", realtime=False)
+        import torchmetrics
+        importlib.reload(torchmetrics)
+        pass
+    try:
+        import pytorch_lightning
+    except ModuleNotFoundError:
+        installer.status("...installing pytorch-lightning")
+        run_sp("pip install -U pytorch-lightning==1.7.7", realtime=False)
+        pass
+    pip_install("omegaconf torchmetrics==0.11.4 sentencepiece easydict open-clip-torch|open_clip scikit-image|skimage sacremoses subword_nmt jieba tensorflow fsspec", installer=installer)
     os.chdir(anytext_d)
     from modelscope.pipelines import pipeline
     import cv2, re
@@ -45344,21 +45360,23 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
     stat("frames_to_video")
-    video = ffmpeg.input(frames_dir + slash + pattern, pattern_type="glob", framerate=input_fps or output_fps)
+    video = ffmpeg.input(os.path.join(frames_dir, pattern), pattern_type="glob", framerate=input_fps or output_fps)
     #video = video.pix_fmt('yuv420p')
     if input_fps is not None and input_fps != output_fps:
         stat("changing fps")
         video = video.filter("setpts=pts/TIMEBASE*%f" % (output_fps / input_fps))
-        video = video.framerate(output_fps)
+        video = video.filter("fps", fps=output_fps, round="up")
+        #video = video.framerate(output_fps)
     if deflicker:
         stat("deflicker")
-        video = video.filter("deflicker")
+        video = video.filter("deflicker", mode="pm", size=10)
     if sharpen:
         stat("sharpen")
+        #video = video.filter("unsharp", luma_msize_x=3, luma_msize_y=3, luma_amount=1.5)
         video = video.filter("sharpen")
     if denoise:
         stat("denoise")
-        video = video.filter("denoise")
+        video = video.filter("hqdn3d")
     if output_video != None:
         if not output_video.endswith('mp4'):
             output_video = os.path.join(output_video, "interpolated.mp4")
