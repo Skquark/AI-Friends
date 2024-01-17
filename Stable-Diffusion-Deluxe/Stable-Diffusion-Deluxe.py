@@ -7398,6 +7398,7 @@ null_text_prefs = {
     'base_prompt': '',
     'init_image': '',
     'guidance_scale': 7.5,
+    'num_train_timesteps': 1000,
     'num_inference_steps': 50,
     'num_inner_steps': 10,
     'seed': 0,
@@ -7430,6 +7431,7 @@ def buildNull_Text(page):
         page.update()
       null_text_help_dlg = AlertDialog(title=Text("🙅   Help with Null-Text Inversion"), content=Column([
           Text("This pipeline provides null-text inversion for editing real images. It enables null-text optimization, and DDIM reconstruction via w, w/o null-text optimization. No prompt-to-prompt code is implemented as there is a Prompt2PromptPipeline."),
+          Text("Recent large-scale text-driven synthesis models have attracted much attention thanks to their remarkable capabilities of generating highly diverse images that follow given text prompts. Such text-based synthesis methods are particularly appealing to humans who are used to verbally describe their intent. Therefore, it is only natural to extend the text-driven image synthesis to text-driven image editing. Editing is challenging for these generative models, since an innate property of an editing technique is to preserve most of the original image, while in the text-based models, even a small modification of the text prompt often leads to a completely different outcome. State-of-the-art methods mitigate this by requiring the users to provide a spatial mask to localize the edit, hence, ignoring the original structure and content within the masked region. With this pipeline, we pursue an intuitive prompt-toprompt editing framework, where the edits are controlled by text only. To this end, we analyze a text-conditioned model in depth and observe that the cross-attention layers are the key to controlling the relation between the spatial layout of the image to each word in the prompt. With this observation, we present several applications which monitor the image synthesis by editing the textual prompt only. This includes localized editing by replacing a word, global editing by adding a specification, and even delicately controlling the extent to which a word is reflected in the image. We present our results over diverse images and prompts, demonstrating high-quality synthesis and fidelity to the edited prompts."),
           Markdown("[Read Arxiv Paper](https://arxiv.org/pdf/2208.01626.pdf) | [Null-Text Inversion](https://github.com/google/prompt-to-prompt/) | [Junsheng Luan](https://github.com/Junsheng121)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Hertz, Amir and Mokady, Ron and Tenenbaum, Jay and Aberman, Kfir and Pritch, Yael and Cohen-Or, Daniel and HuggingFace team."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🙃  Edit Away... ", on_click=close_null_text_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -7447,6 +7449,7 @@ def buildNull_Text(page):
     #init_image = TextField(label="Initial Image to Edit", value=null_text_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
     seed = TextField(label="Seed", width=90, value=str(null_text_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=null_text_prefs, key='guidance_scale')
+    num_train_timesteps = SliderRow(label="Number of Train Timesteps", min=1, max=2000, divisions=1999, pref=null_text_prefs, key='num_train_timesteps', tooltip="Length of the Denoising process, or the Number of Timesteps required to process random Gaussian noise into a data sample.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=null_text_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     num_inner_steps = SliderRow(label="Number of Inner Steps", min=1, max=100, divisions=99, pref=null_text_prefs, key='num_inner_steps', tooltip="The number of steps to Invert init-image in the Null Optimization.")
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=null_text_prefs, key='max_size')
@@ -7467,6 +7470,7 @@ def buildNull_Text(page):
         base_prompt,
         ResponsiveRow([target_prompt, negative_prompt]),
         #Row([init_image, mask_image, invert_mask]),
+        num_train_timesteps,
         num_inner_steps,
         num_inference_row,
         guidance,
@@ -25903,7 +25907,7 @@ def run_anytext(page, from_list=False, with_params=False):
     if pipe_anytext == None:
         installer.status(f"...initialize AnyText Pipeline")
         try:
-            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path= f'anytext/font/{ttf}')
+            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path=anytext_ttf)#f'./anytext/font/{ttf}')
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -27595,7 +27599,7 @@ def run_null_text(page):
         #from examples.community.pipeline_null_text_inversion import NullTextPipeline
         from pipeline_null_text_inversion import NullTextPipeline
         try:
-            scheduler = DDIMScheduler(num_train_timesteps=1000, beta_start=0.00085, beta_end=0.0120, beta_schedule="scaled_linear", steps_offset=1, clip_sample=False)
+            scheduler = DDIMScheduler(num_train_timesteps=null_text_prefs['num_train_timesteps'], beta_start=0.00085, beta_end=0.0120, beta_schedule="scaled_linear", steps_offset=1, clip_sample=False)
             pipe_null_text = NullTextPipeline.from_pretrained(model_id, scheduler = scheduler, torch_dtype=torch.float32, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to(torch_device)
         except Exception as e:
             clear_last()
@@ -27614,11 +27618,12 @@ def run_null_text(page):
     random_seed = int(null_text_prefs['seed']) if int(null_text_prefs['seed']) > 0 else random.randint(0,4294967295)
     steps = null_text_prefs['num_inference_steps']
     for i in range(null_text_prefs['num_images']):
-        generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        generator = torch.Generator(device=torch_device).manual_seed(random_seed)
         #generator = torch.manual_seed(random_seed)
         try:
             inverted_latent, uncond = pipe_null_text.invert(input_image, null_text_prefs['base_prompt'], num_inner_steps=null_text_prefs['num_inner_steps'], early_stop_epsilon= 1e-5, num_inference_steps = steps)
             images = pipe_null_text(null_text_prefs['target_prompt'], uncond, inverted_latent, guidance_scale=null_text_prefs['guidance_scale'], num_inference_steps=steps) #.images[0].save(input_image+".output.jpg"), generator=generator
+            print(f"images type: {type(images)} {images} \n0: {images[0]}")
             #images = pipe_null_text(base_prompt=null_text_prefs['base_prompt'], target_prompt=null_text_prefs['target_prompt'], image=original_img, num_inference_steps=null_text_prefs['num_inference_steps'], strength=null_text_prefs['strength'], guidance_scale=null_text_prefs['guidance_scale'], generator=generator)#.images
         except Exception as e:
             clear_last()
@@ -27635,9 +27640,9 @@ def run_null_text(page):
             image_path = available_file(os.path.join(stable_dir, null_text_prefs['batch_folder_name']), fname, i)
             unscaled_path = image_path
             output_file = image_path.rpartition(slash)[2]
-            if isinstance(image, str):
-              print(image)
-              image = PILImage.open(image)
+            #if isinstance(image, str):
+            #  print(image)
+            #  image = PILImage.open(image)
             image.save(image_path)
             width, height = image.size
             out_path = image_path.rpartition(slash)[0]
@@ -39258,15 +39263,15 @@ def run_svd(page):
         new_file = os.path.basename(image_path)
         if not svd_prefs['display_upscaled_image'] or not svd_prefs['apply_ESRGAN_upscale']:
             #prt(Row([Img(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            prt(Row([ImageButton(src=image_path, width=svd_prefs['width'], height=svd_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
         if svd_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscale_image(image_path, image_path, scale=svd_prefs["enlarge_scale"], face_enhance=svd_prefs["face_enhance"])
             if svd_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=image_path, width=svd_prefs['width'] * float(svd_prefs["enlarge_scale"]), height=svd_prefs['height'] * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=image_path, width=width * float(svd_prefs["enlarge_scale"]), height=height * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         #else:
         #    time.sleep(0.2)
-        shutil.copy(image_path, os.path.join(frames_dir, new_file))
+        #shutil.copy(image_path, os.path.join(frames_dir, new_file))
         # TODO: Add Metadata
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
         #idx += 1
