@@ -19609,7 +19609,7 @@ if torch_device == "cuda":
             print("Installing newest accelerate package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=False)
             run_sp("pip install --upgrade -q huggingface_hub", realtime=False)
-            print("Restart Runtime to apply updates...")
+            print("Goto Runtime -> Restart Session to apply updates...")
             #importlib.reload(transformers)
             #try:
             #    sys.exit()
@@ -25786,16 +25786,16 @@ def run_anytext(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     anytext_dir = os.path.join(root_dir, "AnyText")
-    anytext_d = os.path.join(anytext_dir, 'anytext')
+    anytext_d = anytext_dir#os.path.join(anytext_dir, 'anytext')
     anytext_font = os.path.join(anytext_d, 'font')
     anytext_ttf = os.path.join(anytext_font, 'horison.ttf')
     ttf = os.path.basename(anytext_ttf)
     if not os.path.exists(anytext_dir):
         installer.status(f"...cloning tyxsspa/AnyText.git")
-        run_sp("git clone https://github.com/zgljl2012/AnyText.git", cwd=root_dir)
-        #run_sp("git clone https://github.com/tyxsspa/AnyText.git", cwd=root_dir)
+        #run_sp("git clone https://github.com/zgljl2012/AnyText.git", cwd=root_dir)
+        run_sp("git clone https://github.com/tyxsspa/AnyText.git", cwd=root_dir)
     sys.path.append(anytext_dir)
-    sys.path.append(anytext_d)
+    #sys.path.append(anytext_d)
     if bool(anytext_prefs['font_ttf']):
         if '/' in anytext_prefs['font_ttf']:
             ttf = anytext_prefs['font_ttf'].rparition('/')[2]
@@ -25835,8 +25835,8 @@ def run_anytext(page, from_list=False, with_params=False):
         import importlib
         installer.status("...installing modelscope")
         run_sp("pip install modelscope", realtime=False)
-        installer.status("...installing Skquark/modelscope")
-        run_sp("pip install -U git+https://github.com/Skquark/modelscope.git", realtime=True)
+        installer.status("...upgrading Skquark/modelscope")
+        run_sp("pip install -U git+https://github.com/Skquark/modelscope.git", realtime=False)
         import modelscope
         importlib.reload(modelscope)
         pass
@@ -25907,7 +25907,7 @@ def run_anytext(page, from_list=False, with_params=False):
     if pipe_anytext == None:
         installer.status(f"...initialize AnyText Pipeline")
         try:
-            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path=anytext_ttf)#f'./anytext/font/{ttf}')
+            pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path=f'font/{ttf}')
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -27622,7 +27622,7 @@ def run_null_text(page):
         #generator = torch.manual_seed(random_seed)
         try:
             inverted_latent, uncond = pipe_null_text.invert(input_image, null_text_prefs['base_prompt'], num_inner_steps=null_text_prefs['num_inner_steps'], early_stop_epsilon= 1e-5, num_inference_steps = steps)
-            images = pipe_null_text(null_text_prefs['target_prompt'], uncond, inverted_latent, guidance_scale=null_text_prefs['guidance_scale'], num_inference_steps=steps) #.images[0].save(input_image+".output.jpg"), generator=generator
+            images = pipe_null_text(null_text_prefs['target_prompt'], uncond, inverted_latent, guidance_scale=null_text_prefs['guidance_scale'], num_inference_steps=steps).images #.images[0].save(input_image+".output.jpg"), generator=generator
             print(f"images type: {type(images)} {images} \n0: {images[0]}")
             #images = pipe_null_text(base_prompt=null_text_prefs['base_prompt'], target_prompt=null_text_prefs['target_prompt'], image=original_img, num_inference_steps=null_text_prefs['num_inference_steps'], strength=null_text_prefs['strength'], guidance_scale=null_text_prefs['guidance_scale'], generator=generator)#.images
         except Exception as e:
@@ -39230,8 +39230,8 @@ def run_svd(page):
             #new_frames[n] = []
             last_frame = frames_batch[-1]
             for t in range(svd_prefs['continue_times']):
-                progress.status(f"...Continue {t + 1}/{svd_prefs['continue_times']}")
-                frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.01, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
+                progress.status(f"...continue {t + 1}/{svd_prefs['continue_times']}")
+                frames_continued = pipe_svd(last_frame, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=0.0, num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
                 frames_batch.extend(frames_continued)
                 last_frame = frames_continued[-1]
             #for n, c in enumerate(new_frames):
@@ -45236,7 +45236,7 @@ def get_memory_stats(used=True):
         if gpu_mem == "N/A":
             return f"Free VRAM: None", f"Free RAM: {ram:.1f}GB"
         vram = float(status['gpu_memory']) - float(status['gpu_used'])
-        return f"Free VRAM: {vram:.1f}GB", f"FreeRAM: {ram:.1f}GB"
+        return f"Free VRAM: {vram:.1f}GB", f"Free RAM: {ram:.1f}GB"
     else:
         return f"VRAM: {gpu_mem}", f"RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB"
 
@@ -45300,9 +45300,8 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     else:
         for f in os.listdir(frames_dir):
             if f.endswith('png') or f.endswith('jpg'):
-                if len(f) > 8:
-                    f = f[-8:]
-                shutil.copy(os.path.join(frames_dir, f), os.path.join(photos_dir, f))
+                fr = f[-8:] if len(f) > 8 else f
+                shutil.copy(os.path.join(frames_dir, f), os.path.join(photos_dir, fr))
     #run_sp(f"mkdir -p frames", cwd=frames_dir, realtime=False)
     if bool(input_fps):
         recursive_interpolation_passes = int((output_fps - input_fps) / input_fps)
@@ -45336,12 +45335,17 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         return ""
 
 def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False):
-    import ffmpeg
+    try:
+        import ffmpeg
+    except ImportError as e:
+        if installer is not None: installer.status("...installing ffmpeg")
+        run_sp("pip install -q ffmpeg-python", realtime=False)
+        pass
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
     stat("frames_to_video")
     video = ffmpeg.input(frames_dir + slash + pattern, pattern_type="glob", framerate=input_fps or output_fps)
-    video = video.pix_fmt('yuv420p')
+    #video = video.pix_fmt('yuv420p')
     if input_fps is not None and input_fps != output_fps:
         stat("changing fps")
         video = video.filter("setpts=pts/TIMEBASE*%f" % (output_fps / input_fps))
