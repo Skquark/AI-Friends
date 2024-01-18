@@ -12162,7 +12162,7 @@ def buildSVD(page):
     file_prefix = TextField(label="Filename Prefix", value=svd_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     batch_folder_name = TextField(label="Video Folder Name", value=svd_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     resume_frame = Switcher(label="Resume from Last Frame", value=svd_prefs['resume_frame'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_resume, tooltip="Continues generating frames in chunks for videos longer than 14 or 25 frame limit.")
-    resume_container = Container(content=NumberPicker(label="Times to Continue: ", min=1, max=10, value=svd_prefs['continue_times'], on_change=lambda e: changed(e, 'continue_times')), visible=svd_prefs['resume_frame'])
+    resume_container = Container(content=NumberPicker(label="Times to Continue: ", min=1, max=10, value=svd_prefs['continue_times'], on_change=lambda e: changed(e, 'continue_times'), tooltip="Resumes 14 or 25 more frames in iterations. May degrade over time."), visible=svd_prefs['resume_frame'])
     seed = TextField(label="Seed", width=90, value=str(svd_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=svd_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=svd_prefs, key='enlarge_scale')
@@ -19148,7 +19148,7 @@ def get_diffusers(page):
         except ModuleNotFoundError:
             page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
             run_process("pip install --pre -U triton", page=page)
-            run_process("pip install -U xformers==0.0.18", page=page)
+            run_process("pip install -U xformers==0.0.20", page=page)
             import xformers
             page.console_msg("Installing Hugging Face Diffusers Pipeline...")
             pass
@@ -25837,8 +25837,8 @@ def run_anytext(page, from_list=False, with_params=False):
     try:
         import xformers
     except ModuleNotFoundError:
-        installer.status("...installing FaceBook's Xformers")
-        run_sp("pip install -U xformers", realtime=False)
+        installer.status("...installing FaceBook's Xformers (slow)")
+        run_sp("pip install -U xformers==0.0.20", realtime=False)
         status['installed_xformers'] = True
         pass
     try:
@@ -26013,11 +26013,11 @@ def run_anytext(page, from_list=False, with_params=False):
             "seed": random_seed,
             "draw_pos": mask_img,
         }
-        if bool(mask_img) and bool(init_img):
+        if mask_img != None and init_img != None:
             mode = 'text-editing'
             input_data['ori_image'] = init_img
             input_data['draw_pos'] = mask_img
-        elif bool(init_img):
+        elif init_img != None:
             mode = 'text-editing'
             input_data['ori_image'] = init_img
         else:
@@ -26289,7 +26289,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                     return
             mask_img = mask_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
             mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
-        mode = "inpaint" if bool(init_img) and bool(mask_img) else "img2img" if bool(init_img) else "txt2img"
+        mode = "inpaint" if init_img != None and mask_img != None else "img2img" if init_img != None else "txt2img"
         try:
             if status['loaded_ip_adapter_mode'] != mode:
                 pipe_ip_adapter = change_mode(pipe_ip_adapter, mode)
@@ -35250,7 +35250,7 @@ def run_controlnet_video2video(page):
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers", realtime=False)
+        run_sp("pip install -U xformers==0.0.20", realtime=False)
         status['installed_xformers'] = True
         pass
     clear_pipes()
@@ -36109,10 +36109,10 @@ def run_amused(page, from_list=False, with_params=False):
             width, height = scale_dimensions(width, height, max_size, multiple=32)
             mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
             mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
-        if bool(mask_img) and bool(init_img):
+        if mask_img != None and init_img != None:
             mode = "Inpainting"
             mods = {'image': init_img, 'mask': mask_img, 'strength': pr['init_image_strength']}
-        elif bool(init_img):
+        elif init_img != None:
             mode = "Image2Image"
             mods = {'image': init_img, 'strength': pr['init_image_strength']}
         else:
@@ -37357,7 +37357,8 @@ def run_lcm_interpolation(page):
                 installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
                 interpolate_video(images, input_fps=lcm_interpolation_prefs['source_fps'], output_fps=lcm_interpolation_prefs['target_fps'], output_video=out_file, installer=installer)
             else:
-                frames_to_video(out_path, pattern=fname+"-%04d.png", input_fps=lcm_interpolation_prefs['source_fps'], output_fps=lcm_interpolation_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                pattern = create_pattern(new_file)
+                frames_to_video(out_path, pattern=pattern, input_fps=lcm_interpolation_prefs['source_fps'], output_fps=lcm_interpolation_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -39226,6 +39227,7 @@ def run_svd(page):
       progress.progress.update()
     #prt(f"Generating Stable Video of your Image... Length: {round(vid_length, 1)} seconds")
     prt(progress)
+    nudge(page.SVD, page=page)
     autoscroll(False)
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
@@ -39313,7 +39315,8 @@ def run_svd(page):
                 interpolate_video(frames_dir, input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer)
             else:
                 installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
-                frames_to_video(frames_dir, pattern=fname+"-%04d.png", input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                pattern = create_pattern(new_file) #fname+"-%04d.png"
+                frames_to_video(frames_dir, pattern=pattern, input_fps=svd_prefs['fps'], output_fps=svd_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -40215,7 +40218,7 @@ def run_animate_diff(page):
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers", realtime=False)
+        run_sp("pip install -U xformers==0.0.20", realtime=False)
         status['installed_xformers'] = True
         pass
     pip_install("ffmpeg-python|ffmpeg opencv-python|cv2 onnxruntime-gpu|onnxruntime sentencepiece>=0.1.99 safetensors", installer=installer)
@@ -41414,11 +41417,11 @@ def run_materialdiffusion(page):
     random_seed = int(materialdiffusion_prefs['seed']) if int(materialdiffusion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     #input = {'prompt':materialdiffusion_prefs['material_prompt'], 'width':materialdiffusion_prefs['width'], 'height':materialdiffusion_prefs['height'], 'init_image':init_img, 'mask':mask_img, 'prompt_strength':materialdiffusion_prefs['prompt_strength'], 'num_outputs':materialdiffusion_prefs['num_outputs'], 'num_inference_steps':materialdiffusion_prefs['steps'], 'guidance_scale':materialdiffusion_prefs['guidance_scale'], 'seed':random_seed}
     try:
-        if bool(init_img) and bool(mask_img):
+        if init_img != None and mask_img != None:
             images = rep_version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], init_image=init_img, mask=mask_img, prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
-        elif bool(init_img):
+        elif init_img != None:
             images = rep_version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], init_image=init_img, prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
-            #images = version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], init_image=init_img if bool(init_img) else "", mask=mask_img if bool(mask_img) else "", prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
+            #images = version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], init_image=init_img if init_img != None else "", mask=mask_img if mask_img != None else "", prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
         else:
             images = rep_version.predict(prompt=materialdiffusion_prefs['material_prompt'], width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], prompt_strength=materialdiffusion_prefs['prompt_strength'], num_outputs=materialdiffusion_prefs['num_outputs'], num_inference_steps=materialdiffusion_prefs['steps'], guidance_scale=materialdiffusion_prefs['guidance_scale'], seed=random_seed)
     except Exception as e:
@@ -44431,13 +44434,23 @@ def main(page: Page):
     def maximize_window(e):
         if page.window_maximized:
             page.window_maximized = False
-            appbar.actions[3].icon=icons.CHECK_BOX_OUTLINE_BLANK
-            appbar.actions[3].tooltip = "Maximize Window"
         else:
             page.window_maximized = True
+        page.update()
+    def window_event(e):
+        #print(e.data)
+        if str(e.data) == "unmaximize":
+            appbar.actions[3].icon=icons.CHECK_BOX_OUTLINE_BLANK
+            appbar.actions[3].tooltip = "Maximize Window"
+            prefs['window_maximized'] = False
+            page.update()
+        elif str(e.data) == "maximize":
             appbar.actions[3].icon=icons.FILTER_NONE
             appbar.actions[3].tooltip = "Restore Window"
-        page.update()
+            prefs['window_maximized'] = True
+            page.update()
+    if not is_Colab:
+        page.on_window_event = window_event
     def get_memory():
         from subprocess import getoutput
         s = getoutput('nvidia-smi -L')
@@ -44526,7 +44539,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         title=Text("📨  Contact Us"), content=Column([
           Text("If you want to reach Alan Bedian/Skquark, Inc. for any reason, feel free to send me a message (as long as it's not spam) by Email or on Discord @Skquark#0394 where I'm usually available."),
           Text("If you're a developer and want to help with this project (or one of my other almost done apps) then you can Join my Discord Channel and get involved. It's fairly quiet in there though..."),
-          Row([ft.FilledButton("Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")), ft.FilledButton("Skquark Discord", on_click=lambda _:page.launch_url("https://discord.gg/fTraJ96Z")), ft.FilledButton("Skquark.com", on_click=lambda _:page.launch_url("https://Skquark.com"))], alignment=MainAxisAlignment.CENTER),
+          Row([ft.FilledButton("Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")), ft.FilledButton("Discord DM", on_click=lambda _:page.launch_url("https://discord.com/channels/@me/988620354815688744")), ft.FilledButton("Skquark Discord", on_click=lambda _:page.launch_url("https://discord.gg/fTraJ96Z")), ft.FilledButton("Skquark.com", on_click=lambda _:page.launch_url("https://Skquark.com"))], alignment=MainAxisAlignment.CENTER),
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("👁️‍🗨️  Maybe...", on_click=close_contact_dlg)], actions_alignment=MainAxisAlignment.END,
     )
@@ -44539,7 +44552,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         page.update()
     donate_dlg = AlertDialog(
         title=Text("🎁  Donate to the Cause"), content=Column([
-          Text("This app has been a one-man labour of love with a lot of effort poured into it over several months. It's powerful enough to be a paid commercial application, however it's all open-source code behind it created by many contributers to make the tools as cool as they are."),
+          Text("This app has been a one-man labour of love with a lot of effort poured into it for over a year. It's powerful enough to be a paid commercial application, however it's all open-source code behind it created by many contributers to make the tools as cool as they are."),
           Text("While we offer this software free of charge, your support would be greatly appreciated to continue the efforts to keep making it better. If you find value in this software and are able to show some love, any amount you can offer is welcomed... I don't even own a GPU good enough to run my own app locally!"),
           Text("If you're technical enough, you can also donate by making contributions to the code, offering suggestions for improvements, adding to the Community Fine-Tuned Models list, or whatever enhancements to the project you can provide..."),
           Row([ft.FilledButton("Donate with PayPal", on_click=lambda _:page.launch_url("https://paypal.me/StarmaTech")), ft.FilledButton("Donate with Venmo", on_click=lambda _:page.launch_url("https://venmo.com/u/Alan-Bedian"))], alignment=MainAxisAlignment.CENTER),
@@ -44616,6 +44629,11 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         page.update()
     page.status = set_status
     page.add(t)
+    if not is_Colab:
+        if 'window_maximized' not in prefs:
+            prefs['window_maximized'] = True
+        if prefs['window_maximized']:
+            maximize_window("e")
     initState(page)
     if not status['initialized']:
         status['initialized'] = True
@@ -45286,7 +45304,22 @@ def toggle_stats(page):
     page.stats_used.value = prefs['stats_used']
     page.stats_used.update()
     update_stats(page)
-    
+
+def create_pattern(filename):
+    base, ext = os.path.splitext(filename)
+    last_digits = ""
+    non_digits = ""
+    for c in base:
+        if c.isdigit():
+            last_digits += c
+        else:
+            non_digits += c
+            last_digits = ""
+    padding = min(4, len(last_digits))
+    base_name = base[:-padding]
+    pattern = f"{base_name}%0{padding}d{ext}"
+    return pattern
+
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
@@ -45298,25 +45331,19 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         stat("cloning frame-interpolation")
         run_sp("git clone https://github.com/google-research/frame-interpolation", cwd=root_dir, realtime=False) #pytti-tools
     try:
-        import ffmpeg
-    except ImportError as e:
-        stat("installing ffmpeg")
-        run_sp("pip install -q ffmpeg-python", realtime=False)
-        import ffmpeg
-        pass
-    try:
         import frame_interpolation
     except ModuleNotFoundError:
         stat("installing frame-interpolation requirements")
         #run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
         #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False) apache-beam==2.34.0
-        pip_install("tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
-        import frame_interpolation
-    pip_install("gdown", upgrade=True, installer=installer)
+        pip_install("ffmpeg-python|ffmpeg tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
+        #import frame_interpolation
+        sys.path.append(frame_interpolation_dir)
     if not os.path.exists(saved_model_dir):
         run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+    import ffmpeg
     saved_model = './pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
     stat("copying photo frames")
     for f in os.listdir(photos_dir):
@@ -45338,21 +45365,21 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         recursive_interpolation_passes = int((output_fps - input_fps) / input_fps)
     else:
         recursive_interpolation_passes = recursive_interpolation_passes or 1
-    stat(".running frame-interpolation")
+    stat("running frame-interpolation")
     run_sp(f"python -m eval.interpolator_cli --model_path '{saved_model}' --pattern '{photos_dir}' --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=True)
     if os.path.exists(interpolated):
         if denoise or sharpen or deflicker:
             video = ffmpeg.input(interpolated)
             if deflicker:
                 stat("deflicker")
-                video = video.filter("deflicker")
+                video = ffmpeg.filter(video, "deflicker", mode="pm", size=10)
             if sharpen:
                 stat("sharpen")
-                video = video.filter("sharpen")
+                video = ffmpeg.filter(video, "unsharp")
             if denoise:
                 stat("denoise")
-                video = video.filter("denoise")
-            stat("running ffmpeg")
+                video = ffmpeg.filter(video, "nlmeans")
+            stat("saving ffmpeg")
             #video.output(interpolated)
             ffmpeg.output(video, interpolated).run(overwrite_output=True)
         if output_video != None:
@@ -45381,26 +45408,38 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
     #video = video.pix_fmt('yuv420p')
     if input_fps is not None and input_fps != output_fps:
         stat("changing fps")
-        video = video.filter("setpts=pts/TIMEBASE*%f" % (output_fps / input_fps))
-        video = video.filter("fps", fps=output_fps, round="up")
+        #video = ffmpeg.filter(video, "fps", fps=output_fps, round="up")
+        #video = ffmpeg.filter(video, "setpts=pts/TIMEBASE*%f" % (output_fps / input_fps))
+        #video = video.filter("fps", fps=output_fps, round="up")
         #video = video.framerate(output_fps)
+        video = ffmpeg.filter(video, "minterpolate", fps=output_fps)
+        video = ffmpeg.filter(video, "minterpolate", mi_mode="mci", mc_mode="aobmc")
     if deflicker:
         stat("deflicker")
-        video = video.filter("deflicker", mode="pm", size=10)
+        #video = video.filter("deflicker", mode="pm", size=10)
+        video = ffmpeg.filter(video, "deflicker", mode="pm", size=10)
     if sharpen:
         stat("sharpen")
         #video = video.filter("unsharp", luma_msize_x=3, luma_msize_y=3, luma_amount=1.5)
-        video = video.filter("sharpen")
+        #video = video.filter("sharpen")
+        video = ffmpeg.filter(video, "unsharp")
     if denoise:
         stat("denoise")
-        video = video.filter("hqdn3d")
+        #video = video.filter("hqdn3d")
+        video = ffmpeg.filter(video, "nlmeans")
     if output_video != None:
         if not output_video.endswith('mp4'):
             output_video = os.path.join(output_video, "interpolated.mp4")
     else:
         output_video = os.path.join(os.path.dirname(frames_dir), "interpolated.mp4")
     stat("running ffmpeg")
-    ffmpeg.output(video, output_video).run(overwrite_output=True)
+    try:
+        out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True).run(overwrite_output=True)
+        #print("ffmpeg output:", out)
+    except ffmpeg.Error as e:
+        print("ffmpeg error:", e.stderr)
+        raise e
+    #ffmpeg.output(video, output_video).run(overwrite_output=True)
     #video.output(output_video)
     return output_video
 
