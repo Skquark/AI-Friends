@@ -25790,7 +25790,7 @@ def run_anytext(page, from_list=False, with_params=False):
     anytext_dir = os.path.join(root_dir, "AnyText")
     anytext_d = anytext_dir#os.path.join(anytext_dir, 'anytext')
     anytext_font = os.path.join(anytext_d, 'font')
-    anytext_ttf = os.path.join(anytext_font, 'horison.ttf')
+    anytext_ttf = os.path.join(anytext_font, 'Horison.ttf')
     ttf = os.path.basename(anytext_ttf)
     if not os.path.exists(anytext_dir):
         installer.status(f"...cloning tyxsspa/AnyText.git")
@@ -25820,7 +25820,7 @@ def run_anytext(page, from_list=False, with_params=False):
     else:
         anytext_ttf = os.path.join(anytext_font, 'Horison.ttf')
         if not os.path.isfile(anytext_ttf):
-            installer.status(f"...downloading horison.ttf")
+            installer.status(f"...downloading Horison.ttf")
             run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_font, 'horison.zip')}")
             run_sp(f"unzip {os.path.join(anytext_font, 'horison.zip')}", cwd=anytext_font)
             os.remove(os.path.join(anytext_font, 'horison.zip'))
@@ -25935,6 +25935,7 @@ def run_anytext(page, from_list=False, with_params=False):
     prt(f"Generating your AnyText Image{s}...")
     for pr in anytext_prompts:
         prt(progress)
+        nudge(page.imageColumn if from_list else page.AnyText, page=page)
         autoscroll(False)
         n_lines = count_lines(pr['prompt'])
         total_steps = pr['num_inference_steps']
@@ -25949,7 +25950,7 @@ def run_anytext(page, from_list=False, with_params=False):
             "image_height": pr['height'],
             "strength": pr['init_image_strength'],
             "cfg_scale": pr['guidance_scale'],
-            "a_prompt": pr['a_prompt'],
+            "a_prompt": anytext_prefs['a_prompt'],
             "n_prompt": pr['negative_prompt']
         }
         init_img = None
@@ -45213,7 +45214,7 @@ def nudge(column, page=None):
     ''' Force an autoscroll column to go down. Mainly to show ProgressBar not scrolling to bottom.'''
     column.controls.append(Container(content=Text(" ")))
     column.update()
-    time.sleep(0.1)
+    time.sleep(0.4)
     del column.controls[-1]
     column.update()
     if page is not None:
@@ -45281,31 +45282,33 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
     photos_dir = os.path.join(frame_interpolation_dir, 'photos')
     interpolated = os.path.join(photos_dir, "interpolated.mp4")
+    def stat(msg):
+        if installer is not None: installer.status(f"...{msg}")
     if not os.path.exists(frame_interpolation_dir):
-        if installer != None:
-            installer.status("...cloning frame-interpolation")
+        stat("cloning frame-interpolation")
         run_sp("git clone https://github.com/google-research/frame-interpolation", cwd=root_dir, realtime=False) #pytti-tools
     try:
         import ffmpeg
     except ImportError as e:
-        installer.status("...installing ffmpeg")
+        stat("installing ffmpeg")
         run_sp("pip install -q ffmpeg-python", realtime=False)
+        import ffmpeg
         pass
     try:
         import frame_interpolation
     except ModuleNotFoundError:
-        if installer != None:
-            installer.status("...installing frame-interpolation requirements")
+        stat("installing frame-interpolation requirements")
         #run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
-        #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False)
-        pip_install("tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam==2.34.0|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
+        #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False) apache-beam==2.34.0
+        pip_install("tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
+        import frame_interpolation
     pip_install("gdown", upgrade=True, installer=installer)
     if not os.path.exists(saved_model_dir):
         run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
     saved_model = './pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
-    installer.status("...copying photo frames")
+    stat("copying photo frames")
     for f in os.listdir(photos_dir):
         os.remove(os.path.join(photos_dir, f))
     if isinstance(frames_dir, list):
@@ -45325,22 +45328,23 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         recursive_interpolation_passes = int((output_fps - input_fps) / input_fps)
     else:
         recursive_interpolation_passes = recursive_interpolation_passes or 1
-    if installer != None:
-        installer.status("...running frame-interpolation")
+    stat(".running frame-interpolation")
     run_sp(f"python -m eval.interpolator_cli --model_path '{saved_model}' --pattern '{photos_dir}' --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=True)
     if os.path.exists(interpolated):
         if denoise or sharpen or deflicker:
             video = ffmpeg.input(interpolated)
             if deflicker:
-                installer.status("...deflicker")
+                stat("deflicker")
                 video = video.filter("deflicker")
             if sharpen:
-                installer.status("...sharpen")
+                stat("sharpen")
                 video = video.filter("sharpen")
             if denoise:
-                installer.status("...denoise")
+                stat("denoise")
                 video = video.filter("denoise")
-            video.output(interpolated)
+            stat("running ffmpeg")
+            #video.output(interpolated)
+            ffmpeg.output(video, interpolated).run(overwrite_output=True)
         if output_video != None:
             if not output_video.endswith('mp4'):
                 output_video = os.path.join(output_video, "interpolated.mp4")
@@ -45358,6 +45362,7 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
     except ImportError as e:
         if installer is not None: installer.status("...installing ffmpeg")
         run_sp("pip install -q ffmpeg-python", realtime=False)
+        import ffmpeg
         pass
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
@@ -45384,7 +45389,7 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
             output_video = os.path.join(output_video, "interpolated.mp4")
     else:
         output_video = os.path.join(os.path.dirname(frames_dir), "interpolated.mp4")
-    if installer is not None: installer.status("...running ffmpeg")
+    stat("running ffmpeg")
     ffmpeg.output(video, output_video).run(overwrite_output=True)
     #video.output(output_video)
     return output_video
