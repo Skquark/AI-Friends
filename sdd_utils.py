@@ -178,11 +178,11 @@ LoRA_models = [
 SDXL_models = [
     {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "variant": "fp16"},
     {"name": "SDXL-Turbo", "path": "stabilityai/sdxl-turbo", "prefix": "", "variant": "fp16"},
-    {"name": "AlbedoBase XL 1.3", "path": "stablediffusionapi/albedobase-xl-v13", "prefix": "", "variant": "fp16"},
+    {"name": "AlbedoBase XL 1.3", "path": "stablediffusionapi/albedobase-xl-v13", "prefix": ""},
     {"name": "Animagine-XL 2", "path": "Linaqruf/animagine-xl-2.0", "prefix": "", "variant": "fp16"},
     {"name": "Anime-XL", "path": "stablediffusionapi/animexl-xuebimix", "prefix": "", "variant": "fp16"},
     {"name": "Counterfeit-XL", "path": "gsdf/CounterfeitXL", "prefix": "", "variant": "fp16"},
-    {"name": "DPO-Juggernaut 7XL", "path": "hotshotco/SDXL-512dataautogpt3/dpo-sdxl-merged", "prefix": "", "variant": "fp16", "use_safetensors": True},
+    {"name": "DPO-Juggernaut 7XL", "path": "dataautogpt3/dpo-sdxl-merged", "prefix": "", "use_safetensors": True},
     {"name": "Dreamshaper-XL", "path": "Lykon/dreamshaper-xl-1-0", "prefix": "", "variant": "fp16"},
     {"name": "Dreamviewer", "path": "Andyrasika/dreamviewer-sdxl-1.0", "prefix": "", "variant": "fp16"},
     {"name": "Dusk Slime Mix", "path": "EarthnDusk/DuskSlimeMixUltraInifity-YamerXLfp16", "prefix": "", "variant": "fp16"},

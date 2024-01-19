@@ -19148,7 +19148,7 @@ def get_diffusers(page):
         except ModuleNotFoundError:
             page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
             run_process("pip install --pre -U triton", page=page)
-            run_process("pip install -U xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118", page=page)
+            run_process("pip install -U xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121", page=page)
             import xformers
             page.console_msg("Installing Hugging Face Diffusers Pipeline...")
             pass
@@ -19621,6 +19621,7 @@ if torch_device == "cuda":
             print("Installing newest accelerate package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=False)
             run_sp("pip install --upgrade -q huggingface_hub", realtime=False)
+            run_sp("pip install -q gdown==4.7.3")
             print("Goto Runtime -> Restart session to apply updates...")
             #importlib.reload(transformers)
             #try:
@@ -19677,6 +19678,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
+abort_run = False
 start_step = 0
 start_callback = 0
 def callback_step(pipe, i, t, callback_kwargs):
@@ -20321,7 +20323,10 @@ def get_SDXL_pipe(task="text2image"):
   variant = {'variant': SDXL_model['revision']} if 'revision' in SDXL_model else {}
   variant = {'variant': SDXL_model['variant']} if 'variant' in SDXL_model else variant
   #vae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=torch.float16)
-  vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae", torch_dtype=torch.float16, force_upcast=False)
+  vae_model = "madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae"
+  if 'vae' in SDXL_model:
+      vae_model = SDXL_model['vae']
+  vae = AutoencoderKL.from_pretrained(vae_model, torch_dtype=torch.float16, force_upcast=False)
   if task == "text2image":
       status['loaded_SDXL'] = task
       pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
@@ -21908,7 +21913,6 @@ def filepath_to_url(path):
     path = path.replace(" ", "%20")
     return path
 
-abort_run = False
 #import asyncio
 #async
 def start_diffusion(page):
@@ -21932,7 +21936,7 @@ def start_diffusion(page):
       page.imageColumn.update()
       page.Images.update()
   def abort_diffusion(e):
-    #nonlocal abort_run
+    global abort_run
     abort_run = True
     page.snd_error.play()
     page.snd_delete.play()
@@ -25838,7 +25842,7 @@ def run_anytext(page, from_list=False, with_params=False):
         import xformers
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers (slow)")
-        run_sp("pip install -U xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118", realtime=False)
+        run_sp("pip install -U xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
         pass
     try:
@@ -26021,19 +26025,21 @@ def run_anytext(page, from_list=False, with_params=False):
         try:
             images, rtn_code, rtn_warning, debug_info = pipe_anytext(input_data, mode=mode, **params)
         except Exception as e:
-            clear_last()
-            clear_last()
+            clear_last(2)
             os.chdir(root_dir)
             alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
         if rtn_code == 0:
-            alert_msg(page, f"ERROR: {rtn_warning}", content=Text(str(debug_info)))
+            clear_last(2)
+            alert_msg(page, f"ERROR: {rtn_warning}", content=Text(str(debug_info), selectable=True, max_lines=20))
+            print(f"{params}\n{input_data}")
             os.chdir(root_dir)
             return
         if rtn_warning:
-            alert_msg(page, f"WARNING: {rtn_warning}", content=Text(str(debug_info)))
+            clear_last(2)
+            alert_msg(page, f"WARNING: {rtn_warning}", content=Text(str(debug_info), selectable=True, max_lines=20))
             os.chdir(root_dir)
-            return
+            #return
         #clear_last()
         clear_last()
         autoscroll(True)
@@ -35246,7 +35252,7 @@ def run_controlnet_video2video(page):
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118", realtime=False)
+        run_sp("pip install -U xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
         pass
     clear_pipes()
@@ -40214,7 +40220,7 @@ def run_animate_diff(page):
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118", realtime=False)
+        run_sp("pip install -U xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
         pass
     pip_install("ffmpeg-python|ffmpeg opencv-python|cv2 onnxruntime-gpu|onnxruntime sentencepiece>=0.1.99 safetensors", installer=installer)
