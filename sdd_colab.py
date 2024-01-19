@@ -25933,7 +25933,7 @@ def run_anytext(page, from_list=False, with_params=False):
         return False
     anytext_model = 'damo/cv_anytext_text_generation_editing'
     if pipe_anytext == None:
-        installer.status(f"...initialize AnyText Pipeline")
+        installer.status(f"...initializing AnyText Pipeline (slow)")
         try:
             pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path=f'font/{ttf}')
         except Exception as e:
@@ -26013,11 +26013,7 @@ def run_anytext(page, from_list=False, with_params=False):
             "seed": random_seed,
             "draw_pos": mask_img,
         }
-        if mask_img != None and init_img != None:
-            mode = 'text-editing'
-            input_data['ori_image'] = init_img
-            input_data['draw_pos'] = mask_img
-        elif init_img != None:
+        if bool(pr['init_image']):
             mode = 'text-editing'
             input_data['ori_image'] = init_img
         else:
@@ -28769,7 +28765,7 @@ def run_dance_diffusion(page):
     try:
       import gdown
     except ImportError:
-      run_sp("pip -q install gdown")
+      run_sp("pip -q install gdown==4.7.3")
     finally:
       import gdown
     #import sys
@@ -30361,7 +30357,7 @@ def run_converter(page):
     custom_path = os.path.join(custom_models, format_filename(model_name, use_dash=True))
     checkpoint_file = os.path.join(custom_models, model_file)
     make_dir(custom_path)
-    pip_install("omegaconf gdown", installer=installer)
+    pip_install("omegaconf gdown==4.7.3", installer=installer)
     installer.status("...get Diffusers")
     diffusers_dir = os.path.join(root_dir, "diffusers")
     if not os.path.exists(diffusers_dir):
@@ -40201,7 +40197,7 @@ def run_animate_diff(page):
         installer.status("...installing transformers")
         run_sp("pip install --upgrade transformers==4.30.2", realtime=False) #4.28
         pass
-    pip_install("omegaconf einops cmake colorama rich ninja copier==8.1.0 pydantic shellingham typer gdown black ruff setuptools-scm controlnet_aux mediapipe matplotlib watchdog imageio==2.27.0", installer=installer)
+    pip_install("omegaconf einops cmake colorama rich ninja copier==8.1.0 pydantic shellingham typer gdown==4.7.3 black ruff setuptools-scm controlnet_aux mediapipe matplotlib watchdog imageio==2.27.0", installer=installer)
 
     animatediff_dir = os.path.join(root_dir, 'animatediff-cli-prompt-travel')
     if 'installed_animate_diff' not in status:#not os.path.exists(animatediff_dir) or force_updates:
@@ -40654,7 +40650,7 @@ def run_animate_diff(page):
                     if os.path.isfile(ip_image):
                         shutil.copy(ip_image, img_path)
                     elif ip_image.startswith('https://drive'):
-                        pip_install("gdown", installer=installer)
+                        pip_install("gdown==4.7.3", installer=installer)
                         import gdown
                         gdown.download(ip_image, img_path, quiet=True)
                     elif ip_image.startswith('http'):
@@ -40680,7 +40676,7 @@ def run_animate_diff(page):
             if os.path.isfile(ip_image):
                 shutil.copy(ip_image, img_path)
             elif ip_image.startswith('https://drive'):
-                pip_install("gdown", installer=installer)
+                pip_install("gdown==4.7.3", installer=installer)
                 import gdown
                 gdown.download(ip_image, img_path, quiet=True)
             elif ip_image.startswith('http'):
@@ -40708,7 +40704,7 @@ def run_animate_diff(page):
                 if os.path.isfile(img2img_image):
                     shutil.copy(img2img_image, img_path)
                 elif img2img_image.startswith('https://drive'):
-                    pip_install("gdown", installer=installer)
+                    pip_install("gdown==4.7.3", installer=installer)
                     import gdown
                     gdown.download(img2img_image, img_path, quiet=True)
                 elif img2img_image.startswith('http'):
@@ -45305,7 +45301,7 @@ def toggle_stats(page):
     page.stats_used.update()
     update_stats(page)
 
-def create_pattern(filename):
+def create_pattern(filename, glob=True):
     base, ext = os.path.splitext(filename)
     last_digits = ""
     non_digits = ""
@@ -45317,7 +45313,10 @@ def create_pattern(filename):
             last_digits = ""
     padding = min(4, len(last_digits))
     base_name = base[:-padding]
-    pattern = f"{base_name}%0{padding}d{ext}"
+    if glob:
+        pattern = f"{base_name}*{ext}"
+    else:
+        pattern = f"{base_name}%%0{padding}d{ext}"
     return pattern
 
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
@@ -45336,13 +45335,14 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         stat("installing frame-interpolation requirements")
         #run_sp(f"pip install -r requirements.txt", cwd=frame_interpolation_dir, realtime=True)
         #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False) apache-beam==2.34.0
-        pip_install("ffmpeg-python|ffmpeg tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown tqdm", upgrade=True, installer=installer)
+        pip_install("ffmpeg-python|ffmpeg tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown==4.7.3 tqdm", upgrade=True, installer=installer)
         #import frame_interpolation
         sys.path.append(frame_interpolation_dir)
     if not os.path.exists(saved_model_dir):
-        run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
-        run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
-        run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        run_sp(f"gdown --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O '{frame_interpolation_dir}'", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        #run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        #run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        #run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
     import ffmpeg
     saved_model = './pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
     stat("copying photo frames")
@@ -45366,7 +45366,12 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     else:
         recursive_interpolation_passes = recursive_interpolation_passes or 1
     stat("running frame-interpolation")
-    run_sp(f"python -m eval.interpolator_cli --model_path '{saved_model}' --pattern '{photos_dir}' --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=True)
+    try:
+        run_sp(f"python -m eval.interpolator_cli --model_path '{saved_model}' --pattern '{photos_dir}' --fps {output_fps} --times_to_interpolate {recursive_interpolation_passes} --output_video", cwd=frame_interpolation_dir, realtime=True)
+    except Exception as e:
+        stat(f"error: {e}")
+        print(f"interpolator_cli Error: {e}")
+        return ""
     if os.path.exists(interpolated):
         if denoise or sharpen or deflicker:
             video = ffmpeg.input(interpolated)
@@ -45393,7 +45398,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         print(f"Failed to save video {interpolated}")
         return ""
 
-def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False):
+def frames_to_video(frames_dir, pattern="*.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False):
     try:
         import ffmpeg
     except ImportError as e:
@@ -45404,7 +45409,8 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
     def stat(msg):
         if installer is not None: installer.status(f"...{msg}")
     stat("frames_to_video")
-    video = ffmpeg.input(os.path.join(frames_dir, pattern), pattern_type="glob", framerate=input_fps or output_fps)
+    input_path = os.path.join(frames_dir, pattern)
+    video = ffmpeg.input(input_path, pattern_type="glob", framerate=input_fps or output_fps)
     #video = video.pix_fmt('yuv420p')
     if input_fps is not None and input_fps != output_fps:
         stat("changing fps")
@@ -45412,8 +45418,7 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
         #video = ffmpeg.filter(video, "setpts=pts/TIMEBASE*%f" % (output_fps / input_fps))
         #video = video.filter("fps", fps=output_fps, round="up")
         #video = video.framerate(output_fps)
-        video = ffmpeg.filter(video, "minterpolate", fps=output_fps)
-        video = ffmpeg.filter(video, "minterpolate", mi_mode="mci", mc_mode="aobmc")
+        video = ffmpeg.filter(video, "minterpolate", fps=output_fps, mi_mode="mci", mc_mode="aobmc")
     if deflicker:
         stat("deflicker")
         #video = video.filter("deflicker", mode="pm", size=10)
@@ -45437,7 +45442,7 @@ def frames_to_video(frames_dir, pattern="%03d.png", input_fps=None, output_fps=3
         out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True).run(overwrite_output=True)
         #print("ffmpeg output:", out)
     except ffmpeg.Error as e:
-        print("ffmpeg error:", e.stderr)
+        print(f"ffmpeg error:{e.stderr} pattern: {pattern} path: {input_path}")
         raise e
     #ffmpeg.output(video, output_video).run(overwrite_output=True)
     #video.output(output_video)
