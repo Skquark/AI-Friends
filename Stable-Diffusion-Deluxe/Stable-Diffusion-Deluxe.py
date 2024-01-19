@@ -12073,12 +12073,12 @@ svd_prefs = {
     'target_fps': 30,
     'motion_bucket_id': 127,#180
     'num_frames': 25,
-    'decode_chunk_size': 10,
+    'decode_chunk_size': 12 if prefs['higher_vram_mode'] else 8,
     'noise_aug_strength': 0.02,
     'export_to_video': True,
     "interpolate_video": True,
     'seed': 0,
-    'max_size': 768,
+    'max_size': 768 if prefs['higher_vram_mode'] else 512,
     'width': 1024,
     'height': 576,
     'cpu_offload': not prefs['higher_vram_mode'],
@@ -12166,7 +12166,7 @@ def buildSVD(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🍃  Stable Video Diffusion Image-To-Video Synthesis", "Generate high resolution (576x1024) 2-4 second videos conditioned on the input image...", actions=[IconButton(icon=icons.HELP, tooltip="Help with SVD Settings", on_click=svd_help)]),
+        Header("🍃  Stable Video Diffusion Image-To-Video (uses a lot of VRAM)", "Generate high resolution (576x1024) 2-4 second videos conditioned on the input image...", actions=[IconButton(icon=icons.HELP, tooltip="Help with SVD Settings", on_click=svd_help)]),
         #ResponsiveRow([prompt, negative_prompt]),
         init_image,
         decode_chunk_size,
@@ -19138,7 +19138,7 @@ def get_diffusers(page):
         except ModuleNotFoundError:
             page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
             run_process("pip install --pre -U triton", page=page)
-            run_process("pip install -U xformers==0.0.20", page=page)
+            run_process("pip install -U xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118", page=page)
             import xformers
             page.console_msg("Installing Hugging Face Diffusers Pipeline...")
             pass
@@ -19611,7 +19611,7 @@ if torch_device == "cuda":
             print("Installing newest accelerate package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=False)
             run_sp("pip install --upgrade -q huggingface_hub", realtime=False)
-            print("Goto Runtime -> Restart Session to apply updates...")
+            print("Goto Runtime -> Restart session to apply updates...")
             #importlib.reload(transformers)
             #try:
             #    sys.exit()
@@ -25828,7 +25828,7 @@ def run_anytext(page, from_list=False, with_params=False):
         import xformers
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers (slow)")
-        run_sp("pip install -U xformers==0.0.20", realtime=False)
+        run_sp("pip install -U xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118", realtime=False)
         status['installed_xformers'] = True
         pass
     try:
@@ -35236,7 +35236,7 @@ def run_controlnet_video2video(page):
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers==0.0.20", realtime=False)
+        run_sp("pip install -U xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118", realtime=False)
         status['installed_xformers'] = True
         pass
     clear_pipes()
@@ -40204,7 +40204,7 @@ def run_animate_diff(page):
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers==0.0.20", realtime=False)
+        run_sp("pip install -U xformers==0.0.22.post4 --index-url https://download.pytorch.org/whl/cu118", realtime=False)
         status['installed_xformers'] = True
         pass
     pip_install("ffmpeg-python|ffmpeg opencv-python|cv2 onnxruntime-gpu|onnxruntime sentencepiece>=0.1.99 safetensors", installer=installer)
@@ -45329,7 +45329,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         #import frame_interpolation
         sys.path.append(frame_interpolation_dir)
     if not os.path.exists(saved_model_dir):
-        run_sp(f"gdown --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O '{frame_interpolation_dir}'", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        run_sp(f"gdown -q --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O {frame_interpolation_dir}", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
@@ -45376,7 +45376,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
                 video = ffmpeg.filter(video, "nlmeans")
             stat("saving ffmpeg")
             #video.output(interpolated)
-            ffmpeg.output(video, interpolated).run(overwrite_output=True)
+            ffmpeg.output(video, interpolated, pix_fmt='yuv420p').run(overwrite_output=True)
         if output_video != None:
             if not output_video.endswith('mp4'):
                 output_video = os.path.join(output_video, "interpolated.mp4")
@@ -45429,7 +45429,7 @@ def frames_to_video(frames_dir, pattern="*.png", input_fps=None, output_fps=30, 
         output_video = os.path.join(os.path.dirname(frames_dir), "interpolated.mp4")
     stat("running ffmpeg")
     try:
-        out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True).run(overwrite_output=True)
+        out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True, pix_fmt='yuv420p').run(overwrite_output=True)
         #print("ffmpeg output:", out)
     except ffmpeg.Error as e:
         print(f"ffmpeg error:{e.stderr} pattern: {pattern} path: {input_path}")
