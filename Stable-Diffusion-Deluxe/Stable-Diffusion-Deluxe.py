@@ -824,6 +824,7 @@ def buildVideoAIs(page):
     page.Potat1 = buildPotat1(page)
     page.StableAnimation = buildStableAnimation(page)
     page.SVD = buildSVD(page)
+    page.AnimateDiffImage2Video = buildAnimateDiffImage2Video(page)
     page.ControlNet = buildControlNet(page)
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.TemporalNet_XL = buildTemporalNet_XL(page)
@@ -841,6 +842,7 @@ def buildVideoAIs(page):
             Tab(text="AnimateDiff", content=page.AnimateDiff, icon=icons.AUTO_MODE),
             Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="SVD Image-to-Video", content=page.SVD, icon=icons.SLOW_MOTION_VIDEO),
+            Tab(text="AnimateDiff Image-to-Video", content=page.AnimateDiffImage2Video, icon=icons.CATCHING_POKEMON),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
@@ -13522,6 +13524,240 @@ def buildAnimateDiff(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+animatediff_img2video_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "animatediff-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":7.5,
+    'num_inference_steps': 50,
+    "seed": 0,
+    'init_image': '',
+    'init_image_strength': 0.8,
+    'video_length': 16,
+    'fps': 8,
+    'target_fps': 25,
+    'latent_interpolation_method': "slerp",
+    'clip_skip': 1,
+    'lora_alpha': 0.8,
+    'custom_lora': '',
+    'lora_layer': 'Analog.Redmond',
+    'lora_layer_alpha': 0.8,
+    'custom_lora_layer': '',
+    'lora_map': [],
+    'motion_loras': [],
+    'motion_loras_strength': 0.5,
+    'motion_module': 'animatediff-motion-adapter-v1-5-2',
+    "animatediff_img2video_model": "Realistic_Vision_V5.1_noVAE",
+    "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_strength': 0.8,
+    'export_to_video': True,
+    "interpolate_video": True,
+    "cpu_offload": False,
+    "free_init": False,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+animatediff_motion_loras = [
+    {'name': 'Zoom-In', 'path': 'guoyww/animatediff-motion-lora-zoom-in'},
+    {'name': 'Zoom-Out', 'path': 'guoyww/animatediff-motion-lora-zoom-out'},
+    {'name': 'Pan-Left', 'path': 'guoyww/animatediff-motion-lora-pan-left'},
+    {'name': 'Pan-Right', 'path': 'guoyww/animatediff-motion-lora-pan-right'},
+    {'name': 'Tilt-Up', 'path': 'guoyww/animatediff-motion-lora-tilt-up'},
+    {'name': 'Tilt-Down', 'path': 'guoyww/animatediff-motion-lora-tilt-down'},
+    {'name': 'Rolling-Clockwise', 'path': 'guoyww/animatediff-motion-lora-rolling-clockwise'},
+    {'name': 'Rolling-Anticlockwise', 'path': 'guoyww/animatediff-motion-lora-rolling-anticlockwise'},
+    #{'name': 'Custom', 'path': ''},
+]
+
+def buildAnimateDiffImage2Video(page):
+    global prefs, animatediff_img2video_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            animatediff_img2video_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            animatediff_img2video_prefs[pref] = float(e.control.value)
+          else:
+            animatediff_img2video_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def animatediff_img2video_help(e):
+      def close_animatediff_img2video_dlg(e):
+        nonlocal animatediff_img2video_help_dlg
+        animatediff_img2video_help_dlg.open = False
+        page.update()
+      animatediff_img2video_help_dlg = AlertDialog(title=Text("🙅   Help with AnimateDiff Image2Video Pipeline"), content=Column([
+          Text("Experimental Image-To-Video support for AnimateDiff (open to improvements)."),
+          #Text(""),
+          Markdown("[Diffusers Project](https://github.com/huggingface/diffusers/pull/6328) | [Colab](https://drive.google.com/file/d/1TvzCDPHhfFtdcJZe4RLloAwyoLKuttWK/view?usp=sharing) | [Aryan V S](https://github.com/a-r-r-o-w)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😈  It's Alive!", on_click=close_animatediff_img2video_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = animatediff_img2video_help_dlg
+      animatediff_img2video_help_dlg.open = True
+      page.update()
+    def changed_lora_layer(e):
+      animatediff_img2video_prefs['lora_layer'] = e.control.value
+      custom_lora_layer.visible = e.control.value == "Custom"
+      custom_lora_layer.update()
+    def add_lora(e):
+      lora = animatediff_img2video_prefs['lora_layer']
+      lora_scale = animatediff_img2video_prefs['lora_layer_alpha']
+      lora_layer = {}
+      if lora == "Custom":
+        lora_layer = {'name': 'Custom', 'file':'', 'path':animatediff_img2video_prefs['custom_lora_layer'], 'scale': lora_scale}
+      else:
+        for l in LoRA_models:
+          if l['name'] == lora:
+            lora_layer = l.copy()
+            lora_layer['scale'] = lora_scale
+        for l in animatediff_img2video_prefs['lora_map']:
+          if l['name'] == lora:
+            return
+      animatediff_img2video_prefs['lora_map'].append(lora_layer)
+      title = Markdown(f"**{lora_layer['name']}** - Alpha Scale: [{lora_layer['scale']}] - {lora_layer['path']}")
+      lora_layer_map.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      lora_layer_map.update()
+    def delete_lora_layer(e):
+        for l in animatediff_img2video_prefs['lora_map']:
+          if l['name'] == e.control.data['name']:
+            animatediff_img2video_prefs['lora_map'].remove(l)
+          #del l #animatediff_img2video_prefs['lora_map'][]
+        for c in lora_layer_map.controls:
+          if c.data['name'] == e.control.data['name']:
+             lora_layer_map.controls.remove(c)
+             break
+        lora_layer_map.update()
+    def delete_all_lora_layers(e):
+        animatediff_img2video_prefs['lora_map'].clear()
+        lora_layer_map.controls.clear()
+        lora_layer_map.update()
+    def toggle_ip_adapter(e):
+      animatediff_img2video_prefs['use_ip_adapter'] = e.control.value
+      ip_adapter_container.height=None if animatediff_img2video_prefs['use_ip_adapter'] else 0
+      ip_adapter_container.update()
+    def changed_model(e):
+        animatediff_img2video_prefs['animatediff_img2video_model'] = e.control.value
+        animatediff_img2video_custom_model.visible = e.control.value == "Custom"
+        animatediff_img2video_custom_model.update()
+    def changed_motion_lora(e):
+        on = e.control.value
+        if e.control.data in animatediff_img2video_prefs['motion_loras']:
+            animatediff_img2video_prefs['motion_loras'].remove(e.control.data)
+        else:
+            animatediff_img2video_prefs['motion_loras'].append(e.control.data)
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        animatediff_img2video_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=animatediff_img2video_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=animatediff_img2video_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image", pref=animatediff_img2video_prefs, key='init_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=animatediff_img2video_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    video_length = SliderRow(label="Video Length", min=1, max=64, divisions=63, pref=animatediff_img2video_prefs, key='video_length', tooltip="The number of frames to animate.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=animatediff_img2video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=animatediff_img2video_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Videos", min=1, max=9, step=1, value=animatediff_img2video_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=80, divisions=80, pref=animatediff_img2video_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=animatediff_img2video_prefs, key='guidance_scale')
+    clip_skip = SliderRow(label="Clip Skip", min=0, max=4, divisions=4, pref=animatediff_img2video_prefs, key='clip_skip', expand=True, col={'md': 6}, tooltip="Skips part of the image generation process, leading to slightly different results from the LoRA CLIP model.")
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=animatediff_img2video_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=animatediff_img2video_prefs, key='height')
+    def toggle_ip_adapter(e):
+        animatediff_img2video_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=animatediff_img2video_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=animatediff_img2video_prefs['ip_adapter_model'], visible=animatediff_img2video_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=animatediff_img2video_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=animatediff_img2video_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if animatediff_img2video_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animatediff_img2video_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=animatediff_img2video_prefs['lora_layer'], on_change=changed_lora_layer)
+    custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animatediff_img2video_prefs['custom_lora_layer'], expand=True, visible=animatediff_img2video_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
+    if len(prefs['custom_LoRA_models']) > 0:
+        for l in prefs['custom_LoRA_models']:
+            lora_layer.options.append(dropdown.Option(l['name']))
+    for m in LoRA_models:
+        lora_layer.options.append(dropdown.Option(m['name']))
+    lora_layer.options.append(dropdown.Option("Custom LoRA Path"))
+    #for lora in animatediff_motion_loras:
+    #    lora_layer.options.insert(1, dropdown.Option(lora['name']))
+    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animatediff_img2video_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
+    lora_layer_map = Column([], spacing=0)
+    motion_loras_checkboxes = ResponsiveRow(controls=[Text("Motion Module LoRAs:", col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1.5})], run_spacing=0, vertical_alignment=CrossAxisAlignment.CENTER)
+    for m in animatediff_motion_loras:
+        motion_loras_checkboxes.controls.append(Checkbox(label=m['name'], data=m['name'], value=m['name'] in animatediff_img2video_prefs['motion_loras'], on_change=changed_motion_lora, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1}))
+    motion_loras_strength = SliderRow(label="Motion Module LoRA Strength", min=0, max=1, divisions=10, round=1, pref=animatediff_img2video_prefs, key='motion_loras_strength', tooltip="The Weight of the custom Motion LoRA Module to influence camera.")
+    animatediff_img2video_model = Dropdown(label="AnimateDiff Model", width=240, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=animatediff_img2video_prefs['animatediff_img2video_model'], on_change=changed_model)
+    animatediff_img2video_custom_model = TextField(label="Custom AnimateDiffImage2Video Model (URL or Path)", value=animatediff_img2video_prefs['custom_model'], expand=True, visible=animatediff_img2video_prefs['animatediff_img2video_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=animatediff_img2video_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    free_init = Switcher(label="Free-Init", value=animatediff_img2video_prefs['free_init'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'free_init'), tooltip="Improves temporal consistency and overall quality of videos generated using video-diffusion-models without any addition training.")
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=animatediff_img2video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    interpolate_video = Switcher(label="Interpolate Video", value=animatediff_img2video_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=animatediff_img2video_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
+    latent_interpolation_method = Dropdown(label="Latent Interpolation", width=150, options=[dropdown.Option("slerp"), dropdown.Option("lerp")], value=animatediff_img2video_prefs['latent_interpolation_method'], on_change=lambda e: changed(e, 'latent_interpolation_method'))
+    seed = TextField(label="Seed", width=90, value=str(animatediff_img2video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animatediff_img2video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=animatediff_img2video_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=animatediff_img2video_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=animatediff_img2video_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_animatediff_img2video = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_animatediff_img2video.height = None if status['installed_ESRGAN'] else 0
+    if not animatediff_img2video_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🐲   Run AnimateDiff", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_img2video(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_img2video(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_img2video(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.animatediff_img2video_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🐉  AnimateDiff Image-to-Video", "Bring an Image to Life, similar to Stable Video Diffusion, with more control...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Image2Video Settings", on_click=animatediff_img2video_help)]),
+            ResponsiveRow([init_image, init_image_strength]),
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            video_length,
+            ResponsiveRow([fps, clip_skip]),
+            Row([animatediff_img2video_model, animatediff_img2video_custom_model, latent_interpolation_method]),
+            Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
+            Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
+            lora_layer_map,
+            motion_loras_checkboxes,
+            motion_loras_strength,
+            Divider(thickness=4, height=4),
+            Row([cpu_offload, free_init, export_to_video, interpolate_video]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_animatediff_img2video,
+            parameters_row,
+            page.animatediff_img2video_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+
 hotshot_xl_prefs = {
     'prompt': '',
     'negative_prompt': 'text, watermark, copyright, blurry, low resolution, blur, low quality',
@@ -18985,6 +19221,7 @@ pipe_lcm_interpolation = None
 pipe_ldm3d = None
 pipe_ldm3d_upscale = None
 pipe_svd = None
+pipe_animatediff_img2video = None
 pipe_panorama = None
 pipe_DiT = None
 pipe_dance = None
@@ -21528,6 +21765,12 @@ def clear_svd_pipe():
     del pipe_svd
     flush()
     pipe_svd = None
+def clear_animatediff_img2video_pipe():
+  global pipe_animatediff_img2video
+  if pipe_animatediff_img2video is not None:
+    del pipe_animatediff_img2video
+    flush()
+    pipe_animatediff_img2video = None
 def clear_panorama_pipe():
   global pipe_panorama
   if pipe_panorama is not None:
@@ -21813,6 +22056,7 @@ def clear_pipes(allbut=None):
     if not 'lcm_interpolation' in but: clear_lcm_interpolation_pipe()
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'svd' in but: clear_svd_pipe()
+    if not 'animatediff_img2video' in but: clear_animatediff_img2video_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'amused' in but: clear_amused_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
@@ -40923,6 +41167,303 @@ def run_animate_diff(page):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_animatediff_img2video(page, from_list=False, with_params=False):
+    global animatediff_img2video_prefs, pipe_animatediff_img2video, prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    animatediff_img2video_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            animatediff_img2video_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':animatediff_img2video_prefs['guidance_scale'], 'num_inference_steps':animatediff_img2video_prefs['num_inference_steps'], 'width':animatediff_img2video_prefs['width'], 'height':animatediff_img2video_prefs['height'], 'init_image':animatediff_img2video_prefs['init_image'], 'init_image_strength':animatediff_img2video_prefs['init_image_strength'], 'num_images':animatediff_img2video_prefs['num_images'], 'seed':animatediff_img2video_prefs['seed']})
+        else:
+            animatediff_img2video_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(animatediff_img2video_prefs['init_image']):
+        alert_msg(page, "You must provide an Init Image or Video to process your video generation...")
+        return
+      animatediff_img2video_prompts.append({'prompt': animatediff_img2video_prefs['prompt'], 'negative_prompt':animatediff_img2video_prefs['negative_prompt'], 'guidance_scale':animatediff_img2video_prefs['guidance_scale'], 'num_inference_steps':animatediff_img2video_prefs['num_inference_steps'], 'width':animatediff_img2video_prefs['width'], 'height':animatediff_img2video_prefs['height'], 'init_image':animatediff_img2video_prefs['init_image'], 'init_image_strength':animatediff_img2video_prefs['init_image_strength'], 'num_images':animatediff_img2video_prefs['num_images'], 'seed':animatediff_img2video_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.AnimateDiffImage2Video.controls.append(line)
+        if update:
+          page.AnimateDiffImage2Video.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.AnimateDiffImage2Video, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.AnimateDiffImage2Video.auto_scroll = scroll
+        page.AnimateDiffImage2Video.update()
+      else:
+        page.AnimateDiffImage2Video.auto_scroll = scroll
+        page.AnimateDiffImage2Video.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.AnimateDiffImage2Video.controls = page.AnimateDiffImage2Video.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = animatediff_img2video_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    mode = "Video2Video" if animatediff_img2video_prompts[0]['init_image'].endswith('mp4') or animatediff_img2video_prompts[0]['init_image'].endswith('gif') else "Image2Video"
+    installer = Installing("Installing AnimateDiff {mode} Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("animatediff_img2video")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = animatediff_img2video_prefs['cpu_offload']
+    motion_module = "guoyww/animatediff-motion-adapter-v1-5-2" if animatediff_img2video_prefs['motion_module'] == "animatediff-motion-adapter-v1-5-2" else "guoyww/animatediff-motion-adapter-v1-5-2"
+    animatediff_img2video_model = "SG161222/Realistic_Vision_V5.1_noVAE" if animatediff_img2video_prefs['animatediff_img2video_model'] == "Realistic_Vision_V5.1_noVAE" else "Lykon/dreamshaper-8" if animatediff_img2video_prefs['animatediff_img2video_model'] == "dreamshaper-8" else animatediff_img2video_prefs['animatediff_img2video_custom_model']
+    if 'loaded_animatediff_img2video' not in status: status['loaded_animatediff_img2video'] = ""
+    if 'loaded_animatediff_img2video_mode' not in status: status['loaded_animatediff_img2video_mode'] = ""
+    if animatediff_img2video_model != status['loaded_animatediff_img2video'] or mode != status['loaded_animatediff_img2video_mode']:
+        clear_pipes()
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/AnimateDiffImage2Video-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    
+    #from diffusers import AutoPipelineForVideo2Video, AutoPipelineForImage2Video, AnimateDiffImage2VideoScheduler
+    from diffusers import MotionAdapter, DiffusionPipeline, DDIMScheduler
+    from diffusers.utils import export_to_gif, load_image
+
+    if pipe_animatediff_img2video == None:
+        installer.status(f"...initialize AnimateDiff {mode} Pipeline")
+        try:
+            adapter = MotionAdapter.from_pretrained(motion_module)
+            if mode == "Image2Video":
+                pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_img2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                #pipe_animatediff_img2video = AutoPipelineForImage2Video.from_pretrained(animatediff_img2video_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                status['loaded_animatediff_img2video_mode'] = mode
+            else:
+                pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_video2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                #pipe_animatediff_img2video = AutoPipelineForVideo2Video.from_pretrained(animatediff_img2video_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                status['loaded_animatediff_img2video_mode'] = mode
+            #pipe_animatediff_img2video = pipeline_scheduler(pipe_animatediff_img2video)
+            pipe_animatediff_img2video.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timespace_spacing="linspace")
+            #pipe_animatediff_img2video.scheduler = AnimateDiffImage2VideoScheduler.from_config(pipe_animatediff_img2video.scheduler.config)
+            if prefs['vae_slicing']:
+                pipe_animatediff_img2video.enable_vae_slicing()
+            if prefs['vae_tiling']:
+                pipe_animatediff_img2video.enable_vae_tiling()
+            if animatediff_img2video_prefs['free_init']:
+                installer.status(f"...enable Free-Init")
+                pipe_animatediff_img2video.enable_free_init(method="butterworth", use_fast_sampling=True)
+            if prefs['enable_freeu']:
+                installer.status(f"...enable FreeU")
+                pipe_animatediff_img2video.enable_freeu(s1=0.6, s2=0.4, b1=1.1, b2=1.2)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_animatediff_img2video.transformer = torch.compile(pipe_animatediff_img2video.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_animatediff_img2video = pipe_animatediff_img2video.to(torch_device)
+            elif cpu_offload:
+                pipe_animatediff_img2video.enable_model_cpu_offload()
+            else:
+                pipe_animatediff_img2video.to(torch_device)
+            pipe_animatediff_img2video.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing AnimateDiff Image2Video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_animatediff_img2video'] = animatediff_img2video_model
+    else:
+        clear_pipes('animatediff_img2video')
+        
+    motion_loras = []
+    animation_types = []
+    adapter_weights = []
+    for m in animatediff_img2video_prefs['motion_loras']:
+        for mm in animatediff_motion_loras:
+            if mm['name'] == m:
+                animation_types.append(mm['name'])
+                adapter_weights.append(animatediff_img2video_prefs['motion_loras_strength'])
+                motion_loras.append(mm)
+    if len(motion_loras) > 0:
+        for ml in motion_loras:
+            pipe_animatediff_img2video.load_lora_weights(ml['path'], adapter_name=ml['name'])
+        pipe_animatediff_img2video.set_adapters(animation_types, adapter_weights=adapter_weights)
+    #animation_type = ["zoom-out", "tilt-up", "pan-left"]
+    #adapter_weight = [0.75]
+    #pipe_animatediff_img2video.set_adapters([animation_type], adapter_weights=adapter_weight)
+    #pipe_animatediff_img2video.load_lora_weights(f"guoyww/animatediff-motion-lora-{animation_type}", adapter_name=animation_type)
+    if len(animatediff_img2video_prefs['lora_map']) > 0:
+        adapters = []
+        scales = []
+        for l in animatediff_img2video_prefs['lora_map']:
+            adapters.append(l['name'])
+            scales.append(l['scale'])
+            weight_args = {}
+            if 'weights' in l and bool(l['weights']):
+                weight_args['weight_name'] = l['weights']
+            pipe_animatediff_img2video.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+        pipe_animatediff_img2video.set_adapters(adapters, adapter_weights=scales)
+    #else: p.disable_lora()
+    ip_adapter_arg = {}
+    if animatediff_img2video_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if animatediff_img2video_prefs['ip_adapter_image'].startswith('http'):
+          i_response = requests.get(animatediff_img2video_prefs['ip_adapter_image'])
+          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+          if os.path.isfile(animatediff_img2video_prefs['ip_adapter_image']):
+            ip_adapter_img = PILImage.open(animatediff_img2video_prefs['ip_adapter_image'])
+          else:
+            clear_last()
+            prt(f"ERROR: Couldn't find your ip_adapter_image {animatediff_img2video_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == animatediff_img2video_prefs['ip_adapter_model'])
+            pipe_animatediff_img2video.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_animatediff_img2video.set_ip_adapter_scale(animatediff_img2video_prefs['ip_adapter_strength'])
+
+    clear_last()
+    s = "" if len(animatediff_img2video_prompts) == 0 else "s"
+    prt(f"Generating your AnimateDiff Video{s}...")
+    for pr in animatediff_img2video_prompts:
+        prt(progress)
+        autoscroll(False)
+        mode = "Video2Video" if pr['init_image'].endswith('mp4') or pr['init_image'].endswith('gif') else "Image2Video"
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator().manual_seed(random_seed)
+        init_img = None
+        if bool(pr['init_image']):
+            fname = os.path.basename(pr['init_image'])
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        try:
+            if mode == "Image2Video":
+                if status['loaded_animatediff_img2video_mode'] != "Image2Video":
+                    #pipe_animatediff_img2video = AutoPipelineForImage2Video.from_pipe(pipe_animatediff_img2video)
+                    status['loaded_animatediff_img2video_mode'] = "Image2Video"
+                output = pipe_animatediff_img2video(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    image=init_img,
+                    strength=pr['init_image_strength'],
+                    num_frames=animatediff_img2video_prefs['num_frames'],
+                    num_videos_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'], # can be lerp, slerp, or your own callback
+                    generator=generator,
+                    callback=callback_fnc,
+                    **ip_adapter_arg,
+                ).frames
+            else:
+                if status['loaded_animatediff_img2video_mode'] != "Video2Video":
+                    #pipe_animatediff_img2video = AutoPipelineForVideo2Video.from_pipe(pipe_animatediff_img2video)
+                    status['loaded_animatediff_img2video_mode'] = "Video2Video"
+                output = pipe_animatediff_img2video(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    video=init_img,
+                    strength=pr['init_image_strength'],
+                    num_frames=animatediff_img2video_prefs['num_frames'],
+                    num_videos_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'],
+                    generator=generator,
+                    callback=callback_fnc,
+                    **ip_adapter_arg,
+                ).frames
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        if output is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        batch_output = os.path.join(prefs['image_output'], animatediff_img2video_prefs['batch_folder_name'])
+        make_dir(batch_output)
+        for v, frames_batch in enumerate(output):
+            fname = format_filename(pr['prompt'])
+            frames_dir = available_folder(batch_output, "frames", v)
+            make_dir(frames_dir)
+            for idx, image in enumerate(frames_batch):
+                #fname = f"{animatediff_img2video_prefs['file_prefix']}{format_filename(animatediff_img2video_prefs['batch_folder_name'])}-{b}"
+                image_path = available_file(frames_dir, "frame", idx, zfill=4)
+                image.save(image_path)
+                new_file = os.path.basename(image_path)
+                if not animatediff_img2video_prefs['display_upscaled_image'] or not animatediff_img2video_prefs['apply_ESRGAN_upscale']:
+                    #prt(Row([Img(src=image_path, width=animatediff_img2video_prefs['width'], height=animatediff_img2video_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                if animatediff_img2video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    upscale_image(image_path, image_path, scale=animatediff_img2video_prefs["enlarge_scale"], face_enhance=animatediff_img2video_prefs["face_enhance"])
+                    if animatediff_img2video_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=image_path, width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            export_to_gif(frames_batch, gif_file)
+            prt(Row([ImageButton(src=gif_file, width=pr['width'], height=pr['height'], data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+            if animatediff_img2video_prefs['export_to_video']:
+                try:
+                    installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                    prt(installer)
+                    out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                    if animatediff_img2video_prefs['interpolate_video']:
+                        interpolate_video(frames_dir, input_fps=animatediff_img2video_prefs['fps'], output_fps=animatediff_img2video_prefs['target_fps'], output_video=out_file, installer=installer)
+                    else:
+                        installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                        pattern = create_pattern(new_file) #fname+"-%04d.png"
+                        frames_to_video(frames_dir, pattern=pattern, input_fps=animatediff_img2video_prefs['fps'], output_fps=animatediff_img2video_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                except Exception as e:
+                    clear_last()
+                    alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                    pass
+                clear_last()
+                if not os.path.isfile(out_file):
+                    prt(f"Problem creating video file, but frames still saved...")
+                else:
+                    prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+
 def run_hotshot_xl(page):
     global hotshot_xl_prefs, prefs, status, pipe_hotshot_xl, model_path
     if not status['installed_diffusers']:
@@ -45297,7 +45838,7 @@ def toggle_stats(page):
     page.stats_used.update()
     update_stats(page)
 
-def create_pattern(filename, glob=True):
+def create_pattern(filename, glob=False):
     base, ext = os.path.splitext(filename)
     last_digits = ""
     non_digits = ""
@@ -45312,7 +45853,7 @@ def create_pattern(filename, glob=True):
     if glob:
         pattern = f"{base_name}*{ext}"
     else:
-        pattern = f"{base_name}%%0{padding}d{ext}"
+        pattern = f"{base_name}%0{padding}d{ext}"
     return pattern
 
 def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
@@ -45382,7 +45923,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
                 video = ffmpeg.filter(video, "nlmeans")
             stat("saving ffmpeg")
             #video.output(interpolated)
-            ffmpeg.output(video, interpolated, pix_fmt='yuv420p').run(overwrite_output=True)
+            ffmpeg.output(video, interpolated, vcodec='libx264', pix_fmt='yuv420p').run(overwrite_output=True)
         if output_video != None:
             if not output_video.endswith('mp4'):
                 output_video = os.path.join(output_video, "interpolated.mp4")
@@ -45394,7 +45935,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         print(f"Failed to save video {interpolated}")
         return ""
 
-def frames_to_video(frames_dir, pattern="*.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False):
+def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False):
     try:
         import ffmpeg
     except ImportError as e:
@@ -45406,7 +45947,7 @@ def frames_to_video(frames_dir, pattern="*.png", input_fps=None, output_fps=30, 
         if installer is not None: installer.status(f"...{msg}")
     stat("frames_to_video")
     input_path = os.path.join(frames_dir, pattern)
-    video = ffmpeg.input(input_path, pattern_type="glob", framerate=input_fps or output_fps)
+    video = ffmpeg.input(input_path, framerate=input_fps or output_fps)
     #video = video.pix_fmt('yuv420p')
     if input_fps is not None and input_fps != output_fps:
         stat("changing fps")
@@ -45435,7 +45976,7 @@ def frames_to_video(frames_dir, pattern="*.png", input_fps=None, output_fps=30, 
         output_video = os.path.join(os.path.dirname(frames_dir), "interpolated.mp4")
     stat("running ffmpeg")
     try:
-        out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True, pix_fmt='yuv420p').run(overwrite_output=True)
+        out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True, vcodec='libx264', pix_fmt='yuv420p').run(overwrite_output=True)
         #print("ffmpeg output:", out)
     except ffmpeg.Error as e:
         print(f"ffmpeg error:{e.stderr} pattern: {pattern} path: {input_path}")
