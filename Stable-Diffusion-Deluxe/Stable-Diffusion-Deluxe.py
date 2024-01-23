@@ -13530,9 +13530,9 @@ animatediff_img2video_prefs = {
     "batch_folder_name": '',
     "file_prefix": "animatediff-",
     "num_images": 1,
-    "width": 1024,
-    "height":1024,
-    "guidance_scale":7.5,
+    "width": 1024 if prefs['higher_vram_mode'] else 512,
+    "height":1024 if prefs['higher_vram_mode'] else 512,
+    "guidance_scale": 7.5,
     'num_inference_steps': 50,
     "seed": 0,
     'init_image': '',
@@ -13708,14 +13708,14 @@ def buildAnimateDiffImage2Video(page):
     for m in animatediff_motion_loras:
         motion_loras_checkboxes.controls.append(Checkbox(label=m['name'], data=m['name'], value=m['name'] in animatediff_img2video_prefs['motion_loras'], on_change=changed_motion_lora, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1}))
     motion_loras_strength = SliderRow(label="Motion Module LoRA Strength", min=0, max=1, divisions=10, round=1, pref=animatediff_img2video_prefs, key='motion_loras_strength', tooltip="The Weight of the custom Motion LoRA Module to influence camera.")
-    animatediff_img2video_model = Dropdown(label="AnimateDiff Model", width=240, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=animatediff_img2video_prefs['animatediff_img2video_model'], on_change=changed_model)
-    animatediff_img2video_custom_model = TextField(label="Custom AnimateDiffImage2Video Model (URL or Path)", value=animatediff_img2video_prefs['custom_model'], expand=True, visible=animatediff_img2video_prefs['animatediff_img2video_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    animatediff_img2video_model = Dropdown(label="AnimateDiff Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=animatediff_img2video_prefs['animatediff_img2video_model'], on_change=changed_model)
+    animatediff_img2video_custom_model = TextField(label="Custom AnimateDiff Model (URL or Path)", value=animatediff_img2video_prefs['custom_model'], expand=True, visible=animatediff_img2video_prefs['animatediff_img2video_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=animatediff_img2video_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     free_init = Switcher(label="Free-Init", value=animatediff_img2video_prefs['free_init'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'free_init'), tooltip="Improves temporal consistency and overall quality of videos generated using video-diffusion-models without any addition training.")
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=animatediff_img2video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     interpolate_video = Switcher(label="Interpolate Video", value=animatediff_img2video_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=animatediff_img2video_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
-    latent_interpolation_method = Dropdown(label="Latent Interpolation", width=150, options=[dropdown.Option("slerp"), dropdown.Option("lerp")], value=animatediff_img2video_prefs['latent_interpolation_method'], on_change=lambda e: changed(e, 'latent_interpolation_method'))
+    latent_interpolation_method = Dropdown(label="Latent Interpolation", width=140, options=[dropdown.Option("Slerp"), dropdown.Option("Lerp")], value=animatediff_img2video_prefs['latent_interpolation_method'], on_change=lambda e: changed(e, 'latent_interpolation_method'))
     seed = TextField(label="Seed", width=90, value=str(animatediff_img2video_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animatediff_img2video_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=animatediff_img2video_prefs, key='enlarge_scale')
@@ -13740,15 +13740,16 @@ def buildAnimateDiffImage2Video(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             video_length,
             ResponsiveRow([fps, clip_skip]),
-            Row([animatediff_img2video_model, animatediff_img2video_custom_model, latent_interpolation_method]),
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
             Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
             lora_layer_map,
+            Divider(thickness=4, height=4),
             motion_loras_checkboxes,
             motion_loras_strength,
             Divider(thickness=4, height=4),
-            Row([cpu_offload, free_init, export_to_video, interpolate_video]),
+            Row([animatediff_img2video_model, animatediff_img2video_custom_model, latent_interpolation_method]),
+            Row([cpu_offload, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_animatediff_img2video,
             parameters_row,
@@ -41377,13 +41378,13 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
                     image=init_img,
                     strength=pr['init_image_strength'],
-                    num_frames=animatediff_img2video_prefs['num_frames'],
+                    num_frames=animatediff_img2video_prefs['video_length'],
                     num_videos_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
                     num_inference_steps=pr['num_inference_steps'],
                     guidance_scale=pr['guidance_scale'],
-                    latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'], # can be lerp, slerp, or your own callback
+                    latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'].lower(), # can be lerp, slerp, or your own callback
                     generator=generator,
                     callback=callback_fnc,
                     **ip_adapter_arg,
@@ -41396,13 +41397,13 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
                     video=init_img,
                     strength=pr['init_image_strength'],
-                    num_frames=animatediff_img2video_prefs['num_frames'],
+                    num_frames=animatediff_img2video_prefs['video_length'],
                     num_videos_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
                     num_inference_steps=pr['num_inference_steps'],
                     guidance_scale=pr['guidance_scale'],
-                    latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'],
+                    latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'].lower(),
                     generator=generator,
                     callback=callback_fnc,
                     **ip_adapter_arg,
@@ -45876,7 +45877,8 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         #import frame_interpolation
         sys.path.append(frame_interpolation_dir)
     if not os.path.exists(saved_model_dir):
-        run_sp(f"gdown -q --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O {frame_interpolation_dir}", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
+        make_dir(saved_model_dir)
+        run_sp(f"gdown -q --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O {saved_model_dir}", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp('rm -rf pretrained_models-20220214T214839Z-001.zip', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
@@ -45976,10 +45978,11 @@ def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=3
         output_video = os.path.join(os.path.dirname(frames_dir), "interpolated.mp4")
     stat("running ffmpeg")
     try:
-        out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True, vcodec='libx264', pix_fmt='yuv420p').run(overwrite_output=True)
+        #out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True, vcodec='libx264', pix_fmt='yuv420p').run(overwrite_output=True)
+        ffmpeg.output(video, output_video, pix_fmt='yuv420p').run(overwrite_output=True)
         #print("ffmpeg output:", out)
     except ffmpeg.Error as e:
-        print(f"ffmpeg error:{e.stderr} pattern: {pattern} path: {input_path}")
+        print(f"ffmpeg error:{e.stderr} pattern: {pattern} path: {input_path} output: {output_video}")
         raise e
     #ffmpeg.output(video, output_video).run(overwrite_output=True)
     #video.output(output_video)
