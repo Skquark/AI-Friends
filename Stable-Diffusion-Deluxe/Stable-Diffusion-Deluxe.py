@@ -41233,7 +41233,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
     clear_list()
     autoscroll(True)
     mode = "Video2Video" if animatediff_img2video_prompts[0]['init_image'].endswith('mp4') or animatediff_img2video_prompts[0]['init_image'].endswith('gif') else "Image2Video"
-    installer = Installing("Installing AnimateDiff {mode} Engine & Models... See console for progress.")
+    installer = Installing(f"Installing AnimateDiff {mode} Engine & Models... See console for progress.")
     prt(installer)
     clear_pipes("animatediff_img2video")
     import requests
@@ -41267,7 +41267,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                 #pipe_animatediff_img2video = AutoPipelineForVideo2Video.from_pretrained(animatediff_img2video_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 status['loaded_animatediff_img2video_mode'] = mode
             #pipe_animatediff_img2video = pipeline_scheduler(pipe_animatediff_img2video)
-            pipe_animatediff_img2video.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timespace_spacing="linspace")
+            pipe_animatediff_img2video.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
             #pipe_animatediff_img2video.scheduler = AnimateDiffImage2VideoScheduler.from_config(pipe_animatediff_img2video.scheduler.config)
             if prefs['vae_slicing']:
                 pipe_animatediff_img2video.enable_vae_slicing()
