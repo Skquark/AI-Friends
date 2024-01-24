@@ -727,6 +727,7 @@ def buildImageAIs(page):
     page.LMD_Plus = buildLMD_Plus(page)
     page.LCM = buildLCM(page)
     page.LCMInterpolation = buildLCMInterpolation(page)
+    page.InstaFlow = buildInstaFlow(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
     page.DallE3 = buildDallE3(page)
@@ -748,6 +749,7 @@ def buildImageAIs(page):
             Tab(text="Kandinsky", content=page.Kandinsky, icon=icons.TOLL),
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
+            Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
@@ -756,7 +758,7 @@ def buildImageAIs(page):
             Tab(text="LMD+", content=page.LMD_Plus, icon=icons.HIGHLIGHT_ALT),
             Tab(text="LCM", content=page.LCM, icon=icons.MEMORY),
             Tab(text="LCM Interpolation", content=page.LCMInterpolation, icon=icons.TRANSFER_WITHIN_A_STATION),
-            Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
+            Tab(text="InstaFlow", content=page.InstaFlow, icon=icons.ELECTRIC_BOLT),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
@@ -6493,12 +6495,14 @@ ip_adapter_models = [
     {'name': 'Plus Face SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-plus-face_sd15.bin'},
     {'name': 'Full Face SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-full-face_sd15.bin'},
     {'name': 'Light SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15_light.bin'},
+    {'name': 'FaceID SD v1.5', 'path': 'h94/IP-Adapter-FaceID', 'weight_name': 'ip-adapter-faceid_sd15.bin'},
 ]
 ip_adapter_SDXL_models = [
     {'name': 'SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sdxl.bin'},
     {'name': 'Plus SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter-plus_sdxl_vit-h.bin'},
     {'name': 'Plus Face SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter-plus-face_sdxl_vit-h.bin'},
     {'name': 'SDXL ViT-H', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sdxl_vit-h.bin'},
+    {'name': 'InstantID SDXL', 'path': 'InstantX/InstantID', 'weight_name': 'ip-adapter.bin'},
     #{'name': 'Light SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sd15_light.bin'},
 ]
 ip_adapter_prefs = {
@@ -10524,6 +10528,113 @@ def buildLCMInterpolation(page):
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
+
+instaflow_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "instaflow-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":0.0,
+    'num_inference_steps': 1,
+    "seed": 0,
+    "cpu_offload": False,
+    "cpu_only": False,
+    "instaflow_model": "instaflow_0_9B_from_sd_1_5",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildInstaFlow(page):
+    global prefs, instaflow_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            instaflow_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            instaflow_prefs[pref] = float(e.control.value)
+          else:
+            instaflow_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def instaflow_help(e):
+      def close_instaflow_dlg(e):
+        nonlocal instaflow_help_dlg
+        instaflow_help_dlg.open = False
+        page.update()
+      instaflow_help_dlg = AlertDialog(title=Text("🙅   Help with InstaFlow Pipeline"), content=Column([
+          Text("InstaFlow is an ultra-fast, one-step image generator that achieves image quality close to Stable Diffusion, significantly reducing the demand of computational resources. This efficiency is made possible through a recent Rectified Flow technique, which trains probability flows with straight trajectories, hence inherently requiring only a single step for fast inference."),
+          Text("Rectified Flow is a novel method for learning transport maps between two distributions by connecting straight paths between the samples and learning an ODE model. Then, by a reflow operation, we iteratively straighten the ODE trajectories to eventually achieve one-step generation, with higher diversity than GAN and better FID than fast diffusion models."),
+          Text("Diffusion models have revolutionized text-to-image generation with its exceptional quality and creativity. However, its multi-step sampling process is known to be slow, often requiring tens of inference steps to obtain satisfactory results. Previous attempts to improve its sampling speed and reduce computational costs through distillation have been unsuccessful in achieving a functional one-step model. In this paper, we explore a recent method called Rectified Flow, which, thus far, has only been applied to small datasets. The core of Rectified Flow lies in its \emph{reflow} procedure, which straightens the trajectories of probability flows, refines the coupling between noises and images, and facilitates the distillation process with student models. We propose a novel text-conditioned pipeline to turn Stable Diffusion (SD) into an ultra-fast one-step model, in which we find reflow plays a critical role in improving the assignment between noise and images. Leveraging our new pipeline, we create, to the best of our knowledge, the first one-step diffusion-based text-to-image generator with SD-level image quality, achieving an FID (Frechet Inception Distance) of 23.3 on MS COCO 2017-5k, surpassing the previous state-of-the-art technique, progressive distillation, by a significant margin (37.2 → 23.3 in FID). By utilizing an expanded network with 1.7B parameters, we further improve the FID to 22.4."),
+          Markdown("[Rectified Flow](https://github.com/gnobitab/RectifiedFlow) | [Paper](https://arxiv.org/abs/2309.06380) | [Checkpoint](https://huggingface.co/XCLIU/instaflow_0_9B_from_sd_1_5)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("The pipelines were contributed by [Ayush Mangal](https://github.com/ayushtues), Sayak Paul, and Patrick von Platen.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🏇  Faster, faster!", on_click=close_instaflow_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = instaflow_help_dlg
+      instaflow_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        instaflow_prefs['instaflow_model'] = e.control.value
+        instaflow_custom_model.visible = e.control.value == "Custom"
+        instaflow_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        instaflow_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=instaflow_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=instaflow_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    #init_image = FileInput(label="Init Image (optional)", pref=instaflow_prefs, key='init_image', page=page, col={'md':6})
+    #init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=instaflow_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=instaflow_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=instaflow_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=instaflow_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=10, divisions=10, pref=instaflow_prefs, key='num_inference_steps')
+    #guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=instaflow_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=instaflow_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=instaflow_prefs, key='height')
+    instaflow_model = Dropdown(label="InstaFlow Model", width=255, options=[dropdown.Option("Custom"), dropdown.Option("instaflow_0_9B_from_sd_1_5")], value=instaflow_prefs['instaflow_model'], on_change=changed_model)
+    instaflow_custom_model = TextField(label="Custom InstaFlow Model (URL or Path)", value=instaflow_prefs['custom_model'], expand=True, visible=instaflow_prefs['instaflow_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=instaflow_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    #cpu_only = Switcher(label="CPU Only (not yet)", value=instaflow_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
+    seed = TextField(label="Seed", width=90, value=str(instaflow_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=instaflow_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=instaflow_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=instaflow_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=instaflow_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_instaflow = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_instaflow.height = None if status['installed_ESRGAN'] else 0
+    if not instaflow_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🏂   Run InstaFlow", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.instaflow_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("⚡️  InstaFlow One-Step", "Ultra-Fast One-Step High-Quality Diffusion-Based Text-to-Image Generation...", actions=[IconButton(icon=icons.HELP, tooltip="Help with InstaFlow Settings", on_click=instaflow_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            #ResponsiveRow([init_image, init_image_strength]),
+            steps,
+            #guidance,
+            width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([instaflow_model, instaflow_custom_model, cpu_offload]),
+            #Row([]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_instaflow,
+            parameters_row,
+            page.instaflow_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 ldm3d_prefs = {
     "prompt": '',
@@ -19229,6 +19340,7 @@ pipe_attend_and_excite = None
 pipe_lmd_plus = None
 pipe_lcm = None
 pipe_lcm_interpolation = None
+pipe_instaflow = None
 pipe_ldm3d = None
 pipe_ldm3d_upscale = None
 pipe_svd = None
@@ -21763,6 +21875,12 @@ def clear_lcm_interpolation_pipe():
     del pipe_lcm_interpolation
     flush()
     pipe_lcm_interpolation = None
+def clear_instaflow_pipe():
+  global pipe_instaflow
+  if pipe_instaflow is not None:
+    del pipe_instaflow
+    flush()
+    pipe_instaflow = None
 def clear_ldm3d_pipe():
   global pipe_ldm3d, pipe_ldm3d_upscale
   if pipe_ldm3d is not None:
@@ -22065,6 +22183,7 @@ def clear_pipes(allbut=None):
     if not 'lmd_plus' in but: clear_lmd_plus_pipe()
     if not 'lcm' in but: clear_lcm_pipe()
     if not 'lcm_interpolation' in but: clear_lcm_interpolation_pipe()
+    if not 'instaflow' in but: clear_instaflow_pipe()
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'svd' in but: clear_svd_pipe()
     if not 'animatediff_img2video' in but: clear_animatediff_img2video_pipe()
@@ -26428,6 +26547,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
     else:
         model = get_model(prefs['model_ckpt'])
         ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == ip_adapter_prefs['ip_adapter_model'])
+    #use_faceid = 'FaceID' in ip_adapter_model['name'] or 'InstantID' in ip_adapter_model['name']
     model_id = model['path']
     variant = {'variant': model['revision']} if 'revision' in model else {}
     variant = {'variant': model['variant']} if 'variant' in model else variant
@@ -26441,6 +26561,37 @@ def run_ip_adapter(page, from_list=False, with_params=False):
         mode = "img2img"
     else:
         mode = "txt2img"
+    if 'FaceID' in ip_adapter_model['name'] or 'InstantID' in ip_adapter_model['name']:
+        use_faceid = True
+        mode = "faceid"
+        try:
+            import insightface
+        except Exception:
+            pip_install("insightface", installer=installer)
+        finally:
+            import insightface
+            from insightface.app import FaceAnalysis
+        from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline, draw_kps
+        checkpoint_dir = prefs['cache_dir'] if bool(prefs['cache_dir']) else os.path.join(root_dir, 'checkpoints')
+        instantid_dir = os.path.join(checkpoint_dir, "models--InstantX--InstantID")
+        if not os.path.exists(instantid_dir):
+            installer.status("...download InstantID")
+            antelopev2_zip = os.path.join(instantid_dir, "antelopev2.zip")
+            import gdown
+            gdown("https://drive.google.com/file/d/18wEUfMNohBJ4K3Ly5wpTejPfDzp-8fI8/view?usp=sharing", antelopev2_zip)
+            run_sp(f"unzip {antelopev2_zip} -d {os.path.join(instantid_dir, 'antelopev2')}", realtime=False)
+            os.remove(antelopev2_zip)
+            from huggingface_hub import hf_hub_download
+            hf_hub_download(repo_id="InstantX/InstantID", filename="ControlNetModel/config.json", local_dir=instantid_dir)
+            hf_hub_download(repo_id="InstantX/InstantID", filename="ControlNetModel/diffusion_pytorch_model.safetensors", local_dir=instantid_dir)
+            hf_hub_download(repo_id="InstantX/InstantID", filename="ip-adapter.bin", local_dir=instantid_dir)
+        app = FaceAnalysis(name='antelopev2', root=instantid_dir, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+        app.prepare(ctx_id=0, det_size=(640, 640))
+        face_adapter = os.path.join(instantid_dir, 'ip-adapter.bin')
+        controlnet_path =  os.path.join(instantid_dir, 'ControlNetModel')
+        installer.status("...load IdentityNet")
+        from diffusers.models import ControlNetModel
+        controlnet = ControlNetModel.from_pretrained(controlnet_path, torch_dtype=torch.float16)
     import requests
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
@@ -26464,6 +26615,15 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             elif mode == "img2img":
                 pipe_ip_adapter = AutoPipelineForImage2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
                 status['loaded_ip_adapter_mode'] = "img2img"
+            elif mode == "faceid":
+                if use_SDXL:
+                    #from diffusers import StableDiffusionXLInstantIDPipeline
+                    from pipeline_stable_diffusion_xl_instantid import StableDiffusionXLInstantIDPipeline
+                    pipe_ip_adapter = StableDiffusionXLInstantIDPipeline.from_pretrained(model_id, controlnet=controlnet, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
+                else:
+                    from diffusers import DiffusionPipeline
+                    pipe_ip_adapter = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="ip_adapter_face_id", controlnet=controlnet, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
+                status['loaded_ip_adapter_mode'] = "faceid"
             else:
                 pipe_ip_adapter = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant, **safety)
                 status['loaded_ip_adapter_mode'] = "txt2img"
@@ -26489,7 +26649,13 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                 return
         if prefs['scheduler_mode'] != status['loaded_scheduler']:
             pipe_ip_adapter = pipeline_scheduler(pipe_ip_adapter)
-    pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+    if use_faceid:
+        if use_SDXL:
+            pipe_ip_adapter.load_ip_adapter_instantid(face_adapter)
+        else:
+            pipe_ip_adapter.load_ip_adapter_face_id(ip_adapter_model['path'], weight_name=ip_adapter_model['weight_name'])
+    else:
+        pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
     pipe_ip_adapter.set_ip_adapter_scale(ip_adapter_prefs['ip_adapter_strength'])
     if ip_adapter_prefs['ip_adapter_image'].startswith('http'):
         ip_adapter_image = PILImage.open(requests.get(ip_adapter_prefs['ip_adapter_image'], stream=True).raw)
@@ -26501,6 +26667,14 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             return
     #init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
     ip_adapter_image = ImageOps.exif_transpose(ip_adapter_image).convert("RGB")
+    if use_faceid:
+        face_info = app.get(cv2.cvtColor(np.array(ip_adapter_image), cv2.COLOR_RGB2BGR))
+        if use_SDXL:
+            face_info = sorted(face_info, key=lambda x:(x['bbox'][2]-x['bbox'][0])*x['bbox'][3]-x['bbox'][1])[-1]  # only use the maximum face
+            face_emb = face_info['embedding']
+            face_kps = draw_kps(ip_adapter_image, face_info['kps'])
+        else:
+            face_emb = torch.from_numpy(face_info[0].normed_embedding).unsqueeze(0)
     clear_last()
     s = "" if len(ip_adapter_prompts) == 0 else "s"
     prt(f"Generating your IP-Adapter Image{s}...")
@@ -26537,6 +26711,8 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             mask_img = mask_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
             mask_img = ImageOps.exif_transpose(mask_img).convert("RGB")
         mode = "inpaint" if init_img != None and mask_img != None else "img2img" if init_img != None else "txt2img"
+        if use_faceid:
+            mode = "faceid"
         try:
             if status['loaded_ip_adapter_mode'] != mode:
                 pipe_ip_adapter = change_mode(pipe_ip_adapter, mode)
@@ -26569,6 +26745,34 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                     generator=generator,
                     callback_on_step_end=callback_fnc,
                 ).images
+            elif mode == "faceid":
+                if use_SDXL:
+                    images = pipe_ip_adapter(
+                        prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                        num_images_per_prompt=pr['num_images'],
+                        height=pr['height'],
+                        width=pr['width'],
+                        image_embeds=face_emb,
+                        image=face_kps,
+                        controlnet_conditioning_scale=pr['init_image_strength'],
+                        num_inference_steps=pr['num_inference_steps'],
+                        guidance_scale=pr['guidance_scale'],
+                        #ip_adapter_image=ip_adapter_image,
+                        generator=generator,
+                        callback_on_step_end=callback_fnc,
+                    ).images
+                else:
+                    images = pipe_ip_adapter(
+                        prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                        num_images_per_prompt=pr['num_images'],
+                        height=pr['height'],
+                        width=pr['width'],
+                        image_embeds=face_emb,
+                        num_inference_steps=pr['num_inference_steps'],
+                        guidance_scale=pr['guidance_scale'],
+                        generator=generator,
+                        callback_on_step_end=callback_fnc,
+                    ).images
             else:
                 images = pipe_ip_adapter(
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
@@ -37619,6 +37823,209 @@ def run_lcm_interpolation(page):
             prt(Row([VideoContainer(out_file, fps=lcm_interpolation_prefs['target_fps'], width=lcm_interpolation_prefs['width'], height=lcm_interpolation_prefs['height'])], alignment=MainAxisAlignment.CENTER))
         except:
             pass
+
+def run_instaflow(page, from_list=False, with_params=False):
+    global instaflow_prefs, pipe_instaflow, prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    instaflow_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            instaflow_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':instaflow_prefs['guidance_scale'], 'num_inference_steps':instaflow_prefs['num_inference_steps'], 'width':instaflow_prefs['width'], 'height':instaflow_prefs['height'], 'num_images':instaflow_prefs['num_images'], 'seed':instaflow_prefs['seed']})
+        else:
+            instaflow_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(instaflow_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      instaflow_prompts.append({'prompt': instaflow_prefs['prompt'], 'negative_prompt':instaflow_prefs['negative_prompt'], 'guidance_scale':instaflow_prefs['guidance_scale'], 'num_inference_steps':instaflow_prefs['num_inference_steps'], 'width':instaflow_prefs['width'], 'height':instaflow_prefs['height'], 'num_images':instaflow_prefs['num_images'], 'seed':instaflow_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.InstaFlow.controls.append(line)
+        if update:
+          page.InstaFlow.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.InstaFlow, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.InstaFlow.auto_scroll = scroll
+        page.InstaFlow.update()
+      else:
+        page.InstaFlow.auto_scroll = scroll
+        page.InstaFlow.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.InstaFlow.controls = page.InstaFlow.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = instaflow_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing InstaFlow Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("instaflow")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = instaflow_prefs['cpu_offload']
+    instaflow_model = "XCLIU/instaflow_0_9B_from_sd_1_5" if instaflow_prefs['instaflow_model'] == "instaflow_0_9B_from_sd_1_5" else instaflow_prefs['instaflow_custom_model']
+    if 'loaded_instaflow' not in status: status['loaded_instaflow'] = ""
+    if instaflow_model != status['loaded_instaflow']:
+        clear_pipes()
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/InstaFlow-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    
+    from diffusers import DiffusionPipeline
+    if pipe_instaflow == None:
+        installer.status(f"...initialize InstaFlow Pipeline")
+        try:
+            pipe_instaflow = DiffusionPipeline.from_pretrained(instaflow_model, torch_dtype=torch.float16, custom_pipeline="instaflow_one_step", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+            #pipe_instaflow = pipeline_scheduler(pipe_instaflow)
+            #pipe_instaflow.scheduler = InstaFlowScheduler.from_config(pipe_instaflow.scheduler.config)
+            if prefs['vae_slicing']:
+                pipe_instaflow.enable_vae_slicing()
+            if prefs['vae_tiling']:
+                pipe_instaflow.enable_vae_tiling()
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_instaflow.transformer = torch.compile(pipe_instaflow.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_instaflow = pipe_instaflow.to(torch_device)
+            elif cpu_offload:
+                pipe_instaflow.enable_model_cpu_offload()
+            else:
+                pipe_instaflow.to(torch_device)
+            pipe_instaflow.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing InstaFlow...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_instaflow'] = instaflow_model
+    else:
+        clear_pipes('instaflow')
+
+    clear_last()
+    s = "" if len(instaflow_prompts) == 0 else "s"
+    prt(f"Generating your InstaFlow Image{s}...")
+    for pr in instaflow_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator().manual_seed(random_seed)
+        try:
+            images = pipe_instaflow(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=0.0,#pr['guidance_scale'],
+                generator=generator,
+                callback=callback_fnc,
+            ).images
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(instaflow_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, instaflow_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{instaflow_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not instaflow_prefs['display_upscaled_image'] or not instaflow_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], instaflow_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': instaflow_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = image_path.rpartition(slash)[0]
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if instaflow_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=instaflow_prefs["enlarge_scale"], face_enhance=instaflow_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if instaflow_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(instaflow_prefs["enlarge_scale"]), height=pr['height'] * float(instaflow_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if prefs['save_image_metadata']:
+                img = PILImage.open(image_path)
+                metadata = PngInfo()
+                metadata.add_text("artist", prefs['meta_ArtistName'])
+                metadata.add_text("copyright", prefs['meta_Copyright'])
+                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {instaflow_prefs['enlarge_scale']}x with ESRGAN" if instaflow_prefs['apply_ESRGAN_upscale'] else "")
+                metadata.add_text("pipeline", f"InstaFlow")
+                if prefs['save_config_in_metadata']:
+                    config_json = instaflow_prefs.copy()
+                    config_json['model_path'] = instaflow_model
+                    config_json['seed'] = random_seed
+                    del config_json['num_images']
+                    del config_json['display_upscaled_image']
+                    del config_json['batch_folder_name']
+                    if not config_json['apply_ESRGAN_upscale']:
+                        del config_json['enlarge_scale']
+                        del config_json['apply_ESRGAN_upscale']
+                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+                img.save(image_path, pnginfo=metadata)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], instaflow_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], instaflow_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_ldm3d(page, from_list=False, with_params=False):
     global ldm3d_prefs, pipe_ldm3d, pipe_ldm3d_upscale, prefs
