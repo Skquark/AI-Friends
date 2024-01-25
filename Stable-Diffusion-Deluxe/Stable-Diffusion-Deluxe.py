@@ -844,7 +844,7 @@ def buildVideoAIs(page):
             Tab(text="AnimateDiff", content=page.AnimateDiff, icon=icons.AUTO_MODE),
             Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="SVD Image-to-Video", content=page.SVD, icon=icons.SLOW_MOTION_VIDEO),
-            Tab(text="AnimateDiff Image-to-Video", content=page.AnimateDiffImage2Video, icon=icons.CATCHING_POKEMON),
+            Tab(text="AnimateDiff to-Video", content=page.AnimateDiffImage2Video, icon=icons.CATCHING_POKEMON),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
@@ -1269,27 +1269,76 @@ def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False,
     return output
 
 def close_alert_dlg(e):
-      e.page.alert_dlg.open = False
-      e.page.update()
-def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=False):
-      try:
+    e.page.alert_dlg.open = False
+    e.page.update()
+def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=False, debug_pref=None):
+    try:
         if page.alert_dlg.open == True: return
-      except Exception: pass
-      try:
+    except Exception: pass
+    try:
         if prefs['enable_sounds'] and sound: page.snd_error.play()
-      except Exception:
+    except Exception:
         msg += " May have to restart runtime."
         pass
-      okay_button = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
-      if content == None: content = Container(content=None)
-      if not isinstance(content, list):
-          content = [content]
-      page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=[okay_button], actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
-      page.dialog = page.alert_dlg
-      page.alert_dlg.open = True
-      try:
+    def send_debug(e):
+        debug_msg = msg + "\n\n"
+        for c in content:
+            if isinstance(c, Text):
+                debug_msg += c.value + "\n"
+        import platform
+        memory = f"GPU VRAM: {status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB{' - on Colab' if is_Colab else ''}"
+        os_info = f" - OS: {platform.system()} {platform.version()}"
+        debug_msg += memory + os_info + "\n"
+        if debug_pref != None:
+            debug_msg += str(debug_pref)
+        # TODO: Add another window to submit report with optional From name, email & notes befor sending
+        send_debug_email(debug_msg)
+        page.snack_bar = SnackBar(content=Text(f"📧  Sent Debug Crash Report Email to Skquark... Thanks for helping Beta-Test."))
+        page.snack_bar.open = True
         page.update()
-      except Exception: pass
+    show_debug = content != None and sound
+    okay_button = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
+    debug_button = Container(content=None) if not show_debug else ft.OutlinedButton(content=Text("Submit Error", size=18), on_click=send_debug)
+    if content == None: content = Container(content=None)
+    if not isinstance(content, list):
+        content = [content]
+    page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=[debug_button, okay_button], actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
+    page.dialog = page.alert_dlg
+    page.alert_dlg.open = True
+    try:
+        page.update()
+    except Exception: pass
+
+def send_debug_email(exception_info, subject="DiffusionDeluxe Error", from_name=None, from_email=None):
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+    except ModuleNotFoundError:
+        run_sp("pip install secure-smtplib")
+        import smtplib
+        from email.mime.text import MIMEText
+        pass
+    email_from = "Skquark@diffusiondeluxe.com"
+    email_password = "StableDiff"
+    email_to = "Alan@Skquark.com"
+    smtp_server = "mail.diffusiondeluxe.com"
+    smtp_port = 587#465
+    body = f"An error occurred:\n\n{exception_info}"
+    msg = MIMEText(body, _subtype='plain', _charset='utf-8')
+    msg["Subject"] = subject
+    msg["From"] = email_from
+    msg["To"] = email_to
+    if bool(from_name):
+        msg["From"] = f"{from_name} <{from_email if bool(from_email) else email_from}>"
+    if bool(from_email):
+        msg["Reply-To"] = from_email
+    try:
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(email_from, email_password)
+            server.sendmail(email_from, [email_to], msg.as_string())
+    except Exception as e:
+        print(f"Failed to send email: {e}")
 
 def save_installers(controls):
   for c in controls:
@@ -10059,7 +10108,7 @@ def buildPixArtAlpha(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pixart_alpha_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_alpha_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_alpha_prefs, key='height')
-    pixart_model = Dropdown(label="PixArt-α Model", width=230, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512"), dropdown.Option("PixArt-LCM-XL-2-1024-MS")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
+    pixart_model = Dropdown(label="PixArt-α Model", width=240, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512"), dropdown.Option("PixArt-LCM-XL-2-1024-MS")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-α Model (URL or Path)", value=pixart_alpha_prefs['custom_model'], expand=True, visible=pixart_alpha_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     clean_caption = Switcher(label="Clean Caption", value=pixart_alpha_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
     resolution_binning = Switcher(label="Resolution Binning", value=pixart_alpha_prefs['resolution_binning'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'resolution_binning'), tooltip="The requested height and width are first mapped to the closest resolutions using `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to the requested resolution. Useful for generating non-square images.")
@@ -10602,7 +10651,7 @@ def buildInstaFlow(page):
     page.ESRGAN_block_instaflow.height = None if status['installed_ESRGAN'] else 0
     if not instaflow_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="🏂   Run InstaFlow", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page))
+    parameters_button = ElevatedButton(content=Text(value="⛹️   Run InstaFlow", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instaflow(page, from_list=True, with_params=True))
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
@@ -13651,7 +13700,7 @@ animatediff_img2video_prefs = {
     'video_length': 16,
     'fps': 8,
     'target_fps': 25,
-    'latent_interpolation_method': "slerp",
+    'latent_interpolation_method': "Slerp",
     'clip_skip': 1,
     'lora_alpha': 0.8,
     'custom_lora': '',
@@ -13710,7 +13759,7 @@ def buildAnimateDiffImage2Video(page):
         page.update()
       animatediff_img2video_help_dlg = AlertDialog(title=Text("🙅   Help with AnimateDiff Image2Video Pipeline"), content=Column([
           Text("Experimental Image-To-Video support for AnimateDiff (open to improvements)."),
-          #Text(""),
+          Text("AnimateDiff can also be used to generate visually similar videos or enable style/character/background or other edits starting from an initial video, allowing you to seamlessly explore creative possibilities."),
           Markdown("[Diffusers Project](https://github.com/huggingface/diffusers/pull/6328) | [Colab](https://drive.google.com/file/d/1TvzCDPHhfFtdcJZe4RLloAwyoLKuttWK/view?usp=sharing) | [Aryan V S](https://github.com/a-r-r-o-w)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😈  It's Alive!", on_click=close_animatediff_img2video_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -13777,7 +13826,7 @@ def buildAnimateDiffImage2Video(page):
         ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=animatediff_img2video_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=animatediff_img2video_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
-    init_image = FileInput(label="Init Image", pref=animatediff_img2video_prefs, key='init_image', page=page, col={'md':6})
+    init_image = FileInput(label="Init Image or Video", pref=animatediff_img2video_prefs, key='init_image', ftype="picture", page=page, col={'md':6})
     init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=animatediff_img2video_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     video_length = SliderRow(label="Video Length", min=1, max=64, divisions=63, pref=animatediff_img2video_prefs, key='video_length', tooltip="The number of frames to animate.")
     batch_folder_name = TextField(label="Batch Folder Name", value=animatediff_img2video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -13844,7 +13893,7 @@ def buildAnimateDiffImage2Video(page):
     page.animatediff_img2video_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🐉  AnimateDiff Image-to-Video", "Bring an Image to Life, similar to Stable Video Diffusion, with more control...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Image2Video Settings", on_click=animatediff_img2video_help)]),
+            Header("🐉  AnimateDiff Image/Video-to-Video", "Bring an Image or Video Clip to Life, similar to Stable Video Diffusion, with more control...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Image2Video Settings", on_click=animatediff_img2video_help)]),
             ResponsiveRow([init_image, init_image_strength]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
@@ -23533,10 +23582,10 @@ def start_diffusion(page):
             clear_pipes()
             pass
           else:
-            alert_msg(page, f"RUNTIME ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+            alert_msg(page, f"RUNTIME ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]), debug_pref=arg)
             pass
         except Exception as e:
-          alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+          alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]), debug_pref=arg)
           abort_run = True
           pass
         finally:
@@ -24738,7 +24787,7 @@ def run_distil_gpt2(page):
             pipe_distil_gpt2 = GPT2LMHeadModel.from_pretrained('FredZhang7/distilgpt2-stable-diffusion-v2')
         except Exception as e:
             clear_last()
-            alert_msg(page, "Error Initializing Distil GPT-2 Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            alert_msg(page, "Error Initializing Distil GPT-2 Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]), debug_pref=distil_gpt2_prefs)
             return
 
     clear_last()
@@ -25601,7 +25650,7 @@ def run_image_variation(page):
     except Exception as e:
         clear_last()
         clear_last()
-        alert_msg(page, "Error running pipeline", content=Text(str(e)))
+        alert_msg(page, "Error running pipeline", content=Text(str(e)), debug_pref=image_variation_prefs)
         return
     clear_last()
     clear_last()
@@ -25921,7 +25970,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
             loaded_blip_diffusion_task = task_type
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing BLIP Diffusion, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            alert_msg(page, f"ERROR Initializing BLIP Diffusion, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]), debug_pref=blip_diffusion_prefs)
             return
     else:
         clear_pipes('blip_diffusion')
@@ -26010,7 +26059,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
         except Exception as e:
             clear_last()
             clear_last()
-            alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            alert_msg(page, f"ERROR: Something went wrong generating {task_type} images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]), debug_pref=blip_diffusion_prefs)
             return
         clear_last()
         clear_last()
@@ -26296,7 +26345,7 @@ def run_anytext(page, from_list=False, with_params=False):
             pipe_anytext = pipeline('my-anytext-task', model=anytext_model, model_revision='v1.1.2', use_fp16=not prefs['higher_vram_mode'], use_translator=False, font_path=f'font/{ttf}')
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Initializing AnyText...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=anytext_prefs)
             return
     clear_last()
     s = "" if len(anytext_prompts) == 0 else "s"
@@ -26381,7 +26430,7 @@ def run_anytext(page, from_list=False, with_params=False):
         except Exception as e:
             clear_last(2)
             os.chdir(root_dir)
-            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=anytext_prefs)
             return
         if rtn_code == 0:
             clear_last(2)
@@ -26625,7 +26674,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             pipe_ip_adapter.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing IP-Adapter...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Initializing IP-Adapter...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=ip_adapter_prefs)
             return
         status['loaded_ip_adapter'] = model_id
     else:
@@ -26993,7 +27042,7 @@ def run_reference(page, from_list=False):
                 images = pipe_reference(ref_image=init_img, prompt=pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=pr['num_inference_steps'], attention_auto_machine_weight=reference_prefs['attention_auto_machine_weight'], gn_auto_machine_weight=reference_prefs['gn_auto_machine_weight'], style_fidelity=reference_prefs['style_fidelity'], reference_attn=reference_prefs['reference_attn'], reference_adain=reference_prefs['reference_adain'], guidance_scale=pr['guidance_scale'], width=width, height=height, num_images_per_prompt=reference_prefs['batch_size'], callback=callback_fnc, callback_steps=1).images
             except Exception as e:
                 clear_last()
-                alert_msg(page, "Error running Reference Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+                alert_msg(page, "Error running Reference Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]), debug_pref=reference_prefs)
                 return
             autoscroll(True)
             clear_last()
@@ -27206,7 +27255,7 @@ def run_controlnet_qr(page, from_list=False):
                 
         except Exception as e:
             clear_last()
-            alert_msg(page, "Error Installing ControlNet QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, "Error Installing ControlNet QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=controlnet_qr_prefs)
             return
         clear_last()
     else:
@@ -27298,7 +27347,7 @@ def run_controlnet_qr(page, from_list=False):
                 images = pipe_controlnet_qr(prompt=[pr['prompt']] * batch_size, negative_prompt=[pr['negative_prompt']] * batch_size, image=[init_img] * batch_size, control_image=qrcode_image, num_inference_steps=pr['num_inference_steps'], guidance_scale=pr['guidance_scale'], controlnet_conditioning_scale=float(controlnet_qr_prefs['conditioning_scale']), control_guidance_start=controlnet_qr_prefs['control_guidance_start'], control_guidance_end=controlnet_qr_prefs['control_guidance_end'], width=width, height=height, num_images_per_prompt=controlnet_qr_prefs['batch_size'], strength=pr['strength'], generator=generator, callback=callback_fnc, callback_steps=1, **ip_adapter_args).images
             except Exception as e:
                 clear_last()
-                alert_msg(page, "Error running ControlNet-QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                alert_msg(page, "Error running ControlNet-QRCode Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=controlnet_qr_prefs)
                 return
             autoscroll(True)
             clear_last()
@@ -39948,6 +39997,7 @@ def run_svd(page):
         #    time.sleep(0.2)
         #shutil.copy(image_path, os.path.join(frames_dir, new_file))
         # TODO: Add Metadata
+        
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
         #idx += 1
     if svd_prefs['export_to_video']:
@@ -41635,6 +41685,14 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
+    def callback_step(pipe, step, timestep, callback_kwargs):
+      callback_step.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
     if from_list:
       page.tabs.selected_index = 4
       page.tabs.update()
@@ -41657,9 +41715,10 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
         clear_pipes()
     #from optimum.intel import OVLatentConsistencyModelPipeline
     #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/AnimateDiffImage2Video-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
-    
+    if mode == "Video2Video":
+        pip_install("imageio", installer=installer)
     #from diffusers import AutoPipelineForVideo2Video, AutoPipelineForImage2Video, AnimateDiffImage2VideoScheduler
-    from diffusers import MotionAdapter, DiffusionPipeline, DDIMScheduler
+    from diffusers import MotionAdapter, DiffusionPipeline, AnimateDiffVideoToVideoPipeline, DDIMScheduler
     from diffusers.utils import export_to_gif, load_image
 
     if pipe_animatediff_img2video == None:
@@ -41669,19 +41728,21 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
             if mode == "Image2Video":
                 pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_img2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_animatediff_img2video = AutoPipelineForImage2Video.from_pretrained(animatediff_img2video_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_animatediff_img2video.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
                 status['loaded_animatediff_img2video_mode'] = mode
             else:
-                pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_video2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_animatediff_img2video = AnimateDiffVideoToVideoPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                #pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_video2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_animatediff_img2video = AutoPipelineForVideo2Video.from_pretrained(animatediff_img2video_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_animatediff_img2video.scheduler = DDIMScheduler.from_pretrained(animatediff_img2video_model, subfolder="scheduler", clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
                 status['loaded_animatediff_img2video_mode'] = mode
             #pipe_animatediff_img2video = pipeline_scheduler(pipe_animatediff_img2video)
-            pipe_animatediff_img2video.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
             #pipe_animatediff_img2video.scheduler = AnimateDiffImage2VideoScheduler.from_config(pipe_animatediff_img2video.scheduler.config)
             if prefs['vae_slicing']:
                 pipe_animatediff_img2video.enable_vae_slicing()
             if prefs['vae_tiling']:
                 pipe_animatediff_img2video.enable_vae_tiling()
-            if animatediff_img2video_prefs['free_init']:
+            if animatediff_img2video_prefs['free_init']: #Not yet
                 installer.status(f"...enable Free-Init")
                 pipe_animatediff_img2video.enable_free_init(method="butterworth", use_fast_sampling=True)
             if prefs['enable_freeu']:
@@ -41759,23 +41820,41 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
     for pr in animatediff_img2video_prompts:
         prt(progress)
         autoscroll(False)
-        mode = "Video2Video" if pr['init_image'].endswith('mp4') or pr['init_image'].endswith('gif') else "Image2Video"
+        mode = "Video2Video" if pr['init_image'].endswith('mp4', 'gif') else "Image2Video"
         total_steps = pr['num_inference_steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator().manual_seed(random_seed)
         init_img = None
         if bool(pr['init_image']):
             fname = os.path.basename(pr['init_image'])
-            if pr['init_image'].startswith('http'):
-                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
-            else:
-                if os.path.isfile(pr['init_image']):
-                    init_img = PILImage.open(pr['init_image'])
+            if mode != "Video2Video":
+                if pr['init_image'].startswith('http'):
+                    init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
                 else:
-                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
-                    return
-            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
-            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+                    if os.path.isfile(pr['init_image']):
+                        init_img = PILImage.open(pr['init_image'])
+                    else:
+                        alert_msg(page, f"ERROR: Couldn't find your init image {pr['init_image']}")
+                        return
+                init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+                init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            else:
+                init_img = []
+                import imageio
+                if pr['init_image'].startswith(('http://', 'https://')):
+                    response = requests.get(pr['init_image'])
+                    response.raise_for_status()
+                    content = BytesIO(response.content)
+                    vid = imageio.get_reader(content)
+                else:
+                    if os.path.isfile(pr['init_image']):
+                        vid = imageio.get_reader(pr['init_image'])
+                    else:
+                        alert_msg(page, f"ERROR: Couldn't find your init video {pr['init_image']}")
+                        return
+                for frame in vid:
+                    pil_image = PILImage.fromarray(frame)
+                    init_img.append(pil_image)
         try:
             if mode == "Image2Video":
                 if status['loaded_animatediff_img2video_mode'] != "Image2Video":
@@ -41791,6 +41870,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     width=pr['width'],
                     num_inference_steps=pr['num_inference_steps'],
                     guidance_scale=pr['guidance_scale'],
+                    clip_skip=animatediff_img2video_prefs['clip_skip'],
                     latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'].lower(), # can be lerp, slerp, or your own callback
                     generator=generator,
                     callback=callback_fnc,
@@ -41804,15 +41884,16 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
                     video=init_img,
                     strength=pr['init_image_strength'],
-                    num_frames=animatediff_img2video_prefs['video_length'],
+                    #num_frames=animatediff_img2video_prefs['video_length'],
                     num_videos_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
                     num_inference_steps=pr['num_inference_steps'],
                     guidance_scale=pr['guidance_scale'],
-                    latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'].lower(),
+                    clip_skip=animatediff_img2video_prefs['clip_skip'],
+                    #latent_interpolation_method=animatediff_img2video_prefs['latent_interpolation_method'].lower(),
                     generator=generator,
-                    callback=callback_fnc,
+                    callback_on_step_end=callback_step,
                     **ip_adapter_arg,
                 ).frames
         except Exception as e:
@@ -42407,7 +42488,7 @@ def run_materialdiffusion(page):
             newFolder.Upload()
             batch_output = newFolder
         out_path = batch_output# if save_to_GDrive else txt2img_output
-
+        new_path = os.path.join(out_path, new_file)
         if materialdiffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = os.path.join(out_path, new_file)
             upscale_image(image_path, upscaled_path, scale=materialdiffusion_prefs["enlarge_scale"])
@@ -42415,10 +42496,11 @@ def run_materialdiffusion(page):
             if materialdiffusion_prefs['display_upscaled_image']:
                 prt(Row([Img(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
+            new_path
             try:
-              shutil.copy(image_path, os.path.join(out_path, new_file))
+              shutil.copy(image_path, new_path)
             except shutil.SameFileError: pass
-        # TODO: Add Metadata
+        save_metadata(new_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     del rep_model, rep_version
     autoscroll(False)
@@ -43723,7 +43805,7 @@ def run_dall_e(page, from_list=False):
                     #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
-            # TODO: Add Metadata
+            save_metadata(new_path, dall_e_prefs, "Dall-E 2")
             prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -43885,7 +43967,7 @@ def run_dall_e_3(page, from_list=False):
                     #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
-            # TODO: Add Metadata
+            save_metadata(new_path, dall_e_3_prefs, "Dall-E 3")
             prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -44632,16 +44714,16 @@ def run_kandinsky21(page):
             newFolder.Upload()
             batch_output = newFolder
         out_path = batch_output# if save_to_GDrive else txt2img_output
-
+        new_path = os.path.join(out_path, new_file)
         if kandinsky21_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscaled_path = os.path.join(out_path, new_file)
+            upscaled_path = new_path
             upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
             if kandinsky21_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
-            shutil.copy(image_path, os.path.join(out_path, new_file))
-        # TODO: Add Metadata
+            shutil.copy(image_path, new_path)
+        save_metadata(new_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -44796,7 +44878,7 @@ def run_kandinsky_fuse(page):
             newFolder.Upload()
             batch_output = newFolder
         out_path = batch_output# if save_to_GDrive else txt2img_output
-
+        new_path = os.path.join(out_path, new_file)
         if kandinsky_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = os.path.join(out_path, new_file)
             upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"])
@@ -44805,8 +44887,8 @@ def run_kandinsky_fuse(page):
                 prt(Row([Img(src=upscaled_path, width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             time.sleep(1.2)
-            shutil.copy(image_path, os.path.join(out_path, new_file))
-        # TODO: Add Metadata
+            shutil.copy(image_path, new_path)
+        save_metadata(new_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -44932,16 +45014,16 @@ def run_kandinsky21_fuse(page):
             newFolder.Upload()
             batch_output = newFolder
         out_path = batch_output# if save_to_GDrive else txt2img_output
-
+        new_path = os.path.join(out_path, new_file)
         if kandinsky21_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscaled_path = os.path.join(out_path, new_file)
+            upscaled_path = new_path
             upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
             if kandinsky21_fuse_prefs['display_upscaled_image']:
                 time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
-            shutil.copy(image_path, os.path.join(out_path, new_file))
-        # TODO: Add Metadata
+            shutil.copy(image_path, new_path)
+        save_metadata(new_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
@@ -45658,7 +45740,7 @@ class FileInput(UserControl):
             gif_ext = ["gif", "GIF"]
             aud_ext = ["mp3", "wav", "MP3", "WAV"]
             font_ext = ["ttf", "TTF"]
-            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+vid_ext if self.ftype == "picture" else img_ext
+            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
             self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
         def changed(e):
@@ -46246,6 +46328,50 @@ def toggle_stats(page):
     page.stats_used.update()
     update_stats(page)
 
+def save_metadata(image_path, pref, pipeline="", model="", seed=None, extra={}):
+    if prefs['save_image_metadata']:
+        img = PILImage.open(image_path)
+        from PIL.PngImagePlugin import PngInfo
+        metadata = PngInfo()
+        metadata.add_text("artist", prefs['meta_ArtistName'])
+        metadata.add_text("copyright", prefs['meta_Copyright'])
+        upscaled = "" if 'apply_ESRGAN_upscale' not in pref else (f", upscaled {pref['enlarge_scale']}x with ESRGAN" if pref['apply_ESRGAN_upscale'] else "")
+        metadata.add_text("software", f"Stable Diffusion Deluxe{upscaled}")
+        metadata.add_text("website", "https://DiffusionDeluxe.com")
+        if bool(pipeline):
+            metadata.add_text("pipeline", pipeline)
+        if prefs['save_config_in_metadata']:
+            if 'prompt' in pref:
+                metadata.add_text("title", pref['prompt'])
+            config_json = pref.copy()
+            if bool(model): config_json['model_path'] = model
+            if bool(seed): config_json['seed'] = seed
+            if 'num_images' in pref: del config_json['num_images']
+            if 'num_videos' in pref: del config_json['num_videos']
+            if 'batch_folder_name' in pref: del config_json['batch_folder_name']
+            if 'file_name' in pref: del config_json['file_name']
+            if 'max_size' in pref: del config_json['max_size']
+            if 'apply_ESRGAN_upscale' in pref:
+                if 'display_upscaled_image' in pref: del config_json['display_upscaled_image']
+                if not config_json['apply_ESRGAN_upscale']:
+                    del config_json['enlarge_scale']
+                    del config_json['apply_ESRGAN_upscale']
+                else:
+                    config_json['upscale_model'] = prefs['upscale_model']
+            if extra:
+                config_json.update(extra)
+            metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
+        if image_path.endswith("jpg"):
+            metadata_dict = dict(metadata.items())
+            img.info['metadata'] = metadata_dict
+            img.save(image_path)
+        else:
+            img.save(image_path, pnginfo=metadata)
+        img.close()
+        return img
+    else:
+        return img
+
 def create_pattern(filename, glob=False):
     base, ext = os.path.splitext(filename)
     last_digits = ""
@@ -46264,7 +46390,7 @@ def create_pattern(filename, glob=False):
         pattern = f"{base_name}%0{padding}d{ext}"
     return pattern
 
-def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False):
+def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=None, recursive_interpolation_passes=None, installer=None, denoise=False, sharpen=False, deflicker=False, metadata=None):
     frame_interpolation_dir = os.path.join(root_dir, 'frame-interpolation')
     saved_model_dir = os.path.join(frame_interpolation_dir, 'pretrained_models')
     photos_dir = os.path.join(frame_interpolation_dir, 'photos')
@@ -46331,8 +46457,9 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
                 stat("denoise")
                 video = ffmpeg.filter(video, "nlmeans")
             stat("saving ffmpeg")
+            meta = {'metadata': metadata} if bool(metadata) else {}
             #video.output(interpolated)
-            ffmpeg.output(video, interpolated, vcodec='libx264', pix_fmt='yuv420p').run(overwrite_output=True)
+            ffmpeg.output(video, interpolated, vcodec='libx264', pix_fmt='yuv420p', **meta).run(overwrite_output=True)
         if output_video != None:
             if not output_video.endswith('mp4'):
                 output_video = os.path.join(output_video, "interpolated.mp4")
@@ -46344,7 +46471,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         print(f"Failed to save video {interpolated}")
         return ""
 
-def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False):
+def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False, metadata=None):
     try:
         import ffmpeg
     except ImportError as e:
@@ -46386,7 +46513,8 @@ def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=3
     stat("running ffmpeg")
     try:
         #out, err = ffmpeg.output(video, output_video, capture_stdout=True, capture_stderr=True, vcodec='libx264', pix_fmt='yuv420p').run(overwrite_output=True)
-        ffmpeg.output(video, output_video, pix_fmt='yuv420p').run(overwrite_output=True)
+        meta = {'metadata': metadata} if bool(metadata) else {}
+        ffmpeg.output(video, output_video, pix_fmt='yuv420p', **meta).run(overwrite_output=True)
         #print("ffmpeg output:", out)
     except ffmpeg.Error as e:
         print(f"ffmpeg error:{e.stderr} pattern: {pattern} path: {input_path} output: {output_video}")
