@@ -447,7 +447,7 @@ def load_settings_file():
     }
 
 load_settings_file()
-version_checker()
+#version_checker()
 
 
 
@@ -1917,6 +1917,7 @@ def buildInstallers(page):
           page.ESRGAN_block,
           page.ESRGAN_block_material,
           page.ESRGAN_block_dalle,
+          page.ESRGAN_block_dalle3,
           page.ESRGAN_block_kandinsky,
           page.ESRGAN_block_kandinsky_fuse,
           page.ESRGAN_block_kandinsky_controlnet,
@@ -1926,9 +1927,12 @@ def buildInstallers(page):
           page.ESRGAN_block_amused,
           page.ESRGAN_block_wuerstchen,
           page.ESRGAN_block_pixart_alpha,
+          page.ESRGAN_block_lcm,
           page.ESRGAN_block_lmd_plus,
+          page.ESRGAN_block_ip_adapter,
           page.ESRGAN_block_blip_diffusion,
           page.ESRGAN_block_reference,
+          page.ESRGAN_block_instaflow,
           page.ESRGAN_block_unCLIP,
           page.ESRGAN_block_unCLIP_image_variation,
           page.ESRGAN_block_unCLIP_interpolation,
@@ -1936,6 +1940,7 @@ def buildInstallers(page):
           page.ESRGAN_block_semantic,
           page.ESRGAN_block_EDICT,
           page.ESRGAN_block_DiffEdit,
+          page.ESRGAN_block_anytext,
           page.ESRGAN_block_null_text,
           page.ESRGAN_block_magic_mix,
           page.ESRGAN_block_paint_by_example,
@@ -1946,6 +1951,7 @@ def buildInstallers(page):
           page.ESRGAN_block_styler,
           page.ESRGAN_block_deep_daze,
           page.ESRGAN_block_DiT,
+          page.ESRGAN_block_animate_diff, 
           page.ESRGAN_block_text_to_video,
           page.ESRGAN_block_text_to_video_zero,
           page.ESRGAN_block_stable_animation,
@@ -12909,6 +12915,7 @@ tokenflow_prefs = {
     'num_frames': 40,
     'export_to_video': False,
     'seed': 0,
+    'max_size': 1024,
     'width': 1024,
     'height': 576,
     'batch_size': 8,
@@ -12970,6 +12977,7 @@ def buildTokenFlow(page):
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=tokenflow_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=tokenflow_prefs, key='height')
     #export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=tokenflow_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=16, multiple=64, suffix="px", pref=tokenflow_prefs, key='max_size')
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=tokenflow_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=tokenflow_prefs, key='height')
     selected_mode = ft.SegmentedButton(on_change=change_mode, selected={tokenflow_prefs['selected_mode']}, allow_multiple_selection=False,
@@ -13010,6 +13018,7 @@ def buildTokenFlow(page):
         sdedit_container,
         #eta_slider,
         #width_slider, height_slider,
+        max_size,
         #page.ESRGAN_block_tokenflow,
         Row([sd_version, seed, batch_folder_name]),
         Row([
@@ -20056,15 +20065,16 @@ except Exception:
     status['gpu_memory'] = "N/A"
     pass
 pb = ProgressBar(width=420, bar_height=8)
+abort_run = False
+start_step = 0
+start_callback = 0
 total_steps = args['steps']
 def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
     callback_fn.has_been_called = True
     global total_steps, pb
     if total_steps is None: total_steps = timestep
     if total_steps == 0: total_steps = len(latents)
-    multiplier = 1
-    if prefs['scheduler_mode'].startswith("Heun") or prefs['scheduler_mode'].startswith("K-DPM"):
-      multiplier = 2
+    multiplier = 2 if prefs['scheduler_mode'].startswith("Heun") or prefs['scheduler_mode'].startswith("K-DPM") else 1
     percent = (step +1)/ (total_steps * multiplier)
     pb.value = percent
     pb.tooltip = f"[{step +1} / {total_steps * multiplier}] (Timestep: {timestep})"
@@ -20077,9 +20087,6 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
         #assert np.abs(latents_slice.flatten() - expected_slice).max() < 1e-3
     pb.update()
 
-abort_run = False
-start_step = 0
-start_callback = 0
 def callback_step(pipe, i, t, callback_kwargs):
     callback_step.has_been_called = True
     global pb, start_step, start_callback, abort_run
@@ -40782,8 +40789,10 @@ def run_tokenflow(page):
     video_file = os.path.basename(init_vid)
     if not video_file.endswith("mp4"):
         video_file += ".mp4"
+    installer.status("...Scaling Video")
+    w, h = scale_video(init_vid, os.path.join(data_dir, data_folder, video_file), tokenflow_prefs["max_size"])
     progressbar.status("...Preparing Run")
-    shutil.copy(init_vid, os.path.join(data_dir, data_folder, video_file))
+    #shutil.copy(init_vid, os.path.join(data_dir, data_folder, video_file))
     random_seed = int(tokenflow_prefs['seed']) if int(tokenflow_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     #width = tokenflow_prefs['width']
     #height = tokenflow_prefs['height']
@@ -40834,15 +40843,19 @@ def run_tokenflow(page):
     #    yaml.add_representer(type(None), represent_none)
     #    yaml.dump(config, file, indent=4, default_flow_style=False, sort_keys=False)
     save_yaml(config, config_yaml)
+    preprocess_cmd = f'preprocess.py --data_path "{data_folder}/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}'
+    run_cmd = f'{run_py} --config_path "configs/sdd_config.yaml"{cache_dir}'
+    print(f'Running {preprocess_cmd} -&- {run_cmd}')
     try:
         progressbar.status("...Preprocessing Inverted Video")
-        run_sp(f'python preprocess.py --data_path "data/{data_folder}/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}', cwd=tokenflow_dir)
+        run_sp(f'python {preprocess_cmd}', cwd=tokenflow_dir)
                #-W {width} -H {height} -o {batch_output} -d cuda{x}{rw} -s {tokenflow_prefs["num_inference_steps"]} -g {tokenflow_prefs["guidance_scale"]} -f {tokenflow_prefs["fps"]} -T {tokenflow_prefs["num_frames"]}', cwd=data_dir)
         progressbar.status(f"...Processing TokenFlow {selected_mode}")
-        run_sp(f'python {run_py} --config_path "configs/sdd_config.yaml"{cache_dir}', cwd=tokenflow_dir, realtime=True)
+        run_sp(f'python {run_cmd}', cwd=tokenflow_dir, realtime=True)
     except Exception as e:
         clear_last()
-        alert_msg(page, f"ERROR: TokenFlow Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        tokenflow_prefs['run_cmd'] = f'{preprocess_cmd} -&- {run_cmd}'
+        alert_msg(page, f"ERROR: TokenFlow Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=tokenflow_prefs)
         return
     clear_last()
     autoscroll(True)
@@ -45443,7 +45456,7 @@ def run_deep_daze(page):
 
 def main(page: Page):
     global status
-    page.title = "Stable Diffusion Deluxe - FletUI"
+    page.title = "Stable Diffusion Deluxe"
     def open_url(e):
         page.launch_url(e.data)
     def exit_disconnect(e):
@@ -45561,6 +45574,25 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("👊   Good Stuff... ", on_click=close_credits_dlg)], actions_alignment=MainAxisAlignment.END,
     )
+    from_name = TextField(label="From Name", keyboard_type=KeyboardType.NAME)
+    from_email = TextField(label="From Email (optional)", keyboard_type=KeyboardType.EMAIL)
+    message = TextField(label="Message to Skquark", keyboard_type=KeyboardType.MULTILINE, filled=True, multiline=True, max_lines=10)
+    def send_message(e):
+        if not bool(message.value.strip()):
+            page.snack_bar = SnackBar(content=Text(f"📭  Provide a message to send first."))
+            page.snack_bar.open = True
+            page.update()
+            return
+        send_debug_email(message.value, "Contact from DiffusionDeluxe", from_name.value.strip(), from_email.value.strip())
+        page.snack_bar = SnackBar(content=Text(f"📧  Sent Email to Skquark... Thanks, I hope."))
+        page.snack_bar.open = True
+        page.update()
+        close_contact_dlg(e)
+    submit_btn = ft.OutlinedButton("📩  Send Message ", on_click=send_message)
+    contact_form = Column([
+      Row([from_name, from_email]),
+      message, submit_btn,
+    ])
     def open_contact_dlg(e):
         page.dialog = contact_dlg
         contact_dlg.open = True
@@ -45570,8 +45602,9 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         page.update()
     contact_dlg = AlertDialog(
         title=Text("📨  Contact Us"), content=Column([
-          Text("If you want to reach Alan Bedian/Skquark, Inc. for any reason, feel free to send me a message (as long as it's not spam) by Email or on Discord @Skquark#0394 where I'm usually available."),
+          Text("If you want to reach Alan Bedian/Skquark, Inc. for any reason, feel free to send me a message (as long as it's not spam) with whatever method you prefer. Testimonials & Suggestions are welcomed too."),
           Text("If you're a developer and want to help with this project (or one of my other almost done apps) then you can Join my Discord Channel and get involved. It's fairly quiet in there though..."),
+          contact_form,
           Row([ft.FilledButton("Email Skquark", on_click=lambda _:page.launch_url("mailto:Alan@Skquark.com")), ft.FilledButton("Discord DM", on_click=lambda _:page.launch_url("https://discord.com/channels/@me/988620354815688744")), ft.FilledButton("Skquark Discord", on_click=lambda _:page.launch_url("https://discord.gg/fTraJ96Z")), ft.FilledButton("Skquark.com", on_click=lambda _:page.launch_url("https://Skquark.com"))], alignment=MainAxisAlignment.CENTER),
         ], scroll=ScrollMode.AUTO),
         actions=[TextButton("👁️‍🗨️  Maybe...", on_click=close_contact_dlg)], actions_alignment=MainAxisAlignment.END,
@@ -46534,7 +46567,7 @@ def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=3
     return output_video
 
 
-def scale_video(video_path, to, max_size):
+def scale_video(video_path, to, max_size, multiple=16):
     try:
         from moviepy.editor import VideoFileClip
     except Exception:
@@ -46543,7 +46576,7 @@ def scale_video(video_path, to, max_size):
         pass
     video = VideoFileClip(video_path)
     original_width, original_height = video.size
-    width, height = scale_dimensions(original_width, original_height, max_size)
+    width, height = scale_dimensions(original_width, original_height, max_size, multiple=multiple)
     resized_video = video.resize(width=width, height=height)
     resized_video.write_videofile(to)
     return width, height
