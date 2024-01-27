@@ -570,7 +570,7 @@ def save_settings_file(page, change_icon=True):
     if change_icon:
         page.app_icon_save()
     if not os.path.isfile(saved_settings_json):
-        settings_path = saved_settings_json.rpartition(slash)[0]
+        settings_path = os.path.dirname(saved_settings_json) #saved_settings_json.rpartition(slash)[0]
         os.makedirs(settings_path, exist_ok=True)
     with open(saved_settings_json, "w") as write_file:
         json.dump(prefs, write_file, indent=4)
@@ -1319,7 +1319,7 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=Fal
         page.update()
     except Exception: pass
 
-def send_debug_email(exception_info, subject="DiffusionDeluxe Error", from_name=None, from_email=None):
+def send_debug_email(message, subject="DiffusionDeluxe Error", from_name=None, from_email=None):
     try:
         import smtplib
         from email.mime.text import MIMEText
@@ -1333,7 +1333,7 @@ def send_debug_email(exception_info, subject="DiffusionDeluxe Error", from_name=
     email_to = "Alan@Skquark.com"
     smtp_server = "mail.diffusiondeluxe.com"
     smtp_port = 587#465
-    body = f"An error occurred:\n\n{exception_info}"
+    body = f"An error occurred:\n\n{message}" if 'Error' in subject else message
     msg = MIMEText(body, _subtype='plain', _charset='utf-8')
     msg["Subject"] = subject
     msg["From"] = email_from
@@ -41766,7 +41766,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
             if prefs['vae_tiling']:
                 pipe_animatediff_img2video.enable_vae_tiling()
             if animatediff_img2video_prefs['free_init']: #Not yet
-                installer.status(f"...enable Free-Init")
+                installer.status(f"...enable FreeInit")
                 pipe_animatediff_img2video.enable_free_init(method="butterworth", use_fast_sampling=True)
             if prefs['enable_freeu']:
                 installer.status(f"...enable FreeU")
@@ -41778,7 +41778,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
             elif cpu_offload:
                 pipe_animatediff_img2video.enable_model_cpu_offload()
             else:
-                pipe_animatediff_img2video.to(torch_device)
+                pipe_animatediff_img2video = pipe_animatediff_img2video.to(torch_device)
             pipe_animatediff_img2video.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
