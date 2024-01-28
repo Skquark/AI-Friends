@@ -2,9 +2,9 @@ import os, subprocess, sys, shutil, re, argparse
 import random as rnd
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--storage_type", type=str, required=True)
-parser.add_argument("--saved_settings_json", type=str)
-parser.add_argument("--tunnel_type", type=str)
+parser.add_argument("--storage_type", type=str, required=True, default="Colab Google Drive")
+parser.add_argument("--saved_settings_json", type=str, default="/content/drive/MyDrive/AI/Stable_Diffusion/sdd-settings.json")
+parser.add_argument("--tunnel_type", type=str, default="localtunnel")
 parser.add_argument("--auto_launch_website", default=False, action='store_true')
 flags = parser.parse_args()
 storage_type = flags.storage_type
@@ -72,7 +72,7 @@ if os.path.exists(sample_data):
   for f in os.listdir(sample_data):
     os.remove(os.path.join(sample_data, f))
   os.rmdir(sample_data)
-os.chdir(stable_dir)
+#os.chdir(stable_dir)
 #loaded_Stability_api = False
 #loaded_img2img = False
 #use_Stability_api = False
@@ -251,6 +251,7 @@ def load_settings_file():
       'save_config_json': False,
       'theme_mode': 'Dark',
       'theme_color': 'Green',
+      'theme_custom_color': '#69d9ab',
       'enable_sounds': True,
       'show_stats': False,
       'stats_used': True,
@@ -560,6 +561,12 @@ if not os.path.exists(sdd_utils_py) or force_updates:
     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
 if not os.path.exists(sdd_components_py) or force_updates:
     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_components.py", to=root_dir, raw=False, replace=True)
+try:
+    from flet_contrib.color_picker import ColorPicker
+except ModuleNotFoundError: #Also flexible_slider, vertical_splitter, shimmer
+    run_sp("pip install flet-contrib", realtime=False)
+    from flet_contrib.color_picker import ColorPicker
+    pass
 #sys.path.append(sdd_utils_py)
 import sdd_utils
 from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS
@@ -569,6 +576,7 @@ from sdd_components import PanZoom, VideoContainer
 def save_settings_file(page, change_icon=True):
     if change_icon:
         page.app_icon_save()
+    print(os.path.dirname(saved_settings_json))
     if not os.path.isfile(saved_settings_json):
         settings_path = os.path.dirname(saved_settings_json) #saved_settings_json.rpartition(slash)[0]
         os.makedirs(settings_path, exist_ok=True)
@@ -949,11 +957,13 @@ def get_color(color):
     elif color == "brown": return colors.BROWN
     elif color == "teal": return colors.TEAL
     elif color == "yellow": return colors.YELLOW
+    elif color == "custom": return prefs['theme_custom_color']
 
 
 # Delete these after everyone's updated
 if 'negative_prompt' not in prefs: prefs['negative_prompt'] = ''
 if 'file_datetime' not in prefs: prefs['file_datetime'] = False
+if 'theme_custom_color' not in prefs: prefs['theme_custom_color'] = '#69d9ab'
 if 'install_conceptualizer' not in prefs: prefs['install_conceptualizer'] = False
 if 'use_conceptualizer' not in prefs: prefs['use_conceptualizer'] = False
 if 'concepts_model' not in prefs: prefs['concepts_model'] = 'cat-toy'
@@ -1138,12 +1148,44 @@ def buildSettings(page):
     status['changed_settings'] = True
   def change_theme_color(e):
     prefs['theme_color'] = e.control.value
+    color_icon.visible = prefs['theme_color'].lower() == "custom"
+    color_icon.update()
     if prefs['theme_mode'].lower() == "dark":
       page.dark_theme = Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
     else:
       page.theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
     page.update()
     status['changed_settings'] = True
+  def open_color_picker(e):
+      d.open = True
+      page.update()
+  color_picker = ColorPicker(color=prefs['theme_custom_color'], width=300)
+  color_icon = Container(ft.IconButton(icon=ft.icons.BRUSH, icon_color=prefs['theme_custom_color'], on_click=open_color_picker), visible=prefs['theme_color'].lower() == "custom")
+  def change_color(e):
+      color_icon.content.icon_color = color_picker.color
+      color_icon.content.update()
+      prefs['theme_custom_color'] = color_picker.color
+      if prefs['theme_mode'].lower() == "dark":
+        page.dark_theme = Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
+      else:
+        page.theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
+      page.update()
+      d.open = False
+      page.update()
+  def close_dialog(e):
+      d.open = False
+      d.update()
+  d = ft.AlertDialog(
+      content=color_picker,
+      actions=[
+          ft.TextButton("OK", on_click=change_color),
+          ft.TextButton("Cancel", on_click=close_dialog),
+      ],
+      actions_alignment=ft.MainAxisAlignment.END,
+      on_dismiss=change_color,
+  )
+  page.dialog = d
+  
   def toggle_nsfw(e):
     #TODO: Add Popup alert with disclaimer, age verification and I Accept the Terms
     global safety
@@ -1183,7 +1225,7 @@ def buildSettings(page):
   save_config_in_metadata = Checkbox(label="Save Config in Metadata    ", tooltip="Embeds all prompt parameters in the file's EXIF to recreate", value=prefs['save_config_in_metadata'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_config_in_metadata'))
   save_config_json = Checkbox(label="Save Config JSON files", tooltip="Creates a json text file with all prompt parameters with each image", value=prefs['save_config_json'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'save_config_json'))
   theme_mode = Dropdown(label="Theme Mode", width=200, options=[dropdown.Option("Dark"), dropdown.Option("Light")], value=prefs['theme_mode'], on_change=change_theme_mode)
-  theme_color = Dropdown(label="Accent Color", width=200, options=[dropdown.Option("Green"), dropdown.Option("Blue"), dropdown.Option("Red"), dropdown.Option("Indigo"), dropdown.Option("Purple"), dropdown.Option("Orange"), dropdown.Option("Amber"), dropdown.Option("Brown"), dropdown.Option("Teal"), dropdown.Option("Yellow")], value=prefs['theme_color'], on_change=change_theme_color)
+  theme_color = Dropdown(label="Accent Color", width=200, options=[dropdown.Option("Green"), dropdown.Option("Blue"), dropdown.Option("Red"), dropdown.Option("Indigo"), dropdown.Option("Purple"), dropdown.Option("Orange"), dropdown.Option("Amber"), dropdown.Option("Brown"), dropdown.Option("Teal"), dropdown.Option("Yellow"), dropdown.Option("Custom")], value=prefs['theme_color'], on_change=change_theme_color)
   enable_sounds = Checkbox(label="Enable UI Sound Effects    ", tooltip="Turn on for audible errors, deletes and generation done notifications", value=prefs['enable_sounds'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_sounds'))
   start_in_installation = Checkbox(label="Start in Installation Page", tooltip="When launching app, switch to Installer tab. Saves time..", value=prefs['start_in_installation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'start_in_installation'))
   disable_nsfw_filter = Checkbox(label="Disable NSFW Filters for Uncensored Images", value=prefs['disable_nsfw_filter'], tooltip="If you're over 18 & promise not to abuse, allow Not Safe For Work. Otherwise, will filter mature content...", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_nsfw)
@@ -1232,7 +1274,7 @@ def buildSettings(page):
         save_image_metadata,
         Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window_width) > 712 else Column([meta_ArtistName, meta_Copyright]),
         Row([save_config_in_metadata, save_config_json]),
-        Row([theme_mode, theme_color]),
+        Row([theme_mode, theme_color, color_icon]),
         Row([enable_sounds, start_in_installation, show_stats, stats_settings]),
         HuggingFace_api,
         Stability_api,
@@ -23896,7 +23938,7 @@ def start_diffusion(page):
     images = pipe_interpolation.walk(prompts=walk_prompts, seeds=walk_seeds, num_interpolation_steps=int(prefs['num_interpolation_steps']), batch_size=int(prefs['batch_size']), output_dir=txt2img_output, width=arg['width'], height=arg['height'], guidance_scale=arg['guidance_scale'], num_inference_steps=int(arg['steps']), eta=arg['eta'], callback=callback_fn, callback_steps=1)
     observer.stop()
     clear_last()
-    fpath = images[0].rpartition(slash)[0]
+    fpath = os.path.dirname(images[0])
     bfolder = fpath.rpartition(slash)[2]
     if prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
       prt('Applying Real-ESRGAN Upscaling to images...')
@@ -24942,7 +24984,7 @@ def run_upscaling(page):
       if os.path.isdir(image_path):
           dst_image_path = image_path
       else:
-          dst_image_path = prefs['image_output'] #image_path.rpartition(slash)[0]
+          dst_image_path = prefs['image_output'] #os.path.dirname(image_path)
     filenames = os.listdir(os.path.join(dist_dir, 'Real-ESRGAN', 'results'))
     for fname in filenames:
       fparts = fname.rpartition('_out')
@@ -26110,7 +26152,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 newFolder.Upload()
                 batch_output = newFolder
             #out_path = batch_output# if save_to_GDrive else txt2img_output
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if blip_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -26492,7 +26534,7 @@ def run_anytext(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': anytext_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if anytext_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -26876,7 +26918,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': ip_adapter_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if ip_adapter_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -27071,7 +27113,7 @@ def run_reference(page, from_list=False):
                 unscaled_path = image_path
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not reference_prefs['display_upscaled_image'] or not reference_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -27377,7 +27419,7 @@ def run_controlnet_qr(page, from_list=False):
                 unscaled_path = image_path
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not controlnet_qr_prefs['display_upscaled_image'] or not controlnet_qr_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -27619,7 +27661,7 @@ def run_controlnet_segment(page, from_list=False):
                 unscaled_path = image_path
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not controlnet_segment_prefs['display_upscaled_image'] or not controlnet_segment_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -27796,7 +27838,7 @@ def run_EDICT(page):
             output_file = image_path.rpartition(slash)[2]
             image.save(image_path)
             width, height = image.size
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not EDICT_prefs['display_upscaled_image'] or not EDICT_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -28004,7 +28046,7 @@ def run_DiffEdit(page):
             output_file = image_path.rpartition(slash)[2]
             image.save(image_path)
             width, height = image.size
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not DiffEdit_prefs['display_upscaled_image'] or not DiffEdit_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -28181,7 +28223,7 @@ def run_null_text(page):
             #  image = PILImage.open(image)
             image.save(image_path)
             width, height = image.size
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not null_text_prefs['display_upscaled_image'] or not null_text_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -28569,7 +28611,7 @@ def run_semantic(page):
         unscaled_path = image_path
         output_file = image_path.rpartition(slash)[2]
         image.save(image_path)
-        out_path = image_path.rpartition(slash)[0]
+        out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not semantic_prefs['display_upscaled_image'] or not semantic_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -28770,7 +28812,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': demofusion_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if demofusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -32694,7 +32736,7 @@ def run_unCLIP(page, from_list=False):
                 unscaled_path = image_path
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_prefs['display_upscaled_image'] or not unCLIP_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, width=512, height=512, data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -32869,7 +32911,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                 unscaled_path = image_path
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_image_variation_prefs['display_upscaled_image'] or not unCLIP_image_variation_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -33035,7 +33077,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                 unscaled_path = image_path
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not unCLIP_interpolation_prefs['display_upscaled_image'] or not unCLIP_interpolation_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -33224,7 +33266,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
             unscaled_path = image_path
             output_file = image_path.rpartition(slash)[2]
             image.save(image_path)
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not unCLIP_image_interpolation_prefs['display_upscaled_image'] or not unCLIP_image_interpolation_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -33421,7 +33463,7 @@ def run_magic_mix(page, from_list=False):
             unscaled_path = image_path
             output_file = image_path.rpartition(slash)[2]
             image.save(image_path)
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not magic_mix_prefs['display_upscaled_image'] or not magic_mix_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -33600,7 +33642,7 @@ def run_paint_by_example(page):
         unscaled_path = image_path
         output_file = image_path.rpartition(slash)[2]
         image.save(image_path)
-        out_path = image_path.rpartition(slash)[0]
+        out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not paint_by_example_prefs['display_upscaled_image'] or not paint_by_example_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -33882,7 +33924,7 @@ def run_instruct_pix2pix(page, from_list=False):
             unscaled_path = image_path
             output_file = image_path.rpartition(slash)[2]
             image.save(image_path)
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not instruct_pix2pix_prefs['display_upscaled_image'] or not instruct_pix2pix_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -34498,7 +34540,7 @@ def run_controlnet(page, from_list=False):
             output_file = image_path.rpartition(slash)[2]
             #PILImage.fromarray(image).save(image_path)
             image.save(image_path)
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             new_file = available_file(batch_output, fname, num)
             if not controlnet_prefs['display_upscaled_image'] or not controlnet_prefs['apply_ESRGAN_upscale']:
@@ -35111,7 +35153,7 @@ def run_controlnet_xl(page, from_list=False):
             output_file = image_path.rpartition(slash)[2]
             #PILImage.fromarray(image).save(image_path)
             image.save(image_path)
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             new_file = available_file(batch_output, fname, num)
             if not controlnet_xl_prefs['display_upscaled_image'] or not controlnet_xl_prefs['apply_ESRGAN_upscale']:
@@ -35624,7 +35666,7 @@ def run_controlnet_xs(page, from_list=False):
             output_file = image_path.rpartition(slash)[2]
             #PILImage.fromarray(image).save(image_path)
             image.save(image_path)
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             new_file = available_file(batch_output, fname, num)
             if not controlnet_xs_prefs['display_upscaled_image'] or not controlnet_xs_prefs['apply_ESRGAN_upscale']:
@@ -36389,7 +36431,7 @@ def run_deepfloyd(page, from_list=False):
                 output_file = image_path.rpartition(slash)[2]
                 image = pt_to_pil(image)
                 image.save(image_path)
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not deepfloyd_prefs['display_upscaled_image'] or not deepfloyd_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -36676,7 +36718,7 @@ def run_amused(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': amused_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if amused_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -36878,7 +36920,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     newFolder = gdrive.CreateFile({'title': wuerstchen_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                     newFolder.Upload()
                     batch_output = newFolder
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
 
                 if wuerstchen_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -37143,7 +37185,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': pixart_alpha_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if pixart_alpha_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -37423,7 +37465,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': lmd_plus_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if lmd_plus_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -37683,7 +37725,7 @@ def run_lcm(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': lcm_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if lcm_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -38043,7 +38085,7 @@ def run_instaflow(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': instaflow_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if instaflow_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -38052,25 +38094,7 @@ def run_instaflow(page, from_list=False, with_params=False):
                 os.chdir(stable_dir)
                 if instaflow_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(instaflow_prefs["enlarge_scale"]), height=pr['height'] * float(instaflow_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {instaflow_prefs['enlarge_scale']}x with ESRGAN" if instaflow_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"InstaFlow")
-                if prefs['save_config_in_metadata']:
-                    config_json = instaflow_prefs.copy()
-                    config_json['model_path'] = instaflow_model
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, instaflow_prefs, "InstaFlow", instaflow_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], instaflow_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -38279,7 +38303,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
                 newFolder = gdrive.CreateFile({'title': ldm3d_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             depth_upscaled_path = os.path.join(out_path, depth_output_file)
             if ldm3d_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -38446,7 +38470,7 @@ def run_text_to_video(page):
         #print(f"image: {type(image)} to {image_path}")
         cv2.imwrite(image_path, image)
         #PILImage.fromarray(np_image).save(image_path)
-        out_path = image_path.rpartition(slash)[0]
+        out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not text_to_video_prefs['display_upscaled_image'] or not text_to_video_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -38628,7 +38652,7 @@ def run_text_to_video_zero(page):
         #img.save(image_path)
         #imageio.imsave(local_file, img, extension=".png")
         #PILImage.fromarray(img).save(image_path)
-        out_path = image_path.rpartition(slash)[0]
+        out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not text_to_video_zero_prefs['display_upscaled_image'] or not text_to_video_zero_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -38852,7 +38876,7 @@ def run_video_to_video(page):
         #print(f"image: {type(image)} to {image_path}")
         cv2.imwrite(image_path, image)
         #PILImage.fromarray(np_image).save(image_path)
-        out_path = image_path.rpartition(slash)[0]
+        out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not video_to_video_prefs['display_upscaled_image'] or not video_to_video_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -39532,7 +39556,7 @@ def run_potat1(page):
         #print(f"image: {type(image)} to {image_path}")
         cv2.imwrite(image_path, image)
         #PILImage.fromarray(np_image).save(image_path)
-        out_path = image_path.rpartition(slash)[0]
+        out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not potat1_prefs['display_upscaled_image'] or not potat1_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -39789,7 +39813,7 @@ def run_stable_animation(page):
         unscaled_path = image_path
         output_file = image_path.rpartition(slash)[2]
         image.save(image_path)
-        out_path = image_path.rpartition(slash)[0]
+        out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
 
         if stable_animation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -42627,7 +42651,7 @@ def run_DiT(page, from_list=False):
                 unscaled_path = image_path
                 output_file = image_path.rpartition(slash)[2]
                 image.save(image_path)
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not DiT_prefs['display_upscaled_image'] or not DiT_prefs['apply_ESRGAN_upscale']:
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
@@ -44224,7 +44248,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
             batch_output = os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
                 os.makedirs(batch_output)
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if kandinsky_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -44528,7 +44552,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 newFolder.Upload()
                 batch_output = newFolder
             #out_path = batch_output# if save_to_GDrive else txt2img_output
-            out_path = image_path.rpartition(slash)[0]
+            out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
             if kandinsky_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -45252,7 +45276,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     newFolder.Upload()
                     batch_output = newFolder
                 #out_path = batch_output# if save_to_GDrive else txt2img_output
-                out_path = image_path.rpartition(slash)[0]
+                out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
 
                 if kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -45393,7 +45417,7 @@ def run_deep_daze(page):
     image_path = available_file(output_dir, output_filename, 0)
     unscaled_path = image_path
     output_file = image_path.rpartition(slash)[2]
-    out_path = image_path.rpartition(slash)[0]
+    out_path = os.path.dirname(image_path)
     upscaled_path = os.path.join(out_path, output_file)
     input = PILImage.open(fname)
     input.save(image_path)
@@ -45773,7 +45797,7 @@ class FileInput(UserControl):
               self.textfield.update()
               self.pref[self.key] = fname
               self.page.update()
-            else:
+            elif e.progress is not None and isinstance(e.progress, float):
               percent = int(e.progress * 100)
               self.textfield.value = f"  {percent}%"
               self.textfield.update()
@@ -46371,7 +46395,7 @@ def toggle_stats(page):
     page.stats_used.update()
     update_stats(page)
 
-def save_metadata(image_path, pref, pipeline="", model="", seed=None, extra={}):
+def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=None, negative=None, extra={}):
     if prefs['save_image_metadata']:
         img = PILImage.open(image_path)
         from PIL.PngImagePlugin import PngInfo
@@ -46384,9 +46408,16 @@ def save_metadata(image_path, pref, pipeline="", model="", seed=None, extra={}):
         if bool(pipeline):
             metadata.add_text("pipeline", pipeline)
         if prefs['save_config_in_metadata']:
-            if 'prompt' in pref:
-                metadata.add_text("title", pref['prompt'])
             config_json = pref.copy()
+            if prompt != None:
+                metadata.add_text("title", prompt)
+                config_json['prompt'] = prompt
+            elif 'prompt' in extra:
+                metadata.add_text("title", extra['prompt'])
+            elif 'prompt' in pref:
+                metadata.add_text("title", pref['prompt'])
+            if negative != None:
+                config_json['negative_prompt'] = negative
             if bool(model): config_json['model_path'] = model
             if bool(seed): config_json['seed'] = seed
             if 'num_images' in pref: del config_json['num_images']
