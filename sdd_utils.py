@@ -201,7 +201,7 @@ SDXL_models = [
     #{"name": "Midjourney-V4 XL", "path": "openskyml/midjourney-v4-xl", "prefix": "", "use_safetensors": True},
     {"name": "NewReality XL", "path": "stablediffusionapi/newrealityxl-global-nsfw", "prefix": ""},
     {"name": "OpenDalle v1.1", "path": "dataautogpt3/OpenDalleV1.1", "prefix": "", "variant": "fp16", "use_safetensors": True},
-    {"name": "PhotoPedia XL", "path": "GHArt/PhotoPedia_XL_V4.5_xl_fp16", "prefix": "", "variant": "fp16", "use_safetensors": True},
+    {"name": "PhotoPedia XL", "path": "GHArt/PhotoPedia_XL_V4.5_xl_fp16", "prefix": "", "use_safetensors": True},
     {"name": "Playground v2", "path": "playgroundai/playground-v2-1024px-aesthetic", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Poltergeist Mix", "path": "EnD-Diffusers/PoltergeistMix-SDXLfp16", "prefix": "", "variant": "fp16"},
     {"name": "ProtVision-XL 1", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": "", "variant": "fp16"},

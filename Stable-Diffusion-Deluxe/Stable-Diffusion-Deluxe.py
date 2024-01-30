@@ -1331,9 +1331,10 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=Fal
         pass
     def send_debug(e):
         debug_msg = msg + "\n\n"
-        for c in content:
-            if isinstance(c, Text):
-                debug_msg += c.value + "\n"
+        if isinstance(content, Column):
+            for c in content.controls:
+                if isinstance(c, Text):
+                    debug_msg += c.value + "\n"
         import platform
         memory = f"GPU VRAM: {status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB{' - on Colab' if is_Colab else ''}"
         os_info = f" - OS: {platform.system()} {platform.version()}"
@@ -19564,10 +19565,11 @@ def get_SDXL_LoRA_model(name):
   return {'name':'', 'path':''}
 def get_SDXL_model(name):
   if name == "Custom Model":
-      return {'name':"Custom SDXL Model", 'path':prefs['SDXL_custom_model'], 'prefix':'', 'revision': 'fp16'}
+      return {'name':"Custom SDXL Model", 'path':prefs['SDXL_custom_model'], 'prefix':'', 'variant': 'fp16'}
   for mod in SDXL_models:
       if mod['name'] == name:
-        return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'], 'revision': mod['variant'] if 'variant' in mod else mod['revision'] if 'variant' in mod else 'fp16'}
+        extra = {key: mod.get(key) for key in ['variant', 'revision', 'vae'] if key in mod}
+        return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'] if 'prefix' in mod else '', **extra}
 
 HFapi = None
 def get_diffusers(page):
