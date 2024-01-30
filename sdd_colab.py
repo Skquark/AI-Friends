@@ -3928,6 +3928,7 @@ def buildPromptStyler(page):
         styler_results.controls.clear()
         styler_results.update()
     def generate_styles(e):
+        page.styler.auto_scroll = True
         styler_results.controls.clear()
         for s in prefs['prompt_styles']:
             styler = sdd_utils.prompt_styles[s]
@@ -3941,6 +3942,8 @@ def buildPromptStyler(page):
         ], alignment=MainAxisAlignment.SPACE_BETWEEN)
         styler_results.controls.append(styler_list_buttons)
         styler_results.update()
+        nudge(page.styler, page)
+        page.styler.auto_scroll = False
     style_list = ResponsiveRow(controls=[], run_spacing=0)
     style_checkboxes = ResponsiveRow(controls=[], run_spacing=0)
     for k in sdd_utils.style_keys:
@@ -12957,7 +12960,7 @@ tokenflow_prefs = {
     'num_frames': 40,
     'export_to_video': False,
     'seed': 0,
-    'max_size': 1024,
+    'max_size': 672,
     'width': 1024,
     'height': 576,
     'batch_size': 8,
@@ -13019,7 +13022,7 @@ def buildTokenFlow(page):
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=tokenflow_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=tokenflow_prefs, key='height')
     #export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=tokenflow_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
-    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=16, multiple=64, suffix="px", pref=tokenflow_prefs, key='max_size')
+    max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=tokenflow_prefs, key='max_size')
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=tokenflow_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=tokenflow_prefs, key='height')
     selected_mode = ft.SegmentedButton(on_change=change_mode, selected={tokenflow_prefs['selected_mode']}, allow_multiple_selection=False,
@@ -24693,6 +24696,7 @@ def run_prompt_writer(page):
         return text_prompts
       #if mod_Custom and mod_Custom.strip(): prompt += mod_Custom)
       #return prompt
+    page.writer.auto_scroll = True
     prompts_writer = []
     for p in range(prefs['prompt_writer']['amount']):
       prompts_writer.append(generate_prompt())
@@ -24702,6 +24706,8 @@ def run_prompt_writer(page):
       if type(item) is list:
         for i in item:
           page.add_to_prompt_writer(i)
+    nudge(page.writer, page)
+    page.writer.auto_scroll = False
 
 def run_magic_prompt(page):
     #import random as rnd
@@ -40813,7 +40819,7 @@ def run_tokenflow(page):
     video_file = os.path.basename(init_vid)
     if not video_file.endswith("mp4"):
         video_file += ".mp4"
-    installer.status("...Scaling Video")
+    progressbar.status("...Scaling Video")
     w, h = scale_video(init_vid, os.path.join(data_dir, data_folder, video_file), tokenflow_prefs["max_size"])
     progressbar.status("...Preparing Run")
     #shutil.copy(init_vid, os.path.join(data_dir, data_folder, video_file))
@@ -40867,7 +40873,7 @@ def run_tokenflow(page):
     #    yaml.add_representer(type(None), represent_none)
     #    yaml.dump(config, file, indent=4, default_flow_style=False, sort_keys=False)
     save_yaml(config, config_yaml)
-    preprocess_cmd = f'preprocess.py --data_path "{data_folder}/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}'
+    preprocess_cmd = f'preprocess.py --data_path "{data_folder}/{video_file}" --inversion_prompt "{tokenflow_prefs["inversion_prompt"]}" --steps {tokenflow_prefs["num_inversion_steps"]} --save_steps {tokenflow_prefs["num_inference_steps"]} --n_frames {tokenflow_prefs["num_frames"]} --sd_version "{tokenflow_prefs["sd_version"]}"{cache_dir}'
     run_cmd = f'{run_py} --config_path "configs/sdd_config.yaml"{cache_dir}'
     print(f'Running {preprocess_cmd} -&- {run_cmd}')
     try:
