@@ -6,6 +6,7 @@ parser.add_argument("--storage_type", type=str, required=True, default="Colab Go
 parser.add_argument("--saved_settings_json", type=str, default="/content/drive/MyDrive/AI/Stable_Diffusion/sdd-settings.json")
 parser.add_argument("--tunnel_type", type=str, default="localtunnel")
 parser.add_argument("--auto_launch_website", default=False, action='store_true')
+parser.add_argument("--upgrade_torch_212", default=False, action='store_true')
 flags = parser.parse_args()
 storage_type = flags.storage_type
 saved_settings_json = flags.saved_settings_json
@@ -14,6 +15,7 @@ auto_launch_website = flags.auto_launch_website
 save_to_GDrive = True
 force_updates = True
 newest_flet = True
+upgrade_torch = flags.upgrade_torch_212
 SDD_version = "v1.9.0"
 from IPython.display import clear_output
 root_dir = '/content/'
@@ -287,9 +289,9 @@ def load_settings_file():
       'cache_dir': '',
       'install_diffusers': True,
       'install_interpolation': False,
-      'install_text2img': True,
+      'install_text2img': False,
       'install_img2img': False,
-      'install_SDXL': False,
+      'install_SDXL': True,
       'install_megapipe': True,
       'install_CLIP_guided': False,
       'install_OpenAI': False,
@@ -576,7 +578,7 @@ from sdd_components import PanZoom, VideoContainer
 def save_settings_file(page, change_icon=True):
     if change_icon:
         page.app_icon_save()
-    print(os.path.dirname(saved_settings_json))
+    #print(os.path.dirname(saved_settings_json))
     if not os.path.isfile(saved_settings_json):
         settings_path = os.path.dirname(saved_settings_json) #saved_settings_json.rpartition(slash)[0]
         os.makedirs(settings_path, exist_ok=True)
@@ -1027,7 +1029,7 @@ if 'install_SAG' not in prefs: prefs['install_SAG'] = False
 if 'use_SAG' not in prefs: prefs['use_SAG'] = False
 if 'sag_scale' not in prefs: prefs['sag_scale'] = 0.75
 if 'SD_compel' not in prefs: prefs['SD_compel'] = False
-if 'install_SDXL' not in prefs: prefs['install_SDXL'] = False
+if 'install_SDXL' not in prefs: prefs['install_SDXL'] = True
 if 'use_SDXL' not in prefs: prefs['use_SDXL'] = False
 if 'SDXL_high_noise_frac' not in prefs: prefs['SDXL_high_noise_frac'] = 0.7
 if 'SDXL_compel' not in prefs: prefs['SDXL_compel'] = False
@@ -1400,7 +1402,7 @@ def save_installers(controls):
       if c.value == 'Install HuggingFace Diffusers Pipeline': prefs['install_diffusers'] = c.value
       elif c.value == 'Install Stability-API DreamStudio Pipeline': prefs['install_Stability_api'] = c.value
       elif c.value == 'Install Real-ESRGAN AI Upscaler': prefs['install_ESRGAN'] = c.value
-      elif c.value == 'Install OpenAI GPT-3 Text Engine': prefs['install_OpenAI'] = c.value
+      elif c.value == 'Install OpenAI GPT Text Engine': prefs['install_OpenAI'] = c.value
       elif c.value == 'Install TextSynth GPT-J Text Engine': prefs['install_TextSynth'] = c.value
     '''elif isinstance(c, Container):
       try:
@@ -1463,38 +1465,24 @@ def buildInstallers(page):
                 dropdown.Option("LCM"),
             ], value=prefs['scheduler_mode'], autofocus=False, on_change=change_scheduler,
         )
-  def changed_model_ckpt(e):
-      changed(e, 'model_ckpt')
-      model = get_model(e.control.value)
-      model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-      try:
-          model_card.update()
-          if e.control.value.startswith("Stable"):
-            custom_area.content = model_card
-          elif e.control.value == "Community Finetuned Model":
-            custom_area.content = Row([finetuned_model, model_card])
-          elif e.control.value == "DreamBooth Library Model":
-            custom_area.content = Row([dreambooth_library, model_card])
-          elif e.control.value == "Custom Model Path":
-            custom_area.content = Row([custom_model, model_card])
-          custom_area.update()
-      except Exception:
-          pass
+  def model_card_update():
+      time.sleep(0.4)
+      page.model_card.update()
   def changed_finetuned_model(e):
       changed(e, 'finetuned_model')
       model = get_finetuned_model(e.control.value)
       model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-      model_card.update()
+      model_card_update()
   def changed_dreambooth_library(e):
       changed(e, 'dreambooth_model')
       model = get_dreambooth_model(e.control.value)
       model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-      model_card.update()
+      model_card_update()
   def changed_custom_model(e):
       changed(e, 'custom_model')
       model = {'name': 'Custom Model', 'path': e.control.value, 'prefix': ''}
       model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
-      model_card.update()
+      #model_card.update()
   def changed_SDXL_model(e):
       changed(e, 'SDXL_model')
       SDXL_custom_model.visible = prefs['SDXL_model'] == 'Custom Model'
@@ -1552,12 +1540,38 @@ def buildInstallers(page):
   model = get_model(prefs['model_ckpt'])
   model_SDXL = get_SDXL_model(prefs['SDXL_model'])
   model_path = model['path']
+  model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+  def get_model_card(path):
+      page.model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{path})", on_tap_link=lambda e: e.page.launch_url(e.data))
+      return page.model_card
+  page.model_card = model_card
+  custom_area = Container(model_card, col={'xs':12, 'lg':6})
+  def changed_model_ckpt(e):
+      nonlocal custom_area, model_card
+      changed(e, 'model_ckpt')
+      model = get_model(e.control.value)
+      model_card = get_model_card(model['path'])
+      #model_card.value = f"  [**Model Card**](https://huggingface.co/{model['path']})"
+      try:
+          if e.control.value.startswith("Stable"):
+            custom_area.content = model_card
+          elif e.control.value == "Community Finetuned Model":
+            custom_area.content = Row([finetuned_model, model_card])
+          elif e.control.value == "DreamBooth Library Model":
+            custom_area.content = Row([dreambooth_library, model_card])
+          elif e.control.value == "Custom Model Path":
+            custom_area.content = Row([custom_model, model_card])
+          custom_area.update()
+          page.model_row.update()
+          #model_card_update()
+      except Exception as ex:
+          print(f"{ex}: {e.control.value} {type(custom_area)}")
+          pass
   model_ckpt = Container(Dropdown(label="SD Model Checkpoint", width=262, options=[
       dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"),
       dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"),
       dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
   finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':11, 'lg':6})
-  model_card = Markdown(f"  [**Model Card**](https://huggingface.co/{model['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   model_card_SDXL = Markdown(f"  [**Model Card**](https://huggingface.co/{model_SDXL['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
       finetuned_model.options.append(dropdown.Option(mod["name"]))
@@ -1566,9 +1580,7 @@ def buildInstallers(page):
   for db in dreambooth_models:
       dreambooth_library.options.append(dropdown.Option(db["name"]))
   custom_model = TextField(label="Custom Model Path", value=prefs['custom_model'], width=370, on_change=changed_custom_model)
-  page.custom_model = custom_model
   #custom_area = AnimatedSwitcher(model_card, transition="scale", duration=500, reverse_duration=200, switch_in_curve=AnimationCurve.EASE_OUT, switch_out_curve="easeIn")
-  custom_area = Container(model_card, col={'xs':12, 'lg':6})
   if prefs['model_ckpt'].startswith("Stable"):
       custom_area.content = model_card
   elif prefs['model_ckpt'] == "Community Finetuned Model":
@@ -1577,7 +1589,7 @@ def buildInstallers(page):
       custom_area.content = Row([dreambooth_library, model_card], col={'xs':9, 'lg':4})
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
-  model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
+  page.model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
   SDXL_model = Dropdown(label="SDXL Model Checkpoint", hint_text="", width=370, options=[dropdown.Option("Custom Model")], value=prefs['SDXL_model'], autofocus=False, on_change=changed_SDXL_model, col={'xs':9, 'md':4})
   for xl in SDXL_models:
       SDXL_model.options.append(dropdown.Option(xl["name"]))
@@ -1691,7 +1703,7 @@ def buildInstallers(page):
   install_upscale = Switcher(label="Install Stable Diffusion v2 Upscale 4X Pipeline", value=prefs['install_upscale'], disabled=status['installed_upscale'], on_change=lambda e:changed(e, 'install_upscale'), tooltip="Allows you to enlarge images with prompts. Note: Will run out of mem for images larger than 512px, start small.")
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
-                                 Column([Container(Column([Container(None, height=3), model_row, SDXL_model_row,
+                                 Column([Container(Column([Container(None, height=3), page.model_row, SDXL_model_row,
                                 Container(content=None, height=4), Row([scheduler_mode, scheduler_help_btn]),
                                  Row([enable_attention_slicing, higher_vram_mode, enable_xformers,#memory_optimization,
                                       ]),
@@ -1751,7 +1763,7 @@ def buildInstallers(page):
   upscale_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=4), content=Row([upscale_model, model_info]))
   upscale_settings.height = None if prefs['install_ESRGAN'] else 0
   
-  install_OpenAI = Switcher(label="Install OpenAI GPT-3 Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], on_change=lambda e:changed(e, 'install_OpenAI'), tooltip="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.")
+  install_OpenAI = Switcher(label="Install OpenAI GPT Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], on_change=lambda e:changed(e, 'install_OpenAI'), tooltip="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.")
   install_TextSynth = Switcher(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], on_change=lambda e:changed(e, 'install_TextSynth'), tooltip="Alternative Text AI for brainstorming & rewriting your prompts. Pretty smart..")
   diffusers_settings.height = None if prefs['install_diffusers'] else 0
   stability_settings.height = None if prefs['install_Stability_api'] else 0
@@ -3287,7 +3299,7 @@ def buildPromptGenerator(page):
       if status['installed_OpenAI']:
         run_prompt_generator(page)
       else:
-        alert_msg(page, "You must Install OpenAI GPT-3 Library first before using...")
+        alert_msg(page, "You must Install OpenAI GPT Library first before using...")
     def add_to_list(e):
       for p in page.prompt_generator_list.controls:
         page.add_to_prompts(p.title.value)
@@ -3348,7 +3360,7 @@ def buildPromptRemixer(page):
       if status['installed_OpenAI']:
         run_prompt_remixer(page)
       else:
-        alert_msg(page, "You must Install OpenAI GPT-3 Library first before using...")
+        alert_msg(page, "You must Install OpenAI GPT Library first before using...")
     def add_to_prompt_list(p):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
@@ -3415,7 +3427,7 @@ def buildPromptBrainstormer(page):
       if prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-3":
         if status['installed_OpenAI']:
           run_prompt_brainstormer(page)
-        else: alert_msg(page, "You must Install OpenAI GPT-3 Library first before using this Request Mode...")
+        else: alert_msg(page, "You must Install OpenAI GPT Library first before using this Request Mode...")
       elif prefs['prompt_brainstormer']['AI_engine'] == "TextSynth GPT-J":
         if status['installed_TextSynth']:
           run_prompt_brainstormer(page)
@@ -20043,12 +20055,14 @@ torch_device = "cuda"
 try:
     from packaging import version
     import torch
-    if version.parse(torch.__version__) < version.parse("2.0.1") and torch.cuda.is_available():
-      raise ModuleNotFoundError("")
+    if version.parse(torch.__version__).base_version < version.parse("2.1.2").base_version and torch.cuda.is_available():
+      if upgrade_torch:
+        raise ModuleNotFoundError("")
 except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
-    print("Installing PyTorch 2.1.0 with CUDA 1.18")
-    run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+    print("Installing PyTorch 2.1.2 with CUDA 1.21...")
+    run_sp("pip install -qq -U --force-reinstall torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+    #run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
     #pip install --pre torch torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/nightly/cu118
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
     try:
@@ -20062,7 +20076,7 @@ except ModuleNotFoundError:
 finally:
     torch_device = "cuda" if torch.cuda.is_available() else "cpu"
     if torch_device == "cpu":
-        print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API, AIHorde & OpenAI, but not Diffusers...")
+        print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API, AIHorde & OpenAI, Gemini, but not Diffusers...")
 
 if torch_device == "cuda":
     try:
@@ -24232,9 +24246,12 @@ def run_prompt_generator(page):
         prompts_gen.append(p + f", style of {style}")
     else: prompts_gen.append(text_prompt)
     n += 1
+  page.generator.auto_scroll = True
   for item in prompts_gen:
     page.add_to_prompt_generator(item)
     #print(f'   "{item}",')
+  nudge(page.generator, page)
+  page.generator.auto_scroll = False
 
 remixer_request_modes = [
       "visually detailed wording, flowing sentences, extra long descriptions",
@@ -24370,8 +24387,11 @@ def run_prompt_remixer(page):
       if prefs['prompt_remixer']['random_styles'] > 0:
         prompts_remix.append(p + f", style of {style}")
     else: prompts_remix.append(text_prompt)
+  page.remixer.auto_scroll = True
   for item in prompts_remix:
     page.add_to_prompt_remixer(item)
+  nudge(page.remixer, page)
+  page.remixer.auto_scroll = False
 
 def get_stable_lm(ai_model="StableLM 3b"):
     global pipe_stable_lm, tokenizer_stable_lm
@@ -24648,9 +24668,12 @@ def run_prompt_brainstormer(page):
         result = result.replace('*', '').strip()
       page.add_to_prompt_brainstormer(str(result) + '\n')
     #print(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else ""))
+    page.brainstormer.auto_scroll = True
     if good_key:
       #print(request)
       prompt_brainstormer()
+    nudge(page.brainstormer, page)
+    page.brainstormer.auto_scroll = False
 
 def run_prompt_writer(page):
     '''try:
@@ -24816,8 +24839,11 @@ def run_magic_prompt(page):
             if magic_prompt_prefs['random_styles'] > 0:
                 prompts_magic.append(p + f", style of {style}")
         else: prompts_magic.append(text_prompt)
+    page.MagicPrompt.auto_scroll = False
     for item in prompts_magic:
         page.add_to_magic_prompt(item)
+    nudge(page.MagicPrompt, page)
+    page.MagicPrompt.auto_scroll = False
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_distil_gpt2(page):
