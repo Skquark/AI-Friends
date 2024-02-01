@@ -579,11 +579,16 @@ def save_settings_file(page, change_icon=True):
     if change_icon:
         page.app_icon_save()
     #print(os.path.dirname(saved_settings_json))
-    if not os.path.isfile(saved_settings_json):
-        settings_path = os.path.dirname(saved_settings_json) #saved_settings_json.rpartition(slash)[0]
-        os.makedirs(settings_path, exist_ok=True)
-    with open(saved_settings_json, "w") as write_file:
-        json.dump(prefs, write_file, indent=4)
+    try:
+        if not os.path.isfile(saved_settings_json):
+            settings_path = os.path.dirname(saved_settings_json) #saved_settings_json.rpartition(slash)[0]
+            os.makedirs(settings_path, exist_ok=True)
+        with open(saved_settings_json, "w") as write_file:
+            json.dump(prefs, write_file, indent=4)
+    except Exception as e:
+        alert_msg(page, f"ERROR: Something went wrong saving settings file...", content=Column([Text(f"Path: {settings_path} | Json: {saved_settings_json}"), Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        print(str(traceback.format_exc()))
+        pass
 
 current_tab = 0
 def tab_on_change (e):
@@ -847,6 +852,8 @@ def buildVideoAIs(page):
     page.StableAnimation = buildStableAnimation(page)
     page.SVD = buildSVD(page)
     page.AnimateDiffImage2Video = buildAnimateDiffImage2Video(page)
+    page.PIA = buildPIA(page)
+    page.I2VGenXL = buildI2VGenXL(page)
     page.ControlNet = buildControlNet(page)
     page.ControlNet_Video2Video = buildControlNet_Video2Video(page)
     page.TemporalNet_XL = buildTemporalNet_XL(page)
@@ -865,6 +872,8 @@ def buildVideoAIs(page):
             Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="SVD Image-to-Video", content=page.SVD, icon=icons.SLOW_MOTION_VIDEO),
             Tab(text="AnimateDiff to-Video", content=page.AnimateDiffImage2Video, icon=icons.CATCHING_POKEMON),
+            Tab(text="I2VGen-XL", content=page.I2VGenXL, icon=icons.TIPS_AND_UPDATES),
+            Tab(text="PIA Image Animator", content=page.PIA, icon=icons.EMERGENCY_RECORDING),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
             Tab(text="Text-to-Video Zero", content=page.TextToVideoZero, icon=icons.ONDEMAND_VIDEO),
             Tab(text="Potat1", content=page.Potat1, icon=icons.FILTER_1),
@@ -1325,7 +1334,7 @@ def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False,
 def close_alert_dlg(e):
     e.page.alert_dlg.open = False
     e.page.update()
-def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=False, debug_pref=None):
+def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None, wide=False, debug_pref=None):
     try:
         if page.alert_dlg.open == True: return
     except Exception: pass
@@ -1336,6 +1345,8 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=Fal
         pass
     def send_debug(e):
         debug_msg = msg + "\n\n"
+        if isinstance(content, list):
+            content = Column(controls=content)
         if isinstance(content, Column):
             for c in content.controls:
                 if isinstance(c, Text):
@@ -1348,9 +1359,7 @@ def alert_msg(page, msg, content=None, okay="", sound=True, width=None, wide=Fal
             debug_msg += str(debug_pref)
         # TODO: Add another window to submit report with optional From name, email & notes befor sending
         send_debug_email(debug_msg)
-        page.snack_bar = SnackBar(content=Text(f"📧  Sent Debug Crash Report Email to Skquark... Thanks for helping Beta-Test."))
-        page.snack_bar.open = True
-        page.update()
+        toast_msg(page, f"📧  Sent Debug Crash Report Email to Skquark... Thanks for helping Beta-Test.")
     show_debug = content != None and sound
     okay_button = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
     debug_button = Container(content=None) if not show_debug else ft.OutlinedButton(content=Text("Submit Error", size=18), on_click=send_debug)
@@ -1394,6 +1403,11 @@ def send_debug_email(message, subject="DiffusionDeluxe Error", from_name=None, f
             server.sendmail(email_from, [email_to], msg.as_string())
     except Exception as e:
         print(f"Failed to send email: {e}")
+
+def toast_msg(page:Page, msg:str, duration=None):
+    page.snack_bar = ft.SnackBar(content=Text(msg, color=colors.ON_TERTIARY), duration=duration, bgcolor=colors.TERTIARY)
+    page.snack_bar.open = True
+    page.update()
 
 def save_installers(controls):
   for c in controls:
@@ -1688,9 +1702,7 @@ def buildInstallers(page):
   def copy_token(e):
       nonlocal concept
       page.set_clipboard(f"<{concept['token']}>")
-      page.snack_bar = SnackBar(content=Text(f"📋  Token <{concept['token']}> copied to clipboard... Paste as word in your Prompt Text."))
-      page.snack_bar.open = True
-      page.update()
+      toast_msg(page, f"📋  Token <{concept['token']}> copied to clipboard... Paste as word in your Prompt Text.")
   install_conceptualizer = Switcher(label="Install Stable Diffusion Textual-Inversion Conceptualizer Pipeline", value=prefs['install_conceptualizer'], on_change=toggle_conceptualizer, tooltip="Loads specially trained concept models to include in prompt with token")
   concept = get_concept(prefs['concepts_model'])
   concepts_model = Dropdown(label="SD-Concepts Library Model", hint_text="Specially trained community models made with Textual-Inversion", width=451, options=[], value=prefs['concepts_model'], on_change=change_concepts_model)
@@ -2967,8 +2979,7 @@ def buildPromptsList(page):
       def copy_prompts_list(pl):
           nonlocal text_list, enter_text
           page.set_clipboard(enter_text.value)
-          page.snack_bar = SnackBar(content=Text(f"📋   Prompt Text copied to clipboard..."))
-          page.snack_bar.open = True
+          toast_msg(page, f"📋   Prompt Text copied to clipboard...")
           close_dlg(e)
       def close_dlg(e):
           dlg_copy.open = False
@@ -2992,9 +3003,7 @@ def buildPromptsList(page):
   def copy_prompt(e):
       open_dream = e.control.data
       page.set_clipboard(open_dream.prompt)
-      page.snack_bar = SnackBar(content=Text(f"📋   Prompt Text copied to clipboard..."))
-      page.snack_bar.open = True
-      page.update()
+      toast_msg(page, f"📋   Prompt Text copied to clipboard...")
   def duplicate_prompt(e):
       open_dream = e.control.data
       add_to_prompts(open_dream.prompt, open_dream.arg)
@@ -3718,9 +3727,7 @@ def NSP_instructions(page):
           page.launch_url(e.data)
         else:
           page.set_clipboard(e.data)
-          page.snack_bar = SnackBar(content=Text(f"📋   NSP variable {e.data} copied to clipboard..."))
-          page.snack_bar.open = True
-          page.update()
+          toast_msg(page, f"📋   NSP variable {e.data} copied to clipboard...")
     NSP_markdown = '''To use a term database, simply use any of the keys below in sentence. Copy to Clipboard with click.
 
 For example if you wanted beauty adjective, you would write `_adj-beauty_` in your prompt.
@@ -3835,9 +3842,7 @@ def buildNegatives(page):
         if update: neg_text.update()
     def copy_clip(e):
         page.set_clipboard(neg_text.value)
-        page.snack_bar = SnackBar(content=Text(f"📋  Copied to clipboard... Paste into your Negative Prompt Text."))
-        page.snack_bar.open = True
-        page.update()
+        toast_msg(page, f"📋  Copied to clipboard... Paste into your Negative Prompt Text.")
     neg_list = ResponsiveRow(controls=[])
     for k, v in negatives.items():
         neg_list.controls.append(Checkbox(label=k, tooltip=v, data=k, value=k in prefs['negatives'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=change_neg, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
@@ -3916,9 +3921,7 @@ def buildPromptStyler(page):
         if prefs['enable_sounds']: page.snd_drop.play()
     def copy_clip(e):
         page.set_clipboard(neg_text.value)
-        page.snack_bar = SnackBar(content=Text(f"📋  Copied to clipboard... Paste into your Negative Prompt Text."))
-        page.snack_bar.open = True
-        page.update()
+        toast_msg(page, f"📋  Copied to clipboard... Paste into your Negative Prompt Text.")
     def add_to_prompt_list(e):
         styler = sdd_utils.prompt_styles[e.control.data]
         pr = styler[0].replace("{prompt}", prefs['prompt_styler'])
@@ -11596,9 +11599,7 @@ def buildInfiniteZoom(page):
     def copy_prompt(e):
       p = infinite_zoom_prefs['animation_prompts'][str(e.control.data)]
       page.set_clipboard(p)
-      page.snack_bar = SnackBar(content=Text(f"📋  Prompt Text copied to clipboard..."))
-      page.snack_bar.open = True
-      page.update()
+      toast_msg(page, f"📋  Prompt Text copied to clipboard...")
     def add_prompt(e, f=None, p=None, sound=True):
       if (not bool(prompt.value) or not bool(frame.value)) and f == None: return
       if f == None: f = int(frame.value)
@@ -11964,8 +11965,7 @@ def buildStableAnimation(page):
       def copy_preset(pl):
         nonlocal text_list, enter_text
         page.set_clipboard(enter_text.value)
-        page.snack_bar = SnackBar(content=Text(f"📋   Animation Preset copied to clipboard..."))
-        page.snack_bar.open = True
+        toast_msg(page, f"📋   Animation Preset copied to clipboard...")
         close_dlg(e)
       def close_dlg(e):
           dlg_copy.open = False
@@ -12138,9 +12138,7 @@ def buildStableAnimation(page):
     def copy_prompt(e):
       p = stable_animation_prefs['animation_prompts'][str(e.control.data)]
       page.set_clipboard(p)
-      page.snack_bar = SnackBar(content=Text(f"📋  Prompt Text copied to clipboard..."))
-      page.snack_bar.open = True
-      page.update()
+      toast_msg(page, f"📋  Prompt Text copied to clipboard...")
     def add_prompt(e, f=None, p=None, sound=True):
       if (not bool(prompt.value) or not bool(frame.value)) and f == None: return
       if f == None: f = int(frame.value)
@@ -13445,9 +13443,7 @@ def buildAnimateDiff(page):
     def copy_prompt(e):
       p = animate_diff_prefs['animation_prompts'][str(e.control.data)]
       page.set_clipboard(p)
-      page.snack_bar = SnackBar(content=Text(f"📋  Prompt Text copied to clipboard..."))
-      page.snack_bar.open = True
-      page.update()
+      toast_msg(page, f"📋  Prompt Text copied to clipboard...")
     def add_prompt(e, f=None, p=None, sound=True):
       if (not bool(prompt.value) or not bool(frame.value)) and f == None: return
       if f == None: f = int(frame.value)
@@ -13991,6 +13987,333 @@ def buildAnimateDiffImage2Video(page):
             page.ESRGAN_block_animatediff_img2video,
             parameters_row,
             page.animatediff_img2video_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+pia_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "pia-",
+    "num_images": 1,
+    "width": 1024 if prefs['higher_vram_mode'] else 512,
+    "height":1024 if prefs['higher_vram_mode'] else 512,
+    "guidance_scale": 7.5,
+    'num_inference_steps': 50,
+    "seed": 0,
+    'init_image': '',
+    'init_image_strength': 0.8,
+    "motion_scale": 0,
+    'video_length': 16,
+    'fps': 8,
+    'target_fps': 25,
+    'clip_skip': 1,
+    "pia_model": "Realistic_Vision_V6.0_B1_noVAE",
+    "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_strength': 0.8,
+    'export_to_video': True,
+    "interpolate_video": True,
+    "cpu_offload": False,
+    "free_init": False,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildPIA(page):
+    global prefs, pia_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            pia_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            pia_prefs[pref] = float(e.control.value)
+          else:
+            pia_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def pia_help(e):
+      def close_pia_dlg(e):
+        nonlocal pia_help_dlg
+        pia_help_dlg.open = False
+        page.update()
+      pia_help_dlg = AlertDialog(title=Text("🙅   Help with Personalized Image Animator Pipeline"), content=Column([
+          Text("PIA: Your Personalized Image Animator via Plug-and-Play Modules in Text-to-Image Models"),
+          Text("Recent advancements in personalized text-to-image (T2I) models have revolutionized content creation, empowering non-experts to generate stunning images with unique styles. While promising, adding realistic motions into these personalized images by text poses significant challenges in preserving distinct styles, high-fidelity details, and achieving motion controllability by text. In this paper, we present PIA, a Personalized Image Animator that excels in aligning with condition images, achieving motion controllability by text, and the compatibility with various personalized T2I models without specific tuning. To achieve these goals, PIA builds upon a base T2I model with well-trained temporal alignment layers, allowing for the seamless transformation of any personalized T2I model into an image animation model. A key component of PIA is the introduction of the condition module, which utilizes the condition frame and inter-frame affinity as input to transfer appearance information guided by the affinity hint for individual frame synthesis in the latent space. This design mitigates the challenges of appearance-related image alignment within and allows for a stronger focus on aligning with motion-related guidance."),
+          Markdown("[Project](https://pi-animator.github.io/) | [Paper](https://arxiv.org/abs/2312.13964) | [PIAPipeline](https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/pia/pipeline_pia.py) | [Model Checkpoint](https://huggingface.co/openmmlab/PIA-condition-adapter)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Tianxing Wu, Chenyang Si, Yuming Jiang, Ziqi Huang, Ziwei Liu and HuggingFace.")
+          #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🦘  Jump Right In...", on_click=close_pia_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = pia_help_dlg
+      pia_help_dlg.open = True
+      page.update()
+    def toggle_ip_adapter(e):
+      pia_prefs['use_ip_adapter'] = e.control.value
+      ip_adapter_container.height=None if pia_prefs['use_ip_adapter'] else 0
+      ip_adapter_container.update()
+    def changed_model(e):
+        pia_prefs['pia_model'] = e.control.value
+        pia_custom_model.visible = e.control.value == "Custom"
+        pia_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        pia_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=pia_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=pia_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image", pref=pia_prefs, key='init_image', ftype="image", page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pia_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    video_length = SliderRow(label="Video Length", min=1, max=64, divisions=63, pref=pia_prefs, key='video_length', tooltip="The number of frames to animate.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=pia_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=pia_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Videos", min=1, max=9, step=1, value=pia_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=80, divisions=80, pref=pia_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pia_prefs, key='guidance_scale')
+    clip_skip = SliderRow(label="Clip Skip", min=0, max=4, divisions=4, pref=pia_prefs, key='clip_skip', expand=True, col={'md': 6}, tooltip="Skips part of the image generation process, leading to slightly different results from the LoRA CLIP model.")
+    motion_scale = SliderRow(label="Motion Scale", min=0, max=8, divisions=8, pref=pia_prefs, key='motion_scale', tooltip="Amount and type of motion that is added to the image. Increasing the value increases the amount of motion. 0-2 increase the amount of motion; 3-5 create looping motion; 6-8 perform motion with image style transfer")
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pia_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pia_prefs, key='height')
+    def toggle_ip_adapter(e):
+        pia_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=pia_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=pia_prefs['ip_adapter_model'], visible=pia_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=pia_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pia_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if pia_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    pia_model = Dropdown(label="PIA Model", width=270, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V6.0_B1_noVAE"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=pia_prefs['pia_model'], on_change=changed_model)
+    pia_custom_model = TextField(label="Custom PIA Model (URL or Path)", value=pia_prefs['custom_model'], expand=True, visible=pia_prefs['pia_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=pia_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    free_init = Switcher(label="Free-Init", value=pia_prefs['free_init'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'free_init'), tooltip="Improves temporal consistency and overall quality of videos generated using video-diffusion-models without any addition training.")
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=pia_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    interpolate_video = Switcher(label="Interpolate Video", value=pia_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=pia_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
+    seed = TextField(label="Seed", width=90, value=str(pia_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pia_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=pia_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=pia_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=pia_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_pia = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_pia.height = None if status['installed_ESRGAN'] else 0
+    if not pia_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🪖   Run PIA", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pia(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.pia_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🎬  Personalized Image Animator Image-to-Video", "Image-to-Video Generation with PIA via Plug-and-Play Modules in Text-to-Image Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Personalized Image Animator Settings", on_click=pia_help)]),
+            ResponsiveRow([init_image, init_image_strength]),
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            motion_scale,
+            video_length,
+            ResponsiveRow([fps, clip_skip]),
+            Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
+            Row([pia_model, pia_custom_model]),
+            Row([cpu_offload, free_init, export_to_video, interpolate_video]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_pia,
+            parameters_row,
+            page.pia_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+i2vgen_xl_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "i2vgen_xl-",
+    "num_images": 1,
+    "width": 1280,
+    "height":704,
+    "guidance_scale": 8.5,
+    'num_inference_steps': 50,
+    "seed": 0,
+    'init_image': '',
+    'video_length': 16,
+    'fps': 16,
+    'target_fps': 16,
+    'clip_skip': 1,
+    'lora_alpha': 0.8,
+    'custom_lora': '',
+    'lora_layer': '3D Redmond',
+    'lora_layer_alpha': 0.8,
+    'custom_lora_layer': '',
+    'lora_map': [],
+    "i2vgen_xl_model": "I2VGen-XL",
+    "custom_model": "",
+    'export_to_video': True,
+    "interpolate_video": True,
+    "cpu_offload": False,
+    "free_init": False,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildI2VGenXL(page):
+    global prefs, i2vgen_xl_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            i2vgen_xl_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            i2vgen_xl_prefs[pref] = float(e.control.value)
+          else:
+            i2vgen_xl_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def i2vgen_xl_help(e):
+      def close_i2vgen_xl_dlg(e):
+        nonlocal i2vgen_xl_help_dlg
+        i2vgen_xl_help_dlg.open = False
+        page.update()
+      i2vgen_xl_help_dlg = AlertDialog(title=Text("🙅   Help with I2VGen-XL Pipeline"), content=Column([
+          Text("Video synthesis has recently made remarkable strides benefiting from the rapid development of diffusion models. However, it still encounters challenges in terms of semantic accuracy, clarity and spatio-temporal continuity. They primarily arise from the scarcity of well-aligned text-video data and the complex inherent structure of videos, making it difficult for the model to simultaneously ensure semantic and qualitative excellence. In this report, we propose a cascaded I2VGen-XL approach that enhances model performance by decoupling these two factors and ensures the alignment of the input data by utilizing static images as a form of crucial guidance. I2VGen-XL consists of two stages: i) the base stage guarantees coherent semantics and preserves content from input images by using two hierarchical encoders, and ii) the refinement stage enhances the video's details by incorporating an additional brief text and improves the resolution to 1280×720. To improve the diversity, we collect around 35 million single-shot text-video pairs and 6 billion text-image pairs to optimize the model. By this means, I2VGen-XL can simultaneously enhance the semantic accuracy, continuity of details and clarity of generated videos. Through extensive experiments, we have investigated the underlying principles of I2VGen-XL and compared it with current top methods, which can demonstrate its effectiveness on diverse data."),
+          Markdown("[Project](https://i2vgen-xl.github.io/) | [GitHub](https://github.com/ali-vilab/i2vgen-xl/) | [Paper](https://hf.co/papers/2311.04145.pdf) | [Model Checkpoint](https://huggingface.co/ali-vilab/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Shiwei Zhang, Jiayu Wang, Yingya Zhang, Kang Zhao, Hangjie Yuan, Zhiwu Qin, Xiang Wang, Deli Zhao, and Jingren Zhou."),
+          #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🛞  Roll with it...", on_click=close_i2vgen_xl_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = i2vgen_xl_help_dlg
+      i2vgen_xl_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        i2vgen_xl_prefs['i2vgen_xl_model'] = e.control.value
+        i2vgen_xl_custom_model.visible = e.control.value == "Custom"
+        i2vgen_xl_custom_model.update()
+    def changed_lora_layer(e):
+      i2vgen_xl_prefs['lora_layer'] = e.control.value
+      custom_lora_layer.visible = e.control.value == "Custom"
+      custom_lora_layer.update()
+    def add_lora(e):
+      lora = i2vgen_xl_prefs['lora_layer']
+      lora_scale = i2vgen_xl_prefs['lora_layer_alpha']
+      lora_layer = {}
+      if lora == "Custom":
+        lora_layer = {'name': 'Custom', 'file':'', 'path':i2vgen_xl_prefs['custom_lora_layer'], 'scale': lora_scale}
+      else:
+        for l in SDXL_LoRA_models:
+          if l['name'] == lora:
+            lora_layer = l.copy()
+            lora_layer['scale'] = lora_scale
+        for l in i2vgen_xl_prefs['lora_map']:
+          if l['name'] == lora:
+            return
+      i2vgen_xl_prefs['lora_map'].append(lora_layer)
+      title = Markdown(f"**{lora_layer['name']}** - Alpha Scale: [{lora_layer['scale']}] - {lora_layer['path']}")
+      lora_layer_map.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      lora_layer_map.update()
+    def delete_lora_layer(e):
+        for l in i2vgen_xl_prefs['lora_map']:
+          if l['name'] == e.control.data['name']:
+            i2vgen_xl_prefs['lora_map'].remove(l)
+          #del l #i2vgen_xl_prefs['lora_map'][]
+        for c in lora_layer_map.controls:
+          if c.data['name'] == e.control.data['name']:
+             lora_layer_map.controls.remove(c)
+             break
+        lora_layer_map.update()
+    def delete_all_lora_layers(e):
+        i2vgen_xl_prefs['lora_map'].clear()
+        lora_layer_map.controls.clear()
+        lora_layer_map.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        i2vgen_xl_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=i2vgen_xl_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=i2vgen_xl_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image", pref=i2vgen_xl_prefs, key='init_image', ftype="image", page=page, col={'md':6})
+    video_length = SliderRow(label="Video Length", min=1, max=64, divisions=63, pref=i2vgen_xl_prefs, key='video_length', tooltip="The number of frames to animate.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=i2vgen_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=i2vgen_xl_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Videos", min=1, max=9, step=1, value=i2vgen_xl_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=80, divisions=80, pref=i2vgen_xl_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=i2vgen_xl_prefs, key='guidance_scale')
+    clip_skip = SliderRow(label="Clip Skip", min=0, max=4, divisions=4, pref=i2vgen_xl_prefs, key='clip_skip', expand=True, col={'md': 6}, tooltip="Recommeded to leave at 1 for this Pipeline. Skips part of the image generation process, leading to slightly different results from the LoRA CLIP model.")
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=i2vgen_xl_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=i2vgen_xl_prefs, key='height')
+    i2vgen_xl_model = Dropdown(label="I2VGen-XL Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("I2VGen-XL")], value=i2vgen_xl_prefs['i2vgen_xl_model'], on_change=changed_model)
+    i2vgen_xl_custom_model = TextField(label="Custom I2VGen-XL Model (URL or Path)", value=i2vgen_xl_prefs['custom_model'], expand=True, visible=i2vgen_xl_prefs['i2vgen_xl_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    #lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=i2vgen_xl_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    lora_layer = Dropdown(label="SDXL LoRA Layer Map", options=[dropdown.Option("Custom")], value=i2vgen_xl_prefs['lora_layer'], on_change=changed_lora_layer)
+    custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=i2vgen_xl_prefs['custom_lora_layer'], expand=True, visible=i2vgen_xl_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
+    if len(prefs['custom_SDXL_LoRA_models']) > 0:
+        for l in prefs['custom_SDXL_LoRA_models']:
+            lora_layer.options.append(dropdown.Option(l['name']))
+    for m in SDXL_LoRA_models:
+        lora_layer.options.append(dropdown.Option(m['name']))
+    lora_layer.options.append(dropdown.Option("Custom SDXL LoRA Path"))
+    #for lora in animatediff_motion_loras:
+    #    lora_layer.options.insert(1, dropdown.Option(lora['name']))
+    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=i2vgen_xl_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
+    lora_layer_map = Column([], spacing=0)
+    cpu_offload = Switcher(label="CPU Offload", value=i2vgen_xl_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    free_init = Switcher(label="Free-Init", value=i2vgen_xl_prefs['free_init'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'free_init'), tooltip="Improves temporal consistency and overall quality of videos generated using video-diffusion-models without any addition training.")
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=i2vgen_xl_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    interpolate_video = Switcher(label="Interpolate Video", value=i2vgen_xl_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    fps = SliderRow(label="Target FPS", min=1, max=30, divisions=29, suffix='fps', pref=i2vgen_xl_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. This is also used as a 'micro-condition' while generation.")
+    seed = TextField(label="Seed", width=90, value=str(i2vgen_xl_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=i2vgen_xl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=i2vgen_xl_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=i2vgen_xl_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=i2vgen_xl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_i2vgen_xl = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_i2vgen_xl.height = None if status['installed_ESRGAN'] else 0
+    if not i2vgen_xl_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="♊   Run I2VGen-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_i2vgen_xl(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_i2vgen_xl(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_i2vgen_xl(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.i2vgen_xl_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🧬  I2VGen-XL Image-to-Video", "High-Quality Image-to-Video Synthesis via Cascaded Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with I2VGen-XL Settings", on_click=i2vgen_xl_help)]),
+            init_image,
+            #ResponsiveRow([init_image]),
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            video_length,
+            ResponsiveRow([fps, clip_skip]),
+            Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
+            lora_layer_map,
+            Divider(thickness=4, height=4),
+            Row([i2vgen_xl_model, i2vgen_xl_custom_model]),
+            Row([cpu_offload, export_to_video, interpolate_video]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_i2vgen_xl,
+            parameters_row,
+            page.i2vgen_xl_output
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -14557,9 +14880,7 @@ def buildDiT(page):
       page.update()
     def copy_class(e):
       page.set_clipboard(e.control.text)
-      page.snack_bar = SnackBar(content=Text(f"📋   Class {e.control.text} copied to clipboard..."))
-      page.snack_bar.open = True
-      page.update()
+      toast_msg(page, f"📋   Class {e.control.text} copied to clipboard...")
     def show_classes(e):
       classes = []
       for c in ImageNet_classes.keys():
@@ -19461,6 +19782,8 @@ pipe_ldm3d = None
 pipe_ldm3d_upscale = None
 pipe_svd = None
 pipe_animatediff_img2video = None
+pipe_pia = None
+pipe_i2vgen_xl = None
 pipe_panorama = None
 pipe_DiT = None
 pipe_dance = None
@@ -22017,6 +22340,18 @@ def clear_animatediff_img2video_pipe():
     del pipe_animatediff_img2video
     flush()
     pipe_animatediff_img2video = None
+def clear_pia_pipe():
+  global pipe_pia
+  if pipe_pia is not None:
+    del pipe_pia
+    flush()
+    pipe_pia = None
+def clear_i2vgen_xl_pipe():
+  global pipe_i2vgen_xl
+  if pipe_i2vgen_xl is not None:
+    del pipe_i2vgen_xl
+    flush()
+    pipe_i2vgen_xl = None
 def clear_panorama_pipe():
   global pipe_panorama
   if pipe_panorama is not None:
@@ -22304,6 +22639,8 @@ def clear_pipes(allbut=None):
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'svd' in but: clear_svd_pipe()
     if not 'animatediff_img2video' in but: clear_animatediff_img2video_pipe()
+    if not 'pia' in but: clear_pia_pipe()
+    if not 'i2vgen_xl' in but: clear_i2vgen_xl_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
     if not 'amused' in but: clear_amused_pipe()
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
@@ -42033,6 +42370,460 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
     autoscroll(False)
     if prefs['enable_sounds']: page.snd_alert.play()
 
+def run_pia(page, from_list=False, with_params=False):
+    global pia_prefs, pipe_pia, prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    pia_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            pia_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':pia_prefs['guidance_scale'], 'num_inference_steps':pia_prefs['num_inference_steps'], 'width':pia_prefs['width'], 'height':pia_prefs['height'], 'init_image':pia_prefs['init_image'], 'init_image_strength':pia_prefs['init_image_strength'], 'num_images':pia_prefs['num_images'], 'seed':pia_prefs['seed']})
+        else:
+            pia_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(pia_prefs['init_image']):
+        alert_msg(page, "You must provide an Init Image to process your video generation...")
+        return
+      pia_prompts.append({'prompt': pia_prefs['prompt'], 'negative_prompt':pia_prefs['negative_prompt'], 'guidance_scale':pia_prefs['guidance_scale'], 'num_inference_steps':pia_prefs['num_inference_steps'], 'width':pia_prefs['width'], 'height':pia_prefs['height'], 'init_image':pia_prefs['init_image'], 'init_image_strength':pia_prefs['init_image_strength'], 'num_images':pia_prefs['num_images'], 'seed':pia_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.PIA.controls.append(line)
+        if update:
+          page.PIA.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.PIA, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.PIA.auto_scroll = scroll
+        page.PIA.update()
+      else:
+        page.PIA.auto_scroll = scroll
+        page.PIA.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.PIA.controls = page.PIA.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = pia_prefs['num_inference_steps']
+    def callback_step(pipe, step, timestep, callback_kwargs):
+      callback_step.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    #mode = "Video2Video" if pia_prompts[0]['init_image'].endswith('mp4') or pia_prompts[0]['init_image'].endswith('gif') else "Image2Video"
+    installer = Installing(f"Installing Personalized Image Animator Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("pia")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = pia_prefs['cpu_offload']
+    motion_module = "openmmlab/PIA-condition-adapter"
+    pia_model = "SG161222/Realistic_Vision_V6.0_B1_noVAE" if pia_prefs['pia_model'] == "Realistic_Vision_V6.0_B1_noVAE" else "SG161222/Realistic_Vision_V5.1_noVAE" if pia_prefs['pia_model'] == "Realistic_Vision_V5.1_noVAE" else "Lykon/dreamshaper-8" if pia_prefs['pia_model'] == "dreamshaper-8" else pia_prefs['pia_custom_model']
+    if 'loaded_pia' not in status: status['loaded_pia'] = ""
+    if pia_model != status['loaded_pia']:
+        clear_pipes()
+    #from diffusers import AutoPipelineForVideo2Video, AutoPipelineForImage2Video, PIAScheduler
+    from diffusers import MotionAdapter, EulerDiscreteScheduler, PIAPipeline, DDIMScheduler
+    from diffusers.utils import export_to_gif, load_image
+
+    if pipe_pia == None:
+        installer.status(f"...initialize PIA Pipeline")
+        try:
+            adapter = MotionAdapter.from_pretrained(motion_module)
+            pipe_pia = PIAPipeline.from_pretrained(pia_model, motion_adapter=adapter, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_pia = AutoPipelineForImage2Video.from_pretrained(pia_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_pia.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
+            #pipe_pia = pipeline_scheduler(pipe_pia)
+            pipe_pia.scheduler = EulerDiscreteScheduler.from_config(pipe_pia.scheduler.config)
+            if prefs['vae_slicing']:
+                pipe_pia.enable_vae_slicing()
+            if prefs['vae_tiling']:
+                pipe_pia.enable_vae_tiling()
+            if pia_prefs['free_init']: #Not yet
+                installer.status(f"...enable FreeInit")
+                pipe_pia.enable_free_init(method="butterworth", use_fast_sampling=True)
+            if prefs['enable_freeu']:
+                installer.status(f"...enable FreeU")
+                pipe_pia.enable_freeu(s1=0.6, s2=0.4, b1=1.1, b2=1.2)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_pia.transformer = torch.compile(pipe_pia.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_pia = pipe_pia.to(torch_device)
+            elif cpu_offload:
+                pipe_pia.enable_model_cpu_offload()
+            else:
+                pipe_pia = pipe_pia.to(torch_device)
+            pipe_pia.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Personalized Image Animator...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_pia'] = pia_model
+    else:
+        clear_pipes('pia')
+    
+    ip_adapter_arg = {}
+    if pia_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if pia_prefs['ip_adapter_image'].startswith('http'):
+          i_response = requests.get(pia_prefs['ip_adapter_image'])
+          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+          if os.path.isfile(pia_prefs['ip_adapter_image']):
+            ip_adapter_img = PILImage.open(pia_prefs['ip_adapter_image'])
+          else:
+            clear_last()
+            prt(f"ERROR: Couldn't find your ip_adapter_image {pia_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == pia_prefs['ip_adapter_model'])
+            pipe_pia.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_pia.set_ip_adapter_scale(pia_prefs['ip_adapter_strength'])
+
+    clear_last()
+    s = "" if len(pia_prompts) == 0 else "s"
+    prt(f"Generating your PIA Video{s}...")
+    for pr in pia_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator("cpu").manual_seed(random_seed)
+        init_img = None
+        fname = os.path.basename(pr['init_image'])
+        if pr['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(pr['init_image']):
+                init_img = PILImage.open(pr['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init image {pr['init_image']}")
+                return
+        init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        try:
+            output = pipe_pia(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                image=init_img,
+                strength=pr['init_image_strength'],
+                num_frames=pia_prefs['video_length'],
+                num_videos_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                motion_scale=pia_prefs['motion_scale'],
+                clip_skip=pia_prefs['clip_skip'],
+                generator=generator,
+                callback_on_step_end=callback_step,
+                **ip_adapter_arg,
+            ).frames
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        if output is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        batch_output = os.path.join(prefs['image_output'], pia_prefs['batch_folder_name'])
+        make_dir(batch_output)
+        for v, frames_batch in enumerate(output):
+            fname = format_filename(pr['prompt'])
+            frames_dir = available_folder(batch_output, "frames", v)
+            make_dir(frames_dir)
+            for idx, image in enumerate(frames_batch):
+                #fname = f"{pia_prefs['file_prefix']}{format_filename(pia_prefs['batch_folder_name'])}-{b}"
+                image_path = available_file(frames_dir, "frame", idx, zfill=4)
+                image.save(image_path)
+                new_file = os.path.basename(image_path)
+                if not pia_prefs['display_upscaled_image'] or not pia_prefs['apply_ESRGAN_upscale']:
+                    #prt(Row([Img(src=image_path, width=pia_prefs['width'], height=pia_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                if pia_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    upscale_image(image_path, image_path, scale=pia_prefs["enlarge_scale"], face_enhance=pia_prefs["face_enhance"])
+                    if pia_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=image_path, width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            export_to_gif(frames_batch, gif_file)
+            prt(Row([ImageButton(src=gif_file, width=pr['width'], height=pr['height'], data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+            if pia_prefs['export_to_video']:
+                try:
+                    installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                    prt(installer)
+                    out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                    if pia_prefs['interpolate_video']:
+                        interpolate_video(frames_dir, input_fps=pia_prefs['fps'], output_fps=pia_prefs['target_fps'], output_video=out_file, installer=installer)
+                    else:
+                        installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                        pattern = create_pattern(new_file) #fname+"-%04d.png"
+                        frames_to_video(frames_dir, pattern=pattern, input_fps=pia_prefs['fps'], output_fps=pia_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                except Exception as e:
+                    clear_last()
+                    alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                    pass
+                clear_last()
+                if not os.path.isfile(out_file):
+                    prt(f"Problem creating video file, but frames still saved...")
+                else:
+                    prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_i2vgen_xl(page, from_list=False, with_params=False):
+    global i2vgen_xl_prefs, pipe_i2vgen_xl, prefs, status
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    i2vgen_xl_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            i2vgen_xl_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':i2vgen_xl_prefs['guidance_scale'], 'num_inference_steps':i2vgen_xl_prefs['num_inference_steps'], 'width':i2vgen_xl_prefs['width'], 'height':i2vgen_xl_prefs['height'], 'init_image':i2vgen_xl_prefs['init_image'], 'num_images':i2vgen_xl_prefs['num_images'], 'seed':i2vgen_xl_prefs['seed']})
+        else:
+            i2vgen_xl_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(i2vgen_xl_prefs['init_image']):
+        alert_msg(page, "You must provide an Init Image to process your video generation...")
+        return
+      i2vgen_xl_prompts.append({'prompt': i2vgen_xl_prefs['prompt'], 'negative_prompt':i2vgen_xl_prefs['negative_prompt'], 'guidance_scale':i2vgen_xl_prefs['guidance_scale'], 'num_inference_steps':i2vgen_xl_prefs['num_inference_steps'], 'width':i2vgen_xl_prefs['width'], 'height':i2vgen_xl_prefs['height'], 'init_image':i2vgen_xl_prefs['init_image'], 'num_images':i2vgen_xl_prefs['num_images'], 'seed':i2vgen_xl_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.I2VGenXL.controls.append(line)
+        if update:
+          page.I2VGenXL.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.I2VGenXL, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.I2VGenXL.auto_scroll = scroll
+        page.I2VGenXL.update()
+      else:
+        page.I2VGenXL.auto_scroll = scroll
+        page.I2VGenXL.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.I2VGenXL.controls = page.I2VGenXL.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = i2vgen_xl_prefs['num_inference_steps']
+    def callback_step(pipe, step, timestep, callback_kwargs):
+      callback_step.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    #mode = "Video2Video" if i2vgen_xl_prompts[0]['init_image'].endswith('mp4') or i2vgen_xl_prompts[0]['init_image'].endswith('gif') else "Image2Video"
+    installer = Installing(f"Installing I2VGen-XL Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("i2vgen_xl")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = i2vgen_xl_prefs['cpu_offload']
+    i2vgen_xl_model = "ali-vilab/i2vgen-xl" if i2vgen_xl_prefs['i2vgen_xl_model'] == "i2vgen-xl" else i2vgen_xl_prefs['i2vgen_xl_custom_model']
+    if 'loaded_i2vgen_xl' not in status: status['loaded_i2vgen_xl'] = ""
+    if i2vgen_xl_model != status['loaded_i2vgen_xl']:
+        clear_pipes()
+    #from diffusers import AutoPipelineForVideo2Video, AutoPipelineForImage2Video, I2VGenXLScheduler
+    from diffusers import I2VGenXLPipeline, DDIMScheduler
+    from diffusers.utils import export_to_gif, load_image
+
+    if pipe_i2vgen_xl == None:
+        installer.status(f"...initialize I2VGen-XL Pipeline")
+        try:
+            pipe_i2vgen_xl = I2VGenXLPipeline.from_pretrained(i2vgen_xl_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_i2vgen_xl = AutoPipelineForImage2Video.from_pretrained(i2vgen_xl_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_i2vgen_xl.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
+            pipe_i2vgen_xl.scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
+            #pipe_i2vgen_xl = pipeline_scheduler(pipe_i2vgen_xl)
+            #pipe_i2vgen_xl.scheduler = EulerDiscreteScheduler.from_config(pipe_i2vgen_xl.scheduler.config)
+            if prefs['vae_slicing']:
+                pipe_i2vgen_xl.enable_vae_slicing()
+            if prefs['vae_tiling']:
+                pipe_i2vgen_xl.enable_vae_tiling()
+            #if i2vgen_xl_prefs['free_init']: #Not yet
+            #    installer.status(f"...enable FreeInit")
+            #    pipe_i2vgen_xl.enable_free_init(method="butterworth", use_fast_sampling=True)
+            if prefs['enable_freeu']:
+                installer.status(f"...enable FreeU")
+                pipe_i2vgen_xl.enable_freeu(s1=0.6, s2=0.4, b1=1.1, b2=1.2)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_i2vgen_xl.transformer = torch.compile(pipe_i2vgen_xl.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_i2vgen_xl = pipe_i2vgen_xl.to(torch_device)
+            elif cpu_offload:
+                pipe_i2vgen_xl.enable_model_cpu_offload()
+            else:
+                pipe_i2vgen_xl = pipe_i2vgen_xl.to(torch_device)
+            pipe_i2vgen_xl.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing I2VGen-XL...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_i2vgen_xl'] = i2vgen_xl_model
+    else:
+        clear_pipes('i2vgen_xl')
+    if len(i2vgen_xl_prefs['lora_map']) > 0:
+        installer.status(f"...loading LoRAs")
+        adapters = []
+        scales = []
+        for l in i2vgen_xl_prefs['lora_map']:
+            adapters.append(l['name'])
+            scales.append(l['scale'])
+            weight_args = {}
+            if 'weights' in l and bool(l['weights']):
+                weight_args['weight_name'] = l['weights']
+            pipe_i2vgen_xl.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+        pipe_i2vgen_xl.set_adapters(adapters, adapter_weights=scales)
+    clear_last()
+    s = "" if len(i2vgen_xl_prompts) == 0 else "s"
+    prt(f"Generating your I2VGen-XL Video{s}...")
+    for pr in i2vgen_xl_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        generator = torch.Generator("cpu").manual_seed(random_seed)
+        init_img = None
+        fname = os.path.basename(pr['init_image'])
+        if pr['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(pr['init_image']):
+                init_img = PILImage.open(pr['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init image {pr['init_image']}")
+                return
+        init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+        init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        try:
+            output = pipe_i2vgen_xl(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                image=init_img,
+                num_frames=i2vgen_xl_prefs['video_length'],
+                num_videos_per_prompt=pr['num_images'],
+                target_fps=i2vgen_xl_prefs['fps'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                clip_skip=i2vgen_xl_prefs['clip_skip'],
+                generator=generator,
+                #callback_on_step_end=callback_step,
+            ).frames
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        if output is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        batch_output = os.path.join(prefs['image_output'], i2vgen_xl_prefs['batch_folder_name'])
+        make_dir(batch_output)
+        for v, frames_batch in enumerate(output):
+            fname = format_filename(pr['prompt'])
+            frames_dir = available_folder(batch_output, "frames", v)
+            make_dir(frames_dir)
+            for idx, image in enumerate(frames_batch):
+                #fname = f"{i2vgen_xl_prefs['file_prefix']}{format_filename(i2vgen_xl_prefs['batch_folder_name'])}-{b}"
+                image_path = available_file(frames_dir, "frame", idx, zfill=4)
+                image.save(image_path)
+                new_file = os.path.basename(image_path)
+                if not i2vgen_xl_prefs['display_upscaled_image'] or not i2vgen_xl_prefs['apply_ESRGAN_upscale']:
+                    #prt(Row([Img(src=image_path, width=i2vgen_xl_prefs['width'], height=i2vgen_xl_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                if i2vgen_xl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    upscale_image(image_path, image_path, scale=i2vgen_xl_prefs["enlarge_scale"], face_enhance=i2vgen_xl_prefs["face_enhance"])
+                    if i2vgen_xl_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=image_path, width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            export_to_gif(frames_batch, gif_file)
+            prt(Row([ImageButton(src=gif_file, width=pr['width'], height=pr['height'], data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+            if i2vgen_xl_prefs['export_to_video']:
+                try:
+                    installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                    prt(installer)
+                    out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                    if i2vgen_xl_prefs['interpolate_video']:
+                        interpolate_video(frames_dir, input_fps=i2vgen_xl_prefs['fps'], output_fps=i2vgen_xl_prefs['target_fps'], output_video=out_file, installer=installer)
+                    else:
+                        installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                        pattern = create_pattern(new_file) #fname+"-%04d.png"
+                        frames_to_video(frames_dir, pattern=pattern, input_fps=i2vgen_xl_prefs['fps'], output_fps=i2vgen_xl_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                except Exception as e:
+                    clear_last()
+                    alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                    pass
+                clear_last()
+                if not os.path.isfile(out_file):
+                    prt(f"Problem creating video file, but frames still saved...")
+                else:
+                    prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
+
 
 def run_hotshot_xl(page):
     global hotshot_xl_prefs, prefs, status, pipe_hotshot_xl, model_path
@@ -45637,14 +46428,10 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     message = TextField(label="Message to Skquark", keyboard_type=KeyboardType.MULTILINE, filled=True, multiline=True, max_lines=10)
     def send_message(e):
         if not bool(message.value.strip()):
-            page.snack_bar = SnackBar(content=Text(f"📭  Provide a message to send first."))
-            page.snack_bar.open = True
-            page.update()
+            toast_msg(page, f"📭  Provide a message to send first.")
             return
         send_debug_email(message.value, "Contact from DiffusionDeluxe", from_name.value.strip(), from_email.value.strip())
-        page.snack_bar = SnackBar(content=Text(f"📧  Sent Email to Skquark... Thanks, I hope."))
-        page.snack_bar.open = True
-        page.update()
+        toast_msg(page, f"📧  Sent Email to Skquark... Thanks, I hope.")
         close_contact_dlg(e)
     submit_btn = ft.OutlinedButton("📩  Send Message ", on_click=send_message)
     contact_form = Column([
@@ -45892,19 +46679,14 @@ class ImageButton(UserControl):
             else:#, initial_directory=
                 self.file_saver = FilePicker(on_result=file_saver_result)
                 self.page.overlay.append(self.file_saver)
-                self.page.update()
                 self.file_saver.save_file(dialog_title="Save Image to...", allowed_extensions=["png", "PNG"], file_name=os.path.basename(self.data), file_type=ft.FilePickerFileType.IMAGE)
-            self.page.snack_bar = SnackBar(content=Text(f"📲  Downloading {self.data}...{' May have to Stop Script for Downloads to start in Colab.' if is_Colab else ''}"))
-            self.page.snack_bar.open = True
-            self.page.update()
+            toast_msg(self.page, f"📲  Downloading {self.data}...{' May have to Stop Script for Downloads to start in Colab.' if is_Colab else ''}")
         def file_saver_result(e: FilePickerResultEvent):
             if e.path != None:
                 shutil.copy(os.path.join(self.data), os.path.join(e.path))
         def copy_path(e):
             self.page.set_clipboard(self.data)
-            self.page.snack_bar = SnackBar(content=Text(f"📋  {self.data} copied to clipboard... Paste as Init Image."))
-            self.page.snack_bar.open = True
-            self.page.update()
+            toast_msg(self.page, f"📋  {self.data} copied to clipboard... Paste as Init Image.")
         def image_details(e):
           #TODO: Get size & meta
             img = Img(src=self.data, gapless_playback=True)
@@ -45922,9 +46704,7 @@ class ImageButton(UserControl):
             self.image.update()
             self.visible = False
             self.update()
-            self.page.snack_bar = SnackBar(content=Text(f"🗑️  Deleted {self.data}..."))
-            self.page.snack_bar.open = True
-            self.page.update()
+            toast_msg(page, f"🗑️  Deleted {self.data}...")
         def scale_width(width, height, max_width):
             if width > max_width: return max_width, int(height / (width / max_width))
             else: return width, height
