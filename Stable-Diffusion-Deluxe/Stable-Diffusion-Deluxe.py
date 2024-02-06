@@ -4009,6 +4009,7 @@ ESRGAN_prefs = {
     'download_locally': False,
     'display_image': False,
     'dst_image_path': '',
+    'upscale_model': prefs['upscale_model'],
     'filename_suffix': '',
     'split_image_grid': False,
     'rows': 3,
@@ -4066,6 +4067,19 @@ def buildESRGANupscaler(page):
     def pick_destination(e):
         alert_msg(page, "Switch to Colab tab and press Files button on the Left & Find the Path you want to Save Images into, Right Click and Copy Path, then Paste here")
     page.overlay.append(file_picker)
+    def change_upscale_model(e):
+        ESRGAN_prefs['upscale_model'] = e.control.value
+        for u in Real_ESRGAN_models:
+          if u['name'] == ESRGAN_prefs['upscale_model']:
+            model_info.value = f"  [**Model Card**]({u['info']})"
+            model_info.update()
+    upscale_model = Dropdown(label="ESRGAN Upscale Model", hint_text="", width=300, options=[], value=ESRGAN_prefs['upscale_model'], autofocus=False, on_change=change_upscale_model)
+    for u in Real_ESRGAN_models:
+        upscale_model.options.append(dropdown.Option(u['name']))
+        if u['name'] == ESRGAN_prefs['upscale_model']:
+          current_model = u
+    model_info = Markdown(f"  [**Model Info**]({current_model['info']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=ESRGAN_prefs, key='enlarge_scale')
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=ESRGAN_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     image_path = TextField(label="Image File or Folder Path", value=ESRGAN_prefs['image_path'], col={'md':6}, on_change=lambda e:changed(e,'image_path'), suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_path))
@@ -4087,8 +4101,8 @@ def buildESRGANupscaler(page):
         enlarge_scale_slider,
         face_enhance,
         ResponsiveRow([image_path, dst_image_path]),
-        filename_suffix,
-        Row([download_locally, display_image]),
+        Row([upscale_model, model_info]),
+        Row([filename_suffix, download_locally, display_image]),
         #Divider(thickness=2, height=4),
         split_image_grid,
         split_container,
@@ -8645,7 +8659,7 @@ def buildInstructPix2Pix(page):
         eta_row,
         max_row,
         use_SDXL,#, ip_adapter_SDXL_model
-        Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+        Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
         ip_adapter_container,
         Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=instruct_pix2pix_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
         page.ESRGAN_block_instruct_pix2pix,
@@ -14008,6 +14022,12 @@ pia_prefs = {
     'clip_skip': 1,
     "pia_model": "Realistic_Vision_V6.0_B1_noVAE",
     "custom_model": "",
+    'lora_alpha': 0.8,
+    'custom_lora': '',
+    'lora_layer': 'Analog.Redmond',
+    'lora_layer_alpha': 0.8,
+    'custom_lora_layer': '',
+    'lora_map': [],
     'use_ip_adapter': False,
     'ip_adapter_image': '',
     'ip_adapter_model': 'SD v1.5',
@@ -14059,6 +14079,46 @@ def buildPIA(page):
         pia_prefs['pia_model'] = e.control.value
         pia_custom_model.visible = e.control.value == "Custom"
         pia_custom_model.update()
+    def changed_lora_layer(e):
+      pia_prefs['lora_layer'] = e.control.value
+      custom_lora_layer.visible = e.control.value == "Custom"
+      custom_lora_layer.update()
+    def add_lora(e):
+      lora = pia_prefs['lora_layer']
+      lora_scale = pia_prefs['lora_layer_alpha']
+      lora_layer = {}
+      if lora == "Custom":
+        lora_layer = {'name': 'Custom', 'file':'', 'path':pia_prefs['custom_lora_layer'], 'scale': lora_scale}
+      else:
+        for l in LoRA_models:
+          if l['name'] == lora:
+            lora_layer = l.copy()
+            lora_layer['scale'] = lora_scale
+        for l in pia_prefs['lora_map']:
+          if l['name'] == lora:
+            return
+      pia_prefs['lora_map'].append(lora_layer)
+      title = Markdown(f"**{lora_layer['name']}** - Alpha Scale: [{lora_layer['scale']}] - {lora_layer['path']}")
+      lora_layer_map.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      lora_layer_map.update()
+    def delete_lora_layer(e):
+        for l in pia_prefs['lora_map']:
+          if l['name'] == e.control.data['name']:
+            pia_prefs['lora_map'].remove(l)
+          #del l #pia_prefs['lora_map'][]
+        for c in lora_layer_map.controls:
+          if c.data['name'] == e.control.data['name']:
+             lora_layer_map.controls.remove(c)
+             break
+        lora_layer_map.update()
+    def delete_all_lora_layers(e):
+        pia_prefs['lora_map'].clear()
+        lora_layer_map.controls.clear()
+        lora_layer_map.update()
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         pia_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -14092,6 +14152,19 @@ def buildPIA(page):
     ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if pia_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     pia_model = Dropdown(label="PIA Model", width=270, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V6.0_B1_noVAE"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=pia_prefs['pia_model'], on_change=changed_model)
     pia_custom_model = TextField(label="Custom PIA Model (URL or Path)", value=pia_prefs['custom_model'], expand=True, visible=pia_prefs['pia_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=pia_prefs['lora_layer'], on_change=changed_lora_layer)
+    custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=pia_prefs['custom_lora_layer'], expand=True, visible=pia_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
+    if len(prefs['custom_LoRA_models']) > 0:
+        for l in prefs['custom_LoRA_models']:
+            lora_layer.options.append(dropdown.Option(l['name']))
+    for m in LoRA_models:
+        lora_layer.options.append(dropdown.Option(m['name']))
+    #lora_layer.options.append(dropdown.Option("Custom LoRA Path"))
+    #for lora in animatediff_motion_loras:
+    #    lora_layer.options.insert(1, dropdown.Option(lora['name']))
+    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=pia_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
+    lora_layer_map = Column([], spacing=0)
     cpu_offload = Switcher(label="CPU Offload", value=pia_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     free_init = Switcher(label="Free-Init", value=pia_prefs['free_init'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'free_init'), tooltip="Improves temporal consistency and overall quality of videos generated using video-diffusion-models without any addition training.")
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=pia_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
@@ -14124,6 +14197,9 @@ def buildPIA(page):
             ResponsiveRow([fps, clip_skip]),
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
+            Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
+            lora_layer_map,
+            Divider(thickness=4, height=4),
             Row([pia_model, pia_custom_model]),
             Row([cpu_offload, free_init, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -14266,7 +14342,7 @@ def buildI2VGenXL(page):
             lora_layer.options.append(dropdown.Option(l['name']))
     for m in SDXL_LoRA_models:
         lora_layer.options.append(dropdown.Option(m['name']))
-    lora_layer.options.append(dropdown.Option("Custom SDXL LoRA Path"))
+    #lora_layer.options.append(dropdown.Option("Custom SDXL LoRA Path"))
     #for lora in animatediff_motion_loras:
     #    lora_layer.options.insert(1, dropdown.Option(lora['name']))
     lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=i2vgen_xl_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
@@ -19719,7 +19795,7 @@ def buildCachedModelManager(page):
       content=Column([
         Header("🗂️   Manage your Cache Directory Saved Models", "If you're cacheing your model files, it can fill up your drive space quickly, so you can trim the fat as needed... Redownloads when used."),
         page.cached_folders,
-        ElevatedButton(content=Text("🔍  Scan Cache Dirctory", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=scan_cache),
+        ElevatedButton(content=Text("🔍  Scan Cache Directory", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=scan_cache),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -24460,7 +24536,7 @@ def run_prompt_generator(page):
     except:
       alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
       return
-    gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
+    gemini_model = genai.GenerativeModel(model_name='gemini-pro')
   if prefs['prompt_generator']['AI_engine'] == "Google Gemini Pro":
     if not bool(prefs['PaLM_api_key']):
       alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
@@ -24638,7 +24714,7 @@ def run_prompt_remixer(page):
     except:
       alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
       return
-    gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
+    gemini_model = genai.GenerativeModel(model_name='gemini-pro')
   prompts_remix = []
   prompt_results = []
 
@@ -24880,7 +24956,7 @@ def run_prompt_brainstormer(page):
       except:
         alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
         return
-      gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
+      gemini_model = genai.GenerativeModel(model_name='gemini-pro')
     
     prompt_request_modes = [
         "visually detailed wording, flowing sentences, extra long descriptions",
@@ -25262,10 +25338,6 @@ def run_distil_gpt2(page):
 
 
 def run_upscaling(page):
-    #print(str(ESRGAN_prefs))
-    if not status['installed_ESRGAN']:
-      alert_msg(page, "You must Install Real-ESRGAN first")
-      return
     from collections import Counter
     enlarge_scale = ESRGAN_prefs['enlarge_scale']
     face_enhance = ESRGAN_prefs['face_enhance']
@@ -25273,12 +25345,22 @@ def run_upscaling(page):
     save_to_GDrive = ESRGAN_prefs['save_to_GDrive']
     upload_file = ESRGAN_prefs['upload_file']
     download_locally = ESRGAN_prefs['download_locally']
+    upscale_model = ESRGAN_prefs['upscale_model']
     display_image = ESRGAN_prefs['display_image']
     dst_image_path = ESRGAN_prefs['dst_image_path']
     filename_suffix = ESRGAN_prefs['filename_suffix']
     split_image_grid = ESRGAN_prefs['split_image_grid']
     rows = ESRGAN_prefs['rows']
     cols = ESRGAN_prefs['cols']
+    ESRGAN_folder = os.path.join(dist_dir, 'Real-ESRGAN')
+    installer = Installing("Installing ESRGAN Upscale model...")
+    page.add_to_ESRGAN_output(installer)
+    if not status['installed_ESRGAN']:
+        get_ESRGAN(None, model=upscale_model, installer=installer)
+    model_file = os.path.join(ESRGAN_folder, 'experiments', 'pretrained_models', f'{model}.pth')
+    if not os.path.isfile(model_file):
+        installer.status(f"Downloading {model}")
+        get_ESRGAN(None, model=upscale_model, installer=installer)
     def split(im, rows, cols, img_path, should_cleanup=False):
         im_width, im_height = im.size
         row_width = int(im_width / rows)
@@ -25298,7 +25380,7 @@ def run_upscaling(page):
             #print("Cleaning up: " + img_path)
             os.remove(img_path)
 
-    os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
+    os.chdir(ESRGAN_folder)
     upload_folder = 'upload'
     result_folder = 'results'
     if os.path.isdir(upload_folder):
@@ -25344,7 +25426,7 @@ def run_upscaling(page):
         split(img, rows, cols, dst_path, True)
     os.chdir(os.path.join(dist_dir, 'Real-ESRGAN'))
     faceenhance = ' --face_enhance' if face_enhance else ''
-    run_sp(f'python inference_realesrgan.py -n realesr-general-x4v3 -i {upload_folder} --outscale {enlarge_scale}{faceenhance}', cwd=os.path.join(dist_dir, 'Real-ESRGAN'), realtime=False)
+    run_sp(f'python inference_realesrgan.py -n {upscale_model} -i {upload_folder} --outscale {enlarge_scale}{faceenhance}', cwd=ESRGAN_folder, realtime=False)
     os.chdir(root_dir)
     if is_Colab:
       from google.colab import files
@@ -32745,7 +32827,7 @@ def run_whisper(page):
             except:
                 alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
                 return
-            gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
+            gemini_model = genai.GenerativeModel(model_name='gemini-pro')
             installer.status("")
     def question(request):
         if whisper_prefs['AI_engine'] == "OpenAI GPT-3":
@@ -34163,25 +34245,27 @@ def run_instruct_pix2pix(page, from_list=False):
         status['loaded_instructpix2pix'] = model_id
     pipeline_scheduler(pipe_instruct_pix2pix)
     ip_adapter_arg = {}
-    if not instruct_pix2pix_prefs['use_SDXL']:
-      if instruct_pix2pix_prefs['use_ip_adapter']:
-        installer.status(f"...initialize IP-Adapter")
-        ip_adapter_img = None
-        if instruct_pix2pix_prefs['ip_adapter_image'].startswith('http'):
-          i_response = requests.get(instruct_pix2pix_prefs['ip_adapter_image'])
-          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+    if instruct_pix2pix_prefs['use_ip_adapter']:
+      installer.status(f"...initialize IP-Adapter")
+      ip_adapter_img = None
+      if instruct_pix2pix_prefs['ip_adapter_image'].startswith('http'):
+        i_response = requests.get(instruct_pix2pix_prefs['ip_adapter_image'])
+        ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+      else:
+        if os.path.isfile(instruct_pix2pix_prefs['ip_adapter_image']):
+          ip_adapter_img = PILImage.open(instruct_pix2pix_prefs['ip_adapter_image'])
         else:
-          if os.path.isfile(instruct_pix2pix_prefs['ip_adapter_image']):
-            ip_adapter_img = PILImage.open(instruct_pix2pix_prefs['ip_adapter_image'])
+          clear_last()
+          prt(f"ERROR: Couldn't find your ip_adapter_image {instruct_pix2pix_prefs['ip_adapter_image']}")
+      if bool(ip_adapter_img):
+        ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+      if bool(ip_adapter_arg):
+          if instruct_pix2pix_prefs['use_SDXL']:
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == instruct_pix2pix_prefs['ip_adapter_SDXL_model'])
           else:
-            clear_last()
-            prt(f"ERROR: Couldn't find your ip_adapter_image {instruct_pix2pix_prefs['ip_adapter_image']}")
-        if bool(ip_adapter_img):
-          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
-        if bool(ip_adapter_arg):
-            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == instruct_pix2pix_prefs['ip_adapter_model'])
-            pipe_instruct_pix2pix.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
-            pipe_instruct_pix2pix.set_ip_adapter_scale(instruct_pix2pix_prefs['ip_adapter_strength'])
+            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == instruct_pix2pix_prefs['ip_adapter_model'])
+          pipe_instruct_pix2pix.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+          pipe_instruct_pix2pix.set_ip_adapter_scale(instruct_pix2pix_prefs['ip_adapter_strength'])
     clear_last()
     prt("Generating Instruct-Pix2Pix of your Image...")
     prt(progress)
@@ -37705,7 +37789,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         except:
             alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
             return
-        gemini_model = genai.GenerativeModel(model_name='models/gemini-pro')
+        gemini_model = genai.GenerativeModel(model_name='gemini-pro')
     def get_response(prompt_full, AI_engine="ChatGPT-3.5 Turbo", temperature=0.7):
         if AI_engine == "OpenAI GPT-3":
             response = openai_client.completions.create(engine="text-davinci-003", prompt=prompt_full, max_tokens=2400, temperature=prefs['prompt_generator']['AI_temperature'], presence_penalty=1)
@@ -41239,6 +41323,7 @@ def run_tokenflow(page):
     run_cmd = f'{run_py} --config_path "configs/sdd_config.yaml"{cache_dir}'
     print(f'Running {preprocess_cmd} -&- {run_cmd}')
     try:
+        os.chdir(tokenflow_dir)
         progressbar.status("...Preprocessing Inverted Video")
         run_sp(f'python {preprocess_cmd}', cwd=tokenflow_dir)
                #-W {width} -H {height} -o {batch_output} -d cuda{x}{rw} -s {tokenflow_prefs["num_inference_steps"]} -g {tokenflow_prefs["guidance_scale"]} -f {tokenflow_prefs["fps"]} -T {tokenflow_prefs["num_frames"]}', cwd=data_dir)
@@ -41248,7 +41333,9 @@ def run_tokenflow(page):
         clear_last()
         tokenflow_prefs['run_cmd'] = f'{preprocess_cmd} -&- {run_cmd}'
         alert_msg(page, f"ERROR: TokenFlow Text-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=tokenflow_prefs)
+        os.chdir(root_dir)
         return
+    os.chdir(root_dir)
     clear_last()
     autoscroll(True)
     filename = f"{format_filename(tokenflow_prefs['prompt'])}"
@@ -42485,7 +42572,18 @@ def run_pia(page, from_list=False, with_params=False):
         status['loaded_pia'] = pia_model
     else:
         clear_pipes('pia')
-    
+    if len(pia_prefs['lora_map']) > 0:
+        installer.status(f"...loading LoRAs")
+        adapters = []
+        scales = []
+        for l in pia_prefs['lora_map']:
+            adapters.append(l['name'])
+            scales.append(l['scale'])
+            weight_args = {}
+            if 'weights' in l and bool(l['weights']):
+                weight_args['weight_name'] = l['weights']
+            pipe_pia.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+        pipe_pia.set_adapters(adapters, adapter_weights=scales)
     ip_adapter_arg = {}
     if pia_prefs['use_ip_adapter']:
         installer.status(f"...initialize IP-Adapter")
