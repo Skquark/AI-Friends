@@ -10,6 +10,7 @@ parser.add_argument("--upgrade_torch_212", default=False, action='store_true')
 flags = parser.parse_args()
 storage_type = flags.storage_type
 saved_settings_json = flags.saved_settings_json
+if not bool(saved_settings_json): saved_settings_json = "/content/drive/MyDrive/AI/Stable_Diffusion/sdd-settings.json"
 tunnel_type = flags.tunnel_type
 auto_launch_website = flags.auto_launch_website
 save_to_GDrive = True
@@ -22754,6 +22755,8 @@ def clear_pipes(allbut=None):
     if not 'stable_lm' in but: clear_stable_lm_pipe()
     try:
         torch.cuda.ipc_collect()
+        torch.cuda.reset_max_memory_allocated()
+        torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
     except Exception:
         pass
@@ -26070,6 +26073,7 @@ def run_repainter(page):
     clear_last()
     clear_last()
     autoscroll(True)
+    save_metadata(image_path, repaint_prefs, f"Repainter", "repaint", random_seed)
     prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
     #prt(Row([Img(src=image_path, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     #TODO: ESRGAN, Metadata & PyDrive
@@ -26115,6 +26119,7 @@ def run_image_variation(page):
     clear_list()
     from io import BytesIO
     from PIL import ImageOps
+    from torchvision import transforms
     if image_variation_prefs['init_image'].startswith('http'):
       init_img = PILImage.open(requests.get(image_variation_prefs['init_image'], stream=True).raw)
     else:
@@ -26614,27 +26619,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 if blip_diffusion_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {blip_diffusion_prefs['enlarge_scale']}x with ESRGAN" if blip_diffusion_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}")
-                if prefs['save_config_in_metadata']:
-                    #metadata.add_text("title", blip_diffusion_prefs['file_name'])
-                    # TODO: Merge Metadata with pr[]
-                    config_json = blip_diffusion_prefs.copy()
-                    config_json['model_path'] = model_id
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -26996,25 +26981,7 @@ def run_anytext(page, from_list=False, with_params=False):
                 os.chdir(stable_dir)
                 if anytext_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(anytext_prefs["enlarge_scale"]), height=pr['height'] * float(anytext_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {anytext_prefs['enlarge_scale']}x with ESRGAN" if anytext_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"AnyText {mode}")
-                if prefs['save_config_in_metadata']:
-                    config_json = anytext_prefs.copy()
-                    config_json['model_path'] = anytext_model
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, anytext_prefs, f"AnyText {mode}", anytext_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], anytext_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -27379,25 +27346,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 if ip_adapter_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(ip_adapter_prefs["enlarge_scale"]), height=pr['height'] * float(ip_adapter_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {ip_adapter_prefs['enlarge_scale']}x with ESRGAN" if ip_adapter_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"IP-Adapter")
-                if prefs['save_config_in_metadata']:
-                    config_json = ip_adapter_prefs.copy()
-                    config_json['model_path'] = model_id
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, ip_adapter_prefs, f"IP-Adapter", model_id, random_seed, scheduler=True, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], ip_adapter_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -27579,28 +27528,7 @@ def run_reference(page, from_list=False):
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(reference_prefs["enlarge_scale"]), height=height * float(reference_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         time.sleep(0.6)
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                if prefs['save_image_metadata']:
-                    img = PILImage.open(image_path)
-                    metadata = PngInfo()
-                    metadata.add_text("artist", prefs['meta_ArtistName'])
-                    metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {reference_prefs['enlarge_scale']}x with ESRGAN" if reference_prefs['apply_ESRGAN_upscale'] else "")
-                    metadata.add_text("pipeline", "Reference")
-                    if prefs['save_config_in_metadata']:
-                      metadata.add_text("title", pr['prompt'])
-                      config_json = reference_prefs.copy()
-                      config_json['model_path'] = model
-                      config_json['seed'] = random_seed
-                      del config_json['num_images'], config_json['batch_size']
-                      del config_json['display_upscaled_image']
-                      del config_json['batch_folder_name']
-                      del config_json['max_size']
-                      if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                    img.save(image_path, pnginfo=metadata)
-                #TODO: PyDrive
+                save_metadata(image_path, reference_prefs, f"Reference", model, random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], reference_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -28127,28 +28055,7 @@ def run_controlnet_segment(page, from_list=False):
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(controlnet_segment_prefs["enlarge_scale"]), height=height * float(controlnet_segment_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         time.sleep(0.6)
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                if prefs['save_image_metadata']:
-                    img = PILImage.open(image_path)
-                    metadata = PngInfo()
-                    metadata.add_text("artist", prefs['meta_ArtistName'])
-                    metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {controlnet_segment_prefs['enlarge_scale']}x with ESRGAN" if controlnet_segment_prefs['apply_ESRGAN_upscale'] else "")
-                    metadata.add_text("pipeline", "ControlNetSegmentAnything")
-                    if prefs['save_config_in_metadata']:
-                      metadata.add_text("title", pr['prompt'])
-                      config_json = controlnet_segment_prefs.copy()
-                      config_json['model_path'] = model
-                      config_json['seed'] = random_seed
-                      del config_json['num_images'], config_json['batch_size']
-                      del config_json['display_upscaled_image']
-                      del config_json['batch_folder_name']
-                      del config_json['max_size']
-                      if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                    img.save(image_path, pnginfo=metadata)
-                #TODO: PyDrive
+                save_metadata(image_path, controlnet_segment_prefs, f"ControlNetSegmentAnything", model, random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], controlnet_segment_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -28303,27 +28210,7 @@ def run_EDICT(page):
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(EDICT_prefs["enlarge_scale"]), height=height * float(EDICT_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {EDICT_prefs['enlarge_scale']}x with ESRGAN" if EDICT_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", "EDICT Editor")
-                if prefs['save_config_in_metadata']:
-                    config_json = EDICT_prefs.copy()
-                    config_json['model_path'] = model_id
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['max_size']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
-            #TODO: PyDrive
+            save_metadata(image_path, EDICT_prefs, f"EDICT Editor", model_id, random_seed)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], EDICT_prefs['batch_folder_name']), fname, num)
                 out_path = new_file
@@ -28511,26 +28398,7 @@ def run_DiffEdit(page):
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(DiffEdit_prefs["enlarge_scale"]), height=height * float(DiffEdit_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {DiffEdit_prefs['enlarge_scale']}x with ESRGAN" if DiffEdit_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", "DiffEdit")
-                if prefs['save_config_in_metadata']:
-                    config_json = DiffEdit_prefs.copy()
-                    config_json['model_path'] = model_id
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['max_size']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, DiffEdit_prefs, f"DiffEdit", model_id, random_seed)
             #TODO: PyDrive
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], DiffEdit_prefs['batch_folder_name']), fname, num)
@@ -28688,26 +28556,7 @@ def run_null_text(page):
                     time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(null_text_prefs["enlarge_scale"]), height=height * float(null_text_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {null_text_prefs['enlarge_scale']}x with ESRGAN" if null_text_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", "Null-Text Inversion")
-                if prefs['save_config_in_metadata']:
-                    config_json = null_text_prefs.copy()
-                    config_json['model_path'] = model_id
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['max_size']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, null_text_prefs, f"Null-Text Inversion", model_id, random_seed)
             #TODO: PyDrive
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], null_text_prefs['batch_folder_name']), fname, num)
@@ -29075,29 +28924,7 @@ def run_semantic(page):
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(semantic_prefs["enlarge_scale"]), height=height * float(semantic_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        if prefs['save_image_metadata']:
-            from PIL.PngImagePlugin import PngInfo
-            img = PILImage.open(image_path)
-            metadata = PngInfo()
-            metadata.add_text("artist", prefs['meta_ArtistName'])
-            metadata.add_text("copyright", prefs['meta_Copyright'])
-            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {semantic_prefs['enlarge_scale']}x with ESRGAN" if semantic_prefs['apply_ESRGAN_upscale'] else "")
-            metadata.add_text("pipeline", "Semantic Guidance")
-            if prefs['save_config_in_metadata']:
-              config_json = semantic_prefs.copy()
-              config_json['model_path'] = model_path
-              config_json['scheduler_mode'] = prefs['scheduler_mode']
-              config_json['seed'] = random_seed
-              del config_json['num_images']
-              del config_json['width']
-              del config_json['height']
-              del config_json['display_upscaled_image']
-              del config_json['batch_folder_name']
-              if not config_json['apply_ESRGAN_upscale']:
-                del config_json['enlarge_scale']
-                del config_json['apply_ESRGAN_upscale']
-              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-            img.save(image_path, pnginfo=metadata)
+        save_metadata(image_path, semantic_prefs, f"Semantic Guidance", model_path, random_seed, scheduler=True)
         #TODO: PyDrive
         if storage_type == "Colab Google Drive":
             new_file = available_file(os.path.join(prefs['image_output'], semantic_prefs['batch_folder_name']), fname, num)
@@ -29273,26 +29100,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 if demofusion_prefs['display_upscaled_image']:
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                from PIL.PngImagePlugin import PngInfo
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {demofusion_prefs['enlarge_scale']}x with ESRGAN" if demofusion_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"DemoFusion")
-                if prefs['save_config_in_metadata']:
-                    config_json = demofusion_prefs.copy()
-                    config_json['model_path'] = model_ckpt
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(batch_output, fname, 0)
                 out_path = new_file
@@ -36561,6 +36369,7 @@ def run_deepfloyd(page, from_list=False):
     from diffusers import IFPipeline, IFImg2ImgPipeline, IFInpaintingPipeline, IFSuperResolutionPipeline
     #from diffusers.pipelines.deepfloyd_if.safety_checker IFSafetyChecker
     from transformers import T5EncoderModel, T5Tokenizer
+    from diffusers.models.attention_processor import AttnAddedKVProcessor
     #run_sp("accelerate config default", realtime=False)
     clear_pipes('deepfloyd')
     torch.cuda.empty_cache()
@@ -36629,7 +36438,7 @@ def run_deepfloyd(page, from_list=False):
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
         for num in range(deepfloyd_prefs['num_images']):
             random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
-            generator = torch.Generator().manual_seed(random_seed)
+            generator = torch.Generator(device="cpu").manual_seed(random_seed)
             try:
                 installer = Installing("Running DeepFloyd-IF Text Encoder...")
                 prt(installer)
@@ -36639,6 +36448,7 @@ def run_deepfloyd(page, from_list=False):
                     text_encoder = T5EncoderModel.from_pretrained(model_id, subfolder="text_encoder", device_map="auto", load_in_8bit=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                     installer.status("...DiffusionPipeline")
                     pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, text_encoder=text_encoder, unet=None, use_safetensors=True, device_map=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                    pipe_deepfloyd.unet.set_attn_processor(AttnAddedKVProcessor())
                     # Still getting errors here! WTF?
                     #images = pipe_deepfloyd(pr['prompt'], image=init_img, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_inference_steps=deepfloyd_prefs['num_inference_steps'], eta=deepfloyd_prefs['eta'], image_guidance_scale=deepfloyd_prefs['guidance_scale'], num_images_per_prompt=deepfloyd_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
                     installer.status("...encode_prompts")
@@ -36657,6 +36467,7 @@ def run_deepfloyd(page, from_list=False):
                     #clear_last()
                     if deepfloyd_prefs['low_memory']:
                         pipe_deepfloyd = IFPipeline.from_pretrained(model_id, text_encoder=None, device_map="sequential", use_safetensors=True, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+                        pipe_deepfloyd.unet.set_attn_processor(AttnAddedKVProcessor())
                         #pipe_deepfloyd.enable_model_cpu_offload()
                         #pipe_deepfloyd.unet.to(memory_format=torch.channels_last)
                         #pipe_deepfloyd.unet = torch.compile(pipe_deepfloyd.unet, mode="reduce-overhead", fullgraph=True)
@@ -36664,6 +36475,7 @@ def run_deepfloyd(page, from_list=False):
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "text2image"):
                             #install.status("...DiffusionPipeline")
                             pipe_deepfloyd = DiffusionPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+                            pipe_deepfloyd.unet.set_attn_processor(AttnAddedKVProcessor())
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
@@ -36697,6 +36509,7 @@ def run_deepfloyd(page, from_list=False):
                     #IFSuperResolutionPipeline
                     if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "text2image":
                         pipe_deepfloyd2 = DiffusionPipeline.from_pretrained(model_id_II, text_encoder=None, variant="fp16", use_safetensors=True, torch_dtype=torch.float16)
+                        pipe_deepfloyd2.unet.set_attn_processor(AttnAddedKVProcessor())
                         if not deepfloyd_prefs['low_memory']:
                             pipe_deepfloyd2.enable_model_cpu_offload()
                     clear_last()
@@ -36716,11 +36529,13 @@ def run_deepfloyd(page, from_list=False):
                     prt(Installing("Stage 1: Installing DeepFloyd-IF Image2Image Pipeline..."))
                     if deepfloyd_prefs['low_memory']:
                         pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+                        pipe_deepfloyd.unet.set_attn_processor(AttnAddedKVProcessor())
                         #pipe_deepfloyd.enable_model_cpu_offload()
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "image2image"):
                             #install.status("...DiffusionPipeline")
                             pipe_deepfloyd = IFImg2ImgPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+                            pipe_deepfloyd.unet.set_attn_processor(AttnAddedKVProcessor())
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
@@ -36757,6 +36572,7 @@ def run_deepfloyd(page, from_list=False):
                     from diffusers import IFImg2ImgSuperResolutionPipeline
                     if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "image2image":
                         pipe_deepfloyd2 = IFImg2ImgSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, variant="fp16", use_safetensors=True, torch_dtype=torch.float16, device_map="auto")
+                        pipe_deepfloyd2.unet.set_attn_processor(AttnAddedKVProcessor())
                         if not deepfloyd_prefs['low_memory']:
                             pipe_deepfloyd2.enable_model_cpu_offload()
                     clear_last()
@@ -36779,11 +36595,13 @@ def run_deepfloyd(page, from_list=False):
                     # if prefs['disable_nsfw_filter'] else IFSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker").to(torch_device)
                     if deepfloyd_prefs['low_memory']:
                         pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+                        pipe_deepfloyd.unet.set_attn_processor(AttnAddedKVProcessor())
                         pipe_deepfloyd.enable_model_cpu_offload()
                     else:
                         if not (deepfloyd_prefs['keep_pipelines'] and pipe_deepfloyd != None and status['last_deepfloyd_mode'] != "inpainting"):
                             #install.status("...DiffusionPipeline")
                             pipe_deepfloyd = IFInpaintingPipeline.from_pretrained(model_id, variant="fp16", torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+                            pipe_deepfloyd.unet.set_attn_processor(AttnAddedKVProcessor())
                             pipe_deepfloyd.to(torch_device)
                             #pipe_deepfloyd.enable_model_cpu_offload()
                             if prefs['enable_torch_compile']:
@@ -36820,6 +36638,7 @@ def run_deepfloyd(page, from_list=False):
                     from diffusers import IFInpaintingSuperResolutionPipeline
                     if pipe_deepfloyd2 == None or status['last_deepfloyd_mode'] != "inpainting":
                         pipe_deepfloyd2 = IFInpaintingSuperResolutionPipeline.from_pretrained("DeepFloyd/IF-II-L-v1.0", text_encoder=None, use_safetensors=True, variant="fp16", torch_dtype=torch.float16, device_map=None)
+                        pipe_deepfloyd2.unet.set_attn_processor(AttnAddedKVProcessor())
                         if not deepfloyd_prefs['low_memory']:
                             pipe_deepfloyd2.enable_model_cpu_offload()
                     total_steps = deepfloyd_prefs['superres_num_inference_steps']
@@ -36905,29 +36724,7 @@ def run_deepfloyd(page, from_list=False):
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 else:
                     time.sleep(0.8)
-                if prefs['save_image_metadata']:
-                    img = PILImage.open(image_path)
-                    metadata = PngInfo()
-                    metadata.add_text("artist", prefs['meta_ArtistName'])
-                    metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {deepfloyd_prefs['enlarge_scale']}x with ESRGAN" if deepfloyd_prefs['apply_ESRGAN_upscale'] else "")
-                    metadata.add_text("pipeline", "DeepFloyd-IF") #TODO: Img2Img or Inpainting
-                    if prefs['save_config_in_metadata']:
-                        config_json = deepfloyd_prefs.copy()
-                        config_json['model_path'] = model_id
-                        config_json['seed'] = random_seed
-                        config_json['prompt'] = pr['prompt']
-                        config_json['negative_prompt'] = pr['negative_prompt']
-                        del config_json['num_images']
-                        del config_json['max_size']
-                        del config_json['display_upscaled_image']
-                        del config_json['batch_folder_name']
-                        if not config_json['apply_ESRGAN_upscale']:
-                            del config_json['enlarge_scale']
-                            del config_json['apply_ESRGAN_upscale']
-                        metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                    img.save(image_path, pnginfo=metadata)
-                #TODO: PyDrive
+                save_metadata(image_path, deepfloyd_prefs, "DeepFloyd-IF", model_id, random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], deepfloyd_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -37182,25 +36979,7 @@ def run_amused(page, from_list=False, with_params=False):
                 os.chdir(stable_dir)
                 if amused_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(amused_prefs["enlarge_scale"]), height=pr['height'] * float(amused_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {amused_prefs['enlarge_scale']}x with ESRGAN" if amused_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"Amused {mode}")
-                if prefs['save_config_in_metadata']:
-                    config_json = amused_prefs.copy()
-                    config_json['model_path'] = amused_model
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, amused_prefs, f"Amused {mode}", amused_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], amused_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -37384,25 +37163,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     if wuerstchen_prefs['display_upscaled_image']:
                         time.sleep(0.6)
                         prt(Row([Img(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                if prefs['save_image_metadata']:
-                    img = PILImage.open(image_path)
-                    metadata = PngInfo()
-                    metadata.add_text("artist", prefs['meta_ArtistName'])
-                    metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {wuerstchen_prefs['enlarge_scale']}x with ESRGAN" if wuerstchen_prefs['apply_ESRGAN_upscale'] else "")
-                    metadata.add_text("pipeline", f"Würstchen")
-                    if prefs['save_config_in_metadata']:
-                        config_json = wuerstchen_prefs.copy()
-                        config_json['model_path'] = "wuerstchen-community/wuerstchen-2-2-decoder"
-                        config_json['seed'] = random_seed
-                        del config_json['num_images']
-                        del config_json['display_upscaled_image']
-                        del config_json['batch_folder_name']
-                        if not config_json['apply_ESRGAN_upscale']:
-                            del config_json['enlarge_scale']
-                            del config_json['apply_ESRGAN_upscale']
-                        metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                    img.save(image_path, pnginfo=metadata)
+                save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -37649,25 +37410,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                 if pixart_alpha_prefs['display_upscaled_image']:
                     #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(pixart_alpha_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_alpha_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(pixart_alpha_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_alpha_prefs["enlarge_scale"]), data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {pixart_alpha_prefs['enlarge_scale']}x with ESRGAN" if pixart_alpha_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"PixArt-α")
-                if prefs['save_config_in_metadata']:
-                    config_json = pixart_alpha_prefs.copy()
-                    config_json['model_path'] = pixart_model
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, pixart_alpha_prefs, f"PixArt-α", pixart_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], pixart_alpha_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -37930,25 +37673,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 if lmd_plus_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(lmd_plus_prefs["enlarge_scale"]), height=pr['height'] * float(lmd_plus_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(lmd_plus_prefs["enlarge_scale"]), height=pr['height'] * float(lmd_plus_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {lmd_plus_prefs['enlarge_scale']}x with ESRGAN" if lmd_plus_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"LMD+")
-                if prefs['save_config_in_metadata']:
-                    config_json = lmd_plus_prefs.copy()
-                    config_json['model_path'] = lmd_plus_model
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, lmd_plus_prefs, f"LMD+", lmd_plus_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], lmd_plus_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -38189,25 +37914,7 @@ def run_lcm(page, from_list=False, with_params=False):
                 os.chdir(stable_dir)
                 if lcm_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(lcm_prefs["enlarge_scale"]), height=pr['height'] * float(lcm_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {lcm_prefs['enlarge_scale']}x with ESRGAN" if lcm_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"LCM")
-                if prefs['save_config_in_metadata']:
-                    config_json = lcm_prefs.copy()
-                    config_json['model_path'] = lcm_model
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, lcm_prefs, f"LCM", lcm_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], lcm_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -39117,29 +38824,7 @@ def run_text_to_video_zero(page):
             if text_to_video_zero_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_zero_prefs["enlarge_scale"]), height=height * float(text_to_video_zero_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        if prefs['save_image_metadata']:
-            img = PILImage.open(image_path)
-            metadata = PngInfo()
-            metadata.add_text("artist", prefs['meta_ArtistName'])
-            metadata.add_text("copyright", prefs['meta_Copyright'])
-            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {text_to_video_zero_prefs['enlarge_scale']}x with ESRGAN" if text_to_video_zero_prefs['apply_ESRGAN_upscale'] else "")
-            metadata.add_text("pipeline", "Text-To-Video Zero")
-            if prefs['save_config_in_metadata']:
-              config_json = text_to_video_zero_prefs.copy()
-              config_json['model_path'] = model_id
-              config_json['scheduler_mode'] = prefs['scheduler_mode']
-              config_json['seed'] = random_seed
-              del config_json['num_frames']
-              del config_json['width']
-              del config_json['height']
-              del config_json['display_upscaled_image']
-              del config_json['batch_folder_name']
-              if not config_json['apply_ESRGAN_upscale']:
-                del config_json['enlarge_scale']
-                del config_json['apply_ESRGAN_upscale']
-              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-            img.save(image_path, pnginfo=metadata)
-        #TODO: PyDrive
+        save_metadata(image_path, text_to_video_zero_prefs, f"Text-To-Video Zero", model_id, random_seed)
         if storage_type == "Colab Google Drive":
             new_file = available_file(os.path.join(prefs['image_output'], text_to_video_zero_prefs['batch_folder_name']), fname, num)
             out_path = new_file
@@ -39342,30 +39027,7 @@ def run_video_to_video(page):
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(video_to_video_prefs["enlarge_scale"]), height=height * float(video_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        if prefs['save_image_metadata']:
-            img = PILImage.open(image_path)
-            metadata = PngInfo()
-            metadata.add_text("artist", prefs['meta_ArtistName'])
-            metadata.add_text("copyright", prefs['meta_Copyright'])
-            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {video_to_video_prefs['enlarge_scale']}x with ESRGAN" if video_to_video_prefs['apply_ESRGAN_upscale'] else "")
-            metadata.add_text("pipeline", "Video-To-Video")
-            if prefs['save_config_in_metadata']:
-              config_json = video_to_video_prefs.copy()
-              config_json['model_path'] = model_id
-              config_json['scheduler_mode'] = prefs['scheduler_mode']
-              config_json['seed'] = random_seed
-              del config_json['num_frames']
-              del config_json['width']
-              del config_json['height']
-              del config_json['display_upscaled_image']
-              del config_json['batch_folder_name']
-              del config_json['lower_memory']
-              if not config_json['apply_ESRGAN_upscale']:
-                del config_json['enlarge_scale']
-                del config_json['apply_ESRGAN_upscale']
-              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-            img.save(image_path, pnginfo=metadata)
-        #TODO: PyDrive
+        save_metadata(image_path, video_to_video_prefs, f"Video-To-Video", model_id, random_seed, scheduler=True)
         if storage_type == "Colab Google Drive":
             new_file = available_file(os.path.join(prefs['image_output'], video_to_video_prefs['batch_folder_name']), fname, num)
             out_path = new_file
@@ -40278,28 +39940,7 @@ def run_stable_animation(page):
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(stable_animation_prefs["enlarge_scale"]), height=height * float(stable_animation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 time.sleep(0.2)
-        if prefs['save_image_metadata']:
-            img = PILImage.open(image_path)
-            metadata = PngInfo()
-            metadata.add_text("artist", prefs['meta_ArtistName'])
-            metadata.add_text("copyright", prefs['meta_Copyright'])
-            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {stable_animation_prefs['enlarge_scale']}x with ESRGAN" if stable_animation_prefs['apply_ESRGAN_upscale'] else "")
-            metadata.add_text("pipeline", "Stable Animation")
-            if prefs['save_config_in_metadata']:
-                config_json = stable_animation_prefs.copy()
-                config_json['model_path'] = model_path
-                config_json['scheduler_mode'] = prefs['scheduler_mode']
-                config_json['seed'] = random_seed
-                del config_json['max_frames']
-                del config_json['width']
-                del config_json['height']
-                del config_json['display_upscaled_image']
-                del config_json['batch_folder_name']
-                if not config_json['apply_ESRGAN_upscale']:
-                    del config_json['enlarge_scale']
-                    del config_json['apply_ESRGAN_upscale']
-                metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-            img.save(image_path, pnginfo=metadata)
+        save_metadata(image_path, stable_animation_prefs, f"Stable Animation", model_path, random_seed, scheduler=True)
         if not stable_animation_prefs['display_upscaled_image'] or not stable_animation_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         prt(Row([Text(image_path)], alignment=MainAxisAlignment.CENTER))
@@ -43585,27 +43226,7 @@ def run_DiT(page, from_list=False):
                     if DiT_prefs['display_upscaled_image']:
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(DiT_prefs["enlarge_scale"]), height=512 * float(DiT_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                if prefs['save_image_metadata']:
-                    img = PILImage.open(image_path)
-                    metadata = PngInfo()
-                    metadata.add_text("artist", prefs['meta_ArtistName'])
-                    metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {DiT_prefs['enlarge_scale']}x with ESRGAN" if DiT_prefs['apply_ESRGAN_upscale'] else "")
-                    metadata.add_text("pipeline", "DiT")
-                    if prefs['save_config_in_metadata']:
-                      metadata.add_text("title", pr)
-                      config_json = DiT_prefs.copy()
-                      config_json['model_path'] = "facebook/DiT-XL-2-512"
-                      config_json['seed'] = random_seed
-                      del config_json['num_images']
-                      del config_json['display_upscaled_image']
-                      del config_json['batch_folder_name']
-                      if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                      metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                    img.save(image_path, pnginfo=metadata)
-                #TODO: PyDrive
+                save_metadata(image_path, DiT_prefs, "DiT", "facebook/DiT-XL-2-512", random_seed, prompt=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], DiT_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -47307,7 +46928,7 @@ def toggle_stats(page):
     page.stats_used.update()
     update_stats(page)
 
-def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=None, negative=None, extra={}):
+def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=None, negative=None, scheduler=False, extra={}):
     if prefs['save_image_metadata']:
         img = PILImage.open(image_path)
         from PIL.PngImagePlugin import PngInfo
@@ -47332,6 +46953,8 @@ def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=Non
                 config_json['negative_prompt'] = negative
             if bool(model): config_json['model_path'] = model
             if bool(seed): config_json['seed'] = seed
+            if scheduler: config_json['scheduler_mode'] = prefs['scheduler_mode']
+            
             if 'num_images' in pref: del config_json['num_images']
             if 'num_videos' in pref: del config_json['num_videos']
             if 'batch_folder_name' in pref: del config_json['batch_folder_name']
