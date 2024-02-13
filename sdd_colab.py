@@ -917,9 +917,9 @@ def buildAudioAIs(page):
             Tab(text="Bark", content=page.Bark, icon=icons.PETS),
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
-            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
             Tab(text="Whisper-STT", content=page.Whisper, icon=icons.HEARING),
             Tab(text="Voice Fixer", content=page.VoiceFixer, icon=icons.VOICE_CHAT),
+            Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
             Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
         ],
     )
@@ -1358,7 +1358,7 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
         debug_msg += memory + os_info + "\n"
         if debug_pref != None:
             debug_msg += str(debug_pref)
-        # TODO: Add another window to submit report with optional From name, email & notes befor sending
+        # TODO: Add another window to submit report with optional From name, email & notes before sending
         send_debug_email(debug_msg)
         toast_msg(page, f"📧  Sent Debug Crash Report Email to Skquark... Thanks for helping Beta-Test.")
     show_debug = content != None and sound
@@ -1445,7 +1445,7 @@ def buildInstallers(page):
       diffusers_settings.height=None if prefs['install_diffusers'] else 0
       diffusers_settings.update()
       status['changed_installers'] = True
-  install_diffusers = Switcher(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], on_change=toggle_diffusers, tooltip="Required Libraries for most Image Generation functionality")
+  install_diffusers = Switcher(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], on_change=toggle_diffusers, tooltip="Required Libraries for most Image Generation functionality. Disable if your Video Card GPU can't handle CUDA.")
   def change_scheduler(e):
       show = e.control.value == "DDIM"
       update = prefs['scheduler_mode'] == "DDIM" or show
@@ -1776,7 +1776,7 @@ def buildInstallers(page):
   upscale_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=4), content=Row([upscale_model, model_info]))
   upscale_settings.height = None if prefs['install_ESRGAN'] else 0
   
-  install_OpenAI = Switcher(label="Install OpenAI GPT Text Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], on_change=lambda e:changed(e, 'install_OpenAI'), tooltip="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.")
+  install_OpenAI = Switcher(label="Install OpenAI GPT Text & DALL-E Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], on_change=lambda e:changed(e, 'install_OpenAI'), tooltip="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.")
   install_TextSynth = Switcher(label="Install TextSynth GPT-J Text Engine", value=prefs['install_TextSynth'], disabled=status['installed_TextSynth'], on_change=lambda e:changed(e, 'install_TextSynth'), tooltip="Alternative Text AI for brainstorming & rewriting your prompts. Pretty smart..")
   diffusers_settings.height = None if prefs['install_diffusers'] else 0
   stability_settings.height = None if prefs['install_Stability_api'] else 0
@@ -2056,7 +2056,7 @@ def buildInstallers(page):
       install_CLIP_guided.update()
       install_ESRGAN.update()
       install_OpenAI.update()
-      install_TextSynth.update()
+      #install_TextSynth.update()
       update_parameters(page)
       page.Parameters.controls[0].content.update()
       #page.Parameters.updater()
@@ -2099,7 +2099,7 @@ def buildInstallers(page):
         #clip_settings,
         install_ESRGAN, upscale_settings,
         install_OpenAI,
-        install_TextSynth,
+        #install_TextSynth,
         #install_button,
         Container(content=None, height=32),
       ],
@@ -2117,7 +2117,7 @@ def buildInstallers(page):
 
 def update_parameters(page):
   #page.img_block.height = None if status['installed_img2img'] or status['installed_megapipe'] or status['installed_stability'] else 0
-  page.img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_AIHorde'] or status['installed_SDXL']) and not (status['installed_clip'] and prefs['use_clip_guided_model']) else 0
+  #page.img_block.height = None if (status['installed_txt2img'] or status['installed_stability'] or status['installed_AIHorde'] or status['installed_SDXL']) and not (status['installed_clip'] and prefs['use_clip_guided_model']) else 0
   page.clip_block.height = None if status['installed_clip']  and prefs['use_clip_guided_model'] else 0
   page.ESRGAN_block.height = None if status['installed_ESRGAN'] else 0
   page.img_block.update()
@@ -2335,8 +2335,8 @@ def buildParameters(page):
   width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='width', on_change=change)
   height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=prefs, key='height', on_change=change)
 
-  init_image = TextField(label="Init Image", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
-  mask_image = TextField(label="Mask Image", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
+  init_image = TextField(label="Init Image (optional)", value=prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init))
+  mask_image = TextField(label="Mask Image (optional)", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
   alpha_mask = Checkbox(label="Alpha Mask", value=prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
   invert_mask = Checkbox(label="Invert Mask", value=prefs['invert_mask'], tooltip="Reverse Black & White of Image Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
   image_pickers = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={"lg":6}), Row([mask_image, invert_mask], col={"lg":6})]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -2507,7 +2507,7 @@ def buildParameters(page):
   ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
   ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
 
-  centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
+  centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line. Gives interesting results..", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
   use_interpolation = Switcher(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
   interpolation_steps = Slider(min=1, max=100, divisions=99, label="{value}", value=prefs['num_interpolation_steps'], on_change=change_interpolation_steps, expand=True)
   interpolation_steps_value = Text(f" {int(prefs['num_interpolation_steps'])} steps", weight=FontWeight.BOLD)
@@ -3438,7 +3438,7 @@ def buildPromptBrainstormer(page):
         if status['installed_OpenAI']:
           run_prompt_brainstormer(page)
         else: alert_msg(page, "You must Install OpenAI GPT Library first before using this Request Mode...")
-      elif prefs['prompt_brainstormer']['AI_engine'] == "TextSynth GPT-J":
+      elif "TextSynth" in prefs['prompt_brainstormer']['AI_engine']:
         if status['installed_TextSynth']:
           run_prompt_brainstormer(page)
         else: alert_msg(page, "You must Install TextSynth GPT-J Library first before using this Request Mode...")
@@ -3482,7 +3482,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option("TextSynth GPT-J"), dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("HuggingFace Bloom 176B"), dropdown.Option("HuggingFace Flan-T5 XXL"), dropdown.Option("StableLM 7b"), dropdown.Option("StableLM 3b"), dropdown.Option("Google Gemini")], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -4091,7 +4091,7 @@ def buildESRGANupscaler(page):
     filename_suffix = TextField(label="Optional Filename Suffix", hint_text="-big", value=ESRGAN_prefs['filename_suffix'], on_change=lambda e:changed(e,'filename_suffix'), width=260)
     download_locally = Checkbox(label="Download Images Locally", value=ESRGAN_prefs['download_locally'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'download_locally'))
     display_image = Checkbox(label="Display Upscaled Image", value=ESRGAN_prefs['display_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_image'))
-    split_image_grid = Switcher(label="Split Image Grid", value=ESRGAN_prefs['split_image_grid'], on_change=toggle_split)
+    split_image_grid = Switcher(label="Split Image Grid", value=ESRGAN_prefs['split_image_grid'], on_change=toggle_split, tooltip="Handy when you have images saved in 2x2 combined together.")
     rows = NumberPicker(label="Rows: ", min=1, max=8, value=ESRGAN_prefs['rows'], on_change=lambda e: changed(e, 'rows'))
     cols = NumberPicker(label="Columns: ", min=1, max=8, value=ESRGAN_prefs['cols'], on_change=lambda e: changed(e, 'cols'))
     split_container = Container(Row([rows, Container(content=None, width=25), cols]), animate_size=animation.Animation(800, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=28), height=0)
@@ -4368,6 +4368,7 @@ image2text_prefs = {
     'mode': 'Best',
     'fuyu_mode': 'Detailed Caption',
     'gemini_mode': 'Detailed Caption',
+    'openai_mode': 'Detailed Caption',
     'request_mode': 'Caption',
     'slow_workers': True,
     'trusted_workers': False,
@@ -4542,7 +4543,7 @@ def buildImage2Text(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_image2text(p):
-      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=10, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=18, theme_style=TextThemeStyle.BODY_LARGE, selectable=True), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.image2text_list.update()
       image2text_list_buttons.visible = True
       image2text_list_buttons.update()
@@ -4573,7 +4574,9 @@ def buildImage2Text(page):
       fuyu_mode.update()
       gemini_mode.visible = method=="Google Gemini Pro"
       gemini_mode.update()
-      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question")
+      openai_mode.visible = method=="OpenAI GPT-4 Vision"
+      openai_mode.update()
+      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question") or (method=="OpenAI GPT-4 Vision" and image2text_prefs['openai_mode']=="Question")
       question_prompt.update()
     def change_fuyu(e):
       fuyu = e.control.value
@@ -4583,6 +4586,11 @@ def buildImage2Text(page):
     def change_gemini(e):
       gemini = e.control.value
       changed(e,'gemini_mode')
+      question_prompt.visible = gemini=="Question"
+      question_prompt.update()
+    def change_openai(e):
+      gemini = e.control.value
+      changed(e,'openai_mode')
       question_prompt.visible = gemini=="Question"
       question_prompt.update()
     def clear_prompts(e):
@@ -4599,12 +4607,13 @@ def buildImage2Text(page):
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
-    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
+    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
     #use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
     mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
     request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
     fuyu_mode = Dropdown(label="Fuyu Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['fuyu_mode'], visible=image2text_prefs['method']=="Fuyu-8B", on_change=change_fuyu)
     gemini_mode = Dropdown(label="Gemini Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
+    openai_mode = Dropdown(label="OpenAI Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible=image2text_prefs['method']=="OpenAI GPT-4 Vision", on_change=change_openai)
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
     AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), visible=image2text_prefs['method']=="AIHorde Crowdsourced", animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -4622,7 +4631,7 @@ def buildImage2Text(page):
       content=Column([
         Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create text prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
         #mode,
-        Row([method, fuyu_mode, mode, request_mode, gemini_mode, question_prompt, AIHorde_row]),
+        Row([method, fuyu_mode, mode, request_mode, gemini_mode, openai_mode, question_prompt, AIHorde_row]),
         max_row,
         Row([image_path, add_image_button]),
         page.image2text_file_list,
@@ -20898,7 +20907,7 @@ def get_SD_pipe(task="txt2img"):
     elif task == "inpaint":
       pipe = AutoPipelineForInpainting.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, use_safetensors=True, **vae_args, **variant, **safety)
       #pipe = StableDiffusionPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
-  pipe = optimize_pipe(pipe, vae_slicing=task == "txt2img")
+  pipe = optimize_pipe(pipe)
   if prefs['SD_compel']:
       from compel import Compel
       compel_proc = Compel(tokenizer=pipe.tokenizer, text_encoder=pipe.text_encoder, truncate_long_prompts=False)
@@ -21821,7 +21830,7 @@ def get_alt_diffusion_img2img_pipe():
           **safety
       )
     #pipe_alt_diffusion_img2img.to(torch_device)
-    pipe_alt_diffusion_img2im = pipeline_scheduler(pipe_alt_diffusion_img2im)
+    pipe_alt_diffusion_img2img = pipeline_scheduler(pipe_alt_diffusion_img2img)
     pipe_alt_diffusion_img2img = optimize_pipe(pipe_alt_diffusion_img2img)
     pipe_alt_diffusion_img2img.set_progress_bar_config(disable=True)
     return pipe_alt_diffusion_img2img
@@ -24894,14 +24903,14 @@ def run_prompt_brainstormer(page):
     max_tokens_length = 128 #param {type:'slider', min:1, max:64, step:1}
     seed = int(2222 * prefs['prompt_brainstormer']['AI_temperature']) #param {type:'integer'}
     API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom"
-
+    engine = prefs['prompt_brainstormer']['AI_engine']
     good_key = True
-    if prefs['prompt_brainstormer']['AI_engine'] == "TextSynth GPT-J":
+    if 'TextSynth' in engine:
       try:
         if not bool(prefs['TextSynth_api_key']): good_key = False
       except NameError: good_key = False
       if not good_key:
-        print(f"\33[91mMissing TextSynth_api_key...\33[0m Define your key up above.")
+        alert_msg(page, f"Missing TextSynth api key... Define your key in Settings.")
         return
       else:
         try:
@@ -24911,8 +24920,9 @@ def run_prompt_brainstormer(page):
           #clear_output()
         finally:
           from textsynthpy import TextSynth, Complete
+        textsynth_engine = "gptj_6B" if 'GPT-J' in engine else "mistral_7B_instruct" if 'Mistral Instruct' in engine else "mistral_7B" if 'Mistral' in engine else "mixtral_47B_instruct" if 'Mixtral Instruct' in engine else "llama2_7B" if 'Llama2 7B' in engine else "llama2_70B" if 'Llama2 70B' in engine else "mistral_7B"
         textsynth = TextSynth(prefs['TextSynth_api_key'], engine=textsynth_engine) # Insert your API key in the previous cell
-    if 'GPT' in prefs['prompt_brainstormer']['AI_engine']:
+    if 'GPT' in engine:
       try:
         if not bool(prefs['OpenAI_api_key']): good_key = False
       except NameError: good_key = False
@@ -25046,7 +25056,7 @@ def run_prompt_brainstormer(page):
       page.prompt_brainstormer_list.controls.append(Installing("Storming the AI's Brain..."))
       page.prompt_brainstormer_list.update()
 
-      if prefs['prompt_brainstormer']['AI_engine'] == "TextSynth GPT-J":
+      if "TextSynth" in prefs['prompt_brainstormer']['AI_engine']:
         response = textsynth.text_complete(prompt=request, max_tokens=200, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
         #print(str(response))
         result = response.text.strip()
@@ -29212,6 +29222,74 @@ def run_image2text(page):
             clear_last()
             i2t_prompts.append(prompt)
             page.add_to_image2text(prompt)
+    elif image2text_prefs['method'] == "OpenAI GPT-4 Vision":
+        installer = Installing("Installing OpenAI API Library......")
+        prt(installer)
+        if not bool(prefs['OpenAI_api_key']):
+          alert_msg(page, "You must provide your OpenAI API key in Settings first")
+          return
+        try:
+          import openai
+          #if force_updates: raise ModuleNotFoundError("Forcing update")
+        except ModuleNotFoundError:
+          run_sp("pip install --upgrade openai -qq", realtime=False)
+          pass
+        finally:
+          import openai
+          import requests
+        try:
+          from openai import OpenAI
+          openai_client = OpenAI(api_key=prefs['OpenAI_api_key'])
+        except:
+          alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
+          return
+        def encode_image(image_path):
+            import base64
+            with open(image_path, "rb") as image_file:
+              return base64.b64encode(image_file.read()).decode('utf-8')
+        folder_path = image2text_prefs['folder_path']
+        prompt_mode = "What is happening in this image? Describe it in visual details, artistic style, related artist names, colors and composition." if 'Detailed' in image2text_prefs['openai_mode'] else "Generate an image prompt with art styles, Poetic Captions, flowing adjectives, and detailed captions." if 'Poetic' in image2text_prefs['openai_mode'] else "Generate a technical detailed caption, describing all subjects, adjectives, styles, observations, colors and technical details to recreate." if 'Technical' in image2text_prefs['openai_mode'] else "Generate a coco-style caption with art style.\n" if 'Simple' in image2text_prefs['openai_mode'] else "Describe the style of this art, with a list of all the known artists it resembles and artistic styles it uses, then lay out the image composition with nouns and descriptive adjectives." if 'Artistic' in image2text_prefs['openai_mode'] else image2text_prefs['question']
+        i2t_prompts = []
+        clear_last()
+        for file in image2text_prefs['images']:
+            prt(f"Interrogating Images to Describe Prompt...")
+            prt(progress)
+            image = encode_image(os.path.join(folder_path, file))
+            headers = {"Content-Type": "application/json", "Authorization": f"Bearer {prefs['OpenAI_api_key']}"}
+            payload = {
+              "model": "gpt-4-vision-preview",
+              "messages": [
+                {
+                  "role": "user",
+                  "content": [
+                    {
+                      "type": "text",
+                      "text": prompt_mode
+                    },
+                    {
+                      "type": "image_url",
+                      "image_url": {
+                        "url": f"data:image/jpeg;base64,{image}"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "max_tokens": 1024
+            }
+            try:
+                response = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+                prompt = dict(response.json())
+                prompt = prompt['choices'][0]['message']['content']
+                prompt = prompt.replace('*', '').replace('\n', ' ').strip()
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't run Google Gemini Pro Vision request for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            clear_last()
+            clear_last()
+            i2t_prompts.append(prompt)
+            page.add_to_image2text(prompt)
     elif image2text_prefs['method'] == "BLIP-Interrogation":
         installer = Installing("Downloading Image2Text CLIP-Interrogator Blips...")
         prt(installer)
@@ -30231,7 +30309,7 @@ def run_dreambooth(page):
         resolution=dreambooth_prefs['max_size'],
         center_crop=True,
         instance_data_dir=save_path,
-        instance_prompt=dreambooth_prefs['instance_prompt'].strip(),
+        prompt=dreambooth_prefs['instance_prompt'].strip(),
         learning_rate=dreambooth_prefs['learning_rate'],#5e-06,
         max_train_steps=dreambooth_prefs['max_train_steps'],#450,
         train_batch_size=dreambooth_prefs['train_batch_size'],
@@ -30681,7 +30759,7 @@ def run_LoRA_dreambooth(page):
         #train_data_dir=save_path,
         #caption_column=LoRA_dreambooth_prefs['instance_prompt'].strip(),
         instance_data_dir=save_path,
-        instance_prompt=LoRA_dreambooth_prefs['instance_prompt'].strip(),
+        prompt=LoRA_dreambooth_prefs['instance_prompt'].strip(),
         learning_rate=LoRA_dreambooth_prefs['learning_rate'],#5e-06,'
         lr_scheduler=LoRA_dreambooth_prefs['lr_scheduler'],
         lr_warmup_steps=LoRA_dreambooth_prefs['lr_warmup_steps'],
@@ -30819,6 +30897,7 @@ tags:
 - stable-diffusion-deluxe
 - text-to-image
 - diffusers
+- lora
 inference: true
 ---
       """
@@ -31462,6 +31541,7 @@ tags:
 - stable-diffusion-deluxe
 - text-to-image
 - diffusers
+- lora
 - merge
 inference: true
 ---
@@ -32214,7 +32294,7 @@ def run_riffusion(page):
         else:
             from diffusers import StableDiffusionImg2ImgPipeline
             pipe_riffusion = StableDiffusionImg2ImgPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            pipe_riffusion = pipe_riffusion.to(torch_device)
+            pipe_riffusion = optimize_pipe(pipe_riffusion)
             riffusion_prefs['loaded_pipe'] = "image"
       except Exception as e:
         clear_last()
@@ -38643,30 +38723,7 @@ def run_text_to_video(page):
                 time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_prefs["enlarge_scale"]), height=height * float(text_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        if prefs['save_image_metadata']:
-            img = PILImage.open(image_path)
-            metadata = PngInfo()
-            metadata.add_text("artist", prefs['meta_ArtistName'])
-            metadata.add_text("copyright", prefs['meta_Copyright'])
-            metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {text_to_video_prefs['enlarge_scale']}x with ESRGAN" if text_to_video_prefs['apply_ESRGAN_upscale'] else "")
-            metadata.add_text("pipeline", "Text-To-Video")
-            if prefs['save_config_in_metadata']:
-              config_json = text_to_video_prefs.copy()
-              config_json['model_path'] = model_id
-              config_json['scheduler_mode'] = prefs['scheduler_mode']
-              config_json['seed'] = random_seed
-              del config_json['num_frames']
-              del config_json['width']
-              del config_json['height']
-              del config_json['display_upscaled_image']
-              del config_json['batch_folder_name']
-              del config_json['lower_memory']
-              if not config_json['apply_ESRGAN_upscale']:
-                del config_json['enlarge_scale']
-                del config_json['apply_ESRGAN_upscale']
-              metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-            img.save(image_path, pnginfo=metadata)
-        #TODO: PyDrive
+        save_metadata(image_path, text_to_video_prefs, f"Text-To-Video", model_id, random_seed, scheduler=True)
         if storage_type == "Colab Google Drive":
             new_file = available_file(os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name']), fname, num)
             out_path = new_file
@@ -39390,7 +39447,7 @@ def run_infinite_zoom(page):
                     return images, False
                 #pipe_infinite_zoom.safety_checker = dummy
                 #pipe_infinite_zoom.enable_attention_slicing() #This is useful to save some memory in exchange for a small speed decrease.
-                pipe_infinite_zoom = optimize_pipe(pipe_infinite_zoom, vae_slicing=False)
+                pipe_infinite_zoom = optimize_pipe(pipe_infinite_zoom)
                 pipe_infinite_zoom.set_progress_bar_config(disable=True)
                 status['loaded_infinite_zoom'] = model_id
         except Exception as e:
@@ -42073,7 +42130,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                         prt(Row([Img(src=image_path, width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
-            export_to_gif(frames_batch, gif_file)
+            export_to_gif(frames_batch, gif_file, fps=animatediff_img2video_prefs['fps'])
             prt(Row([ImageButton(src=gif_file, width=pr['width'], height=pr['height'], data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
             if animatediff_img2video_prefs['export_to_video']:
                 try:
@@ -42317,7 +42374,7 @@ def run_pia(page, from_list=False, with_params=False):
                         prt(Row([Img(src=image_path, width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
-            export_to_gif(frames_batch, gif_file)
+            export_to_gif(frames_batch, gif_file, fps=pia_prefs['fps'])
             prt(Row([ImageButton(src=gif_file, width=pr['width'], height=pr['height'], data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
             if pia_prefs['export_to_video']:
                 try:
@@ -42538,7 +42595,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                         prt(Row([Img(src=image_path, width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
-            export_to_gif(frames_batch, gif_file)
+            export_to_gif(frames_batch, gif_file, fps=i2vgen_xl_prefs['fps'])
             prt(Row([ImageButton(src=gif_file, width=pr['width'], height=pr['height'], data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
             if i2vgen_xl_prefs['export_to_video']:
                 try:
@@ -44801,27 +44858,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
                 if kandinsky_3_prefs['display_upscaled_image']:
                     time.sleep(0.6)
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_3_prefs['enlarge_scale']}x with ESRGAN" if kandinsky_3_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"Kandinsky 3 {task_type}")
-                if prefs['save_config_in_metadata']:
-                    #metadata.add_text("title", kandinsky_3_prefs['file_name'])
-                    # TODO: Merge Metadata with pr[]
-                    config_json = kandinsky_3_prefs.copy()
-                    config_json['model_path'] = "kandinsky-community/kandinsky-2-2-decoder"
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
             new_file = available_file(os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -45109,27 +45146,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
             #else:
             #    time.sleep(1.2)
             #    shutil.copy(image_path, os.path.join(out_path, output_file))
-            if prefs['save_image_metadata']:
-                img = PILImage.open(image_path)
-                metadata = PngInfo()
-                metadata.add_text("artist", prefs['meta_ArtistName'])
-                metadata.add_text("copyright", prefs['meta_Copyright'])
-                metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_prefs['enlarge_scale']}x with ESRGAN" if kandinsky_prefs['apply_ESRGAN_upscale'] else "")
-                metadata.add_text("pipeline", f"Kandinsky 2.1 {task_type}")
-                if prefs['save_config_in_metadata']:
-                    #metadata.add_text("title", kandinsky_prefs['file_name'])
-                    # TODO: Merge Metadata with pr[]
-                    config_json = kandinsky_prefs.copy()
-                    config_json['model_path'] = "kandinsky-community/kandinsky-2-2-decoder"
-                    config_json['seed'] = random_seed
-                    del config_json['num_images']
-                    del config_json['display_upscaled_image']
-                    del config_json['batch_folder_name']
-                    if not config_json['apply_ESRGAN_upscale']:
-                        del config_json['enlarge_scale']
-                        del config_json['apply_ESRGAN_upscale']
-                    metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                img.save(image_path, pnginfo=metadata)
+            save_metadata(image_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], kandinsky_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -45832,27 +45849,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                 #else:
                 #    time.sleep(1.2)
                 #    shutil.copy(image_path, os.path.join(out_path, output_file))
-                if prefs['save_image_metadata']:
-                    img = PILImage.open(image_path)
-                    metadata = PngInfo()
-                    metadata.add_text("artist", prefs['meta_ArtistName'])
-                    metadata.add_text("copyright", prefs['meta_Copyright'])
-                    metadata.add_text("software", "Stable Diffusion Deluxe" + f", upscaled {kandinsky_controlnet_prefs['enlarge_scale']}x with ESRGAN" if kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] else "")
-                    metadata.add_text("pipeline", f"Kandinsky 2.1 {task_type}")
-                    if prefs['save_config_in_metadata']:
-                        #metadata.add_text("title", kandinsky_controlnet_prefs['file_name'])
-                        # TODO: Merge Metadata with pr[]
-                        config_json = kandinsky_controlnet_prefs.copy()
-                        config_json['model_path'] = "kandinsky-community/kandinsky-2-2-controlnet-depth"
-                        config_json['seed'] = random_seed
-                        del config_json['num_images']
-                        del config_json['display_upscaled_image']
-                        del config_json['batch_folder_name']
-                        if not config_json['apply_ESRGAN_upscale']:
-                            del config_json['enlarge_scale']
-                            del config_json['apply_ESRGAN_upscale']
-                        metadata.add_text("config_json", json.dumps(config_json, ensure_ascii=True, indent=4))
-                    img.save(image_path, pnginfo=metadata)
+                save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], kandinsky_controlnet_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -45975,6 +45972,7 @@ def run_deep_daze(page):
         upscaled_path = os.path.join(out_path, output_file)
         upscale_image(image_path, upscaled_path, scale=deep_daze_prefs["enlarge_scale"])
         image_path = upscaled_path
+    save_metadata(image_path, deep_daze_prefs, f"Deep Daze", "deepdaze")
     if prefs['save_image_metadata']:
         img = PILImage.open(image_path)
         metadata = PngInfo()
@@ -46954,11 +46952,11 @@ def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=Non
             if bool(model): config_json['model_path'] = model
             if bool(seed): config_json['seed'] = seed
             if scheduler: config_json['scheduler_mode'] = prefs['scheduler_mode']
-            
             if 'num_images' in pref: del config_json['num_images']
             if 'num_videos' in pref: del config_json['num_videos']
             if 'batch_folder_name' in pref: del config_json['batch_folder_name']
             if 'file_name' in pref: del config_json['file_name']
+            if 'lower_memory' in pref: del config_json['lower_memory']
             if 'max_size' in pref: del config_json['max_size']
             if 'apply_ESRGAN_upscale' in pref:
                 if 'display_upscaled_image' in pref: del config_json['display_upscaled_image']
