@@ -1079,6 +1079,10 @@ if 'ip_adapter_image' not in prefs: prefs['ip_adapter_image'] = ""
 if 'ip_adapter_model' not in prefs: prefs['ip_adapter_model'] = "SD v1.5"
 if 'ip_adapter_SDXL_model' not in prefs: prefs['ip_adapter_SDXL_model'] = "SDXL"
 if 'ip_adapter_strength' not in prefs: prefs['ip_adapter_strength'] = 0.8
+try:
+    int(prefs['seed'])
+except ValueError:
+    prefs['seed'] = 0
 
 if bool(prefs['init_image']):
     if not os.path.isfile(prefs['init_image']): prefs['init_image'] = ""
