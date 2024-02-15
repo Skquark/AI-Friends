@@ -2343,7 +2343,7 @@ def buildParameters(page):
   mask_image = TextField(label="Mask Image (optional)", value=prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
   alpha_mask = Checkbox(label="Alpha Mask", value=prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
   invert_mask = Checkbox(label="Invert Mask", value=prefs['invert_mask'], tooltip="Reverse Black & White of Image Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
-  image_pickers = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={"lg":6}), Row([mask_image, invert_mask], col={"lg":6})]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  image_pickers = Container(content=ResponsiveRow([Row([init_image, alpha_mask], col={"lg":6}), Row([mask_image, invert_mask], col={"lg":6})]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
   image_pickers.height = None if not prefs['centipede_prompts_as_init_images'] else 0
   init_image_strength = Slider(min=0.0, max=1.0, divisions=20, label="{value}", round=2, value=prefs['init_image_strength'], on_change=change_strength, expand=True)
   strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight=FontWeight.BOLD)
@@ -2500,7 +2500,7 @@ def buildParameters(page):
       ip_adapter_model.update()
       ip_adapter_SDXL_model.visible = e.control.value
       ip_adapter_SDXL_model.update()
-  use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Applies to Pipelines for SD 1.5, SDXL, Inpainting, Self-Attention Guidance, Attend & Excite, Safe and Panorama")
+  use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Image Prompt applies to Pipelines for SD 1.5, SDXL, Inpainting, Self-Attention Guidance, Attend & Excite, Safe and Panorama")
   ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=prefs['ip_adapter_model'], visible=prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
   for m in ip_adapter_models:
       ip_adapter_model.options.append(dropdown.Option(m['name']))
@@ -2946,8 +2946,8 @@ def buildPromptsList(page):
         page.update()
       prompt_help_dlg = AlertDialog(title=Text("💁   Help with Prompt Creations"), content=Column([
           Text("You can keep your text prompts simple, or get really complex with it. Just describe the image you want it to dream up with as many details as you can think of. Add artists, styles, colors, adjectives and get creative..."),
-          Text('Now you can add prompt weighting, so you can emphasize the strength of certain words between parentheses, and de-emphasize words between brackets. For example: "A (hyper realistic) painting of (magical:1.8) owl with the (((face of a cat))), without [[tail]], in a [twisted:0.6] tree, by Thomas Kinkade"'),
-          Text('After adding your prompts, click on a prompt line to edit all the parameters of it. There you can add negative prompts like "lowres, bad_anatomy, error_body, bad_fingers, missing_fingers, error_lighting, jpeg_artifacts, signature, watermark, username, blurry" or anything else you don\'t want.'),
+          Text('Now you can add prompt weighting with Compel, so you can emphasize the strength of certain words between parentheses, and de-emphasize words between brackets. For example: "A (hyper realistic) painting of (magical:1.8) owl with the (((face of a cat))), without [[tail]], in a [twisted:0.6] tree, by Thomas Kinkade"'),
+          Text('After adding your prompts, click on a prompt line to edit all the parameters of it. There you can add negative prompts like "lowres, bad_anatomy, error_body, bad_fingers, missing_fingers, error_lighting, jpeg_artifacts, signature, watermark, username, blurry" or anything else you don\'t want. Use Prompt Helpers -> Negatives to get a good list of negative prompts.'),
           Text('Then you can override all the parameters for each individual prompt, playing with variations of sizes, steps, guidance scale, init & mask image, seeds, etc.  In the prompts list, you can press the ... options button to duplicate, delete and move prompts in the batch queue.  When ready, Run Diffusion on Prompts...')
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😀  Very nice... ", on_click=close_help_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = prompt_help_dlg
@@ -4547,7 +4547,7 @@ def buildImage2Text(page):
       page.add_to_prompts(p)
       if prefs['enable_sounds']: page.snd_drop.play()
     def add_to_image2text(p):
-      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=18, theme_style=TextThemeStyle.BODY_LARGE, selectable=True), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=18, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.image2text_list.update()
       image2text_list_buttons.visible = True
       image2text_list_buttons.update()
@@ -12376,6 +12376,7 @@ def buildSVD(page):
         page.update()
       svd_help_dlg = AlertDialog(title=Text("💁   Help with SVD Image-To-Video"), content=Column([
           Text("Stable Video Diffusion (SVD) Image-to-Video is a diffusion model that takes in a still image as a conditioning frame, and generates a video from it. The SVD checkpoint is trained to generate 14 frames and the SVD-XT checkpoint is further finetuned to generate 25 frames. (SVD) Image-to-Video is a latent diffusion model trained to generate short video clips from an image conditioning. This model was trained to generate 14 frames at resolution 576x1024 given a context frame of the same size. We also finetune the widely used f8-decoder for temporal consistency. Developed and funded by Stability AI."),
+          Markdown("If you want to use the latest SDV XT 1.1 model, at this time you have to accept the model card, signing up to use it early and accepting the terms at [StabilityAI SVD-XT-1-1](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt-1-1).", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("The generated videos are rather short (<= 4sec), and the model does not achieve perfect photorealism. The model may generate videos without motion, or very slow camera pans. The model cannot be controlled through text. The model cannot render legible text. Faces and people in general may not be generated properly. The autoencoding part of the model is lossy."),
           Markdown("[Huggingface Model](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid) | [GitHub repository](https://github.com/Stability-AI/generative-models) | [Paper](https://stability.ai/research/stable-video-diffusion-scaling-latent-video-diffusion-models-to-large-datasets)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🆒  Extra cool... ", on_click=close_svd_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -12393,7 +12394,7 @@ def buildSVD(page):
     #prompt = TextField(label="Animation Prompt Text", value=svd_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #negative_prompt  = TextField(label="Negative Prompt Text", value=svd_prefs['negative_prompt'], filled=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     init_image = FileInput(label="Init Image", pref=svd_prefs, key='init_image', filled=True, page=page)
-    svd_model = Dropdown(label="SVD Model", width=200, options=[dropdown.Option("SVD-img2vid-XT"), dropdown.Option("SVD-img2vid")], value=svd_prefs['svd_model'], on_change=lambda e: changed(e, 'svd_model'))
+    svd_model = Dropdown(label="SVD Model", width=200, options=[dropdown.Option("SVD-img2vid-XT"), dropdown.Option("SVD-img2vid"), dropdown.Option("SVD-img2vid-XT 1.1")], value=svd_prefs['svd_model'], on_change=lambda e: changed(e, 'svd_model'))
     #num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=svd_prefs, key='num_frames', tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.")
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=svd_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     min_guidance = SliderRow(label="Min Guidance Scale", min=0, max=10, divisions=20, round=1, pref=svd_prefs, key='min_guidance_scale', col={'sm':6}, tooltip="Used for the classifier free guidance with first frame.")
@@ -20608,7 +20609,7 @@ def optimize_pipe(p, vae_slicing=False, unet=False, no_cpu=False, vae_tiling=Fal
     if unet:
       p.unet = torch.compile(p.unet)
     if lora:
-      p = apply_LoRA(p)
+      p = apply_LoRA(p, fuse=prefs['enable_torch_compile'] and torch_compile)
     '''if prefs['use_LoRA_model']:
       lora = get_LoRA_model(prefs['LoRA_model'])
       if bool(lora['weights']):
@@ -20667,7 +20668,7 @@ def optimize_SDXL(p, vae_slicing=False, no_cpu=False, vae_tiling=True, torch_com
     if prefs['vae_tiling'] and vae_tiling:
       p.enable_vae_tiling()
     if lora:
-      p = apply_LoRA(p, SDXL=True)
+      p = apply_LoRA(p, SDXL=True, fuse=prefs['enable_torch_compile'] and torch_compile)
     '''if prefs['use_LoRA_model']:
       lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
       if bool(lora['weights']):
@@ -20710,7 +20711,7 @@ def optimize_SDXL(p, vae_slicing=False, no_cpu=False, vae_tiling=True, torch_com
     p.set_progress_bar_config(disable=True)
     return p
 
-def apply_LoRA(p, SDXL=False):
+def apply_LoRA(p, SDXL=False, fuse=False):
     active = p.get_active_adapters()
     layers = 'active_SDXL_LoRA_layers' if SDXL else 'active_LoRA_layers'
     if prefs['use_LoRA_model'] and len(prefs[layers]) > 0:
@@ -20724,6 +20725,9 @@ def apply_LoRA(p, SDXL=False):
           weight_args['weight_name'] = l['weights']
         p.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
       p.set_adapters(adapters, adapter_weights=scales)
+      if fuse:
+        p.fuse_lora()
+        p.unload_lora_weights()
     else:
       if len(active) > 0:
         p.disable_lora()
@@ -21900,6 +21904,8 @@ def get_AIHorde(page):
     print(str(payload))
     AI_Horde = os.path.join(dist_dir, "AI-Horde-CLI")
     if not os.path.exists(AI_Horde) or force_updates:
+      if os.path.exists(AI_Horde):
+        shutil.rmtree(AI_Horde, ignore_errors=True)
       run_sp("git clone https://github.com/db0/AI-Horde-CLI.git", cwd=dist_dir, realtime=False)
       run_sp("pip install -r cli_requirements.txt --user", cwd=AI_Horde, realtime=False)
     try:
@@ -23561,7 +23567,7 @@ def start_diffusion(page):
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
-                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               else:
                 clear_pipes("txt2img")
@@ -23575,7 +23581,7 @@ def start_diffusion(page):
                   pipe = get_SD_pipe(task="inpaint")
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               '''if pipe_img2img is None:
                 try:
@@ -23708,7 +23714,7 @@ def start_diffusion(page):
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
-                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion_img2img")
@@ -23730,7 +23736,7 @@ def start_diffusion(page):
                   clear_last()
                   if bool(ip_adapter_arg):
                     ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                    pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                    pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                     pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_imagic'] and status['installed_imagic']:
                 clear_pipes("imagic")
@@ -23752,7 +23758,7 @@ def start_diffusion(page):
                   pipe = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               '''if pipe_img2img is None:
                 try:
@@ -23889,7 +23895,7 @@ def start_diffusion(page):
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
-                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion")
@@ -23905,7 +23911,7 @@ def start_diffusion(page):
                   clear_last()
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe_SAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_SAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe_SAG.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
                 clear_pipes("attend_and_excite")
@@ -23915,7 +23921,7 @@ def start_diffusion(page):
                   clear_last()
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe_attend_and_excite.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_attend_and_excite.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe_attend_and_excite.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_versatile'] and status['installed_versatile']:
                 clear_pipes("versatile_text2img")
@@ -23931,7 +23937,7 @@ def start_diffusion(page):
                   clear_last()
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe_safe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_safe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe_safe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_panorama'] and status['installed_panorama']:
                 clear_pipes("panorama")
@@ -23941,7 +23947,7 @@ def start_diffusion(page):
                   clear_last()
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe_panorama.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe_panorama.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe_panorama.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               else:
                 clear_pipes("txt2img")
@@ -23958,7 +23964,7 @@ def start_diffusion(page):
                   pipe = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
                   pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               '''with io.StringIO() as buf, redirect_stdout(buf):
                 get_text2image(page)
@@ -27187,7 +27193,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
         else:
             pipe_ip_adapter.load_ip_adapter_face_id(ip_adapter_model['path'], weight_name=ip_adapter_model['weight_name'])
     else:
-        pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
     pipe_ip_adapter.set_ip_adapter_scale(ip_adapter_prefs['ip_adapter_strength'])
     if ip_adapter_prefs['ip_adapter_image'].startswith('http'):
         ip_adapter_image = PILImage.open(requests.get(ip_adapter_prefs['ip_adapter_image'], stream=True).raw)
@@ -27715,7 +27721,7 @@ def run_controlnet_qr(page, from_list=False):
     else:
         pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
     if use_ip_adapter:
-        pipe_controlnet_qr.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet_qr.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
         pipe_controlnet_qr.set_ip_adapter_scale(controlnet_qr_prefs['ip_adapter_strength'])
         if controlnet_qr_prefs['ip_adapter_image'].startswith('http'):
             ip_adapter_image = PILImage.open(requests.get(controlnet_qr_prefs['ip_adapter_image'], stream=True).raw)
@@ -29475,44 +29481,49 @@ submit_dict:
             stats = Text("Stable Horde API Interrogation ")
             #prt(stats)
             img_file = os.path.join(folder_path, file)
-            run_process(f'python cli_request_alchemy.py --api_key {prefs["AIHorde_api_key"]} --file "{alchemy_yml}" --source_image "{img_file}"', cwd=AI_Horde, realtime=True)
-            clear_last()
-            clear_last()
-            if image2text_prefs["request_mode"] == "Caption":
-                captions = get_captions(cli_response)
-                for r in captions:
-                  prompt = to_title(r.strip(), sentence=True)
-                  i2t_prompts.append(prompt)
-                  page.add_to_image2text(prompt)
-                new_log = available_file(AI_Horde, "cliRequests", 0, ext="log")
-                shutil.move(cli_response, new_log)
-            elif image2text_prefs["request_mode"] == "Interrogation":
-                with open(interrogation_txt) as json_file:
-                  interrogation = json.load(json_file)
-                prt(Markdown(get_interrogation(interrogation), selectable=True))
-                new_interrogation = available_file(AI_Horde, "cliRequestsData_Alchemy.yml_interrogation", 0, ext="txt")
-                shutil.move(interrogation_txt, new_interrogation)
-                os.remove(cli_response)
-            elif image2text_prefs["request_mode"] == "Full Prompt":
-                captions = get_captions(cli_response)
-                make_yml("interrogation")
-                prt(f"Getting Interrogation with the Horde to Describe Image...")
-                prt(progress)
+            try:
                 run_process(f'python cli_request_alchemy.py --api_key {prefs["AIHorde_api_key"]} --file "{alchemy_yml}" --source_image "{img_file}"', cwd=AI_Horde, realtime=True)
                 clear_last()
                 clear_last()
-                with open(interrogation_txt) as json_file:
-                  interrogation = json.load(json_file)
-                prt(Markdown(get_interrogation(interrogation), selectable=True))
-                new_interrogation = available_file(AI_Horde, "cliRequestsData_Alchemy.yml_interrogation", 0, ext="txt")
-                shutil.move(interrogation_txt, new_interrogation)
-                styles = get_interrogation_prompt(interrogation)
-                for r in captions:
-                  prompt = to_title(r.strip(), sentence=True)
-                  i2t_prompts.append(f"{prompt}{styles}")
-                  page.add_to_image2text(f"{prompt}{styles}")
-                new_log = available_file(AI_Horde, "cliRequests", 0, ext="log")
-                shutil.move(cli_response, new_log)
+                if image2text_prefs["request_mode"] == "Caption":
+                    captions = get_captions(cli_response)
+                    for r in captions:
+                      prompt = to_title(r.strip(), sentence=True)
+                      i2t_prompts.append(prompt)
+                      page.add_to_image2text(prompt)
+                    new_log = available_file(AI_Horde, "cliRequests", 0, ext="log")
+                    shutil.move(cli_response, new_log)
+                elif image2text_prefs["request_mode"] == "Interrogation":
+                    with open(interrogation_txt) as json_file:
+                      interrogation = json.load(json_file)
+                    prt(Markdown(get_interrogation(interrogation), selectable=True))
+                    new_interrogation = available_file(AI_Horde, "cliRequestsData_Alchemy.yml_interrogation", 0, ext="txt")
+                    shutil.move(interrogation_txt, new_interrogation)
+                    os.remove(cli_response)
+                elif image2text_prefs["request_mode"] == "Full Prompt":
+                    captions = get_captions(cli_response)
+                    make_yml("interrogation")
+                    prt(f"Getting Interrogation with the Horde to Describe Image...")
+                    prt(progress)
+                    run_process(f'python cli_request_alchemy.py --api_key {prefs["AIHorde_api_key"]} --file "{alchemy_yml}" --source_image "{img_file}"', cwd=AI_Horde, realtime=True)
+                    clear_last()
+                    clear_last()
+                    with open(interrogation_txt) as json_file:
+                      interrogation = json.load(json_file)
+                    prt(Markdown(get_interrogation(interrogation), selectable=True))
+                    new_interrogation = available_file(AI_Horde, "cliRequestsData_Alchemy.yml_interrogation", 0, ext="txt")
+                    shutil.move(interrogation_txt, new_interrogation)
+                    styles = get_interrogation_prompt(interrogation)
+                    for r in captions:
+                      prompt = to_title(r.strip(), sentence=True)
+                      i2t_prompts.append(f"{prompt}{styles}")
+                      page.add_to_image2text(f"{prompt}{styles}")
+                    new_log = available_file(AI_Horde, "cliRequests", 0, ext="log")
+                    shutil.move(cli_response, new_log)
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR Interrogating Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
             ''' API Method, want to go back to if I can upload source_image
             image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
             buff = io.BytesIO()
@@ -34159,7 +34170,7 @@ def run_instruct_pix2pix(page, from_list=False):
             ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == instruct_pix2pix_prefs['ip_adapter_SDXL_model'])
           else:
             ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == instruct_pix2pix_prefs['ip_adapter_model'])
-          pipe_instruct_pix2pix.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+          pipe_instruct_pix2pix.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
           pipe_instruct_pix2pix.set_ip_adapter_scale(instruct_pix2pix_prefs['ip_adapter_strength'])
     clear_last()
     prt("Generating Instruct-Pix2Pix of your Image...")
@@ -34798,7 +34809,7 @@ def run_controlnet(page, from_list=False):
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
     if use_ip_adapter:
-        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
         pipe_controlnet.set_ip_adapter_scale(controlnet_prefs['ip_adapter_strength'])
         if controlnet_prefs['ip_adapter_image'].startswith('http'):
             ip_adapter_image = PILImage.open(requests.get(controlnet_prefs['ip_adapter_image'], stream=True).raw)
@@ -35412,7 +35423,7 @@ def run_controlnet_xl(page, from_list=False):
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
     if use_ip_adapter:
-        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
         pipe_controlnet.set_ip_adapter_scale(controlnet_xl_prefs['ip_adapter_strength'])
         if controlnet_xl_prefs['ip_adapter_image'].startswith('http'):
             ip_adapter_image = PILImage.open(requests.get(controlnet_xl_prefs['ip_adapter_image'], stream=True).raw)
@@ -35925,7 +35936,7 @@ def run_controlnet_xs(page, from_list=False):
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
     if use_ip_adapter:
-        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
         pipe_controlnet.set_ip_adapter_scale(controlnet_xs_prefs['ip_adapter_strength'])
         if controlnet_xs_prefs['ip_adapter_image'].startswith('http'):
             ip_adapter_image = PILImage.open(requests.get(controlnet_xs_prefs['ip_adapter_image'], stream=True).raw)
@@ -37896,7 +37907,7 @@ def run_lcm(page, from_list=False, with_params=False):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
             ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == lcm_prefs['ip_adapter_model'])
-            pipe_lcm.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_lcm.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
             pipe_lcm.set_ip_adapter_scale(lcm_prefs['ip_adapter_strength'])
 
     clear_last()
@@ -38480,7 +38491,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
         ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
       if bool(ip_adapter_arg):
           ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == ldm3d_prefs['ip_adapter_model'])
-          pipe_ldm3d.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+          pipe_ldm3d.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
           pipe_ldm3d.set_ip_adapter_scale(ldm3d_prefs['ip_adapter_strength'])
 
     clear_last()
@@ -40072,7 +40083,7 @@ def run_svd(page):
     autoscroll(True)
     installer = Installing("Installing SVD Image-To-Video Pipeline...")
     prt(installer)
-    model_id = "stabilityai/stable-video-diffusion-img2vid-xt" if 'XT' in svd_prefs['svd_model'] else "stabilityai/stable-video-diffusion-img2vid"
+    model_id = "stabilityai/stable-video-diffusion-img2vid-xt-1-1" if 'XT 1.1' in svd_prefs['svd_model'] else "stabilityai/stable-video-diffusion-img2vid-xt" if 'XT' in svd_prefs['svd_model'] else "stabilityai/stable-video-diffusion-img2vid"
     svd_prefs['num_frames'] = 25 if 'XT' in svd_prefs['svd_model'] else 14
     from diffusers import StableVideoDiffusionPipeline
     if 'loaded_svd' not in status: status['loaded_svd'] = ""
@@ -42018,7 +42029,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
             ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == animatediff_img2video_prefs['ip_adapter_model'])
-            pipe_animatediff_img2video.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_animatediff_img2video.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
             pipe_animatediff_img2video.set_ip_adapter_scale(animatediff_img2video_prefs['ip_adapter_strength'])
 
     clear_last()
@@ -42306,7 +42317,7 @@ def run_pia(page, from_list=False, with_params=False):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
             ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == pia_prefs['ip_adapter_model'])
-            pipe_pia.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_pia.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
             pipe_pia.set_ip_adapter_scale(pia_prefs['ip_adapter_strength'])
 
     clear_last()

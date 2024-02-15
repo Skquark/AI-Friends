@@ -185,6 +185,7 @@ SDXL_models = [
     {"name": "Counterfeit-XL", "path": "gsdf/CounterfeitXL", "prefix": "", "variant": "fp16"},
     {"name": "DPO-Juggernaut 7XL", "path": "dataautogpt3/dpo-sdxl-merged", "prefix": "", "use_safetensors": True},
     {"name": "Dreamshaper-XL", "path": "Lykon/dreamshaper-xl-1-0", "prefix": "", "variant": "fp16"},
+    {"name": "Dreamshaper 8", "path": "Lykon/dreamshaper-8", "prefix": "", "variant": "fp16"},
     {"name": "Dreamviewer", "path": "Andyrasika/dreamviewer-sdxl-1.0", "prefix": "", "variant": "fp16"},
     {"name": "Dusk Slime Mix", "path": "EarthnDusk/DuskSlimeMixUltraInifity-YamerXLfp16", "prefix": "", "variant": "fp16"},
     {"name": "DynaVision-XL", "path": "nyxia/dynavision-xl", "prefix": "", "variant": "fp16"},
