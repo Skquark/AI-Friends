@@ -906,6 +906,7 @@ def buildAudioAIs(page):
     page.Riffusion = buildRiffusion(page)
     page.Mubert = buildMubert(page)
     page.Whisper = buildWhisper(page)
+    page.OpenAI_TTS = buildOpenAI_TTS(page)
     page.VoiceFixer = buildVoiceFixer(page)
     audioAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
@@ -918,6 +919,7 @@ def buildAudioAIs(page):
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
             Tab(text="Whisper-STT", content=page.Whisper, icon=icons.HEARING),
+            Tab(text="OpenAI-TTS", content=page.OpenAI_TTS, icon=icons.PHONE_IN_TALK),
             Tab(text="Voice Fixer", content=page.VoiceFixer, icon=icons.VOICE_CHAT),
             Tab(text="HarmonAI Dance Diffusion", content=page.DanceDiffusion, icon=icons.QUEUE_MUSIC),
             Tab(text="Mubert Music", content=page.Mubert, icon=icons.MUSIC_VIDEO),
@@ -18768,6 +18770,79 @@ def buildTortoiseTTS(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+openai_tts_prefs = {
+    'text': '',
+    'preset': 'tts-1-hd',
+    'voice': 'Alloy',
+    'speed': 1.0,
+    'format': 'mp3',
+    'batch_folder_name': '',
+    'file_prefix': 'tts-',
+}
+
+def buildOpenAI_TTS(page):
+    global prefs, openai_tts_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              openai_tts_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              openai_tts_prefs[pref] = float(e.control.value)
+            else:
+              openai_tts_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def openai_tts_help(e):
+        def close_openai_tts_dlg(e):
+          nonlocal openai_tts_help_dlg
+          openai_tts_help_dlg.open = False
+          page.update()
+        openai_tts_help_dlg = AlertDialog(title=Text("💁   Help with OpenAI Text-to-Speech"), content=Column([
+            Text("The Audio API provides a speech endpoint based on our TTS (text-to-speech) model. It comes with 6 built-in voices and can be used to: Narrate a written blog post, Produce spoken audio in multiple languages, Give real time audio output using streaming"),
+            Text("The speech endpoint takes in three key inputs: the model, the text that should be turned into audio, and the voice to be used for the audio generation. For real-time applications, the standard tts-1 model provides the lowest latency but at a lower quality than the tts-1-hd model. Due to the way the audio is generated, tts-1 is likely to generate content that has more static in certain situations than tts-1-hd. In some cases, the audio may not have noticeable differences depending on your listening device and the individual person."),
+            Text("Experiment with different voices (alloy, echo, fable, onyx, nova, and shimmer) to find one that matches your desired tone and audience. The current voices are optimized for English."),
+            Text("The TTS model generally follows the Whisper model in terms of language support. Whisper supports the following languages and performs well despite the current voices being optimized for English. The following language are supported: Afrikaans, Arabic, Armenian, Azerbaijani, Belarusian, Bosnian, Bulgarian, Catalan, Chinese, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish, French, Galician, German, Greek, Hebrew, Hindi, Hungarian, Icelandic, Indonesian, Italian, Japanese, Kannada, Kazakh, Korean, Latvian, Lithuanian, Macedonian, Malay, Marathi, Maori, Nepali, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Slovenian, Spanish, Swahili, Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and Welsh. You can generate spoken audio in these languages by providing the input text in the language of your choice."),
+            Markdown("[Text-to-Speech Guide](https://platform.openai.com/docs/guides/text-to-speech) | [API Reference](https://platform.openai.com/docs/api-reference/audio)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("👄  Speak to me... ", on_click=close_openai_tts_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = openai_tts_help_dlg
+        openai_tts_help_dlg.open = True
+        page.update()
+    def add_to_openai_tts_output(o):
+        page.openai_tts_output.controls.append(o)
+        page.openai_tts_output.update()
+    def clear_output(e):
+        if prefs['enable_sounds']: page.snd_delete.play()
+        page.openai_tts_output.controls = []
+        page.openai_tts_output.update()
+        clear_button.visible = False
+        clear_button.update()
+    text = TextField(label="Text to Read", value=openai_tts_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'))
+    preset = Dropdown(label="TTS Model", width=150, options=[dropdown.Option("tts-1"), dropdown.Option("tts-1-hd")], value=openai_tts_prefs['preset'], on_change=lambda e: changed(e, 'preset'))
+    voice = Dropdown(label="Voice Preset", width=200, options=[dropdown.Option("Alloy"), dropdown.Option("Echo"), dropdown.Option("Fable"), dropdown.Option("Onyx"), dropdown.Option("Nova"), dropdown.Option("Shimmer")], value=openai_tts_prefs['voice'], on_change=lambda e: changed(e, 'voice'))
+    format = Dropdown(label="Format", width=100, options=[dropdown.Option("mp3"), dropdown.Option("opus"), dropdown.Option("aac"), dropdown.Option("flac")], value=openai_tts_prefs['format'], on_change=lambda e: changed(e, 'format'))
+    speed = SliderRow(label="Voice Speed", min=0.25, max=4.0, divisions=15, round=2, pref=openai_tts_prefs, key='speed', tooltip="The speed of the generated audio. Select a value from 0.25 to 4.0. 1.0 is the default.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=openai_tts_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=openai_tts_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    page.openai_tts_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(page.openai_tts_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🦜  OpenAI Text-to-Speech Voice Modeling", "Turn text into lifelike spoken audio... Uses your OpenAI credits.", actions=[IconButton(icon=icons.HELP, tooltip="Help with OpenAI-TTS Settings", on_click=openai_tts_help)]),
+        text,
+        Row([voice, preset, format]),
+        speed,
+        Row([batch_folder_name, file_prefix]),
+        ElevatedButton(content=Text("📞  Run OpenAI-TTS", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_openai_tts(page)),
+        page.openai_tts_output,
+        clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 audioLDM_prefs = {
     'text': '',
     'duration': 5.0,
@@ -24606,14 +24681,14 @@ def run_prompt_generator(page):
       result = response.choices[0].text.strip()#["choices"][0]["text"].strip()
     elif prefs['prompt_generator']['AI_engine'] == "ChatGPT-3.5 Turbo":
       response = openai_client.chat.completions.create(
-        model="gpt-3.5-turbo-16k",
+        model="gpt-3.5-turbo-0125",
         temperature=prefs['prompt_generator']['AI_temperature'],
         messages=[{"role": "user", "content": prompt}]
       )
       #print(str(response))
       result = response.choices[0].message.content.strip()#["choices"][0]["message"]["content"].strip()
     elif "GPT-4" in prefs['prompt_generator']['AI_engine']:
-      gpt_model = "gpt-4-1106-preview" if "Turbo" in prefs['prompt_generator']['AI_engine'] else "gpt-4"
+      gpt_model = "gpt-4-0125-preview" if "Turbo" in prefs['prompt_generator']['AI_engine'] else "gpt-4"
       response = openai_client.chat.completions.create(
         model=gpt_model,
         temperature=prefs['prompt_generator']['AI_temperature'],
@@ -24761,11 +24836,11 @@ def run_prompt_remixer(page):
       #print(response)
       result = response.choices[0].text.strip()
     elif prefs['prompt_remixer']['AI_engine'] == "ChatGPT-3.5 Turbo":
-      response = openai_client.chat.completions.create(model="gpt-3.5-turbo-16k", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
+      response = openai_client.chat.completions.create(model="gpt-3.5-turbo-0125", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       #print(str(response))
       result = response.choices[0].message.content.strip()
     elif "GPT-4" in prefs['prompt_remixer']['AI_engine']:
-      gpt_model = "gpt-4-1106-preview" if "Turbo" in prefs['prompt_remixer']['AI_engine'] else "gpt-4"
+      gpt_model = "gpt-4-0125-preview" if "Turbo" in prefs['prompt_remixer']['AI_engine'] else "gpt-4"
       response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       result = response.choices[0].message.content.strip()
     elif prefs['prompt_remixer']['AI_engine'] == "Google Gemini":
@@ -25074,10 +25149,10 @@ def run_prompt_brainstormer(page):
         response = openai_client.completions.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=prefs['prompt_brainstormer']['AI_temperature'], presence_penalty=1)
         result = response.choices[0].text.strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "ChatGPT-3.5 Turbo":
-        response = openai_client.chat.completions.create(model="gpt-3.5-turbo-16k", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
+        response = openai_client.chat.completions.create(model="gpt-3.5-turbo-0125", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
         result = response.choices[0].message.content.strip()
       elif "GPT-4" in prefs['prompt_brainstormer']['AI_engine']:
-        gpt_model = "gpt-4-1106-preview" if "Turbo" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4"
+        gpt_model = "gpt-4-0125-preview" if "Turbo" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4"
         response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
         result = response.choices[0].message.content.strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
@@ -29981,7 +30056,7 @@ def run_audio_diffusion(page):
             shutil.copy(aname, audio_save)
         else: audio_save = aname
         display_name = audio_save
-        prt(AudioPlayer(src=aname, display=audio_save, data=audio_save))
+        prt(AudioPlayer(src=aname, display=audio_save, data=audio_save, page=page))
         #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     if prefs['enable_sounds']: page.snd_alert.play()
 
@@ -31743,8 +31818,88 @@ def run_tortoise_tts(page):
       audio_save = available_file(audio_out, audio_name, 0, ext='wav')
       shutil.copy(fname, audio_save)
       display_name = audio_save
-    prt(AudioPlayer(src=fname, display=display_name, data=display_name))
+    prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
     #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    if prefs['enable_sounds']: page.snd_alert.play()
+
+def run_openai_tts(page):
+    global openai_tts_prefs, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.openai_tts_output.controls.append(line)
+      page.openai_tts_output.update()
+    def clear_last(lines=1):
+      clear_line(page.openai_tts_output, lines=lines)
+    if not bool(openai_tts_prefs['text']):
+      alert_msg(page, "Provide Text for the AI voice to read...")
+      return
+    progress = ProgressBar(bar_height=8)
+    installer = Installing("Installing OpenAI API Package...")
+    prt(installer)
+    #pip_install("ffmpeg pydub", installer=installer)
+    try:
+        import openai
+        if version.parse(openai.__version__).base_version < version.parse("1.12.0"):
+            installer.status("...uninstalling old openai")
+            run_process("pip uninstall -y openai", realtime=False)
+            raise ModuleNotFoundError("Forcing update")
+        if force_updates or True: raise ModuleNotFoundError("Forcing update")
+    except:
+        installer.status("...installing openai")
+        run_process("pip install -q --upgrade openai", realtime=False)
+        clear_last()
+        import openai
+        pass
+    try:
+        #openai.api_key = prefs['OpenAI_api_key']
+        from openai import OpenAI
+        client = OpenAI(api_key=prefs['OpenAI_api_key'])
+    except Exception as e:
+        alert_msg(page, f"Seems like your OpenAI API Key is Invalid. Check it again...", content=Text(str(e)))
+        return
+    clear_last()
+    prt(Text("  Generating OpenAI Text-to-Speech...", weight=FontWeight.BOLD))
+    prt(progress)
+    save_dir = os.path.join(root_dir, 'audio_out', openai_tts_prefs['batch_folder_name'])
+    if not os.path.exists(save_dir):
+      os.makedirs(save_dir, exist_ok=True)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(openai_tts_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, openai_tts_prefs['batch_folder_name'])
+    os.makedirs(audio_out, exist_ok=True)
+    #voice_dirs = os.listdir(os.path.join(root_dir, "openai_tts-tts", 'openai_tts', 'voices'))
+    #print(str(voice_dirs))
+    fname = format_filename(openai_tts_prefs['text'])
+    if fname[-1] == '.': fname = fname[:-1]
+    file_prefix = openai_tts_prefs['file_prefix']
+    voice = openai_tts_prefs['voice'].lower()
+    format = openai_tts_prefs['format']
+    audio_name = f'{file_prefix}{openai_tts_prefs["voice"]}-{fname}'
+    audio_name = audio_name[:int(prefs['file_max_length'])]
+    fname = available_file(save_dir, audio_name, 0, ext=format)
+    try:
+        response = client.audio.speech.create(
+            model=openai_tts_prefs['preset'],
+            voice=voice,
+            input=openai_tts_prefs['text'],
+            response_format=format,
+            speed=float(openai_tts_prefs['speed']),
+        )
+        response.stream_to_file(fname)#with_streaming_response
+    except Exception as e:
+        clear_last()
+        clear_last()
+        alert_msg(page, f"ERROR: Couldn't run Text-To-Speech on your text for some reason...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    clear_last()
+    clear_last()
+    display_name = fname
+    if storage_type == "Colab Google Drive":
+      audio_save = available_file(audio_out, audio_name, 0, ext=format)
+      shutil.copy(fname, audio_save)
+      display_name = audio_save
+    prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_audio_ldm(page):
@@ -31829,6 +31984,7 @@ def run_audio_ldm(page):
       display_name = audio_save
     #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+    nudge(page.OpenAI_TTS, page)
     if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_audio_ldm2(page):
@@ -32740,10 +32896,10 @@ def run_whisper(page):
             response = openai_client.completions.create(engine="text-davinci-003", prompt=request, max_tokens=2400, temperature=whisper_prefs['AI_temperature'], presence_penalty=1)
             result = response.choices[0].text.strip()
         elif whisper_prefs['AI_engine'] == "ChatGPT-3.5 Turbo":
-            response = openai_client.chat.completions.create(model="gpt-3.5-turbo-16k", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
+            response = openai_client.chat.completions.create(model="gpt-3.5-turbo-0125", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
             result = response.choices[0].message.content.strip()
         elif "GPT-4" in whisper_prefs['AI_engine']:
-            gpt_model = "gpt-4-1106-preview" if "Turbo" in whisper_prefs['AI_engine'] else "gpt-4"
+            gpt_model = "gpt-4-0125-preview" if "Turbo" in whisper_prefs['AI_engine'] else "gpt-4"
             response = openai_client.chat.completions.create(model=gpt_model, temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
             result = response.choices[0].message.content.strip()
         elif whisper_prefs['AI_engine'] == "Google Gemini":
@@ -37637,13 +37793,13 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             result = response.choices[0].text.strip()
         elif AI_engine == "ChatGPT-3.5 Turbo":
             response = openai_client.chat.completions.create(
-                model="gpt-3.5-turbo-16k",
+                model="gpt-3.5-turbo-0125",
                 temperature=temperature,
                 messages=[{"role": "user", "content": prompt_full}]
             )
             result = response.choices[0].message.content.strip()
         elif "GPT-4" in AI_engine:
-            gpt_model = "gpt-4-1106-preview" if "Turbo" in AI_engine else "gpt-4"
+            gpt_model = "gpt-4-0125-preview" if "Turbo" in AI_engine else "gpt-4"
             response = openai_client.chat.completions.create(
                 model=gpt_model,
                 temperature=temperature,
@@ -44497,7 +44653,7 @@ def run_dall_e_3(page, from_list=False):
     try:
         import openai
         #print(f"OpenAI {version.parse(openai.__version__).base_version} v{openai.__version__}")
-        if version.parse(openai.__version__).base_version < version.parse("1.7.2"):
+        if version.parse(openai.__version__).base_version < version.parse("1.12.0"):
             run_process("pip uninstall -y openai", realtime=False)
             raise ModuleNotFoundError("Forcing update")
         if force_updates or True: raise ModuleNotFoundError("Forcing update")
