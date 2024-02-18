@@ -15318,8 +15318,8 @@ def buildDallE3(page):
     face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=dall_e_3_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=dall_e_3_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_dalle = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_dalle.height = None if status['installed_ESRGAN'] else 0
+    page.ESRGAN_block_dalle3 = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_dalle3.height = None if status['installed_ESRGAN'] else 0
     if not dall_e_3_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e_3(page, from_list=True))
@@ -15334,7 +15334,7 @@ def buildDallE3(page):
             Row([hd_quality, natural_style]),
             #img_block,
             param_rows,
-            page.ESRGAN_block_dalle,
+            page.ESRGAN_block_dalle3,
             parameters_row,
             dall_e_3_output
         ],
