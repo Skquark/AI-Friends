@@ -24379,15 +24379,14 @@ def start_diffusion(page):
         elif bool(prefs['image_output']):
           shutil.copy(fpath, new_file)#os.path.join(batch_output, new_file))
         if prefs['save_config_json']:
-          json_file = new_file.rpartition('.')[0] + '.json'
-          with open(os.path.join(stable_dir, json_file), "w") as f:
+          json_file = os.path.basename(new_file).rpartition('.')[0] + '.json'
+          with open(os.path.join(batch_output, json_file), "w") as f:
             json.dump(config_json, f, ensure_ascii=False, indent=4)
           #if save_to_GDrive:
-          shutil.copy(os.path.join(stable_dir, json_file), os.path.join(batch_output, json_file))
+          #shutil.copy(os.path.join(stable_dir, json_file), os.path.join(batch_output, json_file))
           if storage_type == "PyDrive Google Drive":
-            #batch_output
             out_file = gdrive.CreateFile({'title': json_file})
-            out_file.SetContentFile(os.path.join(stable_dir, json_file))
+            out_file.SetContentFile(os.path.join(batch_output, json_file))
             out_file.Upload()
         output_files.append(os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file))
         if (prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale']):
