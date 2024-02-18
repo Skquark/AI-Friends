@@ -1086,13 +1086,28 @@ if bool(prefs['init_image']):
     if not os.path.isfile(prefs['init_image']): prefs['init_image'] = ""
 if bool(prefs['mask_image']):
     if not os.path.isfile(prefs['mask_image']): prefs['mask_image'] = ""
-    
+
+from enum import Enum
+class Snd(Enum):
+    ALERT = 1
+    DELETE = 2
+    ERROR = 3
+    DONE = 4
+    DROP = 5
+
+def play_snd(snd:Snd, page:Page):
+    if prefs['enable_sounds']:
+        if snd == Snd.ALERT: page.snd_alert.play()
+        elif snd == Snd.DELETE: page.snd_delete.play()
+        elif snd == Snd.ERROR: page.snd_error.play()
+        elif snd == Snd.DONE: page.snd_done.play()
+        elif snd == Snd.DROP: page.snd_drop.play()
+
 def initState(page):
     global status, current_tab
     if os.path.isdir(os.path.join(root_dir, 'Real-ESRGAN')):
       status['installed_ESRGAN'] = True
     page.load_prompts()
-
     # TODO: Try to load from assets folder
     page.snd_alert = Audio(src=os.path.join(assets, "snd-alert.mp3"), autoplay=False)
     page.snd_delete = Audio(src=os.path.join(assets, "snd-delete.mp3"), autoplay=False)
@@ -1347,6 +1362,7 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
         msg += " May have to restart runtime."
         pass
     def send_debug(e):
+        nonlocal content
         debug_msg = msg + "\n\n"
         if isinstance(content, list):
             content = Column(controls=content)
@@ -2046,7 +2062,7 @@ def buildInstallers(page):
           pass
         status['installed_TextSynth'] = True
       #print('Done Installing...')
-      if prefs['enable_sounds']: page.snd_done.play()
+      play_snd(Snd.DONE, page)
       console_clear()
       page.banner.open = False
       page.banner.update()
@@ -3002,7 +3018,7 @@ def buildPromptsList(page):
       prompts_list.controls.pop(idx)
       prompts_list.update()
       status['changed_prompts'] = True
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
   def copy_prompt(e):
       open_dream = e.control.data
       page.set_clipboard(open_dream.prompt)
@@ -3208,7 +3224,7 @@ def buildPromptsList(page):
       e.page.save_prompts()
       save_settings_file(e.page)
       #status['changed_prompts'] = True
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
   page.clear_prompts_list = clear_list
   def on_keyboard (e: KeyboardEvent):
       if e.key == "Escape":
@@ -3300,7 +3316,7 @@ def buildPromptGenerator(page):
     page.prompt_generator_list = Column([], spacing=0)
     def add_to_prompt_list(p):
       page.add_to_prompts(p)
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
     def add_to_prompt_generator(p):
       page.prompt_generator_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_generator_list.update()
@@ -3315,14 +3331,14 @@ def buildPromptGenerator(page):
     def add_to_list(e):
       for p in page.prompt_generator_list.controls:
         page.add_to_prompts(p.title.value)
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
     def clear_prompts(e):
       page.prompt_generator_list.controls = []
       page.prompt_generator_list.update()
       #prompts = []
       generator_list_buttons.visible = False
       generator_list_buttons.update()
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
     def changed_request(e):
       request_slider.label = generator_request_modes[int(request_slider.value)]
       request_slider.update()
@@ -3375,7 +3391,7 @@ def buildPromptRemixer(page):
         alert_msg(page, "You must Install OpenAI GPT Library first before using...")
     def add_to_prompt_list(p):
       page.add_to_prompts(p)
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
     def add_to_prompt_remixer(p):
       page.prompt_remixer_list.controls.append(ListTile(title=Text(p, max_lines=4, theme_style=TextThemeStyle.BODY_LARGE), dense=True, data=p, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_remixer_list.update()
@@ -3383,11 +3399,11 @@ def buildPromptRemixer(page):
       remixer_list_buttons.update()
     page.add_to_prompt_remixer = add_to_prompt_remixer
     def add_to_list(e):
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
       for p in page.prompt_remixer_list.controls:
         page.add_to_prompts(p.data)#(p.title.value)
     def clear_prompts(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.prompt_remixer_list.controls = []
       page.prompt_remixer_list.update()
       remixer_list_buttons.visible = False
@@ -3509,7 +3525,7 @@ def buildPromptWriter(page):
         page.add_to_prompts(p, {'negative_prompt':negative_prompt})
       else:
         page.add_to_prompts(p)
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
     def add_to_prompt_writer(p):
       page.prompt_writer_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_writer_list.update()
@@ -3518,7 +3534,7 @@ def buildPromptWriter(page):
     page.add_to_prompt_writer = add_to_prompt_writer
 
     def add_to_list(e):
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
       negative_prompt = prefs['prompt_writer']['negative_prompt']
       if bool(negative_prompt):
         if '_' in negative_prompt:
@@ -3529,7 +3545,7 @@ def buildPromptWriter(page):
         else:
           page.add_to_prompts(p.title.value)
     def clear_prompts(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.prompt_writer_list.controls = []
       page.prompt_writer_list.update()
       writer_list_buttons.visible = False
@@ -3591,7 +3607,7 @@ def buildMagicPrompt(page):
     page.magic_prompt_output = Column([])
     def add_to_prompt_list(p):
       page.add_to_prompts(p)
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
     def add_to_magic_prompt(p):
       page.magic_prompt_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.magic_prompt_list.update()
@@ -3599,11 +3615,11 @@ def buildMagicPrompt(page):
       magic_list_buttons.update()
     page.add_to_magic_prompt = add_to_magic_prompt
     def add_to_list(e):
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
       for p in page.magic_prompt_list.controls:
         page.add_to_prompts(p.title.value)
     def clear_prompts(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.magic_prompt_list.controls = []
       page.magic_prompt_list.update()
       magic_list_buttons.visible = False
@@ -3668,7 +3684,7 @@ def buildDistilGPT2(page):
     page.distil_gpt2_output = Column([])
     def add_to_prompt_list(p):
       page.add_to_prompts(p)
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
     def add_to_distil_gpt2(p):
       page.distil_gpt2_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.distil_gpt2_list.update()
@@ -3676,11 +3692,11 @@ def buildDistilGPT2(page):
       distil_list_buttons.update()
     page.add_to_distil_gpt2 = add_to_distil_gpt2
     def add_to_list(e):
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
       for p in page.distil_gpt2_list.controls:
         page.add_to_prompts(p.title.value)
     def clear_prompts(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.distil_gpt2_list.controls = []
       page.distil_gpt2_list.update()
       distil_list_buttons.visible = False
@@ -3921,7 +3937,7 @@ def buildPromptStyler(page):
     def add_to_prompts(e):
         nonlocal negative, prompt
         page.add_to_prompts(prompt, {'negative_prompt': negative})
-        if prefs['enable_sounds']: page.snd_drop.play()
+        play_snd(Snd.DROP, page)
     def copy_clip(e):
         page.set_clipboard(neg_text.value)
         toast_msg(page, f"📋  Copied to clipboard... Paste into your Negative Prompt Text.")
@@ -3932,9 +3948,9 @@ def buildPromptStyler(page):
         negative = styler[1]
         arg = {'negative_prompt': negative}
         page.add_to_prompts(pr, arg)
-        if prefs['enable_sounds']: page.snd_drop.play()
+        play_snd(Snd.DROP, page)
     def add_to_list(e):
-        if prefs['enable_sounds']: page.snd_drop.play()
+        play_snd(Snd.DROP, page)
         for s in prefs['prompt_styles']:
             styler = sdd_utils.prompt_styles[s]
             pr = styler[0].replace("{prompt}", prefs['prompt_styler'])
@@ -3943,7 +3959,7 @@ def buildPromptStyler(page):
             arg = {'negative_prompt': negative}
             page.add_to_prompts(pr, arg)
     def clear_prompts(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         styler_results.controls.clear()
         styler_results.update()
     def generate_styles(e):
@@ -4039,7 +4055,7 @@ def buildESRGANupscaler(page):
       changed(e, 'split_image_grid')
       split_container.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       ESRGAN_output.controls = []
       ESRGAN_output.update()
       clear_button.visible = False
@@ -4171,7 +4187,7 @@ def buildRetrievePrompts(page):
       retrieve_output.controls.append(o)
       retrieve_output.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       retrieve_output.controls = []
       retrieve_output.update()
       clear_button.visible = False
@@ -4216,7 +4232,7 @@ def buildInitFolder(page):
       initfolder_output.controls.append(o)
       initfolder_output.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       initfolder_output.controls = []
       initfolder_output.update()
       clear_button.visible = False
@@ -4289,7 +4305,7 @@ def buildInitVideo(page):
           clear_button.visible = True
           clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       init_video_output.controls = []
       init_video_output.update()
       clear_button.visible = False
@@ -4401,7 +4417,7 @@ def buildImage2Text(page):
       page.image2text_output.controls.append(o)
       page.image2text_output.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.image2text_output.controls = []
       page.image2text_output.update()
       save_dir = os.path.join(root_dir, 'image2text')
@@ -4543,7 +4559,7 @@ def buildImage2Text(page):
     page.image2text_list = Column([], spacing=0)
     def add_to_prompt_list(p):
       page.add_to_prompts(p)
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
     def add_to_image2text(p):
       page.image2text_list.controls.append(ListTile(title=Text(p, max_lines=18, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.image2text_list.update()
@@ -4551,7 +4567,7 @@ def buildImage2Text(page):
       image2text_list_buttons.update()
     page.add_to_image2text = add_to_image2text
     def add_to_list(e):
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
       for p in page.image2text_list.controls:
         page.add_to_prompts(p.title.value)
     def toggle_AIHorde(e):
@@ -4596,7 +4612,7 @@ def buildImage2Text(page):
       question_prompt.visible = gemini=="Question"
       question_prompt.update()
     def clear_prompts(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.image2text_list.controls = []
       page.image2text_list.update()
       prompts = []
@@ -4674,7 +4690,7 @@ def buildBLIP2Image2Text(page):
       page.BLIP2_image2text_output.controls.append(o)
       page.BLIP2_image2text_output.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.BLIP2_image2text_output.controls = []
       page.BLIP2_image2text_output.update()
       save_dir = os.path.join(root_dir, 'BLIP2_image2text')
@@ -4786,7 +4802,7 @@ def buildBLIP2Image2Text(page):
     page.BLIP2_image2text_list = Column([], spacing=0)
     def add_to_prompt_list(p):
       page.add_to_prompts(p)
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
     def add_to_BLIP2_image2text(p):
       page.BLIP2_image2text_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.BLIP2_image2text_list.update()
@@ -4794,11 +4810,11 @@ def buildBLIP2Image2Text(page):
       BLIP2_image2text_list_buttons.update()
     page.add_to_BLIP2_image2text = add_to_BLIP2_image2text
     def add_to_list(e):
-      if prefs['enable_sounds']: page.snd_drop.play()
+      play_snd(Snd.DROP, page)
       for p in page.BLIP2_image2text_list.controls:
         page.add_to_prompts(p.title.value)
     def clear_prompts(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.BLIP2_image2text_list.controls = []
       page.BLIP2_image2text_list.update()
       prompts = []
@@ -5127,7 +5143,7 @@ def buildAudioDiffusion(page):
         page.audio_diffusion_output.controls.append(o)
         page.audio_diffusion_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.audio_diffusion_output.controls = []
         page.audio_diffusion_output.update()
         clear_button.visible = False
@@ -5261,7 +5277,7 @@ def buildMusicGen(page):
         page.music_gen_output.controls.append(o)
         page.music_gen_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.music_gen_output.controls = []
         page.music_gen_output.update()
         clear_button.visible = False
@@ -5381,7 +5397,7 @@ def buildDreamFusion(page):
       page.dreamfusion_output.controls.append(o)
       page.dreamfusion_output.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.dreamfusion_output.controls = []
       page.dreamfusion_output.update()
       clear_button.visible = False
@@ -5456,7 +5472,7 @@ def buildPoint_E(page):
       page.point_e_output.controls.append(o)
       page.point_e_output.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.point_e_output.controls = []
       page.point_e_output.update()
       clear_button.visible = False
@@ -5563,7 +5579,7 @@ def buildShap_E(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.shap_e_output.controls = []
       page.shap_e_output.update()
       clear_button.visible = False
@@ -5806,7 +5822,7 @@ def buildInstantNGP(page):
         page.instant_ngp_output.controls.append(o)
         page.instant_ngp_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.instant_ngp_output.controls = []
         page.instant_ngp_output.update()
         clear_button.visible = False
@@ -6083,7 +6099,7 @@ def buildRepainter(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.repaint_output.controls = []
       page.repaint_output.update()
       clear_button.visible = False
@@ -6213,7 +6229,7 @@ def buildImageVariation(page):
         clear_button.update()
     page.add_to_image_variation_output = add_to_image_variation_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.image_variation_output.controls = []
       page.image_variation_output.update()
       clear_button.visible = False
@@ -6319,7 +6335,7 @@ def buildBackgroundRemover(page):
         clear_button.update()
     page.add_to_background_remover_output = add_to_background_remover_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.background_remover_output.controls = []
       page.background_remover_output.update()
       clear_button.visible = False
@@ -6823,7 +6839,7 @@ def buildReference(page):
         clear_button.update()
     page.add_to_reference_output = add_to_reference_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       for i, c in enumerate(page.Reference.controls):
         if i == 0: continue
         else: del page.Reference.controls[i]
@@ -6987,7 +7003,7 @@ def buildControlNetQR(page):
         clear_button.update()
     page.add_to_controlnet_qr_output = add_to_controlnet_qr_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       for i, c in enumerate(page.ControlNetQR.controls):
         if i == 0: continue
         else: del page.ControlNetQR.controls[i]
@@ -7193,7 +7209,7 @@ def buildControlNetSegmentAnything(page):
         clear_button.update()
     page.add_to_controlnet_segment_output = add_to_controlnet_segment_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       for i, c in enumerate(page.ControlNetSegmentAnything.controls):
         if i == 0: continue
         else: del page.ControlNetSegmentAnything.controls[i]
@@ -7329,7 +7345,7 @@ def buildEDICT(page):
         clear_button.update()
     page.add_to_EDICT_output = add_to_EDICT_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.EDICT_output.controls = []
       page.EDICT_output.update()
       clear_button.visible = False
@@ -7460,7 +7476,7 @@ def buildDiffEdit(page):
         clear_button.update()
     page.add_to_DiffEdit_output = add_to_DiffEdit_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.DiffEdit_output.controls = []
       page.DiffEdit_output.update()
       clear_button.visible = False
@@ -7684,7 +7700,7 @@ def buildUnCLIP(page):
         clear_button.update()
     page.add_to_unCLIP_output = add_to_unCLIP_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.unCLIP_output.controls = []
       page.unCLIP_output.update()
       clear_button.visible = False
@@ -7808,7 +7824,7 @@ def buildUnCLIP_ImageVariation(page):
         clear_button.update()
     page.add_to_unCLIP_image_variation_output = add_to_unCLIP_image_variation_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.unCLIP_image_variation_output.controls = []
       page.unCLIP_image_variation_output.update()
       clear_button.visible = False
@@ -7945,7 +7961,7 @@ def buildUnCLIP_Interpolation(page):
         clear_button.update()
     page.add_to_unCLIP_interpolation_output = add_to_unCLIP_interpolation_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.unCLIP_interpolation_output.controls = []
       page.unCLIP_interpolation_output.update()
       clear_button.visible = False
@@ -8067,7 +8083,7 @@ def buildUnCLIP_ImageInterpolation(page):
         clear_button.update()
     page.add_to_unCLIP_image_interpolation_output = add_to_unCLIP_image_interpolation_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.unCLIP_image_interpolation_output.controls = []
       page.unCLIP_image_interpolation_output.update()
       clear_button.visible = False
@@ -8225,7 +8241,7 @@ def buildMagicMix(page):
         clear_button.update()
     page.add_to_magic_mix_output = add_to_magic_mix_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       for i, c in enumerate(page.MagicMix.controls):
         if i == 0: continue
         else: del page.MagicMix.controls[i]
@@ -8364,7 +8380,7 @@ def buildPaintByExample(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.paint_by_example_output.controls = []
       page.paint_by_example_output.update()
       clear_button.visible = False
@@ -8533,7 +8549,7 @@ def buildInstructPix2Pix(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.instruct_pix2pix_output.controls = []
       page.instruct_pix2pix_output.update()
       clear_button.visible = False
@@ -8745,7 +8761,7 @@ def buildControlNet(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.controlnet_output.controls = []
       page.controlnet_output.update()
       clear_button.visible = False
@@ -9035,7 +9051,7 @@ def buildControlNetXL(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.controlnet_xl_output.controls = []
       page.controlnet_xl_output.update()
       clear_button.visible = False
@@ -9329,7 +9345,7 @@ def buildControlNetXS(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.controlnet_xs_output.controls = []
       page.controlnet_xs_output.update()
       clear_button.visible = False
@@ -9609,7 +9625,7 @@ def buildControlNet_Video2Video(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.controlnet_video2video_output.controls = []
       page.controlnet_video2video_output.update()
       clear_button.visible = False
@@ -9803,7 +9819,7 @@ def buildDeepFloyd(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.deepfloyd_output.controls = []
       page.deepfloyd_output.update()
       clear_button.visible = False
@@ -10934,7 +10950,7 @@ def buildTextToVideo(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.text_to_video_output.controls = []
       page.text_to_video_output.update()
       clear_button.visible = False
@@ -11047,7 +11063,7 @@ def buildTextToVideoZero(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.text_to_video_zero_output.controls = []
       page.text_to_video_zero_output.update()
       clear_button.visible = False
@@ -11197,7 +11213,7 @@ def buildVideoToVideo(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.video_to_video_output.controls = []
       page.video_to_video_output.update()
       clear_button.visible = False
@@ -11349,7 +11365,7 @@ def buildTemporalNet_XL(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.controlnet_temporalnet_output.controls = []
       page.controlnet_temporalnet_output.update()
       clear_button.visible = False
@@ -11473,7 +11489,7 @@ def buildInfiniteZoom(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.infinite_zoom_output.controls = []
       page.infinite_zoom_output.update()
       clear_button.visible = False
@@ -11568,7 +11584,7 @@ def buildInfiniteZoom(page):
                 page.infinite_zoom_prompts.controls.remove(t)
                 break
         page.infinite_zoom_prompts.update()
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
     def edit_prompt(e):
       nonlocal animation_prompts
       f = int(e.control.data)
@@ -11612,13 +11628,13 @@ def buildInfiniteZoom(page):
           break
       animation_prompts.update()
       del infinite_zoom_prefs['animation_prompts'][str(f)]
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
     def clear_prompts(e):
       animation_prompts.controls.clear()
       animation_prompts.update()
       infinite_zoom_prefs['animation_prompts'] = {}
       clear_prompt(e)
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
     def clear_prompt(e):
       prompt.value = ""
       prompt.update()
@@ -11748,7 +11764,7 @@ def buildPotat1(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.potat1_output.controls = []
       page.potat1_output.update()
       clear_button.visible = False
@@ -11916,7 +11932,7 @@ def buildStableAnimation(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.stable_animation_output.controls = []
       page.stable_animation_output.update()
       clear_button.visible = False
@@ -12151,13 +12167,13 @@ def buildStableAnimation(page):
           break
       animation_prompts.update()
       del stable_animation_prefs['animation_prompts'][str(f)]
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
     def clear_prompts(e):
       animation_prompts.controls.clear()
       animation_prompts.update()
       stable_animation_prefs['animation_prompts'] = {}
       clear_prompt(e)
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
     def clear_prompt(e):
       prompt.value = ""
       prompt.update()
@@ -12489,7 +12505,7 @@ def buildROOP(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.roop_output.controls = []
       page.roop_output.update()
       clear_button.visible = False
@@ -12629,7 +12645,7 @@ def buildVideoReTalking(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.video_retalking_output.controls = []
       page.video_retalking_output.update()
       clear_button.visible = False
@@ -13189,6 +13205,7 @@ animate_diff_prefs = {
 animate_diff_loras = [
     {'name': 'toonyou_beta3', 'file': 'toonyou_beta3.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/toonyou_beta3.safetensors'},
     {'name': 'CounterfeitV30_v30', 'file': 'CounterfeitV30_v30.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/CounterfeitV30_v30.safetensors'},
+    {'name': 'epiCRealism-Natural_Sin', 'file': 'epicrealism_naturalSinRC1VAE.safetensors', 'path': 'https://huggingface.co/Justin-Choo/epiCRealism-Natural_Sin_RC1_VAE/blob/main/epicrealism_naturalSinRC1VAE.safetensors'},
     {'name': 'FilmVelvia2', 'file': 'FilmVelvia2.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/FilmVelvia2.safetensors'},
     {'name': 'Pyramid lora_Ghibli_n3', 'file': 'Pyramid%20lora_Ghibli_n3.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/Pyramid%20lora_Ghibli_n3.safetensors'},
     {'name': 'TUSUN', 'file': 'TUSUN.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/TUSUN.safetensors'},
@@ -13200,6 +13217,7 @@ animate_diff_loras = [
     {'name': 'realisticVisionV20_v20', 'file': 'realisticVisionV20_v20.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/blob/main/realisticVisionV20_v20.safetensors'},
     {'name': 'realisticVisionV40_v20Novae', 'file': 'realisticVisionV40_v20Novae.safetensors', 'path': 'https://huggingface.co/camenduru/AnimateDiff/resolve/main/realisticVisionV40_v20Novae.safetensors'},
     {'name': 'Mistoon_Anime', 'file': 'mistoonAnime_v20.safetensors', 'path': 'https://huggingface.co/WickedOne/MistoonAnimeV2/blob/main/mistoonAnime_v20.safetensors'},
+    {'name': 'ToonYou beta6', 'file': 'toonyou_beta6.safetensors', 'path': 'https://huggingface.co/frankjoshua/toonyou_beta6/blob/main/toonyou_beta6.safetensors'},
     {'name': 'XXMix_9realistic_v4', 'file': 'xxmix9realistic_v40.safetensors', 'path': 'https://huggingface.co/jzli/XXMix_9realistic-v4/resolve/main/xxmix9realistic_v40.safetensors'},
     {'name': 'revAnimated_v122', 'file': 'revAnimated_v122.safetensors', 'path': 'https://huggingface.co/joaov33/revanimated/blob/main/revAnimated_v122.safetensors'},
     #{'name': 'Custom', 'file': '', 'path': ''},
@@ -13269,7 +13287,7 @@ def buildAnimateDiff(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.animate_diff_output.controls = []
       page.animate_diff_output.update()
       clear_button.visible = False
@@ -13408,12 +13426,12 @@ def buildAnimateDiff(page):
                 page.animate_diff_prompts.controls.remove(t)
                 break
         page.animate_diff_prompts.update()
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
     def clear_animate_diff_prompts(e):
         animate_diff_prefs['editing_prompts'].clear()
         page.animate_diff_prompts.controls.clear()
         page.animate_diff_prompts.update()
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
     def edit_prompt(e):
       nonlocal animation_prompts
       f = int(e.control.data)
@@ -13457,13 +13475,13 @@ def buildAnimateDiff(page):
           break
       animation_prompts.update()
       del animate_diff_prefs['animation_prompts'][str(f)]
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
     def clear_prompts(e):
       animation_prompts.controls.clear()
       animation_prompts.update()
       animate_diff_prefs['animation_prompts'] = {}
       clear_prompt(e)
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
     def clear_prompt(e):
       prompt.value = ""
       prompt.update()
@@ -13968,7 +13986,7 @@ def buildAnimateDiffImage2Video(page):
     for m in animatediff_motion_loras:
         motion_loras_checkboxes.controls.append(Checkbox(label=m['name'], data=m['name'], value=m['name'] in animatediff_img2video_prefs['motion_loras'], on_change=changed_motion_lora, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1}))
     motion_loras_strength = SliderRow(label="Motion Module LoRA Strength", min=0, max=1, divisions=10, round=1, pref=animatediff_img2video_prefs, key='motion_loras_strength', tooltip="The Weight of the custom Motion LoRA Module to influence camera.")
-    animatediff_img2video_model = Dropdown(label="AnimateDiff Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=animatediff_img2video_prefs['animatediff_img2video_model'], on_change=changed_model)
+    animatediff_img2video_model = Dropdown(label="AnimateDiff Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8"), dropdown.Option("epiCRealism")], value=animatediff_img2video_prefs['animatediff_img2video_model'], on_change=changed_model)
     animatediff_img2video_custom_model = TextField(label="Custom AnimateDiff Model (URL or Path)", value=animatediff_img2video_prefs['custom_model'], expand=True, visible=animatediff_img2video_prefs['animatediff_img2video_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     cpu_offload = Switcher(label="CPU Offload", value=animatediff_img2video_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     free_init = Switcher(label="Free-Init", value=animatediff_img2video_prefs['free_init'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'free_init'), tooltip="Improves temporal consistency and overall quality of videos generated using video-diffusion-models without any addition training.")
@@ -14166,7 +14184,7 @@ def buildPIA(page):
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=pia_prefs, key='ip_adapter_image', page=page)
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pia_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if pia_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
-    pia_model = Dropdown(label="PIA Model", width=270, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V6.0_B1_noVAE"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=pia_prefs['pia_model'], on_change=changed_model)
+    pia_model = Dropdown(label="PIA Model", width=280, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V6.0_B1_noVAE"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=pia_prefs['pia_model'], on_change=changed_model)
     pia_custom_model = TextField(label="Custom PIA Model (URL or Path)", value=pia_prefs['custom_model'], expand=True, visible=pia_prefs['pia_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=pia_prefs['lora_layer'], on_change=changed_lora_layer)
     custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=pia_prefs['custom_lora_layer'], expand=True, visible=pia_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
@@ -14452,7 +14470,7 @@ def buildHotshotXL(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.hotshot_xl_output.controls = []
       page.hotshot_xl_output.update()
       clear_button.visible = False
@@ -14592,7 +14610,7 @@ def buildRerender_a_video(page):
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.rerender_a_video_output.controls = []
       page.rerender_a_video_output.update()
       clear_button.visible = False
@@ -14949,7 +14967,7 @@ def buildDiT(page):
         clear_button.update()
     page.add_to_DiT_output = add_to_DiT_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.DiT_output.controls = []
       page.DiT_output.update()
       clear_button.visible = False
@@ -16751,7 +16769,7 @@ def buildDeepDaze(page):
         clear_button.update()
     page.add_to_deep_daze_output = add_to_deep_daze_output
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.deep_daze_output.controls = []
       page.deep_daze_output.update()
       clear_button.visible = False
@@ -16993,7 +17011,7 @@ def buildSemanticGuidance(page):
         clear_button.visible = True
         clear_button.update()
     def clear_output(e):
-      if prefs['enable_sounds']: page.snd_delete.play()
+      play_snd(Snd.DELETE, page)
       page.semantic_output.controls = []
       page.semantic_output.update()
       clear_button.visible = False
@@ -17089,12 +17107,12 @@ def buildSemanticGuidance(page):
                 page.semantic_prompts.controls.remove(t)
                 break
         page.semantic_prompts.update()
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
     def clear_semantic_prompts(e):
         semantic_prefs['editing_prompts'].clear()
         page.semantic_prompts.controls.clear()
         page.semantic_prompts.update()
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
     prompt = TextField(label="Base Prompt Text", value=semantic_prefs['prompt'], col={'md': 9}, filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=semantic_prefs['negative_prompt'], col={'md':3}, filled=True, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(semantic_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -17394,7 +17412,7 @@ def buildDreamBooth(page):
         page.dreambooth_output.controls.append(o)
         page.dreambooth_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.dreambooth_output.controls = []
         page.dreambooth_output.update()
         clear_button.visible = False
@@ -17608,7 +17626,7 @@ def buildTextualInversion(page):
         page.textualinversion_output.controls.append(o)
         page.textualinversion_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.textualinversion_output.controls = []
         page.textualinversion_output.update()
         clear_button.visible = False
@@ -17871,7 +17889,7 @@ def buildLoRA_Dreambooth(page):
         page.LoRA_dreambooth_output.controls.append(o)
         page.LoRA_dreambooth_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.LoRA_dreambooth_output.controls = []
         page.LoRA_dreambooth_output.update()
         clear_button.visible = False
@@ -18090,7 +18108,7 @@ def buildLoRA(page):
         page.LoRA_output.controls.append(o)
         page.LoRA_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.LoRA_output.controls = []
         page.LoRA_output.update()
         clear_button.visible = False
@@ -18326,7 +18344,7 @@ def buildConverter(page):
         page.converter_output.controls.append(o)
         page.converter_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.converter_output.controls = []
         page.converter_output.update()
         clear_button.visible = False
@@ -18601,7 +18619,7 @@ def buildTortoiseTTS(page):
         page.tortoise_output.controls.append(o)
         page.tortoise_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.tortoise_output.controls = []
         page.tortoise_output.update()
         clear_button.visible = False
@@ -18753,12 +18771,12 @@ def buildTortoiseTTS(page):
         Header("🐢  Tortoise Text-to-Speech Voice Modeling", "Reads your text in a realistic AI voice, train your own to mimic vocal performances...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Tortoise-TTS Settings", on_click=tortoise_help)]),
         text,
         preset,
-        Row([batch_folder_name, file_prefix]),
         Row([Text("Select one or more voices:", weight=FontWeight.BOLD), Text("(none for random or custom)")]),
         page.tortoise_voices,
         Row([train_custom, custom_voice_name], vertical_alignment=CrossAxisAlignment.START),
         #Row([output_dir]),
         custom_box,
+        Row([batch_folder_name, file_prefix]),
         ElevatedButton(content=Text("🗣️  Run Tortoise-TTS", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_tortoise_tts(page)),
         page.tortoise_output,
         clear_button,
@@ -18809,7 +18827,7 @@ def buildOpenAI_TTS(page):
         page.openai_tts_output.controls.append(o)
         page.openai_tts_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.openai_tts_output.controls = []
         page.openai_tts_output.update()
         clear_button.visible = False
@@ -18868,7 +18886,7 @@ def buildAudioLDM(page):
         page.audioLDM_output.controls.append(o)
         page.audioLDM_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.audioLDM_output.controls = []
         page.audioLDM_output.update()
         clear_button.visible = False
@@ -18946,7 +18964,7 @@ def buildAudioLDM2(page):
         page.audioLDM2_output.controls.append(o)
         page.audioLDM2_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.audioLDM2_output.controls = []
         page.audioLDM2_output.update()
         clear_button.visible = False
@@ -19039,7 +19057,7 @@ def buildMusicLDM(page):
         page.musicLDM_output.controls.append(o)
         page.musicLDM_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.musicLDM_output.controls = []
         page.musicLDM_output.update()
         clear_button.visible = False
@@ -19123,7 +19141,7 @@ def buildBark(page):
         page.bark_output.controls.append(o)
         page.bark_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.bark_output.controls = []
         page.bark_output.update()
         clear_button.visible = False
@@ -19214,7 +19232,7 @@ def buildRiffusion(page):
         page.riffusion_output.controls.append(o)
         page.riffusion_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.riffusion_output.controls = []
         page.riffusion_output.update()
         clear_button.visible = False
@@ -19328,7 +19346,7 @@ def buildMubert(page):
         page.mubert_output.controls.append(o)
         page.mubert_output.update()
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.mubert_output.controls = []
         page.mubert_output.update()
         clear_button.visible = False
@@ -19419,7 +19437,7 @@ def buildWhisper(page):
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.whisper_output.controls = []
         page.whisper_output.update()
         clear_button.visible = False
@@ -19498,7 +19516,7 @@ def buildVoiceFixer(page):
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
     def clear_output(e):
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
         page.voice_fixer_output.controls = []
         page.voice_fixer_output.update()
         clear_button.visible = False
@@ -19759,7 +19777,7 @@ def buildCustomModelManager(page):
                     del tortoise_custom_voices.controls[i]
                     tortoise_custom_voices.update()
                     break
-        if prefs['enable_sounds']: e.page.snd_delete.play()
+        play_snd(Snd.DELETE, e.page)
     def update_list(e):
         page.finetuned_model.options.clear()
         for cust in model_list("Finetuned"):
@@ -19800,7 +19818,7 @@ def buildCustomModelManager(page):
         try: page.tortoise_voices.update()
         except: pass
         save_settings_file(e.page)
-        if prefs['enable_sounds']: page.snd_drop.play()
+        play_snd(Snd.DROP, page)
     custom_models = Column([], spacing=0)
     custom_LoRA_models = Column([], spacing=0)
     custom_SDXL_LoRA_models = Column([], spacing=0)
@@ -19877,7 +19895,7 @@ def buildCachedModelManager(page):
           del page.cached_folders.controls[i]
           page.cached_folders.update()
           break
-      if prefs['enable_sounds']: e.page.snd_delete.play()
+      play_snd(Snd.DELETE, e.page)
     page.cached_folders = Column([])
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
@@ -24400,7 +24418,7 @@ def start_diffusion(page):
         prt(Text("🛑   Aborting Current Diffusion Run..."))
         abort_run = False
         return
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
   else:
     clear_pipes("interpolation")
     if pipe_interpolation is None:
@@ -24504,7 +24522,7 @@ def start_diffusion(page):
         out_file.Upload()
       elif bool(prefs['image_output']):
         shutil.copy(os.path.join(fpath, i), os.path.join(batch_output, bfolder, i))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def prompt_parse(prompt):
     '''Convert A1111 weights to Compel format'''
@@ -25351,7 +25369,7 @@ def run_magic_prompt(page):
         page.add_to_magic_prompt(item)
     nudge(page.MagicPrompt, page)
     page.MagicPrompt.auto_scroll = False
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_distil_gpt2(page):
     #import random as rnd
@@ -25431,7 +25449,7 @@ def run_distil_gpt2(page):
         else: prompts_distil.append(text_prompt)
     for item in prompts_distil:
         page.add_to_distil_gpt2(item)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_upscaling(page):
@@ -26026,7 +26044,7 @@ def run_init_video(page):
         page.add_to_prompts(prompt, arg)
     page.add_to_init_video_output(Text(f'Added {len(files)} Files as Init-Image in Prompts List...', weight=FontWeight.BOLD))
     page.add_to_init_video_output(Text(f'Saved to {output_dir}'))
-    if prefs['enable_sounds']: page.snd_drop.play()
+    play_snd(Snd.DROP, page)
 
 def multiple_of_64(x):
     return multiple_of(x, 64)
@@ -26178,7 +26196,7 @@ def run_repainter(page):
       shutil.copy(image_path, new_file)
     prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_image_variation(page):
     global image_variation_prefs, pipe_image_variation
@@ -26285,7 +26303,7 @@ def run_image_variation(page):
     page.ImageVariation.auto_scroll = False
     page.ImageVariation.update()
     autoscroll(True)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_background_remover(page):
     global background_remover_prefs, pipe_background_remover
@@ -26457,7 +26475,7 @@ def run_background_remover(page):
     page.BackgroundRemover.auto_scroll = False
     page.BackgroundRemover.update()
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 loaded_blip_diffusion_task = ""
 def run_blip_diffusion(page, from_list=False, with_params=False):
@@ -26721,7 +26739,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_anytext(page, from_list=False, with_params=False):
     global anytext_prefs, pipe_anytext, prefs, status
@@ -27084,7 +27102,7 @@ def run_anytext(page, from_list=False, with_params=False):
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     os.chdir(root_dir)
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_ip_adapter(page, from_list=False, with_params=False):
     global ip_adapter_prefs, pipe_ip_adapter, prefs, status
@@ -27448,7 +27466,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_reference(page, from_list=False):
     global reference_prefs, pipe_reference
@@ -27631,7 +27649,7 @@ def run_reference(page, from_list=False):
                 time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_controlnet_qr(page, from_list=False):
     global controlnet_qr_prefs, pipe_controlnet_qr, pipe_controlnet
@@ -27939,7 +27957,7 @@ def run_controlnet_qr(page, from_list=False):
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
                 i += 1
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_controlnet_segment(page, from_list=False):
     global controlnet_segment_prefs, pipe_controlnet_segment
@@ -28158,7 +28176,7 @@ def run_controlnet_segment(page, from_list=False):
                 time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_EDICT(page):
@@ -28315,7 +28333,7 @@ def run_EDICT(page):
             num += 1
         random_seed += 1
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_DiffEdit(page):
     global DiffEdit_prefs, prefs, status, pipe_DiffEdit, text_encoder_DiffEdit
@@ -28504,7 +28522,7 @@ def run_DiffEdit(page):
             num += 1
         random_seed += 1
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_null_text(page):
@@ -28662,7 +28680,7 @@ def run_null_text(page):
             num += 1
         random_seed += 1
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_CLIPstyler(page):
     def prt(line):
@@ -28914,7 +28932,7 @@ def run_CLIPstyler(page):
     #clear_last()
     # TODO: ESRGAN and copy to GDrive and Metadata
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_semantic(page):
     global semantic_prefs, prefs, status, pipe_semantic, model_path
@@ -29028,7 +29046,7 @@ def run_semantic(page):
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_demofusion(page, from_list=False, with_params=False):
     global demofusion_prefs, pipe_demofusion, prefs
@@ -29202,7 +29220,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_image2text(page):
     global fuyu_tokenizer, fuyu_model, fuyu_processor
@@ -29648,7 +29666,7 @@ submit_dict:
               prompt = r['result']['*']
               i2t_prompts.append(prompt)
               page.add_to_image2text(prompt)'''
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_BLIP2_image2text(page):
     def prt(line):
@@ -29728,7 +29746,7 @@ def run_BLIP2_image2text(page):
         alert_msg(page, "ERROR: Problem Generating from Model. Probably out of memory...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
         return
     clear_last()
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_dance_diffusion(page):
     if not status['installed_diffusers']:
@@ -29907,7 +29925,7 @@ def run_dance_diffusion(page):
       prt(AudioPlayer(src=fname, display=display_name, data=audio_save, page=page))
       #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
       i += 1
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_audio_diffusion(page):
     global audio_diffusion_prefs, pipe_audio_diffusion, prefs
@@ -30054,7 +30072,7 @@ def run_audio_diffusion(page):
         display_name = audio_save
         prt(AudioPlayer(src=aname, display=audio_save, data=audio_save, page=page))
         #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_music_gen(page):
     global music_gen_prefs, pipe_music_gen, prefs
@@ -30329,7 +30347,7 @@ def run_music_gen(page):
         output_segments = []
     flush()
     torch.cuda.ipc_collect()
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 # https://colab.research.google.com/github/huggingface/notebooks/blob/main/diffusers/sd_dreambooth_training.ipynb
 
@@ -30523,7 +30541,7 @@ Here are the images used for training this concept:
         page.custom_model.update()
       except Exception: pass
       prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token in prompts.", on_tap_link=lambda e: e.page.launch_url(e.data)))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_textualinversion(page):
     global textualinversion_prefs, prefs
@@ -30781,7 +30799,7 @@ This is the `{placeholder_token}` concept taught to Stable Diffusion via Textual
           page.custom_model.update()
         except Exception: pass
         prt(Markdown(f"## Your concept was saved successfully to _{repo_id}_.<br>[Click here to access it](https://huggingface.co/{repo_id}) and go to _Installers->Model Checkpoint->Custom Model Path_ to use. Include Token to your Prompt text.", on_tap_link=lambda e: e.page.launch_url(e.data)))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_LoRA_dreambooth(page):
@@ -31037,7 +31055,7 @@ Images used for training this model:
       page.LoRA_dreambooth_model.update()
       save_settings_file(page)
       prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.\n[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Parameters->Use LaRA Model_ dropdown on top of any other Model loaded.", on_tap_link=lambda e: e.page.launch_url(e.data)))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_LoRA(page):
@@ -31302,7 +31320,7 @@ Images used for training this model:
       page.LoRA_model.update()
       save_settings_file(page)
       prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.\n[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Parameters->Use LaRA Model_ dropdown on top of any other Model loaded.", on_tap_link=lambda e: e.page.launch_url(e.data)))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_converter(page):
@@ -31536,7 +31554,7 @@ And you can run your new concept via `diffusers`: [Colab Notebook for Inference]
               create_branch(model_to, branch=branch, token=token)
       upload_folder(folder_path="ckpt", path_in_repo="", revision=branch, repo_id=model_to, commit_message=f"ckpt", token=token)
       return "push ckpt done!"
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_checkpoint_merger(page):
     global checkpoint_merger_prefs
@@ -31664,7 +31682,7 @@ Interpolation Method: {checkpoint_merger_prefs['interp']}
             return
         prt(Markdown(f"## Your model was saved successfully to _{repo_id}_.\n[Click here to access it](https://huggingface.co/{repo_id}). Use it in _Installers->Diffusers Custom Model_ dropdown.", on_tap_link=lambda e: e.page.launch_url(e.data)))
 
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_tortoise_tts(page):
     #https://github.com/neonbjb/tortoise-tts
@@ -31816,7 +31834,7 @@ def run_tortoise_tts(page):
       display_name = audio_save
     prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
     #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_openai_tts(page):
     global openai_tts_prefs, prefs
@@ -31896,7 +31914,7 @@ def run_openai_tts(page):
       shutil.copy(fname, audio_save)
       display_name = audio_save
     prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_audio_ldm(page):
     global audioLDM_prefs, pipe_audio_ldm, prefs
@@ -31981,7 +31999,7 @@ def run_audio_ldm(page):
     #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
     nudge(page.OpenAI_TTS, page)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_audio_ldm2(page):
     global audioLDM2_prefs, pipe_audio_ldm2, prefs, status
@@ -32122,7 +32140,7 @@ def run_audio_ldm2(page):
         #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
         prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
         num += 1
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_music_ldm(page):
     global musicLDM_prefs, pipe_music_ldm, prefs, status
@@ -32262,7 +32280,7 @@ def run_music_ldm(page):
         #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
         prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
         num += 1
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_bark(page):
     global bark_prefs, pipe_bark, prefs
@@ -32361,7 +32379,7 @@ def run_bark(page):
         display_name = fname
         prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
         #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_riffusion(page):
     global riffusion_prefs, pipe_riffusion, prefs
@@ -32532,7 +32550,7 @@ def run_riffusion(page):
           display_name = audio_save
         prt(AudioPlayer(src=audio_file, display=display_name, data=display_name, page=page))
         #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_mubert(page):
@@ -32649,7 +32667,7 @@ def run_mubert(page):
       display_name = audio_save
     prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
     #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Column([Text(display_name), Text(tags, style=TextThemeStyle.DISPLAY_SMALL)])]))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_whisper(page):
     global whisper_prefs, whisper_requests, pipe_whisper, status
@@ -32941,7 +32959,7 @@ def run_whisper(page):
         response = question(f"Translate the following text from {from_language} into {whisper_prefs['to_language']}.\n{transcription}")
         prt(Text(response, size=18, selectable=True))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_voice_fixer(page):
     global voice_fixer_prefs, pipe_voice_fixer
@@ -33087,7 +33105,7 @@ def run_voice_fixer(page):
         clear_last()
         return
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 loaded_StableUnCLIP = None
@@ -33292,7 +33310,7 @@ def run_unCLIP(page, from_list=False):
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_unCLIP_image_variation(page, from_list=False):
     global unCLIP_image_variation_prefs, pipe_unCLIP_image_variation
@@ -33464,7 +33482,7 @@ def run_unCLIP_image_variation(page, from_list=False):
                 time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_unCLIP_interpolation(page, from_list=False):
     global unCLIP_interpolation_prefs, pipe_unCLIP_interpolation, loaded_StableUnCLIP
@@ -33630,7 +33648,7 @@ def run_unCLIP_interpolation(page, from_list=False):
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_unCLIP_image_interpolation(page, from_list=False):
     global unCLIP_image_interpolation_prefs, pipe_unCLIP_image_interpolation
@@ -33819,7 +33837,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
             num +=1
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_magic_mix(page, from_list=False):
@@ -34018,7 +34036,7 @@ def run_magic_mix(page, from_list=False):
             time.sleep(0.2)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_paint_by_example(page):
     global paint_by_example_prefs, prefs, status, pipe_paint_by_example
@@ -34197,7 +34215,7 @@ def run_paint_by_example(page):
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1
     autoscroll(True)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_instruct_pix2pix(page, from_list=False):
@@ -34480,7 +34498,7 @@ def run_instruct_pix2pix(page, from_list=False):
             time.sleep(0.2)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
             #num += 1
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_controlnet(page, from_list=False):
     global controlnet_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_models
@@ -35098,7 +35116,7 @@ def run_controlnet(page, from_list=False):
             num += 1
     autoscroll(False)
     del hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle, face_detector
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_controlnet_xl(page, from_list=False):
     global controlnet_xl_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_xl_models
@@ -35622,7 +35640,6 @@ def run_controlnet_xl(page, from_list=False):
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
-   
         try:
             random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
@@ -35711,7 +35728,7 @@ def run_controlnet_xl(page, from_list=False):
             num += 1
     autoscroll(False)
     del hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_controlnet_xs(page, from_list=False):
     global controlnet_xs_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_xs_models
@@ -36224,7 +36241,7 @@ def run_controlnet_xs(page, from_list=False):
             num += 1
     autoscroll(False)
     del hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_controlnet_tile_upscale(page, source_image, prompt="best quality", scale_factor=2.5):
@@ -36451,7 +36468,7 @@ def run_controlnet_video2video(page):
         prt("Error Generating Output File! Maybe NSFW Image detected?")
     prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_deepfloyd(page, from_list=False):
@@ -36984,7 +37001,7 @@ def run_deepfloyd(page, from_list=False):
                 #num += 1
     if not deepfloyd_prefs['keep_pipelines']:
         clear_pipes()
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_amused(page, from_list=False, with_params=False):
     global amused_prefs, pipe_amused, prefs, status
@@ -37237,7 +37254,7 @@ def run_amused(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_wuerstchen(page, from_list=False, with_params=False):
     global wuerstchen_prefs, pipe_wuerstchen, prefs
@@ -37421,7 +37438,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     shutil.copy(image_path, new_file)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_pixart_alpha(page, from_list=False, with_params=False):
     global pixart_alpha_prefs, pipe_pixart_alpha, pipe_pixart_alpha_encoder, prefs
@@ -37671,7 +37688,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     #del pipe_pixart_alpha_encoder
     flush()
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_lmd_plus(page, from_list=False, with_params=False):
     global lmd_plus_prefs, pipe_lmd_plus, prefs
@@ -37931,7 +37948,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_lcm(page, from_list=False, with_params=False):
     global lcm_prefs, pipe_lcm, prefs, status
@@ -38172,7 +38189,7 @@ def run_lcm(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_lcm_interpolation(page):
     global lcm_interpolation_prefs, pipe_lcm_interpolation, prefs, status
@@ -38324,7 +38341,7 @@ def run_lcm_interpolation(page):
         clear_last()
         prt(f"Video saved to {out_file}")
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
     if lcm_interpolation_prefs['save_video']:
         try:
             prt(Row([VideoContainer(out_file, fps=lcm_interpolation_prefs['target_fps'], width=lcm_interpolation_prefs['width'], height=lcm_interpolation_prefs['height'])], alignment=MainAxisAlignment.CENTER))
@@ -38514,7 +38531,7 @@ def run_instaflow(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_ldm3d(page, from_list=False, with_params=False):
     global ldm3d_prefs, pipe_ldm3d, pipe_ldm3d_upscale, prefs
@@ -38759,7 +38776,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
                 shutil.copy(depth_image_path, depth_new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_text_to_video(page):
     global text_to_video_prefs, prefs, status, pipe_text_to_video, model_path
@@ -38844,12 +38861,10 @@ def run_text_to_video(page):
       #, output_type = "pt", width=width, height=height
       frames = pipe_text_to_video(prompt=text_to_video_prefs['prompt'], negative_prompt=text_to_video_prefs['negative_prompt'], num_frames=text_to_video_prefs['num_frames'], num_inference_steps=text_to_video_prefs['num_inference_steps'], eta=text_to_video_prefs['eta'], guidance_scale=text_to_video_prefs['guidance_scale'], generator=generator, callback=callback_fnc, callback_steps=1).frames
     except Exception as e:
-      clear_last()
-      clear_last()
+      clear_last(2)
       alert_msg(page, f"ERROR: Couldn't Text-To-Video your image for some reason. Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
       return
-    clear_last()
-    clear_last()
+    clear_last(2)
     autoscroll(True)
     save_path = os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name'])
     filename = f"{prefs['file_prefix']}{format_filename(text_to_video_prefs['prompt'])}"
@@ -38857,54 +38872,56 @@ def run_text_to_video(page):
     #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
     autoscroll(True)
     video_path = ""
-    if text_to_video_prefs['export_to_video']:
-        from diffusers.utils import export_to_video
-        video_path = export_to_video(frames)
-        shutil.copy(video_path, available_file(local_output, filename, 0, ext="mp4", no_num=True))
-        shutil.copy(video_path, available_file(batch_output, filename, 0, ext="mp4", no_num=True))
-        #print(f"video_path: {video_path}")
-    #video = frames.cpu().numpy()
-    #print(f"video: {video}")
-    from PIL.PngImagePlugin import PngInfo
-    num = 0
-    for image in frames:
-        random_seed += num
-        fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
-        image_path = available_file(batch_output, fname, num)
-        unscaled_path = image_path
-        output_file = image_path.rpartition(slash)[2]
-        #uint8_image = (image * 255).round().astype("uint8")
-        #np_image = image.cpu().numpy()
-        #print(f"image: {type(image)}, np_image: {type(np_image)}")
-        #print(f"image: {type(image)} to {image_path}")
-        cv2.imwrite(image_path, image)
-        #PILImage.fromarray(np_image).save(image_path)
-        out_path = os.path.dirname(image_path)
-        upscaled_path = os.path.join(out_path, output_file)
-        if not text_to_video_prefs['display_upscaled_image'] or not text_to_video_prefs['apply_ESRGAN_upscale']:
-            prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
-        if text_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"], face_enhance=text_to_video_prefs["face_enhance"])
-            image_path = upscaled_path
-            if text_to_video_prefs['display_upscaled_image']:
-                time.sleep(0.6)
-                prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_prefs["enlarge_scale"]), height=height * float(text_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
-                #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        save_metadata(image_path, text_to_video_prefs, f"Text-To-Video", model_id, random_seed, scheduler=True)
-        if storage_type == "Colab Google Drive":
-            new_file = available_file(os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name']), fname, num)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        elif bool(prefs['image_output']):
-            new_file = available_file(os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name']), fname, num)
-            out_path = new_file
-            shutil.copy(image_path, new_file)
-        prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
-        num += 1
-    if bool(video_path):
-        prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
+    
+    for images in frames:
+        if text_to_video_prefs['export_to_video']:
+            from diffusers.utils import export_to_video
+            video_path = export_to_video(images)
+            shutil.copy(video_path, available_file(local_output, filename, 0, ext="mp4", no_num=True))
+            shutil.copy(video_path, available_file(batch_output, filename, 0, ext="mp4", no_num=True))
+            #print(f"video_path: {video_path}")
+        #video = frames.cpu().numpy()
+        #print(f"video: {video}")
+        from PIL.PngImagePlugin import PngInfo
+        num = 0
+        for image in images:
+            random_seed += num
+            fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+            image_path = available_file(batch_output, fname, num)
+            unscaled_path = image_path
+            output_file = image_path.rpartition(slash)[2]
+            #uint8_image = (image * 255).round().astype("uint8")
+            #np_image = image.cpu().numpy()
+            #print(f"image: {type(image)}, np_image: {type(np_image)}")
+            #print(f"image: {type(image)} to {image_path}")
+            cv2.imwrite(image_path, image)
+            #PILImage.fromarray(np_image).save(image_path)
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+            if not text_to_video_prefs['display_upscaled_image'] or not text_to_video_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+            if text_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"], face_enhance=text_to_video_prefs["face_enhance"])
+                image_path = upscaled_path
+                if text_to_video_prefs['display_upscaled_image']:
+                    time.sleep(0.6)
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_prefs["enlarge_scale"]), height=height * float(text_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                    #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            save_metadata(image_path, text_to_video_prefs, f"Text-To-Video", model_id, random_seed, scheduler=True)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name']), fname, num)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+            num += 1
+        if bool(video_path):
+            prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_text_to_video_zero(page):
     global text_to_video_zero_prefs, prefs, status, pipe_text_to_video_zero, model_path
@@ -39060,7 +39077,7 @@ def run_text_to_video_zero(page):
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
         num += 1
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_video_to_video(page):
     global video_to_video_prefs, prefs, status, pipe_video_to_video, model_path
@@ -39265,7 +39282,7 @@ def run_video_to_video(page):
     if bool(video_path):
         prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_controlnet_temporalnet(page):
     global controlnet_temporalnet_prefs, prefs, status, pipe_controlnet, controlnet
@@ -39427,7 +39444,7 @@ def run_controlnet_temporalnet(page):
     write_video(video_out, output_frames_dir, fps)
     clear_last
     prt(f"Saved to {video_out}")
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_infinite_zoom(page):
     global prefs, infinite_zoom_prefs, pipe_infinite_zoom, status
@@ -39784,7 +39801,7 @@ def run_infinite_zoom(page):
         prt(Row([ImageButton(src=in_gif, width=width, height=height, data=in_gif, page=page)], alignment=MainAxisAlignment.CENTER))
         #prt(Row([ImageButton(src=out_gif, width=width, height=height, data=out_gif, page=page)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_potat1(page):
     global potat1_prefs, prefs, status, pipe_potat1, model_path
@@ -39964,7 +39981,7 @@ def run_potat1(page):
     #prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     prt(f"Done creating video... Check {batch_output}")
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_stable_animation(page):
@@ -40205,7 +40222,7 @@ def run_stable_animation(page):
             print(f"Error showing VideoPlayer: {e}")
             pass
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_svd(page):
     global svd_prefs, prefs, status, pipe_svd
@@ -40389,7 +40406,7 @@ def run_svd(page):
     video_path = ""
     prt(f"Done creating animation... Check {batch_output}")
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_roop(page):
     global roop_prefs, status
@@ -40545,7 +40562,7 @@ def run_roop(page):
         prt("Error Generating Output File! A NSFW Image may have been detected.")
     prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_video_retalking(page):
     global video_retalking_prefs, status
@@ -40710,7 +40727,7 @@ def run_video_retalking(page):
     else:
         prt("💢  Error Generating Output File!")
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_style_crafter(page):
     global style_crafter_prefs, prefs, status
@@ -40866,7 +40883,7 @@ def run_style_crafter(page):
         prt(Markdown(f"Video saved to [{video_out}]({video_out})", on_tap_link=lambda e: e.page.launch_url(e.data)))
         #prt(f"Saved to {video_out}")
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_rave(page):
     global rave_prefs, status
@@ -41066,7 +41083,7 @@ def run_rave(page):
         prt("Error Generating Output File! Maybe NSFW Image detected or Out of Memory?")
     prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_tokenflow(page):
     global tokenflow_prefs, prefs, status, pipe_tokenflow, model_path
@@ -41219,7 +41236,7 @@ def run_tokenflow(page):
     else:
         prt("Something went wrong generating video...")
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_animate_diff(page):
     global animate_diff_prefs, prefs, status, pipe_animate_diff, model_path
@@ -41993,7 +42010,7 @@ def run_animate_diff(page):
 
     os.chdir(root_dir)
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_animatediff_img2video(page, from_list=False, with_params=False):
     global animatediff_img2video_prefs, pipe_animatediff_img2video, prefs, status
@@ -42078,7 +42095,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
     from PIL import ImageOps
     cpu_offload = animatediff_img2video_prefs['cpu_offload']
     motion_module = "guoyww/animatediff-motion-adapter-v1-5-2" if animatediff_img2video_prefs['motion_module'] == "animatediff-motion-adapter-v1-5-2" else "guoyww/animatediff-motion-adapter-v1-5-2"
-    animatediff_img2video_model = "SG161222/Realistic_Vision_V5.1_noVAE" if animatediff_img2video_prefs['animatediff_img2video_model'] == "Realistic_Vision_V5.1_noVAE" else "Lykon/dreamshaper-8" if animatediff_img2video_prefs['animatediff_img2video_model'] == "dreamshaper-8" else animatediff_img2video_prefs['animatediff_img2video_custom_model']
+    animatediff_img2video_model = "SG161222/Realistic_Vision_V5.1_noVAE" if animatediff_img2video_prefs['animatediff_img2video_model'] == "Realistic_Vision_V5.1_noVAE" else "Lykon/dreamshaper-8" if animatediff_img2video_prefs['animatediff_img2video_model'] == "dreamshaper-8" else "emilianJR/epiCRealism" if animatediff_img2video_prefs['animatediff_img2video_model'] == "epiCRealism" else animatediff_img2video_prefs['animatediff_img2video_custom_model']
     if 'loaded_animatediff_img2video' not in status: status['loaded_animatediff_img2video'] = ""
     if 'loaded_animatediff_img2video_mode' not in status: status['loaded_animatediff_img2video_mode'] = ""
     if animatediff_img2video_model != status['loaded_animatediff_img2video'] or mode != status['loaded_animatediff_img2video_mode']:
@@ -42320,7 +42337,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                 else:
                     prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_pia(page, from_list=False, with_params=False):
     global pia_prefs, pipe_pia, prefs, status
@@ -42507,7 +42524,8 @@ def run_pia(page, from_list=False, with_params=False):
                 motion_scale=pia_prefs['motion_scale'],
                 clip_skip=pia_prefs['clip_skip'],
                 generator=generator,
-                callback_on_step_end=callback_step,
+                # TODO: Put this back. Was getting error 'NoneType' object has no attribute 'pop' for callback_outputs
+                #callback_on_step_end=callback_step,
                 **ip_adapter_arg,
             ).frames
         except Exception as e:
@@ -42564,7 +42582,7 @@ def run_pia(page, from_list=False, with_params=False):
                 else:
                     prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_i2vgen_xl(page, from_list=False, with_params=False):
     global i2vgen_xl_prefs, pipe_i2vgen_xl, prefs, status
@@ -42640,7 +42658,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     cpu_offload = i2vgen_xl_prefs['cpu_offload']
-    i2vgen_xl_model = "ali-vilab/i2vgen-xl" if i2vgen_xl_prefs['i2vgen_xl_model'] == "i2vgen-xl" else i2vgen_xl_prefs['i2vgen_xl_custom_model']
+    i2vgen_xl_model = "ali-vilab/i2vgen-xl" if i2vgen_xl_prefs['i2vgen_xl_model'] == "i2vgen-xl" else i2vgen_xl_prefs['custom_model']
     if 'loaded_i2vgen_xl' not in status: status['loaded_i2vgen_xl'] = ""
     if i2vgen_xl_model != status['loaded_i2vgen_xl']:
         clear_pipes()
@@ -42785,7 +42803,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                 else:
                     prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_hotshot_xl(page):
@@ -42928,7 +42946,7 @@ def run_hotshot_xl(page):
     #prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     prt(f"Done creating video... Check {batch_output}")
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_rerender_a_video(page):
     global rerender_a_video_prefs, status
@@ -43178,7 +43196,7 @@ def run_rerender_a_video(page):
         prt("Error Generating Output File! Maybe NSFW Image detected or Out of Memory?")
     prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_materialdiffusion(page):
@@ -43339,7 +43357,7 @@ def run_materialdiffusion(page):
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     del rep_model, rep_version
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_DiT(page, from_list=False):
     global DiT_prefs, pipe_DiT
@@ -43462,7 +43480,7 @@ def run_DiT(page, from_list=False):
                 time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def get_dreamfusion(page):
     os.chdir(root_dir)
@@ -43526,7 +43544,7 @@ def run_dreamfusion(page):
     else:
       add_to_dreamfusion_output(Text(f"Saved to {df_out}"))
     # TODO: PyDrive2
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
 base_diffusion = upsampler_diffusion = point_sampler = None
@@ -43719,7 +43737,7 @@ def run_point_e(page):
     else:
       prt(Text(f"Saved npz & ply files to {point_e_out}"))
     # TODO: PyDrive2
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
 def run_shap_e(page):
@@ -43899,7 +43917,7 @@ def run_shap_e(page):
     clear_last(update=False)
     prt(ImageButton(src=gif_file, width=shap_e_prefs['size'], height=shap_e_prefs['size'], data=gif_file, subtitle=pc_file, page=page))
     prt("Finished generating Shap-E Mesh... Hope it's good.")
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
 def run_shap_e2(page):
@@ -44048,7 +44066,7 @@ def run_shap_e2(page):
     clear_last(update=False)
     prt(ImageButton(src=gif_file, width=shap_e_prefs['size'], height=shap_e_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
     prt("Finished generating Shap-E Mesh... Hope it's good.")
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
 def run_zoe_depth(page):
@@ -44179,7 +44197,7 @@ def run_zoe_depth(page):
     
     prt(f"Saved to {glb_path}")
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_marigold_depth(page):
     global marigold_depth_prefs, pipe_marigold_depth
@@ -44250,7 +44268,7 @@ def run_marigold_depth(page):
     prt(ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page))
     prt(ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_instant_ngp(page):
     global instant_ngp_prefs, prefs
@@ -44379,7 +44397,7 @@ def run_instant_ngp(page):
     print(f"Generated video saved to:\n{output_video_path}")'''
     clear_last(2)
     prt(Markdown(f"## Your model was saved successfully to _{output_dir}_.\nNow take those files and load then locally on Windows following [instant-ngp gui instructions](https://github.com/NVlabs/instant-ngp#testbed-controls) to export videos and meshes or try MeshLab... (wish we can do that for ya here)", on_tap_link=lambda e: e.page.launch_url(e.data)))
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_luma_vid_to_3d(page):
     global luma_vid_to_3d_prefs
@@ -44461,7 +44479,7 @@ def run_luma_vid_to_3d(page):
             f = filepath_to_url(filename)
             prt(Markdown(f"Saved {artifact_type} [{fname}]({f})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_dall_e(page, from_list=False):
@@ -44623,7 +44641,7 @@ def run_dall_e(page, from_list=False):
             save_metadata(new_path, dall_e_prefs, "Dall-E 2")
             prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_dall_e_3(page, from_list=False):
     global dall_e_3_prefs, prefs, prompts
@@ -44785,7 +44803,7 @@ def run_dall_e_3(page, from_list=False):
             save_metadata(new_path, dall_e_3_prefs, "Dall-E 3")
             prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 loaded_kandinsky_task = ""
 def run_kandinsky3(page, from_list=False, with_params=False):
@@ -45031,7 +45049,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
             shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_kandinsky(page, from_list=False, with_params=False):
     global kandinsky_prefs, pipe_kandinsky, pipe_kandinsky_prior, prefs, loaded_kandinsky_task
@@ -45324,7 +45342,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 loaded_kandinsky21_task = ""
@@ -45501,7 +45519,7 @@ def run_kandinsky21(page):
         save_metadata(new_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_kandinsky_fuse(page):
@@ -45666,7 +45684,7 @@ def run_kandinsky_fuse(page):
         save_metadata(new_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_kandinsky21_fuse(page):
     global kandinsky21_fuse_prefs, pipe_kandinsky, prefs, loaded_kandinsky21_task
@@ -45801,7 +45819,7 @@ def run_kandinsky21_fuse(page):
         save_metadata(new_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 def run_kandinsky_controlnet(page, from_list=False, with_params=False):
     global kandinsky_controlnet_prefs, pipe_kandinsky, pipe_kandinsky_controlnet_prior, prefs, loaded_kandinsky_task, depth_estimator
@@ -46027,7 +46045,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     shutil.copy(image_path, new_file)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def run_deep_daze(page):
@@ -46184,7 +46202,7 @@ def run_deep_daze(page):
     del pipe_deep_daze
     flush()
     autoscroll(False)
-    if prefs['enable_sounds']: page.snd_alert.play()
+    play_snd(Snd.ALERT, page)
 
 
 def main(page: Page):
@@ -46365,7 +46383,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     space = " "  if (page.width if page.web else page.window_width) >= 1024 else ""
     def clear_memory(e):
         clear_pipes()
-        if prefs['enable_sounds']: page.snd_delete.play()
+        play_snd(Snd.DELETE, page)
     page.stats = Column([Text("", size=10), Text("", size=10)], tight=True, spacing=4)
     appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window_width) if page.web else page.window_width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE, overflow=ft.TextOverflow.ELLIPSIS, expand=True))], alignment=MainAxisAlignment.CENTER, expand=True), expand=False), elevation=20,
       center_title=True,
