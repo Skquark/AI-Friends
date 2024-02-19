@@ -1361,14 +1361,15 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
     except Exception:
         msg += " May have to restart runtime."
         pass
+    content_msg = content
     def send_debug(e):
-        nonlocal content
+        nonlocal content_msg
         debug_msg = msg + "\n\n"
-        if isinstance(content, list):
-            content = Column(controls=content)
-        if isinstance(content, Column):
-            for c in content.controls:
-                if isinstance(c, Text):
+        if isinstance(content_msg, list):
+            content_msg = Column(controls=content_msg)
+        if isinstance(content_msg, Column):
+            for c in content_msg.controls:
+                if isinstance(c, Text) or isinstance(c, Markdown):
                     debug_msg += c.value + "\n"
         import platform
         memory = f"GPU VRAM: {status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB{' - on Colab' if is_Colab else ''}"
@@ -33173,7 +33174,6 @@ def run_unCLIP(page, from_list=False):
     from PIL.PngImagePlugin import PngInfo
     clear_pipes('unCLIP')
     torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
     torch.cuda.reset_peak_memory_stats()
     if from_list:
       page.tabs.selected_index = 4
@@ -38824,7 +38824,7 @@ def run_text_to_video(page):
         from diffusers import TextToVideoSDPipeline, DPMSolverMultistepScheduler
         pipe_text_to_video = TextToVideoSDPipeline.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         #pipe_text_to_video = pipeline_scheduler(pipe_text_to_video)
-        pipe_text_to_video.scheduler = DPMSolverMultistepScheduler.from_config(pipe_text_to_video.scheduler.config)
+        #pipe_text_to_video.scheduler = DPMSolverMultistepScheduler.from_config(pipe_text_to_video.scheduler.config)
         if prefs['enable_freeu']:
             pipe_text_to_video.enable_freeu(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
         if text_to_video_prefs['lower_memory']:
@@ -38967,10 +38967,10 @@ def run_text_to_video_zero(page):
     if pipe_text_to_video_zero is None:
         if not text_to_video_zero_prefs['use_SDXL']:
             from diffusers import TextToVideoZeroPipeline, DPMSolverMultistepScheduler
-            pipe_text_to_video_zero = TextToVideoZeroPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_text_to_video_zero = TextToVideoZeroPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         else:
             from diffusers import TextToVideoZeroSDXLPipeline, DPMSolverMultistepScheduler
-            pipe_text_to_video_zero = TextToVideoZeroSDXLPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_text_to_video_zero = TextToVideoZeroSDXLPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         #pipe_text_to_video_zero = pipeline_scheduler(pipe_text_to_video_zero)
         if prefs['enable_freeu']:
             pipe_text_to_video_zero.enable_freeu(s1=0.9, s2=0.2, b1=1.1, b2=1.2)
@@ -42671,7 +42671,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
             pipe_i2vgen_xl = I2VGenXLPipeline.from_pretrained(i2vgen_xl_model, torch_dtype=torch.float16, variant="fp16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_i2vgen_xl = AutoPipelineForImage2Video.from_pretrained(i2vgen_xl_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_i2vgen_xl.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
-            pipe_i2vgen_xl.scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
+            #pipe_i2vgen_xl.scheduler = DDIMScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", clip_sample=False, set_alpha_to_one=False)
             #pipe_i2vgen_xl = pipeline_scheduler(pipe_i2vgen_xl)
             #pipe_i2vgen_xl.scheduler = EulerDiscreteScheduler.from_config(pipe_i2vgen_xl.scheduler.config)
             if prefs['vae_slicing']:
@@ -42696,6 +42696,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing I2VGen-XL...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            autoscroll(False)
             return
         status['loaded_i2vgen_xl'] = i2vgen_xl_model
     else:
@@ -47209,8 +47210,10 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     import ffmpeg
     saved_model = './pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
     stat("copying photo frames")
-    for f in os.listdir(photos_dir):
-        os.remove(os.path.join(photos_dir, f))
+    shutil.rmtree(photos_dir)
+    make_dir(photos_dir)
+    #for f in os.listdir(photos_dir):
+    #    os.remove(os.path.join(photos_dir, f))
     if isinstance(frames_dir, list):
         for n, f in enumerate(frames_dir):
             if isinstance(f, str):
