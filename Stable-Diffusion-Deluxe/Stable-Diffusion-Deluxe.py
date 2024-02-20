@@ -10922,6 +10922,7 @@ text_to_video_prefs = {
     'num_inference_steps': 50,
     'guidance_scale': 9.0,
     'export_to_video': True,
+    "interpolate_video": True,
     'eta': 0.0,
     'seed': 0,
     'width': 256,
@@ -10985,6 +10986,7 @@ Resources:
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=text_to_video_prefs, key='height')
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=text_to_video_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    interpolate_vid = Switcher(label="Interpolate", value=text_to_video_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
     lower_memory = Tooltip(message="Enable CPU offloading, VAE Tiling & Stitching", content=Switcher(label="Lower Memory Mode", value=text_to_video_prefs['lower_memory'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'lower_memory')))
     model = Dropdown(label="Video Model", hint_text="", expand=True, options=[dropdown.Option("damo-vilab/text-to-video-ms-1.7b"), dropdown.Option("modelscope-damo-text2video-synthesis"), dropdown.Option("modelscope-damo-text2video-pruned-weights"), dropdown.Option("cerspense/zeroscope_v2_XL"), dropdown.Option("cerspense/zeroscope_v2_576w")], value=text_to_video_prefs['model'], autofocus=False, on_change=lambda e:changed(e, 'model'))
     batch_folder_name = TextField(label="Batch Folder Name", value=text_to_video_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -11005,7 +11007,7 @@ Resources:
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
-        Row([export_to_video, lower_memory, model]),
+        Row([export_to_video, interpolate_vid, lower_memory, model]),
         num_frames,
         num_inference_row,
         guidance,
@@ -35444,7 +35446,6 @@ def run_controlnet_xl(page, from_list=False):
                 original_img = PILImage.fromarray(original_img).convert('L')
             return original_img
         except Exception as e:
-            #clear_last()
             clear_last()
             alert_msg(page, f"ERROR Preparing ControlNet-XL {controlnet_xl_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             flush()
@@ -38900,7 +38901,7 @@ def run_text_to_video(page):
             if not text_to_video_prefs['display_upscaled_image'] or not text_to_video_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
             if text_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-                upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"], face_enhance=text_to_video_prefs["face_enhance"])
+                upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"])
                 image_path = upscaled_path
                 if text_to_video_prefs['display_upscaled_image']:
                     time.sleep(0.6)
@@ -38917,6 +38918,13 @@ def run_text_to_video(page):
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
             num += 1
+        if text_to_video_prefs['interpolate_video']:
+            from diffusers.utils import export_to_video
+            prt("Running Google FILM: Frame Interpolation for Large Motion...")
+            out_file = available_file(batch_output, filename, 0, ext="mp4", no_num=True)
+            video_path = interpolate_video(images, input_fps=8, output_fps=30, output_video=out_file)
+            clear_last()
+            prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
         if bool(video_path):
             prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
@@ -39059,7 +39067,7 @@ def run_text_to_video_zero(page):
         if not text_to_video_zero_prefs['display_upscaled_image'] or not text_to_video_zero_prefs['apply_ESRGAN_upscale']:
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if text_to_video_zero_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
-            upscale_image(image_path, upscaled_path, scale=text_to_video_zero_prefs["enlarge_scale"], face_enhance=text_to_video_zero_prefs["face_enhance"])
+            upscale_image(image_path, upscaled_path, scale=text_to_video_zero_prefs["enlarge_scale"])
             image_path = upscaled_path
             if text_to_video_zero_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_zero_prefs["enlarge_scale"]), height=height * float(text_to_video_zero_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
@@ -42391,7 +42399,7 @@ def run_pia(page, from_list=False, with_params=False):
     progress = ProgressBar(bar_height=8)
     total_steps = pia_prefs['num_inference_steps']
     def callback_step(pipe, step, timestep, callback_kwargs):
-      callback_step.has_been_called = True
+      #callback_step.has_been_called = True
       nonlocal progress, total_steps
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
@@ -42429,7 +42437,8 @@ def run_pia(page, from_list=False, with_params=False):
             #pipe_pia = AutoPipelineForImage2Video.from_pretrained(pia_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_pia.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
             #pipe_pia = pipeline_scheduler(pipe_pia)
-            pipe_pia.scheduler = EulerDiscreteScheduler.from_config(pipe_pia.scheduler.config)
+            pipe_pia.scheduler = DDIMScheduler.from_config(pipe_pia.scheduler.config)
+            #pipe_pia.scheduler = EulerDiscreteScheduler.from_config(pipe_pia.scheduler.config)
             if prefs['vae_slicing']:
                 pipe_pia.enable_vae_slicing()
             if prefs['vae_tiling']:
@@ -42448,6 +42457,7 @@ def run_pia(page, from_list=False, with_params=False):
                 pipe_pia.enable_model_cpu_offload()
             else:
                 pipe_pia = pipe_pia.to(torch_device)
+            pipe_pia.scheduler = DDIMScheduler.from_config(pipe_pia.scheduler.config)
             pipe_pia.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
@@ -42493,6 +42503,7 @@ def run_pia(page, from_list=False, with_params=False):
     prt(f"Generating your PIA Video{s}...")
     for pr in pia_prompts:
         prt(progress)
+        nudge(page.imageColumn if from_list else page.PIA, page)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
@@ -42524,7 +42535,7 @@ def run_pia(page, from_list=False, with_params=False):
                 clip_skip=pia_prefs['clip_skip'],
                 generator=generator,
                 # TODO: Put this back. Was getting error 'NoneType' object has no attribute 'pop' for callback_outputs
-                #callback_on_step_end=callback_step,
+                callback_on_step_end=callback_step,
                 **ip_adapter_arg,
             ).frames
         except Exception as e:
@@ -42657,7 +42668,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     cpu_offload = i2vgen_xl_prefs['cpu_offload']
-    i2vgen_xl_model = "ali-vilab/i2vgen-xl" if i2vgen_xl_prefs['i2vgen_xl_model'] == "i2vgen-xl" else i2vgen_xl_prefs['custom_model']
+    i2vgen_xl_model = "ali-vilab/i2vgen-xl" if i2vgen_xl_prefs['i2vgen_xl_model'] == "I2VGen-XL" else i2vgen_xl_prefs['custom_model']
     if 'loaded_i2vgen_xl' not in status: status['loaded_i2vgen_xl'] = ""
     if i2vgen_xl_model != status['loaded_i2vgen_xl']:
         clear_pipes()
@@ -42692,7 +42703,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                 pipe_i2vgen_xl.enable_model_cpu_offload()
             else:
                 pipe_i2vgen_xl = pipe_i2vgen_xl.to(torch_device)
-            pipe_i2vgen_xl.set_progress_bar_config(disable=True)
+            #pipe_i2vgen_xl.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing I2VGen-XL...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
@@ -42715,9 +42726,10 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
         pipe_i2vgen_xl.set_adapters(adapters, adapter_weights=scales)
     clear_last()
     s = "" if len(i2vgen_xl_prompts) == 0 else "s"
-    prt(f"Generating your I2VGen-XL Video{s}...")
+    prt(f"Generating your I2VGen-XL Video{s}... See console for progress.")
     for pr in i2vgen_xl_prompts:
         prt(progress)
+        nudge(page.imageColumn if from_list else page.I2VGenXL, page)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
