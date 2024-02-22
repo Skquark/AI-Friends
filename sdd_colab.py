@@ -20604,7 +20604,7 @@ if torch_device == "cuda":
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=False)
             try:
                 import huggingface_hub
-                if version.parse(huggingface_hub.__version__) < huggingface_hub.parse("0.20.3"):
+                if version.parse(huggingface_hub.__version__) < version.parse("0.20.3"):
                     raise ModuleNotFoundError("")
             except ModuleNotFoundError:
                 run_sp("pip install --upgrade -q huggingface_hub", realtime=False)
