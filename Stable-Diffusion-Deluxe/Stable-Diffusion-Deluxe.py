@@ -12354,6 +12354,7 @@ svd_prefs = {
     'num_frames': 25,
     'decode_chunk_size': 12 if prefs['higher_vram_mode'] else 8,
     'noise_aug_strength': 0.02,
+    'export_to_gif': True,
     'export_to_video': True,
     "interpolate_video": True,
     'seed': 0,
@@ -12422,6 +12423,7 @@ def buildSVD(page):
     fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=svd_prefs, key='fps', tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
     #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=svd_prefs, key='width')
     #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=svd_prefs, key='height')
+    export_to_gif = Tooltip(message="Save animated gif file along with Image Sequence", content=Switcher(label="Export to GIF", value=svd_prefs['export_to_gif'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_gif')))
     export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=svd_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
     max_size = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=16, multiple=64, suffix="px", pref=svd_prefs, key='max_size')
     width_slider = SliderRow(label="Width", min=256, max=1024, divisions=12, multiple=32, suffix="px", pref=svd_prefs, key='width')
@@ -12460,7 +12462,7 @@ def buildSVD(page):
         max_size,
         #width_slider, height_slider,
         page.ESRGAN_block_svd,
-        Row([svd_model, interpolate_video, cpu_offload]),
+        Row([svd_model, export_to_gif, interpolate_video, cpu_offload]),
         Row([seed, batch_folder_name, file_prefix]), #num_videos, 
         Row([
             ElevatedButton(content=Text("🪭  Run SVD", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_svd(page)),
@@ -14415,9 +14417,9 @@ def buildI2VGenXL(page):
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
             video_length,
             ResponsiveRow([fps, clip_skip]),
-            Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
-            lora_layer_map,
-            Divider(thickness=4, height=4),
+            #Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
+            #lora_layer_map,
+            #Divider(thickness=4, height=4),
             Row([i2vgen_xl_model, i2vgen_xl_custom_model]),
             Row([cpu_offload, export_to_video, interpolate_video]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -20173,7 +20175,7 @@ def get_diffusers(page):
             run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
             run_process("pip uninstall -y clip-interrogator", realtime=False)
             run_process("pip uninstall -y transformers", realtime=False)
-        elif version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.39.0"):
+        elif version.parse(transformers.__version__).base_version < version.parse("4.39.0").base_version:
           import importlib
           page.status(f"...uninstalling transformers {transformers.__version__}")
           run_process("pip uninstall -y transformers", realtime=False)
@@ -20590,7 +20592,7 @@ finally:
 if torch_device == "cuda":
     try:
         import transformers
-        if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.39.0"):
+        if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.40.0"):
             #import importlib
             print(f"Uninstalling old transformers v{transformers.__version__}")
             run_sp("pip uninstall -y transformers", realtime=False)
@@ -40418,6 +40420,22 @@ def run_svd(page):
         
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
         #idx += 1
+    if svd_prefs['export_to_gif']:
+        try:
+            installer = Installing("Saving Animated GIF image sequence...")
+            prt(installer)
+            from diffusers.utils import export_to_gif
+            gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            export_to_gif(frames_batch, gif_file, fps=svd_prefs['fps'])
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Couldn't export gif, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            pass
+        clear_last()
+        if not os.path.isfile(gif_file):
+            prt(f"Problem creating gif file, but frames still saved...")
+        else:
+            prt(Row([ImageButton(src=gif_file, width=width, height=height, data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
     if svd_prefs['export_to_video']:
         try:
             installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
@@ -42153,7 +42171,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
         try:
             adapter = MotionAdapter.from_pretrained(motion_module)
             if mode == "Image2Video":
-                pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_img2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="AlanB/pipeline_animatediff_img2video_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_animatediff_img2video = AutoPipelineForImage2Video.from_pretrained(animatediff_img2video_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 pipe_animatediff_img2video.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
                 status['loaded_animatediff_img2video_mode'] = mode
