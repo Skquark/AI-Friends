@@ -20173,7 +20173,7 @@ def get_diffusers(page):
             run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
             run_process("pip uninstall -y clip-interrogator", realtime=False)
             run_process("pip uninstall -y transformers", realtime=False)
-        elif version.parse(transformers.__version__).base_version < version.parse("4.39.0").base_version:
+        elif version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.39.0"):
           import importlib
           page.status(f"...uninstalling transformers {transformers.__version__}")
           run_process("pip uninstall -y transformers", realtime=False)
@@ -20590,7 +20590,7 @@ finally:
 if torch_device == "cuda":
     try:
         import transformers
-        if version.parse(transformers.__version__) < version.parse("4.39.0"):
+        if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.39.0"):
             #import importlib
             print(f"Uninstalling old transformers v{transformers.__version__}")
             run_sp("pip uninstall -y transformers", realtime=False)
