@@ -42255,7 +42255,11 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
         if bool(ip_adapter_img):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
-            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == animatediff_img2video_prefs['ip_adapter_model'])
+            for m in ip_adapter_models:
+                if m['name'] == animatediff_img2video_prefs['ip_adapter_model']:
+                    ip_adapter_model = m
+                    break
+            #ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == animatediff_img2video_prefs['ip_adapter_model'])
             pipe_animatediff_img2video.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
             pipe_animatediff_img2video.set_ip_adapter_scale(animatediff_img2video_prefs['ip_adapter_strength'])
 
@@ -42265,7 +42269,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
     for pr in animatediff_img2video_prompts:
         prt(progress)
         autoscroll(False)
-        mode = "Video2Video" if pr['init_image'].endswith('mp4', 'gif') else "Image2Video"
+        mode = "Video2Video" if pr['init_image'].endswith(('mp4', 'gif')) else "Image2Video"
         total_steps = pr['num_inference_steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator().manual_seed(random_seed)
@@ -42545,7 +42549,7 @@ def run_pia(page, from_list=False, with_params=False):
         if bool(ip_adapter_img):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
-            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == pia_prefs['ip_adapter_model'])
+            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == pia_prefs['ip_adapter_model'])
             pipe_pia.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
             pipe_pia.set_ip_adapter_scale(pia_prefs['ip_adapter_strength'])
 
