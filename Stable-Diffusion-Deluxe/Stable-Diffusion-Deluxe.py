@@ -206,12 +206,12 @@ else:
     image_output = '/content/drive/MyDrive/AI/Stable_Diffusion/images_out'
 saved_settings_json = os.path.join(root_dir, "sdd-settings.json")
 favicon = os.path.join(root_dir, "favicon.png")
-loading_animation = os.path.join(root_dir, "loading_animation.png")
+loading_animation = os.path.join(root_dir, "icons", "loading-animation.png")
 assets = os.path.join(root_dir, "assets")
 if not os.path.isfile(favicon):
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/favicon.png?raw=true")
 if not os.path.isfile(loading_animation):
-    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/loading_animation.png?raw=true")
+    download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/loading-animation.png?raw=true", to=os.path.join(root_dir, "icons"))
 if not os.path.exists(assets):
     os.makedirs(assets)
     download_file("https://github.com/Skquark/AI-Friends/blob/main/assets/snd-alert.mp3?raw=true", to=assets)
@@ -17172,6 +17172,7 @@ def buildSemanticGuidance(page):
 demofusion_prefs = {
     "prompt": '',
     "negative_prompt": '',
+    'init_image': '',
     'view_batch_size': 16,
     'cosine_scale_1': 3.0,
     'cosine_scale_2': 1.0,
@@ -17229,6 +17230,7 @@ def buildDemoFusion(page):
         ESRGAN_settings.update()
     prompt = TextField(label="Prompt Text", value=demofusion_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=demofusion_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image (optional)", pref=demofusion_prefs, key='init_image', page=page)
     batch_folder_name = TextField(label="Batch Folder Name", value=demofusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=demofusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     #steps = TextField(label="Number of Steps", value=demofusion_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
@@ -17265,6 +17267,7 @@ def buildDemoFusion(page):
         padding=padding.only(18, 14, 20, 10), content=Column([
             Header("💣  DemoFusion", "Democratising High-Resolution Image Generation With No $$$. SDXL with Clean Upscaling, 3 Phase Denoising/Decoding, slow but real quality...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DemoFusion Settings", on_click=demofusion_help)]),
             ResponsiveRow([prompt, negative_prompt]),
+            init_image,
             #ResponsiveRow([stride, sigma]),
             stride, sigma,
             view_batch_size,
@@ -20170,7 +20173,7 @@ def get_diffusers(page):
             run_process("pip uninstall -y git+https://github.com/pharmapsychotic/BLIP.git@lib#egg=blip", realtime=False)
             run_process("pip uninstall -y clip-interrogator", realtime=False)
             run_process("pip uninstall -y transformers", realtime=False)
-        elif version.parse(transformers.__version__).base_version < version.parse("4.37.0").base_version:
+        elif version.parse(transformers.__version__).base_version < version.parse("4.39.0").base_version:
           import importlib
           page.status(f"...uninstalling transformers {transformers.__version__}")
           run_process("pip uninstall -y transformers", realtime=False)
@@ -20587,21 +20590,29 @@ finally:
 if torch_device == "cuda":
     try:
         import transformers
-        if version.parse(transformers.__version__).base_version < version.parse("4.37.0").base_version:
-            import importlib
+        if version.parse(transformers.__version__) < version.parse("4.39.0"):
+            #import importlib
             print(f"Uninstalling old transformers v{transformers.__version__}")
             run_sp("pip uninstall -y transformers", realtime=False)
             print("Installing newest transformers package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=False)
             print("Installing newest accelerate package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=False)
-            run_sp("pip install --upgrade -q huggingface_hub", realtime=False)
-            run_sp("pip install -q gdown==4.7.3")
+            try:
+                import huggingface_hub
+                if version.parse(huggingface_hub.__version__) < huggingface_hub.parse("0.20.3"):
+                    raise ModuleNotFoundError("")
+            except ModuleNotFoundError:
+                run_sp("pip install --upgrade -q huggingface_hub", realtime=False)
+                pass
+            try:
+                import gdown
+                if gdown.__version__ < "4.7.3":
+                    raise ModuleNotFoundError("")
+            except ModuleNotFoundError:
+                run_sp("pip install -q gdown==4.7.3")
+                pass
             print("Goto Runtime -> Restart session to apply updates...")
-            #importlib.reload(transformers)
-            #try:
-            #    sys.exit()
-            #except SystemExit:
             raise SystemExit("Please Restart Session and run all again to Upgrade... Sorry, only workaround.")
     except ModuleNotFoundError:
         pass
@@ -29062,14 +29073,14 @@ def run_demofusion(page, from_list=False, with_params=False):
         return
       for p in prompts:
         if with_params:
-            demofusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':demofusion_prefs['guidance_scale'], 'steps':demofusion_prefs['steps'], 'width':demofusion_prefs['width'], 'height':demofusion_prefs['height'], 'num_images':demofusion_prefs['num_images'], 'seed':demofusion_prefs['seed']})
+            demofusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':p['init_image'] if bool(p['init_image']) else demofusion_prefs['init_image'], 'guidance_scale':demofusion_prefs['guidance_scale'], 'steps':demofusion_prefs['steps'], 'width':demofusion_prefs['width'], 'height':demofusion_prefs['height'], 'num_images':demofusion_prefs['num_images'], 'seed':demofusion_prefs['seed']})
         else:
-            demofusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+            demofusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'init_image':p['init_image'] if bool(p['init_image']) else demofusion_prefs['init_image'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
     else:
       if not bool(demofusion_prefs['prompt']):
         alert_msg(page, "You must provide a text prompt to process your image generation...")
         return
-      demofusion_prompts.append({'prompt': demofusion_prefs['prompt'], 'negative_prompt':demofusion_prefs['negative_prompt'], 'guidance_scale':demofusion_prefs['guidance_scale'], 'steps':demofusion_prefs['steps'], 'width':demofusion_prefs['width'], 'height':demofusion_prefs['height'], 'num_images':demofusion_prefs['num_images'], 'seed':demofusion_prefs['seed']})
+      demofusion_prompts.append({'prompt': demofusion_prefs['prompt'], 'negative_prompt':demofusion_prefs['negative_prompt'], 'init_image':demofusion_prefs['init_image'], 'guidance_scale':demofusion_prefs['guidance_scale'], 'steps':demofusion_prefs['steps'], 'width':demofusion_prefs['width'], 'height':demofusion_prefs['height'], 'num_images':demofusion_prefs['num_images'], 'seed':demofusion_prefs['seed']})
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line, size=17)
@@ -29153,11 +29164,32 @@ def run_demofusion(page, from_list=False, with_params=False):
         progress.progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
         progress.progress.update()
         progress.status(stage)
-    
+    def load_and_process_image(pil_image, w=1024, h=1024):
+        from torchvision import transforms
+        transform = transforms.Compose([transforms.Resize((w, h)), transforms.ToTensor(), transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
+        image = transform(pil_image)
+        image = image.unsqueeze(0).half()
+        return image
     for pr in demofusion_prompts:
         phase = 0
         prt(progress)
         autoscroll(False)
+        image_args = {}
+        if bool(pr['init_image']):
+            from PIL import ImageOps
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            image_lr = load_and_process_image(init_img, pr['width'], pr['height']).to('cuda')
+            image_args = {'image_lr': image_lr}
         total_steps = pr['steps']
         random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
@@ -29179,6 +29211,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 guidance_scale=pr['guidance_scale'],
                 generator=generator,
                 callback=callback_fnc,
+                **image_args,
             )
         except Exception as e:
             clear_last()
