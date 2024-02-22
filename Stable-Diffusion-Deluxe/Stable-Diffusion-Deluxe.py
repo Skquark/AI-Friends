@@ -20592,7 +20592,7 @@ finally:
 if torch_device == "cuda":
     try:
         import transformers
-        if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.40.0"):
+        if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.39.0"):
             #import importlib
             print(f"Uninstalling old transformers v{transformers.__version__}")
             run_sp("pip uninstall -y transformers", realtime=False)
