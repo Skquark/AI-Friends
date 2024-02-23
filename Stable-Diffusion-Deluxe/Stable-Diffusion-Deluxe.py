@@ -3415,7 +3415,7 @@ def buildPromptRemixer(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "Google Gemini"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -13970,9 +13970,9 @@ def buildAnimateDiffImage2Video(page):
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=animatediff_img2video_prefs['ip_adapter_model'], visible=animatediff_img2video_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=animatediff_img2video_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=animatediff_img2video_prefs, key='ip_adapter_image', page=page, col={'md':6})
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=animatediff_img2video_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if animatediff_img2video_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_container = Container(Column([ResponsiveRow([ip_adapter_image, ip_adapter_strength]), Divider(thickness=4, height=4)]), height = None if animatediff_img2video_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animatediff_img2video_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=animatediff_img2video_prefs['lora_layer'], on_change=changed_lora_layer)
     custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animatediff_img2video_prefs['custom_lora_layer'], expand=True, visible=animatediff_img2video_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
@@ -14016,7 +14016,7 @@ def buildAnimateDiffImage2Video(page):
     page.animatediff_img2video_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🐉  AnimateDiff Image/Video-to-Video", "Bring an Image or Video Clip to Life, similar to Stable Video Diffusion, with more control...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Image2Video Settings", on_click=animatediff_img2video_help)]),
+            Header("🐉  AnimateDiff Image/Video-to-Video", "Bring an Image or Video Clip to Life! Similar to Stable Video Diffusion, with more control...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Image2Video Settings", on_click=animatediff_img2video_help)]),
             ResponsiveRow([init_image, init_image_strength]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
@@ -14186,9 +14186,9 @@ def buildPIA(page):
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=pia_prefs['ip_adapter_model'], visible=pia_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=pia_prefs, key='ip_adapter_image', page=page)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=pia_prefs, key='ip_adapter_image', page=page, col={'md':6})
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pia_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if pia_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if pia_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     pia_model = Dropdown(label="PIA Model", width=280, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V6.0_B1_noVAE"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=pia_prefs['pia_model'], on_change=changed_model)
     pia_custom_model = TextField(label="Custom PIA Model (URL or Path)", value=pia_prefs['custom_model'], expand=True, visible=pia_prefs['pia_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=pia_prefs['lora_layer'], on_change=changed_lora_layer)
@@ -14236,6 +14236,7 @@ def buildPIA(page):
             ResponsiveRow([fps, clip_skip]),
             Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
+            Divider(thickness=4, height=4),
             Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
             lora_layer_map,
             Divider(thickness=4, height=4),
@@ -24808,7 +24809,26 @@ remixer_request_modes = [
 def run_prompt_remixer(page):
   import random as rnd
   global artists, styles, status
-  if 'GPT' in prefs['prompt_remixer']['AI_engine']:
+  engine = prefs['prompt_remixer']['AI_engine']
+  if 'TextSynth' in engine:
+    good_key = True
+    try:
+      if not bool(prefs['TextSynth_api_key']): good_key = False
+    except NameError: good_key = False
+    if not good_key:
+      alert_msg(page, f"Missing TextSynth api key... Define your key in Settings.")
+      return
+    else:
+      try:
+        from textsynthpy import TextSynth, Complete
+      except ImportError:
+        run_sp("pip install textsynthpy", realtime=False)
+        #clear_output()
+      finally:
+        from textsynthpy import TextSynth, Complete
+      textsynth_engine = "gptj_6B" if 'GPT-J' in engine else "mistral_7B_instruct" if 'Mistral Instruct' in engine else "mistral_7B" if 'Mistral' in engine else "mixtral_47B_instruct" if 'Mixtral Instruct' in engine else "llama2_7B" if 'Llama2 7B' in engine else "llama2_70B" if 'Llama2 70B' in engine else "mistral_7B"
+      textsynth = TextSynth(prefs['TextSynth_api_key'], engine=textsynth_engine)
+  elif 'GPT' in engine:
     try:
       import openai
     except:
@@ -24823,7 +24843,7 @@ def run_prompt_remixer(page):
       alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
       return
     status['installed_OpenAI'] = True
-  if prefs['prompt_remixer']['AI_engine'] == "Google Gemini":
+  elif engine == "Google Gemini":
     if not bool(prefs['PaLM_api_key']):
       alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
       return
@@ -24860,19 +24880,28 @@ def run_prompt_remixer(page):
   prompt_results = []
 
   def prompt_remix():
-    if prefs['prompt_remixer']['AI_engine'] == "OpenAI GPT-3":
+    if "TextSynth" in engine:
+        try:
+            response = textsynth.text_complete(prompt=prompt, max_tokens=200, temperature=prefs['prompt_remixer']['AI_temperature'], presence_penalty=1)
+            print(f"Response: {response} {type(response)}")
+            result = response.text.strip()
+        except Exception as e:
+            #clear_last()
+            alert_msg(page, f"ERROR: Something went wrong with TextSynth...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    elif engine == "OpenAI GPT-3":
       response = openai_client.completions.create(engine="text-davinci-003", prompt=prompt, max_tokens=2400, temperature=prefs["prompt_remixer"]['AI_temperature'], presence_penalty=1)
       #print(response)
       result = response.choices[0].text.strip()
-    elif prefs['prompt_remixer']['AI_engine'] == "ChatGPT-3.5 Turbo":
+    elif engine == "ChatGPT-3.5 Turbo":
       response = openai_client.chat.completions.create(model="gpt-3.5-turbo-0125", temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       #print(str(response))
       result = response.choices[0].message.content.strip()
-    elif "GPT-4" in prefs['prompt_remixer']['AI_engine']:
-      gpt_model = "gpt-4-0125-preview" if "Turbo" in prefs['prompt_remixer']['AI_engine'] else "gpt-4"
+    elif "GPT-4" in engine:
+      gpt_model = "gpt-4-0125-preview" if "Turbo" in engine else "gpt-4"
       response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       result = response.choices[0].message.content.strip()
-    elif prefs['prompt_remixer']['AI_engine'] == "Google Gemini":
+    elif engine == "Google Gemini":
       completion = gemini_model.generate_content(prompt, generation_config={
           'temperature': prefs['prompt_remixer']['AI_temperature'],
           'max_output_tokens': 1024
@@ -42165,18 +42194,28 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
     #from diffusers import AutoPipelineForVideo2Video, AutoPipelineForImage2Video, AnimateDiffImage2VideoScheduler
     from diffusers import MotionAdapter, DiffusionPipeline, AnimateDiffVideoToVideoPipeline, DDIMScheduler
     from diffusers.utils import export_to_gif, load_image
-
+    ie_arg = {}
+    if animatediff_img2video_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter Image Encoder")
+        from transformers import CLIPVisionModelWithProjection
+        image_encoder = CLIPVisionModelWithProjection.from_pretrained(
+            "h94/IP-Adapter", 
+            subfolder="models/image_encoder",
+            torch_dtype=torch.float16,
+        )
+        ie_arg = {'image_encoder': image_encoder}
     if pipe_animatediff_img2video == None:
         installer.status(f"...initialize AnimateDiff {mode} Pipeline")
         try:
             adapter = MotionAdapter.from_pretrained(motion_module)
             if mode == "Image2Video":
-                pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="AlanB/pipeline_animatediff_img2video_mod", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="AlanB/pipeline_animatediff_img2video_mod", **ie_arg, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_animatediff_img2video = AutoPipelineForImage2Video.from_pretrained(animatediff_img2video_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-                pipe_animatediff_img2video.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
+                #pipe_animatediff_img2video.scheduler = DDIMScheduler(beta_schedule="linear", steps_offset=1, clip_sample=False, timestep_spacing="linspace")
+                pipe_animatediff_img2video.scheduler = DDIMScheduler.from_pretrained(animatediff_img2video_model, subfolder="scheduler", clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
                 status['loaded_animatediff_img2video_mode'] = mode
             else:
-                pipe_animatediff_img2video = AnimateDiffVideoToVideoPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_animatediff_img2video = AnimateDiffVideoToVideoPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, torch_dtype=torch.float16, **ie_arg, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_animatediff_img2video = DiffusionPipeline.from_pretrained(animatediff_img2video_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_video2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 #pipe_animatediff_img2video = AutoPipelineForVideo2Video.from_pretrained(animatediff_img2video_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 pipe_animatediff_img2video.scheduler = DDIMScheduler.from_pretrained(animatediff_img2video_model, subfolder="scheduler", clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
@@ -42268,6 +42307,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
     prt(f"Generating your AnimateDiff Video{s}...")
     for pr in animatediff_img2video_prompts:
         prt(progress)
+        nudge(page.imageColumn if from_list else page.AnimateDiffImage2Video, page)
         autoscroll(False)
         mode = "Video2Video" if pr['init_image'].endswith(('mp4', 'gif')) else "Image2Video"
         total_steps = pr['num_inference_steps']
@@ -46380,7 +46420,7 @@ def main(page: Page):
         page.update()
     credits_markdown = '''This toolkit is an Open-Source side project by [Skquark, Inc.](https://Skquark.com), primarily created by Alan Bedian for fun and full-feature functionality.  Official website is [DiffusionDeluxe.com](https://DiffusionDeluxe.com) for more info.
 
-The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the [Diffusers Pipelines](https://github.com/huggingface/diffusers). The HuggingFace Diffusers team includes Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj & Thomas Wolf.
+The real credit goes to the team at [Stability.ai](https://Stability.ai) for making Stable Diffusion so great, and [HuggingFace](https://HuggingFace.co) for their work on the [Diffusers Pipelines](https://github.com/huggingface/diffusers). The HuggingFace Diffusers team includes Patrick von Platen, Suraj Patil, Anton Lozhkov, Pedro Cuenca, Nathan Lambert, Kashif Rasul, Mishig Davaadorj, Aryan V S & Thomas Wolf.
 
 For the great app UI framework, we thank [Flet](https://Flet.dev) with the amazing Flutter based Python library with a very functional dev platform that made this possible.
 
@@ -47111,7 +47151,7 @@ def prt_line(line, column, size=17, update=True, from_list=False, page=None):
       if update:
         column.update()
 
-def nudge(column, page=None):
+def nudge(column:Column, page=None):
     ''' Force an autoscroll column to go down. Mainly to show ProgressBar not scrolling to bottom.'''
     column.controls.append(Container(content=Text(" ")))
     column.update()
