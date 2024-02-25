@@ -751,6 +751,7 @@ def buildImageAIs(page):
     page.KandinskyFuse = buildKandinskyFuse(page) if status['kandinsky_fuse_2_2'] else buildKandinsky21Fuse(page)
     page.KandinskyControlNet = buildKandinskyControlNet(page)
     page.DiT = buildDiT(page)
+    page.TaskMatrix = buildTaskMatrix(page)
     page.DreamFusion = buildDreamFusion(page)
     page.Point_E = buildPoint_E(page)
     page.Shap_E = buildShap_E(page)
@@ -775,6 +776,7 @@ def buildImageAIs(page):
             Tab(text="LCM", content=page.LCM, icon=icons.MEMORY),
             Tab(text="LCM Interpolation", content=page.LCMInterpolation, icon=icons.TRANSFER_WITHIN_A_STATION),
             Tab(text="InstaFlow", content=page.InstaFlow, icon=icons.ELECTRIC_BOLT),
+            Tab(text="TaskMatrix", content=page.TaskMatrix, icon=icons.ADD_TASK),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
@@ -1356,7 +1358,7 @@ def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False,
 def close_alert_dlg(e):
     e.page.alert_dlg.open = False
     e.page.update()
-def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None, wide=False, debug_pref=None):
+def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None, wide=False, debug_pref=None, buttons=[]):
     try:
         if page.alert_dlg.open == True: return
     except Exception: pass
@@ -1390,7 +1392,11 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
     if content == None: content = Container(content=None)
     if not isinstance(content, list):
         content = [content]
-    page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=[debug_button, okay_button], actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
+    if buttons:
+        actions=buttons + [okay_button]
+    else:
+        actions=[debug_button, okay_button]
+    page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=actions, actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
     page.dialog = page.alert_dlg
     page.alert_dlg.open = True
     try:
@@ -10920,6 +10926,70 @@ def buildLDM3D(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+task_matrix_prefs = {
+    'prompt': '',
+    'image_path': '',
+    'modules': ['ImageEditing', 'Text2Image', 'ImageCaptioning'],
+}
+task_matrix_modules = ['ImageEditing', 'InstructPix2Pix', 'Text2Image', 'ImageCaptioning', 'Image2Canny', 'CannyText2Image', 'Image2Line', 'LineText2Image', 'Image2Hed', 'HedText2Image', 'Image2Scribble', 'ScribbleText2Image', 'Image2Pose', 'PoseText2Image', 'Image2Seg', 'SegText2Image', 'Image2Depth', 'DepthText2Image', 'Image2Normal', 'NormalText2Image', 'VisualQuestionAnswering']
+
+def buildTaskMatrix(page):
+    def changed(e, pref=None):
+        if pref is not None:
+          task_matrix_prefs[pref] = e.control.value
+    def add_to_task_matrix_output(o):
+      task_matrix_output.controls.append(o)
+      task_matrix_output.update()
+    def clear_output(e):
+      play_snd(Snd.DELETE, page)
+      task_matrix_output.controls = []
+      task_matrix_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def task_matrix_help(e):
+      def close_task_matrix_dlg(e):
+        nonlocal task_matrix_help_dlg
+        task_matrix_help_dlg.open = False
+        page.update()
+      task_matrix_help_dlg = AlertDialog(title=Text("🙅   Help with TaskMatrix Pipeline"), content=Column([
+          Text("TaskMatrix connects ChatGPT and a series of Visual Foundation Models to enable sending and receiving images during chatting. Made in partnership with Microsoft Reserarch."),
+          Text("ChatGPT is attracting a cross-field interest as it provides a language interface with remarkable conversational competency and reasoning capabilities across many domains. However, since ChatGPT is trained with languages, it is currently not capable of processing or generating images from the visual world. At the same time, Visual Foundation Models, such as Visual Transformers or Stable Diffusion, although showing great visual understanding and generation capabilities, they are only experts on specific tasks with one-round fixed inputs and outputs. To this end, We build a system called \textbf{Visual ChatGPT}, incorporating different Visual Foundation Models, to enable the user to interact with ChatGPT by 1) sending and receiving not only languages but also images 2) providing complex visual questions or visual editing instructions that require the collaboration of multiple AI models with multi-steps. 3) providing feedback and asking for corrected results. We design a series of prompts to inject the visual model information into ChatGPT, considering models of multiple inputs/outputs and models that require visual feedback. Experiments show that Visual ChatGPT opens the door to investigating the visual roles of ChatGPT with the help of Visual Foundation Models."),
+          Text("Supports tasks for Image Editing, Instruct Pix2Pix, Text2Image, Image Captioning, Image2Canny, Canny Text2Image, Image2Line, Line Text2Image, Image2Hed, HED Text2Image, Image2Scribble, Scribble Text2Image, Image2Pose, Pose Text2Image, Image2Seg, Seg Text2Image, Image2Depth, Depth Text2Image, Image2Normal, Normal Text2Image and Visual Question Answering..	That's a lot!"),
+          Markdown("[Paper](https://arxiv.org/abs/2303.04671) | [GitHub](https://github.com/moymix/TaskMatrix) | [HuggingFace Space](https://huggingface.co/spaces/microsoft/visual_chatgpt) | [Colab](https://colab.research.google.com/drive/1P3jJqKEWEaeNcZg8fODbbWeQ3gxOHk2-?usp=sharing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Chenfei Wu, Shengming Yin, Weizhen Qi, Xiaodong Wang, Zecheng Tang, Nan Duan and Microsoft")
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧑‍🚀️  Wowsers! ", on_click=close_task_matrix_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = task_matrix_help_dlg
+      task_matrix_help_dlg.open = True
+      page.update()
+    def change_modules(e):
+        if e.control.data in task_matrix_prefs['modules']:
+            task_matrix_prefs['modules'].remove(e.control.data)
+        else:
+            task_matrix_prefs['modules'].append(e.control.data)
+    page.add_to_task_matrix_output = add_to_task_matrix_output
+    modules_list = ResponsiveRow(controls=[])
+    for v in task_matrix_modules:
+        modules_list.controls.append(Checkbox(label=v, data=v, value=v in task_matrix_prefs['modules'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=change_modules, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    prompt = TextField(label="Conversational Prompt Request", value=task_matrix_prefs['prompt'], filled=True, col={'md': 9}, on_change=lambda e:changed(e,'prompt'))
+    image_path = FileInput(label="Input Image", pref=task_matrix_prefs, key='image_path', filled=True, col={'md': 3}, page=page)
+    task_matrix_output = Column([])
+    clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    clear_button.visible = len(task_matrix_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🧑‍💻️  TaskMatrix Visual ChatGPT (under construction)", "Talking, Drawing and Editing with Visual Foundation Models. Conversational requests for image editing & creating using OpenAI brain...", actions=[IconButton(icon=icons.HELP, tooltip="Help with TaskMatrix Settings", on_click=task_matrix_help)]),
+        Text("Active Pipeline Modules: (uses up VRAM)", weight=FontWeight.BOLD),
+        modules_list,
+        ResponsiveRow([prompt, image_path]),
+        ElevatedButton(content=Text("🧑‍🏭️  Ask Art Bot", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_task_matrix(page)),
+        task_matrix_output,
+        clear_button,
+      ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+
 text_to_video_prefs = {
     'prompt': '',
     'negative_prompt': 'text, words, watermark, shutterstock',
@@ -19971,6 +20041,7 @@ pipe_lmd_plus = None
 pipe_lcm = None
 pipe_lcm_interpolation = None
 pipe_instaflow = None
+pipe_task_matrix = None
 pipe_ldm3d = None
 pipe_ldm3d_upscale = None
 pipe_svd = None
@@ -22527,6 +22598,12 @@ def clear_instaflow_pipe():
     del pipe_instaflow
     flush()
     pipe_instaflow = None
+def clear_task_matrix_pipe():
+  global pipe_task_matrix
+  if pipe_task_matrix is not None:
+    del pipe_task_matrix
+    flush()
+    pipe_task_matrix = None
 def clear_ldm3d_pipe():
   global pipe_ldm3d, pipe_ldm3d_upscale
   if pipe_ldm3d is not None:
@@ -22842,6 +22919,7 @@ def clear_pipes(allbut=None):
     if not 'lcm' in but: clear_lcm_pipe()
     if not 'lcm_interpolation' in but: clear_lcm_interpolation_pipe()
     if not 'instaflow' in but: clear_instaflow_pipe()
+    if not 'task_matrix' in but: clear_task_matrix_pipe()
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'svd' in but: clear_svd_pipe()
     if not 'animatediff_img2video' in but: clear_animatediff_img2video_pipe()
@@ -37510,9 +37588,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
 
 def run_pixart_alpha(page, from_list=False, with_params=False):
     global pixart_alpha_prefs, pipe_pixart_alpha, pipe_pixart_alpha_encoder, prefs
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     pixart_alpha_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -37761,9 +37837,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
 def run_lmd_plus(page, from_list=False, with_params=False):
     global lmd_plus_prefs, pipe_lmd_plus, prefs
     from sdd_utils import llm_template
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     lmd_plus_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -38020,9 +38094,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
 
 def run_lcm(page, from_list=False, with_params=False):
     global lcm_prefs, pipe_lcm, prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     lcm_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -38261,9 +38333,7 @@ def run_lcm(page, from_list=False, with_params=False):
 
 def run_lcm_interpolation(page):
     global lcm_interpolation_prefs, pipe_lcm_interpolation, prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if len(lcm_interpolation_prefs['mixes']) < 2:
       alert_msg(page, "You must provide layers to interpolate to process your image generation...")
       return
@@ -38418,9 +38488,7 @@ def run_lcm_interpolation(page):
 
 def run_instaflow(page, from_list=False, with_params=False):
     global instaflow_prefs, pipe_instaflow, prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     instaflow_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -38845,6 +38913,133 @@ def run_ldm3d(page, from_list=False, with_params=False):
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+    
+
+def run_task_matrix(page):
+    global prefs, status, task_matrix_prefs, pipe_task_matrix
+    if not bool(prefs['OpenAI_api_key']):
+      alert_msg(page, "You must provide your OpenAI API Key in Settings to use...")
+      return
+    if not check_diffusers(page): return
+    #if not status['installed_diffusers']:
+    #  alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+    #  return
+    if not bool(task_matrix_prefs['prompt']):
+      alert_msg(page, "You must provide a request to process your image generation...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.TaskMatrix.controls.append(line)
+      page.TaskMatrix.update()
+    def clear_last(lines=1):
+      clear_line(page.TaskMatrix, lines=lines)
+    def clear_list():
+      page.TaskMatrix.controls = page.TaskMatrix.controls[:1]
+    def autoscroll(scroll=True):
+      page.TaskMatrix.auto_scroll = scroll
+      page.TaskMatrix.update()
+    #clear_list()
+    if 'active_modules' not in status:
+        status['active_modules'] = []
+    clear_pipes("task_matrix")
+    autoscroll(True)
+    if status['active_modules'] != task_matrix_prefs['modeles']:
+        installer = Installing("Installing TaskMatrix Visual ChatGPT Pipeline...")
+        prt(installer)
+    if pipe_task_matrix is None:
+        task_matrix_dir = os.path.join(root_dir, 'TaskMatrix')
+        if not os.path.exists(task_matrix_dir):
+            installer.status("...cloning microsoft/TaskMatrix")#
+            run_sp("git clone https://github.com/microsoft/TaskMatrix", cwd=root_dir, realtime=False)
+        sys.path.append(task_matrix_dir)
+        try:
+            import groundingdino
+        except ModuleNotFoundError:
+            installer.status("...IDEA-Research/GroundingDINO")
+            run_sp("pip install git+https://github.com/IDEA-Research/GroundingDINO.git")
+        try:
+            import segment_anything
+        except ModuleNotFoundError:
+            installer.status("...facebookresearch/segment-anything")
+            run_sp("pip install git+https://github.com/facebookresearch/segment-anything.git", print=True)
+        pip_install("langchain==0.0.101 accelerate addict albumentations basicsr controlnet-aux einops gradio imageio imageio-ffmpeg invisible-watermark|imwatermark kornia numpy omegaconf open_clip_torch openai opencv-python prettytable safetensors streamlit test-tube timm torchmetrics webdataset yapf mediapipe", installer=installer)
+        os.environ['OPENAI_API_KEY'] = prefs['OpenAI_api_key']
+        make_dir(os.path.join(task_matrix_dir, 'checkpoint'))
+    try:
+        from visual_chatgpt import ConversationBot
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Initializing visual_chatgpt ConversationBot...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    if status['active_modules'] != task_matrix_prefs['modules'] or pipe_task_matrix is None:
+        #load = "Text2Box_cuda:0,Segmenting_cuda:0,Inpainting_cuda:0,ImageCaptioning_cuda:0"
+        #load_dict = {e.split('_')[0].strip(): e.split('_')[1].strip() for e in load.split(',')}
+        load_dict = {'ImageCaptioning': 'cuda:0'}
+        for m in task_matrix_prefs['modules']:
+            load_dict[m] = 'cuda:0'
+        pipe_task_matrix = None
+        flush()
+        pipe_task_matrix = ConversationBot(load_dict=load_dict)
+        pipe_task_matrix.init_agent("English")
+        clear_last()
+    status['active_modules'] = task_matrix_prefs['modules']
+    progress = Progress("Getting Response from TaskMatrix Bot...")
+    prt(progress)
+    class State:
+        def __init__(self, initial_value, render: bool = True):
+            self._value = initial_value
+            self.render = render
+            self.callbacks = []
+        @property
+        def value(self):
+            return self._value
+        @value.setter
+        def value(self, new_value):
+            self.set_value(new_value)
+        def set_value(self, new_value):
+            self._value = new_value
+            for callback in self.callbacks:
+                callback(new_value)
+        def add_callback(self, callback):
+            self.callbacks.append(callback)
+    def callback(value):
+        print("State:", value)
+        progress.status(f"...{value}")
+    state = State([])
+    state.add_callback(callback)
+    try:
+        if bool(task_matrix_prefs['image_path']):
+            from PIL import ImageOps
+            image_path = task_matrix_prefs['image_path']
+            input_img = None
+            fname = image_path.rpartition(slash)[2]
+            if image_path.startswith('http'):
+                input_img = PILImage.open(requests.get(image_path, stream=True).raw)
+            else:
+                if os.path.isfile(image_path):
+                    input_img = PILImage.open(image_path)
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {image_path}")
+                    return
+            w, h = input_img.size
+            w, h = scale_dimensions(w, h, max=1024, multiple=64)
+            input_img = input_img.resize((w, h), resample=PILImage.Resampling.LANCZOS)
+            input_img = ImageOps.exif_transpose(input_img).convert("RGB")
+            out1, out2, txt = pipe_task_matrix.run_image(input_img, state, task_matrix_prefs['prompt'], 'English')
+            print(txt)
+        else:
+            out1, out2 = pipe_task_matrix.run_text(task_matrix_prefs['prompt'], state)
+        clear_last()
+        prt(out1)
+        prt(out2)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Problem having Conversation with Bot...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 
 def run_text_to_video(page):
     global text_to_video_prefs, prefs, status, pipe_text_to_video, model_path
@@ -46649,7 +46844,7 @@ class FileInput(UserControl):
             self.textfield.focus()
         self.file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
         self.page.overlay.append(self.file_picker)
-        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, autofocus=False, on_change=changed, height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
+        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, autofocus=False, on_change=changed, height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
         return self.textfield
     @property
     def value(self):
@@ -47274,6 +47469,37 @@ def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=Non
         return img
     else:
         return img
+
+def check_diffusers(page:Page):
+    global status
+    def install_diffusers(e):
+        close_alert_dlg(e)
+        #if prefs['install_diffusers']:
+        def console_msg(msg, clear=True, show_progress=True):
+          if not page.banner.open:
+            page.banner.open = True
+          if clear:
+            page.banner.content.controls = []
+          if show_progress:
+            page.banner.content.controls.append(Row([Stack([Icon(icons.DOWNLOADING, color=colors.AMBER, size=48), Container(content=ProgressRing(), padding=padding.only(top=6, left=6), alignment=alignment.center)]), Container(content=Text("  " + msg.strip() , weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)) ]))
+          else:
+            page.banner.content.controls.append(Text(msg.strip(), weight=FontWeight.BOLD, color=colors.GREEN_600))
+          page.update()
+        page.banner.content = Column([], scroll=ScrollMode.AUTO, auto_scroll=True, tight=True, spacing=0, alignment=MainAxisAlignment.END)
+        page.banner.open = True
+        console_msg("Installing Hugging Face Diffusers Pipeline...")
+        get_diffusers(page)
+        status['installed_diffusers'] = True
+        play_snd(Snd.DONE, page)
+        page.banner.open = False
+        page.banner.update()
+        page.update()
+    if not status['installed_diffusers']:
+        diffusers_button = ElevatedButton(content=Text("🔄  Install Diffusers Now", size=18), on_click=install_diffusers) if prefs['install_diffusers'] else Container(content=None)
+        alert_msg(page, "🤗  You need to Install HuggingFace Diffusers before using...", buttons=[diffusers_button])
+        return False
+    else:
+        return True
 
 def create_pattern(filename, glob=False):
     base, ext = os.path.splitext(filename)
