@@ -265,6 +265,7 @@ def load_settings_file():
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
       'AIHorde_api_key': "0000000000",
+      'meshy_api_key': "",
       'luma_api_key': "",
       'HuggingFace_username': "",
       'scheduler_mode': "DDIM",
@@ -1388,10 +1389,7 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
     if content == None: content = Container(content=None)
     if not isinstance(content, list):
         content = [content]
-    if buttons:
-        actions=buttons + [okay_button]
-    else:
-        actions=[debug_button, okay_button]
+    actions = buttons + [okay_button] if buttons else [debug_button, okay_button]
     page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=actions, actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
     page.dialog = page.alert_dlg
     page.alert_dlg.open = True
@@ -6017,7 +6015,7 @@ luma_vid_to_3d_prefs = {
     'batch_folder_name': '',
 }
 def buildLuma(page):
-    global luma_vid_to_3d_prefs, prefs
+    global luma_vid_to_3d_prefs, prefs, status
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
@@ -22597,6 +22595,7 @@ def clear_instaflow_pipe():
 def clear_task_matrix_pipe():
   global pipe_task_matrix
   if pipe_task_matrix is not None:
+    pipe_task_matrix.memory.clear()
     del pipe_task_matrix
     flush()
     pipe_task_matrix = None
@@ -26207,9 +26206,7 @@ def scale_dimensions(width, height, max=1024, multiple=16):
 
 def run_repainter(page):
     global repaint_prefs, prefs, status, pipe_repaint
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(repaint_prefs['original_image']) or not bool(repaint_prefs['mask_image']):
       alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
       return
@@ -26322,9 +26319,7 @@ def run_repainter(page):
 
 def run_image_variation(page):
     global image_variation_prefs, pipe_image_variation
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -26429,9 +26424,6 @@ def run_image_variation(page):
 
 def run_background_remover(page):
     global background_remover_prefs, pipe_background_remover
-    #if not status['installed_diffusers']:
-    #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-    #  return
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -26602,9 +26594,7 @@ def run_background_remover(page):
 loaded_blip_diffusion_task = ""
 def run_blip_diffusion(page, from_list=False, with_params=False):
     global blip_diffusion_prefs, pipe_blip_diffusion, prefs, loaded_blip_diffusion_task
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 10:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run BLIP Diffusion right now. Either Change runtime type to High-RAM mode and restart or use other BLIP Diffusion 2.1 in Extras.")
       return
@@ -27228,9 +27218,7 @@ def run_anytext(page, from_list=False, with_params=False):
 
 def run_ip_adapter(page, from_list=False, with_params=False):
     global ip_adapter_prefs, pipe_ip_adapter, prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     ip_adapter_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -27592,9 +27580,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
 
 def run_reference(page, from_list=False):
     global reference_prefs, pipe_reference
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     if not reference_prefs['reference_attn'] and not reference_prefs['reference_adain']:
       alert_msg(page, "Reference Attention and/or Reference Adain must be set to True... ")
       return
@@ -27775,9 +27761,7 @@ def run_reference(page, from_list=False):
 
 def run_controlnet_qr(page, from_list=False):
     global controlnet_qr_prefs, pipe_controlnet_qr, pipe_controlnet
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -28083,9 +28067,7 @@ def run_controlnet_qr(page, from_list=False):
 
 def run_controlnet_segment(page, from_list=False):
     global controlnet_segment_prefs, pipe_controlnet_segment
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -28303,9 +28285,7 @@ def run_controlnet_segment(page, from_list=False):
 
 def run_EDICT(page):
     global EDICT_prefs, prefs, status, pipe_EDICT, text_encoder_EDICT
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(EDICT_prefs['init_image']):
       alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
       return
@@ -28459,9 +28439,7 @@ def run_EDICT(page):
 
 def run_DiffEdit(page):
     global DiffEdit_prefs, prefs, status, pipe_DiffEdit, text_encoder_DiffEdit
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(DiffEdit_prefs['init_image']):
       alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
       return
@@ -28649,9 +28627,7 @@ def run_DiffEdit(page):
 
 def run_null_text(page):
     global null_text_prefs, prefs, status, pipe_null_text, text_encoder_null_text
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(null_text_prefs['init_image']):
       alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
       return
@@ -29058,9 +29034,7 @@ def run_CLIPstyler(page):
 
 def run_semantic(page):
     global semantic_prefs, prefs, status, pipe_semantic, model_path
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -29172,9 +29146,7 @@ def run_semantic(page):
 
 def run_demofusion(page, from_list=False, with_params=False):
     global demofusion_prefs, pipe_demofusion, prefs
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     demofusion_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -29379,16 +29351,11 @@ def run_image2text(page):
       alert_msg(page, "To use AIHorde API service, you must provide an API key in settings")
       return
     progress = ProgressBar(bar_height=8)
-    #if not status['installed_diffusers']:
-    #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-    #  return
     if len(image2text_prefs['images']) < 1:
       alert_msg(page, "You must add one or more files to interrogate first... ")
       return
     if image2text_prefs['method'] == "Fuyu-8B":
-        if not status['installed_diffusers']:
-            alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-            return
+        if not check_diffusers(page): return
         installer = Installing("Downloading Fuyu-8B Image2Text Model...")
         prt(installer)
         clear_pipes("fuyu")
@@ -29821,9 +29788,6 @@ def run_BLIP2_image2text(page):
     def clear_last(lines=1):
       clear_line(page.BLIP2_image2text_output, lines=lines)
     progress = ProgressBar(bar_height=8)
-    #if not status['installed_diffusers']:
-    #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-    #  return
     prt(Installing("Installing BLIP2 Image2Text from Salesforce LAVIS..."))
 
     try:
@@ -29893,9 +29857,7 @@ def run_BLIP2_image2text(page):
     play_snd(Snd.ALERT, page)
 
 def run_dance_diffusion(page):
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     global dance_pipe, dance_prefs
     if dance_prefs['dance_model'] == 'Community' or dance_prefs['dance_model'] == 'Custom':
       alert_msg(page, "Custom Community Checkpoints are not functional yet, working on it so check back later... ")
@@ -30085,9 +30047,7 @@ def run_audio_diffusion(page):
     #if not bool(audio_diffusion_prefs['text']):
     #  alert_msg(page, "Provide Text for the AI to create the sound of...")
     #  return
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     total_steps = audio_diffusion_prefs['steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
@@ -30232,9 +30192,6 @@ def run_music_gen(page):
     if not bool(music_gen_prefs['prompt']):
       alert_msg(page, "Provide Text for the AI to create the sound of...")
       return
-    #if not status['installed_diffusers']:
-    #  alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-    #  return
     '''total_steps = music_gen_prefs['steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
@@ -30504,9 +30461,7 @@ def run_dreambooth(page):
       page.dreambooth_output.update()
     def clear_last(lines=1):
       clear_line(page.dreambooth_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     save_path = os.path.join(root_dir, "my_concept")
     error = False
     if not os.path.exists(save_path):
@@ -30696,9 +30651,7 @@ def run_textualinversion(page):
       page.textualinversion_output.update()
     def clear_last(lines=1):
       clear_line(page.textualinversion_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     save_path = os.path.join(root_dir, "my_concept")
     error = False
     if not os.path.exists(save_path):
@@ -30955,9 +30908,7 @@ def run_LoRA_dreambooth(page):
       page.LoRA_dreambooth_output.update()
     def clear_last(lines=1):
       clear_line(page.LoRA_dreambooth_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     save_path = os.path.join(root_dir, "my_model")
     error = False
     if not os.path.exists(save_path):
@@ -31211,9 +31162,7 @@ def run_LoRA(page):
       page.LoRA_output.update()
     def clear_last(lines=1):
       clear_line(page.LoRA_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     save_path = os.path.join(root_dir, "my_model")
     error = False
     if not os.path.exists(save_path):
@@ -31477,9 +31426,7 @@ def run_converter(page):
       page.converter_output.update()
     def clear_last(lines=1):
       clear_line(page.converter_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     model_name = converter_prefs['model_name']
     model_path = converter_prefs['model_path']
     if not bool(converter_prefs['model_name']):
@@ -31709,9 +31656,7 @@ def run_checkpoint_merger(page):
       page.checkpoint_merger_output.update()
     def clear_last(lines=1):
       clear_line(page.checkpoint_merger_output, lines=lines)
-    if not status['installed_diffusers']:
-        alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-        return
+    if not check_diffusers(page): return
     if len(checkpoint_merger_prefs['pretrained_models']) < 2:
         alert_msg(page, "Select 2 or more compatible checkpoint models to the list before running...")
         return
@@ -32074,9 +32019,7 @@ def run_audio_ldm(page):
     if not bool(audioLDM_prefs['text']):
       alert_msg(page, "Provide Text for the AI to create the sound of...")
       return
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     progress = ProgressBar(bar_height=8)
     installer = Installing("Downloading Audio LDM Packages...", )
     prt(installer)
@@ -32157,9 +32100,7 @@ def run_audio_ldm2(page):
     if not bool(audioLDM2_prefs['text']):
       alert_msg(page, "Provide Text for the AI to create the sound of...")
       return
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     progress = ProgressBar(bar_height=8)
     total_steps = audioLDM2_prefs['steps']# * audioLDM2_prefs['batch_size']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -32298,9 +32239,7 @@ def run_music_ldm(page):
     if not bool(musicLDM_prefs['text']):
       alert_msg(page, "Provide Text for the AI to create the music of...")
       return
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     progress = ProgressBar(bar_height=8)
     total_steps = musicLDM_prefs['steps']# * musicLDM_prefs['batch_size']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -32539,10 +32478,7 @@ def run_riffusion(page):
     if not bool(riffusion_prefs['prompt']):
       alert_msg(page, "Provide Text for the AI to create the sound of...")
       return
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
-    
+    if not check_diffusers(page): return
     progress = ProgressBar(bar_height=8)
     installer = Installing("Downloading Riffusion Packages...")
     prt(installer)
@@ -33255,9 +33191,7 @@ def run_voice_fixer(page):
 loaded_StableUnCLIP = None
 def run_unCLIP(page, from_list=False):
     global unCLIP_prefs, pipe_unCLIP, loaded_StableUnCLIP
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -33457,9 +33391,7 @@ def run_unCLIP(page, from_list=False):
 
 def run_unCLIP_image_variation(page, from_list=False):
     global unCLIP_image_variation_prefs, pipe_unCLIP_image_variation
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -33629,9 +33561,7 @@ def run_unCLIP_image_variation(page, from_list=False):
 
 def run_unCLIP_interpolation(page, from_list=False):
     global unCLIP_interpolation_prefs, pipe_unCLIP_interpolation, loaded_StableUnCLIP
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -33795,9 +33725,7 @@ def run_unCLIP_interpolation(page, from_list=False):
 
 def run_unCLIP_image_interpolation(page, from_list=False):
     global unCLIP_image_interpolation_prefs, pipe_unCLIP_image_interpolation
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -33985,9 +33913,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
 
 def run_magic_mix(page, from_list=False):
     global magic_mix_prefs, pipe_magic_mix
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -34183,9 +34109,7 @@ def run_magic_mix(page, from_list=False):
 
 def run_paint_by_example(page):
     global paint_by_example_prefs, prefs, status, pipe_paint_by_example
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(paint_by_example_prefs['original_image']) or (not bool(paint_by_example_prefs['alpha_mask']) and not bool(paint_by_example_prefs['mask_image'])):
       alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
       return
@@ -34363,9 +34287,7 @@ def run_paint_by_example(page):
 
 def run_instruct_pix2pix(page, from_list=False):
     global instruct_pix2pix_prefs, prefs, status, pipe_instruct_pix2pix
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(instruct_pix2pix_prefs['original_image']) and not instruct_pix2pix_prefs['use_init_video']:
       alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
       return
@@ -34645,9 +34567,7 @@ def run_instruct_pix2pix(page, from_list=False):
 
 def run_controlnet(page, from_list=False):
     global controlnet_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_models
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(controlnet_prefs['original_image']) and len(controlnet_prefs['multi_controlnets']) == 0:
       alert_msg(page, "You must provide the Original Image to process...")
       return
@@ -35263,9 +35183,7 @@ def run_controlnet(page, from_list=False):
 
 def run_controlnet_xl(page, from_list=False):
     global controlnet_xl_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_xl_models
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(controlnet_xl_prefs['original_image']) and len(controlnet_xl_prefs['multi_controlnets']) == 0:
       alert_msg(page, "You must provide the Original Image to process...")
       return
@@ -35874,9 +35792,7 @@ def run_controlnet_xl(page, from_list=False):
 
 def run_controlnet_xs(page, from_list=False):
     global controlnet_xs_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_xs_models
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(controlnet_xs_prefs['original_image']) and len(controlnet_xs_prefs['multi_controlnets']) == 0:
       alert_msg(page, "You must provide the Original Image to process...")
       return
@@ -36388,9 +36304,7 @@ def run_controlnet_xs(page, from_list=False):
 
 def run_controlnet_tile_upscale(page, source_image, prompt="best quality", scale_factor=2.5):
     global controlnet_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_models
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using ControlNet Tile Upscale...")
-      return
+    if not check_diffusers(page): return
     from diffusers import ControlNetModel, DiffusionPipeline
 
     def resize_for_condition_image(input_image: PILImage, resolution: int):
@@ -36430,9 +36344,7 @@ def run_controlnet_tile_upscale(page, source_image, prompt="best quality", scale
 
 def run_controlnet_video2video(page):
     global controlnet_video2video_prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -36616,9 +36528,6 @@ def run_controlnet_video2video(page):
 def run_deepfloyd(page, from_list=False):
     global deepfloyd_prefs, prefs, status, pipe_deepfloyd, pipe_deepfloyd2, pipe_deepfloyd3
     import torch
-    #if not status['installed_diffusers']:
-    #  alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-    #  return
     #if not bool(deepfloyd_prefs['init_image']):
     #  alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
     #  return
@@ -37147,9 +37056,7 @@ def run_deepfloyd(page, from_list=False):
 
 def run_amused(page, from_list=False, with_params=False):
     global amused_prefs, pipe_amused, prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     amused_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -37400,9 +37307,7 @@ def run_amused(page, from_list=False, with_params=False):
 
 def run_wuerstchen(page, from_list=False, with_params=False):
     global wuerstchen_prefs, pipe_wuerstchen, prefs
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     wuerstchen_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -38667,9 +38572,7 @@ def run_instaflow(page, from_list=False, with_params=False):
 
 def run_ldm3d(page, from_list=False, with_params=False):
     global ldm3d_prefs, pipe_ldm3d, pipe_ldm3d_upscale, prefs
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     ldm3d_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -38917,9 +38820,6 @@ def run_task_matrix(page):
       alert_msg(page, "You must provide your OpenAI API Key in Settings to use...")
       return
     if not check_diffusers(page): return
-    #if not status['installed_diffusers']:
-    #  alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-    #  return
     if not bool(task_matrix_prefs['prompt']):
       alert_msg(page, "You must provide a request to process your image generation...")
       return
@@ -38940,7 +38840,7 @@ def run_task_matrix(page):
         status['active_modules'] = []
     clear_pipes("task_matrix")
     autoscroll(True)
-    if status['active_modules'] != task_matrix_prefs['modeles']:
+    if status['active_modules'] != task_matrix_prefs['modules']:
         installer = Installing("Installing TaskMatrix Visual ChatGPT Pipeline...")
         prt(installer)
     if pipe_task_matrix is None:
@@ -38958,8 +38858,8 @@ def run_task_matrix(page):
             import segment_anything
         except ModuleNotFoundError:
             installer.status("...facebookresearch/segment-anything")
-            run_sp("pip install git+https://github.com/facebookresearch/segment-anything.git", print=True)
-        pip_install("langchain==0.0.101 accelerate addict albumentations basicsr controlnet-aux einops gradio imageio imageio-ffmpeg invisible-watermark|imwatermark kornia numpy omegaconf open_clip_torch openai opencv-python prettytable safetensors streamlit test-tube timm torchmetrics webdataset yapf mediapipe", installer=installer)
+            run_sp("pip install git+https://github.com/facebookresearch/segment-anything.git") #langchain==0.0.101
+        pip_install("langchain accelerate addict albumentations basicsr controlnet-aux einops gradio imageio imageio-ffmpeg invisible-watermark|imwatermark kornia numpy omegaconf open_clip_torch openai opencv-python prettytable safetensors streamlit test-tube timm torchmetrics webdataset yapf mediapipe", print=False, installer=installer)
         os.environ['OPENAI_API_KEY'] = prefs['OpenAI_api_key']
         make_dir(os.path.join(task_matrix_dir, 'checkpoint'))
     try:
@@ -38974,8 +38874,7 @@ def run_task_matrix(page):
         load_dict = {'ImageCaptioning': 'cuda:0'}
         for m in task_matrix_prefs['modules']:
             load_dict[m] = 'cuda:0'
-        pipe_task_matrix = None
-        flush()
+        clear_task_matrix_pipe()
         pipe_task_matrix = ConversationBot(load_dict=load_dict)
         pipe_task_matrix.init_agent("English")
         clear_last()
@@ -39039,9 +38938,7 @@ def run_task_matrix(page):
 
 def run_text_to_video(page):
     global text_to_video_prefs, prefs, status, pipe_text_to_video, model_path
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -39191,9 +39088,7 @@ def run_text_to_video(page):
 
 def run_text_to_video_zero(page):
     global text_to_video_zero_prefs, prefs, status, pipe_text_to_video_zero, model_path
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -39347,9 +39242,7 @@ def run_text_to_video_zero(page):
 
 def run_video_to_video(page):
     global video_to_video_prefs, prefs, status, pipe_video_to_video, model_path
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -39552,9 +39445,7 @@ def run_video_to_video(page):
 
 def run_controlnet_temporalnet(page):
     global controlnet_temporalnet_prefs, prefs, status, pipe_controlnet, controlnet
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -39726,9 +39617,7 @@ def run_infinite_zoom(page):
     def autoscroll(scroll=True):
         page.InfiniteZoom.auto_scroll = scroll
         page.InfiniteZoom.update()
-    if not status['installed_diffusers']:
-        alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-        return
+    if not check_diffusers(page): return
     if len(infinite_zoom_prefs['animation_prompts']) == 0:
         if bool(infinite_zoom_prefs['prompt']):
             infinite_zoom_prefs['animation_prompts']['0'] = infinite_zoom_prefs['prompt']
@@ -40071,9 +39960,7 @@ def run_infinite_zoom(page):
 
 def run_potat1(page):
     global potat1_prefs, prefs, status, pipe_potat1, model_path
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -40492,9 +40379,7 @@ def run_stable_animation(page):
 
 def run_svd(page):
     global svd_prefs, prefs, status, pipe_svd
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if not bool(svd_prefs['init_image']):
       alert_msg(page, "You need to provide an Initial Image to animate before using...")
       return
@@ -41169,9 +41054,7 @@ def run_style_crafter(page):
 
 def run_rave(page):
     global rave_prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -41369,9 +41252,7 @@ def run_rave(page):
 
 def run_tokenflow(page):
     global tokenflow_prefs, prefs, status, pipe_tokenflow, model_path
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -41522,9 +41403,6 @@ def run_tokenflow(page):
 
 def run_animate_diff(page):
     global animate_diff_prefs, prefs, status, pipe_animate_diff, model_path
-    #if not status['installed_diffusers']:
-    #  alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-    #  return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -42296,9 +42174,7 @@ def run_animate_diff(page):
 
 def run_animatediff_img2video(page, from_list=False, with_params=False):
     global animatediff_img2video_prefs, pipe_animatediff_img2video, prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     animatediff_img2video_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -42638,9 +42514,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
 
 def run_pia(page, from_list=False, with_params=False):
     global pia_prefs, pipe_pia, prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     pia_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -42886,9 +42760,7 @@ def run_pia(page, from_list=False, with_params=False):
 
 def run_i2vgen_xl(page, from_list=False, with_params=False):
     global i2vgen_xl_prefs, pipe_i2vgen_xl, prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     i2vgen_xl_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -43110,9 +42982,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
 
 def run_hotshot_xl(page):
     global hotshot_xl_prefs, prefs, status, pipe_hotshot_xl, model_path
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
@@ -43252,9 +43122,7 @@ def run_hotshot_xl(page):
 
 def run_rerender_a_video(page):
     global rerender_a_video_prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -43663,9 +43531,7 @@ def run_materialdiffusion(page):
 
 def run_DiT(page, from_list=False):
     global DiT_prefs, pipe_DiT
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line)
@@ -43799,9 +43665,7 @@ def run_dreamfusion(page):
       page.dreamfusion_output.update()
     def clear_last(lines=1):
       clear_line(page.dreamfusion_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install HuggingFace Diffusers Pipeline before running...")
-      return
+    if not check_diffusers(page): return
     if not bool(dreamfusion_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
@@ -43867,9 +43731,7 @@ def run_point_e(page):
         status_txt.update()
     def clear_last(lines=1):
       clear_line(page.point_e_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install HuggingFace Diffusers Pipeline before running...")
-      return
+    if not check_diffusers(page): return
     if not bool(point_e_prefs["prompt_text"].strip()):
       alert_msg(page, "You must enter a simple prompt to generate 3D model from...")
       return
@@ -44044,9 +43906,7 @@ def run_point_e(page):
 
 def run_shap_e(page):
     global shap_e_prefs, status
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -44581,9 +44441,7 @@ def run_instant_ngp(page):
       page.instant_ngp_output.update()
     def clear_last(lines=1):
       clear_line(page.instant_ngp_output, lines=lines)
-    if not status['installed_diffusers']:
-      alert_msg(page, "You must Install the HuggingFace Diffusers Library first... ")
-      return
+    if not check_diffusers(page): return
     save_path = os.path.join(root_dir, "my_ngp")
     error = False
     if not os.path.exists(save_path):
@@ -45110,9 +44968,7 @@ def run_dall_e_3(page, from_list=False):
 loaded_kandinsky_task = ""
 def run_kandinsky3(page, from_list=False, with_params=False):
     global kandinsky_3_prefs, pipe_kandinsky, prefs, loaded_kandinsky_task
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 10:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 3 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
       return
@@ -45355,9 +45211,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
 
 def run_kandinsky(page, from_list=False, with_params=False):
     global kandinsky_prefs, pipe_kandinsky, pipe_kandinsky_prior, prefs, loaded_kandinsky_task
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 10:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 2.2 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
       return
@@ -45826,9 +45680,7 @@ def run_kandinsky21(page):
 
 def run_kandinsky_fuse(page):
     global kandinsky_fuse_prefs, pipe_kandinsky, pipe_kandinsky_prior, prefs, loaded_kandinsky_task
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 12:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 2.2 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
       return
@@ -46125,9 +45977,7 @@ def run_kandinsky21_fuse(page):
 
 def run_kandinsky_controlnet(page, from_list=False, with_params=False):
     global kandinsky_controlnet_prefs, pipe_kandinsky, pipe_kandinsky_controlnet_prior, prefs, loaded_kandinsky_task, depth_estimator
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 12:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Kandinsky 2.2 right now. Either Change runtime type to High-RAM mode and restart or use other Kandinsky 2.1 in Extras.")
       return
@@ -46832,7 +46682,8 @@ class FileInput(UserControl):
             gif_ext = ["gif", "GIF"]
             aud_ext = ["mp3", "wav", "MP3", "WAV"]
             font_ext = ["ttf", "TTF"]
-            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
+            model_ext = ["fbx", "obj", "stl", "gltf", "glb"]
+            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else model_ext if self.ftype == "model" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
             self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
         def changed(e):
@@ -47481,6 +47332,7 @@ def check_diffusers(page:Page):
           else:
             page.banner.content.controls.append(Text(msg.strip(), weight=FontWeight.BOLD, color=colors.GREEN_600))
           page.update()
+        page.console_msg = console_msg
         page.banner.content = Column([], scroll=ScrollMode.AUTO, auto_scroll=True, tight=True, spacing=0, alignment=MainAxisAlignment.END)
         page.banner.open = True
         console_msg("Installing Hugging Face Diffusers Pipeline...")
@@ -47491,7 +47343,7 @@ def check_diffusers(page:Page):
         page.banner.update()
         page.update()
     if not status['installed_diffusers']:
-        diffusers_button = ElevatedButton(content=Text("🔄  Install Diffusers Now", size=18), on_click=install_diffusers) if prefs['install_diffusers'] else Container(content=None)
+        diffusers_button = ft.FilledTonalButton(content=Text("🔄  Install Diffusers Now", size=18), on_click=install_diffusers) if prefs['install_diffusers'] else Container(content=None)
         alert_msg(page, "🤗  You need to Install HuggingFace Diffusers before using...", buttons=[diffusers_button])
         return False
     else:
