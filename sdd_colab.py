@@ -1058,6 +1058,7 @@ if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] 
 if 'panorama_width' not in prefs: prefs['panorama_width'] = 2048
 if 'AI_engine' not in prefs['prompt_generator']: prefs['prompt_generator']['AI_engine'] = 'ChatGPT-3.5 Turbo'
 if 'AI_engine' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AI_engine'] = 'ChatGPT-3.5 Turbo'
+if 'meshy_api_key' not in prefs: prefs['meshy_api_key'] = ''
 if 'luma_api_key' not in prefs: prefs['luma_api_key'] = ''
 if 'AIHorde_api_key' not in prefs: prefs['AIHorde_api_key'] = '0000000000'
 if 'install_AIHorde_api' not in prefs: prefs['install_AIHorde_api'] = False
@@ -1497,6 +1498,7 @@ def buildInstallers(page):
                 #dropdown.Option("DPM Stochastic"),
                 dropdown.Option("K-Euler Discrete"),
                 dropdown.Option("K-Euler Ancestral"),
+                dropdown.Option("EDM Euler"),
                 dropdown.Option("DEIS Multistep"),
                 dropdown.Option("UniPC Multistep"),
                 dropdown.Option("Heun Discrete"),
@@ -1554,6 +1556,7 @@ def buildInstallers(page):
 * **SDE-DPM Solver++ -** A fast Stochastic Differential Equation solver for the reverse diffusion SDE. Introduces some random drift to the process on each step to possibly find a route to a better solution than a fully deterministic solver.
 * **K-Euler Discrete -** This is a fast scheduler which can often generate good outputs in 20-40 steps. From the Elucidating the Design Space of Diffusion-Based Generative Models paper.
 * **K-Euler Ancestral -** Uses ancestral sampling with Euler method steps. This is a fast scheduler which can often generate good outputs in 30-40 steps. One of my personal favorites with the subtleties.
+* **EDM Euler -** The Euler scheduler in EDM formulation as presented in Elucidating the Design Space of Diffusion-Based Generative Models. Solely intended for models that use EDM formulation, like SVD
 * **DEIS Multistep -** Diffusion Exponential Integrator Sampler modifies the polynomial fitting formula in log-rho space instead of the original linear `t` space in the DEIS paper. The modification enjoys closed-form coefficients for exponential multistep update instead of replying on the numerical solver. aims to accelerate the sampling process while maintaining high sample quality. 
 * **UniPC Multistep -** Unified Predictor-Corrector inspired by the predictor-corrector method in ODE solvers, it can achieve high-quality image generation in 5-10 steps. Combines UniC and UniP to create a powerful image improvement tool.
 * **Heun Discrete -** A more accurate improvement to Euler's method, but needs to predict noise twice in each step, so it is twice as slow as Euler. Uses a correction step to reduce error and is thus an example of a predictor–corrector algorithm.
@@ -20165,11 +20168,13 @@ def get_SDXL_LoRA_model(name):
   return {'name':'', 'path':''}
 def get_SDXL_model(name):
   if name == "Custom Model":
-      return {'name':"Custom SDXL Model", 'path':prefs['SDXL_custom_model'], 'prefix':'', 'variant': 'fp16'}
+      safetensors = True if '.safetensors' in prefs['SDXL_custom_model'] else False
+      return {'name':"Custom SDXL Model", 'path':prefs['SDXL_custom_model'], 'prefix':'', 'variant': 'fp16', 'use_safetensors': safetensors}
   for mod in SDXL_models:
+      safetensors = mod['use_safetensors'] if 'use_safetensors' in mod else False
       if mod['name'] == name:
         extra = {key: mod.get(key) for key in ['variant', 'revision', 'vae'] if key in mod}
-        return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'] if 'prefix' in mod else '', **extra}
+        return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'] if 'prefix' in mod else '', 'use_safetensors': safetensors, **extra}
 
 HFapi = None
 def get_diffusers(page):
@@ -20435,6 +20440,9 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
       s = EulerAncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "EDM Euler":
+      from diffusers import EDMEulerScheduler
+      s = EDMEulerScheduler.from_pretrained(model, subfolder="scheduler")
     elif scheduler_mode == "Karras-LMS":
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
@@ -20551,6 +20559,9 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None, tra
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
       s = EulerAncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
+    elif scheduler_mode == "EDM Euler":
+      from diffusers import EDMEulerScheduler
+      s = EDMEulerScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "Karras-LMS":
       from diffusers import LMSDiscreteScheduler
       s = LMSDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config)
@@ -21043,6 +21054,7 @@ def get_SD_pipe(task="txt2img"):
   from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, AutoPipelineForInpainting
   model = get_model(prefs['model_ckpt'])
   model_path = model['path']
+  safetensors = model['use_safetensors'] if 'use_safetensors' in model else False
   if pipe is not None:
     if 'from_ckpt' in model and task != status['loaded_task']:
       clear_pipes()
@@ -21371,6 +21383,7 @@ def get_SDXL_pipe(task="text2image"):
       pip_install("compel", upgrade=True)
   SDXL_model = get_SDXL_model(prefs['SDXL_model'])
   model_id = SDXL_model['path']#"stabilityai/stable-diffusion-xl-base-1.0"
+  safetensors = SDXL_model['use_safetensors'] if 'use_safetensors' in SDXL_model else False
   refiner_id = "stabilityai/stable-diffusion-xl-refiner-1.0"
   if SDXL_model['path'] != status['loaded_SDXL_model'] or task != status['loaded_SDXL']:
       clear_pipes()
@@ -21396,7 +21409,7 @@ def get_SDXL_pipe(task="text2image"):
           model_id,
           torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
           vae=vae,
-          use_safetensors=True,
+          use_safetensors=safetensors,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
           **variant, **safety,
@@ -21414,7 +21427,7 @@ def get_SDXL_pipe(task="text2image"):
   elif task == "image2image":
       status['loaded_SDXL'] = task
       pipe_SDXL = StableDiffusionXLImg2ImgPipeline.from_pretrained(
-          model_id, torch_dtype=torch.float16, use_safetensors=True,
+          model_id, torch_dtype=torch.float16, use_safetensors=safetensors,
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
@@ -21434,7 +21447,7 @@ def get_SDXL_pipe(task="text2image"):
       status['loaded_SDXL'] = task
       from diffusers import StableDiffusionXLInpaintPipeline
       pipe_SDXL = StableDiffusionXLInpaintPipeline.from_pretrained(
-          "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, use_safetensors=True,
+          "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=torch.float16, use_safetensors=safetensors,
           vae=vae,
           add_watermarker=watermark,
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
@@ -40409,7 +40422,7 @@ def run_svd(page):
     prt(installer)
     model_id = "stabilityai/stable-video-diffusion-img2vid-xt-1-1" if 'XT 1.1' in svd_prefs['svd_model'] else "stabilityai/stable-video-diffusion-img2vid-xt" if 'XT' in svd_prefs['svd_model'] else "stabilityai/stable-video-diffusion-img2vid"
     svd_prefs['num_frames'] = 25 if 'XT' in svd_prefs['svd_model'] else 14
-    from diffusers import StableVideoDiffusionPipeline
+    from diffusers import StableVideoDiffusionPipeline, EDMEulerScheduler
     if 'loaded_svd' not in status: status['loaded_svd'] = ""
     if model_id != status['loaded_svd']:
         clear_pipes()
@@ -40435,6 +40448,7 @@ def run_svd(page):
             helper = DeepCacheSDHelper(pipe=pipe_svd)
             helper.set_params(cache_interval=3, cache_branch_id=0)
             helper.enable()
+        pipe_svd.scheduler = EDMEulerScheduler.from_pretrained(model_id, subfolder="scheduler")
         status['loaded_svd'] = model_id
     #clear_pipes('svd')
     vid_length = svd_prefs['num_frames'] / svd_prefs['fps']
