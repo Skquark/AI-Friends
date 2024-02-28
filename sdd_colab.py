@@ -813,6 +813,7 @@ def build3DAIs(page):
     page.MarigoldDepth = buildMarigoldDepth(page)
     page.LDM3D = buildLDM3D(page)
     page.InstantNGP = buildInstantNGP(page)
+    page.Meshy = buildMeshy(page)
     page.Luma = buildLuma(page)
     diffusersTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
@@ -823,6 +824,7 @@ def build3DAIs(page):
             Tab(text="MarigoldDepth", content=page.MarigoldDepth, icon=icons.FILTER_VINTAGE),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
+            Tab(text="Meshy.ai", content=page.Meshy, icon=icons.IRON),
             Tab(text="Luma Video-to-3D", content=page.Luma, icon=icons.NIGHTS_STAY),
         ],
     )
@@ -6013,6 +6015,117 @@ def buildInstantNGP(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+meshy_prefs = {
+    'meshy_mode': 'text-to-3d',
+    'init_image': '',
+    'init_model': '',
+    'title': '',
+    'prompt': '',
+    'negative_prompt': 'low quality, low resolution, low poly, ugly',
+    'style_prompt': '',
+    'art_style_texture': 'Realistic',
+    'art_style_3d': 'Realistic',
+    'texture_richness': 'High',
+    'resolution': '2048',
+    'seed': '0',
+    'meshy_api_key': '',
+    'batch_folder_name': '',
+}
+def buildMeshy(page):
+    global meshy_prefs, prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            meshy_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            meshy_prefs[pref] = float(e.control.value)
+          else:
+            meshy_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def changed_pref(e, pref=None):
+      if pref is not None:
+        prefs[pref] = e.control.value
+        status['changed_parameters'] = True
+    def meshy_help(e):
+      def close_meshy_dlg(e):
+        nonlocal meshy_help_dlg
+        meshy_help_dlg.open = False
+        page.update()
+      meshy_help_dlg = AlertDialog(title=Text("🙅   Help with Meshy 3D"), content=Column([
+          Text("Meshy is your 3D generative AI toolbox for effortlessly creating 3D assets from text or images, accelerating your 3D workflow. With Meshy, you can create high-quality textures and 3D models in minutes. Meshy is powered by the latest advances in AI and machine learning, and is built for designers, artists, and developers. Whether you're a 3D artist, a game developer, or a creative coder, Meshy can help you create 3D assets faster than ever before."),
+          Markdown("[Meshy.ai](https://meshy.ai) | [Meshy API Docs](https://docs.meshy.ai) | [API Key](https://app.meshy.ai/settings/api) | [Cost](https://docs.meshy.ai/api-introduction#pricing) | [Pricing](https://www.meshy.ai/pricing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🌚  It's Getting Meshy", on_click=close_meshy_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = meshy_help_dlg
+      meshy_help_dlg.open = True
+      page.update()
+    def change_mode(e):
+        mode = e.data.split('"')[1]
+        meshy_prefs['meshy_mode'] = mode
+        init_image.show = mode == "image-to-3d"
+        init_image.update()
+        init_model.show = mode == "text-to-texture"
+        init_model.update()
+        style_prompt.visible = mode == "text-to-texture"
+        style_prompt.update()
+        art_style_texture.visible = mode == "text-to-texture"
+        art_style_texture.update()
+        art_style_3d.visible = mode == "text-to-3d"
+        art_style_3d.update()
+        seed.visible = mode == "text-to-3d"
+        seed.update()
+        resolution.visible = mode == "text-to-texture"
+        resolution.update()
+        prompt_container.visible = mode != "image-to-3d"
+        prompt_container.update()
+        texture_richness.visible = mode == "text-to-3d"
+        texture_richness.update()
+        credits = 10 if mode == "text-to-texture" else 3 if mode == "text-to-3d" else 20
+        run_button.content.value = f"🚮  Run Meshy {mode.title()} ({credits} Credits)"
+        run_button.update()
+    selected_mode = ft.SegmentedButton(on_change=change_mode, selected={meshy_prefs['meshy_mode']}, allow_multiple_selection=False,
+        segments=[
+            ft.Segment(value="text-to-texture", label=ft.Text("Text-to-Texture"), icon=ft.Icon(ft.icons.TEXTURE)),
+            ft.Segment(value="text-to-3d", label=ft.Text("Text-to-3D"), icon=ft.Icon(ft.icons.FORMAT_COLOR_TEXT)),
+            ft.Segment(value="image-to-3d", label=ft.Text("Image-to-3D"), icon=ft.Icon(ft.icons.IMAGE)),
+        ],
+    )
+    prompt = TextField(label="Object Prompt Text", value=meshy_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=meshy_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    prompt_container = Container(content=ResponsiveRow([prompt, negative_prompt]), visible=meshy_prefs['meshy_mode']!="image-to-3d")
+    init_image = FileInput(label="Initial Image", pref=meshy_prefs, key='init_image', visible=meshy_prefs['meshy_mode']=="image-to-3d", page=page)
+    init_model = FileInput(label="Initial 3D Model Mesh", pref=meshy_prefs, key='init_model', ftype="model", visible=meshy_prefs['meshy_mode']=="text-to-texture", page=page)
+    style_prompt = TextField(label="Style Prompt Text", value=meshy_prefs['style_prompt'], multiline=True, visible=meshy_prefs['meshy_mode']=="text-to-texture", on_change=lambda e:changed(e,'style_prompt'))
+    art_style_texture = Dropdown(label="Art Style", width=210, options=[dropdown.Option(s) for s in ['Realistic', 'Voxel', 'Fake-3D-Cartoon', 'Japanese-Anime', 'Cartoon-Line-Art', 'Realistic-Hand-Drawn', 'Fake-3D-Hand-Drawn', 'Oriental-Comic-Ink']], value=meshy_prefs['art_style_texture'], visible=meshy_prefs['meshy_mode']=="text-to-texture", on_change=lambda e:changed(e,'art_style_texture'))
+    art_style_3d = Dropdown(label="Art Style", width=140, options=[dropdown.Option(s) for s in ['Realistic', 'Cartoon', 'Low-Poly']], value=meshy_prefs['art_style_3d'], visible=meshy_prefs['meshy_mode']=="text-to-3d", on_change=lambda e:changed(e,'art_style_3d'))
+    texture_richness = Dropdown(label="Texture Richness", width=140, options=[dropdown.Option(s) for s in ['High', 'Medium', 'Low', 'None']], value=meshy_prefs['texture_richness'], visible=meshy_prefs['meshy_mode']=="text-to-3d", on_change=lambda e:changed(e,'texture_richness'), tooltip="When Refining: high for realistic, medium for cartoon, none for low-poly")
+    resolution = Dropdown(label="Resolution", width=100, options=[dropdown.Option(s) for s in ['1024', '2048', '4096']], value=meshy_prefs['resolution'], visible=meshy_prefs['meshy_mode']=="text-to-texture", on_change=lambda e:changed(e,'resolution'))
+    title = TextField(label="Project Title", value=meshy_prefs['title'], expand=True, on_change=lambda e:changed(e,'title'))
+    meshy_api_key = TextField(label="Meshy.ai API Key", value=prefs['meshy_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e,'meshy_api_key'))
+    api_instructions = Markdown("Sign-up and create your Meshy.ai API Key here [https://app.meshy.ai/settings/api](https://app.meshy.ai/settings/api) to get 200 credits a month free...", on_tap_link=lambda e: e.page.launch_url(e.data))
+    seed = TextField(label="Seed", width=90, value=str(meshy_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", visible=meshy_prefs['meshy_mode']=="text-to-3d", on_change=lambda e:changed(e,'seed', ptype='int'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=meshy_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    run_button = ElevatedButton(content=Text("🚮  Run Meshy Text-To-3D (3 Credits)", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_meshy(page))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🍄  Meshy.ai 3D Generation API", "Uses credits from their servers to create quality mesh models. Can take 3-15 minutes per, bug gives really good results...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Meshy API Settings", on_click=meshy_help)]),
+        Row([Text("Meshy Mode:", weight=FontWeight.BOLD), selected_mode]),
+        init_model,
+        prompt_container,
+        style_prompt,
+        init_image,
+        Row([art_style_texture, art_style_3d, texture_richness, resolution, seed]),
+        Divider(thickness=2, height=4),
+        api_instructions,
+        meshy_api_key,
+        Row([batch_folder_name, title]),
+        run_button,
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
 
 luma_vid_to_3d_prefs = {
     'init_video': '',
@@ -44577,6 +44690,223 @@ def run_instant_ngp(page):
     prt(Markdown(f"## Your model was saved successfully to _{output_dir}_.\nNow take those files and load then locally on Windows following [instant-ngp gui instructions](https://github.com/NVlabs/instant-ngp#testbed-controls) to export videos and meshes or try MeshLab... (wish we can do that for ya here)", on_tap_link=lambda e: e.page.launch_url(e.data)))
     play_snd(Snd.ALERT, page)
 
+def run_meshy(page):
+    global meshy_prefs
+    def prt(line):
+        if type(line) == str:
+            line = Text(line, size=17)
+        page.Meshy.controls.append(line)
+        page.Meshy.update()
+    def clear_last(lines=1):
+      clear_line(page.Meshy, lines=lines)
+    def clear_list():
+      page.Meshy.controls = page.Meshy.controls[:1]
+    def autoscroll(scroll=True):
+      page.Meshy.auto_scroll = scroll
+      page.Meshy.update()
+    if not bool(prefs["meshy_api_key"]):
+        alert_msg(page, f"ERROR: You must provide your own Meshy.ai API Key to use...")
+        return
+    mode = meshy_prefs['meshy_mode']
+    if not bool(meshy_prefs['init_model']) and mode == "text-to-texture":
+        alert_msg(page, f"ERROR: You must provide your 3D Model file to apply a texture onto.")
+        return
+    if not bool(meshy_prefs['init_image']) and mode == "image-to-3d":
+        alert_msg(page, f"ERROR: You must provide your image to create 3D Mesh from.")
+        return
+    autoscroll(True)
+    clear_list()
+    if mode == "text-to-texture":
+        model_path = meshy_prefs["init_model"]
+        if model_path.startswith('http'):
+            model_path = download_file(model_path, uploads_dir)
+        else:
+            if not os.path.isfile(model_path):
+                alert_msg(page, f"ERROR: Couldn't find your init_model {model_path}")
+                return
+    if mode == "image-to-3d":
+        image_path = meshy_prefs["init_image"]
+        if image_path.startswith('http'):
+            image_path = download_file(image_path, uploads_dir)
+        else:
+            if not os.path.isfile(image_path):
+                alert_msg(page, f"ERROR: Couldn't find your init_image {image_path}")
+                return
+    file_name = format_filename(meshy_prefs['title']) if bool(meshy_prefs['title']) else format_filename(meshy_prefs['prompt']) if bool(meshy_prefs['prompt']) else format_filename(meshy_prefs['batch_folder_name'])
+    batch_output = os.path.join(prefs['image_output'], meshy_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    pb = Progress(f"Running Meshy {mode.title()} API Client...")
+    prt(pb)
+    headers = {"Authorization": f"Bearer {prefs['meshy_api_key']}"}
+    random_seed = 0
+    if mode == "text-to-texture":
+        dest = "v1/text-to-texture"
+        payload = {
+            "model_url": model_path,
+            "object_prompt": meshy_prefs["prompt"],
+            "style_prompt": meshy_prefs["style_prompt"],
+            "art_style": meshy_prefs["art_style_texture"].lower(),
+            "enable_original_uv": True,
+            "enable_pbr": True,
+            "resolution": meshy_prefs["resolution"],
+            "negative_prompt": meshy_prefs["negative_prompt"]
+        }
+    elif mode == "text-to-3d":
+        dest = "v2/text-to-3d"
+        random_seed = int(meshy_prefs['seed']) if int(meshy_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        payload = {
+            "mode": "preview",
+            "prompt": meshy_prefs["prompt"],
+            "art_style": meshy_prefs["art_style_3d"].lower(),
+            "seed": random_seed,
+            "negative_prompt": meshy_prefs["negative_prompt"]
+        }
+    elif mode == "image-to-3d":
+        dest = "v1/image-to-3d"
+        payload = {
+            "image_url": image_path,
+            "enable_pbr": True,
+        }
+    try:
+        response = requests.post(
+            f"https://api.meshy.ai/{dest}",
+            headers=headers,
+            json=payload,
+        )
+        response.raise_for_status()
+        results = response.json()
+        if response.status_code >= 400:
+            alert_msg(page, f"ERROR Code {response.status_code} Running API", content=Text(results['message']))
+            return
+        task_id = results['result']
+        #print(response.json())
+        #pb.set_message(f"Running Meshy.ai 3D... Credits {credits.remaining}/{credits.total}")
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Problem with Meshy API Client...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    pb.status(f"...submitted task: {task_id}")
+    try:
+        while True:
+            response = requests.get(f"https://api.meshy.ai/{dest}/{task_id}", headers=headers)
+            response.raise_for_status()
+            results = response.json()
+            percent = int(results['progress'])
+            status_info = results['status']
+            pb.progress.value = percent * 0.01 if percent != 0 else None
+            pb.progress.update()
+            pb.status(f"...status: {status_info}")
+            if status_info == "SUCCEEDED" or status_info == "FAILED" or status_info == "EXPIRED":
+                break
+            time.sleep(5)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, f"ERROR: Problem checking Task Status...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    clear_last()
+    if 'thumbnail_url' in results:
+        thumbnail = download_file(results['thumbnail_url'], batch_output, file_name)
+        save_metadata(thumbnail, meshy_prefs, f"Meshy.ai {mode.title()}", seed=random_seed)
+        prt(Row([ImageButton(src=thumbnail, data=thumbnail, width=256, height=256, page=page)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Text(thumbnail)], alignment=MainAxisAlignment.CENTER))
+    if 'model_urls' in results:
+        models = []
+        for model, url in results['model_urls'].items():
+            filename = available_file(batch_output, file_name, ext=model, no_num=True)
+            fname = os.path.basename(filename).rpartition('.')[0]
+            filename = download_file(url, batch_output, fname, ext=model)
+            f = filepath_to_url(filename)
+            models.append(f"[{model}]({f})")
+        model_names = and_list(models)
+        prt(Row([Markdown(f"Saved Models as {model_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+    #print(results)
+    if 'texture_urls' in results:
+        textures = []
+        for result in results['texture_urls']:
+            for texture, url in result.items():
+                filename = available_file(batch_output, f"{file_name}-{texture}", no_num=True)
+                fname = os.path.basename(filename).rpartition('.')[0]
+                filename = download_file(url, batch_output, fname)
+                f = filepath_to_url(filename)
+                textures.append(f"[{texture}]({f})")
+            texture_names = and_list(textures)
+            prt(Row([Markdown(f"Saved Textures {texture_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+    play_snd(Snd.ALERT, page)
+    def refine_model(preview_task):
+        clear_last()
+        pb.progress.value = None
+        prt(pb)
+        payload = {
+            "mode": "refine",
+            "preview_task_id": preview_task,
+            "texture_richness": meshy_prefs["texture_richness"].lower()
+        }
+        try:
+            response = requests.post(
+                f"https://api.meshy.ai/v2/text-to-3d",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            results = response.json()
+            refine_task_id = results['result']
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Problem with Meshy Refine API Client...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        pb.status(f"...refine task id: {refine_task_id}")
+        try:
+            while True:
+                response = requests.get(f"https://api.meshy.ai/v2/text-to-3d/{refine_task_id}", headers=headers)
+                response.raise_for_status()
+                results = response.json()
+                percent = int(results['progress'])
+                status_info = results['status']
+                pb.progress.value = percent * 0.01 if percent != 0 else None
+                pb.progress.update()
+                pb.status(f"...status: {status_info}")
+                if status_info == "SUCCEEDED" or status_info == "FAILED" or status_info == "EXPIRED":
+                    break
+                time.sleep(5)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR: Problem checking Task Status...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last()
+        autoscroll(True)
+        if 'thumbnail_url' in results:
+            thumbnail = download_file(results['thumbnail_url'], batch_output, "refined-"+file_name)
+            save_metadata(thumbnail, meshy_prefs, f"Meshy.ai {mode.title()}", seed=random_seed)
+            prt(Row([ImageButton(src=thumbnail, data=thumbnail, width=256, height=256, page=page)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([Text(thumbnail)], alignment=MainAxisAlignment.CENTER))
+        if 'model_urls' in results:
+            models = []
+            for model, url in results['model_urls'].items():
+                filename = available_file(batch_output, file_name+"-refined", ext=model, no_num=True)
+                fname = os.path.basename(filename).rpartition('.')[0]
+                filename = download_file(url, batch_output, fname, ext=model)
+                f = filepath_to_url(filename)
+                models.append(f"[{model}]({f})")
+            model_names = and_list(models)
+            prt(Row([Markdown(f"Saved Refined Models as {model_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+        if 'texture_urls' in results:
+            textures = []
+            for result in results['texture_urls']:
+                for texture, url in result.items():
+                    filename = available_file(batch_output, f"{file_name}-refined-{texture}", no_num=True)
+                    fname = os.path.basename(filename).rpartition('.')[0]
+                    filename = download_file(url, batch_output, fname)
+                    f = filepath_to_url(filename)
+                    textures.append(f"[{texture}]({f})")
+                texture_names = and_list(textures)
+                prt(Row([Markdown(f"Saved Refined Textures {texture_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+        autoscroll(False)
+        play_snd(Snd.ALERT, page)
+    if mode == "text-to-3d":
+        prt(Row([ft.FilledTonalButton("Refine 3D Model (+20 Credits)", on_click=lambda e:refine_model(task_id))], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+
+
 def run_luma_vid_to_3d(page):
     global luma_vid_to_3d_prefs
     def prt(line):
@@ -46638,7 +46968,7 @@ class Header(UserControl):
         return self.column
 
 class FileInput(UserControl):
-    def __init__(self, label="Initial Image", ftype="image", pref="", key="", expand=False, col=None, filled=False, max_size=None, output_dir=None, page=None):
+    def __init__(self, label="Initial Image", ftype="image", pref="", key="", expand=False, col=None, filled=False, visible=True, max_size=None, output_dir=None, page=None):
         super().__init__()
         self.label = label
         self.ftype = ftype
@@ -46647,6 +46977,7 @@ class FileInput(UserControl):
         self.expand = expand
         self.col = col
         self.filled = filled
+        self._visible = visible
         self.max_size = max_size
         self.output_dir = output_dir
         self.page = page
@@ -46709,7 +47040,7 @@ class FileInput(UserControl):
             self.textfield.focus()
         self.file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
         self.page.overlay.append(self.file_picker)
-        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, autofocus=False, on_change=changed, height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
+        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, visible=self._visible, autofocus=False, on_change=changed, height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
         return self.textfield
     @property
     def value(self):
@@ -46718,6 +47049,14 @@ class FileInput(UserControl):
     def value(self, value):
         self.pref[self.key] = value
         self.textfield.value = value
+        self.textfield.update()
+    @property
+    def show(self):
+        return self._visible
+    @show.setter
+    def show(self, value):
+        self._visible = value
+        self.textfield.visible = value
         self.textfield.update()
 
 class ImageButton(UserControl):
@@ -46777,7 +47116,7 @@ class ImageButton(UserControl):
             self.image.update()
             self.visible = False
             self.update()
-            toast_msg(page, f"🗑️  Deleted {self.data}...")
+            toast_msg(self.page, f"🗑️  Deleted {self.data}...")
         def scale_width(width, height, max_width):
             if width > max_width: return max_width, int(height / (width / max_width))
             else: return width, height
