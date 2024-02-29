@@ -536,14 +536,7 @@ status = {
     'loaded_SDXL_model': '',
     'loaded_ip_adapter_mode': '',
     'loaded_ip_adapter': '',
-    'changed_settings': False,
-    'changed_installers': False,
-    'changed_parameters': False,
-    'changed_prompts': False,
-    'changed_prompt_generator': False,
-    'changed_prompt_remixer': False,
-    'changed_prompt_brainstormer': False,
-    'changed_prompt_writer': False,
+    'changed_prefs': False,
     'kandinsky_3': 'Kandinsky 3.0',
     'kandinsky_version': 'Kandinsky 3.0',
     'kandinsky_2_2': True,
@@ -598,38 +591,20 @@ def tab_on_change (e):
     t = e.control
     #print (f"tab changed from {current_tab} to: {t.selected_index}")
     #print(str(t.tabs[t.selected_index].text))
-    if current_tab == 0:
-      #if not status['initialized']:
-      #  initState(e.page)
-      #  status['initialized'] = True
-      if status['changed_settings']:
-        save_settings_file(e.page)
-        status['changed_settings'] = False
-        #print(len(e.page.Settings.content.controls))
-        #save_settings(e.page.Settings.content.controls)
     if current_tab == 1:
-      if status['changed_installers']:
-        save_settings_file(e.page)
-        status['changed_installers'] = False
-        #print("Saving Installers")
       e.page.show_install_fab(False)
     if current_tab == 2:
-      if status['changed_parameters']:
+      if status['changed_prefs']:
         update_args()
         e.page.update_prompts()
-        save_settings_file(e.page)
-        status['changed_parameters'] = False
       e.page.show_apply_fab(False)
     if current_tab == 3:
-      if status['changed_prompts']:
+      if status['changed_prefs']:
         e.page.save_prompts()
-        save_settings_file(e.page)
-        status['changed_prompts'] = False
       e.page.show_run_diffusion_fab(False, p=e.page)
-    if current_tab == 5:
-      if status['changed_prompt_generator']:
-        save_settings_file(e.page)
-        status['changed_prompt_generator'] = False
+    if status['changed_prefs']:
+      save_settings_file(e.page)
+      status['changed_prefs'] = False
 
     current_tab = t.selected_index
     if current_tab == 1:
@@ -641,7 +616,7 @@ def tab_on_change (e):
       #for p in e.page.Parameters.content.controls:
       e.page.Parameters.controls[0].content.update()
       e.page.Parameters.update()
-      e.page.show_apply_fab(len(prompts) > 0 and status['changed_parameters'])
+      e.page.show_apply_fab(len(prompts) > 0 and status['changed_prefs'])
     if current_tab == 3:
       e.page.show_run_diffusion_fab(True, p=e.page) #len(prompts) > 0
     e.page.update()
@@ -1175,7 +1150,7 @@ def buildSettings(page):
         prefs[pref] = e.control.value
       has_changed = True
       page.update()
-      status['changed_settings'] = True
+      status['changed_prefs'] = True
   def change_theme_mode(e):
     prefs['theme_mode'] = e.control.value
     if prefs['theme_mode'].lower() == "dark":
@@ -1184,7 +1159,7 @@ def buildSettings(page):
       page.theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
     page.theme_mode = prefs['theme_mode'].lower()
     page.update()
-    status['changed_settings'] = True
+    status['changed_prefs'] = True
   def change_theme_color(e):
     prefs['theme_color'] = e.control.value
     color_icon.visible = prefs['theme_color'].lower() == "custom"
@@ -1194,7 +1169,7 @@ def buildSettings(page):
     else:
       page.theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
     page.update()
-    status['changed_settings'] = True
+    status['changed_prefs'] = True
   def open_color_picker(e):
       d.open = True
       page.update()
@@ -1466,7 +1441,7 @@ def buildInstallers(page):
       if pref is not None:
         prefs[pref] = e.control.value
       #page.update()
-      status['changed_installers'] = True
+      status['changed_prefs'] = True
   def changed_status(e, stat=None):
       if stat is not None:
         status[stat] = e.control.value
@@ -1474,7 +1449,7 @@ def buildInstallers(page):
       prefs['install_diffusers'] = e.control.value
       diffusers_settings.height=None if prefs['install_diffusers'] else 0
       diffusers_settings.update()
-      status['changed_installers'] = True
+      status['changed_prefs'] = True
   install_diffusers = Switcher(label="Install HuggingFace Diffusers Pipeline", value=prefs['install_diffusers'], disabled=status['installed_diffusers'], on_change=toggle_diffusers, tooltip="Required Libraries for most Image Generation functionality. Disable if your Video Card GPU can't handle CUDA.")
   def change_scheduler(e):
       show = e.control.value == "DDIM"
@@ -1614,10 +1589,10 @@ def buildInstallers(page):
       except Exception as ex:
           print(f"{ex}: {e.control.value} {type(custom_area)}")
           pass
-  model_ckpt = Container(Dropdown(label="SD Model Checkpoint", width=262, options=[
+  model_ckpt = Container(Dropdown(label="SD Model Checkpoint", width=280, options=[
       dropdown.Option("Stable Diffusion v2.1 x768"), dropdown.Option("Stable Diffusion v2.1 x512"),
       dropdown.Option("Stable Diffusion v2.0 x768"), dropdown.Option("Stable Diffusion v2.0 x512"), dropdown.Option("Stable Diffusion v1.5"), dropdown.Option("Stable Diffusion v1.4"),
-      dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=262)
+      dropdown.Option("Community Finetuned Model"), dropdown.Option("DreamBooth Library Model"), dropdown.Option("Custom Model Path")], value=prefs['model_ckpt'], tooltip="Make sure you accepted the HuggingFace Model Cards first", autofocus=False, on_change=changed_model_ckpt), col={'xs':9, 'lg':4}, width=280)
   finetuned_model = Dropdown(label="Finetuned Model", tooltip="Make sure you accepted the HuggingFace Model Cards first", width=370, options=[], value=prefs['finetuned_model'], autofocus=False, on_change=changed_finetuned_model, col={'xs':11, 'lg':6})
   model_card_SDXL = Markdown(f"  [**Model Card**](https://huggingface.co/{model_SDXL['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   for mod in finetuned_models:
@@ -1636,8 +1611,8 @@ def buildInstallers(page):
       custom_area.content = Row([dreambooth_library, model_card], col={'xs':9, 'lg':4})
   elif prefs['model_ckpt'] == "Custom Model Path":
       custom_area.content = Row([custom_model, model_card], col={'xs':9, 'lg':4})
-  page.model_row = ResponsiveRow([model_ckpt, custom_area], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
-  SDXL_model = Dropdown(label="SDXL Model Checkpoint", hint_text="", width=370, options=[dropdown.Option("Custom Model")], value=prefs['SDXL_model'], autofocus=False, on_change=changed_SDXL_model, col={'xs':9, 'md':4})
+  page.model_row = Row([model_ckpt, custom_area], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
+  SDXL_model = Dropdown(label="SDXL Model Checkpoint", hint_text="", width=280, options=[dropdown.Option("Custom Model")], value=prefs['SDXL_model'], autofocus=False, on_change=changed_SDXL_model, col={'xs':9, 'md':4})
   for xl in SDXL_models:
       SDXL_model.options.append(dropdown.Option(xl["name"]))
   SDXL_custom_model = TextField(label="Custom Model Path", value=prefs['SDXL_custom_model'], width=370, expand=True, visible=prefs['SDXL_model']=='Custom Model', on_change=lambda e:changed(e,'SDXL_custom_model'), col={'xs':3, 'md':8})
@@ -1703,7 +1678,7 @@ def buildInstallers(page):
 
   def toggle_clip(e):
       prefs['install_CLIP_guided'] = e.control.value
-      status['changed_installers'] = True
+      status['changed_prefs'] = True
       clip_settings.height=None if prefs['install_CLIP_guided'] else 0
       clip_settings.update()
   install_CLIP_guided = Switcher(label="Install Stable Diffusion CLIP-Guided Pipeline", value=prefs['install_CLIP_guided'], disabled=status['installed_clip'], on_change=toggle_clip, tooltip="Uses alternative LAION & OpenAI ViT diffusion. Takes more VRAM, so may need to make images smaller")
@@ -1833,9 +1808,9 @@ def buildInstallers(page):
           page.banner.content.controls.append(Text(msg.strip(), weight=FontWeight.BOLD, color=colors.GREEN_600))
         page.update()
       page.console_msg = console_msg
-      if status['changed_installers']:
+      if status['changed_prefs']:
         save_settings_file(page, change_icon=False)
-        status['changed_installers'] = False
+        status['changed_prefs'] = False
       # Temporary until I get Xformers to work
       #prefs['memory_optimization'] = 'Attention Slicing' if prefs['enable_attention_slicing'] else 'None'
       if prefs['install_diffusers'] and not bool(prefs['HuggingFace_api_key']):
@@ -2172,15 +2147,15 @@ def buildParameters(page):
         prefs[pref] = e.control.value if not asInt else int(e.control.value)
       if page.floating_action_button is None and apply:
         show_apply_fab(len(prompts) > 0)
-      #if apply_changes_button.visible != (len(prompts) > 0): #status['changed_parameters']:
+      #if apply_changes_button.visible != (len(prompts) > 0): #status['changed_prefs']:
       #  apply_changes_button.visible = len(prompts) > 0
       #  apply_changes_button.update()
-      status['changed_parameters'] = True
+      status['changed_prefs'] = True
       #page.update()
   def change(e):
       if page.floating_action_button is None:
         show_apply_fab(len(prompts) > 0)
-      status['changed_parameters'] = True
+      status['changed_prefs'] = True
   def run_parameters(e):
       save_parameters()
       #page.tabs.current_tab = 3
@@ -2192,7 +2167,7 @@ def buildParameters(page):
       update_args()
       page.update_prompts()
       save_settings_file(page)
-      status['changed_parameters'] = False
+      status['changed_prefs'] = False
   def apply_to_prompts(e):
       update_args()
       page.apply_changes(e)
@@ -2388,7 +2363,7 @@ def buildParameters(page):
   page.use_alt_diffusion.visible = status['installed_alt_diffusion']
   page.use_versatile = Switcher(label="Use Versatile Pipeline Model Instead", value=prefs['use_versatile'], on_change=lambda e:changed(e,'use_versatile', apply=False), tooltip="Dual Guided between prompt & image, or create Image Variation.")
   page.use_versatile.visible = status['installed_versatile']
-  use_LoRA_model = Switcher(label="Use LoRA Model Adapter Layer ", value=prefs['use_LoRA_model'], on_change=toggle_LoRA, tooltip="Applies custom trained weighted attention model on top of loaded model")
+  use_LoRA_model = Switcher(label="Use LoRA Model Adapter Layers ", value=prefs['use_LoRA_model'], on_change=toggle_LoRA, tooltip="Applies custom trained weighted attention model on top of loaded model")
   def delete_lora_layer(e):
       for l in prefs['active_LoRA_layers']:
         if l['name'] == e.control.data['name']:
@@ -2528,16 +2503,16 @@ def buildParameters(page):
       ip_adapter_model.update()
       ip_adapter_SDXL_model.visible = e.control.value
       ip_adapter_SDXL_model.update()
-  use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Image Prompt applies to Pipelines for SD 1.5, SDXL, Inpainting, Self-Attention Guidance, Attend & Excite, Safe and Panorama")
+  use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image  ", value=prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Image Prompt applies to Pipelines for SD 1.5, SDXL, Inpainting, Self-Attention Guidance, Attend & Excite, Safe and Panorama")
   ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=prefs['ip_adapter_model'], visible=prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
   for m in ip_adapter_models:
       ip_adapter_model.options.append(dropdown.Option(m['name']))
-  ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=prefs['ip_adapter_SDXL_model'], visible=prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+  ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=prefs['ip_adapter_SDXL_model'], visible=prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
   for m in ip_adapter_SDXL_models:
       ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
-  ip_adapter_image = FileInput(label="IP-Adapter Image", pref=prefs, key='ip_adapter_image', page=page)
-  ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-  ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+  ip_adapter_image = FileInput(label="IP-Adapter Image", pref=prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+  ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+  ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
 
   centipede_prompts_as_init_images = Switcher(label="Centipede Prompts as Init Images", tooltip="Feeds each image to the next prompt sequentially down the line. Gives interesting results..", value=prefs['centipede_prompts_as_init_images'], on_change=toggle_centipede)
   use_interpolation = Switcher(label="Use Interpolation to Walk Latent Space between Prompts", tooltip="Creates animation frames transitioning, but it's not always perfect.", value=prefs['use_interpolation'], on_change=toggle_interpolation)
@@ -2614,7 +2589,7 @@ def buildParameters(page):
   parameters_button = ElevatedButton(content=Text(value="📜   Continue to Image Prompts", size=20), on_click=run_parameters)
   parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
   #apply_changes_button = ElevatedButton(content=Text(value="🔀   Apply Changes to Current Prompts", size=20), on_click=apply_to_prompts)
-  #apply_changes_button.visible = len(prompts) > 0 and status['changed_parameters']
+  #apply_changes_button.visible = len(prompts) > 0 and status['changed_prefs']
   def show_apply_fab(show = True):
     if show:
       page.floating_action_button = FloatingActionButton(content=Row([Icon(icons.TRANSFORM), Text("Apply Changes to Current Prompts", size=18)], alignment="center", spacing=5), width=333, shape=ft.RoundedRectangleBorder(radius=22), on_click=apply_to_prompts)
@@ -2624,7 +2599,7 @@ def buildParameters(page):
       if page.floating_action_button is not None:
         page.floating_action_button = None
         page.update()
-  show_apply_fab(len(prompts) > 0 and status['changed_parameters'])
+  show_apply_fab(len(prompts) > 0 and status['changed_prefs'])
   page.show_apply_fab = show_apply_fab
   def updater():
       #parameters.update()
@@ -2779,7 +2754,7 @@ def editPrompt(e):
     open_dream = e.control.data
     idx = prompts.index(open_dream)
     def changed_tweening(e):
-        status['changed_prompts'] = True
+        status['changed_prefs'] = True
         tweening_params.height = None if e.control.value else 0
         tweening_params.update()
         #prompt2.visible = e.control.value
@@ -2833,7 +2808,7 @@ def editPrompt(e):
         else:
           e.page.prompts_list.controls[idx].subtitle = None
         e.page.prompts_list.controls[idx].title.value = dream.prompt # = Text(edit_text.value)
-        status['changed_prompts'] = True
+        status['changed_prefs'] = True
         edit_dlg.open = False
         e.page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -2998,7 +2973,7 @@ def buildPromptsList(page):
                     pr = nsp_parse(pr)
                 pr = prompt_parse(pr)
                 add_to_prompts(pr.strip(), negative)
-        status['changed_prompts'] = True
+        status['changed_prefs'] = True
         close_dlg(e)
       def close_dlg(e):
           dlg_paste.open = False
@@ -3031,7 +3006,7 @@ def buildPromptsList(page):
       prompts.pop(idx)
       prompts_list.controls.pop(idx)
       prompts_list.update()
-      status['changed_prompts'] = True
+      status['changed_prefs'] = True
       play_snd(Snd.DELETE, page)
   def copy_prompt(e):
       open_dream = e.control.data
@@ -3122,7 +3097,7 @@ def buildPromptsList(page):
       else:
         prompt_text.focus()
       page.update()
-      status['changed_prompts'] = True
+      status['changed_prefs'] = True
   page.add_to_prompts = add_to_prompts
 
   def save_prompts():
@@ -3237,7 +3212,7 @@ def buildPromptsList(page):
       show_run_diffusion_fab(False)
       e.page.save_prompts()
       save_settings_file(e.page)
-      #status['changed_prompts'] = True
+      #status['changed_prefs'] = True
       play_snd(Snd.DELETE, page)
   page.clear_prompts_list = clear_list
   def on_keyboard (e: KeyboardEvent):
@@ -3260,10 +3235,10 @@ def buildPromptsList(page):
       page.tabs.selected_index = 4
       page.tabs.update()
       show_run_diffusion_fab(False)
-      if status['changed_prompts']:
+      if status['changed_prefs']:
         page.save_prompts()
         save_settings_file(page)
-        status['changed_prompts'] = False
+        status['changed_prefs'] = False
       page.update()
       start_diffusion(page)
   has_changed = False
@@ -3326,7 +3301,7 @@ def buildPromptGenerator(page):
     def changed(e, pref=None):
       if pref is not None:
         prefs['prompt_generator'][pref] = e.control.value
-      status['changed_prompt_generator'] = True
+      status['changed_prefs'] = True
     page.prompt_generator_list = Column([], spacing=0)
     def add_to_prompt_list(p):
       page.add_to_prompts(p)
@@ -3357,7 +3332,7 @@ def buildPromptGenerator(page):
       request_slider.label = generator_request_modes[int(request_slider.value)]
       request_slider.update()
       changed(e, 'request_mode')
-    request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request)
+    request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request, tooltip="The way it asks for the visual description.")
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
     AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
@@ -3370,15 +3345,15 @@ def buildPromptGenerator(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧠  OpenAI GPT-3/4/PaLM Prompt Genenerator", "Enter a phrase each prompt should start with and the amount of prompts to generate. 'Subject Details' is optional to influence the output. 'Phase as subject' makes it about phrase and subject detail. 'Request mode' is the way it asks for the visual description. Just experiment, AI will continue to surprise."),
+        Header("🧠  OpenAI GPT-3/4/PaLM Prompt Genenerator", "Enter a phrase each prompt should start with and the amount of prompts to generate. Just experiment, AI will continue to surprise."),
         Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], multiline=True, on_change=lambda e: changed(e, 'phrase')),
              TextField(label="Subject Detail (optional)", expand=True, hint_text="About Details (optional)", value=prefs['prompt_generator']['subject_detail'], multiline=True, on_change=lambda e: changed(e, 'subject_detail')), 
-             Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'phrase_as_subject'))]),
+             Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, tooltip="Makes it about phrase and subject detail.", on_change=lambda e: changed(e, 'phrase_as_subject'))]),
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_generator']['amount'], on_change=lambda e: changed(e, 'amount')),
               NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_generator']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_generator']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-              Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+              Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
         AI_engine,
         ResponsiveRow([
@@ -3396,7 +3371,7 @@ def buildPromptRemixer(page):
     def changed(e, pref=None):
       if pref is not None:
         prefs['prompt_remixer'][pref] = e.control.value
-      status['changed_prompt_remixer'] = True
+      status['changed_prefs'] = True
     page.prompt_remixer_list = Column([], spacing=0)
     def click_prompt_remixer(e):
       if status['installed_OpenAI']:
@@ -3446,7 +3421,7 @@ def buildPromptRemixer(page):
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_remixer']['amount'], on_change=lambda e: changed(e, 'amount')),
               NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_remixer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-              Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+              Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
         AI_engine,
         ResponsiveRow([
@@ -3464,7 +3439,7 @@ def buildPromptBrainstormer(page):
     def changed(e, pref=None):
       if pref is not None:
         prefs['prompt_brainstormer'][pref] = e.control.value
-      status['changed_prompt_brainstormer'] = True
+      status['changed_prefs'] = True
     def click_prompt_brainstormer(e):
       if prefs['prompt_brainstormer']['AI_engine'] == "OpenAI GPT-3":
         if status['installed_OpenAI']:
@@ -3529,7 +3504,7 @@ def buildPromptWriter(page):
     def changed(e, pref=None):
       if pref is not None:
         prefs['prompt_writer'][pref] = e.control.value
-      status['changed_prompt_writer'] = True
+      status['changed_prefs'] = True
     page.prompt_writer_list = Column([], spacing=0)
     def add_to_prompt_list(p):
       negative_prompt = prefs['prompt_writer']['negative_prompt']
@@ -3585,7 +3560,7 @@ def buildPromptWriter(page):
           Row([NumberPicker(label="Amount: ", min=1, max=20, value=prefs['prompt_writer']['amount'], on_change=lambda e: changed(e, 'amount')),
               NumberPicker(label="Random Artists: ", min=0, max=10, value=prefs['prompt_writer']['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_writer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-              Checkbox(label="Permutate Artists", value=prefs['prompt_writer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+              Checkbox(label="Permutate Artists", value=prefs['prompt_writer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
         ElevatedButton(content=Text("✍️   Write Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_prompt_writer(page)),
         page.prompt_writer_list,
@@ -3655,7 +3630,7 @@ def buildMagicPrompt(page):
           Row([NumberPicker(label="Amount: ", min=1, max=40, value=magic_prompt_prefs['amount'], on_change=lambda e: changed(e, 'amount')), seed,
               NumberPicker(label="Random Artists: ", min=0, max=10, value=magic_prompt_prefs['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=magic_prompt_prefs['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-              Checkbox(label="Permutate Artists", value=magic_prompt_prefs['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+              Checkbox(label="Permutate Artists", value=magic_prompt_prefs['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
         ElevatedButton(content=Text("🧙   Make Magic Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_magic_prompt(page)),
         page.magic_prompt_output,
@@ -3743,7 +3718,7 @@ def buildDistilGPT2(page):
           Row([NumberPicker(label="Amount: ", min=1, max=40, value=distil_gpt2_prefs['amount'], on_change=lambda e: changed(e, 'amount')), seed,
               NumberPicker(label="Random Artists: ", min=0, max=10, value=distil_gpt2_prefs['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=distil_gpt2_prefs['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
-              Checkbox(label="Permutate Artists", value=distil_gpt2_prefs['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'))], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+              Checkbox(label="Permutate Artists", value=distil_gpt2_prefs['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
         ElevatedButton(content=Text("📝   Make Distil GPT-2 Prompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_distil_gpt2(page)),
         page.distil_gpt2_output,
@@ -3856,7 +3831,7 @@ def buildNegatives(page):
         else:
             prefs['negatives'].append(e.control.data)
         update_negs()
-        status['changed_prompt_generator'] = True
+        status['changed_prefs'] = True
     negs = ""
     def changed_custom(e):
         nonlocal negs
@@ -3914,11 +3889,11 @@ def buildPromptStyler(page):
         styler_checkbox_container.visible=prefs['prompt_styler_multi']
         styler_checkbox_container.update()
         styler_radio_container.update()
-        status['changed_prompt_generator'] = True
+        status['changed_prefs'] = True
     def change_style(e):
         prefs['prompt_style'] = e.control.value
         update_style()
-        status['changed_prompt_generator'] = True
+        status['changed_prefs'] = True
     negative = ""
     prompt = ""
     def changed_custom(e):
@@ -3929,14 +3904,14 @@ def buildPromptStyler(page):
         prompt = to_title(prompt, sentence=True, clean=False)
         prompt_text.value = prompt
         prompt_text.update()
-        status['changed_prompt_generator'] = True
+        status['changed_prefs'] = True
     def changed_checkbox(e):
         on = e.control.value
         if e.control.data in prefs['prompt_styles']:
             prefs['prompt_styles'].remove(e.control.data)
         else:
             prefs['prompt_styles'].append(e.control.data)
-        status['changed_prompt_generator'] = True
+        status['changed_prefs'] = True
     def update_style(update=True):
         nonlocal negative, prompt
         styler = sdd_utils.prompt_styles[prefs['prompt_style']]
@@ -6048,7 +6023,7 @@ def buildMeshy(page):
     def changed_pref(e, pref=None):
       if pref is not None:
         prefs[pref] = e.control.value
-        status['changed_parameters'] = True
+        status['changed_prefs'] = True
     def meshy_help(e):
       def close_meshy_dlg(e):
         nonlocal meshy_help_dlg
@@ -6111,7 +6086,7 @@ def buildMeshy(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🍄  Meshy.ai 3D Generation API", "Uses credits from their servers to create quality mesh models. Can take 3-15 minutes per, bug gives really good results...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Meshy API Settings", on_click=meshy_help)]),
+        Header("🍄  Meshy.ai 3D Generation API", "Uses credits from their servers to create quality mesh models. Can take 3-15 minutes per, but gives great results...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Meshy API Settings", on_click=meshy_help)]),
         Row([Text("Meshy Mode:", weight=FontWeight.BOLD), selected_mode]),
         init_model,
         prompt_container,
@@ -6151,7 +6126,7 @@ def buildLuma(page):
     def changed_pref(e, pref=None):
       if pref is not None:
         prefs[pref] = e.control.value
-        status['changed_parameters'] = True
+        status['changed_prefs'] = True
     def luma_vid_to_3d_help(e):
       def close_luma_vid_to_3d_dlg(e):
         nonlocal luma_vid_to_3d_help_dlg
@@ -7211,6 +7186,14 @@ def buildControlNetQR(page):
         qr_content.update()
         ref_image.visible = image_mode
         ref_image.update()
+    def change_version(e):
+        changed(e, 'controlnet_version')
+        #controlnet_qr_prefs['controlnet_version'] = e.control.value
+        sdxl = 'SDXL' in controlnet_qr_prefs['controlnet_version']
+        ip_adapter_model.visible = not sdxl
+        ip_adapter_SDXL_model.visible = sdxl
+        ip_adapter_model.update()
+        ip_adapter_SDXL_model.update()
     selected_mode = ft.SegmentedButton(on_change=change_mode, selected={controlnet_qr_prefs['selected_mode']}, allow_multiple_selection=False,
         segments=[
             ft.Segment(value="link", label=ft.Text("URL Text"), icon=ft.Icon(ft.icons.LINK)),
@@ -7225,7 +7208,7 @@ def buildControlNetQR(page):
     border_thickness = SliderRow(label="Border Thickness", min=0, max=20, divisions=20, round=0, pref=controlnet_qr_prefs, key='border_thickness', tooltip="The border is equal to the thickness of 5 tiny black boxes around QR.")
     qr_generator = Container(content=Column([border_thickness], alignment=MainAxisAlignment.START), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     qr_generator.height = None if not controlnet_qr_prefs['use_image'] else 0
-    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5"), dropdown.Option("QR Code Monster v2 1.5"), dropdown.Option("QR Pattern v2 1.5"), dropdown.Option("SDXL QR Code Monster v1"), dropdown.Option("SDXL QR Pattern"), dropdown.Option("SDXL QR Pattern LLLite")], value=controlnet_qr_prefs['controlnet_version'], on_change=lambda e: changed(e, 'controlnet_version'))
+    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5"), dropdown.Option("QR Code Monster v2 1.5"), dropdown.Option("QR Pattern v2 1.5"), dropdown.Option("SDXL QR Code Monster v1"), dropdown.Option("SDXL QR Pattern"), dropdown.Option("SDXL QR Pattern LLLite")], value=controlnet_qr_prefs['controlnet_version'], on_change=change_version)
     seed = TextField(label="Seed", width=90, value=str(controlnet_qr_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=controlnet_qr_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_qr_prefs, key='guidance_scale')
@@ -7238,9 +7221,10 @@ def buildControlNetQR(page):
         controlnet_qr_prefs['use_ip_adapter'] = e.control.value
         ip_adapter_container.height = None if e.control.value else 0
         ip_adapter_container.update()
-        ip_adapter_model.visible = e.control.value
+        sdxl = 'SDXL' in controlnet_qr_prefs['controlnet_version']
+        ip_adapter_model.visible = e.control.value and not sdxl
         ip_adapter_model.update()
-        ip_adapter_SDXL_model.visible = e.control.value
+        ip_adapter_SDXL_model.visible = e.control.value and sdxl
         ip_adapter_SDXL_model.update()
     use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=controlnet_qr_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=controlnet_qr_prefs['ip_adapter_model'], visible=controlnet_qr_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
@@ -7249,9 +7233,9 @@ def buildControlNetQR(page):
     ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=controlnet_qr_prefs['ip_adapter_SDXL_model'], visible=controlnet_qr_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_SDXL_models:
         ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_qr_prefs, key='ip_adapter_image', page=page)
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_qr_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_qr_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_qr_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_qr_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_qr_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
 
     batch_size = NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_qr_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
     num_images = NumberPicker(label="Number of Iterations: ", min=1, max=12, value=controlnet_qr_prefs['num_images'], on_change=lambda e: changed(e, 'num_images'))
@@ -8786,9 +8770,9 @@ def buildInstructPix2Pix(page):
     ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=instruct_pix2pix_prefs['ip_adapter_SDXL_model'], visible=instruct_pix2pix_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_SDXL_models:
         ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=instruct_pix2pix_prefs, key='ip_adapter_image', page=page)
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=instruct_pix2pix_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if instruct_pix2pix_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=instruct_pix2pix_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=instruct_pix2pix_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if instruct_pix2pix_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
 
     batch_folder_name = TextField(label="Batch Folder Name", value=instruct_pix2pix_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=instruct_pix2pix_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
@@ -9063,9 +9047,9 @@ def buildControlNet(page):
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=controlnet_prefs['ip_adapter_model'], visible=controlnet_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_prefs, key='ip_adapter_image', page=page)
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_prefs['use_image2image'], on_change=toggle_img2img)
     init_image = FileInput(label="Init Image", pref=controlnet_prefs, key='init_image', expand=True, page=page)
     mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_prefs, key='mask_image', expand=True, page=page)
@@ -9361,9 +9345,9 @@ def buildControlNetXL(page):
     ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=controlnet_xl_prefs['ip_adapter_SDXL_model'], visible=controlnet_xl_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
     for m in ip_adapter_SDXL_models:
         ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_xl_prefs, key='ip_adapter_image', page=page)
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_xl_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_xl_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_xl_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_xl_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_xl_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_xl_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_xl_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -9648,9 +9632,9 @@ def buildControlNetXS(page):
     ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=controlnet_xs_prefs['ip_adapter_SDXL_model'], visible=controlnet_xs_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
     for m in ip_adapter_SDXL_models:
         ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_xs_prefs, key='ip_adapter_image', page=page)
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_xs_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_xs_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_xs_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_xs_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_xs_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_xs_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_xs_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_xs_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -10586,9 +10570,9 @@ def buildLCM(page):
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=lcm_prefs['ip_adapter_model'], visible=lcm_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=lcm_prefs, key='ip_adapter_image', page=page)
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=lcm_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if lcm_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=lcm_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=lcm_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if lcm_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
 
     lcm_model = Dropdown(label="LCM Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("LCM_Dreamshaper_v7"), dropdown.Option("LCM_Dreamshaper_v8")], value=lcm_prefs['lcm_model'], on_change=changed_model)
     lcm_custom_model = TextField(label="Custom LCM Model (URL or Path)", value=lcm_prefs['custom_model'], expand=True, visible=lcm_prefs['lcm_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
@@ -10999,9 +10983,9 @@ def buildLDM3D(page):
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=ldm3d_prefs['ip_adapter_model'], visible=ldm3d_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=ldm3d_prefs, key='ip_adapter_image', page=page)
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=ldm3d_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-    ip_adapter_container = Container(Column([ip_adapter_image, ip_adapter_strength]), height = None if ldm3d_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=ldm3d_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=ldm3d_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if ldm3d_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
 
     ldm3d_model = Dropdown(label="LDM3D Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("Intel/ldm3d-4c"), dropdown.Option("Intel/ldm3d-pano"), dropdown.Option("Intel/ldm3d")], value=ldm3d_prefs['ldm3d_model'], on_change=changed_model)
     ldm3d_custom_model = TextField(label="Custom LDM3D Model (URL or Path)", value=ldm3d_prefs['custom_model'], expand=True, visible=ldm3d_prefs['ldm3d_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
@@ -14158,8 +14142,8 @@ def buildAnimateDiffImage2Video(page):
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=animatediff_img2video_prefs['ip_adapter_model'], visible=animatediff_img2video_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=animatediff_img2video_prefs, key='ip_adapter_image', page=page, col={'md':6})
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=animatediff_img2video_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=animatediff_img2video_prefs, key='ip_adapter_image', page=page, col={'lg':6})
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=animatediff_img2video_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     ip_adapter_container = Container(Column([ResponsiveRow([ip_adapter_image, ip_adapter_strength]), Divider(thickness=4, height=4)]), height = None if animatediff_img2video_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animatediff_img2video_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
     lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=animatediff_img2video_prefs['lora_layer'], on_change=changed_lora_layer)
@@ -14374,8 +14358,8 @@ def buildPIA(page):
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=pia_prefs['ip_adapter_model'], visible=pia_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=pia_prefs, key='ip_adapter_image', page=page, col={'md':6})
-    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pia_prefs, key='ip_adapter_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=pia_prefs, key='ip_adapter_image', page=page, col={'lg':6})
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pia_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if pia_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     pia_model = Dropdown(label="PIA Model", width=280, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V6.0_B1_noVAE"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8")], value=pia_prefs['pia_model'], on_change=changed_model)
     pia_custom_model = TextField(label="Custom PIA Model (URL or Path)", value=pia_prefs['custom_model'], expand=True, visible=pia_prefs['pia_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
@@ -14985,7 +14969,7 @@ def buildMaterialDiffusion(page):
     def changed_pref(e, pref=None):
       if pref is not None:
         prefs[pref] = e.control.value
-        status['changed_parameters'] = True
+        status['changed_prefs'] = True
     def pick_files_result(e: FilePickerResultEvent):
         if e.files:
             img = e.files
@@ -35436,7 +35420,7 @@ def run_controlnet_xl(page, from_list=False):
     seg_checkpoint = "SargeZT/sdxl-controlnet-seg"
     softedge_checkpoint = "SargeZT/controlnet-sd-xl-1.0-softedge-dexined"#"SargeZT/sdxl-controlnet-softedge"
     lineart_checkpoint = "zbulrush/controlnet-sd-xl-1.0-lineart"
-    openpose_checkpoint = "thibaud/controlnet-openpose-sdxl-1.0"
+    openpose_checkpoint = "OzzyGT/controlnet-openpose-sdxl-1.0"
     scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
     HED_checkpoint = "lllyasviel/control_v11p_sd15_softedge"
     mlsd_checkpoint = "lllyasviel/control_v11p_sd15_mlsd"
@@ -44741,8 +44725,9 @@ def run_meshy(page):
     random_seed = 0
     if mode == "text-to-texture":
         dest = "v1/text-to-texture"
+        model_url = transfersh_file(model_path)
         payload = {
-            "model_url": model_path,
+            "model_url": model_url,
             "object_prompt": meshy_prefs["prompt"],
             "style_prompt": meshy_prefs["style_prompt"],
             "art_style": meshy_prefs["art_style_texture"].lower(),
@@ -44763,8 +44748,9 @@ def run_meshy(page):
         }
     elif mode == "image-to-3d":
         dest = "v1/image-to-3d"
+        image_url = transfersh_file(image_path)
         payload = {
-            "image_url": image_path,
+            "image_url": image_url,
             "enable_pbr": True,
         }
     try:
@@ -44928,6 +44914,7 @@ def run_luma_vid_to_3d(page):
         alert_msg(page, f"ERROR: You must provide your own LumaLabs.ai API Key to use...")
         return
     installer = Installing("Installing Luma Video-to-3D API Client...")
+    autoscroll(True)
     clear_list()
     prt(installer)
     pip_install("lumaapi", installer=installer, upgrade=True)
@@ -44971,7 +44958,6 @@ def run_luma_vid_to_3d(page):
     pb.status(f"...getting {slug}")
     captures = luma_client.get(title)
     clear_last()
-    autoscroll(True)
     for capture_info in captures:
         for artifact in capture_info.latest_run.artifacts:
             artifact_type = artifact["type"]
@@ -46817,9 +46803,9 @@ The real credit goes to the team at [Stability.ai](https://Stability.ai) for mak
 
 For the great app UI framework, we thank [Flet](https://Flet.dev) with the amazing Flutter based Python library with a very functional dev platform that made this possible.
 
-For the brains behind our Prompt Helpers, we thank our friends [OpenAI](https://beta.OpenAI.com), [Bloom-AI](https://huggingface.co/bigscience/bloom), [TextSynth](https://TextSynth.com) and others for making an AIs so fun to talk to and use.
+For the brains behind our Prompt Helpers, we thank our friends [OpenAI](https://beta.OpenAI.com), [Google Gemini](https://gemini.google.com), [Bloom-AI](https://huggingface.co/bigscience/bloom), [TextSynth](https://TextSynth.com) and others for making an AIs so fun to talk to and use.
 
-Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVbAfm), [Stable Diffusion](https://discord.gg/stablediffusion), [HuggingFace](https://discord.gg/hugging-face-879548962464493619) and [Flet](https://discord.gg/nFqy742h) for their support and user contributions.'''
+Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVbAfm), [Stable Diffusion](https://discord.gg/stablediffusion), [HuggingFace](https://discord.gg/hugging-face-879548962464493619), [Banodoco](https://discord.gg/tFSXjJ2C) and [Flet](https://discord.gg/nFqy742h) for their support and user contributions.'''
     credits_dlg = AlertDialog(
         title=Text("🙌   Credits/Acknowledgments"), content=Column([Markdown(credits_markdown, extension_set="gitHubWeb", on_tap_link=open_url)
         ], scroll=ScrollMode.AUTO),
@@ -46876,9 +46862,9 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     page.etas = []
     page.theme_mode = prefs['theme_mode'].lower()
     if prefs['theme_mode'] == 'Dark':
-        page.dark_theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())#, use_material3=True)
+        page.dark_theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))#, use_material3=True)
     else:
-        page.theme = theme.Theme(color_scheme_seed=prefs['theme_color'].lower())
+        page.theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
     app_icon_color = colors.AMBER_800
     space = " "  if (page.width if page.web else page.window_width) >= 1024 else ""
     def clear_memory(e):
@@ -47626,8 +47612,10 @@ def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=Non
         img = PILImage.open(image_path)
         from PIL.PngImagePlugin import PngInfo
         metadata = PngInfo()
-        metadata.add_text("artist", prefs['meta_ArtistName'])
-        metadata.add_text("copyright", prefs['meta_Copyright'])
+        if bool(prefs['meta_ArtistName'].strip()):
+            metadata.add_text("artist", prefs['meta_ArtistName'])
+        if bool(prefs['meta_Copyright'].strip()):
+            metadata.add_text("copyright", prefs['meta_Copyright'])
         upscaled = "" if 'apply_ESRGAN_upscale' not in pref else (f", upscaled {pref['enlarge_scale']}x with ESRGAN" if pref['apply_ESRGAN_upscale'] else "")
         metadata.add_text("software", f"Stable Diffusion Deluxe{upscaled}")
         metadata.add_text("website", "https://DiffusionDeluxe.com")
@@ -47673,6 +47661,35 @@ def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=Non
         return img
     else:
         return img
+
+def pastebin_file(file_path):
+    pip_install("pbwrap")
+    from pbwrap import Pastebin
+    pb = Pastebin("K-W_E7Djts7N2HE0bTCPa5qqo9Tc77fs", False)
+    #file_content = open(file_path, "r").read()
+    with open(file_path, "rb") as f:
+        file_data = f.read()
+    encoded_data = base64.b64encode(file_data).decode("utf-8")
+    try:
+        paste = pb.create_paste_from_file(file_path, api_paste_private=1, api_user_name="Skquark", api_paste_expire_date="10M")
+        print(paste)
+        return paste#.private_url
+    except Exception as e:
+        return ""
+
+def transfersh_file(file_path):
+    try:
+        with open(file_path, 'rb') as f:
+            response = requests.put("https://transfer.sh/", files={"file": f})
+            if response.status_code == 200:
+                print(response.text.strip())
+                return response.text.strip()
+            else:
+                print(f"Upload failed: {response.status_code}")
+                return ""
+    except requests.exceptions.RequestException as e:
+        print(f"Request error: {e}")
+        return ""
 
 def check_diffusers(page:Page):
     global status
