@@ -721,6 +721,7 @@ def buildImageAIs(page):
     page.LCMInterpolation = buildLCMInterpolation(page)
     page.InstaFlow = buildInstaFlow(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
+    page.MaterialDiffusion_SDXL = buildMaterialDiffusion_SDXL(page)
     page.DallE2 = buildDallE2(page)
     page.DallE3 = buildDallE3(page)
     page.Kandinsky = buildKandinsky3(page) if status['kandinsky_version'] == "Kandinsky 3.0" else buildKandinsky(page)
@@ -772,6 +773,7 @@ def buildImageAIs(page):
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
+            Tab(text="Material Diffusion SDXL", content=page.MaterialDiffusion_SDXL, icon=icons.TEXTURE),
             Tab(text="DALL•E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="DALL•E 3", content=page.DallE3, icon=icons.BLUR_ON),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
@@ -4636,7 +4638,7 @@ def buildImage2Text(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create text prompts by describing input images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
+        Header("😶‍🌫️  Image2Text CLIP-Interrogator", subtitle="Create text prompts by describing input images...", actions=[save_default(image2text_prefs, exclude=['images', 'image_path']), IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=i2t_help)]),
         #mode,
         Row([method, fuyu_mode, mode, request_mode, gemini_mode, openai_mode, question_prompt, AIHorde_row]),
         max_row,
@@ -4830,7 +4832,7 @@ def buildBLIP2Image2Text(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🤳  BLIP2 Image2Text Examiner", subtitle="Create prompts by describing input images... Warning: Uses A LOT of VRAM, may crash session.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=BLIP2_i2t_help)]),
+        Header("🤳  BLIP2 Image2Text Examiner", subtitle="Create prompts by describing input images... Warning: Uses A LOT of VRAM, may crash session.", actions=[save_default(BLIP2_image2text_prefs, exclude=['images', 'image_path']), IconButton(icon=icons.HELP, tooltip="Help with Image2Text Interrogator", on_click=BLIP2_i2t_help)]),
         Row([model_type, num_captions]),
         max_row,
         question_prompt,
@@ -5082,7 +5084,7 @@ def buildDanceDiffusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👯 Create experimental music or sounds with HarmonAI trained audio models", "Tools to train a generative model on arbitrary audio samples...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)]),
+        Header("👯 Create experimental music or sounds with HarmonAI trained audio models", "Tools to train a generative model on arbitrary audio samples...", actions=[save_default(dance_prefs, exclude=['wav_path']), IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)]),
         Row([dance_model, community_dance_diffusion_model, custom_model]),
         inference_row,
         number_row,
@@ -5206,7 +5208,7 @@ def buildAudioDiffusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎶  Audio Diffusion Modeling", "Converts Audio Samples to and from Mel Spectrogram Images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio Diffusion-TTS Settings", on_click=audio_diffusion_help)]),
+        Header("🎶  Audio Diffusion Modeling", "Converts Audio Samples to and from Mel Spectrogram Images...", actions=[save_default(audio_diffusion_prefs, exclude=['loaded_model', 'wav_path']), IconButton(icon=icons.HELP, tooltip="Help with Audio Diffusion-TTS Settings", on_click=audio_diffusion_help)]),
         audio_file,
         audio_model,
         #scheduler,
@@ -5340,7 +5342,7 @@ def buildMusicGen(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🪗  Meta Audiocraft MusicGen", "Simple and Controllable Music Generation with Audio tokenization model...", actions=[IconButton(icon=icons.HELP, tooltip="Help with MusicGen Settings", on_click=music_gen_help)]),
+        Header("🪗  Meta Audiocraft MusicGen", "Simple and Controllable Music Generation with Audio tokenization model...", actions=[save_default(music_gen_prefs, exclude=['audio_file']), IconButton(icon=icons.HELP, tooltip="Help with MusicGen Settings", on_click=music_gen_help)]),
         prompt,
         audio_file,
         Row([audio_model, duration_row]),
@@ -5419,7 +5421,7 @@ def buildDreamFusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🗿  Create experimental DreamFusion 3D Model and Video", "Provide a prompt to render a model. Warning: May take over an hour to run the training...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DreamFusion Settings", on_click=df_help)]),
+        Header("🗿  Create experimental DreamFusion 3D Model and Video", "Provide a prompt to render a model. Warning: May take over an hour to run the training...", actions=[save_default(dreamfusion_prefs), IconButton(icon=icons.HELP, tooltip="Help with DreamFusion Settings", on_click=df_help)]),
         prompt_text,
         Row([training_iters,learning_rate, lambda_entropy]),
         Row([seed, training_nerf_resolution, max_steps]),
@@ -5522,7 +5524,7 @@ def buildPoint_E(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👆  Point-E 3D Point Clouds", "Provide a Prompt or Image to render from a CLIP ViT-L/14 diffusion model...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Point-E Settings", on_click=df_help)]),
+        Header("👆  Point-E 3D Point Clouds", "Provide a Prompt or Image to render from a CLIP ViT-L/14 diffusion model...", actions=[save_default(point_e_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Point-E Settings", on_click=df_help)]),
         prompt_text,
         init_image,
         base_model,
@@ -5644,7 +5646,7 @@ def buildShap_E(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧊  Shap-E 3D Mesh", "Provide a Prompt or Image to Generate Conditional 3D PLY Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Shap-E Settings", on_click=df_help)]),
+        Header("🧊  Shap-E 3D Mesh", "Provide a Prompt or Image to Generate Conditional 3D PLY Models...", actions=[save_default(shap_e_prefs, exclude=['init_image', 'init_images']), IconButton(icon=icons.HELP, tooltip="Help with Shap-E Settings", on_click=df_help)]),
         prompt_text,
         init_image,
         Row([use_original, original_row]),
@@ -5708,7 +5710,7 @@ def buildZoeDepth(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🥐  ZoeDepth 3D Depth Model from Init Image", "Zero-shot Transfer by Combining Relative and Metric Depth...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Zoe Depth Settings", on_click=zoe_depth_help)]),
+        Header("🥐  ZoeDepth 3D Depth Model from Init Image", "Zero-shot Transfer by Combining Relative and Metric Depth...", actions=[save_default(zoe_depth_prefs, exclude=['init_image', 'loaded_model']), IconButton(icon=icons.HELP, tooltip="Help with Zoe Depth Settings", on_click=zoe_depth_help)]),
         init_image,
         Row([keep_edges, pano_360, colorize]),
         Row([zoe_model, max_row]),
@@ -5766,7 +5768,7 @@ def buildMarigoldDepth(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🪷  Marigold Depth Estimation", "Monocular depth estimator that delivers accurate & sharp predictions in the wild... Based on SD.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Marigold Depth Settings", on_click=marigold_depth_help)]),
+        Header("🪷  Marigold Depth Estimation", "Monocular depth estimator that delivers accurate & sharp predictions in the wild... Based on SD.", actions=[save_default(marigold_depth_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Marigold Depth Settings", on_click=marigold_depth_help)]),
         init_image,
         processing_res,
         denoising_steps,
@@ -5972,7 +5974,7 @@ def buildInstantNGP(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎑  Instant Neural Graphics Primitives by NVidia", "Convert series of images into 3D Models with Multiresolution Hash Encoding...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instant NGP Settings", on_click=instant_ngp_help)]),
+        Header("🎑  Instant Neural Graphics Primitives by NVidia", "Convert series of images into 3D Models with Multiresolution Hash Encoding...", actions=[save_default(instant_ngp_prefs, exclude=['image_path']), IconButton(icon=icons.HELP, tooltip="Help with Instant NGP Settings", on_click=instant_ngp_help)]),
         Row([name_of_your_model]),
         Row([train_steps, vr_mode]),
         ResponsiveRow([sharpen, exposure]),
@@ -6086,7 +6088,7 @@ def buildMeshy(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🍄  Meshy.ai 3D Generation API", "Uses credits from their servers to create quality mesh models. Can take 3-15 minutes per, but gives great results...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Meshy API Settings", on_click=meshy_help)]),
+        Header("🍄  Meshy.ai 3D Generation API", "Uses credits from their servers to create quality mesh models. Can take 3-15 minutes per, but gives great results...", actions=[save_default(meshy_prefs, exclude=['init_image', 'init_model']), IconButton(icon=icons.HELP, tooltip="Help with Meshy API Settings", on_click=meshy_help)]),
         Row([Text("Meshy Mode:", weight=FontWeight.BOLD), selected_mode]),
         init_model,
         prompt_container,
@@ -6151,7 +6153,7 @@ def buildLuma(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌔  LumaLabs Video-to-3D API", "Costs $1 per Model, takes ~30min, but well worth it for these NeRF and meshing models in their cloud...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LumaLabs API Settings", on_click=luma_vid_to_3d_help)]),
+        Header("🌔  LumaLabs Video-to-3D API", "Costs $1 per Model, takes ~30min, but well worth it for these NeRF and meshing models in their cloud...", actions=[save_default(luma_vid_to_3d_prefs, exclude=['init_video']), IconButton(icon=icons.HELP, tooltip="Help with LumaLabs API Settings", on_click=luma_vid_to_3d_help)]),
         init_video,
         title,
         Divider(thickness=2, height=4),
@@ -6282,7 +6284,7 @@ def buildRepainter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("💅  Repaint masked areas of an image", "Fills in areas of picture with what it thinks it should be, without a prompt...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Repainter Settings", on_click=repaint_help)]),
+        Header("💅  Repaint masked areas of an image", "Fills in areas of picture with what it thinks it should be, without a prompt...", actions=[save_default(repaint_prefs, exclude=['original_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Repainter Settings", on_click=repaint_help)]),
         Row([original_image, mask_image, invert_mask]),
         num_inference_row,
         eta_row,
@@ -6388,7 +6390,7 @@ def buildImageVariation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🪩  Image Variations of any Init Image", "Creates a new version of your picture, without a prompt...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)]),
+        Header("🪩  Image Variations of any Init Image", "Creates a new version of your picture, without a prompt...", actions=[save_default(image_variation_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)]),
         init_image,
         #Row([init_image, mask_image, invert_mask]),
         num_inference_row,
@@ -6492,7 +6494,7 @@ def buildBackgroundRemover(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🖼  MODNet Background Remover", "A deep learning approach to clear the background of most images to isolate subject...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Background Remover Settings", on_click=background_remover_help)]),
+        Header("🖼  MODNet Background Remover", "A deep learning approach to clear the background of most images to isolate subject...", actions=[save_default(background_remover_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Background Remover Settings", on_click=background_remover_help)]),
         init_image,
         threshold,
         max_row,
@@ -6607,7 +6609,7 @@ def buildBLIPDiffusion(page):
     page.blip_diffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("📡  BLIP-Diffusion by Salesforce", "Pre-trained Subject Representation for Controllable Text-to-Image Generation and Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with BLIP Diffusion Settings", on_click=blip_diffusion_help)]),
+            Header("📡  BLIP-Diffusion by Salesforce", "Pre-trained Subject Representation for Controllable Text-to-Image Generation and Editing...", actions=[save_default(blip_diffusion_prefs, ['init_image', 'control_image']), IconButton(icon=icons.HELP, tooltip="Help with BLIP Diffusion Settings", on_click=blip_diffusion_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([source_subject_category, target_subject_category]),
             #img_block,
@@ -6728,7 +6730,7 @@ def buildAnyText(page):
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🔤  AnyText (under construction)", "Multilingual Visual Text Generation and Text Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnyText Settings", on_click=anytext_help)]),
+            Header("🔤  AnyText (under construction)", "Multilingual Visual Text Generation and Text Editing...", actions=[save_default(anytext_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with AnyText Settings", on_click=anytext_help)]),
             prompt,
             ResponsiveRow([a_prompt, negative_prompt]),
             ResponsiveRow([init_image, mask_image]),
@@ -6876,7 +6878,7 @@ def buildIP_Adapter(page):
     page.ip_adapter_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🦊  IP-Adapter", "Image Prompting capabilities to Transfer Subject with or without Prompt...", actions=[IconButton(icon=icons.HELP, tooltip="Help with IP_Adapter Settings", on_click=ip_adapter_help)]),
+            Header("🦊  IP-Adapter", "Image Prompting capabilities to Transfer Subject with or without Prompt...", actions=[save_default(ip_adapter_prefs, ['init_image', 'mask_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with IP-Adapter Settings", on_click=ip_adapter_help)]),
             Row([ip_adapter_model, ip_adapter_SDXL_model, ip_adapter_image]),
             Row([use_SDXL, ip_adapter_strength]),
             ResponsiveRow([prompt, negative_prompt]),
@@ -7026,7 +7028,7 @@ def buildReference(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎩  Reference-Only Image with Prompt", "ControlNet Pipeline for Transfering Ref Subject to new images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Reference Settings", on_click=reference_help)]),
+        Header("🎩  Reference-Only Image with Prompt", "ControlNet Pipeline for Transfering Ref Subject to new images...", actions=[save_default(reference_prefs, ['ref_image', 'last_model']), IconButton(icon=icons.HELP, tooltip="Help with Reference Settings", on_click=reference_help)]),
         ref_image,
         ResponsiveRow([prompt, negative_prompt]),
         use_SDXL,
@@ -7254,7 +7256,7 @@ def buildControlNetQR(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🔗  ControlNet QRCode Art Generator", "ControlNet Img2Img for Inpainting QR Code with Prompt and/or Init Image...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetQR Settings", on_click=controlnet_qr_help)]),
+        Header("🔗  ControlNet QRCode Art Generator", "ControlNet Img2Img for Inpainting QR Code with Prompt and/or Init Image...", actions=[save_default(controlnet_qr_prefs, ['init_image', 'ref_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with ControlNetQR Settings", on_click=controlnet_qr_help)]),
         Row([selected_mode, qr_content, ref_image]),
         qr_generator,
         ResponsiveRow([prompt, negative_prompt]),
@@ -7397,7 +7399,7 @@ def buildControlNetSegmentAnything(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🥸  ControlNet on Meta's Segment-Anything", "Upload an Image, Segment it with Segment Anything, write a prompt, and generate images...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Segment Anything Settings", on_click=controlnet_segment_help)]),
+        Header("🥸  ControlNet on Meta's Segment-Anything", "Upload an Image, Segment it with Segment Anything, write a prompt, and generate images...", actions=[save_default(controlnet_segment_prefs, ['ref_image']), IconButton(icon=icons.HELP, tooltip="Help with ControlNet Segment Anything Settings", on_click=controlnet_segment_help)]),
         ref_image,
         ResponsiveRow([prompt, negative_prompt]),
         num_inference_row,
@@ -7528,7 +7530,7 @@ def buildEDICT(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🤹  EDICT Image Editing", "Diffusion pipeline for text-guided image editing... Exact Diffusion Inversion via Coupled Transformations.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=EDICT_help)]),
+        Header("🤹  EDICT Image Editing", "Diffusion pipeline for text-guided image editing... Exact Diffusion Inversion via Coupled Transformations.", actions=[save_default(EDICT_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=EDICT_help)]),
         init_image,
         base_prompt,
         ResponsiveRow([target_prompt, negative_prompt]),
@@ -7659,7 +7661,7 @@ def buildDiffEdit(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🍒  DiffEdit Image Editing", "Zero-shot Diffusion-based Semantic Image Editing with Mask Guidance...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=DiffEdit_help)]),
+        Header("🍒  DiffEdit Image Editing", "Zero-shot Diffusion-based Semantic Image Editing with Mask Guidance...", actions=[save_default(DiffEdit_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=DiffEdit_help)]),
         init_image,
         source_prompt,
         ResponsiveRow([target_prompt, negative_prompt]),
@@ -7750,7 +7752,7 @@ def buildNull_Text(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("😑  Null-Text Inversion Image Editing", "Editing Real Images using Guided Diffusion Models... Exact Diffusion Inversion via Coupled Transformations. Prompt-to-prompt image editing with cross attention control.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=null_text_help)]),
+        Header("😑  Null-Text Inversion Image Editing", "Editing Real Images using Guided Diffusion Models... Exact Diffusion Inversion via Coupled Transformations. Prompt-to-prompt image editing with cross attention control.", actions=[save_default(null_text_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=null_text_help)]),
         init_image,
         base_prompt,
         ResponsiveRow([target_prompt, negative_prompt]),
@@ -7875,7 +7877,7 @@ def buildUnCLIP(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌐  unCLIP Text-to-Image Generator", "Hierarchical Text-Conditional Image Generation with CLIP Latents.  Similar results to DALL-E 2...", actions=[IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_help)]),
+        Header("🌐  unCLIP Text-to-Image Generator", "Hierarchical Text-Conditional Image Generation with CLIP Latents.  Similar results to DALL-E 2...", actions=[save_default(unCLIP_prefs, []), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_help)]),
         prompt,
         #Row([prompt, mask_image, invert_mask]),
         prior_num_inference_row, decoder_num_inference_row, super_res_num_inference_row,
@@ -8014,7 +8016,7 @@ def buildUnCLIP_ImageVariation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎆  unCLIP Image Variation Generator", "Generate Variations from an input image using unCLIP...", actions=[IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Variation Settings", on_click=unCLIP_image_variation_help)]),
+        Header("🎆  unCLIP Image Variation Generator", "Generate Variations from an input image using unCLIP...", actions=[save_default(unCLIP_image_variation_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Variation Settings", on_click=unCLIP_image_variation_help)]),
         init_image,
         #Row([prompt, mask_image, invert_mask]),
         decoder_num_inference_row, super_res_num_inference_row,
@@ -8129,7 +8131,7 @@ def buildUnCLIP_Interpolation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌌  unCLIP Text Interpolation Generator", "Takes two prompts and interpolates between the two input prompts using spherical interpolation...", actions=[IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_interpolation_help)]),
+        Header("🌌  unCLIP Text Interpolation Generator", "Takes two prompts and interpolates between the two input prompts using spherical interpolation...", actions=[save_default(unCLIP_interpolation_prefs), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Settings", on_click=unCLIP_interpolation_help)]),
         prompt,
         end_prompt,
         #Row([prompt, mask_image, invert_mask]),
@@ -8288,7 +8290,7 @@ def buildUnCLIP_ImageInterpolation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🤖  unCLIP Image Interpolation Generator", "Pass two images and produces in-betweens while interpolating between their image-embeddings...", actions=[IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Interpolation Settings", on_click=unCLIP_image_interpolation_help)]),
+        Header("🤖  unCLIP Image Interpolation Generator", "Pass two images and produces in-betweens while interpolating between their image-embeddings...", actions=[save_default(unCLIP_interpolation_prefs, ['init_image', 'end_image']), IconButton(icon=icons.HELP, tooltip="Help with unCLIP Image Interpolation Settings", on_click=unCLIP_image_interpolation_help)]),
         init_image, end_image,
         interpolation_steps,
         #Row([prompt, mask_image, invert_mask]),
@@ -8432,7 +8434,7 @@ def buildMagicMix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧚  MagicMix Init Image with Prompt", "Diffusion Pipeline for semantic mixing of an image and a text prompt...", actions=[IconButton(icon=icons.HELP, tooltip="Help with MagicMix Settings", on_click=magic_mix_help)]),
+        Header("🧚  MagicMix Init Image with Prompt", "Diffusion Pipeline for semantic mixing of an image and a text prompt...", actions=[save_default(magic_mix_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with MagicMix Settings", on_click=magic_mix_help)]),
         init_image,
         prompt,
         scheduler_mode,
@@ -8591,7 +8593,7 @@ def buildPaintByExample(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🦁  Paint-by-Example", "Image-guided Inpainting using an Example Image to Transfer Subject to Masked area...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Paint-by-Example Settings", on_click=paint_by_example_help)]),
+        Header("🦁  Paint-by-Example", "Image-guided Inpainting using an Example Image to Transfer Subject to Masked area...", actions=[save_default(paint_by_example_prefs, ['original_image', 'mask_image', 'example_image']), IconButton(icon=icons.HELP, tooltip="Help with Paint-by-Example Settings", on_click=paint_by_example_help)]),
         ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         example_image,
         num_inference_row,
@@ -8788,7 +8790,7 @@ def buildInstructPix2Pix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🏜️  Instruct-Pix2Pix", "Text-Based Image Editing - Follow Image Editing Instructions...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)]),
+        Header("🏜️  Instruct-Pix2Pix", "Text-Based Image Editing - Follow Image Editing Instructions...", actions=[save_default(instruct_pix2pix_prefs, ['original_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         Row([original_image, init_video, use_init_video]),
         vid_params,
@@ -9072,7 +9074,7 @@ def buildControlNet(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🕸️  ControlNet Image+Text-to-Image+Video-to-Video", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
+        Header("🕸️  ControlNet Image+Text-to-Image+Video-to-Video", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[save_default(controlnet_prefs, ['original_image', 'init_image', 'mask_image', 'ip_adapter_image', 'multi_controlnets']), IconButton(icon=icons.HELP, tooltip="Help with ControlNet Settings", on_click=controlnet_help)]),
         Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
         Row([control_guidance_start, control_guidance_end]),
@@ -9364,7 +9366,7 @@ def buildControlNetXL(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🕷  ControlNet SDXL Image+Text-to-Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetXL Settings", on_click=controlnet_xl_help)]),
+        Header("🕷  ControlNet SDXL Image+Text-to-Image", "Adding Input Conditions To Pretrained Text-to-Image Diffusion Models...", actions=[save_default(controlnet_xl_prefs, ['original_image', 'init_image', 'mask_image', 'ip_adapter_image', 'multi_controlnets']), IconButton(icon=icons.HELP, tooltip="Help with ControlNetXL Settings", on_click=controlnet_xl_help)]),
         Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
         Row([control_guidance_start, control_guidance_end]),
@@ -9651,7 +9653,7 @@ def buildControlNetXS(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🕸  ControlNet-XS Image+Text-to-Image", "Faster & Smaller Controlnet Image Conditioning Text-to-Image Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNetXS Settings", on_click=controlnet_xs_help)]),
+        Header("🕸  ControlNet-XS Image+Text-to-Image", "Faster & Smaller Controlnet Image Conditioning Text-to-Image Diffusion Models...", actions=[save_default(controlnet_xs_prefs, ['original_image', 'init_image', 'mask_image', 'ip_adapter_image', 'multi_controlnets']), IconButton(icon=icons.HELP, tooltip="Help with ControlNetXS Settings", on_click=controlnet_xs_help)]),
         Row([control_task, original_image, init_video, add_layer_btn]),
         conditioning_scale,
         Row([control_guidance_start, control_guidance_end]),
@@ -9854,7 +9856,7 @@ def buildControlNet_Video2Video(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🤪  ControlNet Video2Video", "Apply Stable Diffusion to a video, while maintaining frame-to-frame consistency with motion estimator & compensator...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Vid2Vid Settings", on_click=controlnet_video2video_help)]),
+        Header("🤪  ControlNet Video2Video", "Apply Stable Diffusion to a video, while maintaining frame-to-frame consistency with motion estimator & compensator...", actions=[save_default(controlnet_video2video_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with ControlNet Vid2Vid Settings", on_click=controlnet_video2video_help)]),
         ResponsiveRow([prompt, negative_prompt]),
         Row([control_task, init_video]),
         canny_threshold,
@@ -10041,7 +10043,7 @@ def buildDeepFloyd(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌈  DeepFloyd IF (under construction, may not work)", "A new AI image generator that achieves state-of-the-art results on numerous image-generation tasks...", actions=[IconButton(icon=icons.HELP, tooltip="Help with IF-DeepFloyd Settings", on_click=deepfloyd_help)]),
+        Header("🌈  DeepFloyd IF (under construction, may not work)", "A new AI image generator that achieves state-of-the-art results on numerous image-generation tasks...", actions=[save_default(deepfloyd_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with IF-DeepFloyd Settings", on_click=deepfloyd_help)]),
         ResponsiveRow([prompt, negative_prompt]),
         ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         #Row([init_image, mask_image, invert_mask]),
@@ -10158,7 +10160,7 @@ def buildAmused(page):
     page.amused_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🎡  aMUSEd Open-MUSE", "Lightweight and Fast vqVAE Masked Generative Transformer Model to make many images quickly at once...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Amused Settings", on_click=amused_help)]),
+            Header("🎡  aMUSEd Open-MUSE", "Lightweight and Fast vqVAE Masked Generative Transformer Model to make many images quickly at once...", actions=[save_default(amused_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Amused Settings", on_click=amused_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([init_image, mask_image]),
             init_image_strength,
@@ -10253,7 +10255,7 @@ def buildWuerstchen(page):
     page.wuerstchen_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🌭  Würstchen", "Text-to-Image Synthesis uniting competitive performance, cost-effectiveness and ease of training on constrained hardware.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Würstchen Settings", on_click=wuerstchen_help)]),
+            Header("🌭  Würstchen", "Text-to-Image Synthesis uniting competitive performance, cost-effectiveness and ease of training on constrained hardware.", actions=[save_default(wuerstchen_prefs), IconButton(icon=icons.HELP, tooltip="Help with Würstchen Settings", on_click=wuerstchen_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([prior_steps, prior_guidance_scale]),
             steps,
@@ -10360,7 +10362,7 @@ def buildPixArtAlpha(page):
     page.pixart_alpha_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🧚  PixArt-αlpha", "Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis... Note: Uses a lot of RAM & Space, may run out.", actions=[IconButton(icon=icons.HELP, tooltip="Help with PixArt-α Settings", on_click=pixart_alpha_help)]),
+            Header("🧚  PixArt-αlpha", "Fast Training of Diffusion Transformer for Photorealistic Text-to-Image Synthesis... Note: Uses a lot of RAM & Space, may run out.", actions=[save_default(pixart_alpha_prefs), IconButton(icon=icons.HELP, tooltip="Help with PixArt-α Settings", on_click=pixart_alpha_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #ResponsiveRow([num_inference_steps]),
             steps,
@@ -10469,7 +10471,7 @@ def buildLMD_Plus(page):
     page.lmd_plus_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🐆  LMD+ LLM-grounded Diffusion", "Enhancing Prompt Understanding of Text-to-Image Diffusion Models with Large Language Models.", actions=[IconButton(icon=icons.HELP, tooltip="Help with LMD_Plus Settings", on_click=lmd_plus_help)]),
+            Header("🐆  LMD+ LLM-grounded Diffusion", "Enhancing Prompt Understanding of Text-to-Image Diffusion Models with Large Language Models.", actions=[save_default(lmd_plus_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with LMD Plus Settings", on_click=lmd_plus_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #ResponsiveRow([num_inference_steps]),
             steps,
@@ -10595,7 +10597,7 @@ def buildLCM(page):
     page.lcm_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("💻  Latent Consistency Model (LCM)", "Synthesizing High-Resolution Images with Few-Step Inference.", actions=[IconButton(icon=icons.HELP, tooltip="Help with LCM Settings", on_click=lcm_help)]),
+            Header("💻  Latent Consistency Model (LCM)", "Synthesizing High-Resolution Images with Few-Step Inference.", actions=[save_default(lcm_prefs, ['init_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with LCM Settings", on_click=lcm_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([init_image, init_image_strength]),
             steps,
@@ -10778,7 +10780,7 @@ def buildLCMInterpolation(page):
     page.lcm_interpolation_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("👪  LCM Interpolation", "Transition the Latent Consistancy between multiple text prompts... Good fast results in only 4 Steps!", actions=[IconButton(icon=icons.HELP, tooltip="Help with LCM Settings", on_click=lcm_interpolation_help)]),
+            Header("👪  LCM Interpolation", "Transition the Latent Consistancy between multiple text prompts... Good fast results in only 4 Steps!", actions=[save_default(lcm_interpolation_prefs, ['mixes']), IconButton(icon=icons.HELP, tooltip="Help with LCM Settings", on_click=lcm_interpolation_help)]),
             prompt_row,
             fuse_layers,
             Divider(height=5, thickness=4),
@@ -10886,7 +10888,7 @@ def buildInstaFlow(page):
     page.instaflow_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("⚡️  InstaFlow One-Step", "Ultra-Fast One-Step High-Quality Diffusion-Based Text-to-Image Generation...", actions=[IconButton(icon=icons.HELP, tooltip="Help with InstaFlow Settings", on_click=instaflow_help)]),
+            Header("⚡️  InstaFlow One-Step", "Ultra-Fast One-Step High-Quality Diffusion-Based Text-to-Image Generation...", actions=[save_default(instaflow_prefs), IconButton(icon=icons.HELP, tooltip="Help with InstaFlow Settings", on_click=instaflow_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #ResponsiveRow([init_image, init_image_strength]),
             steps,
@@ -11008,7 +11010,7 @@ def buildLDM3D(page):
     page.ldm3d_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🍋  Latent Diffusion Model for 3D (LDM3D)", "Generate RGB Images and 3D Depth Maps given a text prompt... Made with Intel.", actions=[IconButton(icon=icons.HELP, tooltip="Help with LDM3D Settings", on_click=ldm3d_help)]),
+            Header("🍋  Latent Diffusion Model for 3D (LDM3D)", "Generate RGB Images and 3D Depth Maps given a text prompt... Made with Intel.", actions=[save_default(ldm3d_prefs, ['ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with LDM3D Settings", on_click=ldm3d_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
             guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
@@ -11076,7 +11078,7 @@ def buildTaskMatrix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧑‍💻️  TaskMatrix Visual ChatGPT (under construction)", "Talking, Drawing and Editing with Visual Foundation Models. Conversational requests for image editing & creating using OpenAI brain...", actions=[IconButton(icon=icons.HELP, tooltip="Help with TaskMatrix Settings", on_click=task_matrix_help)]),
+        Header("🧑‍💻️  TaskMatrix Visual ChatGPT (under construction)", "Talking, Drawing and Editing with Visual Foundation Models. Conversational requests for image editing & creating using OpenAI brain...", actions=[save_default(task_matrix_prefs, ['image_path']), IconButton(icon=icons.HELP, tooltip="Help with TaskMatrix Settings", on_click=task_matrix_help)]),
         Text("Active Pipeline Modules: (uses up VRAM)", weight=FontWeight.BOLD),
         modules_list,
         ResponsiveRow([prompt, image_path]),
@@ -11175,7 +11177,7 @@ Resources:
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎥  Text-To-Video Synthesis", "Modelscope's Text-to-video-synthesis Model to Animate Diffusion", actions=[IconButton(icon=icons.HELP, tooltip="Help with Text-to-Video Settings", on_click=text_to_video_help)]),
+        Header("🎥  Text-To-Video Synthesis", "Modelscope's Text-to-video-synthesis Model to Animate Diffusion", actions=[save_default(text_to_video_prefs), IconButton(icon=icons.HELP, tooltip="Help with Text-to-Video Settings", on_click=text_to_video_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
@@ -11322,7 +11324,7 @@ def buildTextToVideoZero(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎥  Text-To-Video Zero", "Text-to-Image Diffusion Models for Zero-Shot Video Generators", actions=[IconButton(icon=icons.HELP, tooltip="Help with Text-To-Video Zero Settings", on_click=text_to_video_zero_help)]),
+        Header("🎥  Text-To-Video Zero", "Text-to-Image Diffusion Models for Zero-Shot Video Generators", actions=[save_default(text_to_video_zero_prefs, ['input_video']), IconButton(icon=icons.HELP, tooltip="Help with Text-To-Video Zero Settings", on_click=text_to_video_zero_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([NumberPicker(label="Number of Frames: ", min=1, max=8, value=text_to_video_zero_prefs['num_frames'], tooltip="The number of video frames that are generated. Defaults to 16 frames which at 8 frames per seconds amounts to 2 seconds of video.", on_change=lambda e: changed(e, 'num_frames')), seed, batch_folder_name]),
@@ -11473,7 +11475,7 @@ Resources:
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("📽  Video-To-Video Synthesis", "Note: Uses more than 16GB VRAM, may crash session. Video-to-video-synthesis Model to Reanimate Video Clips", actions=[IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=video_to_video_help)]),
+        Header("📽  Video-To-Video Synthesis", "Note: Uses more than 16GB VRAM, may crash session. Video-to-video-synthesis Model to Reanimate Video Clips", actions=[save_default(video_to_video_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with Video-to-Video Settings", on_click=video_to_video_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         init_video,
@@ -11594,7 +11596,7 @@ def buildTemporalNet_XL(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("⌛  Controlnet TemporalNet-XL", "Video2Video ControlNet model designed to enhance the temporal consistency of video frames...", actions=[IconButton(icon=icons.HELP, tooltip="Help with TemporalNet-XL Settings", on_click=controlnet_temporalnet_help)]),
+        Header("⌛  Controlnet TemporalNet-XL", "Video2Video ControlNet model designed to enhance the temporal consistency of video frames...", actions=[save_default(controlnet_temporalnet_prefs, ['init_video', 'init_image']), IconButton(icon=icons.HELP, tooltip="Help with TemporalNet-XL Settings", on_click=controlnet_temporalnet_help)]),
         ResponsiveRow([prompt, negative_prompt]),
         init_video,
         init_image,
@@ -11876,7 +11878,7 @@ def buildInfiniteZoom(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🔍  Infinite Zoom Text-to-Video", "Animate your Keyframe Prompts with an Endless Zooming Effect...", actions=[IconButton(icon=icons.HELP, tooltip="Help with InfiniteZoom Settings", on_click=infinite_zoom_help)]),
+        Header("🔍  Infinite Zoom Text-to-Video", "Animate your Keyframe Prompts with an Endless Zooming Effect...", actions=[save_default(infinite_zoom_prefs, ['init_image', 'editing_prompts', 'animation_prompts']), IconButton(icon=icons.HELP, tooltip="Help with InfiniteZoom Settings", on_click=infinite_zoom_help)]),
         Row([frame, prompt, add_prompt_keyframe]),
         animation_prompts,
         Divider(thickness=2, height=4),
@@ -11986,7 +11988,7 @@ def buildPotat1(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🥔  Potat1️⃣ Text-To-Video Synthesis", "CamenDuru's Open-Source 1024x576 Text-To-Video Model ", actions=[IconButton(icon=icons.HELP, tooltip="Help with Potat1 Settings", on_click=potat1_help)]),
+        Header("🥔  Potat1️⃣ Text-To-Video Synthesis", "CamenDuru's Open-Source 1024x576 Text-To-Video Model ", actions=[save_default(potat1_prefs), IconButton(icon=icons.HELP, tooltip="Help with Potat1 Settings", on_click=potat1_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([export_to_video, lower_memory]),
@@ -12620,7 +12622,7 @@ def buildSVD(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🍃  Stable Video Diffusion Image-To-Video (uses a lot of VRAM)", "Generate high resolution (576x1024) 2-4 second videos conditioned on the input image...", actions=[IconButton(icon=icons.HELP, tooltip="Help with SVD Settings", on_click=svd_help)]),
+        Header("🍃  Stable Video Diffusion Image-To-Video (uses a lot of VRAM)", "Generate high resolution (576x1024) 2-4 second videos conditioned on the input image...", actions=[save_default(svd_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with SVD Settings", on_click=svd_help)]),
         #ResponsiveRow([prompt, negative_prompt]),
         init_image,
         decode_chunk_size,
@@ -12772,7 +12774,7 @@ def buildROOP(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎭  ROOP Face Swapper", "Take a Video or Image and Replace the Face in it with a face of your choice, no dataset, no training needed...", actions=[IconButton(icon=icons.HELP, tooltip="Help with ROOP", on_click=roop_help)]),
+        Header("🎭  ROOP Face Swapper", "Take a Video or Image and Replace the Face in it with a face of your choice, no dataset, no training needed...", actions=[save_default(roop_prefs, ['source_image', 'target_image']), IconButton(icon=icons.HELP, tooltip="Help with ROOP", on_click=roop_help)]),
         #ResponsiveRow([Row([source_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         source_image,
         target_image,
@@ -12860,7 +12862,7 @@ def buildVideoReTalking(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👄  Video ReTalking", "Audio-based Lip Synchronization for Talking Head Video Editing in the Wild...", actions=[IconButton(icon=icons.HELP, tooltip="Help with VideoReTalking", on_click=video_retalking_help)]),
+        Header("👄  Video ReTalking", "Audio-based Lip Synchronization for Talking Head Video Editing in the Wild...", actions=[save_default(video_retalking_prefs, ['target_video', 'input_audio']), IconButton(icon=icons.HELP, tooltip="Help with VideoReTalking", on_click=video_retalking_help)]),
         #ResponsiveRow([Row([input_audio, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         target_video,
         input_audio,
@@ -13040,7 +13042,7 @@ def buildStyleCrafter(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👗  StyleCrafter Text-to-Video-or-Image", "Enhancing Stylized Video or Image Generation with Style Adapter...", actions=[IconButton(icon=icons.HELP, tooltip="Help with StyleCrafter Settings", on_click=style_crafter_help)]),
+        Header("👗  StyleCrafter Text-to-Video-or-Image", "Enhancing Stylized Video or Image Generation with Style Adapter...", actions=[save_default(style_crafter_prefs, ['init_video', 'init_image', 'style_images']), IconButton(icon=icons.HELP, tooltip="Help with StyleCrafter Settings", on_click=style_crafter_help)]),
         #ResponsiveRow([prompt, negative_prompt]),
         prompt,
         #init_video,
@@ -13159,7 +13161,7 @@ def buildRAVE(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🐦‍⬛  RAVE Video-to-Video", "Randomized Noise Shuffling for Fast and Consistent Video Editing with Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with RAVE Vid2Vid Settings", on_click=rave_help)]),
+        Header("🐦‍⬛  RAVE Video-to-Video", "Randomized Noise Shuffling for Fast and Consistent Video Editing with Diffusion Models...", actions=[save_default(rave_prefs, ['init_video', 'control_tasks']), IconButton(icon=icons.HELP, tooltip="Help with RAVE Vid2Vid Settings", on_click=rave_help)]),
         ResponsiveRow([prompt, negative_prompt]),
         Row([control_task, init_video]),
         conditioning_scale,
@@ -13277,7 +13279,7 @@ def buildTokenFlow(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌞  TokenFlow Video-To-Video (under construction)", "Consistent Diffusion Features for Consistent Video Editing...", actions=[IconButton(icon=icons.HELP, tooltip="Help with TokenFlow Settings", on_click=tokenflow_help)]),
+        Header("🌞  TokenFlow Video-To-Video (under construction)", "Consistent Diffusion Features for Consistent Video Editing...", actions=[save_default(tokenflow_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with TokenFlow Settings", on_click=tokenflow_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         init_video,
         inversion_prompt,
@@ -13927,7 +13929,7 @@ def buildAnimateDiff(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👫  AnimateDiff Enhanced Text-to-Video", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
+        Header("👫  AnimateDiff Enhanced Text-to-Video", "Animate Your Personalized Text-to-Image Diffusion Models without Specific Tuning...", actions=[save_default(animate_diff_prefs, ['editing_prompts', 'animation_prompts', 'prompt_map', 'lora_map', 'ip_adapter_image', 'ip_adapter_layers', 'original_image', 'controlnet_image', 'controlnet_layers', 'img2img_image', 'img2img_layers']), IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Settings", on_click=animate_diff_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         #ResponsiveRow([prompt, negative_prompt, seed]),
         #Row([Text("AnimateDiff Prompts", style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
@@ -14188,7 +14190,7 @@ def buildAnimateDiffImage2Video(page):
     page.animatediff_img2video_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🐉  AnimateDiff Image/Video-to-Video", "Bring an Image or Video Clip to Life! Similar to Stable Video Diffusion, with more control...", actions=[IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Image2Video Settings", on_click=animatediff_img2video_help)]),
+            Header("🐉  AnimateDiff Image/Video-to-Video", "Bring an Image or Video Clip to Life! Similar to Stable Video Diffusion, with more control...", actions=[save_default(animatediff_img2video_prefs, ['init_image', 'ip_adapter_image', 'lora_map']), IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff Image2Video Settings", on_click=animatediff_img2video_help)]),
             ResponsiveRow([init_image, init_image_strength]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
@@ -14398,7 +14400,7 @@ def buildPIA(page):
     page.pia_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🎬  Personalized Image Animator Image-to-Video", "Image-to-Video Generation with PIA via Plug-and-Play Modules in Text-to-Image Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Personalized Image Animator Settings", on_click=pia_help)]),
+            Header("🎬  Personalized Image Animator Image-to-Video", "Image-to-Video Generation with PIA via Plug-and-Play Modules in Text-to-Image Models...", actions=[save_default(pia_prefs, ['init_image', 'ip_adapter_image', 'lora_map']), IconButton(icon=icons.HELP, tooltip="Help with Personalized Image Animator Settings", on_click=pia_help)]),
             ResponsiveRow([init_image, init_image_strength]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
@@ -14582,7 +14584,7 @@ def buildI2VGenXL(page):
     page.i2vgen_xl_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🧬  I2VGen-XL Image-to-Video", "High-Quality Image-to-Video Synthesis via Cascaded Diffusion Models...", actions=[IconButton(icon=icons.HELP, tooltip="Help with I2VGen-XL Settings", on_click=i2vgen_xl_help)]),
+            Header("🧬  I2VGen-XL Image-to-Video", "High-Quality Image-to-Video Synthesis via Cascaded Diffusion Models...", actions=[save_default(i2vgen_xl_prefs, ['init_image', 'lora_map']), IconButton(icon=icons.HELP, tooltip="Help with I2VGen-XL Settings", on_click=i2vgen_xl_help)]),
             init_image,
             #ResponsiveRow([init_image]),
             ResponsiveRow([prompt, negative_prompt]),
@@ -14708,7 +14710,7 @@ def buildHotshotXL(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🔥  Hotshot-XL Text-To-GIF with SDXL", "Generate Animated GIFs with any fine-tuned SDXL model... (Work in Progress)", actions=[IconButton(icon=icons.HELP, tooltip="Help with Hotshot-XL Settings", on_click=hotshot_xl_help)]),
+        Header("🔥  Hotshot-XL Text-To-GIF with SDXL", "Generate Animated GIFs with any fine-tuned SDXL model... (Work in Progress)", actions=[save_default(hotshot_xl_prefs, ['gif', 'init_video']), IconButton(icon=icons.HELP, tooltip="Help with Hotshot-XL Settings", on_click=hotshot_xl_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         #Row([export_to_video, lower_memory]),
@@ -14896,7 +14898,7 @@ def buildRerender_a_video(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("📹  Rerender-a-Video", "Zero-Shot Text-Guided Video-to-Video Translation... (Note: May need 24GB VRAM to run)", actions=[IconButton(icon=icons.HELP, tooltip="Help with ControlNet Vid2Vid Settings", on_click=rerender_a_video_help)]),
+        Header("📹  Rerender-a-Video", "Zero-Shot Text-Guided Video-to-Video Translation... (Note: May need 24GB VRAM to run)", actions=[save_default(rerender_a_video_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with Rerender Vid2Vid Settings", on_click=rerender_a_video_help)]),
         ResponsiveRow([prompt, a_prompt]),
         negative_prompt,
         Row([control_task, init_video]),
@@ -14970,6 +14972,11 @@ def buildMaterialDiffusion(page):
       if pref is not None:
         prefs[pref] = e.control.value
         status['changed_prefs'] = True
+    def materialdiffusion_help(e):
+      alert_msg(page, "💁   Help with Material Diffusion", content=[
+          Text("A fork of the Stable Diffusion Cog model that outputs tileable images for use in 3D applications such as Monaverse."),
+          Markdown("[GitHub Project](https://github.com/TomMoore515/material_stable_diffusion) | [Replicate](https://replicate.com/tommoore515/material_stable_diffusion) | [Monaverse](https://monaverse.com/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], okay="😖  Get Tiling... ", sound=False)
     def pick_files_result(e: FilePickerResultEvent):
         if e.files:
             img = e.files
@@ -15083,12 +15090,11 @@ def buildMaterialDiffusion(page):
     if not materialdiffusion_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     parameters_button = ElevatedButton(content=Text(value="💨   Run Material Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_materialdiffusion(page))
-
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.materialdiffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🧱  Replicate Material Diffusion", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key."),
+            Header("🧱  Replicate Material Diffusion", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key.", actions=[save_default(materialdiffusion_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Material Diffusion Settings", on_click=materialdiffusion_help)]),
             material_prompt,
             steps,
             guidance,
@@ -15103,6 +15109,106 @@ def buildMaterialDiffusion(page):
             #number_row,
             parameters_row,
             page.materialdiffusion_output
+        ],
+    ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, eta, seed,
+    return c
+
+materialdiffusion_sdxl_prefs = {
+    "material_prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "material-",
+    "num_outputs": 1,
+    "steps":50,
+    "refine_steps":20,
+    "scheduler": "K_EULER_ANCESTRAL",
+    "width": "640",
+    "height": "640",
+    "guidance_scale":7.5,
+    "refine": True,
+    "high_noise_frac": 0.8,
+    "seed":0,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    #"face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildMaterialDiffusion_SDXL(page):
+    global prefs, materialdiffusion_sdxl_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            materialdiffusion_sdxl_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            materialdiffusion_sdxl_prefs[pref] = float(e.control.value)
+          else:
+            materialdiffusion_sdxl_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def changed_pref(e, pref=None):
+      if pref is not None:
+        prefs[pref] = e.control.value
+        status['changed_prefs'] = True
+    def materialdiffusion_sdxl_help(e):
+      alert_msg(page, "💁   Help with Material Diffusion SDXL", content=[
+          Text("A fork of the Stable Diffusion Cog model that outputs tileable images for use in 3D applications such as Monaverse."),
+          Markdown("[GitHub Project](https://github.com/Pwntus/material-diffusion-sdxl) | [Replicate](https://replicate.com/pwntus/material-diffusion-sdxl) | [Monaverse](https://monaverse.com/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], okay="😖  Get Tiling... ", sound=False)
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    material_prompt = TextField(label="Material Prompt", value=materialdiffusion_sdxl_prefs['material_prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'material_prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=materialdiffusion_sdxl_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=materialdiffusion_sdxl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=materialdiffusion_sdxl_prefs['file_prefix'], width=150, on_change=lambda e:changed(e,'file_prefix'))
+    steps = SliderRow(label="Inference Steps", min=0, max=100, divisions=100, pref=materialdiffusion_sdxl_prefs, key='steps')
+    refine_steps = SliderRow(label="Refiner Steps", min=0, max=60, divisions=60, expand=True, pref=materialdiffusion_sdxl_prefs, key='refine_steps')
+    refine = Switcher(label="Use Refiner ", value=materialdiffusion_sdxl_prefs['refine'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'refine'), tooltip="Uses Expert Ensemble Refiner to clean-up after generation.")
+    seed = TextField(label="Seed", value=materialdiffusion_sdxl_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width=120, on_change=lambda e:changed(e,'seed', ptype="int"))
+    batch_row = Row([batch_folder_name, file_prefix], col={'xs':12, 'lg':6})
+    number_row = Row([NumberPicker(label="Output Images", min=1, max=4, step=1, value=materialdiffusion_sdxl_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int")), seed], col={'xs':12, 'md':6})
+    param_rows = ResponsiveRow([number_row, batch_row], vertical_alignment=CrossAxisAlignment.START)
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=materialdiffusion_sdxl_prefs, key='guidance_scale')
+    #width_slider = SliderRow(label="Width", min=128, max=1536, divisions=11, multiple=128, suffix="px", pref=materialdiffusion_sdxl_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=128, max=1536, divisions=11, multiple=128, suffix="px", pref=materialdiffusion_sdxl_prefs, key='height')
+    width = Dropdown(label="Width", width=90, options=[dropdown.Option(s) for s in ['128', '256', '384', '448', '512', '576', '640', '704', '768', '832', '896', '960', '1024', '1088', '1152', '1216', '1280', '1344', '1408', '1472', '1536', '1600']], value=materialdiffusion_sdxl_prefs['width'], on_change=lambda e: changed(e, 'width'))
+    height = Dropdown(label="Height", width=90, options=[dropdown.Option(s) for s in ['128', '256', '384', '448', '512', '576', '640', '704', '768', '832', '896', '960', '1024', '1088', '1152', '1216', '1280', '1344', '1408', '1472', '1536', '1600']], value=materialdiffusion_sdxl_prefs['height'], on_change=lambda e: changed(e, 'height'))
+    SDXL_high_noise_frac = SliderRow(label="SDXL High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=materialdiffusion_sdxl_prefs, key='high_noise_frac', tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'high_noise_frac'))
+    scheduler = Dropdown(label="De-noise Scheduler", width=220, options=[dropdown.Option(s) for s in ['DDIM', 'DPMSolverMultistep', 'HeunDiscrete', 'KarrasDPM', 'K_EULER_ANCESTRAL', 'K_EULER', 'PNDM']], value=materialdiffusion_sdxl_prefs['scheduler'], on_change=lambda e: changed(e, 'scheduler'))
+    api_instructions = Markdown("Get **Replicate API Token** from [https://replicate.com/account](https://replicate.com/account)", on_tap_link=lambda e: e.page.launch_url(e.data))
+    Replicate_api = TextField(label="Replicate API Key", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed_pref(e, 'Replicate_api_key'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=materialdiffusion_sdxl_prefs, key='enlarge_scale')
+    #face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=materialdiffusion_sdxl_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=materialdiffusion_sdxl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_material = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_material.height = None if status['installed_ESRGAN'] else 0
+    if not materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="💨   Run Material Diffusion SDXL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_materialdiffusion_sdxl(page))
+    parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    page.materialdiffusion_sdxl_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🧱  Replicate Material Diffusion SDXL", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key.", actions=[save_default(materialdiffusion_sdxl_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Material Diffusion SDXL Settings", on_click=materialdiffusion_sdxl_help)]),
+            ResponsiveRow([material_prompt, negative_prompt]),
+            steps,
+            Row([refine, refine_steps]),
+            SDXL_high_noise_frac,
+            guidance,
+            #width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([width, Text("x"), height, Text("  "), scheduler]),
+            page.ESRGAN_block_material,
+            api_instructions,
+            Replicate_api,
+            param_rows,
+            parameters_row,
+            page.materialdiffusion_sdxl_output
         ],
     ))], scroll=ScrollMode.AUTO)#batch_folder_name, batch_size, n_iterations, steps, eta, seed,
     return c
@@ -16889,7 +16995,7 @@ def buildKandinskyControlNet(page):
     page.kandinsky_controlnet_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🏩  Kandinsky 2.2 ControlNet Text+Image-to-Image", "Image-to-Image Generation with ControlNet Conditioning and depth-estimation from transformers.", actions=[IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_controlnet_help)]),
+            Header("🏩  Kandinsky 2.2 ControlNet Text+Image-to-Image", "Image-to-Image Generation with ControlNet Conditioning and depth-estimation from transformers.", actions=[save_default(kandinsky_controlnet_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_controlnet_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             init_image, strength_slider, prior_strength_slider,
             #img_block,
@@ -16998,7 +17104,7 @@ def buildDeepDaze(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👀  DeepDaze Text-to-Image Generator", "An alternative method using OpenAI's CLIP and Siren. Made a few years ago but still facinating results....", actions=[IconButton(icon=icons.HELP, tooltip="Help with DeepDaze Settings", on_click=deep_daze_help)]),
+        Header("👀  DeepDaze Text-to-Image Generator", "An alternative method using OpenAI's CLIP and Siren. Made a few years ago but still facinating results....", actions=[save_default(deep_daze_prefs), IconButton(icon=icons.HELP, tooltip="Help with DeepDaze Settings", on_click=deep_daze_help)]),
         prompt,
         num_layers_row,
         iterations_row,
@@ -17047,6 +17153,20 @@ def buildCLIPstyler(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
+    def CLIPstyler_help(e):
+      def close_CLIPstyler_dlg(e):
+        nonlocal CLIPstyler_help_dlg
+        CLIPstyler_help_dlg.open = False
+        page.update()
+      CLIPstyler_help_dlg = AlertDialog(title=Text("💁   Help with CLIP Styler"), content=Column([
+          Text("Existing neural style transfer methods require reference style images to transfer texture information of style images to content images. However, in many practical situations, users may not have reference style images but still be interested in transferring styles by just imagining them. In order to deal with such applications, we propose a new framework that enables a style transfer `without' a style image, but only with a text description of the desired style. Using the pre-trained text-image embedding model of CLIP, we demonstrate the modulation of the style of content images only with a single text condition. Specifically, we propose a patch-wise text-image matching loss with multiview augmentations for realistic texture transfer. Extensive experimental results confirmed the successful image style transfer with realistic textures that reflect semantic query texts."),
+          Text("Style transfer aims to transform a content image by transferring the semantic texture of a style image. The seminar work of neural style transfer proposed by Gatys et al. uses pre-trained VGG network to transfer the style texture by calculating the style loss that matches the Gram matrices of the content and style features. Their style loss has become a standard in later works including stylization through pixel optimization for a single content image, arbitrary style transfer which operates in real-time for various style images, and optimizing feedforward network for stylizing each image."),
+          Text("Although these approaches for style transfer can successfully create visually pleasing new artworks by transferring styles of famous artworks to common images, they require a reference style image to change the texture of the content image. However, in many practical applications, reference style images are not available to users, but the users are still interested in ‘imitiating’ the texture of the style images. For example, users can imagine being able to convert their own photos into Monet or Van Gogh styles without ever owning paintings by the famous painters. Or you can convert your daylight images into night images by mere imagination. In fact, to overcome this limitation of the existing style transfer and create a truly creative artwork, we should be able to transfer a completely novel style that we imagine."),
+          Markdown("[GitHub Project](https://github.com/cyclomon/CLIPstyler) | [Paper](https://arxiv.org/abs/2112.00374) | [Colab](https://colab.research.google.com/drive/1dg8PXi-TVtzdpbaoI7ty72SSY7xdBgwo?usp=sharing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😖  Stylish... ", on_click=close_CLIPstyler_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = CLIPstyler_help_dlg
+      CLIPstyler_help_dlg.open = True
+      page.update()
     def pick_files_result(e: FilePickerResultEvent):
         if e.files:
             img = e.files
@@ -17064,11 +17184,9 @@ def buildCLIPstyler(page):
             #shutil.copy(src_path, dst_path)
             # TODO: is original or mask?
             original_image.value = dst_path
-
     pick_files_dialog = FilePicker(on_result=pick_files_result)
     page.overlay.append(pick_files_dialog)
     #selected_files = Text()
-
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
             upload_files(e)
@@ -17131,12 +17249,11 @@ def buildCLIPstyler(page):
     if not CLIPstyler_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     parameters_button = ElevatedButton(content=Text(value="📎   Run CLIP-Styler", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_CLIPstyler(page))
-
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.CLIPstyler_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("😎   CLIP-Styler", "Transfers a Text Guided Style onto your Image From Prompt Description..."),
+            Header("😎   CLIP-Styler", "Transfers a Text Guided Style onto your Image From Prompt Description...", actions=[save_default(CLIPstyler_prefs, ['original_image', 'image_dir']), IconButton(icon=icons.HELP, tooltip="Help with CLIP Styler Settings", on_click=CLIPstyler_help)]),
             image_picker, prompt_text,
             param_rows, iterations, width_slider, height_slider, #Divider(height=9, thickness=2),
             page.ESRGAN_block_styler,
@@ -17319,7 +17436,7 @@ def buildSemanticGuidance(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧩  Semantic Guidance for Diffusion Models - SEGA", "Text-to-Image Generation with Latent Editing to apply or remove multiple concepts from an image with advanced controls....", actions=[IconButton(icon=icons.HELP, tooltip="Help with Semantic Guidance Settings", on_click=semantic_help)]),
+        Header("🧩  Semantic Guidance for Diffusion Models - SEGA", "Text-to-Image Generation with Latent Editing to apply or remove multiple concepts from an image with advanced controls....", actions=[save_default(semantic_prefs, ['editing_prompts']), IconButton(icon=icons.HELP, tooltip="Help with Semantic Guidance Settings", on_click=semantic_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         Row([Text("Editing Semantic Prompts", theme_style=TextThemeStyle.TITLE_LARGE, weight=FontWeight.BOLD),
@@ -17440,7 +17557,7 @@ def buildDemoFusion(page):
     page.demofusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("💣  DemoFusion", "Democratising High-Resolution Image Generation With No $$$. SDXL with Clean Upscaling, 3 Phase Denoising/Decoding, slow but real quality...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DemoFusion Settings", on_click=demofusion_help)]),
+            Header("💣  DemoFusion", "Democratising High-Resolution Image Generation With No $$$. SDXL with Clean Upscaling, 3 Phase Denoising/Decoding, slow but real quality...", actions=[save_default(demofusion_prefs, ['init_image']), IconButton(icon=icons.HELP, tooltip="Help with DemoFusion Settings", on_click=demofusion_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             init_image,
             #ResponsiveRow([stride, sigma]),
@@ -17748,7 +17865,7 @@ def buildDreamBooth(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("😶‍🌫️  Create Custom DreamBooth Concept Model", "Provide a collection of images to conceptualize. Warning: May take over an hour to run the training...", actions=[IconButton(icon=icons.HELP, tooltip="Help with DreamBooth Settings", on_click=db_help)]),
+        Header("😶‍🌫️  Create Custom DreamBooth Concept Model", "Provide a collection of images to conceptualize. Warning: May take over an hour to run the training...", actions=[save_default(dreambooth_prefs, ['image_path', 'urls']), IconButton(icon=icons.HELP, tooltip="Help with DreamBooth Settings", on_click=db_help)]),
         Row([instance_prompt, name_of_your_concept]),
         Row([num_class_images, sample_batch_size, prior_loss_weight]),
         Row([max_train_steps, learning_rate, seed]),
@@ -17966,7 +18083,7 @@ def buildTextualInversion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", "Provide a collection of images to conceptualize. Warning: May take over an hour to run the training...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)]),
+        Header("😶‍🌫️  Create Cusom Textual-Inversion Concept Model", "Provide a collection of images to conceptualize. Warning: May take over an hour to run the training...", actions=[save_default(textualinversion_prefs, ['image_path', 'urls']), IconButton(icon=icons.HELP, tooltip="Help with Textual-Inversion Settings", on_click=ti_help)]),
         Row([what_to_teach, initializer_token]),
         Row([placeholder_token, name_of_your_concept]),
         use_SDXL,
@@ -18250,7 +18367,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA DreamBooth)", "Provide a collection of images to train. Adds on to the currently loaded Model Checkpoint...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_dreambooth_help)]),
+        Header("🌇  Training with Low-Rank Adaptation of Large Language Models (LoRA DreamBooth)", "Provide a collection of images to train. Adds on to the currently loaded Model Checkpoint...", actions=[save_default(LoRA_dreambooth_prefs, ['image_path', 'urls']), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_dreambooth_help)]),
         ResponsiveRow([instance_prompt, name_of_your_model]),
         use_SDXL,
         Row([num_class_images, sample_batch_size, train_batch_size, prior_loss_weight]),
@@ -18473,7 +18590,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌫️  Training Text-to-Image Low-Rank Adaptation of Large Language Models (LoRA)", "Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint...", actions=[IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)]),
+        Header("🌫️  Training Text-to-Image Low-Rank Adaptation of Large Language Models (LoRA)", "Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint...", actions=[save_default(LoRA_prefs, ['image_path', 'urls']), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)]),
         ResponsiveRow([validation_prompt, name_of_your_model]),
         Row([num_validation_images, validation_epochs, train_batch_size]),
         Row([prior_preservation, gradient_checkpointing]),
@@ -18949,7 +19066,7 @@ def buildTortoiseTTS(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🐢  Tortoise Text-to-Speech Voice Modeling", "Reads your text in a realistic AI voice, train your own to mimic vocal performances...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Tortoise-TTS Settings", on_click=tortoise_help)]),
+        Header("🐢  Tortoise Text-to-Speech Voice Modeling", "Reads your text in a realistic AI voice, train your own to mimic vocal performances...", actions=[save_default(tortoise_prefs, ['wav_path']), IconButton(icon=icons.HELP, tooltip="Help with Tortoise-TTS Settings", on_click=tortoise_help)]),
         text,
         preset,
         Row([Text("Select one or more voices:", weight=FontWeight.BOLD), Text("(none for random or custom)")]),
@@ -19026,7 +19143,7 @@ def buildOpenAI_TTS(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🦜  OpenAI Text-to-Speech Voice Modeling", "Turn text into lifelike spoken audio... Uses your OpenAI credits.", actions=[IconButton(icon=icons.HELP, tooltip="Help with OpenAI-TTS Settings", on_click=openai_tts_help)]),
+        Header("🦜  OpenAI Text-to-Speech Voice Modeling", "Turn text into lifelike spoken audio... Uses your OpenAI credits.", actions=[save_default(openai_tts_prefs), IconButton(icon=icons.HELP, tooltip="Help with OpenAI-TTS Settings", on_click=openai_tts_help)]),
         text,
         Row([voice, preset, format]),
         speed,
@@ -19097,7 +19214,7 @@ def buildAudioLDM(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🦻  Audio LDM Modeling", "Text-to-Audio Generation with Latent Diffusion Model...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM_help)]),
+        Header("🦻  Audio LDM Modeling", "Text-to-Audio Generation with Latent Diffusion Model...", actions=[save_default(audioLDM_prefs, ['wav_path']), IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM_help)]),
         text,
         duration_row,
         guidance,
@@ -19189,7 +19306,7 @@ def buildAudioLDM2(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("📢  Audio LDM-2 Modeling", "Holistic Audio Generation with Self-supervised Pretraining...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM2_help)]),
+        Header("📢  Audio LDM-2 Modeling", "Holistic Audio Generation with Self-supervised Pretraining...", actions=[save_default(audioLDM2_prefs), IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM2_help)]),
         ResponsiveRow([text, negative_prompt]),
         transcription,
         model_name,
@@ -19277,7 +19394,7 @@ def buildMusicLDM(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎸  MusicLDM Song Modeling", "Text-to-Music Generation: Enhancing Novelty in Beat-Synchronous Mixup...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Music LDM-TTS Settings", on_click=musicLDM_help)]),
+        Header("🎸  MusicLDM Song Modeling", "Text-to-Music Generation: Enhancing Novelty in Beat-Synchronous Mixup...", actions=[save_default(musicLDM_prefs), IconButton(icon=icons.HELP, tooltip="Help with Music LDM-TTS Settings", on_click=musicLDM_help)]),
         ResponsiveRow([text, negative_prompt]),
         model_name,
         duration_row,
@@ -19362,7 +19479,7 @@ def buildBark(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🐶  Bark AI", "Text-to-Audio Generation for Multilingual Speech, Music and Sound Effects...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=bark_help)]),
+        Header("🐶  Bark AI", "Text-to-Audio Generation for Multilingual Speech, Music and Sound Effects...", actions=[save_default(bark_prefs), IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=bark_help)]),
         text,
         text_temp,
         waveform_temp,
@@ -19482,7 +19599,7 @@ def buildRiffusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("💽  Riffusion Spectrogram Sound Modeling", "Stable Diffusion for real-time music generation...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=riffusion_help)]),
+        Header("💽  Riffusion Spectrogram Sound Modeling", "Stable Diffusion for real-time music generation...", actions=[save_default(riffusion_prefs, ['wav_path']), IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=riffusion_help)]),
         ResponsiveRow([prompt, negative_prompt]),
         #audio_file,
         #duration_row,
@@ -19559,7 +19676,7 @@ def buildMubert(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎼  Mubert Music Generator", "AI music is generated by Mubert API. Pretty good grooves...(may not work if API maxed)", actions=[IconButton(icon=icons.HELP, tooltip="Help with Mubert Settings", on_click=mubert_help)]),
+        Header("🎼  Mubert Music Generator", "AI music is generated by Mubert API. Pretty good grooves...(may not work if API maxed)", actions=[save_default(mubert_prefs), IconButton(icon=icons.HELP, tooltip="Help with Mubert Settings", on_click=mubert_help)]),
         prompt,
         duration_row,
         is_loop,
@@ -19658,7 +19775,7 @@ def buildWhisper(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧏  OpenAI Whisper-AI Speech-To-Text", "Generate Text Transcriptions from Speech Recordings, then optionally process text with GPT...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio Diffusion-TTS Settings", on_click=whisper_help)]),
+        Header("🧏  OpenAI Whisper-AI Speech-To-Text", "Generate Text Transcriptions from Speech Recordings, then optionally process text with GPT...", actions=[save_default(whisper_prefs, ['audio_file']), IconButton(icon=icons.HELP, tooltip="Help with Audio Diffusion-TTS Settings", on_click=whisper_help)]),
         audio_file,
         Row([model_size, trim_audio]),
         Row([AI_engine, AI_temperature]),
@@ -19759,7 +19876,7 @@ def buildVoiceFixer(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("💬  Voice Fixer - Speech Restoration with Neural Vocoder", "Cleans up bad vocals and fixes the unwanted noise...", actions=[IconButton(icon=icons.HELP, tooltip="Help with Audio Diffusion-TTS Settings", on_click=voice_fixer_help)]),
+        Header("💬  Voice Fixer - Speech Restoration with Neural Vocoder", "Cleans up bad vocals and fixes the unwanted noise...", actions=[save_default(voice_fixer_prefs, ['audio_file']), IconButton(icon=icons.HELP, tooltip="Help with Audio Diffusion-TTS Settings", on_click=voice_fixer_help)]),
         audio_file,
         Row([mode_0, mode_1, mode_2]),
         #Row([model_size, trim_audio]),
@@ -20087,6 +20204,37 @@ def buildCachedModelManager(page):
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
+
+def get_var_name(var):
+    for name, value in globals().items():
+        if value is var:
+            return name
+
+if 'default_prefs' in prefs:
+    for pref_name, saved_prefs in prefs['default_prefs'].items():
+        if isinstance(saved_prefs, dict):
+            globals()[pref_name].update(saved_prefs)
+
+def save_default(save_prefs, exclude=[]):
+    global prefs
+    def save_pref(e):
+        pref_name = get_var_name(save_prefs)
+        if 'default_prefs' not in prefs:
+            prefs['default_prefs'] = {}
+        prefs['default_prefs'][pref_name].update(save_prefs)
+        if exclude:
+            for ex in exclude:
+                if ex in prefs['default_prefs'][pref_name]:
+                    del prefs['default_prefs'][pref_name][ex]
+        #print(f"Saved {pref_name} = {prefs['default_prefs'][pref_name]}")
+        save_settings_file(e.page)
+    def clear_pref(e): # Todo: Add to right click or long press
+        pref_name = get_var_name(save_prefs)
+        if pref_name in prefs['default_prefs']:
+            del prefs['default_prefs'][pref_name]
+        save_settings_file(e.page)
+        play_snd(Snd.DELETE, e.page)
+    return IconButton(icon=icons.SAVE, tooltip="Save as Default Preference", on_click=save_pref)
 
 #if 'pipe' in locals():
 #    clear_pipes()
@@ -43644,6 +43792,137 @@ def run_materialdiffusion(page):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+def run_materialdiffusion_sdxl(page):
+    global materialdiffusion_sdxl_prefs, prefs
+    if not bool(materialdiffusion_sdxl_prefs['material_prompt']):
+      alert_msg(page, "You must provide a text prompt to process your material...")
+      return
+    if not bool(prefs['Replicate_api_key']):
+      alert_msg(page, "You must provide your Replicate API Token in Settings to process your material...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.MaterialDiffusion_SDXL.controls.append(line)
+      page.MaterialDiffusion_SDXL.update()
+    def clear_last(lines=1):
+      clear_line(page.MaterialDiffusion_SDXL, lines=lines)
+    def clear_list():
+      page.MaterialDiffusion_SDXL.controls = page.MaterialDiffusion_SDXL.controls[:1]
+    def autoscroll(scroll=True):
+      page.MaterialDiffusion_SDXL.auto_scroll = scroll
+      page.MaterialDiffusion_SDXL.update()
+    progress = ProgressBar(bar_height=8)
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
+    autoscroll(True)
+    prt(Installing("Installing Replicate.com API..."))
+    #run_sp("pip install --upgrade pydantic==2.0.3", realtime=True)
+    try:
+        import replicate
+    except ModuleNotFoundError as e:
+        run_process("pip install --upgrade git+https://github.com/replicate/replicate-python.git", realtime=False)
+        #run_process("pip install replicate -qq", realtime=False)
+        import replicate
+        pass
+    os.environ["REPLICATE_API_TOKEN"] = prefs['Replicate_api_key']
+    #export REPLICATE_API_TOKEN=
+    '''try:
+        
+    except Exception as e:
+        alert_msg(page, f"Seems like your Replicate API Token is Invalid. Check it again...", content=Text(str(e)))
+        return'''
+    import requests
+    clear_last()
+    prt("Generating your Material Diffusion SDXL Image...")
+    prt(progress)
+    autoscroll(False)
+    random_seed = int(materialdiffusion_sdxl_prefs['seed']) if int(materialdiffusion_sdxl_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    #input = {'prompt':materialdiffusion_sdxl_prefs['material_prompt'], 'width':materialdiffusion_sdxl_prefs['width'], 'height':materialdiffusion_sdxl_prefs['height'], 'init_image':init_img, 'mask':mask_img, 'prompt_strength':materialdiffusion_sdxl_prefs['prompt_strength'], 'num_outputs':materialdiffusion_sdxl_prefs['num_outputs'], 'num_inference_steps':materialdiffusion_sdxl_prefs['steps'], 'guidance_scale':materialdiffusion_sdxl_prefs['guidance_scale'], 'seed':random_seed}
+    try:
+        images = replicate.run("pwntus/material-diffusion-sdxl:ce888cbe17a7c04d4b9c4cbd2b576715d480c55b2ba8f9f3d33f2ad70a26cd99",
+            input={
+                "width": int(materialdiffusion_sdxl_prefs["width"]),
+                "height": int(materialdiffusion_sdxl_prefs["height"]),
+                "prompt": materialdiffusion_sdxl_prefs["material_prompt"],
+                "refine": "expert_ensemble_refiner" if materialdiffusion_sdxl_prefs["refine"] else "no_refiner",
+                "scheduler": materialdiffusion_sdxl_prefs["scheduler"],
+                "num_outputs": int(materialdiffusion_sdxl_prefs["num_outputs"]),
+                "guidance_scale": float(materialdiffusion_sdxl_prefs["guidance_scale"]),
+                "apply_watermark": prefs['SDXL_watermark'],
+                "high_noise_frac": float(materialdiffusion_sdxl_prefs["high_noise_frac"]),
+                "negative_prompt": materialdiffusion_sdxl_prefs["negative_prompt"],
+                "num_inference_steps": int(materialdiffusion_sdxl_prefs["steps"])
+            }
+        )
+        print(images)
+        #images = output['output']
+        #rep_version.predict(prompt=materialdiffusion_sdxl_prefs['material_prompt'], width=materialdiffusion_sdxl_prefs['width'], height=materialdiffusion_sdxl_prefs['height'], prompt_strength=materialdiffusion_sdxl_prefs['prompt_strength'], num_outputs=materialdiffusion_sdxl_prefs['num_outputs'], num_inference_steps=materialdiffusion_sdxl_prefs['steps'], guidance_scale=materialdiffusion_sdxl_prefs['guidance_scale'], seed=random_seed)
+    except Exception as e:
+        clear_last(2)
+        alert_msg(page, f"ERROR: Couldn't create your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e), selectable=True))
+        return
+    autoscroll(True)
+    clear_last(2)
+    txt2img_output = stable_dir
+    batch_output = prefs['image_output']
+    #print(str(images))
+    if images is None:
+        prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
+        return
+    idx = 0
+    for image in images:
+        random_seed += idx
+        fname = format_filename(materialdiffusion_sdxl_prefs['material_prompt'])
+        seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+        fname = f'{materialdiffusion_sdxl_prefs["file_prefix"]}{fname}{seed_suffix}'
+        txt2img_output = stable_dir
+        if bool(materialdiffusion_sdxl_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, materialdiffusion_sdxl_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        image_path = available_file(txt2img_output, fname, 1)
+        #image.save(image_path)
+        response = requests.get(image, stream=True)
+        with open(image_path, "wb") as f:
+            f.write(response.content)
+        new_file = image_path.rpartition(slash)[2]
+        if not materialdiffusion_sdxl_prefs['display_upscaled_image'] or not materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale']:
+            #prt(Row([Img(src=image_path, width=materialdiffusion_sdxl_prefs['width'], height=materialdiffusion_sdxl_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([ImageButton(src=image_path, width=int(materialdiffusion_sdxl_prefs['width']), height=int(materialdiffusion_sdxl_prefs['height']), page=page)], alignment=MainAxisAlignment.CENTER))
+        batch_output = os.path.join(prefs['image_output'], materialdiffusion_sdxl_prefs['batch_folder_name'])
+        if not os.path.exists(batch_output):
+            os.makedirs(batch_output)
+        if storage_type == "PyDrive Google Drive":
+            newFolder = gdrive.CreateFile({'title': materialdiffusion_sdxl_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+            newFolder.Upload()
+            batch_output = newFolder
+        out_path = batch_output# if save_to_GDrive else txt2img_output
+        new_path = os.path.join(out_path, new_file)
+        if materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            upscaled_path = os.path.join(out_path, new_file)
+            upscale_image(image_path, upscaled_path, scale=materialdiffusion_sdxl_prefs["enlarge_scale"])
+            image_path = upscaled_path
+            if materialdiffusion_sdxl_prefs['display_upscaled_image']:
+                prt(Row([Img(src=upscaled_path, width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        else:
+            new_path
+            try:
+              shutil.copy(image_path, new_path)
+            except shutil.SameFileError: pass
+        save_metadata(new_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
+        prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 def run_DiT(page, from_list=False):
     global DiT_prefs, pipe_DiT
     if not check_diffusers(page): return
@@ -44749,6 +45028,7 @@ def run_meshy(page):
     elif mode == "image-to-3d":
         dest = "v1/image-to-3d"
         image_url = transfersh_file(image_path)
+        time.sleep(1)
         payload = {
             "image_url": image_url,
             "enable_pbr": True,
@@ -44759,24 +45039,24 @@ def run_meshy(page):
             headers=headers,
             json=payload,
         )
-        response.raise_for_status()
         results = response.json()
         if response.status_code >= 400:
             alert_msg(page, f"ERROR Code {response.status_code} Running API", content=Text(results['message']))
             return
+        response.raise_for_status()
         task_id = results['result']
         #print(response.json())
         #pb.set_message(f"Running Meshy.ai 3D... Credits {credits.remaining}/{credits.total}")
     except Exception as e:
         clear_last()
-        alert_msg(page, f"ERROR: Problem with Meshy API Client...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        alert_msg(page, f"ERROR: Problem with Meshy API Client...", content=Column([Text(str(e)), Text(str(results)), Text(str(traceback.format_exc(), Text(str(payload))), selectable=True)]))
         return
     pb.status(f"...submitted task: {task_id}")
     try:
         while True:
             response = requests.get(f"https://api.meshy.ai/{dest}/{task_id}", headers=headers)
-            response.raise_for_status()
             results = response.json()
+            response.raise_for_status()
             percent = int(results['progress'])
             status_info = results['status']
             pb.progress.value = percent * 0.01 if percent != 0 else None
@@ -44801,8 +45081,7 @@ def run_meshy(page):
             filename = available_file(batch_output, file_name, ext=model, no_num=True)
             fname = os.path.basename(filename).rpartition('.')[0]
             filename = download_file(url, batch_output, fname, ext=model)
-            f = filepath_to_url(filename)
-            models.append(f"[{model}]({f})")
+            models.append(f"[{model}]({filepath_to_url(filename)})")
         model_names = and_list(models)
         prt(Row([Markdown(f"Saved Models as {model_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
     #print(results)
@@ -44813,8 +45092,7 @@ def run_meshy(page):
                 filename = available_file(batch_output, f"{file_name}-{texture}", no_num=True)
                 fname = os.path.basename(filename).rpartition('.')[0]
                 filename = download_file(url, batch_output, fname)
-                f = filepath_to_url(filename)
-                textures.append(f"[{texture}]({f})")
+                textures.append(f"[{texture}]({filepath_to_url(filename)})")
             texture_names = and_list(textures)
             prt(Row([Markdown(f"Saved Textures {texture_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
     play_snd(Snd.ALERT, page)
@@ -44871,8 +45149,7 @@ def run_meshy(page):
                 filename = available_file(batch_output, file_name+"-refined", ext=model, no_num=True)
                 fname = os.path.basename(filename).rpartition('.')[0]
                 filename = download_file(url, batch_output, fname, ext=model)
-                f = filepath_to_url(filename)
-                models.append(f"[{model}]({f})")
+                models.append(f"[{model}]({filepath_to_url(filename)})")
             model_names = and_list(models)
             prt(Row([Markdown(f"Saved Refined Models as {model_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
         if 'texture_urls' in results:
@@ -44882,8 +45159,7 @@ def run_meshy(page):
                     filename = available_file(batch_output, f"{file_name}-refined-{texture}", no_num=True)
                     fname = os.path.basename(filename).rpartition('.')[0]
                     filename = download_file(url, batch_output, fname)
-                    f = filepath_to_url(filename)
-                    textures.append(f"[{texture}]({f})")
+                    textures.append(f"[{texture}]({filepath_to_url(filename)})")
                 texture_names = and_list(textures)
                 prt(Row([Markdown(f"Saved Refined Textures {texture_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
         autoscroll(False)
@@ -47678,19 +47954,15 @@ def pastebin_file(file_path):
         return ""
 
 def transfersh_file(file_path):
-    try:
-        with open(file_path, 'rb') as f:
-            response = requests.put("https://transfer.sh/", files={"file": f})
-            if response.status_code == 200:
-                print(response.text.strip())
-                return response.text.strip()
-            else:
-                print(f"Upload failed: {response.status_code}")
-                return ""
-    except requests.exceptions.RequestException as e:
-        print(f"Request error: {e}")
-        return ""
-
+    pip_install("pyperclip wget twine transfersh_client")
+    from transfersh_client.app import send_to_transfersh#, create_zip, remove_file
+    transfer_sh_url = send_to_transfersh(file_path, False)
+    parts = transfer_sh_url.split('/')
+    parts.insert(-2, 'get')
+    url = '/'.join(parts)
+    print(url)
+    return url
+    
 def check_diffusers(page:Page):
     global status
     def install_diffusers(e):
