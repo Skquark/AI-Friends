@@ -452,7 +452,7 @@ if prefs == {}:
 
 
 
-##@title ## **▶️ Run Stable Diffusion Deluxe** - Flet/Flutter WebUI App
+#@title ## **▶️ Run Stable Diffusion Deluxe** - Flet/Flutter WebUI App
 import flet as ft
 #from flet import *
 import flet.canvas as cv
@@ -562,7 +562,7 @@ except ModuleNotFoundError: #Also flexible_slider, vertical_splitter, shimmer
     pass
 #sys.path.append(sdd_utils_py)
 import sdd_utils
-from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS
+from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS #AIHorde_models
 import sdd_components
 from sdd_components import PanZoom, VideoContainer
 
@@ -717,7 +717,6 @@ def buildImageAIs(page):
     page.LCMInterpolation = buildLCMInterpolation(page)
     page.InstaFlow = buildInstaFlow(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
-    page.MaterialDiffusion_SDXL = buildMaterialDiffusion_SDXL(page)
     page.DallE2 = buildDallE2(page)
     page.DallE3 = buildDallE3(page)
     page.Kandinsky = buildKandinsky3(page) if status['kandinsky_version'] == "Kandinsky 3.0" else buildKandinsky(page)
@@ -769,7 +768,6 @@ def buildImageAIs(page):
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
             Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
-            Tab(text="Material Diffusion SDXL", content=page.MaterialDiffusion_SDXL, icon=icons.TEXTURE),
             Tab(text="DALL•E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
             Tab(text="DALL•E 3", content=page.DallE3, icon=icons.BLUR_ON),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
@@ -1755,7 +1753,8 @@ def buildInstallers(page):
       page.update()
   install_AIHorde = Switcher(label="Install AIHorde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'], on_change=toggle_AIHorde, tooltip="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.")
   use_AIHorde = Checkbox(label="Use Stable Horde API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_AIHorde_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_AIHorde_api'))
-  AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("3DKX"), dropdown.Option("Abyss OrangeMix"), dropdown.Option("AbyssOrangeMix-AfterDark"), dropdown.Option("ACertainThing"), dropdown.Option("AIO Pixel Art"), dropdown.Option("Analog Diffusion"), dropdown.Option("Anime Pencil Diffusion"), dropdown.Option("Anygen"), dropdown.Option("Anything Diffusion"), dropdown.Option("Anything v3"), dropdown.Option("App Icon Diffusion"), dropdown.Option("Arcane Diffusion"), dropdown.Option("Archer Diffusion"), dropdown.Option("Asim Simpsons"), dropdown.Option("A to Zovya RPG"), dropdown.Option("Balloon Art"), dropdown.Option("Borderlands"), dropdown.Option("BPModel"), dropdown.Option("BubblyDubbly"), dropdown.Option("Char"), dropdown.Option("CharHelper"), dropdown.Option("Cheese Daddys Landscape Mix"), dropdown.Option("ChilloutMix"), dropdown.Option("ChromaV5"), dropdown.Option("Classic Animation Diffusion"), dropdown.Option("Clazy"), dropdown.Option("Colorful"), dropdown.Option("Coloring Book"), dropdown.Option("Comic-Diffusion"), dropdown.Option("Concept Sheet"), dropdown.Option("Counterfeit"), dropdown.Option("Cyberpunk Anime Diffusion"), dropdown.Option("CyriousMix"), dropdown.Option("Dan Mumford Style"), dropdown.Option("Darkest Diffusion"), dropdown.Option("Dark Victorian Diffusion"), dropdown.Option("Deliberate"), dropdown.Option("DGSpitzer Art Diffusion"), dropdown.Option("Disco Elysium"), dropdown.Option("DnD Item"), dropdown.Option("Double Exposure Diffusion"), dropdown.Option("Dreamlike Diffusion"), dropdown.Option("Dreamlike Photoreal"), dropdown.Option("DreamLikeSamKuvshinov"), dropdown.Option("Dreamshaper"), dropdown.Option("DucHaiten"), dropdown.Option("DucHaiten Classic Anime"), dropdown.Option("Dungeons and Diffusion"), dropdown.Option("Dungeons n Waifus"), dropdown.Option("Eimis Anime Diffusion"), dropdown.Option("Elden Ring Diffusion"), dropdown.Option("Elldreth's Lucid Mix"), dropdown.Option("Elldreths Retro Mix"), dropdown.Option("Epic Diffusion"), dropdown.Option("Eternos"), dropdown.Option("Experience"), dropdown.Option("ExpMix Line"), dropdown.Option("FaeTastic"), dropdown.Option("Fantasy Card Diffusion"), dropdown.Option("FKing SciFi"), dropdown.Option("Funko Diffusion"), dropdown.Option("Furry Epoch"), dropdown.Option("Future Diffusion"), dropdown.Option("Ghibli Diffusion"), dropdown.Option("GorynichMix"), dropdown.Option("Grapefruit Hentai"), dropdown.Option("Graphic-Art"), dropdown.Option("GTA5 Artwork Diffusion"), dropdown.Option("GuoFeng"), dropdown.Option("Guohua Diffusion"), dropdown.Option("HASDX"), dropdown.Option("Hassanblend"), dropdown.Option("Healy's Anime Blend"), dropdown.Option("Hentai Diffusion"), dropdown.Option("HRL"), dropdown.Option("iCoMix"), dropdown.Option("Illuminati Diffusion"), dropdown.Option("Inkpunk Diffusion"), dropdown.Option("Jim Eidomode"), dropdown.Option("JWST Deep Space Diffusion"), dropdown.Option("Kenshi"), dropdown.Option("Knollingcase"), dropdown.Option("Korestyle"), dropdown.Option("kurzgesagt"), dropdown.Option("Laolei New Berry Protogen Mix"), dropdown.Option("Lawlas's yiff mix"), dropdown.Option("Liberty"), dropdown.Option("Marvel Diffusion"), dropdown.Option("Mega Merge Diffusion"), dropdown.Option("Microcasing"), dropdown.Option("Microchars"), dropdown.Option("Microcritters"), dropdown.Option("Microscopic"), dropdown.Option("Microworlds"), dropdown.Option("Midjourney Diffusion"), dropdown.Option("Midjourney PaintArt"), dropdown.Option("Min Illust Background"), dropdown.Option("ModernArt Diffusion"), dropdown.Option("mo-di-diffusion"), dropdown.Option("Moedel"), dropdown.Option("MoistMix"), dropdown.Option("Movie Diffusion"), dropdown.Option("NeverEnding Dream"), dropdown.Option("Nitro Diffusion"), dropdown.Option("Openniji"), dropdown.Option("OrbAI"), dropdown.Option("Papercutcraft"), dropdown.Option("Papercut Diffusion"), dropdown.Option("Pastel Mix"), dropdown.Option("Perfect World"), dropdown.Option("PFG"), dropdown.Option("pix2pix"), dropdown.Option("PIXHELL"), dropdown.Option("Poison"), dropdown.Option("Pokemon3D"), dropdown.Option("PortraitPlus"), dropdown.Option("PPP"), dropdown.Option("Pretty 2.5D"), dropdown.Option("PRMJ"), dropdown.Option("Project Unreal Engine 5"), dropdown.Option("ProtoGen"), dropdown.Option("Protogen Anime"), dropdown.Option("Protogen Infinity"), dropdown.Option("Pulp Vector Art"), dropdown.Option("PVC"), dropdown.Option("Rachel Walker Watercolors"), dropdown.Option("Rainbowpatch"), dropdown.Option("Ranma Diffusion"), dropdown.Option("RCNZ Dumb Monkey"), dropdown.Option("RCNZ Gorilla With A Brick"), dropdown.Option("RealBiter"), dropdown.Option("Realism Engine"), dropdown.Option("Realistic Vision"), dropdown.Option("Redshift Diffusion"), dropdown.Option("Rev Animated"), dropdown.Option("Robo-Diffusion"), dropdown.Option("Rodent Diffusion"), dropdown.Option("RPG"), dropdown.Option("Samdoesarts Ultmerge"), dropdown.Option("Sci-Fi Diffusion"), dropdown.Option("SD-Silicon"), dropdown.Option("Seek.art MEGA"), dropdown.Option("Smoke Diffusion"), dropdown.Option("Something"), dropdown.Option("Sonic Diffusion"), dropdown.Option("Spider-Verse Diffusion"), dropdown.Option("Squishmallow Diffusion"), dropdown.Option("SDXL_beta"), dropdown.Option("stable_diffusion"), dropdown.Option("stable_diffusion_2.1"), dropdown.Option("stable_diffusion_inpainting"), dropdown.Option("Supermarionation"), dropdown.Option("Sygil-Dev Diffusion"), dropdown.Option("Synthwave"), dropdown.Option("SynthwavePunk"), dropdown.Option("TrexMix"), dropdown.Option("trinart"), dropdown.Option("Trinart Characters"), dropdown.Option("Tron Legacy Diffusion"), dropdown.Option("T-Shirt Diffusion"), dropdown.Option("T-Shirt Print Designs"), dropdown.Option("Uhmami"), dropdown.Option("Ultraskin"), dropdown.Option("UMI Olympus"), dropdown.Option("Unstable Ink Dream"), dropdown.Option("URPM"), dropdown.Option("Valorant Diffusion"), dropdown.Option("Van Gogh Diffusion"), dropdown.Option("Vector Art"), dropdown.Option("vectorartz"), dropdown.Option("Vintedois Diffusion"), dropdown.Option("VinteProtogenMix"), dropdown.Option("Vivid Watercolors"), dropdown.Option("Voxel Art Diffusion"), dropdown.Option("waifu_diffusion"), dropdown.Option("Wavyfusion"), dropdown.Option("Woop-Woop Photo"), dropdown.Option("Xynthii-Diffusion"), dropdown.Option("Yiffy"), dropdown.Option("Zack3D"), dropdown.Option("Zeipher Female Model"), dropdown.Option("Zelda BOTW")], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
+  AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("3DKX"), dropdown.Option("Abyss OrangeMix"), dropdown.Option("AbyssOrangeMix-AfterDark"), dropdown.Option("ACertainThing"), dropdown.Option("AIO Pixel Art"), dropdown.Option("Analog Diffusion"), dropdown.Option("Anime Pencil Diffusion"), dropdown.Option("Anygen"), dropdown.Option("Anything Diffusion"), dropdown.Option("Anything v3"), dropdown.Option("App Icon Diffusion"), dropdown.Option("Arcane Diffusion"), dropdown.Option("Archer Diffusion"), dropdown.Option("Asim Simpsons"), dropdown.Option("A to Zovya RPG"), dropdown.Option("Balloon Art"), dropdown.Option("Borderlands"), dropdown.Option("BPModel"), dropdown.Option("BubblyDubbly"), dropdown.Option("Char"), dropdown.Option("CharHelper"), dropdown.Option("Cheese Daddys Landscape Mix"), dropdown.Option("ChilloutMix"), dropdown.Option("ChromaV5"), dropdown.Option("Classic Animation Diffusion"), dropdown.Option("Clazy"), dropdown.Option("Colorful"), dropdown.Option("Coloring Book"), dropdown.Option("Comic-Diffusion"), dropdown.Option("Concept Sheet"), dropdown.Option("Counterfeit"), dropdown.Option("Cyberpunk Anime Diffusion"), dropdown.Option("CyriousMix"), dropdown.Option("Dan Mumford Style"), dropdown.Option("Darkest Diffusion"), dropdown.Option("Dark Victorian Diffusion"), dropdown.Option("Deliberate"), dropdown.Option("DGSpitzer Art Diffusion"), dropdown.Option("Disco Elysium"), dropdown.Option("DnD Item"), dropdown.Option("Double Exposure Diffusion"), dropdown.Option("Dreamlike Diffusion"), dropdown.Option("Dreamlike Photoreal"), dropdown.Option("DreamLikeSamKuvshinov"), dropdown.Option("Dreamshaper"), dropdown.Option("DucHaiten"), dropdown.Option("DucHaiten Classic Anime"), dropdown.Option("Dungeons and Diffusion"), dropdown.Option("Dungeons n Waifus"), dropdown.Option("Eimis Anime Diffusion"), dropdown.Option("Elden Ring Diffusion"), dropdown.Option("Elldreth's Lucid Mix"), dropdown.Option("Elldreths Retro Mix"), dropdown.Option("Epic Diffusion"), dropdown.Option("Eternos"), dropdown.Option("Experience"), dropdown.Option("ExpMix Line"), dropdown.Option("FaeTastic"), dropdown.Option("Fantasy Card Diffusion"), dropdown.Option("FKing SciFi"), dropdown.Option("Funko Diffusion"), dropdown.Option("Furry Epoch"), dropdown.Option("Future Diffusion"), dropdown.Option("Ghibli Diffusion"), dropdown.Option("GorynichMix"), dropdown.Option("Grapefruit Hentai"), dropdown.Option("Graphic-Art"), dropdown.Option("GTA5 Artwork Diffusion"), dropdown.Option("GuoFeng"), dropdown.Option("Guohua Diffusion"), dropdown.Option("HASDX"), dropdown.Option("Hassanblend"), dropdown.Option("Healy's Anime Blend"), dropdown.Option("Hentai Diffusion"), dropdown.Option("HRL"), dropdown.Option("iCoMix"), dropdown.Option("Illuminati Diffusion"), dropdown.Option("Inkpunk Diffusion"), dropdown.Option("Jim Eidomode"), dropdown.Option("JWST Deep Space Diffusion"), dropdown.Option("Kenshi"), dropdown.Option("Knollingcase"), dropdown.Option("Korestyle"), dropdown.Option("kurzgesagt"), dropdown.Option("Laolei New Berry Protogen Mix"), dropdown.Option("Lawlas's yiff mix"), dropdown.Option("Liberty"), dropdown.Option("Marvel Diffusion"), dropdown.Option("Mega Merge Diffusion"), dropdown.Option("Microcasing"), dropdown.Option("Microchars"), dropdown.Option("Microcritters"), dropdown.Option("Microscopic"), dropdown.Option("Microworlds"), dropdown.Option("Midjourney Diffusion"), dropdown.Option("Midjourney PaintArt"), dropdown.Option("Min Illust Background"), dropdown.Option("ModernArt Diffusion"), dropdown.Option("mo-di-diffusion"), dropdown.Option("Moedel"), dropdown.Option("MoistMix"), dropdown.Option("Movie Diffusion"), dropdown.Option("NeverEnding Dream"), dropdown.Option("Nitro Diffusion"), dropdown.Option("Openniji"), dropdown.Option("OrbAI"), dropdown.Option("Papercutcraft"), dropdown.Option("Papercut Diffusion"), dropdown.Option("Pastel Mix"), dropdown.Option("Perfect World"), dropdown.Option("PFG"), dropdown.Option("pix2pix"), dropdown.Option("PIXHELL"), dropdown.Option("Poison"), dropdown.Option("Pokemon3D"), dropdown.Option("PortraitPlus"), dropdown.Option("PPP"), dropdown.Option("Pretty 2.5D"), dropdown.Option("PRMJ"), dropdown.Option("Project Unreal Engine 5"), dropdown.Option("ProtoGen"), dropdown.Option("Protogen Anime"), dropdown.Option("Protogen Infinity"), dropdown.Option("Pulp Vector Art"), dropdown.Option("PVC"), dropdown.Option("Rachel Walker Watercolors"), dropdown.Option("Rainbowpatch"), dropdown.Option("Ranma Diffusion"), dropdown.Option("RCNZ Dumb Monkey"), dropdown.Option("RCNZ Gorilla With A Brick"), dropdown.Option("RealBiter"), dropdown.Option("Realism Engine"), dropdown.Option("Realistic Vision"), dropdown.Option("Redshift Diffusion"), dropdown.Option("Rev Animated"), dropdown.Option("Robo-Diffusion"), dropdown.Option("Rodent Diffusion"), dropdown.Option("RPG"), dropdown.Option("Samdoesarts Ultmerge"), dropdown.Option("Sci-Fi Diffusion"), dropdown.Option("SD-Silicon"), dropdown.Option("Seek.art MEGA"), dropdown.Option("Smoke Diffusion"), dropdown.Option("Something"), dropdown.Option("Sonic Diffusion"), dropdown.Option("Spider-Verse Diffusion"), dropdown.Option("Squishmallow Diffusion"), dropdown.Option("SDXL_beta"), dropdown.Option("SDXL 1.0"), dropdown.Option("Stable Cascade 1.0"), dropdown.Option("stable_diffusion"), dropdown.Option("stable_diffusion_2.1"), dropdown.Option("stable_diffusion_inpainting"), dropdown.Option("Supermarionation"), dropdown.Option("Sygil-Dev Diffusion"), dropdown.Option("Synthwave"), dropdown.Option("SynthwavePunk"), dropdown.Option("TrexMix"), dropdown.Option("trinart"), dropdown.Option("Trinart Characters"), dropdown.Option("Tron Legacy Diffusion"), dropdown.Option("T-Shirt Diffusion"), dropdown.Option("T-Shirt Print Designs"), dropdown.Option("Uhmami"), dropdown.Option("Ultraskin"), dropdown.Option("UMI Olympus"), dropdown.Option("Unstable Ink Dream"), dropdown.Option("URPM"), dropdown.Option("Valorant Diffusion"), dropdown.Option("Van Gogh Diffusion"), dropdown.Option("Vector Art"), dropdown.Option("vectorartz"), dropdown.Option("Vintedois Diffusion"), dropdown.Option("VinteProtogenMix"), dropdown.Option("Vivid Watercolors"), dropdown.Option("Voxel Art Diffusion"), dropdown.Option("waifu_diffusion"), dropdown.Option("Wavyfusion"), dropdown.Option("Woop-Woop Photo"), dropdown.Option("Xynthii-Diffusion"), dropdown.Option("Yiffy"), dropdown.Option("Zack3D"), dropdown.Option("Zeipher Female Model"), dropdown.Option("Zelda BOTW")], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
+  #[dropdown.Option(m) for m in AIHorde_models]
   AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
   AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=350, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
   AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, AIHorde_model, AIHorde_sampler, AIHorde_post_processing]))
@@ -14990,11 +14989,8 @@ def buildMaterialDiffusion(page):
             #shutil.copy(src_path, dst_path)
             # TODO: is init or mask?
             init_image.value = dst_path
-
     pick_files_dialog = FilePicker(on_result=pick_files_result)
     page.overlay.append(pick_files_dialog)
-    #selected_files = Text()
-
     def file_picker_result(e: FilePickerResultEvent):
         if e.files != None:
             upload_files(e)
@@ -15045,7 +15041,14 @@ def buildMaterialDiffusion(page):
         strength_value.update()
         guidance.update()
         changed(e, 'prompt_strength', ptype="float")
-
+    def switch_version(e):
+        page.MaterialDiffusion = buildMaterialDiffusion_SDXL(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "Material Diffusion":
+            t.content = page.MaterialDiffusion
+            break
+        page.ImageAIs.update()
+        page.update()
     material_prompt = TextField(label="Material Prompt", value=materialdiffusion_prefs['material_prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'material_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=materialdiffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=materialdiffusion_prefs['file_prefix'], width=150, on_change=lambda e:changed(e,'file_prefix'))
@@ -15090,7 +15093,7 @@ def buildMaterialDiffusion(page):
     page.materialdiffusion_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🧱  Replicate Material Diffusion", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key.", actions=[save_default(materialdiffusion_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Material Diffusion Settings", on_click=materialdiffusion_help)]),
+            Header("🧱  Replicate Material Diffusion", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key.", actions=[ft.OutlinedButton(content=Text("Switch to SDXL", size=18), on_click=switch_version), save_default(materialdiffusion_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Material Diffusion Settings", on_click=materialdiffusion_help)]),
             material_prompt,
             steps,
             guidance,
@@ -15157,6 +15160,14 @@ def buildMaterialDiffusion_SDXL(page):
         ESRGAN_settings.height = None if e.control.value else 0
         materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
+    def switch_version(e):
+        page.MaterialDiffusion = buildMaterialDiffusion(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "Material Diffusion":
+            t.content = page.MaterialDiffusion
+            break
+        page.ImageAIs.update()
+        page.update()
     material_prompt = TextField(label="Material Prompt", value=materialdiffusion_sdxl_prefs['material_prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'material_prompt'))
     negative_prompt = TextField(label="Negative Prompt Text", value=materialdiffusion_sdxl_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=materialdiffusion_sdxl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -15191,7 +15202,7 @@ def buildMaterialDiffusion_SDXL(page):
     page.materialdiffusion_sdxl_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🧱  Replicate Material Diffusion SDXL", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key.", actions=[save_default(materialdiffusion_sdxl_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Material Diffusion SDXL Settings", on_click=materialdiffusion_sdxl_help)]),
+            Header("🧱  Replicate Material Diffusion SDXL", "Create Seamless Tiled Textures with your Prompt. Requires account at Replicate.com and your Key.", actions=[ft.OutlinedButton(content=Text("Switch to SD1.5", size=18), on_click=switch_version), save_default(materialdiffusion_sdxl_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Material Diffusion SDXL Settings", on_click=materialdiffusion_sdxl_help)]),
             ResponsiveRow([material_prompt, negative_prompt]),
             steps,
             Row([refine, refine_steps]),
@@ -15731,7 +15742,7 @@ def buildKandinsky3(page):
     page.Kandinsky_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
-            Header("🎎  Kandinsky 3.0", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_3_help)]),
+            Header("🎎  Kandinsky 3.0", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, save_default(kandinsky_3_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_3_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #ResponsiveRow([prior_steps, prior_guidance_scale]),
             steps,
@@ -15934,7 +15945,7 @@ def buildKandinsky(page):
     page.kandinsky_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18, on_click=switch_version))
-            Header("🎎  Kandinsky 2.2", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
+            Header("🎎  Kandinsky 2.2", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, save_default(kandinsky_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #param_rows, #dropdown_row,
             ResponsiveRow([prior_steps, prior_guidance_scale]),
@@ -16137,7 +16148,7 @@ def buildKandinsky21(page):
     page.kandinsky21_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.2", size=18), on_click=switch_version)
-            Header("🎎  Kandinsky 2.1", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky21_help)]),
+            Header("🎎  Kandinsky 2.1", "A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[kandinsky_version, save_default(kandinsky21_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky21_help)]),
             prompt,
             #param_rows, #dropdown_row,
             ResponsiveRow([prior_steps, prior_cf_scale]),
@@ -16476,7 +16487,7 @@ def buildKandinskyFuse(page):
     page.kandinsky_fuse_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("💣  Kandinsky 2.2 Fuse", "Mix multiple Images and Prompts together to Interpolate. A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
+            Header("💣  Kandinsky 2.2 Fuse", "Mix multiple Images and Prompts together to Interpolate. A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version), save_default(kandinsky_fuse_prefs, ['init_image', 'mixes']), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky_help)]),
             prompt_row,
             image_row,
             weight_slider,
@@ -16819,7 +16830,7 @@ def buildKandinsky21Fuse(page):
     page.kandinsky21_fuse_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("💣  Kandinsky 2.1 Fuse", "Mix multiple Images and Prompts together to Interpolate. A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[ft.OutlinedButton(content=Text("Switch to 2.2", size=18), on_click=switch_version), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky21_help)]),
+            Header("💣  Kandinsky 2.1 Fuse", "Mix multiple Images and Prompts together to Interpolate. A Latent Diffusion model with two Multilingual text encoders, supports 100+ languages...", actions=[ft.OutlinedButton(content=Text("Switch to 2.2", size=18), on_click=switch_version), save_default(kandinsky21_fuse_prefs, ['init_image', 'mask_image', 'mixes']), IconButton(icon=icons.HELP, tooltip="Help with Kandinsky Settings", on_click=kandinsky21_help)]),
             prompt_row,
             image_row,
             weight_slider,
@@ -23746,7 +23757,6 @@ def start_diffusion(page):
                 clear_last()
                 prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
             mask = mask_img.resize((arg['width'], arg['height']))
-
             buff = BytesIO()
             mask.save(buff, format="PNG")
             buff.seek(0)
@@ -23770,7 +23780,6 @@ def start_diffusion(page):
               clear_last()
               prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
           init_img = init_img.resize((arg['width'], arg['height']))
-
           buff = BytesIO()
           init_img.save(buff, format="PNG")
           buff.seek(0)
@@ -23787,9 +23796,9 @@ def start_diffusion(page):
         payload["params"] = params
         #print(params)
         response = requests.post(url, headers=headers, json=payload)
-
         if response != None:
           if response.status_code != 202:
+            clear_last()
             if response.status_code == 400:
               alert_msg(page, "Stable Horde-API ERROR: Validation Error...", content=Text(str(response.text)))
               return
@@ -23797,9 +23806,6 @@ def start_diffusion(page):
               prt(Text(f"Stable Horde-API ERROR {response.status_code}: " + str(response.text), selectable=True))
               print(payload)
               continue
-          #with open(output_file, "wb") as f:
-          #  f.write(response.content)
-
         artifacts = json.loads(response.content)
         q_id = artifacts['id']
         #print(str(artifacts))
@@ -23892,11 +23898,7 @@ def start_diffusion(page):
               uncond_embeddings = text_encoder(uncond_input.input_ids.to(torch_device))[0]   #For classifier-free guidance, we need to do two forward passes. One with the conditioned input (`text_embeddings`), and another with the unconditional embeddings (`uncond_embeddings`). In practice, we can concatenate both into a single batch to avoid doing two forward passes.
 
             text_embeddings = torch.cat([uncond_embeddings, text_embeddings])#Generate the intial random noise.
-            #if generator:
-            #latents = torch.randn((arg['batch_size'], unet.in_channels, arg['height'], arg['width']), generator=generator)
             latents = torch.randn((arg['batch_size'], unet.in_channels, arg['height'] // 8,  arg['width'] // 8), generator=generator)
-            #else:
-            #  latents = torch.randn((batch_size, unet.in_channels, arg['height'] // 8, arg['width'] // 8))
             latents = latents.to(torch_device)
             latents.shape
             #Cool  64×64  is expected. The model will transform this latent representation (pure noise) into a 512 × 512 image later on.
@@ -23925,12 +23927,9 @@ def start_diffusion(page):
                 less_noisy_sample.shape
               with torch.no_grad():
                 noise_pred = unet(latent_model_input, t, encoder_hidden_states=text_embeddings).images
-              # perform guidance
               noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
               noise_pred = noise_pred_uncond + arg['guidance_scale'] * (noise_pred_text - noise_pred_uncond)
-              # compute the previous noisy sample x_t -> x_t-1
               latents = scheduler.step(noise_pred, i, latents)["prev_sample"]#We now use the vae to decode the generated latents back into the image.
-            # scale and decode the image latents with vae
             latents = 1 / 0.18215 * latents
             with torch.no_grad():
               image = vae.decode(latents)
@@ -23984,8 +23983,6 @@ def start_diffusion(page):
               if not bool(arg['init_image']):
                 alert_msg(page, f"ERROR: You have not selected an init_image to go with your image mask..")
                 return
-              #if pipe_inpainting is None:
-              #  pipe_inpainting = get_inpainting_pipe()
               if prefs['use_inpaint_model'] and status['installed_img2img']:
                 clear_pipes("img2img")
                 if pipe_img2img is None:
@@ -24300,14 +24297,11 @@ def start_diffusion(page):
                   del prompt_embed, negative_embed
                 else:
                   images = pipe(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", image=init_img, target_size=(arg['height'], arg['width']), strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs, **ip_adapter_arg).images
-
               clear_last()
               page.auto_scrolling(True)
             elif bool(arg['prompt2']):
               if pipe is None:
                 pipe = get_txt2img_pipe()
-              #with precision_scope("cuda"):
-              #    with torch.no_grad():
               pipe_used = "LPW Tween Lerp"
               images_tween = pipe.lerp_between_prompts(pr, arg["prompt2"], length = arg['tweens'], save=False, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator)
               #print(str(images_tween))
@@ -24436,12 +24430,12 @@ def start_diffusion(page):
                 if prefs['SDXL_compel']:
                   #print(f"pr:{pr} - neg: {arg['negative_prompt']}")
                   prompt_embed, pooled = compel_base(pr)
-                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                   del pooled, negative_pooled
                 else:
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
@@ -43799,15 +43793,15 @@ def run_materialdiffusion_sdxl(page):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.MaterialDiffusion_SDXL.controls.append(line)
-      page.MaterialDiffusion_SDXL.update()
+      page.MaterialDiffusion.controls.append(line)
+      page.MaterialDiffusion.update()
     def clear_last(lines=1):
-      clear_line(page.MaterialDiffusion_SDXL, lines=lines)
+      clear_line(page.MaterialDiffusion, lines=lines)
     def clear_list():
-      page.MaterialDiffusion_SDXL.controls = page.MaterialDiffusion_SDXL.controls[:1]
+      page.MaterialDiffusion.controls = page.MaterialDiffusion.controls[:1]
     def autoscroll(scroll=True):
-      page.MaterialDiffusion_SDXL.auto_scroll = scroll
-      page.MaterialDiffusion_SDXL.update()
+      page.MaterialDiffusion.auto_scroll = scroll
+      page.MaterialDiffusion.update()
     progress = ProgressBar(bar_height=8)
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
