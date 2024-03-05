@@ -782,6 +782,7 @@ def build3DAIs(page):
     page.Shap_E = buildShap_E(page)
     page.ZoeDepth = buildZoeDepth(page)
     page.MarigoldDepth = buildMarigoldDepth(page)
+    page.Tripo = buildTripo(page)
     page.LDM3D = buildLDM3D(page)
     page.InstantNGP = buildInstantNGP(page)
     page.Meshy = buildMeshy(page)
@@ -793,6 +794,7 @@ def build3DAIs(page):
             Tab(text="Shap-E 3D", content=page.Shap_E, icon=icons.PRECISION_MANUFACTURING),
             Tab(text="ZoeDepth 3D", content=page.ZoeDepth, icon=icons.GRADIENT),
             Tab(text="MarigoldDepth", content=page.MarigoldDepth, icon=icons.FILTER_VINTAGE),
+            Tab(text="Tripo", content=page.Tripo, icon=icons.CONNECTING_AIRPORTS),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
             Tab(text="Meshy.ai", content=page.Meshy, icon=icons.IRON),
@@ -1479,6 +1481,7 @@ def buildInstallers(page):
                 dropdown.Option("K-DPM2 Ancestral"),
                 dropdown.Option("K-DPM2 Discrete"),
                 dropdown.Option("Karras-LMS"),
+                dropdown.Option("TCD"),
                 dropdown.Option("LCM"),
             ], value=prefs['scheduler_mode'], autofocus=False, on_change=change_scheduler,
         )
@@ -1537,6 +1540,7 @@ def buildInstallers(page):
 * **K-DPM2 Ancestral -** Karras Diffusion Probabilistic Model Solver is accurate up to the second order. Ancestral sampling traces the data's evolution backward in time, from its final form back to its initial noisy state.
 * **K-DPM2 Discrete -** The solver discretizes the diffusion process into smaller time steps. This discretization allows for efficient and accurate sampling, balanced between speed and sample quality.
 * **Karras-LMS -** Linear Multi-Step Method is a standard method for solving ordinary differential equations. It aims at improving accuracy by clever use of the values of the previous time steps.
+* **TCD -** Trajectory Consistency Distillation scheduler capable of generating good samples in a small number of steps. Encompasses trajectory consistency function and strategic stochastic sampling.
 * **LCM -** Multistep and onestep scheduler (Algorithm 3) used alongside Latent Consistency Model Pipeline in 1-8 steps. Use with LCM LoRA too.
 
 [Diffusers Scheduler Overview](https://github.com/huggingface/diffusers/blob/main/docs/source/en/api/schedulers/overview.md) | [Stable Diffusion Samplers: A Comprehensive Guide](https://stable-diffusion-art.com/samplers/) | [Sampler Differences Explained](https://www.reddit.com/r/StableDiffusion/comments/zgu6wd/comment/izkhkxc/)""", on_tap_link=lambda e: e.page.launch_url(e.data))
@@ -5774,6 +5778,76 @@ def buildMarigoldDepth(page):
         page.marigold_depth_output,
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+tripo_prefs = {
+    'init_image': '',
+    'foreground_ratio': 0.85,
+    'remove_background': True,
+    'max_size': 512,
+    'mesh_resolution': 256,
+    'mesh_threshold': 25.0,
+    'chunk_size': 8192,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'title': '',
+}
+
+def buildTripo(page):
+    global prefs, tripo_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            tripo_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            tripo_prefs[pref] = float(e.control.value)
+          else:
+            tripo_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def clear_output(e):
+      play_snd(Snd.DELETE, page)
+      page.tripo_output.controls = []
+      page.tripo_output.update()
+      clear_button.visible = False
+      clear_button.update()
+    def tripo_help(e):
+      def close_tripo_dlg(e):
+        nonlocal tripo_help_dlg
+        tripo_help_dlg.open = False
+        page.update()
+      tripo_help_dlg = AlertDialog(title=Text("💁   Help with Tripo"), content=Column([
+          Text("TripoSR is a state-of-the-art open-source model for fast feedforward 3D reconstruction from a single image, developed in collaboration between Tripo AI and Stability AI. We closely follow LRM network architecture for the model design, where TripoSR incorporates a series of technical advancements over the LRM model in terms of both data curation as well as model and training improvements."),
+          Markdown("[HuggingFace Space](https://huggingface.co/spaces/stabilityai/TripoSR) | [Model Card](https://huggingface.co/stabilityai/TripoSR) | [GitHub](https://github.com/VAST-AI-Research/TripoSR)| [Tripo3D.ai](https://www.tripo3d.ai/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Tochilkin, Dmitry and Pankratz, David and Liu, Zexiang and Huang, Zixuan and and Letts, Adam and Li, Yangguang and Liang, Ding and Laforte, Christian and Jampani, Varun and Cao, Yan-Pei and Stability.ai"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("💺  What a Trip...Ohh.", on_click=close_tripo_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = tripo_help_dlg
+      tripo_help_dlg.open = True
+      page.update()
+    init_image = FileInput(label="Initial Image", pref=tripo_prefs, key='init_image', filled=True, page=page)
+    batch_folder_name = TextField(label="3D Model Folder Name", value=tripo_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    title = TextField(label="Project Title", value=tripo_prefs['title'], expand=True, on_change=lambda e:changed(e,'title'))
+    #batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=tripo_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    remove_background = Switcher(label="Remove Background", value=tripo_prefs['remove_background'], on_change=lambda e:changed(e,'remove_background'), tooltip="You can clear the background yourself cleaner and save transparent png.")
+    foreground_ratio = SliderRow(label="Foreground Ratio", min=0, max=1, divisions=20, round=2, expand=True, pref=tripo_prefs, key='foreground_ratio')
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=tripo_prefs, key='max_size')
+    mesh_resolution = SliderRow(label="Mesh Resolution", min=128, max=1024, divisions=14, multiple=64, suffix="px", pref=tripo_prefs, key='mesh_resolution')
+    mesh_threshold = SliderRow(label="Mesh Threshold", min=0, max=50, divisions=100, round=1, pref=tripo_prefs, key='mesh_threshold')
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🏖️  Tripo.ai Image-to-3D", "State-of-the-art open-source model for fast feedforward 3D reconstruction from a single image...", actions=[save_default(tripo_prefs, exclude=['init_image', 'init_images']), IconButton(icon=icons.HELP, tooltip="Help with Tripo Settings", on_click=tripo_help)]),
+        init_image,
+        Row([remove_background, foreground_ratio]),
+        max_row,
+        mesh_resolution,
+        mesh_threshold,
+        Row([batch_folder_name, title]),
+        ElevatedButton(content=Text("✈️  Run Tripo", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=run_tripo),
+      ]
+    ))], scroll=ScrollMode.AUTO)
     return c
 
 instant_ngp_prefs = {
@@ -16825,7 +16899,6 @@ def buildKandinsky21Fuse(page):
     if not kandinsky21_fuse_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     parameters_button = ElevatedButton(content=Text(value="💥   Run Kandinsky 2.1 Fuser", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky21_fuse(page))
-
     parameters_row = Row([parameters_button], alignment=MainAxisAlignment.SPACE_BETWEEN)
     page.kandinsky21_fuse_output = Column([])
     c = Column([Container(
@@ -20329,6 +20402,7 @@ pipe_background_remover = None
 pipe_shap_e = None
 pipe_zoe_depth = None
 pipe_marigold_depth = None
+pipe_tripo = None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
@@ -20745,6 +20819,9 @@ def model_scheduler(model, big3=False):
     elif scheduler_mode == "UniPC Multistep":
       from diffusers import UniPCMultistepScheduler
       s = UniPCMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+    elif scheduler_mode == "TCD":
+      from diffusers import TCDScheduler
+      s = TCDScheduler.from_pretrained(model, subfolder="scheduler")
     #elif scheduler_mode == "Score-SDE-Vp":
     #  from diffusers import ScoreSdeVpScheduler
     #  s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -20866,6 +20943,9 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None, tra
     elif scheduler_mode == "LCM":
       from diffusers import LCMScheduler
       s = LCMScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
+    elif scheduler_mode == "TCD":
+      from diffusers import TCDScheduler
+      s = TCDScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     #elif scheduler_mode == "Score-SDE-Vp":
     #  from diffusers import ScoreSdeVpScheduler
     #  s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -23110,6 +23190,12 @@ def clear_marigold_depth_pipe():
     del pipe_marigold_depth
     flush()
     pipe_marigold_depth = None
+def clear_tripo_pipe():
+  global pipe_tripo
+  if pipe_tripo is not None:
+    del pipe_tripo
+    flush()
+    pipe_tripo = None
 def clear_zoe_depth_pipe():
   global pipe_zoe_depth
   if pipe_zoe_depth is not None:
@@ -23221,6 +23307,7 @@ def clear_pipes(allbut=None):
     if not 'shap_e' in but: clear_shap_e_pipe()
     if not 'zoe_depth' in but: clear_zoe_depth_pipe()
     if not 'marigold_depth' in but: clear_marigold_depth_pipe()
+    if not 'tripo' in but: clear_tripo_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'stable_lm' in but: clear_stable_lm_pipe()
@@ -27183,8 +27270,8 @@ def run_anytext(page, from_list=False, with_params=False):
         installer.status(f"...cloning tyxsspa/AnyText.git")
         #run_sp("git clone https://github.com/zgljl2012/AnyText.git", cwd=root_dir)
         run_sp("git clone https://github.com/tyxsspa/AnyText.git", cwd=root_dir)
-    sys.path.append(anytext_dir)
-    #sys.path.append(anytext_d)
+    if anytext_dir not in sys.path:
+        sys.path.append(anytext_dir)
     if bool(anytext_prefs['font_ttf']):
         if '/' in anytext_prefs['font_ttf']:
             ttf = anytext_prefs['font_ttf'].rparition('/')[2]
@@ -27916,7 +28003,8 @@ def run_reference(page, from_list=False):
         diffusers_dir = os.path.join(root_dir, "diffusers")
         if not os.path.exists(diffusers_dir):
           run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
-        sys.path.append(os.path.join(diffusers_dir, "examples", "community"))
+        if os.path.join(diffusers_dir, "examples", "community") not in sys.path:
+          sys.path.append(os.path.join(diffusers_dir, "examples", "community"))
         try:
             if reference_prefs['use_SDXL']:
                 from stable_diffusion_xl_reference import StableDiffusionXLReferencePipeline
@@ -29083,7 +29171,8 @@ def run_CLIPstyler(page):
     run_sp(f"git clone https://github.com/cyclomon/CLIPstyler/ {clipstyler_dir}", realtime=True)
     os.chdir(root_dir)
     #run_process(f"git clone https://github.com/paper11667/CLIPstyler/ {clipstyler_dir}", realtime=False, page=page)
-    sys.path.append(clipstyler_dir)
+    if clipstyler_dir not in sys.path:
+        sys.path.append(clipstyler_dir)
 
     import torch.nn
     import torch.optim as optim
@@ -29786,9 +29875,10 @@ def run_image2text(page):
         setup()'''
         #run_sp("pip install git+https://github.com/openai/CLIP.git", realtime=False)
         import argparse, sys, time
-        sys.path.append('src/blip')
-        sys.path.append('src/clip')
-        sys.path.append('clip-interrogator')
+        if 'src/blip' not in sys.path:
+            sys.path.append('src/blip')
+            sys.path.append('src/clip')
+            sys.path.append('clip-interrogator')
         import clip
         import torch
         from clip_interrogator import Interrogator, Config
@@ -32282,7 +32372,8 @@ def run_audio_ldm(page):
       run_process("git clone https://huggingface.co/spaces/haoheliu/audioldm-text-to-audio-generation", page=page)
     os.chdir(audioLDM_dir)
     import sys
-    sys.path.append(os.path.join(audioLDM_dir, 'audioldm'))
+    if os.path.join(audioLDM_dir, 'audioldm') not in sys.path:
+        sys.path.append(os.path.join(audioLDM_dir, 'audioldm'))
     try:
         from audioldm import text_to_audio, build_model
     except Exception:
@@ -32637,7 +32728,8 @@ def run_bark(page):
     pip_install("scipy", installer=installer)
     from scipy.io.wavfile import write as write_wav
     import sys
-    sys.path.append(os.path.join(root_dir, 'audioldm'))
+    if os.path.join(root_dir, 'audioldm') not in sys.path:
+        sys.path.append(os.path.join(root_dir, 'audioldm'))
     try:
         from bark import SAMPLE_RATE, generate_audio, preload_models
         if force_updates: raise ImportError("Forcing update")
@@ -32741,7 +32833,8 @@ def run_riffusion(page):
       run_process("git clone https://github.com/hmartiro/riffusion-inference", page=page)
     os.chdir(riffusion_dir)
     import sys
-    sys.path.append(os.path.join(riffusion_dir, 'riffusion'))
+    if os.path.join(riffusion_dir, 'riffusion') not in sys.path:
+        sys.path.append(os.path.join(riffusion_dir, 'riffusion'))
     try:
         from riffusion.spectrogram_image_converter import SpectrogramImageConverter
     except Exception:
@@ -38871,10 +38964,11 @@ def run_ldm3d(page, from_list=False, with_params=False):
       else:
         page.LDM3D.controls = page.LDM3D.controls[:1]
     progress = ProgressBar(bar_height=8)
-    total_steps = ldm3d_prefs['num_inference_steps']
-    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
-      callback_fnc.has_been_called = True
-      nonlocal progress, total_steps
+    #total_steps = ldm3d_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      #callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
@@ -38968,7 +39062,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
                 num_inference_steps=pr['num_inference_steps'],
                 guidance_scale=pr['guidance_scale'],
                 generator=generator,
-                callback=callback_fnc,
+                callback_on_step_end=callback_fnc,
                 **ip_adapter_arg,
             )
             if ldm3d_prefs['use_upscale']:
@@ -39100,7 +39194,8 @@ def run_task_matrix(page):
         if not os.path.exists(task_matrix_dir):
             installer.status("...cloning microsoft/TaskMatrix")#
             run_sp("git clone https://github.com/microsoft/TaskMatrix", cwd=root_dir, realtime=False)
-        sys.path.append(task_matrix_dir)
+        if task_matrix_dir not in sys.path:
+            sys.path.append(task_matrix_dir)
         try:
             import groundingdino
         except ModuleNotFoundError:
@@ -41186,7 +41281,8 @@ def run_style_crafter(page):
             clear_last()
             alert_msg(page, f"Error Installing github.com/GongyeLiu/StyleCrafter...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    sys.path.append(os.path.join(style_crafter_dir, "scripts", "evaluation"))
+    if os.path.join(style_crafter_dir, "scripts", "evaluation") not in sys.path:
+        sys.path.append(os.path.join(style_crafter_dir, "scripts", "evaluation"))
     try:
         installer.status("...install open_clip")
         run_sp("git lfs install", cwd=os.path.join(checkpoints_dir, "open_clip"), realtime=False)
@@ -44660,7 +44756,8 @@ def run_zoe_depth(page):
             clear_last()
             alert_msg(page, f"Error Installing github.com/isl-org/ZoeDepth...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    sys.path.append(zoe_depth_dir)
+    if zoe_depth_dir not in sys.path:
+        sys.path.append(zoe_depth_dir)
     try:
         installer.status("...running sanity check")
         run_sp("python sanity.py", cwd=zoe_depth_dir, realtime=False)
@@ -44815,6 +44912,119 @@ def run_marigold_depth(page):
     prt(ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+
+def run_tripo(page):
+    global tripo_prefs, pipe_tripo, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.tripo_output.controls.append(line)
+      page.tripo_output.update()
+    def prt_status(text):
+        nonlocal status_txt
+        status_txt.value = text
+        status_txt.update()
+    def clear_last(lines=1):
+      clear_line(page.tripo_output, lines=lines)
+    page.tripo_output.controls = []
+    page.tripo_output.update()
+    installer = Installing("Installing Tripo 3D Libraries...")
+    prt(installer)
+    tripo_dir = os.path.join(root_dir, "TripoSR")
+    if not os.path.exists(tripo_dir):
+        installer.status("...VAST-AI-Research/TripoSR")
+        run_sp("git clone git+https://github.com/VAST-AI-Research/TripoSR.git")
+    if tripo_dir not in sys.path:
+        sys.path.append(tripo_dir)
+    pip_install("omegaconf==2.3.0 einops==0.7.0 trimesh==4.0.5 rembg huggingface-hub gradio")
+    try:
+      import torchmcubes
+    except Exception:
+      installer.status("...installing torchmcubes")
+      run_sp("pip install git+https://github.com/tatsy/torchmcubes.git", realtime=False)
+      pass
+    name = tripo_prefs['title'] if bool(tripo_prefs['title']) else tripo_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
+    fname = format_filename(name)
+    import numpy as np
+    from PIL import ImageOps
+    import rembg
+    from functools import partial
+    from tsr.system import TSR
+    from tsr.utils import remove_background, resize_foreground, to_gradio_3d_orientation
+    clear_pipes("tripo")
+    if pipe_tripo == None:
+        try:
+            installer.status(f"...loading Tripo 3D pipeline")
+            pipe_tripo = TSR.from_pretrained("stabilityai/TripoSR", config_name="config.yaml", weight_name="model.ckpt",)
+            pipe_tripo.renderer.set_chunk_size(tripo_prefs['chunk_size'])
+            pipe_tripo.to(torch_device)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Tripo Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    rembg_session = rembg.new_session()
+    tripo_out = os.path.join(prefs['image_output'], tripo_prefs['batch_folder_name'])
+    if not os.path.exists(tripo_out):
+        os.makedirs(tripo_out)
+    init_img = None
+    if bool(tripo_prefs['init_image']):
+        if tripo_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(tripo_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(tripo_prefs['init_image']):
+                init_img = PILImage.open(tripo_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {tripo_prefs['init_image']}")
+                if not bool(tripo_prefs['prompt_text']):
+                    return
+        if init_img != None:
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, tripo_prefs['max_size'])
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    def fill_background(image):
+        image = np.array(image).astype(np.float32) / 255.0
+        image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
+        image = PILImage.fromarray((image * 255.0).astype(np.uint8))
+        return image
+
+    if tripo_prefs['remove_background']:
+        init_img = init_img.convert("RGB")
+        init_img = remove_background(init_img, rembg_session)
+        init_img = resize_foreground(init_img, float(tripo_prefs['foreground_ratio']))
+        init_img = fill_background(init_img)
+        #TODO: Display image with no background
+    else:
+        if init_img.mode == "RGBA":
+            init_img = fill_background(init_img)
+    status_txt = Text("Generating your 3D model... See console for progress.")
+    progress = ProgressBar(bar_height=8)
+    clear_last(update=False)
+    prt(status_txt)
+    prt(progress)
+    obj_path = available_file(tripo_out, fname, ext='obj', no_num=True)
+    ply_path = available_file(tripo_out, fname, ext='ply', no_num=True)
+    glb_path = available_file(tripo_out, fname, ext='glb', no_num=True)
+    model_names = and_list([f"[obj]({filepath_to_url(obj_path)})", f"[ply]({filepath_to_url(ply_path)})", f"[glb]({filepath_to_url(glb_path)})"])
+    try:
+        scene_codes = pipe_tripo(init_img, device=torch_device)
+        mesh = pipe_tripo.extract_mesh(scene_codes, resolution=tripo_prefs['mesh_resolution'], threshold=tripo_prefs['mesh_threshold'])[0]
+        mesh = to_gradio_3d_orientation(mesh)
+        mesh.export(obj_path)
+        mesh.export(ply_path)
+        mesh.export(glb_path)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error running Tripo pipeline.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    clear_last(update=False)
+    clear_last(update=False)
+    prt(Row([Markdown(f"Saved Models as {model_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+    flush()
+    #prt(ImageButton(src=gif_file, width=tripo_prefs['size'], height=tripo_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
+    #prt("Finished generating Tripo Mesh... Hope it's good.")
+    play_snd(Snd.ALERT, page)
+    os.chdir(root_dir)
 
 def run_instant_ngp(page):
     global instant_ngp_prefs, prefs
@@ -48021,7 +48231,8 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         #run_sp(f"pip install .", cwd=frame_interpolation_dir, realtime=False) apache-beam==2.34.0
         pip_install("ffmpeg-python|ffmpeg tensorflow tensorflow-datasets tensorflow-addons absl-py==0.12.0 gin-config==0.5.0 parameterized==0.8.1 mediapy scikit-image|skimage apache-beam|apache_beam google-cloud-bigquery-storage==1.1.0|google.cloud.bigquery_storage natsort==8.1.0 gdown==4.7.3 tqdm", upgrade=True, installer=installer)
         #import frame_interpolation
-        sys.path.append(frame_interpolation_dir)
+        if frame_interpolation_dir not in sys.path:
+            sys.path.append(frame_interpolation_dir)
     if not os.path.exists(saved_model_dir):
         make_dir(saved_model_dir)
         run_sp(f"gdown -q --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O {saved_model_dir}", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
