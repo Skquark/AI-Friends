@@ -711,6 +711,7 @@ def buildImageAIs(page):
     page.DeepFloyd = buildDeepFloyd(page)
     page.Amused = buildAmused(page)
     page.Wuerstchen = buildWuerstchen(page)
+    page.StableCascade = buildStableCascade(page)
     page.PixArtAlpha = buildPixArtAlpha(page)
     page.LMD_Plus = buildLMD_Plus(page)
     page.LCM = buildLCM(page)
@@ -739,11 +740,12 @@ def buildImageAIs(page):
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
-            Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
-            Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
+            Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
+            Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
+            Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="LMD+", content=page.LMD_Plus, icon=icons.HIGHLIGHT_ALT),
             Tab(text="LCM", content=page.LCM, icon=icons.MEMORY),
             Tab(text="LCM Interpolation", content=page.LCMInterpolation, icon=icons.TRANSFER_WITHIN_A_STATION),
@@ -879,6 +881,7 @@ def buildAudioAIs(page):
     page.AudioDiffusion = buildAudioDiffusion(page)
     page.AudioLDM = buildAudioLDM(page)
     page.AudioLDM2 = buildAudioLDM2(page)
+    page.ZetaEditing = buildZetaEditing(page)
     page.MusicLDM = buildMusicLDM(page)
     page.Bark = buildBark(page)
     page.Riffusion = buildRiffusion(page)
@@ -893,6 +896,7 @@ def buildAudioAIs(page):
             Tab(text="MusicLDM", content=page.MusicLDM, icon=icons.EARBUDS),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
             Tab(text="AudioLDM-2", content=page.AudioLDM2, icon=icons.NOISE_CONTROL_OFF),
+            Tab(text="ZETA Editing", content=page.ZetaEditing, icon=icons.HEADSET),
             Tab(text="Bark", content=page.Bark, icon=icons.PETS),
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
@@ -10337,6 +10341,98 @@ def buildWuerstchen(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+stable_cascade_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "cascade-",
+    "num_images": 1,
+    "steps":12,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4,
+    'prior_guidance_scale': 4.0,
+    'prior_steps': 60,
+    "seed": 0,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildStableCascade(page):
+    global prefs, stable_cascade_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            stable_cascade_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            stable_cascade_prefs[pref] = float(e.control.value)
+          else:
+            stable_cascade_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def stable_cascade_help(e):
+      def close_stable_cascade_dlg(e):
+        nonlocal stable_cascade_help_dlg
+        stable_cascade_help_dlg.open = False
+        page.update()
+      stable_cascade_help_dlg = AlertDialog(title=Text("🙅   Help with Stable Cascade Pipeline"), content=Column([
+          Text("This model is built upon the Würstchen architecture and its main difference to other models, like Stable Diffusion, is that it is working at a much smaller latent space. Why is this important? The smaller the latent space, the faster you can run inference and the cheaper the training becomes. How small is the latent space? Stable Diffusion uses a compression factor of 8, resulting in a 1024x1024 image being encoded to 128x128. Stable Cascade achieves a compression factor of 42, meaning that it is possible to encode a 1024x1024 image to 24x24, while maintaining crisp reconstructions. The text-conditional model is then trained in the highly compressed latent space. Previous versions of this architecture, achieved a 16x cost reduction over Stable Diffusion 1.5."),
+          Text("Stable Cascade achieves impressive results, both visually and evaluation wise. According to our evaluation, Stable Cascade performs best in both prompt alignment and aesthetic quality in almost all comparisons. Stable Cascade´s focus on efficiency is evidenced through its architecture and a higher compressed latent space. Despite the largest model containing 1.4 billion parameters more than Stable Diffusion XL, it still features faster inference times. Stable Cascade consists of three models: Stage A, Stage B and Stage C, representing a cascade for generating images, hence the name 'Stable Cascade'. Stage A & B are used to compress images, similarly to what the job of the VAE is in Stable Diffusion. However, as mentioned before, with this setup a much higher compression of images can be achieved. Furthermore, Stage C is responsible for generating the small 24 x 24 latents given a text prompt."),
+          Markdown("[Paper](https://openreview.net/forum?id=gU58d5QeGv) | [Original GitHub](https://github.com/Stability-AI/StableCascade) | [Model Card](https://huggingface.co/stabilityai/stable-cascade)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("💆  Cascading Benefits ", on_click=close_stable_cascade_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = stable_cascade_help_dlg
+      stable_cascade_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        stable_cascade_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=stable_cascade_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=stable_cascade_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=stable_cascade_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=stable_cascade_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    steps = TextField(label="Number of Steps", value=stable_cascade_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=stable_cascade_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=stable_cascade_prefs, key='steps')
+    prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=stable_cascade_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
+    prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, expand=True, pref=stable_cascade_prefs, key='prior_steps', col={'xs':12, 'md':6})
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=stable_cascade_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=stable_cascade_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=stable_cascade_prefs, key='height')
+    seed = TextField(label="Seed", width=90, value=str(stable_cascade_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=stable_cascade_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=stable_cascade_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=stable_cascade_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=stable_cascade_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_stable_cascade = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_stable_cascade.height = None if status['installed_ESRGAN'] else 0
+    if not stable_cascade_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🍂   Run Stable Cascade", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_cascade(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_cascade(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_cascade(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.stable_cascade_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🌷  Stable Cascade", "Efficient Text-to-Image Synthesis using Würstchen 3 Enhanced...", actions=[save_default(stable_cascade_prefs), IconButton(icon=icons.HELP, tooltip="Help with Stable Cascade Settings", on_click=stable_cascade_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([prior_steps, prior_guidance_scale]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_stable_cascade,
+            parameters_row,
+            page.stable_cascade_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 pixart_alpha_prefs = {
     "prompt": '',
     "negative_prompt": '',
@@ -17068,7 +17164,7 @@ def buildKandinskyControlNet(page):
     page.ESRGAN_block_kandinsky_controlnet.height = None if status['installed_ESRGAN'] else 0
     if not kandinsky_controlnet_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="🌷   Run Kandinsky ControlNet", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page))
+    parameters_button = ElevatedButton(content=Text(value="🌸   Run Kandinsky ControlNet", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_kandinsky_controlnet(page, from_list=True, with_params=True))
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
@@ -19367,7 +19463,7 @@ def buildAudioLDM2(page):
         else:
             transcription.visible = False
         transcription.update()
-    model_name = Dropdown(label="Audio-LDM2 Model", width=350, options=[dropdown.Option("cvssp/audioldm2"), dropdown.Option("cvssp/audioldm2-music"), dropdown.Option("cvssp/audioldm2-large")], value=audioLDM2_prefs['model_name'], on_change=change_model)
+    model_name = Dropdown(label="Audio-LDM2 Model", width=225, options=[dropdown.Option("cvssp/audioldm2"), dropdown.Option("cvssp/audioldm2-music"), dropdown.Option("cvssp/audioldm2-large")], value=audioLDM2_prefs['model_name'], on_change=change_model)
     duration_row = SliderRow(label="Duration", min=1, max=320, divisions=319, round=1, suffix="s", pref=audioLDM2_prefs, key='duration')
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=audioLDM2_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
     steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=audioLDM2_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -19389,15 +19485,98 @@ def buildAudioLDM2(page):
         Header("📢  Audio LDM-2 Modeling", "Holistic Audio Generation with Self-supervised Pretraining...", actions=[save_default(audioLDM2_prefs), IconButton(icon=icons.HELP, tooltip="Help with Audio LDM-TTS Settings", on_click=audioLDM2_help)]),
         ResponsiveRow([text, negative_prompt]),
         transcription,
-        model_name,
         duration_row,
         guidance,
         steps_row,
-        Row([batch_size, seed, save_mp3]),
-        Row([batch_folder_name, file_prefix]),
+        Row([model_name, batch_size, seed]),
+        Row([batch_folder_name, file_prefix, save_mp3]),
         ElevatedButton(content=Text("🎙  Run AudioLDM-2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_audio_ldm2(page)),
         page.audioLDM2_output,
         clear_button,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+zeta_editing_prefs = {
+    'target_prompt': '',
+    'negative_prompt':'',
+    'source_prompt':'',
+    'audio_file': '',
+    'model_name': 'cvssp/audioldm2',
+    't_start': 45,
+    'duration': 30.0,
+    'steps': 200,
+    'source_guidance_scale': 3.0,
+    'guidance_scale': 12.0,
+    'seed': 0,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'file_prefix': 'zeta-',
+    'save_mp3': False,
+}
+
+def buildZetaEditing(page):
+    global prefs, zeta_editing_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              zeta_editing_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              zeta_editing_prefs[pref] = float(e.control.value)
+            else:
+              zeta_editing_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def zeta_editing_help(e):
+        def close_zeta_editing_dlg(e):
+          nonlocal zeta_editing_help_dlg
+          zeta_editing_help_dlg.open = False
+          page.update()
+        zeta_editing_help_dlg = AlertDialog(title=Text("💁   Help with Zeta Editing"), content=Column([
+            Text("Editing signals using large pre-trained models, in a zero-shot manner, has recently seen rapid advancements in the image domain. However, this wave has yet to reach the audio domain. In this paper, we explore two zero-shot editing techniques for audio signals, which use DDPM inversion on pre-trained diffusion models. The first, adopted from the image domain, allows text-based editing. The second, is a novel approach for discovering semantically meaningful editing directions without supervision. When applied to music signals, this method exposes a range of musically interesting modifications, from controlling the participation of specific instruments to improvisations on the melody."),
+            Text("Our methods are based on the recently introduced editfriendly DDPM inversion method, which we use for extracting latent noise vectors corresponding to the source signal. To generate the edited signal, we use those noise vectors in a DDPM sampling process, while drifting the diffusion towards the desired edit. In text-based editing, we achieve this by changing the text prompt supplied to the denoiser model. In our unsupervised method, we perturb the output of the denoiser in the directions of the top principal components (PCs) of the posterior, which we efficiently compute based on Manor & Michaeli (2024). As we show, these perturbations are particularly useful for editing music excerpts, in which they can uncover improvisations and other musically plausible modifications."),
+            Markdown("[Project Page](https://hilamanor.github.io/AudioEditing/) | [Paper](https://arxiv.org/abs/2402.10009) | [GitHub Code](https://github.com/HilaManor/AudioEditingCode)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🤐  Hear the Changes... ", on_click=close_zeta_editing_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = zeta_editing_help_dlg
+        zeta_editing_help_dlg.open = True
+        page.update()
+    def change_model(e):
+        changed(e, 'model_name')
+    model_name = Dropdown(label="Audio-LDM2 Model", width=225, options=[dropdown.Option("cvssp/audioldm2"), dropdown.Option("cvssp/audioldm2-music"), dropdown.Option("cvssp/audioldm2-large")], value=zeta_editing_prefs['model_name'], on_change=change_model)
+    duration_row = SliderRow(label="Duration", min=1, max=320, divisions=319, round=1, suffix="s", pref=zeta_editing_prefs, key='duration')
+    guidance = SliderRow(label="Target Guidance Scale", min=0, max=20, divisions=40, round=1, pref=zeta_editing_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
+    souce_guidance = SliderRow(label="Source Guidance Scale", min=0, max=20, divisions=40, round=1, pref=zeta_editing_prefs, key='source_guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
+    steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=zeta_editing_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    t_start = SliderRow(label="T-Start", min=15, max=85, divisions=70, pref=zeta_editing_prefs, key='t_start', suffix="%", tooltip="Lower T-start -> closer to original audio. Higher T-start -> stronger edit.")
+    target_prompt = TextField(label="Editing Target Prompt (describe your desired edited output)", value=zeta_editing_prefs['target_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'target_prompt'), col={'md':9})
+    source_prompt = TextField(label="Input Source Prompt (describe the original audio input)", value=zeta_editing_prefs['source_prompt'], filled=False, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'source_prompt'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=zeta_editing_prefs['negative_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    audio_file = FileInput(label="Input Audio File (mp3 or wav)", pref=zeta_editing_prefs, key='audio_file', ftype="audio", page=page)
+    #transcription = TextField(label="Text Transcript to Speak", value=zeta_editing_prefs['transcription'], multiline=True, min_lines=1, max_lines=8, visible=False, on_change=lambda e:changed(e,'transcription'))
+    save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=zeta_editing_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=zeta_editing_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=zeta_editing_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    #n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:   ", min=1, max=5, value=zeta_editing_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
+    batch_size = NumberPicker(label="Batch Size:  ", min=1, max=10, value=zeta_editing_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    seed = TextField(label="Seed", value=zeta_editing_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎧  ZETA Audio Editing with LDM-2", "Zero-Shot Unsupervised and Text-Based Audio Editing Using DDPM Inversion...", actions=[save_default(zeta_editing_prefs), IconButton(icon=icons.HELP, tooltip="Help with ZETA Audio Settings", on_click=zeta_editing_help)]),
+        audio_file,
+        source_prompt,
+        ResponsiveRow([target_prompt, negative_prompt]),
+        #transcription,
+        t_start,
+        #duration_row,
+        souce_guidance,
+        guidance,
+        steps_row,
+        Row([model_name, batch_size, seed]),
+        Row([batch_folder_name, file_prefix, save_mp3]),
+        ElevatedButton(content=Text("🎷  Run ZETA Edit", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_zeta_editing(page)),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -20353,6 +20532,7 @@ pipe_unCLIP_image_variation = None
 pipe_unCLIP_interpolation = None
 pipe_unCLIP_image_interpolation = None
 pipe_wuerstchen = None
+pipe_stable_cascade = None
 pipe_pixart_alpha = None
 pipe_pixart_alpha_encoder = None
 pipe_magic_mix = None
@@ -22862,6 +23042,14 @@ def clear_wuerstchen_pipe():
     del pipe_wuerstchen
     flush()
     pipe_wuerstchen = None
+def clear_stable_cascade_pipe():
+  global pipe_stable_cascade
+  if pipe_stable_cascade is not None:
+    del pipe_stable_cascade.prior_pipe
+    del pipe_stable_cascade.decoder_pipe
+    del pipe_stable_cascade
+    flush()
+    pipe_stable_cascade = None
 def clear_pixart_alpha_pipe():
   global pipe_pixart_alpha, pipe_pixart_alpha_encoder
   if pipe_pixart_alpha is not None:
@@ -23256,6 +23444,7 @@ def clear_pipes(allbut=None):
     if not 'image_variation' in but: clear_image_variation_pipe()
     if not 'semantic' in but: clear_semantic_pipe()
     if not 'wuerstchen' in but: clear_wuerstchen_pipe()
+    if not 'stable_cascade' in but: clear_stable_cascade_pipe()
     if not 'pixart_alpha' in but: clear_pixart_alpha_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
@@ -32570,6 +32759,182 @@ def run_audio_ldm2(page):
         num += 1
     play_snd(Snd.ALERT, page)
 
+
+def run_zeta_editing(page):
+    global zeta_editing_prefs, pipe_audio_ldm2, prefs, status
+    if not check_diffusers(page): return
+    if not bool(zeta_editing_prefs['audio_file']):
+      alert_msg(page, "You must provide the Source Audio File to process...")
+      return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.ZetaEditing.controls.append(line)
+      page.ZetaEditing.update()
+    def clear_last(lines=1):
+      clear_line(page.ZetaEditing, lines=lines)
+    if not bool(zeta_editing_prefs['source_prompt']):
+      alert_msg(page, "Provide Text for the AI to create the sound of...")
+      return
+    if not check_diffusers(page): return
+    page.ZetaEditing.controls = page.ZetaEditing.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = zeta_editing_prefs['steps']# * zeta_editing_prefs['batch_size']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    installer = Installing("Loading Zeta Editing LDM-2 Packages...")
+    prt(installer)
+    audio_editing_dir = os.path.join(root_dir, 'audioEditing')
+    if not os.path.exists(audio_editing_dir):
+        run_sp("git clone https://huggingface.co/spaces/hilamanor/audioEditing", cwd=root_dir)
+    if audio_editing_dir not in sys.path:
+        sys.path.append(audio_editing_dir)
+    pip_install("tqdm soundfile progressbar einops scipy librosa==0.9.2", installer=installer)
+    if zeta_editing_prefs['save_mp3']:
+        pip_install("ffmpeg pydub", q=True, installer=installer)
+        import ffmpeg, pydub
+    #from diffusers import AudioLDM2Pipeline
+    import torchaudio
+    from torch import inference_mode
+    from models import load_model
+    import utils
+    #import gradio as gr
+    from inversion_utils import inversion_forward_process, inversion_reverse_process
+    model_id = zeta_editing_prefs['model_name']
+    if 'loaded_ldm2' not in status:
+        status['loaded_ldm2'] = ""
+    if status['loaded_ldm2'] == model_id:
+        clear_pipes('audio_ldm2')
+    else:
+        clear_pipes()
+    # This will download all the models used by Audio LDM from the HuggingFace hub.
+    if pipe_audio_ldm2 == None:
+      try:
+        installer.status("...loading pipeline")
+        pipe_audio_ldm2 = load_model(model_id=model_id, device=torch_device)
+        #AudioLDM2Pipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)#build_model(model_name=model_id)
+        #pipe_audio_ldm2 = pipeline_scheduler(pipe_audio_ldm2)
+        #status['loaded_scheduler'] = prefs['scheduler_mode']
+        #pipe_audio_ldm2.scheduler = LMSDiscreteScheduler.from_config(pipe_audio_ldm2.scheduler.config)
+        #pipe_audio_ldm2 = pipe_audio_ldm2.to(torch_device)
+        #pipe_audio_ldm2.set_progress_bar_config(disable=True)
+        status['loaded_ldm2'] = model_id
+      except Exception as e:
+        clear_last()
+        alert_msg(page, f"Error downloading {model_id} model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    def invert(ldm_stable, x0, prompt_src, num_diffusion_steps, cfg_scale_src):  # , ldm_stable):
+        pipe_audio_ldm2.model.scheduler.set_timesteps(num_diffusion_steps, device=torch_device)
+        with inference_mode():
+            w0 = ldm_stable.vae_encode(x0)
+        # find Zs and wts - forward process
+        _, zs, wts = inversion_forward_process(ldm_stable, w0, etas=1,
+                                              prompts=[prompt_src],
+                                              cfg_scales=[cfg_scale_src],
+                                              prog_bar=True,
+                                              num_inference_steps=num_diffusion_steps,
+                                              numerical_fix=True)
+        return zs, wts
+    init = zeta_editing_prefs['audio_file']
+    if init.startswith('http'):
+        installer.status("...downloading audio file")
+        init_audio = download_file(init)
+    else:
+        if os.path.isfile(init):
+            init_audio = init
+        else:
+            init_audio = None
+    if not init_audio:
+        alert_msg(page, "Error Downloading the Source Audio File to process...")
+        return
+    clear_last()
+    save_dir = os.path.join(root_dir, 'audio_out', zeta_editing_prefs['batch_folder_name'])
+    make_dir(save_dir)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(zeta_editing_prefs['batch_folder_name']):
+        audio_out = os.path.join(audio_out, zeta_editing_prefs['batch_folder_name'])
+    make_dir(audio_out)
+    x0 = utils.load_audio(init_audio, pipe_audio_ldm2.get_fn_STFT(), device=torch_device)
+    for num in range(zeta_editing_prefs['batch_size']):
+        do_inversion = True
+        prt(Text("  Generating ZETA Editing Sounds... See console for progress.", weight=FontWeight.BOLD))
+        prt(progress)
+        random_seed = int(zeta_editing_prefs['seed']) if int(zeta_editing_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed += num
+        torch.manual_seed(random_seed)
+        if do_inversion:  # always re-run inversion
+            zs_tensor, wts_tensor = invert(ldm_stable=pipe_audio_ldm2, x0=x0, prompt_src=zeta_editing_prefs['source_prompt'],
+                                          num_diffusion_steps=zeta_editing_prefs['steps'],
+                                          cfg_scale_src=zeta_editing_prefs['source_guidance_scale'])
+            #wts = gr.State(value=wts_tensor)
+            #zs = gr.State(value=zs_tensor)
+            #saved_inv_model = model_id
+            do_inversion = False
+        try:
+            tstart = torch.tensor(zeta_editing_prefs['t_start'], dtype=torch.int)
+            skip = zeta_editing_prefs['steps'] - tstart
+            w0, _ = inversion_reverse_process(pipe_audio_ldm2, xT=wts_tensor, skips=zeta_editing_prefs['steps'] - skip,
+                                              etas=1., prompts=[zeta_editing_prefs['target_prompt']],
+                                              neg_prompts=[zeta_editing_prefs['negative_prompt']], cfg_scales=[zeta_editing_prefs['guidance_scale']],
+                                              prog_bar=True,
+                                              zs=zs_tensor[:int(zeta_editing_prefs['steps'] - skip)])
+            with inference_mode():
+                x0_dec = pipe_audio_ldm2.vae_decode(w0)
+            if x0_dec.dim() < 4:
+                x0_dec = x0_dec[None, :, :, :]
+            with torch.no_grad():
+                audio = pipe_audio_ldm2.decode_to_mel(x0_dec)
+            #waveform = text_to_audio(pipe_audio_ldm2, zeta_editing_prefs['text'], random_seed, duration=10, guidance_scale=zeta_editing_prefs['guidance_scale'], n_candidate_gen_per_text=int(zeta_editing_prefs['n_candidates']), batchsize=int(zeta_editing_prefs['batch_size']), transcript=zeta_editing_prefs['transcription'] if 'speech' in model_id else "")
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error generating ZETA waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+        clear_last()
+        clear_last()
+        fname = format_filename(zeta_editing_prefs['target_prompt'])
+        if fname[-1] == '.': fname = fname[:-1]
+        file_prefix = zeta_editing_prefs['file_prefix']
+        audio_name = f'{file_prefix}-{fname}'
+        audio_name = audio_name[:int(prefs['file_max_length'])]
+        audio_metadata = {
+          "sample_rate": 16000,
+          "artist": prefs['meta_ArtistName'],
+          "copyright": prefs['meta_Copyright'],
+          "software": "Stable Diffusion Deluxe",
+          "website": "https://DiffusionDeluxe.com",
+        }
+        if prefs['save_config_in_metadata']:
+            config_json = zeta_editing_prefs.copy()
+            del config_json['file_prefix']
+            config_json['seed'] = random_seed + num
+            #config_json['sceduler'] = status['loaded_scheduler']
+            audio_metadata["config"] = config_json
+        fname = available_file(save_dir, audio_name, num, no_num=True, ext="wav")
+        torchaudio.save(fname, audio, sample_rate=16000)
+        if zeta_editing_prefs['save_mp3']:
+            wav_file = pydub.AudioSegment.from_wav(fname)
+            #tags = pydub.utils.mediainfo(wav_file).get('TAG', {})
+            mp3_name = available_file(audio_out, audio_name, num, no_num=True, ext="mp3")
+            mp3_file = wav_file.export(mp3_name, format="mp3", tags=audio_metadata)
+            os.remove(fname)
+            fname = mp3_name
+            display_name = fname
+        else:
+            audio_save = available_file(audio_out, audio_name, num, ext='wav')
+            shutil.move(fname, audio_save)
+            fname = audio_save
+            display_name = audio_save
+          #display_name = fname
+        #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+        prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
+    play_snd(Snd.ALERT, page)
+
 def run_music_ldm(page):
     global musicLDM_prefs, pipe_music_ldm, prefs, status
     def prt(line):
@@ -37831,6 +38196,190 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+
+def run_stable_cascade(page, from_list=False, with_params=False):
+    global stable_cascade_prefs, pipe_stable_cascade, prefs
+    if not status['installed_diffusers']:
+      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
+      return
+    stable_cascade_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            stable_cascade_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':stable_cascade_prefs['guidance_scale'], 'steps':stable_cascade_prefs['steps'], 'width':stable_cascade_prefs['width'], 'height':stable_cascade_prefs['height'], 'num_images':stable_cascade_prefs['num_images'], 'seed':stable_cascade_prefs['seed']})
+        else:
+            stable_cascade_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(stable_cascade_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      stable_cascade_prompts.append({'prompt': stable_cascade_prefs['prompt'], 'negative_prompt':stable_cascade_prefs['negative_prompt'], 'guidance_scale':stable_cascade_prefs['guidance_scale'], 'steps':stable_cascade_prefs['steps'], 'width':stable_cascade_prefs['width'], 'height':stable_cascade_prefs['height'], 'num_images':stable_cascade_prefs['num_images'], 'seed':stable_cascade_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.StableCascade.controls.append(line)
+        if update:
+          page.StableCascade.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.StableCascade, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.StableCascade.auto_scroll = scroll
+        page.StableCascade.update()
+      else:
+        page.StableCascade.auto_scroll = scroll
+        page.StableCascade.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.StableCascade.controls = page.StableCascade.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    prior_steps = stable_cascade_prefs['prior_steps']
+    total_steps = stable_cascade_prefs['steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):#(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    def prior_callback_fnc(pipe, step, timestep, callback_kwargs):#(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      prior_callback_fnc.has_been_called = True
+      nonlocal progress, prior_steps
+      percent = (step +1)/ prior_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {prior_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Stable Cascade Engine & Models... See console for progress.")
+    prt(installer)
+    clear_pipes("stable_cascade")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    from diffusers.pipelines.stable_cascade import DEFAULT_STAGE_C_TIMESTEPS
+    cpu_offload = False
+    model_id = "stabilityai/stable-cascade" #"warp-ai/Wuerstchen-v3"
+    if pipe_stable_cascade == None:
+        #clear_pipes('stable_cascade')
+        try:
+            from diffusers import DDPMWuerstchenScheduler, StableCascadeCombinedPipeline
+            pipe_stable_cascade = StableCascadeCombinedPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling unet")
+                #pipe_stable_cascade.unet.to(memory_format=torch.channels_last)
+                pipe_stable_cascade.unet = torch.compile(pipe_stable_cascade.unet, mode="reduce-overhead", fullgraph=True)
+                pipe_stable_cascade = pipe_stable_cascade.to("cuda")
+            elif cpu_offload:
+                pipe_stable_cascade.enable_model_cpu_offload()
+            else:
+                pipe_stable_cascade.to("cuda")
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Stable Cascade Pipeline...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    else:
+        clear_pipes('stable_cascade')
+    clear_last()
+    s = "" if len(stable_cascade_prompts) == 0 else "s"
+    prt(f"Generating your Stable Cascade Image{s}...")
+    for pr in stable_cascade_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['steps']
+        for n in range(pr['num_images']):
+            random_seed = (int(pr['seed']) + n) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            generator = torch.Generator(device="cuda").manual_seed(random_seed)
+            try:
+                images = pipe_stable_cascade(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    prior_guidance_scale=stable_cascade_prefs['prior_guidance_scale'],
+                    prior_num_inference_steps=stable_cascade_prefs['prior_steps'],
+                    prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
+                    #num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['steps'],
+                    decoder_guidance_scale=pr['guidance_scale'],
+                    generator=generator,
+                    prior_callback_on_step_end=prior_callback_fnc,
+                    callback_on_step_end=callback_fnc,
+                ).images
+            except Exception as e:
+                clear_last(2)
+                alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            #clear_last()
+            clear_last()
+            autoscroll(True)
+            txt2img_output = stable_dir
+            batch_output = prefs['image_output']
+            txt2img_output = stable_dir
+            if bool(stable_cascade_prefs['batch_folder_name']):
+                txt2img_output = os.path.join(stable_dir, stable_cascade_prefs['batch_folder_name'])
+            if not os.path.exists(txt2img_output):
+                os.makedirs(txt2img_output)
+            if images is None:
+                prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+                return
+            idx = 0
+            for image in images:
+                fname = format_filename(pr['prompt'])
+                #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+                fname = f'{stable_cascade_prefs["file_prefix"]}{fname}'
+                image_path = available_file(txt2img_output, fname, 1)
+                image.save(image_path)
+                output_file = image_path.rpartition(slash)[2]
+                if not stable_cascade_prefs['display_upscaled_image'] or not stable_cascade_prefs['apply_ESRGAN_upscale']:
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                batch_output = os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name'])
+                if not os.path.exists(batch_output):
+                    os.makedirs(batch_output)
+                if storage_type == "PyDrive Google Drive":
+                    newFolder = gdrive.CreateFile({'title': stable_cascade_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                    newFolder.Upload()
+                    batch_output = newFolder
+                out_path = os.path.dirname(image_path)
+                upscaled_path = os.path.join(out_path, output_file)
+
+                if stable_cascade_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    upscale_image(image_path, upscaled_path, scale=stable_cascade_prefs["enlarge_scale"], faceenhance=stable_cascade_prefs["face_enhance"])
+                    image_path = upscaled_path
+                    if stable_cascade_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=upscaled_path, width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
+                if storage_type == "Colab Google Drive":
+                    new_file = available_file(os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name']), fname, 0)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                elif bool(prefs['image_output']):
+                    new_file = available_file(os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name']), fname, 0)
+                    out_path = new_file
+                    shutil.copy(image_path, new_file)
+                prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    if prefs['enable_sounds']: page.snd_alert.play()
 
 def run_pixart_alpha(page, from_list=False, with_params=False):
     global pixart_alpha_prefs, pipe_pixart_alpha, pipe_pixart_alpha_encoder, prefs
