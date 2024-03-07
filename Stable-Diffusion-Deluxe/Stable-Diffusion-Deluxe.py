@@ -123,7 +123,7 @@ def wget(url, to):
 try:
   import flet
 except ImportError as e:
-  run_sp("pip install flet --upgrade --quiet")
+  run_sp("pip install --upgrade --quiet flet==0.20.2")
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
@@ -10420,7 +10420,7 @@ def buildStableCascade(page):
     page.stable_cascade_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🌷  Stable Cascade", "Efficient Text-to-Image Synthesis using Würstchen 3 Enhanced...", actions=[save_default(stable_cascade_prefs), IconButton(icon=icons.HELP, tooltip="Help with Stable Cascade Settings", on_click=stable_cascade_help)]),
+            Header("🌷  Stable Cascade", "Efficient Text-to-Image Synthesis using Würstchen 3 Enhanced... Excelent prompt understanding & text writing.", actions=[save_default(stable_cascade_prefs), IconButton(icon=icons.HELP, tooltip="Help with Stable Cascade Settings", on_click=stable_cascade_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([prior_steps, prior_guidance_scale]),
             steps,
@@ -38199,9 +38199,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
 
 def run_stable_cascade(page, from_list=False, with_params=False):
     global stable_cascade_prefs, pipe_stable_cascade, prefs
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     stable_cascade_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -38315,7 +38313,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
                     prior_guidance_scale=stable_cascade_prefs['prior_guidance_scale'],
                     prior_num_inference_steps=stable_cascade_prefs['prior_steps'],
-                    prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
+                    #prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
                     #num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
@@ -45467,16 +45465,15 @@ def run_tripo(page):
     def prt(line):
       if type(line) == str:
         line = Text(line)
-      page.tripo_output.controls.append(line)
-      page.tripo_output.update()
+      page.Tripo.controls.append(line)
+      page.Tripo.update()
     def prt_status(text):
         nonlocal status_txt
         status_txt.value = text
         status_txt.update()
     def clear_last(lines=1):
-      clear_line(page.tripo_output, lines=lines)
-    page.tripo_output.controls = []
-    page.tripo_output.update()
+      clear_line(page.Tripo, lines=lines)
+    page.Tripo.controls = page.Tripo.controls[:1]
     installer = Installing("Installing Tripo 3D Libraries...")
     prt(installer)
     tripo_dir = os.path.join(root_dir, "TripoSR")

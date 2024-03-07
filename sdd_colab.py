@@ -120,7 +120,7 @@ try:
   import flet
 except ImportError as e:
   if newest_flet:
-    run_sp("pip install --upgrade flet", realtime=False)
+    run_sp("pip install --upgrade flet==0.20.2", realtime=False)
     #0.3.0, 0.3.1, 0.3.2, 0.4.0, 0.4.1, 0.4.2, 0.5.0, 0.5.1, 0.5.2, 0.6.0.dev1309, 0.6.0.dev1310, 0.6.0.dev1312, 0.6.0.dev1322, 0.6.0.dev1336, 0.6.0.dev1344, 0.6.0.dev1350, 0.6.0.dev1352, 0.6.0.dev1355, 0.6.0.dev1357, 0.6.0, 0.6.1, 0.6.2, 0.7.0.dev1359, 0.7.0.dev1361, 0.7.0.dev1363, 0.7.0.dev1365, 0.7.0.dev1372, 0.7.0.dev1395, 0.7.0.dev1397, 0.7.0.dev1398, 0.7.0.dev1399, 0.7.0, 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.8.0.dev1402, 0.8.0.dev1406, 0.8.0.dev1425, 0.8.0.dev1436, 0.8.0.dev1441, 0.8.0.dev1443, 0.8.0.dev1459
   else:
     run_sp("pip install --upgrade flet==0.3.2", realtime=False)
@@ -10424,7 +10424,7 @@ def buildStableCascade(page):
     page.stable_cascade_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🌷  Stable Cascade", "Efficient Text-to-Image Synthesis using Würstchen 3 Enhanced...", actions=[save_default(stable_cascade_prefs), IconButton(icon=icons.HELP, tooltip="Help with Stable Cascade Settings", on_click=stable_cascade_help)]),
+            Header("🌷  Stable Cascade", "Efficient Text-to-Image Synthesis using Würstchen 3 Enhanced... Excelent prompt understanding & text writing.", actions=[save_default(stable_cascade_prefs), IconButton(icon=icons.HELP, tooltip="Help with Stable Cascade Settings", on_click=stable_cascade_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([prior_steps, prior_guidance_scale]),
             steps,
@@ -38203,9 +38203,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
 
 def run_stable_cascade(page, from_list=False, with_params=False):
     global stable_cascade_prefs, pipe_stable_cascade, prefs
-    if not status['installed_diffusers']:
-      alert_msg(page, "You need to Install HuggingFace Diffusers before using...")
-      return
+    if not check_diffusers(page): return
     stable_cascade_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -38319,7 +38317,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
                     prior_guidance_scale=stable_cascade_prefs['prior_guidance_scale'],
                     prior_num_inference_steps=stable_cascade_prefs['prior_steps'],
-                    prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
+                    #prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
                     #num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
@@ -45471,16 +45469,15 @@ def run_tripo(page):
     def prt(line):
       if type(line) == str:
         line = Text(line)
-      page.tripo_output.controls.append(line)
-      page.tripo_output.update()
+      page.Tripo.controls.append(line)
+      page.Tripo.update()
     def prt_status(text):
         nonlocal status_txt
         status_txt.value = text
         status_txt.update()
     def clear_last(lines=1):
-      clear_line(page.tripo_output, lines=lines)
-    page.tripo_output.controls = []
-    page.tripo_output.update()
+      clear_line(page.Tripo, lines=lines)
+    page.Tripo.controls = page.Tripo.controls[:1]
     installer = Installing("Installing Tripo 3D Libraries...")
     prt(installer)
     tripo_dir = os.path.join(root_dir, "TripoSR")
