@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--storage_type", type=str, default="Local Drive")
 parser.add_argument("--saved_settings_json", type=str, default=".\sdd-settings.json")
 parser.add_argument("--tunnel_type", type=str, default="desktop")
-parser.add_argument("--upgrade_torch_212", default=True, action='store_true')
+parser.add_argument("--upgrade_torch_221", default=True, action='store_true')
 flags = parser.parse_args()
 storage_type = flags.storage_type
 saved_settings_json = flags.saved_settings_json
@@ -23,7 +23,7 @@ save_to_GDrive = False #param {'type': 'boolean'}
 #, "cloudflared"
 auto_launch_website = False #param {'type': 'boolean'}
 force_updates = False
-upgrade_torch = flags.upgrade_torch_212
+upgrade_torch = flags.upgrade_torch_221
 SDD_version = "v1.9.0"
 root_dir = '/content/'
 dist_dir = root_dir
@@ -2005,6 +2005,7 @@ def buildInstallers(page):
           #page.ESRGAN_block_kandinsky21_fuse,
           page.ESRGAN_block_deepfloyd,
           page.ESRGAN_block_amused,
+          page.ESRGAN_block_stable_cascade,
           page.ESRGAN_block_wuerstchen,
           page.ESRGAN_block_pixart_alpha,
           page.ESRGAN_block_lcm,
@@ -5811,12 +5812,6 @@ def buildTripo(page):
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
-    def clear_output(e):
-      play_snd(Snd.DELETE, page)
-      page.tripo_output.controls = []
-      page.tripo_output.update()
-      clear_button.visible = False
-      clear_button.update()
     def tripo_help(e):
       def close_tripo_dlg(e):
         nonlocal tripo_help_dlg
@@ -5849,7 +5844,7 @@ def buildTripo(page):
         mesh_resolution,
         mesh_threshold,
         Row([batch_folder_name, title]),
-        ElevatedButton(content=Text("✈️  Run Tripo", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=run_tripo),
+        ElevatedButton(content=Text("✈️  Run Tripo", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_tripo(page)),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -10348,11 +10343,11 @@ stable_cascade_prefs = {
     "file_prefix": "cascade-",
     "num_images": 1,
     "steps":12,
-    "width": 1024,
-    "height":1024,
-    "guidance_scale":4,
+    "guidance_scale": 1.0,
     'prior_guidance_scale': 4.0,
     'prior_steps': 60,
+    "width": 1024,
+    "height":1024,
     "seed": 0,
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
@@ -10395,12 +10390,12 @@ def buildStableCascade(page):
     negative_prompt = TextField(label="Negative Prompt Text", value=stable_cascade_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=stable_cascade_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=stable_cascade_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    steps = TextField(label="Number of Steps", value=stable_cascade_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    #steps = TextField(label="Decoder Steps", value=stable_cascade_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
     n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=stable_cascade_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
-    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=stable_cascade_prefs, key='steps')
+    prior_steps = SliderRow(label="Prior Steps", min=0, max=100, divisions=100, expand=True, pref=stable_cascade_prefs, key='prior_steps', col={'xs':12, 'md':6})
     prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=stable_cascade_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
-    prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, expand=True, pref=stable_cascade_prefs, key='prior_steps', col={'xs':12, 'md':6})
-    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=stable_cascade_prefs, key='guidance_scale')
+    steps = SliderRow(label="Decoder Steps", min=0, max=100, divisions=100, pref=stable_cascade_prefs, key='steps', col={'xs':12, 'md':6})
+    guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=10, divisions=20, round=1, pref=stable_cascade_prefs, key='guidance_scale', col={'xs':12, 'md':6})
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=stable_cascade_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=stable_cascade_prefs, key='height')
     seed = TextField(label="Seed", width=90, value=str(stable_cascade_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -10423,8 +10418,8 @@ def buildStableCascade(page):
             Header("🌷  Stable Cascade", "Efficient Text-to-Image Synthesis using Würstchen 3 Enhanced... Excelent prompt understanding & text writing.", actions=[save_default(stable_cascade_prefs), IconButton(icon=icons.HELP, tooltip="Help with Stable Cascade Settings", on_click=stable_cascade_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([prior_steps, prior_guidance_scale]),
-            steps,
-            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            ResponsiveRow([steps, guidance]), 
+            width_slider, height_slider, #Divider(height=9, thickness=2),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_stable_cascade,
             parameters_row,
@@ -20532,7 +20527,8 @@ pipe_unCLIP_image_variation = None
 pipe_unCLIP_interpolation = None
 pipe_unCLIP_image_interpolation = None
 pipe_wuerstchen = None
-pipe_stable_cascade = None
+pipe_stable_cascade_prior = None
+pipe_stable_cascade_decoder = None
 pipe_pixart_alpha = None
 pipe_pixart_alpha_encoder = None
 pipe_magic_mix = None
@@ -21163,13 +21159,13 @@ torch_device = "cuda"
 try:
     from packaging import version
     import torch
-    if version.parse(torch.__version__).base_version < version.parse("2.1.2").base_version and torch.cuda.is_available():
+    if version.parse(version.parse(torch.__version__).base_version) < version.parse("2.2.1") and torch.cuda.is_available():
       if upgrade_torch:
         raise ModuleNotFoundError("")
 except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
-    print("Installing PyTorch 2.1.2 with CUDA 1.21...")
-    run_sp("pip install -qq -U --force-reinstall torch==2.1.2 torchvision==0.16.2 torchaudio==2.1.2 --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+    print("Installing PyTorch 2.2.1 with CUDA 1.21...")
+    run_sp("pip install -qq -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
     #run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
     #pip install --pre torch torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/nightly/cu118
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
@@ -23043,13 +23039,13 @@ def clear_wuerstchen_pipe():
     flush()
     pipe_wuerstchen = None
 def clear_stable_cascade_pipe():
-  global pipe_stable_cascade
-  if pipe_stable_cascade is not None:
-    del pipe_stable_cascade.prior_pipe
-    del pipe_stable_cascade.decoder_pipe
-    del pipe_stable_cascade
+  global pipe_stable_cascade_prior, pipe_stable_cascade_decoder
+  if pipe_stable_cascade_prior is not None:
+    del pipe_stable_cascade_prior
+    del pipe_stable_cascade_decoder
     flush()
-    pipe_stable_cascade = None
+    pipe_stable_cascade_prior = None
+    pipe_stable_cascade_decoder = None
 def clear_pixart_alpha_pipe():
   global pipe_pixart_alpha, pipe_pixart_alpha_encoder
   if pipe_pixart_alpha is not None:
@@ -38198,7 +38194,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
     play_snd(Snd.ALERT, page)
 
 def run_stable_cascade(page, from_list=False, with_params=False):
-    global stable_cascade_prefs, pipe_stable_cascade, prefs
+    global stable_cascade_prefs, pipe_stable_cascade_prior, pipe_stable_cascade_decoder, prefs
     if not check_diffusers(page): return
     stable_cascade_prompts = []
     if from_list:
@@ -38254,14 +38250,14 @@ def run_stable_cascade(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"Decoder {step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     def prior_callback_fnc(pipe, step, timestep, callback_kwargs):#(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       prior_callback_fnc.has_been_called = True
       nonlocal progress, prior_steps
       percent = (step +1)/ prior_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {prior_steps}  Timestep: {timestep}"
+      progress.tooltip = f"Prior {step +1} / {prior_steps}  Timestep: {timestep}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -38275,52 +38271,75 @@ def run_stable_cascade(page, from_list=False, with_params=False):
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
-    from diffusers.pipelines.stable_cascade import DEFAULT_STAGE_C_TIMESTEPS
+    #from diffusers.pipelines.stable_cascade import DEFAULT_STAGE_C_TIMESTEPS
     cpu_offload = False
     model_id = "stabilityai/stable-cascade" #"warp-ai/Wuerstchen-v3"
-    if pipe_stable_cascade == None:
+    if pipe_stable_cascade_prior == None:
         #clear_pipes('stable_cascade')
         try:
-            from diffusers import DDPMWuerstchenScheduler, StableCascadeCombinedPipeline
-            pipe_stable_cascade = StableCascadeCombinedPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            if prefs['enable_torch_compile']:
+            from diffusers import StableCascadeDecoderPipeline, StableCascadePriorPipeline
+            opt = {'variant':'bf16', 'torch_dtype': torch.bfloat16} if prefs['higher_vram_mode'] else {'torch_dtype': torch.float16}
+            pipe_stable_cascade_prior = StableCascadePriorPipeline.from_pretrained(model_id+"-prior", torch_dtype=torch.bfloat16, variant="bf16", revision="refs/pr/2", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
+            pipe_stable_cascade_decoder = StableCascadeDecoderPipeline.from_pretrained(model_id, **opt, revision="refs/pr/44", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
+            '''if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling unet")
                 #pipe_stable_cascade.unet.to(memory_format=torch.channels_last)
                 pipe_stable_cascade.unet = torch.compile(pipe_stable_cascade.unet, mode="reduce-overhead", fullgraph=True)
-                pipe_stable_cascade = pipe_stable_cascade.to("cuda")
-            elif cpu_offload:
-                pipe_stable_cascade.enable_model_cpu_offload()
+                pipe_stable_cascade = pipe_stable_cascade.to("cuda")'''
+            '''if cpu_offload:
+                pipe_stable_cascade_prior.enable_model_cpu_offload()
+                pipe_stable_cascade_decoder.enable_model_cpu_offload()
             else:
-                pipe_stable_cascade.to("cuda")
+                pipe_stable_cascade_prior.to("cuda")
+                pipe_stable_cascade_decoder.to("cuda")'''
+            pipe_stable_cascade_prior.set_progress_bar_config(disable=True)
+            pipe_stable_cascade_decoder.set_progress_bar_config(disable=True)
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Initializing Stable Cascade Pipeline...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Initializing Stable Cascade Pipeline... If error cutlassF, upgrade Torch.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     else:
         clear_pipes('stable_cascade')
     clear_last()
     s = "" if len(stable_cascade_prompts) == 0 else "s"
-    prt(f"Generating your Stable Cascade Image{s}...")
     for pr in stable_cascade_prompts:
-        prt(progress)
-        autoscroll(False)
         total_steps = pr['steps']
         for n in range(pr['num_images']):
+            prt(f"Generating your Stable Cascade Image{s}...")
+            prt(progress)
+            nudge(page.imageColumn if from_list else page.StableCascade, page)
+            autoscroll(False)
             random_seed = (int(pr['seed']) + n) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device="cuda").manual_seed(random_seed)
             try:
-                images = pipe_stable_cascade(
+                prior_output = pipe_stable_cascade_prior(
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
-                    prior_guidance_scale=stable_cascade_prefs['prior_guidance_scale'],
-                    prior_num_inference_steps=stable_cascade_prefs['prior_steps'],
+                    guidance_scale=stable_cascade_prefs['prior_guidance_scale'],
+                    #prior_num_inference_steps=stable_cascade_prefs['prior_steps'],
                     #prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
-                    #num_images_per_prompt=pr['num_images'],
+                    num_images_per_prompt=pr['num_images'],
                     height=pr['height'],
                     width=pr['width'],
-                    num_inference_steps=pr['steps'],
-                    decoder_guidance_scale=pr['guidance_scale'],
+                    num_inference_steps=stable_cascade_prefs['prior_steps'],
+                    #decoder_guidance_scale=pr['guidance_scale'],
                     generator=generator,
-                    prior_callback_on_step_end=prior_callback_fnc,
+                    callback_on_step_end=prior_callback_fnc,
+                    #callback_on_step_end=callback_fnc,
+                )
+                images = pipe_stable_cascade_decoder(
+                    image_embeddings=prior_output.image_embeddings if prefs['higher_vram_mode'] else prior_output.image_embeddings.half(),
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    #prior_guidance_scale=stable_cascade_prefs['prior_guidance_scale'],
+                    #prior_num_inference_steps=stable_cascade_prefs['prior_steps'],
+                    #prior_timesteps=DEFAULT_STAGE_C_TIMESTEPS,
+                    num_images_per_prompt=pr['num_images'],
+                    #height=pr['height'],
+                    #width=pr['width'],
+                    num_inference_steps=pr['steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    output_type="pil",
+                    generator=generator,
+                    #prior_callback_on_step_end=prior_callback_fnc,
                     callback_on_step_end=callback_fnc,
                 ).images
             except Exception as e:
@@ -38328,7 +38347,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                 alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 return
             #clear_last()
-            clear_last()
+            clear_last(2)
             autoscroll(True)
             txt2img_output = stable_dir
             batch_output = prefs['image_output']
@@ -38349,6 +38368,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                 image.save(image_path)
                 output_file = image_path.rpartition(slash)[2]
                 if not stable_cascade_prefs['display_upscaled_image'] or not stable_cascade_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                     prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 batch_output = os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name'])
                 if not os.path.exists(batch_output):
@@ -38364,9 +38384,9 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     upscale_image(image_path, upscaled_path, scale=stable_cascade_prefs["enlarge_scale"], faceenhance=stable_cascade_prefs["face_enhance"])
                     image_path = upscaled_path
                     if stable_cascade_prefs['display_upscaled_image']:
+                        save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                         time.sleep(0.6)
                         prt(Row([Img(src=upscaled_path, width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -45479,14 +45499,14 @@ def run_tripo(page):
     tripo_dir = os.path.join(root_dir, "TripoSR")
     if not os.path.exists(tripo_dir):
         installer.status("...VAST-AI-Research/TripoSR")
-        run_sp("git clone git+https://github.com/VAST-AI-Research/TripoSR.git")
+        run_sp("git clone https://github.com/VAST-AI-Research/TripoSR.git", cwd=root_dir)
     if tripo_dir not in sys.path:
         sys.path.append(tripo_dir)
     pip_install("omegaconf==2.3.0 einops==0.7.0 trimesh==4.0.5 rembg huggingface-hub gradio")
     try:
       import torchmcubes
     except Exception:
-      installer.status("...installing torchmcubes")
+      installer.status("...installing torchmcubes (slow)")
       run_sp("pip install git+https://github.com/tatsy/torchmcubes.git", realtime=False)
       pass
     name = tripo_prefs['title'] if bool(tripo_prefs['title']) else tripo_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
@@ -45545,7 +45565,7 @@ def run_tripo(page):
             init_img = fill_background(init_img)
     status_txt = Text("Generating your 3D model... See console for progress.")
     progress = ProgressBar(bar_height=8)
-    clear_last(update=False)
+    clear_last()
     prt(status_txt)
     prt(progress)
     obj_path = available_file(tripo_out, fname, ext='obj', no_num=True)
@@ -45556,6 +45576,7 @@ def run_tripo(page):
         scene_codes = pipe_tripo(init_img, device=torch_device)
         mesh = pipe_tripo.extract_mesh(scene_codes, resolution=tripo_prefs['mesh_resolution'], threshold=tripo_prefs['mesh_threshold'])[0]
         mesh = to_gradio_3d_orientation(mesh)
+        prt_status("Exporting Extracted Mesh to 3D Files...")
         mesh.export(obj_path)
         mesh.export(ply_path)
         mesh.export(glb_path)
@@ -45563,8 +45584,7 @@ def run_tripo(page):
         clear_last()
         alert_msg(page, "Error running Tripo pipeline.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         return
-    clear_last(update=False)
-    clear_last(update=False)
+    clear_last(2)
     prt(Row([Markdown(f"Saved Models as {model_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
     flush()
     #prt(ImageButton(src=gif_file, width=tripo_prefs['size'], height=tripo_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
