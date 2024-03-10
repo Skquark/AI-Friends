@@ -262,6 +262,7 @@ def load_settings_file():
       'Stability_api_key': "",
       'OpenAI_api_key': "",
       'PaLM_api_key': "",
+      'Anthropic_api_key': "",
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
       'AIHorde_api_key': "0000000000",
@@ -1046,6 +1047,7 @@ if 'AIHorde_model' not in prefs: prefs['AIHorde_model'] = 'stable_diffusion'
 if 'AIHorde_sampler' not in prefs: prefs['AIHorde_sampler'] = 'k_euler_a'
 if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "None"
 if 'PaLM_api_key' not in prefs: prefs['PaLM_api_key'] = ''
+if 'Anthropic_api_key' not in prefs: prefs['Anthropic_api_key'] = ''
 if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
 if 'enable_stable_fast' not in prefs: prefs['enable_stable_fast'] = False
 if 'enable_tome' not in prefs: prefs['enable_tome'] = False
@@ -1268,11 +1270,12 @@ def buildSettings(page):
   stats_settings = Container(Row([stats_used, NumberPicker(label=" Update Interval (s):", min=1, max=30, value=prefs['stats_update'], on_change=lambda e:changed(e, 'stats_update'))]), padding=padding.only(left=0), animate_size=animation.Animation(700, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   stats_settings.width = 0 if not prefs['show_stats'] else None
   
-  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google Gemini API Token** from https://developers.generativeai.google/tutorials/setup\n\n\n\nGet **TextSynth GPT-J key** from https://TextSynth.com, login, Setup\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
+  api_instructions = Container(height=170, content=Markdown("Get **HuggingFace API key** from https://huggingface.co/settings/tokens, preferably the WRITE access key.\n\nGet **Stability-API key** from https://beta.dreamstudio.ai/membership?tab=apiKeys then API key\n\nGet **OpenAI GPT-3 API key** from https://beta.openai.com, user menu, View API Keys\n\nGet **Google Gemini API Token** from https://developers.generativeai.google/tutorials/setup\n\nGet **Anthropic Claude API Key** from https://console.anthropic.com/settings/keys\n\n\n\nGet **TextSynth GPT-J Key** from https://TextSynth.com, login, Setup\n\nGet **AIHorde API Token** from https://aihorde.net/register, for Stable Horde cloud", extension_set="gitHubWeb", on_tap_link=open_url))
   HuggingFace_api = TextField(label="HuggingFace API Key", value=prefs['HuggingFace_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'HuggingFace_api_key'))
   Stability_api = TextField(label="Stability.ai API Key (optional)", value=prefs['Stability_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Stability_api_key'))
   OpenAI_api = TextField(label="OpenAI API Key (optional)", value=prefs['OpenAI_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'OpenAI_api_key'))
   PaLM_api = TextField(label="Google Gemini API Key (optional)", value=prefs['PaLM_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'PaLM_api_key'))
+  Anthropic_api = TextField(label="Anthropic Claude API Key (optional)", value=prefs['Anthropic_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Anthropic_api_key'))
   TextSynth_api = TextField(label="TextSynth API Key (optional)", value=prefs['TextSynth_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'TextSynth_api_key'))
   Replicate_api = TextField(label="Replicate API Key (optional)", value=prefs['Replicate_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'Replicate_api_key'))
   AIHorde_api = TextField(label="AIHorde API Key (optional)", value=prefs['AIHorde_api_key'], password=True, can_reveal_password=True, on_change=lambda e:changed(e, 'AIHorde_api_key'))
@@ -1296,6 +1299,7 @@ def buildSettings(page):
         Stability_api,
         OpenAI_api,
         PaLM_api,
+        Anthropic_api,
         TextSynth_api,
         #Replicate_api,
         AIHorde_api,
@@ -3340,7 +3344,7 @@ def buildPromptGenerator(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request, tooltip="The way it asks for the visual description.")
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini"), dropdown.Option("Anthropic Claude 3")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3409,7 +3413,7 @@ def buildPromptRemixer(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "Google Gemini"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "Google Gemini", "Anthropic Claude 3"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3495,7 +3499,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Anthropic Claude 3"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -4587,7 +4591,7 @@ def buildImage2Text(page):
       fuyu_mode.update()
       gemini_mode.visible = method=="Google Gemini Pro"
       gemini_mode.update()
-      openai_mode.visible = method=="OpenAI GPT-4 Vision"
+      openai_mode.visible = method=="OpenAI GPT-4 Vision" or method=="Anthropic Claude 3 Vision"
       openai_mode.update()
       question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question") or (method=="OpenAI GPT-4 Vision" and image2text_prefs['openai_mode']=="Question")
       question_prompt.update()
@@ -4610,7 +4614,6 @@ def buildImage2Text(page):
       play_snd(Snd.DELETE, page)
       page.image2text_list.controls = []
       page.image2text_list.update()
-      prompts = []
       image2text_list_buttons.visible = False
       image2text_list_buttons.update()
     image2text_list_buttons = Row([
@@ -4620,13 +4623,13 @@ def buildImage2Text(page):
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
-    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
+    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
     #use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
     mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
     request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
     fuyu_mode = Dropdown(label="Fuyu Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['fuyu_mode'], visible=image2text_prefs['method']=="Fuyu-8B", on_change=change_fuyu)
-    gemini_mode = Dropdown(label="Gemini Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
-    openai_mode = Dropdown(label="OpenAI Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible=image2text_prefs['method']=="OpenAI GPT-4 Vision", on_change=change_openai)
+    gemini_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
+    openai_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible=image2text_prefs['method']=="OpenAI GPT-4 Vision" or image2text_prefs['method']=="Anthropic Claude 3 Vision", on_change=change_openai)
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
     AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), visible=image2text_prefs['method']=="AIHorde Crowdsourced", animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -5761,7 +5764,7 @@ def buildMarigoldDepth(page):
       marigold_depth_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image", pref=marigold_depth_prefs, key='init_image', page=page)
-    color_map = Dropdown(label="Colormap", width=150, options=[dropdown.Option(c) for c in ['Spectral', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'coolwarm', 'bwr', 'seismic']], value=marigold_depth_prefs['color_map'], on_change=lambda e:changed(e,'color_map'))
+    color_map = Dropdown(label="Colormap", width=150, options=[dropdown.Option(c) for c in ['Spectral', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'coolwarm', 'bwr', 'seismic', 'None']], value=marigold_depth_prefs['color_map'], on_change=lambda e:changed(e,'color_map'))
     match_input_res = Switcher(label="Match Input Resolution", value=marigold_depth_prefs['match_input_res'], on_change=lambda e:changed(e,'match_input_res'), tooltip="Resize depth prediction to match input resolution.")
     denoising_steps = SliderRow(label="Number of Denoising Steps", min=1, max=50, divisions=49, pref=marigold_depth_prefs, key='denoising_steps', tooltip="Number of denoising steps of each inference pass.")
     ensemble_size = SliderRow(label="Ensemble Size", min=1, max=50, divisions=49, pref=marigold_depth_prefs, key='ensemble_size', tooltip="Number of inference passes in the ensemble.")
@@ -9956,12 +9959,12 @@ deepfloyd_prefs = {
     'alpha_mask': False,
     'invert_mask': False,
     'num_inference_steps': 100,
-    'guidance_scale': 10,
+    'guidance_scale': 10.0,
     'image_strength': 0.7,
     'superres_num_inference_steps': 50,
-    'superres_guidance_scale': 4,
+    'superres_guidance_scale': 4.0,
     'upscale_num_inference_steps': 75,
-    'upscale_guidance_scale': 9,
+    'upscale_guidance_scale': 9.0,
     'eta': 0.0,
     'seed': 0,
     'max_size': 768,
@@ -10074,19 +10077,16 @@ def buildDeepFloyd(page):
     #mask_image = TextField(label="Mask Image (optional)", value=deepfloyd_prefs['mask_image'], expand=1, on_change=lambda e:changed(e,'mask_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask))
     invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=deepfloyd_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     alpha_mask = Checkbox(label="Alpha Mask", value=deepfloyd_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
-
     prompt = TextField(label="Prompt Text", value=deepfloyd_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=deepfloyd_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
     seed = TextField(label="Seed", width=90, value=str(deepfloyd_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=200, divisions=199, pref=deepfloyd_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=deepfloyd_prefs, key='guidance_scale')
-
     superres_num_inference_row = SliderRow(label="Super Res Inference Steps", min=1, max=200, divisions=199, pref=deepfloyd_prefs, key='superres_num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     superres_guidance = SliderRow(label="Super Res Guidance Scale", min=0, max=50, divisions=100, round=1, pref=deepfloyd_prefs, key='superres_guidance_scale')
     upscale_num_inference_row = SliderRow(label="Upscale Inference Steps", min=1, max=200, divisions=199, pref=deepfloyd_prefs, key='upscale_num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     upscale_guidance = SliderRow(label="Upscale Guidance Scale", min=0, max=50, divisions=100, round=1, pref=deepfloyd_prefs, key='upscale_guidance_scale')
     image_strength = SliderRow(label="Image Strength", min=0, max=1, divisions=20, round=2, pref=deepfloyd_prefs, key='image_strength', tooltip="Conceptually, indicates how much to transform the reference `image`. Denoising steps depends on the amount of noise initially added.")
-    #eta = TextField(label="ETA", value=str(deepfloyd_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     eta = Slider(min=0.0, max=1.0, divisions=20, round=2, label="{value}", value=float(deepfloyd_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=change_eta)
     eta_value = Text(f" {deepfloyd_prefs['eta']}", weight=FontWeight.BOLD)
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta, Text("DDPM")])
@@ -10253,7 +10253,7 @@ wuerstchen_prefs = {
     "steps":12,
     "width": 1024,
     "height":1024,
-    "guidance_scale":4,
+    "guidance_scale":4.0,
     'prior_guidance_scale': 4.0,
     'prior_steps': 60,
     "seed": 0,
@@ -10298,12 +10298,11 @@ def buildWuerstchen(page):
     negative_prompt = TextField(label="Negative Prompt Text", value=wuerstchen_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=wuerstchen_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=wuerstchen_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    steps = TextField(label="Number of Steps", value=wuerstchen_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
     n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=wuerstchen_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
-    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=wuerstchen_prefs, key='steps')
+    steps = SliderRow(label="Decoder Steps", min=0, max=100, divisions=100, pref=wuerstchen_prefs, key='steps', col={'xs':12, 'md':6})
     prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=wuerstchen_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
-    prior_steps = SliderRow(label="Prior Steps", min=0, max=50, divisions=50, expand=True, pref=wuerstchen_prefs, key='prior_steps', col={'xs':12, 'md':6})
-    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=wuerstchen_prefs, key='guidance_scale')
+    prior_steps = SliderRow(label="Prior Steps", min=0, max=100, divisions=100, expand=True, pref=wuerstchen_prefs, key='prior_steps', col={'xs':12, 'md':6})
+    guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=10, divisions=20, round=1, pref=wuerstchen_prefs, key='guidance_scale', col={'xs':12, 'md':6})
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=wuerstchen_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=wuerstchen_prefs, key='height')
     seed = TextField(label="Seed", width=90, value=str(wuerstchen_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -10326,8 +10325,8 @@ def buildWuerstchen(page):
             Header("🌭  Würstchen", "Text-to-Image Synthesis uniting competitive performance, cost-effectiveness and ease of training on constrained hardware.", actions=[save_default(wuerstchen_prefs), IconButton(icon=icons.HELP, tooltip="Help with Würstchen Settings", on_click=wuerstchen_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             ResponsiveRow([prior_steps, prior_guidance_scale]),
-            steps,
-            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            ResponsiveRow([steps, guidance]), 
+            width_slider, height_slider, #Divider(height=9, thickness=2),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             page.ESRGAN_block_wuerstchen,
             parameters_row,
@@ -25287,6 +25286,47 @@ def run_prompt_generator(page):
     except:
       alert_msg(page, "Invalid Google Cloud Authentication. Change in Settings...")
       return
+  if prefs['prompt_generator']['AI_engine'] == "Google Gemini":
+    if not bool(prefs['PaLM_api_key']):
+      alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
+      return
+    try:
+      import google.generativeai as genai
+      if force_updates: raise ModuleNotFoundError("Forcing update")
+    except:
+      page.prompt_generator_list.controls.append(Installing("Installing Google MakerSuite Library..."))
+      page.prompt_generator_list.update()
+      run_sp("pip install --upgrade google-generativeai", realtime=False)
+      import google.generativeai as genai
+      del page.prompt_generator_list.controls[-1]
+      page.prompt_generator_list.update()
+      pass
+    try:
+      genai.configure(api_key=prefs['PaLM_api_key'])
+    except:
+      alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
+      return
+    gemini_model = genai.GenerativeModel(model_name='gemini-pro')
+  if prefs['prompt_generator']['AI_engine'] == "Anthropic Claude 3":
+    if not bool(prefs['Anthropic_api_key']):
+      alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
+      return
+    try:
+      import anthropic
+    except:
+      page.prompt_generator_list.controls.append(Installing("Installing Anthropic.ai Claude SDK Library..."))
+      page.prompt_generator_list.update()
+      run_sp("pip install --upgrade anthropic", realtime=False)
+      import anthropic
+      del page.prompt_generator_list.controls[-1]
+      page.prompt_generator_list.update()
+      pass
+    os.environ["ANTHROPIC_API_KEY"] = prefs['Anthropic_api_key']
+    try:
+      anthropic_client = anthropic.Anthropic(api_key=prefs['Anthropic_api_key'])
+    except:
+      alert_msg(page, "Invalid Anthropic API Authentication. Change in Settings...")
+      return
   prompts_gen = []
   prompt_results = []
   subject = ""
@@ -25298,7 +25338,7 @@ def run_prompt_generator(page):
 
 '''
     #print(prompt)
-    if prefs['prompt_generator']['phrase_as_subject']:
+    if not prefs['prompt_generator']['phrase_as_subject']:
       prompt += "\n* "
     else:
       prompt += f"""* A beautiful painting of a serene landscape with a river running through it, lush trees, golden sun illuminating
@@ -25335,6 +25375,26 @@ def run_prompt_generator(page):
       #completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_generator']['AI_temperature'], max_output_tokens=1024)
       #print(str(completion))
       result = completion.text.strip()
+    elif prefs['prompt_generator']['AI_engine'] == "Anthropic Claude 3":
+      try:
+        response = anthropic_client.messages.create(
+          model="claude-3-sonnet-20240229",#"claude-3-opus-20240229",
+          max_tokens=4000,
+          temperature=prefs['prompt_generator']['AI_temperature'],
+          system=f"Respond with an unordered list of image generation prompts in the amount specified with each line starting with an * asterisk, {generator_request_modes[int(prefs['prompt_generator']['request_mode'])]}, and unique without repetition",
+          messages=[
+              {"role": "user", "content": prompt}
+          ]
+        )
+      except Exception as e:
+        alert_msg(page, "ERROR Running Anthropic API Request...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        del page.prompt_generator_list.controls[-1]
+        page.prompt_generator_list.update()
+        return
+      #completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_generator']['AI_temperature'], max_output_tokens=1024)
+      #print(str(response))
+      result = response.content[0].text
+      print(str(result))
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -25379,13 +25439,12 @@ def run_prompt_generator(page):
     #if prefs['prompt_generator']['random_styles'] != 0 and prefs['prompt_generator']['permutate_artists']:
     #  prompts_gen.append(text_prompt)
     if prefs['prompt_generator']['permutate_artists']:
-
       for a in list_variations(random_artist):
         prompt_variation = p + f", by {and_list(a)}"
         prompts_gen.append(prompt_variation)
       if prefs['prompt_generator']['random_styles'] > 0:
         prompts_gen.append(p + f", style of {style}")
-    else: prompts_gen.append(text_prompt)
+    #else: prompts_gen.append(text_prompt)
     n += 1
   page.generator.auto_scroll = True
   for item in prompts_gen:
@@ -25393,6 +25452,7 @@ def run_prompt_generator(page):
     #print(f'   "{item}",')
   nudge(page.generator, page)
   page.generator.auto_scroll = False
+  page.generator.update()
 
 remixer_request_modes = [
       "visually detailed wording, flowing sentences, extra long descriptions",
@@ -25465,6 +25525,27 @@ def run_prompt_remixer(page):
       alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
       return
     gemini_model = genai.GenerativeModel(model_name='gemini-pro')
+  elif engine == "Anthropic Claude 3":
+    if not bool(prefs['Anthropic_api_key']):
+      alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
+      return
+    try:
+      import anthropic
+    except:
+      page.prompt_remixer_list.controls.append(Installing("Installing Anthropic.ai Claude SDK Library..."))
+      page.prompt_remixer_list.update()
+      run_sp("pip install --upgrade anthropic", realtime=False)
+      import anthropic
+      del page.prompt_remixer_list.controls[-1]
+      page.prompt_remixer_list.update()
+      pass
+    os.environ["ANTHROPIC_API_KEY"] = prefs['Anthropic_api_key']
+    try:
+      anthropic_client = anthropic.Anthropic(api_key=prefs['Anthropic_api_key'])
+    except:
+      alert_msg(page, "Invalid Anthropic API Authentication. Change in Settings...")
+      return
+  
   prompts_remix = []
   prompt_results = []
 
@@ -25510,6 +25591,21 @@ def run_prompt_remixer(page):
       #completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_remixer']['AI_temperature'], max_output_tokens=1024)
       #print(str(completion.result))
       result = completion.text.strip()
+    elif engine == "Anthropic Claude 3":
+      try:
+        response = anthropic_client.messages.create(
+          model="claude-3-sonnet-20240229",#"claude-3-opus-20240229",
+          max_tokens=4000,
+          temperature=prefs['prompt_remixer']['AI_temperature'],
+          system=f"Respond with an unordered list of remixed variations from the given image generation prompts in the amount specified with each line starting with an * asterisk.",
+          messages=[{"role": "user", "content": prompt}]
+        )
+      except Exception as e:
+        alert_msg(page, "ERROR Running Anthropic API Request...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        del page.prompt_remixer_list.controls[-1]
+        page.prompt_remixer_list.update()
+        return
+      result = response.content[0].text
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -25666,7 +25762,7 @@ def run_prompt_brainstormer(page):
           from textsynthpy import TextSynth, Complete
         textsynth_engine = "gptj_6B" if 'GPT-J' in engine else "mistral_7B_instruct" if 'Mistral Instruct' in engine else "mistral_7B" if 'Mistral' in engine else "mixtral_47B_instruct" if 'Mixtral Instruct' in engine else "llama2_7B" if 'Llama2 7B' in engine else "llama2_70B" if 'Llama2 70B' in engine else "mistral_7B"
         textsynth = TextSynth(prefs['TextSynth_api_key'], engine=textsynth_engine) # Insert your API key in the previous cell
-    if 'GPT' in engine:
+    elif 'GPT' in engine:
       try:
         if not bool(prefs['OpenAI_api_key']): good_key = False
       except NameError: good_key = False
@@ -25688,7 +25784,7 @@ def run_prompt_brainstormer(page):
         except:
           alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
           return
-    if prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B" or prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5 XXL":
+    elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B" or prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Flan-T5 XXL":
       try:
         if not bool(prefs['HuggingFace_api_key']): good_key = False
       except NameError: good_key = False
@@ -25696,7 +25792,7 @@ def run_prompt_brainstormer(page):
         alert_msg(page, f"Missing HuggingFace_api_key... Define your key in Settings.")
         return
     #ask_OpenAI_instead = False #@param {type:'boolean'}
-    if prefs['prompt_brainstormer']['AI_engine'] == "Google Gemini":
+    elif prefs['prompt_brainstormer']['AI_engine'] == "Google Gemini":
       if not bool(prefs['PaLM_api_key']):
         alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
         return
@@ -25717,7 +25813,26 @@ def run_prompt_brainstormer(page):
         alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
         return
       gemini_model = genai.GenerativeModel(model_name='gemini-pro')
-    
+    if prefs['prompt_brainstormer']['AI_engine'] == "Anthropic Claude 3":
+      if not bool(prefs['Anthropic_api_key']):
+        alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
+        return
+      try:
+        import anthropic
+      except:
+        page.prompt_brainstormer_list.controls.append(Installing("Installing Anthropic.ai Claude SDK Library..."))
+        page.prompt_brainstormer_list.update()
+        run_sp("pip install --upgrade anthropic", realtime=False)
+        import anthropic
+        del page.prompt_brainstormer_list.controls[-1]
+        page.prompt_brainstormer_list.update()
+        pass
+      os.environ["ANTHROPIC_API_KEY"] = prefs['Anthropic_api_key']
+      try:
+        anthropic_client = anthropic.Anthropic(api_key=prefs['Anthropic_api_key'])
+      except:
+        alert_msg(page, "Invalid Anthropic API Authentication. Change in Settings...")
+        return
     prompt_request_modes = [
         "visually detailed wording, flowing sentences, extra long descriptions",
         "that is similar but with more details, themes, imagination, interest, subjects, artistic style, poetry, tone, settings, adjectives, visualizations",
@@ -25832,6 +25947,20 @@ def run_prompt_brainstormer(page):
         })
         #completion = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=prefs['prompt_brainstormer']['AI_temperature'], max_output_tokens=1024)
         result = completion.text.strip()
+      elif prefs['prompt_brainstormer']['AI_engine'] == "Anthropic Claude 3":
+        try:
+          response = anthropic_client.messages.create(
+            model="claude-3-sonnet-20240229",#"claude-3-opus-20240229",
+            max_tokens=4000,
+            temperature=prefs['prompt_brainstormer']['AI_temperature'],
+            #system=f"Respond with an unordered list of image generation prompts in the amount specified with each line starting with an * asterisk, {generator_request_modes[int(prefs['prompt_generator']['request_mode'])]}, and unique without repetition",
+            messages=[{"role": "user", "content": request}])
+        except Exception as e:
+          alert_msg(page, "ERROR Running Anthropic API Request...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+          del page.prompt_brainstormer_list.controls[-1]
+          page.prompt_brainstormer_list.update()
+          return
+        result = response.content[0].text.strip()
       del page.prompt_brainstormer_list.controls[-1]
       page.prompt_brainstormer_list.update()
       if '*' in result:
@@ -30022,6 +30151,74 @@ def run_image2text(page):
                 clear_last()
                 alert_msg(page, f"ERROR: Couldn't run Google Gemini Pro Vision request for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 return
+            clear_last()
+            clear_last()
+            i2t_prompts.append(prompt)
+            page.add_to_image2text(prompt)
+    elif image2text_prefs['method'] == "Anthropic Claude 3 Vision":
+        installer = Installing("Installing Anthropic.ai Claude SDK Library......")
+        prt(installer)
+        if not bool(prefs['Anthropic_api_key']):
+          alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
+          return
+        try:
+          import anthropic
+        except:
+          run_sp("pip install --upgrade anthropic", realtime=False)
+          import anthropic
+          pass
+        os.environ["ANTHROPIC_API_KEY"] = prefs['Anthropic_api_key']
+        try:
+          anthropic_client = anthropic.Anthropic(api_key=prefs['Anthropic_api_key'])
+        except:
+          alert_msg(page, "Invalid Anthropic API Authentication. Change in Settings...")
+          return
+        def encode_image(image_path):
+            import base64
+            with open(image_path, "rb") as image_file:
+              return base64.b64encode(image_file.read()).decode('utf-8')
+        folder_path = image2text_prefs['folder_path']
+        prompt_mode = "What is happening in this image? Describe it in visual details, artistic style, related artist names, colors and composition." if 'Detailed' in image2text_prefs['openai_mode'] else "Generate an image prompt with art styles, Poetic Captions, flowing adjectives, and detailed captions." if 'Poetic' in image2text_prefs['openai_mode'] else "Generate a technical detailed caption, describing all subjects, adjectives, styles, observations, colors and technical details to recreate." if 'Technical' in image2text_prefs['openai_mode'] else "Generate a coco-style caption with art style.\n" if 'Simple' in image2text_prefs['openai_mode'] else "Describe the style of this art, with a list of all the known artists it resembles and artistic styles it uses, then lay out the image composition with nouns and descriptive adjectives." if 'Artistic' in image2text_prefs['openai_mode'] else image2text_prefs['question']
+        i2t_prompts = []
+        clear_last()
+        for file in image2text_prefs['images']:
+            prt(f"Interrogating Images to Describe Prompt...")
+            prt(progress)
+            image = encode_image(os.path.join(folder_path, file))
+            file_extension = file.split(".")[-1]
+            image_media_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "bmp": "image/bmp", "tiff": "image/tiff", "webp": "image/webp", "svg": "image/svg+xml", "ico": "image/x-icon"}.get(file_extension.lower(), "application/octet-stream")
+            #image_media_type = "image/jpeg" if file.endswith("jpg") else "image/png"
+            try:
+                message = anthropic_client.messages.create(
+                    model="claude-3-sonnet-20240229",#"claude-3-opus-20240229",
+                    max_tokens=1024,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image",
+                                    "source": {
+                                        "type": "base64",
+                                        "media_type": image_media_type,
+                                        "data": image,
+                                    },
+                                },
+                                {
+                                    "type": "text",
+                                    "text": prompt_mode
+                                }
+                            ],
+                        }
+                    ],
+                )
+            except Exception as e:
+                alert_msg(page, "ERROR Running Anthropic API Request...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                clear_last()
+                return
+            #print(message)
+            prompt = message.content[0].text
+            prompt = prompt.replace('*', '').replace('\n', ' ').strip()
             clear_last()
             clear_last()
             i2t_prompts.append(prompt)
@@ -38113,12 +38310,13 @@ def run_wuerstchen(page, from_list=False, with_params=False):
         clear_pipes('wuerstchen')
     clear_last()
     s = "" if len(wuerstchen_prompts) == 0 else "s"
-    prt(f"Generating your Würstchen Image{s}...")
     for pr in wuerstchen_prompts:
-        prt(progress)
-        autoscroll(False)
         total_steps = pr['steps']
         for n in range(pr['num_images']):
+            prt(f"Generating your Würstchen Image{s}...")
+            prt(progress)
+            nudge(page.imageColumn if from_list else page.Wuerstchen, page)
+            autoscroll(False)
             random_seed = (int(pr['seed']) + n) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
             generator = torch.Generator(device="cuda").manual_seed(random_seed)
             try:
@@ -38141,8 +38339,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                 clear_last()
                 alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 return
-            #clear_last()
-            clear_last()
+            clear_last(2)
             autoscroll(True)
             txt2img_output = stable_dir
             batch_output = prefs['image_output']
@@ -38163,6 +38360,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                 image.save(image_path)
                 output_file = image_path.rpartition(slash)[2]
                 if not wuerstchen_prefs['display_upscaled_image'] or not wuerstchen_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                     prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 batch_output = os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name'])
                 if not os.path.exists(batch_output):
@@ -38178,9 +38376,9 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     upscale_image(image_path, upscaled_path, scale=wuerstchen_prefs["enlarge_scale"], faceenhance=wuerstchen_prefs["face_enhance"])
                     image_path = upscaled_path
                     if wuerstchen_prefs['display_upscaled_image']:
+                        save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                         time.sleep(0.6)
                         prt(Row([Img(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -45460,28 +45658,34 @@ def run_marigold_depth(page):
         processing_res=marigold_depth_prefs['processing_res'],     # (optional) Maximum resolution of processing. If set to 0: will not resize at all. Defaults to 768.
         match_input_res=marigold_depth_prefs['match_input_res'],   # (optional) Resize depth prediction to match input resolution.
         # batch_size=0,           # (optional) Inference batch size, no bigger than `num_ensemble`. If set to 0, the script will automatically decide the proper batch size. Defaults to 0.
-        color_map=marigold_depth_prefs['color_map'],   # (optional) Colormap used to colorize the depth map. Defaults to "Spectral".
+        color_map=marigold_depth_prefs['color_map'] if marigold_depth_prefs['color_map'] is not 'None' else None,   # (optional) Colormap used to colorize the depth map. Defaults to "Spectral".
         show_progress_bar=True, # (optional) If true, will show progress bars of the inference progress.
     )
     depth_path = available_file(batch_output, file_name, no_num=True)
     colored_path = available_file(batch_output, f"{file_name}-colored", no_num=True)
     depth: np.ndarray = marigold_output.depth_np                    # Predicted depth map
-    depth_colored: PILImage.Image = marigold_output.depth_colored      # Colorized prediction
+    depth_colored = marigold_output.depth_colored      # Colorized prediction
     # Save as uint16 PNG
     depth_uint16 = (depth * 65535.0).astype(np.uint16)
     PILImage.fromarray(depth_uint16).save(depth_path, mode="I;16")
-    depth_colored.save(colored_path)
+    if depth_colored is not None:
+        depth_colored.save(colored_path)
     autoscroll(True)
     clear_last(2)
     prt(Row([ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page)], alignment=MainAxisAlignment.CENTER))
-    prt(Row([ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    if depth_colored is not None:
+        prt(Row([ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page)], alignment=MainAxisAlignment.CENTER))
     prt(ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page))
-    prt(ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page))
+    if depth_colored is not None:
+        prt(ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
 def run_tripo(page):
     global tripo_prefs, pipe_tripo, status
+    if not bool(tripo_prefs['init_image']):
+        alert_msg(page, f"ERROR: You must provide an init image to prrocess.")
+        return
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -45560,6 +45764,8 @@ def run_tripo(page):
         init_img = resize_foreground(init_img, float(tripo_prefs['foreground_ratio']))
         init_img = fill_background(init_img)
         #TODO: Display image with no background
+        src_base64 = pil_to_base64(init_img)
+        prt(Row([Img(src_base64=src_base64, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
     else:
         if init_img.mode == "RGBA":
             init_img = fill_background(init_img)

@@ -188,6 +188,7 @@ SDXL_models = [
     {"name": "Animagine-XL 3", "path": "cagliostrolab/animagine-xl-3.0", "prefix": "", "use_safetensors": True},
     {"name": "Animagine-XL 3 Lightning", "path": "Bakanayatsu/Animagine-xl-3.0-2step-Lightning", "prefix": ""},
     {"name": "Anime-XL", "path": "stablediffusionapi/animexl-xuebimix", "prefix": "", "variant": "fp16"},
+    {"name": "Colossus Project XL", "path": "n0madic/colossusProjectXL_v53", "prefix": "", "variant": "fp16"},
     {"name": "Counterfeit-XL", "path": "gsdf/CounterfeitXL", "prefix": "", "variant": "fp16"},
     {"name": "CrystalClear XL", "path": "stablediffusionapi/crystal-clear-xlv1", "prefix": ""},
     {"name": "DPO-Juggernaut 7XL", "path": "dataautogpt3/dpo-sdxl-merged", "prefix": "", "use_safetensors": True},
