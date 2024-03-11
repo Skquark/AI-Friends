@@ -415,11 +415,11 @@ def load_settings_file():
           'subject_detail': '',
           'phrase_as_subject': False,
           'amount': 10,
-          'random_artists': 2,
-          'random_styles': 1,
+          'random_artists': 0,
+          'random_styles': 0,
           'permutate_artists': False,
           'request_mode': 3,
-          'AI_temperature': 0.9,
+          'AI_temperature': 0.8,
           'AI_engine': "ChatGPT-3.5 Turbo",
           'economy_mode': True,
       },
@@ -427,18 +427,18 @@ def load_settings_file():
           'seed_prompt': '',
           'optional_about_influencer': '',
           'amount': 10,
-          'random_artists': 2,
-          'random_styles': 1,
+          'random_artists': 0,
+          'random_styles': 0,
           'permutate_artists': False,
           'request_mode': 3,
-          'AI_temperature': 0.9,
+          'AI_temperature': 0.8,
           'AI_engine': "ChatGPT-3.5 Turbo",
       },
       'prompt_brainstormer': {
           'AI_engine': 'ChatGPT-3.5 Turbo',
           'about_prompt': '',
           'request_mode': 'Brainstorm',
-          'AI_temperature': 0.9,
+          'AI_temperature': 0.8,
       },
       'prompt_writer': {
           'art_Subjects': '',
@@ -622,6 +622,13 @@ def tab_on_change (e):
       e.page.show_run_diffusion_fab(True, p=e.page) #len(prompts) > 0
     e.page.update()
 
+def tab_changed(e):
+    global status
+    t = e.control
+    if status['changed_prefs']:
+      save_settings_file(e.page)
+      status['changed_prefs'] = False
+
 def buildTabs(page):
     page.Settings = buildSettings(page)
     page.Installers = buildInstallers(page)
@@ -635,7 +642,8 @@ def buildTabs(page):
     page.AudioAIs = buildAudioAIs(page)
     page.Text3DAIs = build3DAIs(page)
     page.Extras = buildExtras(page)
-
+    page.PromptHelpers.on_change = tab_changed
+    
     t = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Settings", content=page.Settings, icon=icons.SETTINGS_OUTLINED),
@@ -4595,9 +4603,9 @@ def buildImage2Text(page):
       fuyu_mode.update()
       gemini_mode.visible = method=="Google Gemini Pro"
       gemini_mode.update()
-      openai_mode.visible = method=="OpenAI GPT-4 Vision" or method=="Anthropic Claude 3 Vision"
+      openai_mode.visible = method=="OpenAI GPT-4 Vision" or method=="Anthropic Claude 3 Vision" or method=="Moondream 2"
       openai_mode.update()
-      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question") or (method=="OpenAI GPT-4 Vision" and image2text_prefs['openai_mode']=="Question")
+      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question") or ((method=="OpenAI GPT-4 Vision" or method=="Anthropic Claude 3 Vision" or method=="Moondream 2") and image2text_prefs['openai_mode']=="Question")
       question_prompt.update()
     def change_fuyu(e):
       fuyu = e.control.value
@@ -4627,13 +4635,13 @@ def buildImage2Text(page):
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
-    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
+    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("Moondream 2"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
     #use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
     mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
     request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
     fuyu_mode = Dropdown(label="Fuyu Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['fuyu_mode'], visible=image2text_prefs['method']=="Fuyu-8B", on_change=change_fuyu)
     gemini_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
-    openai_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible=image2text_prefs['method']=="OpenAI GPT-4 Vision" or image2text_prefs['method']=="Anthropic Claude 3 Vision", on_change=change_openai)
+    openai_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible=image2text_prefs['method']=="OpenAI GPT-4 Vision" or image2text_prefs['method']=="Anthropic Claude 3 Vision" or image2text_prefs['method']=="Moondream 2", on_change=change_openai)
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
     AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), visible=image2text_prefs['method']=="AIHorde Crowdsourced", animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -20478,7 +20486,10 @@ def save_default(save_prefs, exclude=[]):
         pref_name = get_var_name(save_prefs)
         if 'default_prefs' not in prefs:
             prefs['default_prefs'] = {}
-        prefs['default_prefs'][pref_name].update(save_prefs)
+        if pref_name in prefs['default_prefs']:
+            prefs['default_prefs'][pref_name].update(save_prefs)
+        else:
+            prefs['default_prefs'][pref_name] = save_prefs
         if exclude:
             for ex in exclude:
                 if ex in prefs['default_prefs'][pref_name]:
@@ -20588,6 +20599,8 @@ depth_estimator = None
 fuyu_tokenizer = None
 fuyu_model = None
 fuyu_processor = None
+moondream2_model = None
+moondream2_tokenizer = None
 pipe_blip_diffusion = None
 pipe_anytext = None
 pipe_reference = None
@@ -23270,6 +23283,14 @@ def clear_fuyu_pipe():
     fuyu_tokenizer = None
     fuyu_model = None
     fuyu_processor = None
+def clear_moondream2_pipe():
+  global moondream2_tokenizer, moondream2_model
+  if moondream2_model is not None:
+    del moondream2_model
+    del moondream2_tokenizer
+    flush()
+    moondream2_model = None
+    moondream2_tokenizer = None
 def clear_reference_pipe():
   global pipe_reference
   if pipe_reference is not None:
@@ -23468,6 +23489,7 @@ def clear_pipes(allbut=None):
     if not 'blip_diffusion' in but: clear_blip_diffusion_pipe()
     if not 'anytext' in but: clear_anytext_pipe()
     if not 'fuyu' in but: clear_fuyu_pipe()
+    if not 'moondream2' in but: clear_moondream2_pipe()
     if not 'ip_adapter' in but: clear_ip_adapter_pipe()
     if not 'reference' in but: clear_reference_pipe()
     if not 'controlnet_qr' in but: clear_controlnet_qr_pipe()
@@ -29998,7 +30020,7 @@ def run_demofusion(page, from_list=False, with_params=False):
     play_snd(Snd.ALERT, page)
 
 def run_image2text(page):
-    global fuyu_tokenizer, fuyu_model, fuyu_processor
+    global fuyu_tokenizer, fuyu_model, fuyu_processor, moondream2_tokenizer, moondream2_model
     def prt(line):
       if type(line) == str:
         line = Text(line)
@@ -30046,6 +30068,39 @@ def run_image2text(page):
             except Exception as e:
                 clear_last()
                 alert_msg(page, f"ERROR: Couldn't run Fuyu generate for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                return
+            clear_last()
+            clear_last()
+            i2t_prompts.append(prompt)
+            page.add_to_image2text(prompt)
+    elif image2text_prefs['method'] == "Moondream 2":
+        if not check_diffusers(page): return
+        installer = Installing("Downloading Moondream 2 Image2Text Model...")
+        prt(installer)
+        clear_pipes("moondream2")
+        pip_install("timm einops", installer=installer)
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        model_id = "vikhyatk/moondream2"
+        revision = "2024-03-06"
+        if moondream2_tokenizer == None:
+            installer.status("...loading model (see console)")
+            moondream2_model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True, revision=revision, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            installer.status("...vikhyatk/moondream2 Tokenizer")
+            moondream2_tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+        folder_path = image2text_prefs['folder_path']
+        prompt_mode = "What is happening in this image? Describe it in visual details, artistic style, related artist names, colors and composition." if 'Detailed' in image2text_prefs['openai_mode'] else "Generate an image prompt with art styles, Poetic Captions, flowing adjectives, and detailed captions." if 'Poetic' in image2text_prefs['openai_mode'] else "Generate a technical detailed caption, describing all subjects, adjectives, styles, observations, colors and technical details to recreate." if 'Technical' in image2text_prefs['openai_mode'] else "Generate a coco-style caption with art style.\n" if 'Simple' in image2text_prefs['openai_mode'] else "Describe the style of this art, with a list of all the known artists it resembles and artistic styles it uses, then lay out the image composition with nouns and descriptive adjectives." if 'Artistic' in image2text_prefs['openai_mode'] else image2text_prefs['question']
+        i2t_prompts = []
+        clear_last()
+        for file in image2text_prefs['images']:
+            prt(f"Interrogating Images to Describe Prompt...")
+            prt(progress)
+            image = PILImage.open(os.path.join(folder_path, file)).convert('RGB')
+            try:
+                enc_image = moondream2_model.encode_image(image)
+                prompt = moondream2_model.answer_question(enc_image, prompt_mode, moondream2_tokenizer).strip()
+            except Exception as e:
+                clear_last()
+                alert_msg(page, f"ERROR: Couldn't run Moondream 2 generate for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 return
             clear_last()
             clear_last()
