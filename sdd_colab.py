@@ -45717,7 +45717,7 @@ def run_marigold_depth(page):
         processing_res=marigold_depth_prefs['processing_res'],     # (optional) Maximum resolution of processing. If set to 0: will not resize at all. Defaults to 768.
         match_input_res=marigold_depth_prefs['match_input_res'],   # (optional) Resize depth prediction to match input resolution.
         # batch_size=0,           # (optional) Inference batch size, no bigger than `num_ensemble`. If set to 0, the script will automatically decide the proper batch size. Defaults to 0.
-        color_map=marigold_depth_prefs['color_map'] if marigold_depth_prefs['color_map'] is not 'None' else None,   # (optional) Colormap used to colorize the depth map. Defaults to "Spectral".
+        color_map=marigold_depth_prefs['color_map'] if marigold_depth_prefs['color_map'] != 'None' else None,   # (optional) Colormap used to colorize the depth map. Defaults to "Spectral".
         show_progress_bar=True, # (optional) If true, will show progress bars of the inference progress.
     )
     depth_path = available_file(batch_output, file_name, no_num=True)
