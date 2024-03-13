@@ -894,6 +894,7 @@ def buildAudioAIs(page):
     page.MusicLDM = buildMusicLDM(page)
     page.Bark = buildBark(page)
     page.Riffusion = buildRiffusion(page)
+    page.MusicLang = buildMusicLang(page)
     page.Mubert = buildMubert(page)
     page.Whisper = buildWhisper(page)
     page.OpenAI_TTS = buildOpenAI_TTS(page)
@@ -909,6 +910,7 @@ def buildAudioAIs(page):
             Tab(text="Bark", content=page.Bark, icon=icons.PETS),
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
+            Tab(text="MusicLang", content=page.MusicLang, icon=icons.PIANO),
             Tab(text="Whisper-STT", content=page.Whisper, icon=icons.HEARING),
             Tab(text="OpenAI-TTS", content=page.OpenAI_TTS, icon=icons.PHONE_IN_TALK),
             Tab(text="Voice Fixer", content=page.VoiceFixer, icon=icons.VOICE_CHAT),
@@ -2990,7 +2992,8 @@ def buildPromptsList(page):
                 if '_' in pr:
                     pr = nsp_parse(pr)
                 pr = prompt_parse(pr)
-                add_to_prompts(pr.strip(), negative)
+                add_to_prompts(pr.strip(), negative, update=False)
+        page.update()
         status['changed_prefs'] = True
         close_dlg(e)
       def close_dlg(e):
@@ -3081,7 +3084,7 @@ def buildPromptsList(page):
         add_to_prompts(positive_prompt, {'negative_prompt': negative_prompt})
       else:
         add_to_prompts(positive_prompt)
-  def add_to_prompts(p, arg=None):
+  def add_to_prompts(p, arg=None, update=True):
       global prompts
       update_args()
       p = prompt_parse(p)
@@ -3104,17 +3107,19 @@ def buildPromptsList(page):
           ],
       )))
       #prompts_list.controls.append(Text("Prompt 1 added to the list of prompts"))
-      prompts_list.update()
+      if update:
+          prompts_list.update()
       if prompts_buttons.visible==False:
           prompts_buttons.visible=True
           prompts_buttons.update()
           if current_tab == 3:
             show_run_diffusion_fab(True)
       if arg is not None:
-        update_prompts()
+          update_prompts(update=False)
       else:
-        prompt_text.focus()
-      page.update()
+          prompt_text.focus()
+      if update:
+          page.update()
       status['changed_prefs'] = True
   page.add_to_prompts = add_to_prompts
 
@@ -3182,7 +3187,7 @@ def buildPromptsList(page):
 
   page.load_prompts = load_prompts
 
-  def update_prompts():
+  def update_prompts(update=True):
       if len(prompts_list.controls) > 0:
         for p in prompts_list.controls:
           diffs = arg_diffs(p.data.arg, args)
@@ -3190,7 +3195,8 @@ def buildPromptsList(page):
             subtitle = Text("    " + diffs)
           else: subtitle = None
           p.subtitle = subtitle
-          p.update()
+          if update:
+            p.update()
         prompts_list.update()
   page.update_prompts = update_prompts
 
@@ -19499,6 +19505,76 @@ def buildAudioLDM2(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+musiclang_prefs = {
+    'midi_file': '',
+    'bar_range': '1-4',
+    'time_signature': '4/4',
+    'nb_tokens': 512,
+    'temperature': 0.95,
+    'top_p': 0.98,
+    'tempo': 120,
+    'chord_progression': '',
+    'seed': 0,
+    'audio_name': '',
+    'batch_folder_name': '',
+    'file_prefix': 'musiclang-',
+}
+
+def buildMusicLang(page):
+    global prefs, musiclang_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              musiclang_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              musiclang_prefs[pref] = float(e.control.value)
+            else:
+              musiclang_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def musiclang_help(e):
+        def close_musiclang_dlg(e):
+          nonlocal musiclang_help_dlg
+          musiclang_help_dlg.open = False
+          page.update()
+        musiclang_help_dlg = AlertDialog(title=Text("💁   Help with MusicLang"), content=Column([
+            Text("MusicLang Predict offers advanced controllability features and high-quality music generation by manipulating symbolic music. You can for example use it to continue your composition with a specific chord progression. We are using a LLAMA2 architecture (many thanks to Andrej Karpathy awesome llama2.c), trained on a large dataset of midi files (The CC0 licensed LAKH). We heavily rely on preprocessing the midi files to get an enriched tokenization that describe chords & scale for each bar. The is also helpful for normalizing melodies relative to the current chord/scale."),
+            Text("You want to generate music that you can export to your favourite DAW in MIDI ? You want to control the chord progression of the generated music ? You need to run it fast on your laptop without a gpu ? You had a specific harmony in mind am I right ? That's why we allow a fine control over the chord progression of the generated music. Just specify it as a string like below, choose a time signature and let the magic happen."),
+            Markdown("[Project Page](https://musiclang.github.io/) | [MusicLang Predict](https://github.com/musiclang/musiclang_predict) | [HuggingFace Space](https://huggingface.co/spaces/musiclang/musiclang-predict) | [MusicLang Model](https://huggingface.co/musiclang/musiclang-v2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🚀  Blast da Beat... ", on_click=close_musiclang_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = musiclang_help_dlg
+        musiclang_help_dlg.open = True
+        page.update()
+    midi_file = FileInput(label="Prompt MIDI File (optional)", pref=musiclang_prefs, key='midi_file', ftype="midi", page=page)
+    tempo = SliderRow(label="Tempo", min=60, max=240, divisions=180, suffix="bpm", pref=musiclang_prefs, key='tempo', tooltip="Only used if not using input file, otherwise bpm from MIDI.")
+    nb_tokens = SliderRow(label="Nb Tokens", min=256, max=2048, divisions=7, pref=musiclang_prefs, key='nb_tokens', tooltip="")
+    chord_progression = TextField(label="Chord Progression (optional)", value=musiclang_prefs['chord_progression'], expand=True, hint_text="Am CM Dm7/F E7 Asus4", on_change=lambda e:changed(e,'chord_progression'), tooltip="eg: Cm C7/E Fm F#dim G7, or Am Em CM G7 E7 Am Am E7 Am, or Cm AbM BbM G7 Cm")
+    bar_range = TextField(label="Bar Range", value=musiclang_prefs['bar_range'], width=120, on_change=lambda e:changed(e,'bar_range'), tooltip="Number of bars from the Input File. eg: 0-4 for first four bars")
+    time_signature = TextField(label="Time Signature", value=musiclang_prefs['time_signature'], width=120, on_change=lambda e:changed(e,'time_signature'), tooltip="Numbers seperated with a slash")
+    temperature = SliderRow(label="Temperature", min=0, max=1, divisions=20, round=2, pref=musiclang_prefs, key='temperature', tooltip="Softmax value used to module the next token probabilities", col={'lg':6})
+    top_p = SliderRow(label="Top-P Samples", min=0, max=1, divisions=100, round=2, pref=musiclang_prefs, key='top_p', tooltip="Highest probability vocabulary tokens to keep.", col={'lg':6})
+    batch_folder_name = TextField(label="Batch Folder Name", value=musiclang_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=musiclang_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    audio_name = TextField(label="Audio File Name", value=musiclang_prefs['audio_name'], on_change=lambda e:changed(e,'audio_name'))
+    #n_candidates = Tooltip(message="Automatic quality control. Generates candidates and choose the best. Larger value usually lead to better quality with heavier computation.", content=NumberPicker(label="Number of Candidates:   ", min=1, max=5, value=musiclang_prefs['n_candidates'], on_change=lambda e: changed(e, 'n_candidates')))
+    seed = TextField(label="Seed", value=musiclang_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🎹  MusicLang Predict", "Controllable Symbolic Music Generation with MusicLang Predict...", actions=[save_default(musiclang_prefs, ['midi_file']), IconButton(icon=icons.HELP, tooltip="Help with Music Lang-TTS Settings", on_click=musiclang_help)]),
+        midi_file,
+        Row([bar_range, time_signature, chord_progression]),
+        tempo,
+        nb_tokens,
+        ResponsiveRow([temperature, top_p]),
+        Row([audio_name, batch_folder_name, file_prefix, seed]),
+        ElevatedButton(content=Text("🎶  Run MusicLang", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_music_lang(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 zeta_editing_prefs = {
     'target_prompt': '',
     'negative_prompt':'',
@@ -20572,6 +20648,7 @@ pipe_music_ldm = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_music_gen = None
+pipe_music_lang = None
 pipe_voice_fixer = None
 pipe_whisper = None
 pipe_text_to_video = None
@@ -23199,6 +23276,12 @@ def clear_music_gen_pipe():
     del pipe_music_gen
     flush()
     pipe_music_gen = None
+def clear_music_lang_pipe():
+  global pipe_music_lang
+  if pipe_music_lang is not None:
+    del pipe_music_lang
+    flush()
+    pipe_music_lang = None
 def clear_riffusion_pipe():
   global pipe_riffusion
   if pipe_riffusion is not None:
@@ -23498,6 +23581,7 @@ def clear_pipes(allbut=None):
     if not 'riffusion' in but: clear_riffusion_pipe()
     if not 'audio_diffusion' in but: clear_audio_diffusion_pipe()
     if not 'music_gen' in but: clear_music_gen_pipe()
+    if not 'music_lang' in but: clear_music_lang_pipe()
     if not 'voice_fixer' in but: clear_voice_fixer_pipe()
     if not 'whisper' in but: clear_whisper_pipe()
     if not 'text_to_video' in but: clear_text_to_video_pipe()
@@ -32865,7 +32949,7 @@ def run_audio_ldm(page):
       display_name = audio_save
     #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
     prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
-    nudge(page.OpenAI_TTS, page)
+    nudge(page.audioLDM, page)
     play_snd(Snd.ALERT, page)
 
 def run_audio_ldm2(page):
@@ -33005,6 +33089,143 @@ def run_audio_ldm2(page):
         #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
         prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
         num += 1
+    play_snd(Snd.ALERT, page)
+
+def run_music_lang(page):
+    global musiclang_prefs, pipe_music_lang, prefs
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.MusicLang.controls.append(line)
+      page.MusicLang.update()
+    def clear_last(lines=1):
+      clear_line(page.MusicLang, lines=lines)
+    #if not bool(musiclang_prefs['midi_file']):
+    #  alert_msg(page, "Provide a MIDI file for the AI to create the music of...")
+    #  return
+    progress = ProgressBar(bar_height=8)
+    installer = Installing("Downloading MusicLang Packages...", )
+    prt(installer)
+    pip_install("musiclang_predict==1.1.5 pyFluidSynth midi2audio ffmpeg-python|ffmpeg fluidsynth", installer=installer, q=True)
+    from musiclang_predict import MusicLangPredictor
+    from musiclang import Score
+    from midi2audio import FluidSynth
+    import ffmpeg
+    model_id="musiclang/musiclang-v2"
+    clear_pipes('music_lang')
+    if pipe_music_lang == None:
+        installer.status("...initializing MusicLang model...")
+        try:
+            pipe_music_lang = MusicLangPredictor(model_id)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error downloading MusicLang package", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+    fluidR3 = os.path.join(upload_dir, "FluidR3_GM.sf2")
+    if not os.path.isfile(fluidR3):
+        installer.status("...downloading FluidR3_GM.sf2")
+        download_file("https://musical-artifacts.com/artifacts/738/FluidR3_GM.sf2", to=upload_dir)
+    random_seed = int(musiclang_prefs['seed']) if int(musiclang_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    #time_signature = (4, 4)
+    midi_file = musiclang_prefs['midi_file'].strip()
+    bar_range = musiclang_prefs['bar_range']
+    chord_progression = musiclang_prefs['chord_progression']
+    nb_tokens = musiclang_prefs['nb_tokens']
+    temperature = musiclang_prefs['temperature']
+    top_p = musiclang_prefs['top_p']
+    if bool(midi_file):
+        # Load the MIDI file and use it as the score prompt
+        filepath = midi_file
+        start_bar, end_bar = map(int, bar_range.split("-"))
+        score = Score.from_midi(filepath, chord_range=(start_bar, end_bar))
+        tempo = score.config['tempo'] # Use the tempo from the MIDI file and change input
+        time_signature = score.config['time_signature']
+        time_signature = (time_signature[1], time_signature[2])
+        tempo_message = f"Warning : real tempo of file is : {int(tempo)} BPM."  # Update message based on MIDI file
+        print(tempo_message)
+    else:
+        time_sig = musiclang_prefs['time_signature']
+        bad_time = False
+        if '/' not in time_sig:
+            bad_time = True
+        try:
+            beat, note = time_sig.split('/')
+            beat = int(beat.strip())
+            note = int(note.strip())
+            time_signature = (beat, note)
+        except Exception:
+            bad_time = True
+            pass
+        if bad_time:
+            alert_msg(page, "Invalid Time Signature. Please use the format like 4/4 or 3/4 or 7/8")
+            return
+        tempo = int(musiclang_prefs['tempo'])
+        score = None  # Default score is None if no MIDI file is uploaded
+    clear_last()
+    prt(Text("  Generating MusicLang Sounds...", weight=FontWeight.BOLD))
+    prt(progress)
+    try:
+        if chord_progression.strip() == "" and score is None:
+            # Generate without specific chord progression or MIDI prompt
+            generated_score = pipe_music_lang.predict(
+                nb_tokens=int(nb_tokens),
+                temperature=float(temperature),
+                topp=top_p,
+                rng_seed=random_seed
+            )
+        elif score is not None and chord_progression.strip() == "":
+            # Generate using the uploaded MIDI file as a prompt
+            generated_score = pipe_music_lang.predict(
+                score=score,  # Use the uploaded MIDI as the score prompt
+                nb_tokens=int(nb_tokens),
+                temperature=float(temperature),
+                topp=top_p,
+                rng_seed=random_seed
+            )
+        else:
+            # Generate with specific chord progression
+            generated_score = pipe_music_lang.predict_chords(
+                chord_progression,
+                score=score,  # Use the uploaded MIDI as the score prompt
+                time_signature=time_signature,
+                temperature=temperature,
+                topp=top_p,
+                rng_seed=random_seed
+            )
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error generating MIDI waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    chord_repr = generated_score.to_chord_repr()
+    save_dir = os.path.join(root_dir, 'audio_out', musiclang_prefs['batch_folder_name'])
+    make_dir(save_dir)
+    audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+    if bool(musiclang_prefs['batch_folder_name']):
+      audio_out = os.path.join(audio_out, musiclang_prefs['batch_folder_name'])
+    make_dir(audio_out)
+    #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm-tts", 'audioldm', 'voices'))
+    #print(str(voice_dirs))
+    fname = format_filename(musiclang_prefs['audio_name'])
+    if fname[-1] == '.': fname = fname[:-1]
+    file_prefix = musiclang_prefs['file_prefix']
+    audio_name = f'{file_prefix}-{fname}'
+    audio_name = audio_name[:int(prefs['file_max_length'])]
+    midi_path = available_file(audio_out, audio_name, 0, no_num=True, ext="mid")
+    wav_path = available_file(audio_out, audio_name, 0, no_num=True, ext="wav")
+    mp3_path = available_file(audio_out, audio_name, 0, no_num=True, ext="mp3")
+    generated_score.to_midi(midi_path, tempo=tempo, time_signature=time_signature)
+    FluidSynth(fluidR3).midi_to_audio(midi_path, wav_path)
+    #run_sp(f'ffmpeg -i {wav_path} -acodec libmp3lame -y -loglevel quiet -stats {mp3_path}')
+    ffmpeg.input(wav_path).output(mp3_path, acodec='libmp3lame', overwrite_output=True, quiet=True).run()
+    os.remove(wav_path)
+    if isinstance(str, chord_repr):
+        print(str(chord_repr))
+    clear_last(2)
+    display_name = mp3_path
+    #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
+    prt(Markdown(f"Saved MIDI File [{midi_path}]({filepath_to_url(midi_path)})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    prt(AudioPlayer(src=mp3_path, display=display_name, data=display_name, page=page))
+    nudge(page.MusicLang, page)
     play_snd(Snd.ALERT, page)
 
 
@@ -48319,9 +48540,10 @@ class FileInput(UserControl):
             vid_ext = ["mp4", "avi", "MP4", "AVI"]
             gif_ext = ["gif", "GIF"]
             aud_ext = ["mp3", "wav", "MP3", "WAV"]
+            midi_ext = ["mid", "midi", "MID", "MIDI"]
             font_ext = ["ttf", "TTF"]
             model_ext = ["fbx", "obj", "stl", "gltf", "glb"]
-            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else model_ext if self.ftype == "model" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
+            ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else model_ext if self.ftype == "model" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else midi_ext if self.ftype == "midi" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
             self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
         def changed(e):
