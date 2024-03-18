@@ -718,6 +718,7 @@ def buildImageAIs(page):
     page.DemoFusion = buildDemoFusion(page)
     page.PaintByExample = buildPaintByExample(page)
     page.InstructPix2Pix = buildInstructPix2Pix(page)
+    page.LEdits = buildLEdits(page)
     page.ControlNet = buildControlNet(page)
     page.ControlNetXL = buildControlNetXL(page)
     page.ControlNetXS = buildControlNetXS(page)
@@ -774,6 +775,7 @@ def buildImageAIs(page):
             Tab(text="IP-Adapter", content=page.IP_Adapter, icon=icons.ROOM_PREFERENCES),
             Tab(text="Reference-Only", content=page.Reference, icon=icons.CRISIS_ALERT),
             Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
+            Tab(text="LEdits++", content=page.LEdits, icon=icons.PUBLISHED_WITH_CHANGES),
             Tab(text="Null-Text", content=page.Null_Text, icon=icons.FORMAT_OVERLINE),
             Tab(text="EDICT Edit", content=page.EDICT, icon=icons.AUTO_AWESOME),
             Tab(text="DiffEdit", content=page.DiffEdit, icon=icons.AUTO_GRAPH),
@@ -1372,10 +1374,11 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
         debug_msg = msg + "\n\n"
         if isinstance(content_msg, list):
             content_msg = Column(controls=content_msg)
-        if isinstance(content_msg, Column):
-            for c in content_msg.controls:
-                if isinstance(c, Text) or isinstance(c, Markdown):
-                    debug_msg += c.value + "\n"
+        if not isinstance(content_msg, Column):
+            content_msg = Column(controls=[content_msg])
+        for c in content_msg.controls:
+            if isinstance(c, Text) or isinstance(c, Markdown):
+                debug_msg += c.value + "\n"
         import platform
         memory = f"GPU VRAM: {status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB{' - on Colab' if is_Colab else ''}"
         os_info = f" - OS: {platform.system()} {platform.version()}"
@@ -1384,7 +1387,7 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
             debug_msg += str(debug_pref)
         # TODO: Add another window to submit report with optional From name, email & notes before sending
         send_debug_email(debug_msg)
-        toast_msg(page, f"📧  Sent Debug Crash Report Email to Skquark... Thanks for helping Beta-Test.")
+        toast_msg(page, f"📧  Sent Debug Crash Report Email to Skquark... Thanks for helping Beta Test.")
     show_debug = content != None and sound
     okay_button = ElevatedButton(content=Text("👌  OKAY " if okay == "" else okay, size=18), on_click=close_alert_dlg)
     debug_button = Container(content=None) if not show_debug else ft.OutlinedButton(content=Text("Submit Error", size=18), on_click=send_debug)
@@ -8898,6 +8901,125 @@ def buildInstructPix2Pix(page):
              run_prompt_list]),
         page.instruct_pix2pix_output,
         clear_button,
+      ]))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+
+ledits_prefs = {
+    'original_image': '',
+    'source_prompt': '',
+    'prompt': '',
+    'negative_prompt': '',
+    'num_inference_steps': 50,
+    'source_guidance_scale': 3.5,
+    'guidance_scale': 5.0,
+    'edit_threshold': 0.75,
+    'skip': 0.15,
+    'seed': 0,
+    'max_size': 768,
+    'num_images': 1,
+    'use_SDXL': False,
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_SDXL_model': 'SDXL',
+    'ip_adapter_strength': 0.8,
+    'batch_folder_name': '',
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": 2.0,
+    "display_upscaled_image": False,
+}
+
+def buildLEdits(page):
+    global ledits_prefs, prefs, pipe_ledits
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            ledits_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            ledits_prefs[pref] = float(e.control.value)
+          else:
+            ledits_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def ledits_help(e):
+      def close_ledits_dlg(e):
+        nonlocal ledits_help_dlg
+        ledits_help_dlg.open = False
+        page.update()
+      ledits_help_dlg = AlertDialog(title=Text("💁   Help with LEdits++"), content=Column([
+          Text("Text-to-image diffusion models have recently received increasing interest for their astonishing ability to produce high-fidelity images from solely text inputs. Subsequent research efforts aim to exploit and apply their capabilities to real image editing. However, existing image-to-image methods are often inefficient, imprecise, and of limited versatility. They either require time-consuming fine-tuning, deviate unnecessarily strongly from the input image, and/or lack support for multiple, simultaneous edits. To address these issues, we introduce LEDITS++, an efficient yet versatile and precise textual image manipulation technique. LEDITS++'s novel inversion approach requires no tuning nor optimization and produces high-fidelity results with a few diffusion steps. Second, our methodology supports multiple simultaneous edits and is architecture-agnostic. Third, we use a novel implicit masking technique that limits changes to relevant image regions. We propose the novel TEdBench++ benchmark as part of our exhaustive evaluation. Our results demonstrate the capabilities of LEDITS++ and its improvements over previous methods."),
+          Markdown("[Project](https://leditsplusplus-project.static.hf.space/index.html) | [HuggingFace Space](https://huggingface.co/spaces/editing-images/leditsplusplus) | [GitHub](https://github.com/ml-research/ledits_pp) | [Paper](https://huggingface.co/papers/2311.16711)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Manuel Brack, Felix Friedrich, Katharina Kornmeier, Linoy Tsaban, Patrick Schramowski, Kristian Kersting, Apolinário Passos"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😽  Make a Change... ", on_click=close_ledits_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = ledits_help_dlg
+      ledits_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        ledits_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    #original_image = TextField(label="Original Image", value=ledits_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
+    original_image = FileInput(label="Original Image to Edit", pref=ledits_prefs, key='original_image', page=page)
+    source_prompt = TextField(label="Source Prompt Text", value=ledits_prefs['source_prompt'], col={'md': 12}, multiline=True, on_change=lambda e:changed(e,'source_prompt'))
+    prompt = TextField(label="Editing Target Prompt", value=ledits_prefs['prompt'], filled=True, col={'md': 9}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=ledits_prefs['negative_prompt'], filled=True, col={'md':3}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
+    seed = TextField(label="Seed", width=90, value=str(ledits_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    use_SDXL = Switcher(label="Use Stable Diffusion XL LEdits++ Pipeline", value=ledits_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="Otherwise use standard 1.5/2.1 Model Checkpoint.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=ledits_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=ledits_prefs, key='guidance_scale')
+    edit_threshold = SliderRow(label="Edit Threshold", min=0, max=1, divisions=20, round=2, pref=ledits_prefs, key='edit_threshold', tooltip="Masking threshold of guidance. Threshold should be proportional to the image region that is modified.")
+    skip = SliderRow(label="Skip Amount", min=0, max=1, divisions=20, round=2, pref=ledits_prefs, key='skip', tooltip="Portion of initial steps that will be ignored for inversion and subsequent generation. Lower values will lead to stronger changes to the input image.")
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=ledits_prefs, key='max_size')
+    def toggle_ip_adapter(e):
+        ledits_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+        ip_adapter_SDXL_model.visible = e.control.value
+        ip_adapter_SDXL_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=ledits_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=ledits_prefs['ip_adapter_model'], visible=ledits_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=ledits_prefs['ip_adapter_SDXL_model'], visible=ledits_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=ledits_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=ledits_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if ledits_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
+    batch_folder_name = TextField(label="Batch Folder Name", value=ledits_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=ledits_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=ledits_prefs, key='enlarge_scale')
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=ledits_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_ledits = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_ledits.height = None if status['installed_ESRGAN'] else 0
+    run_prompt_list = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ledits(page, from_list=True))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🔀  LEDITS++", "Limitless Image Editing using Text-to-Image Models...", actions=[save_default(ledits_prefs, ['original_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with LEdits++ Settings", on_click=ledits_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        original_image,
+        source_prompt,
+        ResponsiveRow([prompt, negative_prompt]),
+        num_inference_row,
+        guidance,
+        edit_threshold,
+        skip,
+        max_row,
+        use_SDXL,#, ip_adapter_SDXL_model
+        Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
+        ip_adapter_container,
+        Row([NumberPicker(label="Number of Images: ", min=1, max=8, value=ledits_prefs['num_images'], on_change=lambda e: changed(e, 'num_images')), seed, batch_folder_name]),
+        page.ESRGAN_block_ledits,
+        Row([ElevatedButton(content=Text("🪙  Run LEdits++", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_ledits(page)),
+             run_prompt_list]),
       ]))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
@@ -20624,6 +20746,7 @@ pipe_pixart_alpha_encoder = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
 pipe_instruct_pix2pix = None
+pipe_ledits = None
 pipe_alt_diffusion = None
 pipe_alt_diffusion_img2img = None
 pipe_demofusion = None
@@ -21967,8 +22090,8 @@ def get_SDXL(page):
     except Exception as er:
       SDXL_model = get_SDXL_model(prefs['SDXL_model'])
       model_id = SDXL_model['path']
-      model_url = f"https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0"
-      alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace Stable Diffusion XL Model Card to use Checkpoint',
+      model_url = f"https://huggingface.co/{model_id if model_id.count('/') == 1 else 'stabilityai/stable-diffusion-xl-base-1.0'}"
+      alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace {SDXL_model["name"]} Model Card to use Checkpoint',
                 content=Markdown(f'[{model_id}]({model_url})</br>{er}</br>{traceback.format_exc()}', on_tap_link=open_url))
       return False
 
@@ -23164,6 +23287,12 @@ def clear_instruct_pix2pix_pipe():
     del pipe_instruct_pix2pix
     flush()
     pipe_instruct_pix2pix = None
+def clear_ledits_pipe():
+  global pipe_ledits
+  if pipe_ledits is not None:
+    del pipe_ledits
+    flush()
+    pipe_ledits = None
 def clear_alt_diffusion_pipe():
   global pipe_alt_diffusion
   if pipe_alt_diffusion is not None:
@@ -23554,6 +23683,7 @@ def clear_pipes(allbut=None):
     if not 'alt_diffusion_img2img' in but: clear_alt_diffusion_img2img_pipe()
     if not 'paint_by_example' in but: clear_paint_by_example_pipe()
     if not 'instruct_pix2pix' in but: clear_instruct_pix2pix_pipe()
+    if not 'ledits' in but: clear_ledits_pipe()
     if not 'SAG' in but: clear_SAG_pipe()
     if not 'demofusion' in but: clear_demofusion_pipe()
     if not 'attend_and_excite' in but: clear_attend_and_excite_pipe()
@@ -35748,6 +35878,210 @@ def run_instruct_pix2pix(page, from_list=False):
             #num += 1
     play_snd(Snd.ALERT, page)
 
+
+def run_ledits(page, from_list=False):
+    global ledits_prefs, prefs, status, pipe_ledits
+    if not check_diffusers(page): return
+    if not bool(ledits_prefs['original_image']):
+      alert_msg(page, "You must provide the Original Image and the Mask Image to process...")
+      return
+    if not bool(ledits_prefs['prompt']):
+      alert_msg(page, "You must provide a Instructional Image Editing Prompt...")
+      return
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.LEdits.controls.append(line)
+        if update:
+          page.LEdits.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.LEdits, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+      else:
+        page.LEdits.auto_scroll = scroll
+        page.LEdits.update()
+    progress = ProgressBar(bar_height=8)
+    def callback_fnc(pipe, step, timestep, callback_kwargs):#(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.LEdits.controls = page.LEdits.controls[:1]
+    ledits_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        instruct = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else ledits_prefs['original_image'], 'seed': p['seed']}
+        ledits_prompts.append(instruct)
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    else:
+      if not bool(ledits_prefs['prompt']):
+        alert_msg(page, "You need to add a Text Prompt first... ")
+        return
+      instruct = {'prompt':ledits_prefs['prompt'], 'negative_prompt': ledits_prefs['negative_prompt'], 'original_image': ledits_prefs['original_image'], 'seed': ledits_prefs['seed']}
+      ledits_prompts.append(instruct)
+    autoscroll(True)
+    clear_list()
+    prt(Divider(thickness=2, height=4))
+    installer = Installing(f"Installing LEdits++{' SDXL' if ledits_prefs['use_SDXL'] else ''} Pipeline...")
+    prt(installer)
+    import requests, random
+    from io import BytesIO
+    from PIL import ImageOps
+    model_id = get_model(prefs['model_ckpt'])['path']
+    SDXL_model = get_SDXL_model(prefs['SDXL_model'])
+    model_id_SDXL = SDXL_model['path']
+    if 'loaded_ledits' not in status:
+      status['loaded_ledits'] = ''
+    if status['loaded_ledits'] != (model_id_SDXL if ledits_prefs['use_SDXL'] else model_id):
+      clear_pipes()
+    else:
+      clear_pipes('ledits')
+    torch.cuda.empty_cache()
+    torch.cuda.reset_max_memory_allocated()
+    torch.cuda.reset_peak_memory_stats()
+    if pipe_ledits is None:
+      if ledits_prefs['use_SDXL']:
+        from diffusers import LEditsPPPipelineStableDiffusionXL
+        pipe_ledits = LEditsPPPipelineStableDiffusionXL.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+        pipe_ledits = optimize_SDXL(pipe_ledits)
+        status['loaded_ledits'] = model_id_SDXL
+      else:
+        from diffusers import LEditsPPPipelineStableDiffusion
+        pipe_ledits = LEditsPPPipelineStableDiffusion.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+        pipe_ledits = optimize_pipe(pipe_ledits)
+        #pipe_ledits = pipe_ledits.to(torch_device)
+        status['loaded_ledits'] = model_id
+    #pipeline_scheduler(pipe_ledits)
+    ip_adapter_arg = {}
+    if ledits_prefs['use_ip_adapter']:
+      installer.status(f"...initialize IP-Adapter")
+      ip_adapter_img = None
+      if ledits_prefs['ip_adapter_image'].startswith('http'):
+        i_response = requests.get(ledits_prefs['ip_adapter_image'])
+        ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+      else:
+        if os.path.isfile(ledits_prefs['ip_adapter_image']):
+          ip_adapter_img = PILImage.open(ledits_prefs['ip_adapter_image'])
+        else:
+          clear_last()
+          prt(f"ERROR: Couldn't find your ip_adapter_image {ledits_prefs['ip_adapter_image']}")
+      if bool(ip_adapter_img):
+        ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+      if bool(ip_adapter_arg):
+          if ledits_prefs['use_SDXL']:
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == ledits_prefs['ip_adapter_SDXL_model'])
+          else:
+            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == ledits_prefs['ip_adapter_model'])
+          pipe_ledits.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+          pipe_ledits.set_ip_adapter_scale(ledits_prefs['ip_adapter_strength'])
+    clear_last()
+    prt("Generating LEdits++ of your Image...")
+    prt(progress)
+    max_size = ledits_prefs['max_size']
+    batch_output = os.path.join(stable_dir, ledits_prefs['batch_folder_name'])
+    output_dir = batch_output
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    batch_output = os.path.join(prefs['image_output'], ledits_prefs['batch_folder_name'])
+    if not os.path.isdir(batch_output):
+      os.makedirs(batch_output)
+    
+    for pr in ledits_prompts:
+      if pr['original_image'].startswith('http'):
+          #response = requests.get(ledits_prefs['original_image'])
+          #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+          original_img = PILImage.open(requests.get(pr['original_image'], stream=True).raw)
+      else:
+          if os.path.isfile(pr['original_image']):
+              original_img = PILImage.open(pr['original_image'])
+          else:
+              alert_msg(page, f"ERROR: Couldn't find your original_image {pr['original_image']}")
+              return
+      width, height = original_img.size
+      width, height = scale_dimensions(width, height, ledits_prefs['max_size'])
+      original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+      editing_prompt = [ledits_prefs['source_prompt'], pr['prompt']]
+      reverse_editing_direction=[True,False]
+      edit_guidance_scale=[ledits_prefs['source_guidance_scale'], ledits_prefs['guidance_scale']]
+      edit_threshold=[0.9, ledits_prefs['edit_threshold']]
+      invert_args = {} if ledits_prefs['use_SDXL'] else {'width':width, 'height':height}
+      pipe_args = {'target_size':(width, height)} if ledits_prefs['use_SDXL'] else {}
+      for num in range(ledits_prefs['num_images']):
+          prt(progress)
+          random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+          generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+          #generator = torch.manual_seed(random_seed)
+          try:
+              _ = pipe_ledits.invert(image=original_img, num_inversion_steps=ledits_prefs['num_inference_steps'], skip=ledits_prefs['skip'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, **invert_args)
+              images = pipe_ledits(editing_prompt=editing_prompt, reverse_editing_direction=reverse_editing_direction, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_images_per_prompt=ledits_prefs['num_images'], generator=generator, callback_on_step_end=callback_fnc, **pipe_args, **ip_adapter_arg).images
+          except Exception as e:
+              clear_last()
+              alert_msg(page, f"ERROR: Couldn't run LEdits++ on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
+              flush()
+              return
+          clear_last()
+          clear_last()
+          filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
+          filename = f"-{format_filename(pr['prompt'])}"
+          filename = filename[:int(prefs['file_max_length'])]
+          #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
+          #num = 0
+          for image in images:
+              random_seed += num
+              fname = filename + (f"-{random_seed}" if prefs['file_suffix_seed'] else "")
+              image_path = available_file(os.path.join(stable_dir, ledits_prefs['batch_folder_name']), fname, num)
+              unscaled_path = image_path
+              output_file = image_path.rpartition(slash)[2]
+              image.save(image_path)
+              out_path = os.path.dirname(image_path)
+              upscaled_path = os.path.join(out_path, output_file)
+              if not ledits_prefs['display_upscaled_image'] or not ledits_prefs['apply_ESRGAN_upscale']:
+                  prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
+                  #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+              if ledits_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                  upscale_image(image_path, upscaled_path, scale=ledits_prefs["enlarge_scale"])
+                  image_path = upscaled_path
+                  if ledits_prefs['display_upscaled_image']:
+                      time.sleep(0.6)
+                      prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(ledits_prefs["enlarge_scale"]), height=height * float(ledits_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                      #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+              save_metadata(image_path, pipe_ledits, f"LEdits++{' SDXL' if ledits_prefs['use_SDXL'] else ''}", model_id_SDXL if ledits_prefs['use_SDXL'] else model_id, random_seed, extra=pr)
+              if storage_type == "Colab Google Drive":
+                  new_file = available_file(os.path.join(prefs['image_output'], ledits_prefs['batch_folder_name']), fname, num)
+                  out_path = new_file
+                  shutil.copy(image_path, new_file)
+              elif bool(prefs['image_output']):
+                  new_file = available_file(os.path.join(prefs['image_output'], ledits_prefs['batch_folder_name']), fname, num)
+                  out_path = new_file
+                  shutil.copy(image_path, new_file)
+              time.sleep(0.2)
+              prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+              #num += 1
+    play_snd(Snd.ALERT, page)
+
+
 def run_controlnet(page, from_list=False):
     global controlnet_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_models
     if not check_diffusers(page): return
@@ -38756,9 +39090,9 @@ def run_stable_cascade(page, from_list=False, with_params=False):
         #clear_pipes('stable_cascade')
         try:
             from diffusers import StableCascadeDecoderPipeline, StableCascadePriorPipeline
-            opt = {'variant':'bf16', 'torch_dtype': torch.bfloat16} if prefs['higher_vram_mode'] else {'torch_dtype': torch.float16}
-            pipe_stable_cascade_prior = StableCascadePriorPipeline.from_pretrained(model_id+"-prior", torch_dtype=torch.bfloat16, variant="bf16", revision="refs/pr/2", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
-            pipe_stable_cascade_decoder = StableCascadeDecoderPipeline.from_pretrained(model_id, **opt, revision="refs/pr/44", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
+            opt = {'variant':'bf16', 'torch_dtype': torch.bfloat16} if prefs['higher_vram_mode'] else {'variant':'bf16', 'torch_dtype': torch.float16} #, revision="refs/pr/2", revision="refs/pr/44"
+            pipe_stable_cascade_prior = StableCascadePriorPipeline.from_pretrained(model_id+"-prior", torch_dtype=torch.bfloat16, variant="bf16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
+            pipe_stable_cascade_decoder = StableCascadeDecoderPipeline.from_pretrained(model_id, **opt, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
             '''if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling unet")
                 #pipe_stable_cascade.unet.to(memory_format=torch.channels_last)
@@ -38805,7 +39139,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     #callback_on_step_end=callback_fnc,
                 )
                 images = pipe_stable_cascade_decoder(
-                    image_embeddings=prior_output.image_embeddings if prefs['higher_vram_mode'] else prior_output.image_embeddings.half(),
+                    image_embeddings=prior_output.image_embeddings if prefs['higher_vram_mode'] else prior_output.image_embeddings.to(torch.float16),
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
                     #prior_guidance_scale=stable_cascade_prefs['prior_guidance_scale'],
                     #prior_num_inference_steps=stable_cascade_prefs['prior_steps'],

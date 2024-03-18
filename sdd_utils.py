@@ -488,11 +488,15 @@ Real_ESRGAN_models = [
     {'name': 'realesr-animevideov3', 'url': 'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-animevideov3.pth', 'info': 'https://openmodeldb.info/models/4x-realesr-animevideo-v3'},
     {'name': '4xLSDIRplus', 'url': 'https://github.com/Phhofm/models/raw/main/4xLSDIRplus/4xLSDIRplus.pth', 'info': 'https://openmodeldb.info/models/4x-LSDIRplus'},
     {'name': '2xLexicaRRDBNet_Sharp', 'url': 'https://github.com/Phhofm/models/raw/main/2xLexicaRRDBNet/2xLexicaRRDBNet_Sharp.pth', 'info': 'https://openmodeldb.info/models/2x-LexicaRRDBNet-Sharp'},
-    {'name': 'RealisticRescaler', 'url': 'https://drive.google.com/drive/folders/13OC-hQNz_S-kX0EVjVgNO1eoGvcXrTfk?usp=sharing', 'info': 'https://openmodeldb.info/models/4x-RealisticRescaler'},
-    #{'name': '', 'url': '', 'info': ''},
+    {'name': '2xLexicaRRDBNet', 'url': 'https://github.com/Phhofm/models/raw/main/2xLexicaRRDBNet/2xLexicaRRDBNet.pth', 'info': 'https://openmodeldb.info/models/2x-LexicaRRDBNet'},
+    {'name': 'RealisticRescaler', 'url': 'https://drive.google.com/file/d/1oLpVhJd3bUF8bEq9oMw9EB8WNVMZCBVG?usp=drive_link', 'info': 'https://openmodeldb.info/models/4x-RealisticRescaler'},
+    {'name': 'UltraSharp-4x', 'url': 'https://drive.google.com/file/d/1eq9KyetUeV-rruE73lKcjcQAFxUwi771?usp=drive_link', 'info': 'https://openmodeldb.info/models/4x-UltraSharp'},
+    {'name': 'UniScaleV2-4x', 'url': 'https://drive.google.com/file/d/13z0TYXXCEY6dN0iTEa2OTfRwp8-37iEN?usp=drive_link', 'info': 'https://openmodeldb.info/models/4x-UniScaleV2-Moderate'},
+    #{'name': '', 'url': '', 'info': ''}, 'https://drive.google.com/drive/folders/13OC-hQNz_S-kX0EVjVgNO1eoGvcXrTfk?usp=sharing'
 ]
 SwinIR_models = [
     {'name': '2xLexicaSwinIR', 'url': 'https://github.com/Phhofm/models/raw/main/2xLexicaSwinIR/2xLexicaSwinIR.pth', 'info': 'https://openmodeldb.info/models/2x-LexicaSwinIR'},
+    {'name': '2xHFA2kSwinIR-S', 'url': 'https://drive.google.com/file/d/1PeqL1ikJbBJbVzvlqvtb4d7QdSW7BzrQ/view?usp=drive_link', 'info': 'https://openmodeldb.info/models/2x-HFA2SwinIR-S'},
     {'name': 'SRFormer_SRx4_DF2K', 'url': 'https://drive.google.com/file/d/13_fpD4aDE1wbEYX8yGWA3mVLZOCRWkWv/view?usp=drive_link', 'info': 'https://openmodeldb.info/models/4x-SRFormer-SRx4-DF2K'},
     {'name': '001_classicalSR_DF2K_s64w8_SwinIR-M_x4', 'url': 'https://github.com/JingyunLiang/SwinIR/releases/download/v0.0/001_classicalSR_DF2K_s64w8_SwinIR-M_x4.pth', 'info': 'https://openmodeldb.info/models/4x-classicalSR-DF2K-s64w8-SwinIR-M'},
     #{'name': '', 'url': '', 'info': ''},
