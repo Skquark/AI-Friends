@@ -800,6 +800,7 @@ def build3DAIs(page):
     page.ZoeDepth = buildZoeDepth(page)
     page.MarigoldDepth = buildMarigoldDepth(page)
     page.Tripo = buildTripo(page)
+    page.CRM = buildCRM(page)
     page.LDM3D = buildLDM3D(page)
     page.InstantNGP = buildInstantNGP(page)
     page.Meshy = buildMeshy(page)
@@ -812,6 +813,7 @@ def build3DAIs(page):
             Tab(text="ZoeDepth 3D", content=page.ZoeDepth, icon=icons.GRADIENT),
             Tab(text="MarigoldDepth", content=page.MarigoldDepth, icon=icons.FILTER_VINTAGE),
             Tab(text="Tripo", content=page.Tripo, icon=icons.CONNECTING_AIRPORTS),
+            Tab(text="CRM 3D", content=page.CRM, icon=icons.ENGINEERING),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
             Tab(text="Meshy.ai", content=page.Meshy, icon=icons.IRON),
@@ -1381,7 +1383,7 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
                 debug_msg += c.value + "\n"
         import platform
         memory = f"GPU VRAM: {status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB{' - on Colab' if is_Colab else ''}"
-        os_info = f" - OS: {platform.system()} {platform.version()}"
+        os_info = f" - OS: {platform.system()} {platform.version()} Torch {torch.__version__} Transformers {transformers.__version__}"
         debug_msg += memory + os_info + "\n"
         if debug_pref != None:
             debug_msg += str(debug_pref)
@@ -5869,6 +5871,72 @@ def buildTripo(page):
         mesh_threshold,
         Row([batch_folder_name, title]),
         ElevatedButton(content=Text("✈️  Run Tripo", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_tripo(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+crm_prefs = {
+    'init_image': '',
+    'foreground_ratio': 0.85,
+    'remove_background': True,
+    'background_color': '#7F7F7F',
+    'max_size': 720,
+    'guidance_scale': 5.5,
+    'steps': 30,
+    'seed': 0,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'title': '',
+}
+
+def buildCRM(page):
+    global prefs, crm_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            crm_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            crm_prefs[pref] = float(e.control.value)
+          else:
+            crm_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def crm_help(e):
+      def close_crm_dlg(e):
+        nonlocal crm_help_dlg
+        crm_help_dlg.open = False
+        page.update()
+      crm_help_dlg = AlertDialog(title=Text("💁   Help with CRM"), content=Column([
+          Text("Feed-forward 3D generative models like the Large Reconstruction Model (LRM) have demonstrated exceptional generation speed. However, the transformer-based methods do not leverage the geometric priors of the triplane component in their architecture, often leading to sub-optimal quality given the limited size of 3D data and slow training. In this work, we present the Convolutional Reconstruction Model (CRM), a high-fidelity feed-forward single image-to-3D generative model. Recognizing the limitations posed by sparse 3D data, we highlight the necessity of integrating geometric priors into network design. CRM builds on the key observation that the visualization of triplane exhibits spatial correspondence of six orthographic images. First, it generates six orthographic view images from a single input image, then feeds these images into a convolutional U-Net, leveraging its strong pixel-level alignment capabilities and significant bandwidth to create a high-resolution triplane. CRM further employs Flexicubes as geometric representation, facilitating direct end-to-end optimization on textured meshes. Overall, our model delivers a high-fidelity textured mesh from an image in just 10 seconds, without any test-time optimization."),
+          Markdown("[HuggingFace Space](https://huggingface.co/spaces/Zhengyi/CRM) | [Model Card](https://huggingface.co/Zhengyi/CRM) | [GitHub](https://github.com/thu-ml/CRM)| [CRM Project Page](https://ml.cs.tsinghua.edu.cn/~zhengyi/CRM/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Zhengyi Wang, Yikai Wang, Yifei Chen, Chendong Xiang, Shuo Chen, Dajiang Yu, Chongxuan Li, Hang Su, Jun Zhu, Tsinghua University, Renmin University of China, ShengShu"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("👷  Cool Re-Model", on_click=close_crm_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = crm_help_dlg
+      crm_help_dlg.open = True
+      page.update()
+    init_image = FileInput(label="Initial Image (clear background = better results)", pref=crm_prefs, key='init_image', filled=True, page=page)
+    batch_folder_name = TextField(label="3D Model Folder Name", value=crm_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    title = TextField(label="Project Title", value=crm_prefs['title'], expand=True, on_change=lambda e:changed(e,'title'))
+    #batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=crm_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    remove_background = Switcher(label="Remove Background", value=crm_prefs['remove_background'], on_change=lambda e:changed(e,'remove_background'), tooltip="You can clear the background yourself cleaner and save transparent png.")
+    foreground_ratio = SliderRow(label="Foreground Ratio", min=0, max=1, divisions=20, round=2, expand=True, pref=crm_prefs, key='foreground_ratio')
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=crm_prefs, key='max_size')
+    steps = SliderRow(label="Inference Steps", min=0, max=100, divisions=100, pref=crm_prefs, key='steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=crm_prefs, key='guidance_scale')
+    seed = TextField(label="Seed", width=90, value=str(crm_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🐈‍⬛  CRM Image-to-3D", "Single Image to 3D Textured Mesh with Convolutional Reconstruction Model...", actions=[save_default(crm_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with CRM Settings", on_click=crm_help)]),
+        init_image,
+        Row([remove_background, foreground_ratio]),
+        steps,
+        guidance,
+        max_row,
+        Row([seed, batch_folder_name, title]),
+        ElevatedButton(content=Text("🚨  Run CRM 3D", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_crm(page)),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -20793,6 +20861,8 @@ pipe_shap_e = None
 pipe_zoe_depth = None
 pipe_marigold_depth = None
 pipe_tripo = None
+pipe_crm = None
+crm_rembg_session=None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
@@ -20923,7 +20993,7 @@ def get_diffusers(page):
         except ModuleNotFoundError:
             page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
             run_process("pip install --pre -U triton", page=page)
-            run_process("pip install -U xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121", page=page)
+            run_process(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", page=page)
             import xformers
             page.console_msg("Installing Hugging Face Diffusers Pipeline...")
             pass
@@ -20977,7 +21047,8 @@ def get_diffusers(page):
           page.status(f"...uninstalling transformers {transformers.__version__}")
           run_process("pip uninstall -y transformers", realtime=False)
           page.status("...installing transformers")
-          run_process("pip install --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
+          run_process("pip install --upgrade transformers", page=page)
+          #run_process("pip install --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
           importlib.reload(transformers)
     except ModuleNotFoundError:
         pass
@@ -20986,7 +21057,8 @@ def get_diffusers(page):
         #if force_updates: raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         page.status("...installing transformers")
-        run_process("pip install --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
+        run_process("pip install --upgrade transformers", page=page)
+        #run_process("pip install --upgrade git+https://github.com/huggingface/transformers.git@main#egg=transformers[sentencepiece]", page=page)
         #run_process("pip install --upgrade transformers~=4.28", page=page)
         page.status()
         pass
@@ -21378,6 +21450,8 @@ try:
     if version.parse(version.parse(torch.__version__).base_version) < version.parse("2.2.1") and torch.cuda.is_available():
       if upgrade_torch:
         raise ModuleNotFoundError("")
+    else:
+        upgrade_torch = True
 except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
     print("Installing PyTorch 2.2.1 with CUDA 1.21...")
@@ -23616,6 +23690,13 @@ def clear_tripo_pipe():
     del pipe_tripo
     flush()
     pipe_tripo = None
+def clear_crm_pipe():
+  global pipe_crm, crm_rembg_session
+  if pipe_crm is not None:
+    del pipe_crm, crm_rembg_session
+    flush()
+    pipe_crm = None
+    crm_rembg_session=None
 def clear_zoe_depth_pipe():
   global pipe_zoe_depth
   if pipe_zoe_depth is not None:
@@ -23732,6 +23813,7 @@ def clear_pipes(allbut=None):
     if not 'zoe_depth' in but: clear_zoe_depth_pipe()
     if not 'marigold_depth' in but: clear_marigold_depth_pipe()
     if not 'tripo' in but: clear_tripo_pipe()
+    if not 'crm' in but: clear_crm_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
     if not 'stable_lm' in but: clear_stable_lm_pipe()
@@ -27856,7 +27938,7 @@ def run_anytext(page, from_list=False, with_params=False):
         import xformers
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers (slow)")
-        run_sp("pip install -U xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+        run_sp(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
         pass
     try:
@@ -35958,13 +36040,10 @@ def run_ledits(page, from_list=False):
       clear_pipes()
     else:
       clear_pipes('ledits')
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
     if pipe_ledits is None:
       if ledits_prefs['use_SDXL']:
         from diffusers import LEditsPPPipelineStableDiffusionXL
-        pipe_ledits = LEditsPPPipelineStableDiffusionXL.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
+        pipe_ledits = LEditsPPPipelineStableDiffusionXL.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, add_watermarker=prefs['SDXL_watermark'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
         pipe_ledits = optimize_SDXL(pipe_ledits)
         status['loaded_ledits'] = model_id_SDXL
       else:
@@ -35973,6 +36052,7 @@ def run_ledits(page, from_list=False):
         pipe_ledits = optimize_pipe(pipe_ledits)
         #pipe_ledits = pipe_ledits.to(torch_device)
         status['loaded_ledits'] = model_id
+      pipe_ledits.set_progress_bar_config(disable=True)
     #pipeline_scheduler(pipe_ledits)
     ip_adapter_arg = {}
     if ledits_prefs['use_ip_adapter']:
@@ -36023,7 +36103,7 @@ def run_ledits(page, from_list=False):
       width, height = scale_dimensions(width, height, ledits_prefs['max_size'])
       original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
       editing_prompt = [ledits_prefs['source_prompt'], pr['prompt']]
-      reverse_editing_direction=[True,False]
+      reverse_editing_direction=[True, False]
       edit_guidance_scale=[ledits_prefs['source_guidance_scale'], ledits_prefs['guidance_scale']]
       edit_threshold=[0.9, ledits_prefs['edit_threshold']]
       invert_args = {} if ledits_prefs['use_SDXL'] else {'width':width, 'height':height}
@@ -37897,7 +37977,7 @@ def run_controlnet_video2video(page):
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+        run_sp(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
         pass
     clear_pipes()
@@ -43187,7 +43267,7 @@ def run_animate_diff(page):
     except ModuleNotFoundError:
         installer.status("...installing FaceBook's Xformers")
         #run_sp("pip install --pre -U triton", realtime=False)
-        run_sp("pip install -U xformers==0.0.22.post7 --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+        run_sp(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
         pass
     pip_install("ffmpeg-python|ffmpeg opencv-python|cv2 onnxruntime-gpu|onnxruntime sentencepiece>=0.1.99 safetensors", installer=installer)
@@ -46409,6 +46489,190 @@ def run_tripo(page):
     flush()
     #prt(ImageButton(src=gif_file, width=tripo_prefs['size'], height=tripo_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
     #prt("Finished generating Tripo Mesh... Hope it's good.")
+    play_snd(Snd.ALERT, page)
+    os.chdir(root_dir)
+
+def run_crm(page):
+    global crm_prefs, pipe_crm, crm_rembg_session, status
+    if not bool(crm_prefs['init_image']):
+        alert_msg(page, f"ERROR: You must provide an init image to prrocess.")
+        return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.CRM.controls.append(line)
+      page.CRM.update()
+    def prt_status(text):
+        nonlocal status_txt
+        status_txt.value = text
+        status_txt.update()
+    def clear_last(lines=1):
+      clear_line(page.CRM, lines=lines)
+    page.CRM.controls = page.CRM.controls[:1]
+    installer = Installing("Installing CRM 3D Libraries...")
+    prt(installer)
+    crm_dir = os.path.join(root_dir, "CRM")
+    if not os.path.exists(crm_dir):
+        installer.status("...cloning thu-ml/CRM")
+        run_sp("git clone https://github.com/thu-ml/CRM.git", cwd=root_dir)
+    if crm_dir not in sys.path:
+        sys.path.append(crm_dir)
+    pip_install("omegaconf einops==0.7.0 trimesh rembg huggingface-hub open-clip-torch==2.7.0|open_clip opencv-contrib-python-headless==4.9.0.80|cv2 opencv-python-headless==4.9.0.80 git+https://github.com/NVlabs/nvdiffrast|nvdiffrast pygltflib kiui xatlas ninja pymeshlab")
+    try:
+        import xformers
+    except ModuleNotFoundError:
+        installer.status("...installing FaceBook's Xformers")
+        run_sp(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+        status['installed_xformers'] = True
+        pass
+    name = crm_prefs['title'] if bool(crm_prefs['title']) else crm_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
+    fname = format_filename(name)
+    import numpy as np
+    from omegaconf import OmegaConf
+    from PIL import ImageOps
+    from pipelines import TwoStagePipeline
+    from huggingface_hub import hf_hub_download
+    import rembg
+    from typing import Any
+    import json
+    from model import CRM
+    from inference import generate3d
+    clear_pipes("crm")
+    if pipe_crm == None:
+        try:
+            installer.status(f"...downloading Zhengyi/CRM")
+            crm_path = hf_hub_download(repo_id="Zhengyi/CRM", filename="CRM.pth")
+            specs = json.load(open(os.path.join(crm_dir, "configs/specs_objaverse_total.json")))
+            installer.status(f"...loading CRM specs")
+            crm_model = CRM(specs).to(torch_device)
+            crm_model.load_state_dict(torch.load(crm_path, map_location = torch_device), strict=False)
+            stage1_config = OmegaConf.load(os.path.join(crm_dir, "configs", "nf7_v3_SNR_rd_size_stroke.yaml")).config
+            stage2_config = OmegaConf.load(os.path.join(crm_dir, "configs", "stage2-v2-snr.yaml")).config
+            stage2_sampler_config = stage2_config.sampler
+            stage1_sampler_config = stage1_config.sampler
+            stage1_model_config = stage1_config.models
+            stage2_model_config = stage2_config.models
+            installer.status(f"...downloading ccm-diffusion")
+            xyz_path = hf_hub_download(repo_id="Zhengyi/CRM", filename="ccm-diffusion.pth")
+            installer.status(f"...downloading pixel-diffusion")
+            pixel_path = hf_hub_download(repo_id="Zhengyi/CRM", filename="pixel-diffusion.pth")
+            stage1_model_config.resume = pixel_path
+            stage2_model_config.resume = xyz_path
+            installer.status(f"...loading CRM 3D pipeline")
+            pipe_crm = TwoStagePipeline(
+                stage1_model_config,
+                stage2_model_config,
+                stage1_sampler_config,
+                stage2_sampler_config,
+                device=torch_device,
+                dtype=torch.float16
+            )
+            crm_rembg_session = rembg.new_session()
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing CRM Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    crm_out = os.path.join(prefs['image_output'], crm_prefs['batch_folder_name'])
+    if not os.path.exists(crm_out):
+        os.makedirs(crm_out)
+    def expand_to_square(image, bg_color=(0, 0, 0, 0)): # expand image to 1:1
+        width, height = image.size
+        if width == height:
+            return image
+        new_size = (max(width, height), max(width, height))
+        new_image = PILImage.new("RGBA", new_size, bg_color)
+        paste_position = ((new_size[0] - width) // 2, (new_size[1] - height) // 2)
+        new_image.paste(image, paste_position)
+        return new_image
+    def remove_background(image: PIL.Image.Image, rembg_session: Any = None, force: bool = False, **rembg_kwargs) -> PIL.Image.Image:
+        do_remove = True
+        if image.mode == "RGBA" and image.getextrema()[3][0] < 255:
+            print("alhpa channl not enpty, skip remove background, using alpha channel as mask")
+            background = PILImage.new("RGBA", image.size, (0, 0, 0, 0))
+            image = PILImage.alpha_composite(background, image)
+            do_remove = False
+        do_remove = do_remove or force
+        if do_remove:
+            image = rembg.remove(image, session=rembg_session, **rembg_kwargs)
+        return image
+    def do_resize_content(original_image: PILImage, scale_rate):
+        if scale_rate != 1:
+            new_size = tuple(int(dim * scale_rate) for dim in original_image.size)
+            resized_image = original_image.resize(new_size)
+            padded_image = PILImage.new("RGBA", original_image.size, (0, 0, 0, 0))
+            paste_position = ((original_image.width - resized_image.width) // 2, (original_image.height - resized_image.height) // 2)
+            padded_image.paste(resized_image, paste_position)
+            return padded_image
+        else:
+            return original_image
+    def add_background(image, bg_color=(255, 255, 255)):
+        background = PILImage.new("RGBA", image.size, bg_color)
+        return PILImage.alpha_composite(background, image)
+    def preprocess_image(image, foreground_ratio, backgroud_color):
+        if not crm_prefs['remove_background']:
+            background = PILImage.new("RGBA", image.size, (0, 0, 0, 0))
+            image = PILImage.alpha_composite(background, image)
+        else:
+            image = remove_background(image, crm_rembg_session, force_remove=True)
+        image = do_resize_content(image, foreground_ratio)
+        image = expand_to_square(image)
+        image = add_background(image, backgroud_color)
+        return image.convert("RGB")
+    init_img = None
+    if bool(crm_prefs['init_image']):
+        if crm_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(crm_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(crm_prefs['init_image']):
+                init_img = PILImage.open(crm_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {crm_prefs['init_image']}")
+                if not bool(crm_prefs['prompt_text']):
+                    return
+        if init_img != None:
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, crm_prefs['max_size'])
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    init_img = preprocess_image(init_img, crm_prefs["foreground_ratio"], crm_prefs["background_color"])
+    status_txt = Text("Generating your 3D model... See console for progress.")
+    progress = ProgressBar(bar_height=8)
+    clear_last()
+    prt(status_txt)
+    prt(progress)
+    random_seed = int(crm_prefs['seed']) if int(crm_prefs['seed']) > 0 else rnd.randint(0, 1000000)
+    obj_path = available_file(crm_out, fname, ext='obj', no_num=True)
+    glb_path = available_file(crm_out, fname, ext='glb', no_num=True)
+    image_path = available_file(crm_out, fname)
+    xyz_path = available_file(crm_out, fname)
+    model_names = and_list([f"[obj]({filepath_to_url(obj_path)})", f"[glb]({filepath_to_url(glb_path)})"])
+    try:
+        pipe_crm.set_seed(random_seed)
+        rt_dict = pipe_crm(init_img, scale=crm_prefs["guidance_scale"], step=crm_prefs['steps'])
+        prt_status("Exporting Mesh to 3D Files...")
+        stage1_images = rt_dict["stage1_images"]
+        stage2_images = rt_dict["stage2_images"]
+        np_imgs = np.concatenate(stage1_images, 1)
+        np_xyzs = np.concatenate(stage2_images, 1)
+        glb_path, obj_path = generate3d(crm_model, np_imgs, np_xyzs, torch_device)
+        imgs = PILImage.fromarray(np_imgs)
+        imgs.save(image_path)
+        save_metadata(image_path, crm_prefs, f"CRM 3D", "Zhengyi/CRM", random_seed)
+        xyz = PILImage.fromarray(np_xyzs)
+        xyz.save(xyz_path)
+        width, height = imgs.size
+        #return Image.fromarray(np_imgs), Image.fromarray(np_xyzs), glb_path, obj_path
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error running CRM pipeline.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        return
+    clear_last(2)
+    prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([ImageButton(src=xyz_path, width=width, height=height, data=xyz_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([Markdown(f"Saved Models as {model_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+    flush()
+    #prt(ImageButton(src=gif_file, width=crm_prefs['size'], height=crm_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
+    #prt("Finished generating CRM Mesh... Hope it's good.")
     play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
