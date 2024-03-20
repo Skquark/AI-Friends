@@ -6,7 +6,6 @@ parser.add_argument("--storage_type", type=str, required=True, default="Colab Go
 parser.add_argument("--saved_settings_json", type=str, default="/content/drive/MyDrive/AI/Stable_Diffusion/sdd-settings.json")
 parser.add_argument("--tunnel_type", type=str, default="localtunnel")
 parser.add_argument("--auto_launch_website", default=False, action='store_true')
-parser.add_argument("--upgrade_torch_221", default=False, action='store_true')
 flags = parser.parse_args()
 storage_type = flags.storage_type
 saved_settings_json = flags.saved_settings_json
@@ -16,7 +15,7 @@ auto_launch_website = flags.auto_launch_website
 save_to_GDrive = True
 force_updates = True
 newest_flet = True
-upgrade_torch = flags.upgrade_torch_221
+upgrade_torch = True
 SDD_version = "v1.9.0"
 from IPython.display import clear_output
 root_dir = '/content/'
@@ -813,7 +812,7 @@ def build3DAIs(page):
             Tab(text="ZoeDepth 3D", content=page.ZoeDepth, icon=icons.GRADIENT),
             Tab(text="MarigoldDepth", content=page.MarigoldDepth, icon=icons.FILTER_VINTAGE),
             Tab(text="Tripo", content=page.Tripo, icon=icons.CONNECTING_AIRPORTS),
-            Tab(text="CRM 3D", content=page.CRM, icon=icons.ENGINEERING),
+            Tab(text="CRM-3D", content=page.CRM, icon=icons.ENGINEERING),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
             Tab(text="Meshy.ai", content=page.Meshy, icon=icons.IRON),
@@ -1808,7 +1807,7 @@ def buildInstallers(page):
     if u['name'] == prefs['upscale_model']:
       current_model = u
   model_info = Markdown(f"  [**Model Info**]({current_model['info']})", on_tap_link=lambda e: e.page.launch_url(e.data))
-  upscale_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=4), content=Row([upscale_model, model_info]))
+  upscale_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32, top=6), content=Row([upscale_model, model_info]))
   upscale_settings.height = None if prefs['install_ESRGAN'] else 0
   
   install_OpenAI = Switcher(label="Install OpenAI GPT Text & DALL-E Engine", value=prefs['install_OpenAI'], disabled=status['installed_OpenAI'], on_change=lambda e:changed(e, 'install_OpenAI'), tooltip="Use advanced AI to help make creative prompts. Also enables DALL-E 2 generation.")
@@ -4906,17 +4905,17 @@ community_dance_diffusion_models = [
     {'name': 'Vague Phrases', 'download': 'https://drive.google.com/uc?id=1nUn2qydqU7hlDUT-Skq_Ionte_8-Vdjr', 'ckpt': 'SingingInFepoch=1028-step=195500-pruned.ckpt'},
     {'name': 'Gesaffelstein', 'download': 'https://drive.google.com/uc?id=1-BuDzz4ajX-ufVByEX_fCkOtB00DVygB', 'ckpt':'Gesaffelstein_epoch=2537-step=445000.ckpt'},
     {'name': 'Smash Mouth Vocals', 'download': 'https://drive.google.com/uc?id=1h3fkJnByw3mKpXUiNPWKoYtzmpeg1QEt', 'ckpt':'epoch=773-step=191500.ckpt'},
-    {'name': 'Dubstep Bass Growls', 'download': 'https://drive.google.com/file/d/104Ni-suQ0-tt2Xe9SbWjTnWFOSkT6O47', 'ckpt':'epoch=1266-step=195000.ckpt'},
-    {'name': 'Jumango Ambient', 'download': 'https://drive.google.com/file/d/1-gpOee-v7ZGFJtzr76sYTKuIKTQKTCmN', 'ckpt':'jumango-ambient-v1.ckpt'},
-    {'name': 'Serum Wavetables', 'download': 'https://drive.google.com/file/d/1l0JhA2qTaXtt5pdyv7rW1Ls4wmAFWVD1', 'ckpt':'serumwavetables-49k.ckpt'},
-    {'name': 'Textured Grooves Club', 'download': 'https://drive.google.com/file/d/13VAGMSPaIGo7FGDAtedaykhcasrFk2Z_', 'ckpt':'TexturedGroovesLargeClub_step_592200.ckpt'},
-    {'name': 'Abstract Vocal', 'download': 'https://drive.google.com/file/d/1izVPIYgPhpIT8lZtaWIO8gbTnfEL9g_J', 'ckpt':'Singing-step277000-pruned.ckpt'},
-    {'name': 'Gesaffelstein', 'download': 'https://drive.google.com/file/d/1-BuDzz4ajX-ufVByEX_fCkOtB00DVygB', 'ckpt':'Gesaffelstein_epoch=2537-step=445000.ckpt'},
-    {'name': 'Paul McCartney Vocals', 'download': 'https://drive.google.com/file/d/1-_FtUwLMnMUGLMpvtnE0EDAcUjDlXSeS', 'ckpt':'epoch=1148-step=193000.ckpt'},
-    {'name': 'Techno Kicks', 'download': 'https://drive.google.com/file/d/1-gR9QFq7ZYHn2ep0gw5IyQ6WzRZJW_tG', 'ckpt':'epoch=1296-step=441500.ckpt'},
-    {'name': 'Electronic Snare Drums', 'download': 'https://drive.google.com/file/d/1-T-PFtfyc_JUan71Px_FWsxiiuBuNN_1', 'ckpt':'epoch=1078-step=195000.ckpt'},
-    {'name': 'Electronic Snare Drums+', 'download': 'https://drive.google.com/file/d/1-50R5wwyhNrQSlvaxEqQ8CiRJPYgzGsr', 'ckpt':'epoch=1110-step=195500.ckpt'},
-    {'name': 'Electronic Kick Drums', 'download': 'https://drive.google.com/file/d/1-46jYgYfz_Jbnu-dNvepWqa7rcSP__zo', 'ckpt':'epoch=1234-step=197500.ckpt'},
+    {'name': 'Dubstep Bass Growls', 'download': 'https://drive.google.com/uc?id=104Ni-suQ0-tt2Xe9SbWjTnWFOSkT6O47', 'ckpt':'epoch=1266-step=195000.ckpt'},
+    {'name': 'Jumango Ambient', 'download': 'https://drive.google.com/uc?id=1-gpOee-v7ZGFJtzr76sYTKuIKTQKTCmN', 'ckpt':'jumango-ambient-v1.ckpt'},
+    {'name': 'Serum Wavetables', 'download': 'https://drive.google.com/uc?id=1l0JhA2qTaXtt5pdyv7rW1Ls4wmAFWVD1', 'ckpt':'serumwavetables-49k.ckpt'},
+    {'name': 'Textured Grooves Club', 'download': 'https://drive.google.com/uc?id=13VAGMSPaIGo7FGDAtedaykhcasrFk2Z_', 'ckpt':'TexturedGroovesLargeClub_step_592200.ckpt'},
+    {'name': 'Abstract Vocal', 'download': 'https://drive.google.com/uc?id=1izVPIYgPhpIT8lZtaWIO8gbTnfEL9g_J', 'ckpt':'Singing-step277000-pruned.ckpt'},
+    {'name': 'Gesaffelstein', 'download': 'https://drive.google.com/uc?id=1-BuDzz4ajX-ufVByEX_fCkOtB00DVygB', 'ckpt':'Gesaffelstein_epoch=2537-step=445000.ckpt'},
+    {'name': 'Paul McCartney Vocals', 'download': 'https://drive.google.com/uc?id=1-_FtUwLMnMUGLMpvtnE0EDAcUjDlXSeS', 'ckpt':'epoch=1148-step=193000.ckpt'},
+    {'name': 'Techno Kicks', 'download': 'https://drive.google.com/uc?id=1-gR9QFq7ZYHn2ep0gw5IyQ6WzRZJW_tG', 'ckpt':'epoch=1296-step=441500.ckpt'},
+    {'name': 'Electronic Snare Drums', 'download': 'https://drive.google.com/uc?id=1-T-PFtfyc_JUan71Px_FWsxiiuBuNN_1', 'ckpt':'epoch=1078-step=195000.ckpt'},
+    {'name': 'Electronic Snare Drums+', 'download': 'https://drive.google.com/uc?id=1-50R5wwyhNrQSlvaxEqQ8CiRJPYgzGsr', 'ckpt':'epoch=1110-step=195500.ckpt'},
+    {'name': 'Electronic Kick Drums', 'download': 'https://drive.google.com/uc?id=1-46jYgYfz_Jbnu-dNvepWqa7rcSP__zo', 'ckpt':'epoch=1234-step=197500.ckpt'},
 ]
 dance_pipe = None
 def buildDanceDiffusion(page):
@@ -8425,7 +8424,7 @@ def buildUnCLIP_ImageInterpolation(page):
         changed(e, 'enlarge_scale', ptype="float")
     #prompt = TextField(label="Prompt Text", value=unCLIP_image_interpolation_prefs['prompt'], on_change=lambda e:changed(e,'prompt'))
     seed = TextField(label="Seed", width=90, value=str(unCLIP_image_interpolation_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
-    interpolation_steps = SliderRow(label="Interpolation Steps", min=1, max=100, divisions=99, pref=unCLIP_image_interpolation_prefs, key='interpolation_steps', tooltip="The number of interpolation images to generate.")
+    interpolation_steps = SliderRow(label="Interpolation Frames", min=1, max=100, divisions=99, pref=unCLIP_image_interpolation_prefs, key='interpolation_steps', tooltip="The number of interpolation images to generate.")
     decoder_num_inference_row = SliderRow(label="Number of Decoder Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_image_interpolation_prefs, key='decoder_num_inference_steps', tooltip="The number of Decoder denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     super_res_num_inference_row = SliderRow(label="Number of Super-Res Inference Steps", min=1, max=100, divisions=99, pref=unCLIP_image_interpolation_prefs, key='decoder_num_inference_steps', tooltip="The number of Super-Res denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_image_interpolation_prefs, key='decoder_guidance_scale')
@@ -11119,7 +11118,7 @@ def buildLCMInterpolation(page):
     fuse_layers = Column([], spacing=0)
     batch_folder_name = TextField(label="Batch Folder Name", value=lcm_interpolation_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=lcm_interpolation_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    num_interpolation_steps = SliderRow(label="Interpolation Steps", min=0, max=200, divisions=200, pref=lcm_interpolation_prefs, key='num_interpolation_steps', tooltip="Number of Image Frames between each Prompt to Interpolate.")
+    num_interpolation_steps = SliderRow(label="Interpolation Frames", min=0, max=200, divisions=200, pref=lcm_interpolation_prefs, key='num_interpolation_steps', tooltip="Number of Image Frames between each Prompt to Interpolate.")
     process_batch_size = SliderRow(label="Process Batch Size", min=0, max=20, divisions=20, pref=lcm_interpolation_prefs, key='process_batch_size', tooltip="The batch size to use for processing the images. This is useful when generating a large number of images and you want to avoid running out of memory.")
     steps = SliderRow(label="Number of Inference Steps", min=0, max=40, divisions=40, pref=lcm_interpolation_prefs, key='steps')
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lcm_interpolation_prefs, key='guidance_scale')
@@ -23142,6 +23141,7 @@ def resize_for_condition_image(input_image: PILImage, resolution: int):
 def flush():
     gc.collect()
     torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
     #torch.cuda.clear_autocast_cache()
 
 def clear_img2img_pipe():
@@ -23820,7 +23820,7 @@ def clear_pipes(allbut=None):
     if not 'stable_lm' in but: clear_stable_lm_pipe()
     try:
         torch.cuda.ipc_collect()
-        torch.cuda.reset_max_memory_allocated()
+        #torch.cuda.reset_max_memory_allocated()
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats()
     except Exception:
@@ -23860,6 +23860,10 @@ def available_folder(folder, name, idx):
   return os.path.join(folder, f'{name}-{idx}')
 
 def filepath_to_url(path):
+    if is_Colab:
+        from urllib.parse import quote
+        path = quote(path)
+        return path
     windows_path_pattern = re.compile(r"(.)\:\/")
     linux_path_pattern = re.compile(r"^\/")
     path = path.replace('\\', '/')
@@ -24663,6 +24667,7 @@ def start_diffusion(page):
               #mask[np.where(mask != 0.0 )] = 1.0 #make sure mask is actually valid
               #mask_img = torch.from_numpy(mask)
               prt(pb)
+              nudge(page.imageColumn, page=page)
               page.auto_scrolling(False)
               #with autocast("cuda"):
               if prefs['use_inpaint_model'] and status['installed_img2img']:
@@ -24813,7 +24818,7 @@ def start_diffusion(page):
               #init_image = preprocess(init_img)
               #white_mask = PILImage.new("RGB", (arg['width'], arg['height']), (255, 255, 255))
               prt(pb)
-              time.sleep(0.4)
+              nudge(page.imageColumn, page=page)
               page.auto_scrolling(False)
               #with autocast("cuda"):
               #images = pipe_img2img(prompt=pr, negative_prompt=arg['negative_prompt'], init_image=init_img, mask_image=white_mask, strength= 1 - arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
@@ -28291,7 +28296,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             installer.status("...download InstantID")
             antelopev2_zip = os.path.join(instantid_dir, "antelopev2.zip")
             import gdown
-            gdown("https://drive.google.com/file/d/18wEUfMNohBJ4K3Ly5wpTejPfDzp-8fI8/view?usp=sharing", antelopev2_zip)
+            gdown("https://drive.google.com/uc?id=18wEUfMNohBJ4K3Ly5wpTejPfDzp-8fI8", antelopev2_zip)
             run_sp(f"unzip {antelopev2_zip} -d {os.path.join(instantid_dir, 'antelopev2')}", realtime=False)
             os.remove(antelopev2_zip)
             from huggingface_hub import hf_hub_download
@@ -29322,7 +29327,7 @@ def run_EDICT(page):
     original_img = center_crop_resize(original_img)
     clear_pipes('EDICT')
     torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
+    #torch.cuda.reset_max_memory_allocated()
     torch.cuda.reset_peak_memory_stats()
     torch_dtype = torch.float16
     model_id = get_model(prefs['model_ckpt'])['path']
@@ -29502,9 +29507,7 @@ def run_DiffEdit(page):
         del blip_model
         clear_last()
 
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
+    flush()
     torch_dtype = torch.float16
     model_id = get_model(prefs['model_ckpt'])['path']
     if pipe_DiffEdit is None:
@@ -34850,9 +34853,7 @@ def run_unCLIP_image_variation(page, from_list=False):
       page.tabs.selected_index = 4
       page.tabs.update()
     clear_pipes('unCLIP_image_variation')
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
+    flush()
     if pipe_unCLIP_image_variation == None:
         from diffusers import UnCLIP_ImageVariationPipeline
         prt(Installing(" Downloading unCLIP Image Variation Kakaobrain Karlo Pipeline... It's a big one, see console for progress."))
@@ -35014,9 +35015,6 @@ def run_unCLIP_interpolation(page, from_list=False):
     clear_list()
     from PIL.PngImagePlugin import PngInfo
     clear_pipes()#'unCLIP_interpolation')
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
     if from_list:
       page.tabs.selected_index = 4
       page.tabs.update()
@@ -35184,9 +35182,6 @@ def run_unCLIP_image_interpolation(page, from_list=False):
       page.tabs.selected_index = 4
       page.tabs.update()
     clear_pipes('unCLIP_image_interpolation')
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
     dtype = torch.float16 if not prefs['higher_vram_mode'] else torch.float32 if torch.cuda.is_available() else torch.bfloat16
     if pipe_unCLIP_image_interpolation == None:
         from diffusers import DiffusionPipeline
@@ -35396,9 +35391,6 @@ def run_magic_mix(page, from_list=False):
     ])
     init_img = tform(init_img).to(torch_device)'''
     clear_pipes('magic_mix')
-    #torch.cuda.empty_cache()
-    #torch.cuda.reset_max_memory_allocated()
-    #torch.cuda.reset_peak_memory_stats()
     model = get_model(prefs['model_ckpt'])['path']
     scheduler_mode = magic_mix_prefs['scheduler_mode']
     if scheduler_mode == "LMS Discrete":
@@ -35590,9 +35582,6 @@ def run_paint_by_example(page):
         return
 
     clear_pipes('paint_by_example')
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
     model_id = "Fantasy-Studio/Paint-by-Example"
     if pipe_paint_by_example is None:
       from diffusers import PaintByExamplePipeline, PNDMScheduler
@@ -35765,9 +35754,6 @@ def run_instruct_pix2pix(page, from_list=False):
       clear_pipes()
     else:
       clear_pipes('instruct_pix2pix')
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
     if pipe_instruct_pix2pix is None:
       if instruct_pix2pix_prefs['use_SDXL']:
         from diffusers import StableDiffusionXLInstructPix2PixPipeline
@@ -39167,7 +39153,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
     #from diffusers.pipelines.stable_cascade import DEFAULT_STAGE_C_TIMESTEPS
     cpu_offload = False
     model_id = "stabilityai/stable-cascade" #"warp-ai/Wuerstchen-v3"
-    if pipe_stable_cascade_prior == None:
+    if pipe_stable_cascade_prior == None or pipe_stable_cascade_decoder == None:
         #clear_pipes('stable_cascade')
         try:
             from diffusers import StableCascadeDecoderPipeline, StableCascadePriorPipeline
@@ -39236,7 +39222,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     callback_on_step_end=callback_fnc,
                 ).images
             except Exception as e:
-                clear_last(2)
+                clear_last()
                 alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
                 return
             #clear_last()
@@ -40930,9 +40916,6 @@ def run_text_to_video_zero(page):
         clear_pipes()
     else:
         clear_pipes('text_to_video_zero')
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
     if pipe_text_to_video_zero is None:
         if not text_to_video_zero_prefs['use_SDXL']:
             from diffusers import TextToVideoZeroPipeline, DPMSolverMultistepScheduler
@@ -45511,9 +45494,6 @@ def run_DiT(page, from_list=False):
     autoscroll(True)
     from PIL.PngImagePlugin import PngInfo
     clear_pipes('DiT')
-    torch.cuda.empty_cache()
-    torch.cuda.reset_max_memory_allocated()
-    torch.cuda.reset_peak_memory_stats()
     if pipe_DiT == None:
         from diffusers import DiTPipeline
         prt(Installing("Downloading DiT Pipeline..."))
@@ -46495,6 +46475,10 @@ def run_tripo(page):
 
 def run_crm(page):
     global crm_prefs, pipe_crm, crm_rembg_session, status
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) < 16:
+        alert_msg(page, f"Sorry, you need at least 16GB CPU RAM to run this. {'Change Runtime to High-RAM and try again.' if is_Colab else 'Upgrade your memory if you want to use it.'}")
+        return
     if not bool(crm_prefs['init_image']):
         alert_msg(page, f"ERROR: You must provide an init image to prrocess.")
         return
@@ -46510,7 +46494,7 @@ def run_crm(page):
     def clear_last(lines=1):
       clear_line(page.CRM, lines=lines)
     page.CRM.controls = page.CRM.controls[:1]
-    installer = Installing("Installing CRM 3D Libraries...")
+    installer = Installing("Installing CRM 3D Libraries... See console for progress.")
     prt(installer)
     crm_dir = os.path.join(root_dir, "CRM")
     if not os.path.exists(crm_dir):
@@ -46518,7 +46502,7 @@ def run_crm(page):
         run_sp("git clone https://github.com/thu-ml/CRM.git", cwd=root_dir)
     if crm_dir not in sys.path:
         sys.path.append(crm_dir)
-    pip_install("omegaconf einops==0.7.0 trimesh rembg huggingface-hub open-clip-torch==2.7.0|open_clip opencv-contrib-python-headless==4.9.0.80|cv2 opencv-python-headless==4.9.0.80 git+https://github.com/NVlabs/nvdiffrast|nvdiffrast pygltflib kiui xatlas ninja pymeshlab")
+    pip_install("omegaconf einops==0.7.0 trimesh rembg huggingface-hub open-clip-torch==2.7.0|open_clip opencv-contrib-python-headless==4.9.0.80|cv2 opencv-python-headless==4.9.0.80 git+https://github.com/NVlabs/nvdiffrast|nvdiffrast pygltflib kiui xatlas ninja pymeshlab", installer=installer)
     try:
         import xformers
     except ModuleNotFoundError:
@@ -46539,6 +46523,7 @@ def run_crm(page):
     from model import CRM
     from inference import generate3d
     clear_pipes("crm")
+    os.chdir(crm_dir)
     if pipe_crm == None:
         try:
             installer.status(f"...downloading Zhengyi/CRM")
@@ -46546,6 +46531,7 @@ def run_crm(page):
             specs = json.load(open(os.path.join(crm_dir, "configs/specs_objaverse_total.json")))
             installer.status(f"...loading CRM specs")
             crm_model = CRM(specs).to(torch_device)
+            installer.status(f"...loading OmegaConf")
             crm_model.load_state_dict(torch.load(crm_path, map_location = torch_device), strict=False)
             stage1_config = OmegaConf.load(os.path.join(crm_dir, "configs", "nf7_v3_SNR_rd_size_stroke.yaml")).config
             stage2_config = OmegaConf.load(os.path.join(crm_dir, "configs", "stage2-v2-snr.yaml")).config
@@ -46568,10 +46554,12 @@ def run_crm(page):
                 device=torch_device,
                 dtype=torch.float16
             )
+            installer.status(f"...creating rembg session")
             crm_rembg_session = rembg.new_session()
         except Exception as e:
-            clear_last()
+            #clear_last()
             alert_msg(page, "Error Installing CRM Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            os.chdir(root_dir)
             return
     crm_out = os.path.join(prefs['image_output'], crm_prefs['batch_folder_name'])
     if not os.path.exists(crm_out):
@@ -46645,7 +46633,7 @@ def run_crm(page):
     obj_path = available_file(crm_out, fname, ext='obj', no_num=True)
     glb_path = available_file(crm_out, fname, ext='glb', no_num=True)
     image_path = available_file(crm_out, fname)
-    xyz_path = available_file(crm_out, fname)
+    xyz_path = available_file(crm_out+"-xyz", fname)
     model_names = and_list([f"[obj]({filepath_to_url(obj_path)})", f"[glb]({filepath_to_url(glb_path)})"])
     try:
         pipe_crm.set_seed(random_seed)
@@ -46655,21 +46643,25 @@ def run_crm(page):
         stage2_images = rt_dict["stage2_images"]
         np_imgs = np.concatenate(stage1_images, 1)
         np_xyzs = np.concatenate(stage2_images, 1)
-        glb_path, obj_path = generate3d(crm_model, np_imgs, np_xyzs, torch_device)
+        glb, obj = generate3d(crm_model, np_imgs, np_xyzs, torch_device)
+        shutil.copy(glb, glb_path)
+        shutil.copy(obj, obj_path)
         imgs = PILImage.fromarray(np_imgs)
         imgs.save(image_path)
         save_metadata(image_path, crm_prefs, f"CRM 3D", "Zhengyi/CRM", random_seed)
         xyz = PILImage.fromarray(np_xyzs)
         xyz.save(xyz_path)
         width, height = imgs.size
+        width_x, height_x = xyz.size
         #return Image.fromarray(np_imgs), Image.fromarray(np_xyzs), glb_path, obj_path
     except Exception as e:
         clear_last()
         alert_msg(page, "Error running CRM pipeline.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        os.chdir(root_dir)
         return
     clear_last(2)
     prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-    prt(Row([ImageButton(src=xyz_path, width=width, height=height, data=xyz_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([ImageButton(src=xyz_path, width=width_x, height=height_x, data=xyz_path, page=page)], alignment=MainAxisAlignment.CENTER))
     prt(Row([Markdown(f"Saved Models as {model_names}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
     flush()
     #prt(ImageButton(src=gif_file, width=crm_prefs['size'], height=crm_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
@@ -49195,7 +49187,8 @@ class ImageButton(UserControl):
         def download_image(e):
             #print(f"{type(self.data)} {self.data}")
             if is_Colab:
-              self.page.launch_url(self.data)
+              from urllib.parse import quote
+              self.page.launch_url(quote(self.data))
               '''from google.colab import files
               if os.path.isfile(self.data):
                   files.download(self.data)
