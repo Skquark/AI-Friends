@@ -181,7 +181,7 @@ LoRA_models = [
     {'name': 'Analog.Redmond', 'path': 'artificialguybr/analogredmond', 'prefix':'AnalogRedmAF'},
 ]
 SDXL_models = [
-    {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "variant": "fp16"},
+    {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "SDXL-Turbo", "path": "stabilityai/sdxl-turbo", "prefix": "", "variant": "fp16"},
     {"name": "AE SDXL v4", "path": "stablediffusionapi/ae-sdxl-v4", "prefix": ""},
     {"name": "AlbedoBase XL 2.0", "path": "stablediffusionapi/albedobase-xl-20", "prefix": ""},

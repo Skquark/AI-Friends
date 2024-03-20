@@ -5929,7 +5929,7 @@ def buildCRM(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🐈‍⬛  CRM Image-to-3D", "Single Image to 3D Textured Mesh with Convolutional Reconstruction Model...", actions=[save_default(crm_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with CRM Settings", on_click=crm_help)]),
+        Header("🐈‍⬛  CRM Image-to-3D (under construction)", "Single Image to 3D Textured Mesh with Convolutional Reconstruction Model...", actions=[save_default(crm_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with CRM Settings", on_click=crm_help)]),
         init_image,
         Row([remove_background, foreground_ratio]),
         steps,
@@ -22165,8 +22165,8 @@ def get_SDXL(page):
       SDXL_model = get_SDXL_model(prefs['SDXL_model'])
       model_id = SDXL_model['path']
       model_url = f"https://huggingface.co/{model_id if model_id.count('/') == 1 else 'stabilityai/stable-diffusion-xl-base-1.0'}"
-      alert_msg(page, f'ERROR: Looks like you need to accept the HuggingFace {SDXL_model["name"]} Model Card to use Checkpoint',
-                content=Markdown(f'[{model_id}]({model_url})</br>{er}</br>{traceback.format_exc()}', on_tap_link=open_url))
+      alert_msg(page, f'ERROR Loading Model {SDXL_model["name"]} from HuggingFace. Maybe accept model card or try another model for now.',
+                content=[Markdown(f'[{model_id}]({model_url})', on_tap_link=open_url), Text(er, weight=FontWeight.BOLD), Text(traceback.format_exc(), selectable=True)])
       return False
 
 def get_SDXL_pipe(task="text2image"):
@@ -22200,7 +22200,7 @@ def get_SDXL_pipe(task="text2image"):
   vae_model = "madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae"
   if 'vae' in SDXL_model:
       vae_model = SDXL_model['vae']
-  vae = AutoencoderKL.from_pretrained(vae_model, torch_dtype=torch.float16, force_upcast=False)
+  vae = AutoencoderKL.from_pretrained(vae_model, torch_dtype=torch.float16, use_safetensors=True)
   if task == "text2image":
       status['loaded_SDXL'] = task
       pipe_SDXL = StableDiffusionXLPipeline.from_pretrained(
@@ -22217,8 +22217,9 @@ def get_SDXL_pipe(task="text2image"):
           text_encoder_2=pipe_SDXL.text_encoder_2,
           vae=pipe_SDXL.vae,
           add_watermarker=watermark,
+          variant="fp16",
           cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
-          **variant, **safety,
+          **safety,
       )
       pipe_SDXL_refiner = optimize_SDXL(pipe_SDXL_refiner, lora=False, vae_slicing=True)
 
@@ -46513,7 +46514,7 @@ def run_crm(page):
     prt(installer)
     crm_dir = os.path.join(root_dir, "CRM")
     if not os.path.exists(crm_dir):
-        installer.status("...cloning thu-ml/CRM")
+        installer.status("...cloning thu-ml/CRM (big)")
         run_sp("git clone https://github.com/thu-ml/CRM.git", cwd=root_dir)
     if crm_dir not in sys.path:
         sys.path.append(crm_dir)
@@ -46521,7 +46522,7 @@ def run_crm(page):
     try:
         import xformers
     except ModuleNotFoundError:
-        installer.status("...installing FaceBook's Xformers")
+        installer.status("...installing FaceBook's Xformers (slow)")
         run_sp(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
         pass
