@@ -1378,7 +1378,7 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
                 debug_msg += c.value + "\n"
         import platform
         memory = f"GPU VRAM: {status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB{' - on Colab' if is_Colab else ''}"
-        os_info = f" - OS: {platform.system()} {platform.version()} Torch {torch.__version__} Transformers {transformers.__version__}"
+        os_info = f" - OS: {platform.system()} {platform.version()} - Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} - Torch {torch.__version__} - Transformers {transformers.__version__}"
         debug_msg += memory + os_info + "\n"
         if debug_pref != None:
             debug_msg += str(debug_pref)
@@ -27351,11 +27351,11 @@ def run_image_variation(page):
     if pipe_image_variation == None:
         from diffusers import StableDiffusionImageVariationPipeline
         prt(Installing("Downloading Image Variation Pipeline"))
-        model_id = "fusing/sd-image-variations-diffusers"
-        pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-        #pipe_image_variation.to(torch_device)
+        model_id = "lambdalabs/sd-image-variations-diffusers"
+        pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, revision="v2.0", safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+        pipe_image_variation = pipe_image_variation.to(torch_device)
         pipe_image_variation = pipeline_scheduler(pipe_image_variation)
-        pipe_image_variation = optimize_pipe(pipe_image_variation)
+        #pipe_image_variation = optimize_pipe(pipe_image_variation)
         #pipe_image_variation.set_progress_bar_config(disable=True)
         clear_last()
     s = "s" if image_variation_prefs['num_images'] > 1 else ""
@@ -33337,10 +33337,10 @@ def run_music_lang(page):
             clear_last()
             alert_msg(page, "Error downloading MusicLang package", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
             return
-    fluidR3 = os.path.join(upload_dir, "FluidR3_GM.sf2")
+    fluidR3 = os.path.join(uploads_dir, "FluidR3_GM.sf2")
     if not os.path.isfile(fluidR3):
         installer.status("...downloading FluidR3_GM.sf2")
-        download_file("https://musical-artifacts.com/artifacts/738/FluidR3_GM.sf2", to=upload_dir)
+        download_file("https://musical-artifacts.com/artifacts/738/FluidR3_GM.sf2", to=uploads_dir)
     random_seed = int(musiclang_prefs['seed']) if int(musiclang_prefs['seed']) > 0 else rnd.randint(0,4294967295)
     #time_signature = (4, 4)
     midi_file = musiclang_prefs['midi_file'].strip()
