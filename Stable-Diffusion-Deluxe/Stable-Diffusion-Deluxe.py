@@ -27332,8 +27332,8 @@ def run_image_variation(page):
         alert_msg(page, f"ERROR: Couldn't find your init_image {image_variation_prefs['init_image']}")
         return
     width, height = init_img.size
-    width, height = scale_dimensions(width, height, image_variation_prefs['max_size'])
-    tform = transforms.Compose([
+    width, height = scale_dimensions(width, height, image_variation_prefs['max_size'], multiple=32)
+    '''tform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize(
             (width, height),
@@ -27344,9 +27344,9 @@ def run_image_variation(page):
           [0.48145466, 0.4578275, 0.40821073],
           [0.26862954, 0.26130258, 0.27577711]),
     ])
-    init_img = tform(init_img).to(torch_device)
-    #init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
-    #init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    init_img = tform(init_img).to(torch_device)'''
+    init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+    init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     clear_pipes('image_variation')
     if pipe_image_variation == None:
         from diffusers import StableDiffusionImageVariationPipeline
@@ -27368,12 +27368,10 @@ def run_image_variation(page):
     try:
         images = pipe_image_variation(image=init_img, height=height, width=width, num_inference_steps=image_variation_prefs['num_inference_steps'], guidance_scale=image_variation_prefs['guidance_scale'], eta=image_variation_prefs['eta'], num_images_per_prompt=image_variation_prefs['num_images'], generator=generator, callback=callback_fnc, callback_steps=1).images
     except Exception as e:
-        clear_last()
-        clear_last()
+        clear_last(2)
         alert_msg(page, "Error running pipeline", content=Text(str(e)), debug_pref=image_variation_prefs)
         return
-    clear_last()
-    clear_last()
+    clear_last(2)
     autoscroll(True)
     fname = image_variation_prefs['init_image'].rpartition('.')[0]
     fname = fname.rpartition(slash)[2]
@@ -36089,7 +36087,7 @@ def run_ledits(page, from_list=False):
       reverse_editing_direction=[True, False]
       edit_guidance_scale=[ledits_prefs['source_guidance_scale'], ledits_prefs['guidance_scale']]
       edit_threshold=[0.9, ledits_prefs['edit_threshold']]
-      invert_args = {} if ledits_prefs['use_SDXL'] else {'width':width, 'height':height}
+      invert_args = {'negative_prompt':pr['negative_prompt'] if bool(pr['negative_prompt']) else None} if ledits_prefs['use_SDXL'] else {'width':width, 'height':height}
       pipe_args = {'target_size':(width, height)} if ledits_prefs['use_SDXL'] else {}
       for num in range(ledits_prefs['num_images']):
           prt(progress)
@@ -36097,7 +36095,7 @@ def run_ledits(page, from_list=False):
           generator = torch.Generator(device=torch_device).manual_seed(random_seed)
           #generator = torch.manual_seed(random_seed)
           try:
-              _ = pipe_ledits.invert(image=original_img, num_inversion_steps=ledits_prefs['num_inference_steps'], skip=ledits_prefs['skip'], negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, **invert_args)
+              _ = pipe_ledits.invert(image=original_img, num_inversion_steps=ledits_prefs['num_inference_steps'], skip=ledits_prefs['skip'], **invert_args)
               images = pipe_ledits(editing_prompt=editing_prompt, reverse_editing_direction=reverse_editing_direction, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_images_per_prompt=ledits_prefs['num_images'], generator=generator, callback_on_step_end=callback_fnc, **pipe_args, **ip_adapter_arg).images
           except Exception as e:
               clear_last()
