@@ -474,6 +474,7 @@ import random as rnd
 import io, shutil, traceback, string, gc, datetime, time, threading
 from packaging import version
 from contextlib import redirect_stdout
+from typing import Optional
 try:
   import numpy as np
 except ModuleNotFoundError:
@@ -854,6 +855,7 @@ def buildVideoAIs(page):
     page.Video_ReTalking = buildVideoReTalking(page)
     page.StyleCrafter = buildStyleCrafter(page)
     page.RAVE = buildRAVE(page)
+    page.Fresco = buildFresco(page)
     page.TokenFlow = buildTokenFlow(page)
     page.AnimateDiff = buildAnimateDiff(page)
     page.HotshotXL = buildHotshotXL(page)
@@ -874,9 +876,10 @@ def buildVideoAIs(page):
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
             Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
-            Tab(text="TokenFlow", content=page.TokenFlow, icon=icons.TOKEN),
+            Tab(text="FRESCO", content=page.Fresco, icon=icons.PARK),
             Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
+            Tab(text="TokenFlow", content=page.TokenFlow, icon=icons.TOKEN),
             Tab(text="Hotshot-XL", content=page.HotshotXL, icon=icons.HOT_TUB),
             Tab(text="ControlNet Video2Video", content=page.ControlNet_Video2Video, icon=icons.PSYCHOLOGY),
             Tab(text="Video-to-Video", content=page.VideoToVideo, icon=icons.CAMERA_ROLL),
@@ -15293,6 +15296,174 @@ def buildRerender_a_video(page):
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
+fresco_prefs = {
+    'init_video': '',
+    'prompt': '',
+    'negative_prompt': 'ugly, blurry, low res, unrealistic, unaesthetic',
+    'a_prompt': '',
+    'sd_model': 'Realistic_Vision_V2.0',
+    'custom_model': '',
+    'image_resolution': 512, #256-512 x64
+    'control_strength': 1.0, #0-2 x0.01
+    'x0_strength': 0.75,
+    'control_type': 'HED',
+    'low_threshold': 50,
+    'high_threshold': 100,
+    'num_inference_steps': 20,
+    'guidance_scale': 7.5,
+    'b1': 1.0, #1-1.6 x0.01
+    'b2': 1.0, #1-1.6 x0.01
+    's1': 1.0, #0-1 x0.01
+    's2': 1.0, #0-1 x0.01
+    'mininterv': 5, #1-20
+    'maxinterv': 20,#1-50
+    'use_constraints': ['spatial-guided attention', 'cross-frame attention', 'temporal-guided attention', 'spatial-guided optimization', 'temporal-guided optimization',],
+    'bg_smooth': True,
+    'use_poisson': True,
+    'max_process': 4, #1-16
+    'fps': 30,
+    'num_frames': 100, #8-300
+    'export_to_video': False,
+    'seed': 0,
+    'max_size': 672,
+    'batch_size': 8, #3-8
+    'batch_folder_name': '',
+    'project_name': '',
+}
+fresco_constraints = ['spatial-guided attention', 'cross-frame attention', 'temporal-guided attention', 'spatial-guided optimization', 'temporal-guided optimization']
+fresco_models = {
+    'Realistic_Vision_V2.0': 'SG161222/Realistic_Vision_V2.0', 
+    'stable-diffusion-v1-5': 'runwayml/stable-diffusion-v1-5',
+    'rev-animated': 'stablediffusionapi/rev-animated',
+    'flat-2d-animerge': 'stablediffusionapi/flat-2d-animerge'
+}
+
+def buildFresco(page):
+    global fresco_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            fresco_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            fresco_prefs[pref] = float(e.control.value)
+          else:
+            fresco_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def fresco_help(e):
+      def close_fresco_dlg(e):
+        nonlocal fresco_help_dlg
+        fresco_help_dlg.open = False
+        page.update()
+      fresco_help_dlg = AlertDialog(title=Text("💁   Help with Fresco Video-To-Video"), content=Column([
+          Text("The remarkable efficacy of text-to-image diffusion models has motivated extensive exploration of their potential application in video domains. Zero-shot methods seek to extend image diffusion models to videos without necessitating model training. Recent methods mainly focus on incorporating inter-frame correspondence into attention mechanisms. However, the soft constraint imposed on determining where to attend to valid features can sometimes be insufficient, resulting in temporal inconsistency. In this paper, we introduce FRESCO, intra-frame correspondence alongside inter-frame correspondence to establish a more robust spatial-temporal constraint. This enhancement ensures a more consistent transformation of semantically similar content across frames. Beyond mere attention guidance, our approach involves an explicit update of features to achieve high spatial-temporal consistency with the input video, significantly improving the visual coherence of the resulting translated videos. Extensive experiments demonstrate the effectiveness of our proposed framework in producing high-quality, coherent videos, marking a notable improvement over existing zero-shot methods."),
+          Text("Features: Temporal consistency: use intra-and inter-frame constraint with better consistency and coverage than optical flow alone. Compared with our previous work Rerender-A-Video, FRESCO is more robust to large and quick motion. Zero-shot: no training or fine-tuning required. Flexibility: compatible with off-the-shelf models (e.g., ControlNet, LoRA) for customized translation."),
+          Markdown("[Project Page](https://www.mmlab-ntu.com/project/fresco/) | [GitHub repository](https://github.com/williamyang1991/FRESCO) | [Paper](https://arxiv.org/abs/2403.12962)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Shuai Yang, Yifan Zhou, Ziwei Liu and Chen Change Loy")
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🍑  So Fresh... ", on_click=close_fresco_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = fresco_help_dlg
+      fresco_help_dlg.open = True
+      page.update()
+    def change_task(e):
+        changed(e,'control_type')
+        canny_threshold.height = None if fresco_prefs['control_type'] == "Canny" or fresco_prefs['control_type'] == "Canny21" else 0
+        canny_threshold.update()
+    def changed_model(e):
+        fresco_prefs['sd_model'] = e.control.value
+        sd_custom_model.visible = e.control.value == "Custom"
+        sd_custom_model.update()
+    prompt = TextField(label="Animation Prompt Text", value=fresco_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=fresco_prefs['negative_prompt'], filled=False, col={'md':4}, on_change=lambda e:changed(e,'negative_prompt'))
+    a_prompt = TextField(label="Additional Prompt Text", value=fresco_prefs['a_prompt'], multiline=True, filled=True, col={'md':4}, on_change=lambda e:changed(e,'a_prompt'))
+    control_type = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option("HED"), dropdown.Option("Canny"), dropdown.Option("Depth")], value=fresco_prefs['control_type'], on_change=change_task)
+    control_strength = SliderRow(label="ControlNet Strength", min=0.0, max=2.0, divisions=40, round=2, pref=fresco_prefs, key='control_strength', tooltip="how well the output matches the input control edges.")
+    x0_strength = SliderRow(label="Denoise Strength", min=0.0, max=1.05, divisions=21, round=2, pref=fresco_prefs, key='x0_strength', tooltip="Repaint degree, low to make output look more like init video. 0: fully recover the input.1.05: fully rerender the input.")
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=fresco_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=fresco_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, height = None if fresco_prefs['control_type'] == "Canny" else 0)
+    b1 = SliderRow(label="b1", min=1.0, max=1.2, divisions=4, round=2, pref=fresco_prefs, key='b1', expand=True, col={'md':6}, tooltip="FreeU Backbone factor of the first stage block of decoder.")
+    b2 = SliderRow(label="b2", min=1.2, max=1.6, divisions=8, round=2, pref=fresco_prefs, key='b2', expand=True, col={'md':6}, tooltip="FreeU Backbone factor of the second stage block of decoder.")
+    s1 = SliderRow(label="s1", min=0, max=1, divisions=20, round=1, pref=fresco_prefs, key='s1', expand=True, col={'md':6}, tooltip="FreeU Skip factor of the first stage block of decoder.")
+    s2 = SliderRow(label="s2", min=0, max=1, divisions=20, round=1, pref=fresco_prefs, key='s2', expand=True, col={'md':6}, tooltip="FreeU Skip factor of the second stage block of decoder.")
+    freeu_args = Container(content=Column([ResponsiveRow([b1, b2, s1, s2])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=0, left=13))
+    mininterv = SliderRow(label="Min Keyframe Interval", min=1, max=20, divisions=19, pref=fresco_prefs, key='mininterv', expand=True, col={'md':6}, tooltip="The keyframes will be detected at least every s_min frames.")
+    maxinterv = SliderRow(label="Max Keyframe Interval", min=1, max=20, divisions=19, pref=fresco_prefs, key='maxinterv', expand=True, col={'md':6}, tooltip="The keyframes will be detected at most every s_max frames")
+    max_process = SliderRow(label="Parallel Processes", min=1, max=16, divisions=15, pref=fresco_prefs, key='max_process', col={'md':6}, tooltip="Multiprocessing to speed up the process. Large value (4) is recommended.")
+    init_video = FileInput(label="Initial Video Clip", pref=fresco_prefs, expand=True, key='init_video', ftype="video", page=page)
+    num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=fresco_prefs, key='num_frames', tooltip="The number of video frames that are generated from init video.")
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=fresco_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=fresco_prefs, key='guidance_scale')
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=fresco_prefs, key='fps')
+    batch_size = SliderRow(label="Batch Size", min=1, max=60, divisions=59, pref=fresco_prefs, key='batch_size', tooltip="Affects coherancy. To avoid out-of-memory, use small batch size.")
+    sd_model = Dropdown(label="SD Model", width=280, options=[dropdown.Option(m) for m in fresco_models.keys()], value=fresco_prefs['sd_model'], on_change=changed_model)
+    sd_model.options.append(dropdown.Option("Custom"))
+    sd_custom_model = TextField(label="Custom SD Model (URL or Path)", value=fresco_prefs['custom_model'], expand=True, visible=fresco_prefs['sd_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    #eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=fresco_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=fresco_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=fresco_prefs, key='height')
+    #export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=fresco_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    max_size = SliderRow(label="Frame Resolution Size", min=256, max=512, divisions=4, multiple=64, suffix="px", pref=fresco_prefs, key='max_size', tooltip="Resize the Short side of the video.")
+    bg_smooth = Switcher(label="Smooth Background", value=fresco_prefs['bg_smooth'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'bg_smooth'), tooltip="Best for static backgrounds.")
+    use_poisson = Switcher(label="Gradient Blending", value=fresco_prefs['use_poisson'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_poisson'), tooltip="Poisson Blending in Gradient, to reduce ghosting artifacts (but may increase flickers)")
+    #bg_smooth = Checkbox(label="Smooth Background", value=fresco_prefs['bg_smooth'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'bg_smooth'))
+    #use_poisson = Checkbox(label="Gradient Blending", value=fresco_prefs['use_poisson'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'use_poisson'), tooltip="Blend the output video in gradient, to reduce ghosting artifacts (but may increase flickers)")
+    batch_folder_name = TextField(label="Video Folder Name", value=fresco_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    project_name = TextField(label="Project Output Name", value=fresco_prefs['project_name'], on_change=lambda e:changed(e,'project_name'))
+    seed = TextField(label="Seed", width=90, value=str(fresco_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    def changed_constraints(e):
+        on = e.control.value
+        if e.control.data in fresco_prefs['use_constraints']:
+            fresco_prefs['use_constraints'].remove(e.control.data)
+        else:
+            fresco_prefs['use_constraints'].append(e.control.data)
+    constraints = ResponsiveRow(controls=[Text("Use Constraints:", col={'xs':12, 'sm':6, 'md':4, 'lg':3, 'xl': 2})], run_spacing=0, vertical_alignment=CrossAxisAlignment.CENTER)
+    for m in fresco_constraints:
+        constraints.controls.append(Checkbox(label=m, data=m, value=m in fresco_prefs['use_constraints'], on_change=changed_constraints, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':4, 'lg':3, 'xl': 2}))
+    #page.fresco_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    #clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    #clear_button.visible = len(page.fresco_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🌿  FRESCO Video-To-Video (under construction)", "Spatial-Temporal Correspondence for Zero-Shot Video Translation...", actions=[save_default(fresco_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with Fresco Settings", on_click=fresco_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        #init_video,
+        ResponsiveRow([prompt, a_prompt]),
+        negative_prompt,
+        Row([control_type, init_video]),
+        canny_threshold,
+        control_strength,
+        x0_strength,
+        #Row([export_to_video, lower_memory]),
+        num_inference_row,
+        guidance,
+        num_frames,
+        #fps,
+        freeu_args,
+        ResponsiveRow([mininterv, maxinterv]),
+        batch_size,
+        max_process,
+        max_size,
+        #Text("Use Constraints:", col={'xs':12, 'sm':6, 'md':4, 'lg':3, 'xl': 2}),
+        constraints,
+        Row([bg_smooth, use_poisson]),
+        Row([sd_model, sd_custom_model]),
+        #Row([Text("Diffusion Mode: "), selected_mode]),
+        #pnp_container,
+        #sdedit_container,
+        #eta_slider,
+        #width_slider, height_slider,
+        #page.ESRGAN_block_fresco,
+        Row([seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("🌱  Run Fresco", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_fresco(page)),
+        ]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
 
 materialdiffusion_prefs = {
     "material_prompt": '',
@@ -22834,6 +23005,28 @@ def postprocess_latent(pipe, latent):
         latent.images / pipe.vae.config.scaling_factor, return_dict=False
     )[0].detach()
     return pipe.image_processor.postprocess(vae_output, output_type="pil")[0]
+
+def seamless_tiling(pipeline, x_axis=True, y_axis=True):
+    from diffusers.models.lora import LoRACompatibleConv
+    def asymmetric_conv2d_convforward(self, input: torch.Tensor, weight: torch.Tensor, bias: Optional[torch.Tensor] = None):
+        self.paddingX = (self._reversed_padding_repeated_twice[0], self._reversed_padding_repeated_twice[1], 0, 0)
+        self.paddingY = (0, 0, self._reversed_padding_repeated_twice[2], self._reversed_padding_repeated_twice[3])
+        working = torch.nn.functional.pad(input, self.paddingX, mode=x_mode)
+        working = torch.nn.functional.pad(working, self.paddingY, mode=y_mode)
+        return torch.nn.functional.conv2d(working, weight, bias, self.stride, torch.nn.modules.utils._pair(0), self.dilation, self.groups)
+    x_mode = 'circular' if x_axis else 'constant'
+    y_mode = 'circular' if y_axis else 'constant'
+    targets = [pipeline.vae, pipeline.text_encoder, pipeline.unet]
+    convolution_layers = []
+    for target in targets:
+        for module in target.modules():
+            if isinstance(module, torch.nn.Conv2d):
+                convolution_layers.append(module)
+    for layer in convolution_layers:
+        if isinstance(layer, LoRACompatibleConv) and layer.lora_layer is None:
+            layer.lora_layer = lambda * x: 0
+        layer._conv_forward = asymmetric_conv2d_convforward.__get__(layer, torch.nn.Conv2d)
+    return pipeline
 
 SD_sampler = None
 def get_stability(page):
@@ -45151,6 +45344,140 @@ def run_rerender_a_video(page):
     else:
         prt("Error Generating Output File! Maybe NSFW Image detected or Out of Memory?")
     prt(Row([Text(output_file)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+
+def run_fresco(page):
+    global fresco_prefs, prefs, status, pipe_fresco, model_path
+    if not check_diffusers(page): return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.Fresco.controls.append(line)
+      page.Fresco.update()
+    def clear_last(lines=1):
+      clear_line(page.Fresco, lines=lines)
+    def clear_list():
+      page.Fresco.controls = page.Fresco.controls[:1]
+    def autoscroll(scroll=True):
+      page.Fresco.auto_scroll = scroll
+      page.Fresco.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = fresco_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing FRESCO Video-To-Video Pipeline...")
+    prt(installer)
+    #model_id = "damo-vilab/text-to-video-ms-1.7b"
+    clear_pipes()
+    fresco_dir = os.path.join(root_dir, "FRESCO")
+    if not os.path.exists(fresco_dir):
+        installer.status("...cloning williamyang1991/FRESCO") #XmYx/Fresco
+        run_sp("git clone https://github.com/williamyang1991/FRESCO.git", realtime=False, cwd=root_dir)
+    #data_dir = os.path.join(fresco_dir, "data")
+    pip_install("einops opencv-python|cv2 timm matplotlib av kornia basicsr==1.4.2 numba==0.57.0 imageio-ffmpeg gradio", installer=installer)
+    try:
+        from webUI import process1, process2
+    except Exception:
+        try:
+            from FRESCO.webUI import process1, process2
+            print(f"Importing FRESCO.webUI")
+            pass
+        except Exception:
+            alert_msg(page,"ERROR Importing FRESCO webUI process. Working on it...")
+            return
+    clear_last()
+    progressbar = Progress("Generating FRESCO of your Video... See console for progress.")
+    prt(progressbar)
+    autoscroll(False)
+    batch_output = os.path.join(prefs['image_output'], fresco_prefs['batch_folder_name'])
+    make_dir(batch_output)
+    #data_folder = format_filename(fresco_prefs['batch_folder_name'], use_dash=True)
+    #make_dir(os.path.join(data_dir, data_folder))
+    init_vid = fresco_prefs['init_video']
+    if init_vid.startswith('http'):
+        progressbar.status("...Downloading Video")
+        init_vid = download_file(init_vid, uploads_dir, ext="mp4")
+    else:
+        if not os.path.isfile(init_vid):
+            alert_msg(page, f"ERROR: Couldn't find your init_video {init_vid}")
+            return
+    video_file = os.path.basename(init_vid)
+    if not video_file.endswith("mp4"):
+        video_file += ".mp4"
+    #progressbar.status("...Scaling Video")
+    #w, h = scale_video(init_vid, os.path.join(data_dir, data_folder, video_file), fresco_prefs["max_size"])
+    progressbar.status("...Preparing Run")
+    sd_model = fresco_models[fresco_prefs['sd_model']]
+    random_seed = int(fresco_prefs['seed']) if int(fresco_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    inputs = {
+        'input_path':video_file,
+        'prompt':fresco_prefs['prompt'],
+        'sd_model':sd_model,
+        'seed':random_seed,
+        'image_resolution':fresco_prefs['image_resolution'],
+        'control_strength':fresco_prefs['control_strength'],
+        'x0_strength':fresco_prefs['x0_strength'],
+        'control_type':fresco_prefs['control_type'].lower(),
+        'low_threshold':fresco_prefs['low_threshold'],
+        'high_threshold':fresco_prefs['high_threshold'],
+        'ddpm_steps':fresco_prefs['num_inference_steps'],
+        'scale':fresco_prefs['guidance_scale'],
+        'a_prompt':fresco_prefs['a_prompt'],
+        'n_prompt':fresco_prefs['n_prompt'],
+        'frame_count':fresco_prefs['frame_count'],
+        'batch_size':fresco_prefs['batch_size'],
+        'mininterv':fresco_prefs['mininterv'],
+        'maxinterv':fresco_prefs['maxinterv'],
+        'use_constraints':fresco_prefs['use_constraints'],
+        'bg_smooth':fresco_prefs['bg_smooth'],
+        'use_poisson':fresco_prefs['use_poisson'],
+        'max_process':fresco_prefs['max_process'],
+        'b1':fresco_prefs['b1'], 'b2':fresco_prefs['b2'], 's1':fresco_prefs['s1'], 's2':fresco_prefs['s2']
+    }
+    try:
+        os.chdir(fresco_dir)
+        progressbar.status("...Preprocessing Video Keyframes")
+        result_keyframe = process1(**inputs)
+        progressbar.status("...Processing Full Video Interpolation")
+        output_path = process2(**inputs)
+        '''run_sp(f'python {preprocess_cmd}', cwd=fresco_dir)
+               #-W {width} -H {height} -o {batch_output} -d cuda{x}{rw} -s {fresco_prefs["num_inference_steps"]} -g {fresco_prefs["guidance_scale"]} -f {fresco_prefs["fps"]} -T {fresco_prefs["num_frames"]}', cwd=data_dir)
+        progressbar.status(f"...Processing Fresco {selected_mode}")
+        run_sp(f'python {run_cmd}', cwd=fresco_dir, realtime=True)'''
+    except Exception as e:
+        clear_last()
+        #fresco_prefs['run_cmd'] = f'{preprocess_cmd} -&- {run_cmd}'
+        alert_msg(page, f"ERROR: Fresco Video-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=fresco_prefs)
+        os.chdir(root_dir)
+        return
+    os.chdir(root_dir)
+    clear_last()
+    autoscroll(True)
+    filename = f"{format_filename(fresco_prefs['prompt'])}"
+    #filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    autoscroll(True)
+    #output_path = os.path.join(fresco_dir, "fresco-results", "fresco_PnP.mp4")
+    keyframe_path = available_file(batch_output, filename+"-keyframes", ext="mp4", no_num=True)
+    video_path = available_file(batch_output, filename, ext="mp4", no_num=True)
+    if os.path.exists(output_path):
+        shutil.move(result_keyframe, keyframe_path)
+        shutil.move(output_path, video_path)
+        prt(Row([Markdown(f"Done creating video... Check {and_list([filepath_to_url(keyframe_path), filepath_to_url(video_path)])}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+        prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
+    else:
+        prt("Something went wrong generating video...")
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
