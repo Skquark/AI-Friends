@@ -6917,14 +6917,16 @@ ip_adapter_models = [
     {'name': 'Plus Face SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-plus-face_sd15.bin'},
     {'name': 'Full Face SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-full-face_sd15.bin'},
     {'name': 'Light SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15_light.bin'},
-    {'name': 'FaceID SD v1.5', 'path': 'h94/IP-Adapter-FaceID', 'weight_name': 'ip-adapter-faceid_sd15.bin'},
+    {'name': 'FaceID SD v1.5', 'path': 'h94/IP-Adapter-FaceID', 'subfolder': '', 'weight_name': 'ip-adapter-faceid_sd15.bin'},
+    {'name': 'Composition SD v1.5', 'path': 'ostris/ip-composition-adapter', 'subfolder': '', 'weight_name': 'ip_plus_composition_sd15.safetensors'},
 ]
 ip_adapter_SDXL_models = [
     {'name': 'SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sdxl.bin'},
     {'name': 'Plus SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter-plus_sdxl_vit-h.bin'},
     {'name': 'Plus Face SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter-plus-face_sdxl_vit-h.bin'},
     {'name': 'SDXL ViT-H', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sdxl_vit-h.bin'},
-    {'name': 'InstantID SDXL', 'path': 'InstantX/InstantID', 'weight_name': 'ip-adapter.bin'},
+    {'name': 'InstantID SDXL', 'path': 'InstantX/InstantID', 'subfolder': '', 'weight_name': 'ip-adapter.bin'},
+    {'name': 'Composition SDXL', 'path': 'ostris/ip-composition-adapter', 'subfolder': '', 'weight_name': 'ip_plus_composition_sdxl.safetensors'},
     #{'name': 'Light SDXL', 'path': 'h94/IP-Adapter', 'subfolder': 'sdxl_models', 'weight_name': 'ip-adapter_sd15_light.bin'},
 ]
 ip_adapter_prefs = {
@@ -9073,7 +9075,7 @@ def buildLEdits(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🔀  LEDITS++", "Limitless Image Editing using Text-to-Image Models...", actions=[save_default(ledits_prefs, ['original_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with LEdits++ Settings", on_click=ledits_help)]),
+        Header("🔀  LEDITS++ (under construction)", "Limitless Image Editing using Text-to-Image Models...", actions=[save_default(ledits_prefs, ['original_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with LEdits++ Settings", on_click=ledits_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         original_image,
         source_prompt,
@@ -15321,7 +15323,7 @@ fresco_prefs = {
     's2': 1.0, #0-1 x0.01
     'mininterv': 5, #1-20
     'maxinterv': 20,#1-50
-    'use_constraints': ['spatial-guided attention', 'cross-frame attention', 'temporal-guided attention', 'spatial-guided optimization', 'temporal-guided optimization',],
+    'use_constraints': ['Spatial-Guided Attention', 'Cross-Frame Attention', 'Temporal-Guided Attention', 'Spatial-Guided Optimization', 'Temporal-Guided Optimization'],
     'bg_smooth': True,
     'use_poisson': True,
     'max_process': 4, #1-16
@@ -15334,7 +15336,7 @@ fresco_prefs = {
     'batch_folder_name': '',
     'project_name': '',
 }
-fresco_constraints = ['spatial-guided attention', 'cross-frame attention', 'temporal-guided attention', 'spatial-guided optimization', 'temporal-guided optimization']
+fresco_constraints = ['Spatial-Guided Attention', 'Cross-Frame Attention', 'Temporal-Guided Attention', 'Spatial-Guided Optimization', 'Temporal-Guided Optimization']
 fresco_models = {
     'Realistic_Vision_V2.0': 'SG161222/Realistic_Vision_V2.0', 
     'stable-diffusion-v1-5': 'runwayml/stable-diffusion-v1-5',
@@ -27547,7 +27549,7 @@ def run_image_variation(page):
     clear_pipes('image_variation')
     if pipe_image_variation == None:
         from diffusers import StableDiffusionImageVariationPipeline
-        prt(Installing("Downloading Image Variation Pipeline"))
+        prt(Installing("Downloading Image Variation Pipeline... See console for progress."))
         model_id = "lambdalabs/sd-image-variations-diffusers"
         pipe_image_variation = StableDiffusionImageVariationPipeline.from_pretrained(model_id, revision="v2.0", safety_checker=None, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         pipe_image_variation = pipe_image_variation.to(torch_device)
@@ -27556,7 +27558,7 @@ def run_image_variation(page):
         #pipe_image_variation.set_progress_bar_config(disable=True)
         clear_last()
     s = "s" if image_variation_prefs['num_images'] > 1 else ""
-    prt(f"Generating Variation{s} of your Image...")
+    prt(f"Generating Variation{s} of your Image... ")
     prt(progress)
     autoscroll(False)
     random_seed = int(image_variation_prefs['seed']) if int(image_variation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
@@ -27591,7 +27593,7 @@ def run_image_variation(page):
         prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     page.ImageVariation.auto_scroll = False
     page.ImageVariation.update()
-    autoscroll(True)
+    autoscroll(False)
     play_snd(Snd.ALERT, page)
 
 def run_background_remover(page):
@@ -36204,7 +36206,7 @@ def run_ledits(page, from_list=False):
     autoscroll(True)
     clear_list()
     prt(Divider(thickness=2, height=4))
-    installer = Installing(f"Installing LEdits++{' SDXL' if ledits_prefs['use_SDXL'] else ''} Pipeline...")
+    installer = Installing(f"Installing LEdits++{' SDXL' if ledits_prefs['use_SDXL'] else ''} Pipeline... See console for progress.")
     prt(installer)
     import requests, random
     from io import BytesIO
@@ -36222,12 +36224,12 @@ def run_ledits(page, from_list=False):
       if ledits_prefs['use_SDXL']:
         from diffusers import LEditsPPPipelineStableDiffusionXL
         pipe_ledits = LEditsPPPipelineStableDiffusionXL.from_pretrained(model_id_SDXL, torch_dtype=torch.float16, add_watermarker=prefs['SDXL_watermark'], cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
-        pipe_ledits = optimize_SDXL(pipe_ledits)
+        pipe_ledits = optimize_SDXL(pipe_ledits, freeu=False)
         status['loaded_ledits'] = model_id_SDXL
       else:
         from diffusers import LEditsPPPipelineStableDiffusion
         pipe_ledits = LEditsPPPipelineStableDiffusion.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **safety)
-        pipe_ledits = optimize_pipe(pipe_ledits)
+        pipe_ledits = optimize_pipe(pipe_ledits, freeu=False)
         #pipe_ledits = pipe_ledits.to(torch_device)
         status['loaded_ledits'] = model_id
       pipe_ledits.set_progress_bar_config(disable=True)
@@ -36292,11 +36294,11 @@ def run_ledits(page, from_list=False):
           generator = torch.Generator(device=torch_device).manual_seed(random_seed)
           #generator = torch.manual_seed(random_seed)
           try:
-              _ = pipe_ledits.invert(image=original_img, num_inversion_steps=ledits_prefs['num_inference_steps'], skip=ledits_prefs['skip'], **invert_args)
+              _ = pipe_ledits.invert(image=original_img, num_inversion_steps=int(ledits_prefs['num_inference_steps']), skip=float(ledits_prefs['skip']), **invert_args)
               images = pipe_ledits(editing_prompt=editing_prompt, reverse_editing_direction=reverse_editing_direction, edit_guidance_scale=edit_guidance_scale, edit_threshold=edit_threshold, negative_prompt=pr['negative_prompt'] if bool(pr['negative_prompt']) else None, num_images_per_prompt=ledits_prefs['num_images'], generator=generator, callback_on_step_end=callback_fnc, **pipe_args, **ip_adapter_arg).images
           except Exception as e:
               clear_last()
-              alert_msg(page, f"ERROR: Couldn't run LEdits++ on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Text(str(e)))
+              alert_msg(page, f"ERROR: Couldn't run LEdits++ on your image for some reason.  Possibly out of memory or something wrong with my code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=ledits_prefs)
               flush()
               return
           clear_last()
@@ -45390,6 +45392,8 @@ def run_fresco(page):
         run_sp("git clone https://github.com/williamyang1991/FRESCO.git", realtime=False, cwd=root_dir)
     #data_dir = os.path.join(fresco_dir, "data")
     pip_install("einops opencv-python|cv2 timm matplotlib av kornia basicsr==1.4.2 numba==0.57.0 imageio-ffmpeg gradio", installer=installer)
+    if fresco_dir not in sys.path:
+        sys.path.append(fresco_dir)
     try:
         from webUI import process1, process2
     except Exception:
@@ -45400,6 +45404,9 @@ def run_fresco(page):
         except Exception:
             alert_msg(page,"ERROR Importing FRESCO webUI process. Working on it...")
             return
+    installer.status("...downloading Models & Ebsynth")
+    os.chdir(fresco_dir)
+    run_sp("python install.py", realtime=False, cwd=fresco_dir)
     clear_last()
     progressbar = Progress("Generating FRESCO of your Video... See console for progress.")
     prt(progressbar)
@@ -45443,14 +45450,13 @@ def run_fresco(page):
         'batch_size':fresco_prefs['batch_size'],
         'mininterv':fresco_prefs['mininterv'],
         'maxinterv':fresco_prefs['maxinterv'],
-        'use_constraints':fresco_prefs['use_constraints'],
+        'use_constraints': [c.lower() for c in fresco_prefs['use_constraints']],
         'bg_smooth':fresco_prefs['bg_smooth'],
         'use_poisson':fresco_prefs['use_poisson'],
         'max_process':fresco_prefs['max_process'],
         'b1':fresco_prefs['b1'], 'b2':fresco_prefs['b2'], 's1':fresco_prefs['s1'], 's2':fresco_prefs['s2']
     }
     try:
-        os.chdir(fresco_dir)
         progressbar.status("...Preprocessing Video Keyframes")
         result_keyframe = process1(**inputs)
         progressbar.status("...Processing Full Video Interpolation")
