@@ -543,6 +543,7 @@ status = {
     'kandinsky_2_2': True,
     'kandinsky_fuse_2_2': True,
     'initialized': False,
+    'updated': [],
 }
 
 if 'last_updated' in prefs:
@@ -1360,6 +1361,17 @@ def run_process(cmd_str, cwd=None, realtime=True, page=None, close_at_end=False,
       print(output)
     return output
 
+def latest_version(package_name):
+  try:
+    output = subprocess.run(["pip", "show", package_name], capture_output=True, text=True, check=True)
+    match = re.search(r"Version: (.*)", output.stdout)
+    if match:
+      return match.group(1)
+    else:
+      return None
+  except subprocess.CalledProcessError:
+    return None
+
 def close_alert_dlg(e):
     e.page.alert_dlg.open = False
     e.page.update()
@@ -2100,7 +2112,7 @@ def buildInstallers(page):
       #page.Parameters.updater()
       if force_updates:
           prefs['last_updated'] = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-          force_updates = False
+          #force_updates = False
       if current_tab==1:
         page.Installers.controls[0].content.update()
         page.Installers.update()
@@ -2118,8 +2130,7 @@ def buildInstallers(page):
         page.floating_action_button = None
         page.update()
   page.show_install_fab = show_install_fab
-  install_button = ElevatedButton(content=Text(value="⏬   Run Installations ", size=20), on_click=run_installers)
-
+  #install_button = ElevatedButton(content=Text(value="⏬   Run Installations ", size=20), on_click=run_installers)
   #image_output = TextField(label="Image Output Path", value=prefs['image_output'], on_change=changed)
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
@@ -21161,7 +21172,7 @@ def get_diffusers(page):
     if prefs['enable_xformers']:#prefs['memory_optimization'] == 'Xformers Mem Efficient Attention':
         try:
             import xformers
-            if force_updates: raise ModuleNotFoundError("Forcing update")
+            if force_update("xformers"): raise ModuleNotFoundError("Forcing update")
         except ModuleNotFoundError:
             page.console_msg("Installing FaceBook's Xformers Memory Efficient Package...")
             run_process("pip install --pre -U triton", page=page)
@@ -21226,7 +21237,7 @@ def get_diffusers(page):
         pass
     try:
         import transformers
-        #if force_updates: raise ModuleNotFoundError("Forcing update")
+        if force_update("transformers"): raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         page.status("...installing transformers")
         run_process("pip install --upgrade transformers", page=page)
@@ -21250,7 +21261,7 @@ def get_diffusers(page):
         pass
     try:
         import diffusers
-        if force_updates: raise ModuleNotFoundError("Forcing update")
+        if force_update("diffusers"): raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         page.status("...installing diffusers")
         #run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git", page=page)
@@ -21621,12 +21632,13 @@ try:
     import torch
     if version.parse(version.parse(torch.__version__).base_version) < version.parse("2.2.1") and torch.cuda.is_available():
       if upgrade_torch:
-        raise ModuleNotFoundError("")
+        raise ModuleNotFoundError("Upgrade Torch")
     else:
         upgrade_torch = True
 except ModuleNotFoundError:
     #page.console_msg("Installing PyTorch with CUDA 1.17")
-    print("Installing PyTorch 2.2.1 with CUDA 1.21...")
+    pt_ver = latest_version("torch")
+    print(f"Installing PyTorch {pt_ver} with CUDA 1.21...")
     run_sp("pip install -qq -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
     #run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
     #pip install --pre torch torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/nightly/cu118
@@ -21651,9 +21663,10 @@ if torch_device == "cuda":
             #import importlib
             print(f"Uninstalling old transformers v{transformers.__version__}")
             run_sp("pip uninstall -y transformers", realtime=False)
-            print("Installing newest transformers package...")
+            t_ver = latest_version("transformers")
+            print(f"Installing latest transformers v{t_ver} package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=False)
-            print("Installing newest accelerate package...")
+            print("Installing latest HuggingFace packages...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=False)
             try:
                 import huggingface_hub
@@ -21699,6 +21712,7 @@ try:
 except Exception:
     status['gpu_memory'] = "N/A"
     pass
+
 pb = ProgressBar(width=420, bar_height=8)
 abort_run = False
 start_step = 0
@@ -21897,7 +21911,6 @@ def install_xformers(page):
     ''' No longer needed, they finally updated to make it easier'''
     run_process("pip install -U --pre triton", page=page)
     from subprocess import getoutput
-
     s = getoutput('nvidia-smi')
     if 'T4' in s:
       gpu = 'T4'
@@ -21978,7 +21991,7 @@ def get_mega_pipe():
   pipe.set_progress_bar_config(disable=True)
   return pipe
 
-def get_lpw_pipe():
+def get_lpw_pipe(): #Not using anymore after things broke. Switched to Compel.
   global pipe, scheduler, model_path, prefs
   from diffusers import DiffusionPipeline
   from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
@@ -22011,10 +22024,6 @@ def get_lpw_pipe():
         pipe = DiffusionPipeline.from_single_file(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
       else:
         pipe = DiffusionPipeline.from_pretrained(model_path, custom_pipeline="AlanB/lpw_stable_diffusion_update", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
-    #pipe = DiffusionPipeline.from_pretrained(model_path, community="lpw_stable_diffusion", scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-  #if prefs['enable_attention_slicing']: pipe.enable_attention_slicing()
-  #pipe = pipe.to(torch_device)
-  #pipe = pipeline_scheduler(pipe)
   pipe = optimize_pipe(pipe, vae_slicing=True)
   pipe.set_progress_bar_config(disable=True)
   return pipe
@@ -22086,9 +22095,9 @@ def get_SD_pipe(task="txt2img"):
   return pipe
 
 def get_txt2img_pipe():
-  global pipe, scheduler, model_path, prefs, status
-  from diffusers import StableDiffusionPipeline
-  from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
+  global pipe#, scheduler, model_path, prefs, status
+  #from diffusers import StableDiffusionPipeline
+  #from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
   #from diffusers import AutoencoderKL, UNet2DConditionModel
   #if status['finetuned_model']:
   #  vae = AutoencoderKL.from_pretrained(model_path, subfolder="vae", torch_dtype=torch.float16)
@@ -22170,7 +22179,6 @@ def get_interpolation(page):
       del pipe_interpolation
       flush()
       pipe_interpolation = None
-
     pipe_interpolation = get_interpolation_pipe()
     run_process("pip install watchdog -q", page=page, realtime=False)
     status['loaded_interpolation'] = True
@@ -22196,8 +22204,6 @@ def get_interpolation_pipe():
       pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, revision=model['revision'], torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
     else:
       pipe_interpolation = StableDiffusionWalkPipeline.from_pretrained(model_path, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, torch_dtype=torch.float16 if not prefs['higher_vram_mode'] else torch.float32, **safety)
-    #pipe = StableDiffusionPipeline.from_pretrained(model_path, scheduler=scheduler, revision="fp16", torch_dtype=torch.float16, safety_checker=None if prefs['disable_nsfw_filter'] else StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"))
-    #pipe_interpolation = pipe_interpolation.to(torch_device)
     pipe_interpolation = pipeline_scheduler(pipe_interpolation)
     pipe_interpolation = optimize_pipe(pipe_interpolation, freeu=False)
     pipe_interpolation.set_progress_bar_config(disable=True)
@@ -23088,7 +23094,7 @@ def get_AIHorde(page):
     payload = response.json()
     print(str(payload))
     AI_Horde = os.path.join(dist_dir, "AI-Horde-CLI")
-    if not os.path.exists(AI_Horde) or force_updates:
+    if not os.path.exists(AI_Horde) or force_update("AI-Horde"):
       if os.path.exists(AI_Horde):
         shutil.rmtree(AI_Horde, ignore_errors=True)
       run_sp("git clone https://github.com/db0/AI-Horde-CLI.git", cwd=dist_dir, realtime=False)
@@ -25285,7 +25291,7 @@ def start_diffusion(page):
                 pipe_used = "MultiDiffusion Panorama Text-to-Image"
                 arg['width'] = prefs['panorama_width']
                 arg['height'] = 512
-                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1, circular_padding=prefs['panorama_circular_padding'], **ip_adapter_arg).images
+                images = pipe_panorama(prompt=pr, negative_prompt=arg['negative_prompt'], height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **cross_attention_kwargs, circular_padding=prefs['panorama_circular_padding'], **ip_adapter_arg).images
               elif prefs['use_safe'] and status['installed_safe']:
                 from diffusers.pipelines.stable_diffusion_safe import SafetyConfig
                 s = prefs['safety_config']
@@ -25775,7 +25781,7 @@ def run_prompt_generator(page):
       return
     try:
       import google.generativeai as genai
-      if force_updates: raise ModuleNotFoundError("Forcing update")
+      if force_update("generativeai"): raise ModuleNotFoundError("Forcing update")
     except:
       page.prompt_generator_list.controls.append(Installing("Installing Google MakerSuite Library..."))
       page.prompt_generator_list.update()
@@ -25815,7 +25821,7 @@ def run_prompt_generator(page):
       return
     try:
       import google.generativeai as genai
-      if force_updates: raise ModuleNotFoundError("Forcing update")
+      if force_update("generativeai"): raise ModuleNotFoundError("Forcing update")
     except:
       page.prompt_generator_list.controls.append(Installing("Installing Google MakerSuite Library..."))
       page.prompt_generator_list.update()
@@ -26033,7 +26039,7 @@ def run_prompt_remixer(page):
       return
     try:
       import google.generativeai as genai
-      if force_updates: raise ModuleNotFoundError("Forcing update")
+      if force_update("generativeai"): raise ModuleNotFoundError("Forcing update")
     except:
       page.prompt_remixer_list.controls.append(Installing("Installing Google MakerSuite Library..."))
       page.prompt_remixer_list.update()
@@ -26321,7 +26327,7 @@ def run_prompt_brainstormer(page):
         return
       try:
         import google.generativeai as genai
-        if force_updates: raise ModuleNotFoundError("Forcing update")
+        if force_update("generativeai"): raise ModuleNotFoundError("Forcing update")
       except:
         page.prompt_brainstormer_list.controls.append(Installing("Installing Google MakerSuite Library..."))
         page.prompt_brainstormer_list.update()
@@ -29846,7 +29852,7 @@ def run_null_text(page):
     from PIL import ImageOps
     from PIL.PngImagePlugin import PngInfo
     diffusers_dir = os.path.join(root_dir, "diffusers")
-    if not os.path.exists(diffusers_dir) or force_updates:
+    if not os.path.exists(diffusers_dir) or force_update("diffusers_dir"):
       os.chdir(root_dir)
       #installer.status("...clone diffusers")
       run_process("git clone https://github.com/Skquark/diffusers.git", realtime=False, cwd=root_dir)
@@ -30607,7 +30613,7 @@ def run_image2text(page):
           return
         try:
           import google.generativeai as genai
-          if force_updates: raise ModuleNotFoundError("Forcing update")
+          if force_update("generativeai"): raise ModuleNotFoundError("Forcing update")
         except:
           run_sp("pip install --upgrade google-generativeai", realtime=False)
           import google.generativeai as genai
@@ -30647,7 +30653,7 @@ def run_image2text(page):
           return
         try:
           import openai
-          #if force_updates: raise ModuleNotFoundError("Forcing update")
+          if force_update("openai"): raise ModuleNotFoundError("Forcing update")
         except ModuleNotFoundError:
           run_sp("pip install --upgrade openai -qq", realtime=False)
           pass
@@ -33223,7 +33229,7 @@ def run_openai_tts(page):
             installer.status("...uninstalling old openai")
             run_process("pip uninstall -y openai", realtime=False)
             raise ModuleNotFoundError("Forcing update")
-        if force_updates or True: raise ModuleNotFoundError("Forcing update")
+        if force_update("openai"): raise ModuleNotFoundError("Forcing update")
     except:
         installer.status("...installing openai")
         run_process("pip install -q --upgrade openai", realtime=False)
@@ -33979,7 +33985,7 @@ def run_bark(page):
         sys.path.append(os.path.join(root_dir, 'audioldm'))
     try:
         from bark import SAMPLE_RATE, generate_audio, preload_models
-        if force_updates: raise ImportError("Forcing update")
+        if force_update("bark"): raise ImportError("Forcing update")
     except Exception:
         installer.status("...installing suno-ai/bark")
         try:
@@ -34564,7 +34570,7 @@ def run_whisper(page):
                 return
             try:
                 import google.generativeai as genai
-                if force_updates: raise ModuleNotFoundError("Forcing update")
+                if force_update("generativeai"): raise ModuleNotFoundError("Forcing update")
             except:
                 installer.status("Installing Google MakerSuite Library...")
                 run_sp("pip install --upgrade google-generativeai", realtime=False)
@@ -38383,7 +38389,7 @@ def run_deepfloyd(page, from_list=False):
     #    pip_install("bitsandbytes", upgrade=True, installer=installer)
     try:
         import diffusers
-        if force_updates: raise ModuleNotFoundError("Forcing update")
+        if force_update("diffusers"): raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         installer.status("...HuggingFace Diffusers")
         #run_process("pip install --upgrade diffusers~=0.16", page=page)
@@ -38392,7 +38398,7 @@ def run_deepfloyd(page, from_list=False):
         pass
     try:
         import transformers
-        if force_updates: raise ModuleNotFoundError("Forcing update")
+        if force_update("transformers"): raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         installer.status("...Transformers")
         run_process("pip install -qq --upgrade git+https://github.com/huggingface/transformers", page=page)
@@ -39815,7 +39821,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             return
         try:
             import google.generativeai as genai
-            if force_updates: raise ModuleNotFoundError("Forcing update")
+            if force_update("generativeai"): raise ModuleNotFoundError("Forcing update")
         except:
             installer.status("...installing Google MakerSuite Library")
             run_sp("pip install --upgrade google-generativeai", realtime=False)
@@ -42909,7 +42915,7 @@ def run_style_crafter(page):
     style_crafter_dir = os.path.join(root_dir, "StyleCrafter")
     checkpoints_dir = os.path.join(style_crafter_dir, "checkpoints")
     
-    if not os.path.exists(style_crafter_dir) or force_updates:
+    if not os.path.exists(style_crafter_dir) or force_update("StyleCrafter"):
         try:
             installer.status("...cloning GongyeLiu/StyleCrafter.git")
             run_sp("git clone https://github.com/GongyeLiu/StyleCrafter.git", cwd=root_dir, realtime=False)
@@ -43430,7 +43436,7 @@ def run_animate_diff(page):
     pip_install("omegaconf einops cmake colorama rich ninja copier==8.1.0 pydantic shellingham typer gdown==4.7.3 black ruff setuptools-scm controlnet_aux mediapipe matplotlib watchdog imageio==2.27.0", installer=installer)
 
     animatediff_dir = os.path.join(root_dir, 'animatediff-cli-prompt-travel')
-    if 'installed_animate_diff' not in status:#not os.path.exists(animatediff_dir) or force_updates:
+    if 'installed_animate_diff' not in status or force_update("animate_diff"):#not os.path.exists(animatediff_dir):
         installer.status("...clone s9roll7/animatediff")
         run_sp("git clone https://github.com/s9roll7/animatediff-cli-prompt-travel", realtime=False, cwd=root_dir)
         #run_sp("git clone https://github.com/Skquark/animatediff-cli", realtime=False, cwd=root_dir) #/neggles
@@ -47614,7 +47620,7 @@ def run_dall_e_3(page, from_list=False):
         if version.parse(openai.__version__).base_version < version.parse("1.12.0"):
             run_process("pip uninstall -y openai", realtime=False)
             raise ModuleNotFoundError("Forcing update")
-        if force_updates or True: raise ModuleNotFoundError("Forcing update")
+        if force_update("openai"): raise ModuleNotFoundError("Forcing update")
     except:
         prt(Installing("Installing OpenAI DALL•E 3 API..."))
         run_process("pip install -q --upgrade openai", realtime=False)
@@ -49435,24 +49441,28 @@ class FileInput(UserControl):
             if e.progress == 1:
               #TODO: Make save dir default to /root/uploads dir
               if self.output_dir == None:
-                save_dir = root_dir
+                save_dir = uploads_dir
               else:
                 save_dir = self.output_dir
                 if not os.path.exists(save_dir):
                   os.mkdir(save_dir)
               if not slash in e.file_name:
+                f = os.path.join(root_dir, e.file_name)
                 fname = os.path.join(save_dir, e.file_name)
                 fpath = os.path.join(save_dir, e.file_name)
-                self.pref[self.key] = e.file_name.rpartition('.')[0]
+                if f != fpath:
+                  shutil.move(f, fpath)
+                #self.pref[self.key] = fpath #e.file_name.rpartition('.')[0]
               else:
                 fname = e.file_name
-                self.pref[self.key] = e.file_name.rpartition(slash)[2].rpartition('.')[0]
+                fpath = e.file_name
+              #print(f"{e.file_name} to {fname}")
               if self.max_size != None:
                 original_img = PILImage.open(fname)
                 width, height = original_img.size
                 width, height = scale_dimensions(width, height, self.max_size)
                 original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
-                original_img.save(fpath)
+                original_img.save(fname)
               self.textfield.value = fname
               self.textfield.update()
               self.pref[self.key] = fname
@@ -50170,6 +50180,17 @@ def check_diffusers(page:Page):
         return False
     else:
         return True
+
+def force_update(package):
+    global status
+    if force_updates:
+        if package in status['updated']:
+            return False
+        else:
+            status['updated'].append(package)
+            return True
+    else:
+        return False
 
 def create_pattern(filename, glob=False):
     base, ext = os.path.splitext(filename)

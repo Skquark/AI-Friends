@@ -182,12 +182,12 @@ LoRA_models = [
 ]
 SDXL_models = [
     {"name": "SDXL-Base v1", "path": "stabilityai/stable-diffusion-xl-base-1.0", "prefix": "", "variant": "fp16", "use_safetensors": True},
-    {"name": "SDXL-Turbo", "path": "stabilityai/sdxl-turbo", "prefix": "", "variant": "fp16"},
+    {"name": "SDXL-Turbo", "path": "stabilityai/sdxl-turbo", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "AE SDXL v4", "path": "stablediffusionapi/ae-sdxl-v4", "prefix": ""},
     {"name": "AlbedoBase XL 2.0", "path": "stablediffusionapi/albedobase-xl-20", "prefix": ""},
     {"name": "Animagine-XL 3", "path": "cagliostrolab/animagine-xl-3.0", "prefix": "", "use_safetensors": True},
     {"name": "Animagine-XL 3 Lightning", "path": "Bakanayatsu/Animagine-xl-3.0-2step-Lightning", "prefix": ""},
-    {"name": "Anime-XL", "path": "stablediffusionapi/animexl-xuebimix", "prefix": "", "variant": "fp16"},
+    {"name": "Anime-XL", "path": "stablediffusionapi/animexl-xuebimix", "prefix": ""},
     {"name": "Colossus Project XL", "path": "n0madic/colossusProjectXL_v53", "prefix": "", "variant": "fp16"},
     {"name": "Counterfeit-XL", "path": "gsdf/CounterfeitXL", "prefix": "", "variant": "fp16"},
     {"name": "CrystalClear XL", "path": "stablediffusionapi/crystal-clear-xlv1", "prefix": ""},
