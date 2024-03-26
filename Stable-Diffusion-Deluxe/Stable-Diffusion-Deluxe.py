@@ -1828,7 +1828,7 @@ def buildInstallers(page):
   clip_settings.height = None if prefs['install_CLIP_guided'] else 0
 
   def run_installers(e):
-      global force_updates
+      global force_updates, prefs, status
       def console_clear():
         page.banner.content.controls = []
         page.update()
@@ -21233,7 +21233,7 @@ def get_diffusers(page):
         pass
     try:
         import transformers
-        if force_update("transformers"): raise ModuleNotFoundError("Forcing update")
+        #if force_update("transformers"): raise ModuleNotFoundError("Forcing update")
     except ModuleNotFoundError:
         page.status("...installing transformers")
         run_process("pip install --upgrade transformers", page=page)
@@ -21682,7 +21682,7 @@ if torch_device == "cuda":
             raise SystemExit("Please Restart Session and run all again to Upgrade... Sorry, only workaround.")
     except ModuleNotFoundError:
         pass
-
+#print(latest_version("torch"))
 if not is_Colab:
     try:
         subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -21715,8 +21715,8 @@ start_step = 0
 start_callback = 0
 total_steps = args['steps']
 def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
-    callback_fn.has_been_called = True
     global total_steps, pb
+    callback_fn.has_been_called = True
     if total_steps is None: total_steps = timestep
     if total_steps == 0: total_steps = len(latents)
     multiplier = 2 if prefs['scheduler_mode'].startswith("Heun") or prefs['scheduler_mode'].startswith("K-DPM") else 1
@@ -21733,8 +21733,8 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
     pb.update()
 
 def callback_step(pipe, i, t, callback_kwargs):
-    callback_step.has_been_called = True
     global pb, start_step, start_callback, abort_run
+    callback_step.has_been_called = True
     now = time.time()
     itsec = ""
     try:
@@ -36287,8 +36287,8 @@ def run_ledits(page, from_list=False):
       editing_prompt = [ledits_prefs['source_prompt'], pr['prompt']]
       reverse_editing_direction=[True, False]
       edit_guidance_scale=[ledits_prefs['source_guidance_scale'], ledits_prefs['guidance_scale']]
-      edit_threshold=[0.9, ledits_prefs['edit_threshold']]
-      invert_args = {'negative_prompt':pr['negative_prompt'] if bool(pr['negative_prompt']) else None} if ledits_prefs['use_SDXL'] else {'width':width, 'height':height}
+      edit_threshold=[0.9, ledits_prefs['edit_threshold']] #'width':width, 'height':height
+      invert_args = {'negative_prompt':pr['negative_prompt'] if bool(pr['negative_prompt']) else None} if ledits_prefs['use_SDXL'] else {}
       pipe_args = {'target_size':(width, height)} if ledits_prefs['use_SDXL'] else {}
       for num in range(ledits_prefs['num_images']):
           prt(progress)
@@ -49320,8 +49320,8 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     app_icon_color = colors.AMBER_800
     space = " "  if (page.width if page.web else page.window_width) >= 1024 else ""
     def clear_memory(e):
-        clear_pipes()
         play_snd(Snd.DELETE, page)
+        clear_pipes()
     page.stats = Column([Text("", size=10), Text("", size=10)], tight=True, spacing=4)
     appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window_width) if page.web else page.window_width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE, overflow=ft.TextOverflow.ELLIPSIS, expand=True))], alignment=MainAxisAlignment.CENTER, expand=True), expand=False), elevation=20,
       center_title=True,
@@ -49436,22 +49436,17 @@ class FileInput(UserControl):
         def on_upload_progress(e: FilePickerUploadEvent):
             if e.progress == 1:
               #TODO: Make save dir default to /root/uploads dir
-              if self.output_dir == None:
-                save_dir = uploads_dir
-              else:
-                save_dir = self.output_dir
-                if not os.path.exists(save_dir):
-                  os.mkdir(save_dir)
+              save_dir = uploads_dir if self.output_dir == None else self.output_dir
+              if not os.path.exists(save_dir):
+                os.mkdir(save_dir)
               if not slash in e.file_name:
                 f = os.path.join(root_dir, e.file_name)
                 fname = os.path.join(save_dir, e.file_name)
-                fpath = os.path.join(save_dir, e.file_name)
-                if f != fpath:
-                  shutil.move(f, fpath)
+                if f != fname:
+                  shutil.move(f, fname)
                 #self.pref[self.key] = fpath #e.file_name.rpartition('.')[0]
               else:
                 fname = e.file_name
-                fpath = e.file_name
               #print(f"{e.file_name} to {fname}")
               if self.max_size != None:
                 original_img = PILImage.open(fname)
@@ -50000,11 +49995,16 @@ def prt_line(line, column, size=17, update=True, from_list=False, page=None):
 
 def nudge(column:Column, page=None):
     ''' Force an autoscroll column to go down. Mainly to show ProgressBar not scrolling to bottom.'''
+    scroll = column.auto_scroll
+    if not scroll:
+        column.auto_scroll = True
     column.controls.append(Container(content=Text(" ")))
     column.update()
-    time.sleep(0.4)
+    time.sleep(0.2)
     del column.controls[-1]
     column.update()
+    if not scroll:
+        column.auto_scroll = False
     if page is not None:
         page.update()
     
