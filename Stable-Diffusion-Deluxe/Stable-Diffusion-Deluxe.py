@@ -8,7 +8,7 @@ import random as rnd
 from pathlib import Path
 parser = argparse.ArgumentParser()
 parser.add_argument("--storage_type", type=str, default="Local Drive")
-parser.add_argument("--saved_settings_json", type=str, default=".\sdd-settings.json")
+parser.add_argument("--saved_settings_json", type=str, default=r".\sdd-settings.json")
 parser.add_argument("--tunnel_type", type=str, default="desktop")
 flags = parser.parse_args()
 storage_type = flags.storage_type
@@ -159,7 +159,7 @@ elif tunnel_type == "localtunnel":
     run_sp("npm install -g -q localtunnel")
     localtunnel = subprocess.Popen(['lt', '--port', '80', 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
-    url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
+    url = (re.search(r"(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
     print(url)
 
 gdrive = None
@@ -564,7 +564,7 @@ except ModuleNotFoundError: #Also flexible_slider, vertical_splitter, shimmer
     pass
 #sys.path.append(sdd_utils_py)
 import sdd_utils
-from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS #AIHorde_models
+from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS, AIHorde_models
 import sdd_components
 from sdd_components import PanZoom, VideoContainer
 
@@ -1406,6 +1406,7 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
     if content == None: content = Container(content=None)
     if not isinstance(content, list):
         content = [content]
+    content = [Text(c) if isinstance(c, str) else c for c in content]
     actions = buttons + [okay_button] if buttons else [debug_button, okay_button]
     page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=actions, actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
     page.dialog = page.alert_dlg
@@ -1792,13 +1793,25 @@ def buildInstallers(page):
       AIHorde_settings.height=None if prefs['install_AIHorde_api'] else 0
       AIHorde_settings.update()
       page.update()
+  def models_AIHorde(e):
+      model_request = "https://stablehorde.net/api/v2/status/models"
+      headers = {'apikey': prefs['AIHorde_api_key']}
+      response = requests.get(model_request, headers=headers)
+      if response != None:
+          if response.status_code == 200:
+            horde_models = json.loads(response.content)
+            horde_models = sorted(horde_models, key=lambda x: (-x['count'], x['name']), reverse=False)
+            model_info = [f"{model['name']} - Count: {model['count']}{f' Jobs: '+str(int(model['jobs'])) if model['jobs'] != 0.0 else ''}" for model in horde_models]
+            alert_msg(e.page, "🏇  AI-Horde Current Model Stats", model_info, sound=False)
+          else: print(response)
   install_AIHorde = Switcher(label="Install AIHorde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'], on_change=toggle_AIHorde, tooltip="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.")
   use_AIHorde = Checkbox(label="Use Stable Horde API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_AIHorde_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_AIHorde_api'))
-  AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("3DKX"), dropdown.Option("Abyss OrangeMix"), dropdown.Option("AbyssOrangeMix-AfterDark"), dropdown.Option("ACertainThing"), dropdown.Option("AIO Pixel Art"), dropdown.Option("Analog Diffusion"), dropdown.Option("Anime Pencil Diffusion"), dropdown.Option("Anygen"), dropdown.Option("Anything Diffusion"), dropdown.Option("Anything v3"), dropdown.Option("App Icon Diffusion"), dropdown.Option("Arcane Diffusion"), dropdown.Option("Archer Diffusion"), dropdown.Option("Asim Simpsons"), dropdown.Option("A to Zovya RPG"), dropdown.Option("Balloon Art"), dropdown.Option("Borderlands"), dropdown.Option("BPModel"), dropdown.Option("BubblyDubbly"), dropdown.Option("Char"), dropdown.Option("CharHelper"), dropdown.Option("Cheese Daddys Landscape Mix"), dropdown.Option("ChilloutMix"), dropdown.Option("ChromaV5"), dropdown.Option("Classic Animation Diffusion"), dropdown.Option("Clazy"), dropdown.Option("Colorful"), dropdown.Option("Coloring Book"), dropdown.Option("Comic-Diffusion"), dropdown.Option("Concept Sheet"), dropdown.Option("Counterfeit"), dropdown.Option("Cyberpunk Anime Diffusion"), dropdown.Option("CyriousMix"), dropdown.Option("Dan Mumford Style"), dropdown.Option("Darkest Diffusion"), dropdown.Option("Dark Victorian Diffusion"), dropdown.Option("Deliberate"), dropdown.Option("DGSpitzer Art Diffusion"), dropdown.Option("Disco Elysium"), dropdown.Option("DnD Item"), dropdown.Option("Double Exposure Diffusion"), dropdown.Option("Dreamlike Diffusion"), dropdown.Option("Dreamlike Photoreal"), dropdown.Option("DreamLikeSamKuvshinov"), dropdown.Option("Dreamshaper"), dropdown.Option("DucHaiten"), dropdown.Option("DucHaiten Classic Anime"), dropdown.Option("Dungeons and Diffusion"), dropdown.Option("Dungeons n Waifus"), dropdown.Option("Eimis Anime Diffusion"), dropdown.Option("Elden Ring Diffusion"), dropdown.Option("Elldreth's Lucid Mix"), dropdown.Option("Elldreths Retro Mix"), dropdown.Option("Epic Diffusion"), dropdown.Option("Eternos"), dropdown.Option("Experience"), dropdown.Option("ExpMix Line"), dropdown.Option("FaeTastic"), dropdown.Option("Fantasy Card Diffusion"), dropdown.Option("FKing SciFi"), dropdown.Option("Funko Diffusion"), dropdown.Option("Furry Epoch"), dropdown.Option("Future Diffusion"), dropdown.Option("Ghibli Diffusion"), dropdown.Option("GorynichMix"), dropdown.Option("Grapefruit Hentai"), dropdown.Option("Graphic-Art"), dropdown.Option("GTA5 Artwork Diffusion"), dropdown.Option("GuoFeng"), dropdown.Option("Guohua Diffusion"), dropdown.Option("HASDX"), dropdown.Option("Hassanblend"), dropdown.Option("Healy's Anime Blend"), dropdown.Option("Hentai Diffusion"), dropdown.Option("HRL"), dropdown.Option("iCoMix"), dropdown.Option("Illuminati Diffusion"), dropdown.Option("Inkpunk Diffusion"), dropdown.Option("Jim Eidomode"), dropdown.Option("JWST Deep Space Diffusion"), dropdown.Option("Kenshi"), dropdown.Option("Knollingcase"), dropdown.Option("Korestyle"), dropdown.Option("kurzgesagt"), dropdown.Option("Laolei New Berry Protogen Mix"), dropdown.Option("Lawlas's yiff mix"), dropdown.Option("Liberty"), dropdown.Option("Marvel Diffusion"), dropdown.Option("Mega Merge Diffusion"), dropdown.Option("Microcasing"), dropdown.Option("Microchars"), dropdown.Option("Microcritters"), dropdown.Option("Microscopic"), dropdown.Option("Microworlds"), dropdown.Option("Midjourney Diffusion"), dropdown.Option("Midjourney PaintArt"), dropdown.Option("Min Illust Background"), dropdown.Option("ModernArt Diffusion"), dropdown.Option("mo-di-diffusion"), dropdown.Option("Moedel"), dropdown.Option("MoistMix"), dropdown.Option("Movie Diffusion"), dropdown.Option("NeverEnding Dream"), dropdown.Option("Nitro Diffusion"), dropdown.Option("Openniji"), dropdown.Option("OrbAI"), dropdown.Option("Papercutcraft"), dropdown.Option("Papercut Diffusion"), dropdown.Option("Pastel Mix"), dropdown.Option("Perfect World"), dropdown.Option("PFG"), dropdown.Option("pix2pix"), dropdown.Option("PIXHELL"), dropdown.Option("Poison"), dropdown.Option("Pokemon3D"), dropdown.Option("PortraitPlus"), dropdown.Option("PPP"), dropdown.Option("Pretty 2.5D"), dropdown.Option("PRMJ"), dropdown.Option("Project Unreal Engine 5"), dropdown.Option("ProtoGen"), dropdown.Option("Protogen Anime"), dropdown.Option("Protogen Infinity"), dropdown.Option("Pulp Vector Art"), dropdown.Option("PVC"), dropdown.Option("Rachel Walker Watercolors"), dropdown.Option("Rainbowpatch"), dropdown.Option("Ranma Diffusion"), dropdown.Option("RCNZ Dumb Monkey"), dropdown.Option("RCNZ Gorilla With A Brick"), dropdown.Option("RealBiter"), dropdown.Option("Realism Engine"), dropdown.Option("Realistic Vision"), dropdown.Option("Redshift Diffusion"), dropdown.Option("Rev Animated"), dropdown.Option("Robo-Diffusion"), dropdown.Option("Rodent Diffusion"), dropdown.Option("RPG"), dropdown.Option("Samdoesarts Ultmerge"), dropdown.Option("Sci-Fi Diffusion"), dropdown.Option("SD-Silicon"), dropdown.Option("Seek.art MEGA"), dropdown.Option("Smoke Diffusion"), dropdown.Option("Something"), dropdown.Option("Sonic Diffusion"), dropdown.Option("Spider-Verse Diffusion"), dropdown.Option("Squishmallow Diffusion"), dropdown.Option("SDXL_beta"), dropdown.Option("SDXL 1.0"), dropdown.Option("Stable Cascade 1.0"), dropdown.Option("stable_diffusion"), dropdown.Option("stable_diffusion_2.1"), dropdown.Option("stable_diffusion_inpainting"), dropdown.Option("Supermarionation"), dropdown.Option("Sygil-Dev Diffusion"), dropdown.Option("Synthwave"), dropdown.Option("SynthwavePunk"), dropdown.Option("TrexMix"), dropdown.Option("trinart"), dropdown.Option("Trinart Characters"), dropdown.Option("Tron Legacy Diffusion"), dropdown.Option("T-Shirt Diffusion"), dropdown.Option("T-Shirt Print Designs"), dropdown.Option("Uhmami"), dropdown.Option("Ultraskin"), dropdown.Option("UMI Olympus"), dropdown.Option("Unstable Ink Dream"), dropdown.Option("URPM"), dropdown.Option("Valorant Diffusion"), dropdown.Option("Van Gogh Diffusion"), dropdown.Option("Vector Art"), dropdown.Option("vectorartz"), dropdown.Option("Vintedois Diffusion"), dropdown.Option("VinteProtogenMix"), dropdown.Option("Vivid Watercolors"), dropdown.Option("Voxel Art Diffusion"), dropdown.Option("waifu_diffusion"), dropdown.Option("Wavyfusion"), dropdown.Option("Woop-Woop Photo"), dropdown.Option("Xynthii-Diffusion"), dropdown.Option("Yiffy"), dropdown.Option("Zack3D"), dropdown.Option("Zeipher Female Model"), dropdown.Option("Zelda BOTW")], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
-  #[dropdown.Option(m) for m in AIHorde_models]
-  AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
-  AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=350, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
-  AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, AIHorde_model, AIHorde_sampler, AIHorde_post_processing]))
+  AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=375, options=[], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
+  AIHorde_model.options = [dropdown.Option(m) for m in AIHorde_models]
+  horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
+  AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=375, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
+  AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=375, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
+  AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, Row([AIHorde_model, horde_models_info]), AIHorde_sampler, AIHorde_post_processing]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
   def toggle_upscale(e):
       prefs['install_ESRGAN'] = e.control.value
@@ -3778,7 +3791,7 @@ def NSP_instructions(page):
         else:
           page.set_clipboard(e.data)
           toast_msg(page, f"📋   NSP variable {e.data} copied to clipboard...")
-    NSP_markdown = '''To use a term database, simply use any of the keys below in sentence. Copy to Clipboard with click.
+    NSP_markdown = r'''To use a term database, simply use any of the keys below in sentence. Copy to Clipboard with click.
 
 For example if you wanted beauty adjective, you would write `_adj-beauty_` in your prompt.
 
@@ -11219,7 +11232,7 @@ def buildInstaFlow(page):
       instaflow_help_dlg = AlertDialog(title=Text("🙅   Help with InstaFlow Pipeline"), content=Column([
           Text("InstaFlow is an ultra-fast, one-step image generator that achieves image quality close to Stable Diffusion, significantly reducing the demand of computational resources. This efficiency is made possible through a recent Rectified Flow technique, which trains probability flows with straight trajectories, hence inherently requiring only a single step for fast inference."),
           Text("Rectified Flow is a novel method for learning transport maps between two distributions by connecting straight paths between the samples and learning an ODE model. Then, by a reflow operation, we iteratively straighten the ODE trajectories to eventually achieve one-step generation, with higher diversity than GAN and better FID than fast diffusion models."),
-          Text("Diffusion models have revolutionized text-to-image generation with its exceptional quality and creativity. However, its multi-step sampling process is known to be slow, often requiring tens of inference steps to obtain satisfactory results. Previous attempts to improve its sampling speed and reduce computational costs through distillation have been unsuccessful in achieving a functional one-step model. In this paper, we explore a recent method called Rectified Flow, which, thus far, has only been applied to small datasets. The core of Rectified Flow lies in its \emph{reflow} procedure, which straightens the trajectories of probability flows, refines the coupling between noises and images, and facilitates the distillation process with student models. We propose a novel text-conditioned pipeline to turn Stable Diffusion (SD) into an ultra-fast one-step model, in which we find reflow plays a critical role in improving the assignment between noise and images. Leveraging our new pipeline, we create, to the best of our knowledge, the first one-step diffusion-based text-to-image generator with SD-level image quality, achieving an FID (Frechet Inception Distance) of 23.3 on MS COCO 2017-5k, surpassing the previous state-of-the-art technique, progressive distillation, by a significant margin (37.2 → 23.3 in FID). By utilizing an expanded network with 1.7B parameters, we further improve the FID to 22.4."),
+          Text("Diffusion models have revolutionized text-to-image generation with its exceptional quality and creativity. However, its multi-step sampling process is known to be slow, often requiring tens of inference steps to obtain satisfactory results. Previous attempts to improve its sampling speed and reduce computational costs through distillation have been unsuccessful in achieving a functional one-step model. In this paper, we explore a recent method called Rectified Flow, which, thus far, has only been applied to small datasets. The core of Rectified Flow lies in its reflow procedure, which straightens the trajectories of probability flows, refines the coupling between noises and images, and facilitates the distillation process with student models. We propose a novel text-conditioned pipeline to turn Stable Diffusion (SD) into an ultra-fast one-step model, in which we find reflow plays a critical role in improving the assignment between noise and images. Leveraging our new pipeline, we create, to the best of our knowledge, the first one-step diffusion-based text-to-image generator with SD-level image quality, achieving an FID (Frechet Inception Distance) of 23.3 on MS COCO 2017-5k, surpassing the previous state-of-the-art technique, progressive distillation, by a significant margin (37.2 → 23.3 in FID). By utilizing an expanded network with 1.7B parameters, we further improve the FID to 22.4."),
           Markdown("[Rectified Flow](https://github.com/gnobitab/RectifiedFlow) | [Paper](https://arxiv.org/abs/2309.06380) | [Checkpoint](https://huggingface.co/XCLIU/instaflow_0_9B_from_sd_1_5)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("The pipelines were contributed by [Ayush Mangal](https://github.com/ayushtues), Sayak Paul, and Patrick von Platen.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🏇  Faster, faster!", on_click=close_instaflow_dlg)], actions_alignment=MainAxisAlignment.END)
@@ -24484,7 +24497,9 @@ def start_diffusion(page):
         images = []
         arg['width'] = multiple_of_64(arg['width'])
         arg['height'] = multiple_of_64(arg['height'])
+        pb.value = None
         prt(pb)
+        nudge(page.imageColumn, page=page)
         answers = None
         response = None
 
@@ -24604,14 +24619,13 @@ def start_diffusion(page):
         artifacts = json.loads(response.content)
         q_id = artifacts['id']
         #print(str(artifacts))
-        #stats = Text("")
-        #prt(stats)
         elapsed_seconds = 0
         try:
           while True:
             if abort_run: break
             check_response = requests.get(api_check_url + q_id)
             check = json.loads(check_response.content)
+            #print(check)
             try:
               div = check['wait_time'] + elapsed_seconds
               percentage = (1 - check['wait_time'] / div)
@@ -24622,13 +24636,15 @@ def start_diffusion(page):
             if div == 0: continue
             pb.value = percentage
             pb.update()
-            status_txt = f"Stable Horde API Diffusion - Queued Position: {check['queue_position']} - Waiting: {check['waiting']} - Wait Time: {check['wait_time']}"
+            status_txt = f"Stable Horde API Diffusion - Queued Position: {check['queue_position']} - Waiting: {check['waiting']} - Wait Time: {check['wait_time']} - Elapsed: {elapsed_seconds}s"
             stats.value = status_txt #str(check)
             stats.update()
             if bool(check['done']):
+              kudos = check['kudos']
+              print(f"AI-Horde Kudos Used: {kudos}")
               break
-            time.sleep(1)
-            elapsed_seconds += 1
+            time.sleep(2)
+            elapsed_seconds += 2
         except Exception as e:
           alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
           return
@@ -24640,6 +24656,7 @@ def start_diffusion(page):
           #print(f'{type(resp)} - {resp["seed"]}')
           if gen["censored"]:
             prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
+            #TODO: Retry Attempts
             continue
           img_response = requests.get(gen['img'])
           webp_file = io.BytesIO(img_response.content)
@@ -26622,7 +26639,7 @@ def run_magic_prompt(page):
             if resp != starting_text and len(resp) > (len(starting_text) + 4) and resp.endswith((":", "-", "—")) is False:
                 response_list.append(resp)
         response_end = "\n".join(response_list)
-        response_end = re.sub('[^ ]+\.[^ ]+','', response_end)
+        response_end = re.sub(r"[^ ]+\.[^ ]+", "", response_end)
         response_end = response_end.replace("<", "").replace(">", "")
         if response_end != "":
             return response_end.split("\n")
@@ -31232,7 +31249,7 @@ def run_dance_diffusion(page):
       run_cmd = "python " + os.path.join(sample_generator, 'train_uncond.py')
       custom_name = format_filename(dance_prefs['custom_name'], use_dash=True)
       output_dir = os.path.join(dance_audio, custom_name)
-      output_dir = output_dir.replace(f" ", f"\ ")
+      output_dir = output_dir.replace(" ", r"\ ")
       random_crop_str = f"--random-crop True" if dance_prefs['random_crop'] else ""
       run_cmd += f''' --ckpt-path {dance_model_file}\
           --name {custom_name}\
@@ -49473,12 +49490,12 @@ class FileInput(UserControl):
             ext = img_ext if self.ftype == "image" else vid_ext if self.ftype == "video" else font_ext if self.ftype == "font" else model_ext if self.ftype == "model" else gif_ext if self.ftype == "gif" else aud_ext if self.ftype == "audio" else midi_ext if self.ftype == "midi" else vid_ext+aud_ext if self.ftype == "media" else img_ext+gif_ext+vid_ext if self.ftype == "picture" else img_ext
             name = self.key.replace("_", " ").title()
             self.file_picker.pick_files(allow_multiple=False, allowed_extensions=ext, dialog_title=f"Pick {name} File")
-        def changed(e):
+        def changed_path(e):
             self.pref[self.key] = e.control.value
             self.textfield.focus()
         self.file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
         self.page.overlay.append(self.file_picker)
-        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, visible=self._visible, autofocus=False, on_change=changed, height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
+        self.textfield = TextField(label=self.label, value=self.pref[self.key], expand=self.expand, filled=self.filled, visible=self._visible, autofocus=False, on_change=changed_path, height=64, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_file))
         return self.textfield
     @property
     def value(self):
@@ -50000,7 +50017,7 @@ def nudge(column:Column, page=None):
         column.auto_scroll = True
     column.controls.append(Container(content=Text(" ")))
     column.update()
-    time.sleep(0.2)
+    #time.sleep(0.2)
     del column.controls[-1]
     column.update()
     if not scroll:
@@ -50453,7 +50470,7 @@ elif tunnel_type == "localtunnel":
     import re
     localtunnel = subprocess.Popen(['lt', '--port', str(port), 'http'], stdout=subprocess.PIPE)
     url = str(localtunnel.stdout.readline())
-    public_url = (re.search("(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
+    public_url = (re.search(r"(?P<url>https?:\/\/[^\s]+loca.lt)", url).group("url"))
 else: public_url=""
 from IPython.display import Javascript
 if bool(public_url):
