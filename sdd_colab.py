@@ -937,6 +937,7 @@ def buildExtras(page):
     page.CustomModelManager = buildCustomModelManager(page)
     page.MaskMaker = buildDreamMask(page)
     page.BackgroundRemover = buildBackgroundRemover(page)
+    page.reGen = buildHordeWorker(page)
     #page.Kandinsky21 = buildKandinsky21(page)
     #page.Kandinsky21Fuse = buildKandinsky21Fuse(page)
     extrasTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
@@ -946,6 +947,7 @@ def buildExtras(page):
             Tab(text="Cache Manager", content=page.CachedModelManager, icon=icons.CACHED),
             #Tab(text="Dream Mask Maker", content=page.MaskMaker, icon=icons.GRADIENT),
             Tab(text="Background Remover", content=page.BackgroundRemover, icon=icons.WALLPAPER),
+            Tab(text="Horde Worker reGen", content=page.reGen, icon=icons.BACKUP),
             #Tab(text="Kandinsky 2.1", content=page.Kandinsky21, icon=icons.AC_UNIT),
             #Tab(text="Kandinsky Fuse", content=page.Kandinsky21Fuse, icon=icons.FIREPLACE),
         ],
@@ -3013,24 +3015,24 @@ def buildPromptsList(page):
       page.update()
   def paste_prompts(e):
       def save_prompts_list(e):
-        plist = enter_text.value.strip()
-        prompts_list = plist.split('\n')
-        negative_prompt = negative_prompt_text.value
-        negative = None
-        if bool(negative_prompt):
-            if '_' in negative_prompt:
-                negative_prompt = nsp_parse(negative_prompt)
-            negative_prompt = prompt_parse(negative_prompt)
-            negative = {'negative_prompt': negative_prompt}
-        for pr in prompts_list:
-            if bool(pr.strip()):
-                if '_' in pr:
-                    pr = nsp_parse(pr)
-                pr = prompt_parse(pr)
-                add_to_prompts(pr.strip(), negative, update=False)
-        page.update()
-        status['changed_prefs'] = True
-        close_dlg(e)
+          close_dlg(e)
+          plist = enter_text.value.strip()
+          prompts_list = plist.split('\n')
+          negative_prompt = negative_prompt_text.value
+          negative = None
+          if bool(negative_prompt):
+              if '_' in negative_prompt:
+                  negative_prompt = nsp_parse(negative_prompt)
+              negative_prompt = prompt_parse(negative_prompt)
+              negative = {'negative_prompt': negative_prompt}
+          for pr in prompts_list:
+              if bool(pr.strip()):
+                  if '_' in pr:
+                      pr = nsp_parse(pr)
+                  pr = prompt_parse(pr)
+                  add_to_prompts(pr.strip(), negative, update=False)
+          page.update()
+          status['changed_prefs'] = True
       def close_dlg(e):
           dlg_paste.open = False
           page.update()
@@ -3043,8 +3045,8 @@ def buildPromptsList(page):
       def copy_prompts_list(pl):
           nonlocal text_list, enter_text
           page.set_clipboard(enter_text.value)
-          toast_msg(page, f"📋   Prompt Text copied to clipboard...")
           close_dlg(e)
+          toast_msg(page, f"📋   Prompt Text copied to clipboard...")
       def close_dlg(e):
           dlg_copy.open = False
           page.update()
@@ -6692,6 +6694,116 @@ def buildBackgroundRemover(page):
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
+
+horde_worker_regen_prefs = {
+    'dreamer_name': '',
+    'queue_size': 1,
+    'max_threads': 1,
+    'max_batch': 1,
+    'safety_on_gpu': False,
+    'require_upfront_kudos': False,
+    'max_resolution': '768x768', #max_power 8,18,32,50
+    'blacklist': '',
+    'nsfw': True,
+    'censor_nsfw': False,
+    'censorlist': '',
+    'allow_img2img': True,
+    'allow_painting': True,
+    'allow_post_processing': True,
+    'allow_controlnet': False,
+    'allow_lora': False,
+    'stats_output_frequency': 10,
+    'models_to_load': ['top 2'],
+    'models_to_skip': [],
+    'scribe_name': '',
+    'max_length': 80,
+    'max_context_length': 1024,
+    'alchemist_name': '',
+    'alchemist_forms': ['caption', 'nsfw', 'interrogation', 'post-process']
+}
+
+def buildHordeWorker(page):
+    global prefs, horde_worker_regen_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              horde_worker_regen_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              horde_worker_regen_prefs[pref] = float(e.control.value)
+            else:
+              horde_worker_regen_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def horde_help(e):
+        def close_horde_dlg(e):
+          nonlocal horde_help_dlg
+          horde_help_dlg.open = False
+          page.update()
+        horde_help_dlg = AlertDialog(title=Text("💁   Help with reGen Horde Worker"), content=Column([
+            Text("Set up a AI Horde Worker to generate, post-process or analyze images for others. This will turn your graphics card(s) into a worker for the AI Horde where you will create images for others. You you will receive in turn earn 'kudos' which will give you priority for your own generations."),
+            #Text(""),
+            Markdown("[AI-Horde Page](https://aihorde.net/) | [GitHub Repo](https://github.com/Haidra-Org/horde-worker-reGen) | [A Division of Zer0 Discord](https://discord.com/channels/781145214752129095/1076124012305993768) | [dbzer0 Project](https://dbzer0.itch.io)]", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("💑  Sharing is Caring... ", on_click=close_horde_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = horde_help_dlg
+        horde_help_dlg.open = True
+        page.update()
+    def models_AIHorde(e):
+        model_request = "https://stablehorde.net/api/v2/status/models"
+        headers = {'apikey': prefs['AIHorde_api_key']}
+        response = requests.get(model_request, headers=headers)
+        if response != None:
+            if response.status_code == 200:
+              horde_models = json.loads(response.content)
+              horde_models = sorted(horde_models, key=lambda x: (-x['count'], x['name']), reverse=False)
+              model_info = [f"{model['name']} - Count: {model['count']}{f' Jobs: '+str(int(model['jobs'])) if model['jobs'] != 0.0 else ''}" for model in horde_models]
+              alert_msg(e.page, "🏇  AI-Horde Current Model Stats", model_info, sound=False)
+            else: print(response)
+    horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
+    max_resolution = Dropdown(label="Max Resolution", width=150, options=[dropdown.Option("512x512"), dropdown.Option("768x768"), dropdown.Option("1024x1024"), dropdown.Option("1280x1280")], value=horde_worker_regen_prefs["max_resolution"], on_change=lambda e: changed(e, 'max_resolution'))
+    dreamer_name = TextField(label="Dreamer Instance Name", hint_text="An Awesome Dreamer", filled=True, expand=True, value=horde_worker_regen_prefs['dreamer_name'], on_change=lambda e:changed(e,'dreamer_name'))
+    def changed_model(e):
+        on = e.control.value
+        if e.control.data in horde_worker_regen_prefs['models_to_load']:
+            horde_worker_regen_prefs['models_to_load'].remove(e.control.data)
+        else:
+            horde_worker_regen_prefs['models_to_load'].append(e.control.data)
+    horde_models = ResponsiveRow(controls=[], spacing={'xs':0}, run_spacing={'xs':0})
+    for m in ["top 2", "ALL MODELS", "TOP 3", "ALL SFW"]:
+        horde_models.controls.append(Checkbox(label=m, data=m, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, value=m in horde_worker_regen_prefs['models_to_load'], on_change=changed_model, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    for m in AIHorde_models:
+        horde_models.controls.append(Checkbox(label=m, data=m, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, value=m in horde_worker_regen_prefs['models_to_load'], on_change=changed_model, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    queue_size = NumberPicker(label="Queue Size: ", min=1, max=3, value=horde_worker_regen_prefs['queue_size'], tooltip="We will keep this many requests in the queue so we can start working as soon as a thread is available. This generally should be or 1 or 2. You should never set this higher than 2 if your max_threads is 2.", on_change=lambda e: changed(e, 'queue_size'))
+    max_threads = NumberPicker(label="Max Threads: ", min=1, max=2, value=horde_worker_regen_prefs['max_threads'], tooltip="The amount of parallel jobs to pick up for the horde. Only high end cards (e.g, 3080 or better) benefit from this setting. If you have a 20xx or earlier, or a xx60/xx70, do not change this setting from 1.", on_change=lambda e: changed(e, 'max_threads'))
+    max_batch = NumberPicker(label="Max Batch: ", min=1, max=2, value=horde_worker_regen_prefs['max_threads'], tooltip="This will try to pull these many jobs per request and perform batched inference. This is way more optimized than doing them 1 by 1, but is slower. Keep in mind, that the horde will not give your max batch at your max resolution", on_change=lambda e: changed(e, 'max_batch'))
+    safety_on_gpu = Switcher(label="Safety Check on GPU ", value=horde_worker_regen_prefs['safety_on_gpu'], on_change=lambda e:changed(e,'safety_on_gpu'), tooltip="Run CLIP model (Checking for potential CSAM or NSFW) on GPU insted of CPU. nable this on cards with 12gb or more VRAM to increase the rate you complete jobs. You can enable this on cards with less VRAM if you do not load SD2.0 or SDXL models, and keep your max_power low (<32)")
+    require_upfront_kudos = Switcher(label="Require Upfront Kudos", value=horde_worker_regen_prefs['require_upfront_kudos'], on_change=lambda e:changed(e,'require_upfront_kudos'), tooltip="Worker will not only pick up jobs where the user has the required kudos upfront. Effectively this will exclude all anonymous accounts, and registered accounts who haven't contributed.")
+    #require_upfront_kudos = Switcher(label="Require Upfront Kudos", value=prefs['require_upfront_kudos'], on_change=lambda e:changed(e,'require_upfront_kudos'), tooltip="")
+    nsfw = Checkbox(label="Allow NSFW", value=horde_worker_regen_prefs['nsfw'], tooltip="If you do not want to serve NSFW images, set this to false.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    censor_nsfw = Checkbox(label="Censor NSFW", value=horde_worker_regen_prefs['censor_nsfw'], tooltip="If you want to censor Not Safe For Work images.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    censorlist = TextField(label="Censor Word List (optional)", value=horde_worker_regen_prefs['censorlist'], on_change=lambda e:changed(e,'censorlist'), tooltip="A list of words for which you always want to censor, even if `nsfw` is true.", col={'xs':12, 'sm':6, 'md':6, 'lg':6, 'xl': 4})
+    allow_img2img = Checkbox(label="Allow Img2Img", value=horde_worker_regen_prefs['allow_img2img'], tooltip="Accept jobs which use a user-supplied image.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_painting = Checkbox(label="Allow Painting", value=horde_worker_regen_prefs['allow_painting'], tooltip="Accept jobs which use a user-supplied image and an inpainting specific model.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_post_processing = Checkbox(label="Allow Post-Processing", value=horde_worker_regen_prefs['allow_post_processing'], tooltip="Allow upscaling, facefixer and other post-generation features to be performed by the worker.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_controlnet = Checkbox(label="Allow ControlNet", value=horde_worker_regen_prefs['allow_controlnet'], tooltip="Allow controlnet jobs to be done by this worker. Note: There is additional RAM/VRAM overhead with this option. Low VRAM cards (<6gb) should be cautious to enable this.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_lora = Checkbox(label="Allow LoRA", value=horde_worker_regen_prefs['allow_lora'], tooltip="Allow LoRas to be used. This requires that you have a fast internet connection, LoRas will be downloaded on demand..", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("⛈️  AI-Horde Worker reGen Server", "Share your GPU in the AI-Horde SD Cloud and earn Kudos... Give back to the Stable Horde, thanks db0.", actions=[save_default(horde_worker_regen_prefs), IconButton(icon=icons.HELP, tooltip="Help with AI-Horde Worker Settings", on_click=horde_help)]),
+        Row([dreamer_name]),
+        ResponsiveRow([allow_img2img, allow_painting, allow_post_processing, allow_controlnet, allow_lora]),
+        ResponsiveRow([nsfw, censor_nsfw, censorlist]),
+        Row([queue_size, max_threads, max_batch]),
+        Row([max_resolution, safety_on_gpu, require_upfront_kudos]),
+        Row([Text("Select one or more models to share:", weight=FontWeight.BOLD), horde_models_info]),
+        horde_models,
+        ElevatedButton(content=Text("⛅  Start reGen Server", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_horde_tts(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 
 blip_diffusion_prefs = {
     "prompt": '',
@@ -24493,7 +24605,7 @@ def start_diffusion(page):
         if not status['installed_AIHorde']:
           alert_msg(page, f"ERROR: To use AIHorde-API, you must run the install it first and have proper API key")
           return
-        stats = Text("Stable Horde API Diffusion ")
+        stats = Text(f"Stable Horde API Diffusion - Using {prefs['AIHorde_model']} Model...")
         prt(stats)
         #prt('Stable Horde API Diffusion ')# + ('─' * 100))
         #print(f'"{SD_prompt}", height={SD_height}, width={SD_width}, steps={SD_steps}, cfg_scale={SD_guidance_scale}, seed={SD_seed}, sampler={generation_sampler}')
@@ -27787,6 +27899,147 @@ def run_background_remover(page):
     page.BackgroundRemover.update()
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+
+def run_horde_worker_regen(page):
+    global horde_worker_regen_prefs, status
+    if not bool(prefs['AIHorde_api_key']):
+        alert_msg(page, "Provide your AI-Horde API key in Settings tab... Get from aihorde.net/register")
+        return
+    def prt(line):
+        if type(line) == str:
+            line = Text(line)
+        page.reGen.controls.append(line)
+        page.reGen.update()
+    def clear_last(lines=1):
+        clear_line(page.reGen, lines=lines)
+    def autoscroll(scroll=True):
+        page.reGen.auto_scroll = scroll
+        page.reGen.update()
+    page.reGen.controls = page.RAVE.controls[:1]
+    autoscroll()
+    installer = Installing("Installing Horde Worker reGen Libraries... See console for progress.")
+    prt(installer)
+    horde_worker_regen_dir = os.path.join(root_dir, "horde-worker-reGen")
+    if not os.path.exists(horde_worker_regen_dir) or force_update("horde-worker"):
+        try:
+            installer.status("...cloning Haidra-Org/horde-worker-reGen")
+            run_sp("git clone https://github.com/Haidra-Org/horde-worker-reGen.git", cwd=root_dir, realtime=False)
+            installer.status("...installing Horde requirements")
+            #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
+            pip_install("horde_sdk~=0.8.3 horde_safety~=0.2.3 hordelib~=2.7.6 horde_model_reference~=0.6.3 python-dotenv ruamel.yaml semver python-Levenshtein pydantic typing_extensions requests StrEnum loguru babel watchdog yaml", installer=installer, upgrade=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Installing Horde Worker Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_pipes()
+    os.chdir(horde_worker_regen_dir)
+    installer.status("...downloading models")
+    run_sp("python download_models.py", cwd=horde_worker_regen_dir, realtime=True)
+    installer.status("...preparing yaml")
+    max_res = horde_worker_regen_prefs["max_resolution"]
+    max_power = 8 if max_res == "512x512" else 18 if max_res == "768x768" else 32 if max_res == "1024x1024" else 50
+    bridgeData = {
+        "horde_url": "https://aihorde.net",
+        "api_key": prefs["AIHorde_api_key"],
+        "priority_usernames": [],
+        "max_threads": 1,
+        "queue_size": 1,
+        "max_batch": horde_worker_regen_prefs["max_batch"],
+        "safety_on_gpu": horde_worker_regen_prefs["safety_on_gpu"],
+        "require_upfront_kudos": False,
+        # "civitai_api_token": '',
+        "dreamer_name": horde_worker_regen_prefs["dreamer_name"],
+        "max_power": max_power,
+        "blacklist": horde_worker_regen_prefs["blacklist"],
+        "nsfw": horde_worker_regen_prefs["nsfw"],
+        "censor_nsfw": horde_worker_regen_prefs["censor_nsfw"],
+        "censorlist": horde_worker_regen_prefs["censorlist"],
+        "allow_img2img": horde_worker_regen_prefs["allow_img2img"],
+        "allow_painting": horde_worker_regen_prefs["allow_painting"],
+        "allow_unsafe_ip": True,
+        "allow_post_processing": horde_worker_regen_prefs["allow_post_processing"],
+        "allow_controlnet": horde_worker_regen_prefs["allow_controlnet"],
+        "allow_lora": horde_worker_regen_prefs["allow_lora"],
+        "max_lora_cache_size": 10,
+        "dynamic_models": False,
+        "number_of_dynamic_models": 0,
+        "max_models_to_download": 10,
+        "stats_output_frequency": horde_worker_regen_prefs["stats_output_frequency"],
+        "cache_home": "./models/",
+        "temp_dir": "./tmp",
+        # "always_download": True (currently unused in reGen),
+        # "disable_terminal_ui": False (currently unused in reGen),
+        # "vram_to_leave_free": "80%" (currently unused in reGen),
+        # "ram_to_leave_free": "80%" (currently unused in reGen),
+        # "disable_disk_cache": False (currently unused in reGen),
+        "models_to_load": horde_worker_regen_prefs['models_to_load'],
+        "models_to_skip": [
+            "pix2pix",  # Not currently supported
+            "SDXL_beta::stability.ai#6901",  # Do not remove this
+            "A to Zovya RPG",  # Known to cause problems
+            # "- ALL NSFW MODELS",
+            # "- stable_diffusion_inpainting",
+            # "- stable_diffusion_2.1",
+            # "- stable_diffusion_2.0",
+            # Popular NSFW models commented out
+        ],
+        # "suppress_speed_warnings": False (currently unused in reGen),
+        "scribe_name": horde_worker_regen_prefs["scribe_name"],
+        "kai_url": "http://localhost:5000",
+        "max_length": horde_worker_regen_prefs["max_length"],
+        "max_context_length": horde_worker_regen_prefs["max_context_length"],
+        "branded_model": True,
+        "alchemist_name": horde_worker_regen_prefs["alchemist_name"],
+        "forms": ["caption", "nsfw", "interrogation", "post-process"],
+    }
+    import yaml, subprocess
+    bridgeData_yaml_file = os.path.join(horde_worker_regen_dir, "bridgeData.yaml")
+    with open(bridgeData_yaml_file, "w") as outfile:
+        yaml.dump(bridgeData, outfile, sort_keys=False)
+    if not os.path.exists(bridgeData_yaml_file):
+        alert_msg(page, f"Error creating json file {bridgeData_yaml_file}")
+        return
+    clear_last()
+    autoscroll(True)
+
+    log_file = os.path.join(horde_worker_regen_dir, "logs", "bridge.log")
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    class LastLineMonitor(FileSystemEventHandler):
+        def __init__(self, filename):
+            self.last_line = None
+            self.filename = filename
+        def on_modified(self, event):
+            if event.is_file and event.src_path == self.filename:
+                with open(self.filename, 'r') as f:
+                    lines = f.readlines()
+                    if lines:
+                        if self.last_line is None:
+                            self.last_line = lines[-1]
+                        else:
+                            # Get all lines starting from the index after the last stored line
+                            new_lines = lines[lines.index(self.last_line) + 1:]
+                            for line in new_lines:
+                                prt(line.strip())
+                            self.last_line = lines[-1]  # Update last_line for next modification
+    observer = Observer()
+    event_handler = LastLineMonitor(log_file)
+    observer.schedule(event_handler, log_file, recursive=False)
+    observer.start()
+    def abort_worker(e):
+        nonlocal horde_process, observer
+        horde_process.terminate()
+        prt("🛑  Aborted reGen Horde Worker Server")
+        page.snd_error.play()
+        page.snd_delete.play()
+        observer.stop()
+        autoscroll(False)
+        os.chdir(root_dir)
+        return
+    prt(Header("▶️   Running reGen Horde Worker Server...", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Horde Worker Server Sharing", on_click=abort_worker)]))
+    horde_process = subprocess.Popen(['python', 'run_worker.py'], cwd=horde_worker_regen_dir)
+    autoscroll(False)
+    os.chdir(root_dir)
 
 loaded_blip_diffusion_task = ""
 def run_blip_diffusion(page, from_list=False, with_params=False):
