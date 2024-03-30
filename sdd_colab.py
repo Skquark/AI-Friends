@@ -6713,8 +6713,8 @@ horde_worker_regen_prefs = {
     'allow_controlnet': False,
     'allow_lora': False,
     'stats_output_frequency': 10,
-    'models_to_load': ['top 2'],
-    'models_to_skip': [],
+    'models_to_load': ['TOP 2'],
+    'models_to_skip': ['pix2pix', 'SDXL_beta', 'A to Zovya RPG'],
     'scribe_name': '',
     'max_length': 80,
     'max_context_length': 1024,
@@ -6765,15 +6765,21 @@ def buildHordeWorker(page):
     dreamer_name = TextField(label="Dreamer Instance Name", hint_text="An Awesome Dreamer", filled=True, expand=True, value=horde_worker_regen_prefs['dreamer_name'], on_change=lambda e:changed(e,'dreamer_name'))
     def changed_model(e):
         on = e.control.value
+        if on is None:
+            horde_worker_regen_prefs['models_to_skip'].append(e.control.data)
+        else:
+            if e.control.data in horde_worker_regen_prefs['models_to_skip']:
+                horde_worker_regen_prefs['models_to_skip'].remove(e.control.data)
         if e.control.data in horde_worker_regen_prefs['models_to_load']:
             horde_worker_regen_prefs['models_to_load'].remove(e.control.data)
         else:
-            horde_worker_regen_prefs['models_to_load'].append(e.control.data)
+            if on is True:
+                horde_worker_regen_prefs['models_to_load'].append(e.control.data)
     horde_models = ResponsiveRow(controls=[], spacing={'xs':0}, run_spacing={'xs':0})
-    for m in ["top 2", "ALL MODELS", "TOP 3", "ALL SFW"]:
-        horde_models.controls.append(Checkbox(label=m, data=m, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, value=m in horde_worker_regen_prefs['models_to_load'], on_change=changed_model, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+    for m in ["ALL MODELS", "TOP 2", "TOP 3", "TOP 5", "TOP 10", "ALL SFW MODELS", "ALL NSFW MODELS", "ALL SD15 MODELS", "ALL SD21 MODELS", "ALL SDXL MODELS", "ALL INPAINTING MODELS"]:
+        horde_models.controls.append(Checkbox(label=m, data=m, tristate=True, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, value=None if m in horde_worker_regen_prefs['models_to_skip'] else m in horde_worker_regen_prefs['models_to_load'], on_change=changed_model, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
     for m in AIHorde_models:
-        horde_models.controls.append(Checkbox(label=m, data=m, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, value=m in horde_worker_regen_prefs['models_to_load'], on_change=changed_model, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
+        horde_models.controls.append(Checkbox(label=m, data=m, tristate=True, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, value=None if m in horde_worker_regen_prefs['models_to_skip'] else m in horde_worker_regen_prefs['models_to_load'], on_change=changed_model, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}))
     queue_size = NumberPicker(label="Queue Size: ", min=1, max=3, value=horde_worker_regen_prefs['queue_size'], tooltip="We will keep this many requests in the queue so we can start working as soon as a thread is available. This generally should be or 1 or 2. You should never set this higher than 2 if your max_threads is 2.", on_change=lambda e: changed(e, 'queue_size'))
     max_threads = NumberPicker(label="Max Threads: ", min=1, max=2, value=horde_worker_regen_prefs['max_threads'], tooltip="The amount of parallel jobs to pick up for the horde. Only high end cards (e.g, 3080 or better) benefit from this setting. If you have a 20xx or earlier, or a xx60/xx70, do not change this setting from 1.", on_change=lambda e: changed(e, 'max_threads'))
     max_batch = NumberPicker(label="Max Batch: ", min=1, max=2, value=horde_worker_regen_prefs['max_threads'], tooltip="This will try to pull these many jobs per request and perform batched inference. This is way more optimized than doing them 1 by 1, but is slower. Keep in mind, that the horde will not give your max batch at your max resolution", on_change=lambda e: changed(e, 'max_batch'))
@@ -6797,9 +6803,9 @@ def buildHordeWorker(page):
         ResponsiveRow([nsfw, censor_nsfw, censorlist]),
         Row([queue_size, max_threads, max_batch]),
         Row([max_resolution, safety_on_gpu, require_upfront_kudos]),
-        Row([Text("Select one or more models to share:", weight=FontWeight.BOLD), horde_models_info]),
+        Row([Text("Select one or more models to Share, or - to Skip:", weight=FontWeight.BOLD), horde_models_info]),
         horde_models,
-        ElevatedButton(content=Text("⛅  Start reGen Server", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_horde_tts(page)),
+        ElevatedButton(content=Text("⛅  Start reGen Server", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_horde_worker_regen(page)),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -27920,7 +27926,10 @@ def run_horde_worker_regen(page):
     installer = Installing("Installing Horde Worker reGen Libraries... See console for progress.")
     prt(installer)
     horde_worker_regen_dir = os.path.join(root_dir, "horde-worker-reGen")
-    if not os.path.exists(horde_worker_regen_dir) or force_update("horde-worker"):
+    if os.path.exists(horde_worker_regen_dir) and force_update("horde-worker"):
+        installer.status("...removing old horde-worker-reGen")
+        shutil.rmtree(horde_worker_regen_dir)
+    if not os.path.exists(horde_worker_regen_dir):
         try:
             installer.status("...cloning Haidra-Org/horde-worker-reGen")
             run_sp("git clone https://github.com/Haidra-Org/horde-worker-reGen.git", cwd=root_dir, realtime=False)
@@ -27938,6 +27947,8 @@ def run_horde_worker_regen(page):
     installer.status("...preparing yaml")
     max_res = horde_worker_regen_prefs["max_resolution"]
     max_power = 8 if max_res == "512x512" else 18 if max_res == "768x768" else 32 if max_res == "1024x1024" else 50
+    models_to_skip = horde_worker_regen_prefs['models_to_skip']
+    models_to_skip.append("SDXL_beta::stability.ai#6901")
     bridgeData = {
         "horde_url": "https://aihorde.net",
         "api_key": prefs["AIHorde_api_key"],
@@ -27973,16 +27984,7 @@ def run_horde_worker_regen(page):
         # "ram_to_leave_free": "80%" (currently unused in reGen),
         # "disable_disk_cache": False (currently unused in reGen),
         "models_to_load": horde_worker_regen_prefs['models_to_load'],
-        "models_to_skip": [
-            "pix2pix",  # Not currently supported
-            "SDXL_beta::stability.ai#6901",  # Do not remove this
-            "A to Zovya RPG",  # Known to cause problems
-            # "- ALL NSFW MODELS",
-            # "- stable_diffusion_inpainting",
-            # "- stable_diffusion_2.1",
-            # "- stable_diffusion_2.0",
-            # Popular NSFW models commented out
-        ],
+        "models_to_skip": models_to_skip,
         # "suppress_speed_warnings": False (currently unused in reGen),
         "scribe_name": horde_worker_regen_prefs["scribe_name"],
         "kai_url": "http://localhost:5000",
@@ -28001,7 +28003,6 @@ def run_horde_worker_regen(page):
         return
     clear_last()
     autoscroll(True)
-
     log_file = os.path.join(horde_worker_regen_dir, "logs", "bridge.log")
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
@@ -28020,7 +28021,7 @@ def run_horde_worker_regen(page):
                             # Get all lines starting from the index after the last stored line
                             new_lines = lines[lines.index(self.last_line) + 1:]
                             for line in new_lines:
-                                prt(line.strip())
+                                prt(Markdown(line.strip()))
                             self.last_line = lines[-1]  # Update last_line for next modification
     observer = Observer()
     event_handler = LastLineMonitor(log_file)
@@ -28037,7 +28038,13 @@ def run_horde_worker_regen(page):
         os.chdir(root_dir)
         return
     prt(Header("▶️   Running reGen Horde Worker Server...", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Horde Worker Server Sharing", on_click=abort_worker)]))
-    horde_process = subprocess.Popen(['python', 'run_worker.py'], cwd=horde_worker_regen_dir)
+    try:
+        horde_process = subprocess.Popen(['python', 'run_worker.py'], cwd=horde_worker_regen_dir)
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error Running AI-Horde Worker:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        pass
+    observer.stop()
     autoscroll(False)
     os.chdir(root_dir)
 
