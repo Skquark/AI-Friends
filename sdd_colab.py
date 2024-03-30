@@ -6737,18 +6737,10 @@ def buildHordeWorker(page):
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
     def horde_help(e):
-        def close_horde_dlg(e):
-          nonlocal horde_help_dlg
-          horde_help_dlg.open = False
-          page.update()
-        horde_help_dlg = AlertDialog(title=Text("💁   Help with reGen Horde Worker"), content=Column([
-            Text("Set up a AI Horde Worker to generate, post-process or analyze images for others. This will turn your graphics card(s) into a worker for the AI Horde where you will create images for others. You you will receive in turn earn 'kudos' which will give you priority for your own generations."),
-            #Text(""),
-            Markdown("[AI-Horde Page](https://aihorde.net/) | [GitHub Repo](https://github.com/Haidra-Org/horde-worker-reGen) | [A Division of Zer0 Discord](https://discord.com/channels/781145214752129095/1076124012305993768) | [dbzer0 Project](https://dbzer0.itch.io)]", on_tap_link=lambda e: e.page.launch_url(e.data)),
-          ], scroll=ScrollMode.AUTO), actions=[TextButton("💑  Sharing is Caring... ", on_click=close_horde_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = horde_help_dlg
-        horde_help_dlg.open = True
-        page.update()
+        alert_msg(page, "💁   Help with reGen Horde Worker", [
+            "Set up a AI Horde Worker to generate, post-process or analyze images for others. This will turn your graphics card(s) into a worker for the AI Horde where you will create images for others. You you will receive in turn earn 'kudos' which will give you priority for your own generations.",
+            Markdown("[AI-Horde Page](https://aihorde.net/) | [GitHub Repo](https://github.com/Haidra-Org/horde-worker-reGen) | [A Division of Zer0 Discord](https://discord.com/channels/781145214752129095/1076124012305993768) | [dbZer0 Project](https://dbzer0.itch.io)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], "💑  Sharing is Caring", False)
     def models_AIHorde(e):
         model_request = "https://stablehorde.net/api/v2/status/models"
         headers = {'apikey': prefs['AIHorde_api_key']}
@@ -6785,7 +6777,6 @@ def buildHordeWorker(page):
     max_batch = NumberPicker(label="Max Batch: ", min=1, max=2, value=horde_worker_regen_prefs['max_threads'], tooltip="This will try to pull these many jobs per request and perform batched inference. This is way more optimized than doing them 1 by 1, but is slower. Keep in mind, that the horde will not give your max batch at your max resolution", on_change=lambda e: changed(e, 'max_batch'))
     safety_on_gpu = Switcher(label="Safety Check on GPU ", value=horde_worker_regen_prefs['safety_on_gpu'], on_change=lambda e:changed(e,'safety_on_gpu'), tooltip="Run CLIP model (Checking for potential CSAM or NSFW) on GPU insted of CPU. nable this on cards with 12gb or more VRAM to increase the rate you complete jobs. You can enable this on cards with less VRAM if you do not load SD2.0 or SDXL models, and keep your max_power low (<32)")
     require_upfront_kudos = Switcher(label="Require Upfront Kudos", value=horde_worker_regen_prefs['require_upfront_kudos'], on_change=lambda e:changed(e,'require_upfront_kudos'), tooltip="Worker will not only pick up jobs where the user has the required kudos upfront. Effectively this will exclude all anonymous accounts, and registered accounts who haven't contributed.")
-    #require_upfront_kudos = Switcher(label="Require Upfront Kudos", value=prefs['require_upfront_kudos'], on_change=lambda e:changed(e,'require_upfront_kudos'), tooltip="")
     nsfw = Checkbox(label="Allow NSFW", value=horde_worker_regen_prefs['nsfw'], tooltip="If you do not want to serve NSFW images, set this to false.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
     censor_nsfw = Checkbox(label="Censor NSFW", value=horde_worker_regen_prefs['censor_nsfw'], tooltip="If you want to censor Not Safe For Work images.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
     censorlist = TextField(label="Censor Word List (optional)", value=horde_worker_regen_prefs['censorlist'], on_change=lambda e:changed(e,'censorlist'), tooltip="A list of words for which you always want to censor, even if `nsfw` is true.", col={'xs':12, 'sm':6, 'md':6, 'lg':6, 'xl': 4})
@@ -6799,11 +6790,11 @@ def buildHordeWorker(page):
       content=Column([
         Header("⛈️  AI-Horde Worker reGen Server", "Share your GPU in the AI-Horde SD Cloud and earn Kudos... Give back to the Stable Horde, thanks db0.", actions=[save_default(horde_worker_regen_prefs), IconButton(icon=icons.HELP, tooltip="Help with AI-Horde Worker Settings", on_click=horde_help)]),
         Row([dreamer_name]),
-        ResponsiveRow([allow_img2img, allow_painting, allow_post_processing, allow_controlnet, allow_lora]),
+        ResponsiveRow([allow_img2img, allow_painting, allow_post_processing, allow_controlnet, allow_lora], spacing=0, run_spacing=0),
         ResponsiveRow([nsfw, censor_nsfw, censorlist]),
         Row([queue_size, max_threads, max_batch]),
         Row([max_resolution, safety_on_gpu, require_upfront_kudos]),
-        Row([Text("Select one or more models to Share, or - to Skip:", weight=FontWeight.BOLD), horde_models_info]),
+        Row([Text("Select one or more models to Share, or -- to Skip:", weight=FontWeight.BOLD, theme_style=TextThemeStyle.TITLE_MEDIUM), horde_models_info], vertical_alignment=CrossAxisAlignment.END),
         horde_models,
         ElevatedButton(content=Text("⛅  Start reGen Server", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_horde_worker_regen(page)),
       ]
@@ -21792,10 +21783,11 @@ if torch_device == "cuda":
         import transformers
         if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.39.0"):
             #import importlib
-            print(f"Uninstalling old transformers v{transformers.__version__}")
-            run_sp("pip uninstall -y transformers", realtime=False)
+            print(f"Uninstalling old Transformers v{transformers.__version__}")
             t_ver = latest_version("transformers")
-            print(f"Installing latest transformers v{t_ver} package...")
+            t_ver = f" v{t_ver}" if t_ver is not None else ""
+            run_sp("pip uninstall -y transformers", realtime=False)
+            print(f"Installing latest Transformers{t_ver} package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=False)
             print("Installing latest HuggingFace packages...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/peft.git", realtime=False)
@@ -27907,9 +27899,12 @@ def run_background_remover(page):
     play_snd(Snd.ALERT, page)
 
 def run_horde_worker_regen(page):
-    global horde_worker_regen_prefs, status
+    global horde_worker_regen_prefs
     if not bool(prefs['AIHorde_api_key']):
         alert_msg(page, "Provide your AI-Horde API key in Settings tab... Get from aihorde.net/register")
+        return
+    if not bool(horde_worker_regen_prefs['dreamer_name']):
+        alert_msg(page, "Provide a Name for your AI-Horde Dreamer/Worker Instance")
         return
     def prt(line):
         if type(line) == str:
@@ -27921,7 +27916,7 @@ def run_horde_worker_regen(page):
     def autoscroll(scroll=True):
         page.reGen.auto_scroll = scroll
         page.reGen.update()
-    page.reGen.controls = page.RAVE.controls[:1]
+    page.reGen.controls = page.reGen.controls[:1]
     autoscroll()
     installer = Installing("Installing Horde Worker reGen Libraries... See console for progress.")
     prt(installer)
@@ -28010,19 +28005,25 @@ def run_horde_worker_regen(page):
         def __init__(self, filename):
             self.last_line = None
             self.filename = filename
+            self.file_exists = os.path.exists(filename)
         def on_modified(self, event):
             if event.is_file and event.src_path == self.filename:
-                with open(self.filename, 'r') as f:
-                    lines = f.readlines()
-                    if lines:
-                        if self.last_line is None:
-                            self.last_line = lines[-1]
-                        else:
-                            # Get all lines starting from the index after the last stored line
-                            new_lines = lines[lines.index(self.last_line) + 1:]
-                            for line in new_lines:
-                                prt(Markdown(line.strip()))
-                            self.last_line = lines[-1]  # Update last_line for next modification
+                try:
+                    with open(self.filename, 'r') as f:
+                        lines = f.readlines()
+                        if lines:
+                            if self.last_line is None:
+                                self.last_line = lines[-1]
+                            else:
+                                new_lines = lines[lines.index(self.last_line) + 1:]
+                                for line in new_lines:
+                                    prt(Markdown(line.strip()))
+                                self.last_line = lines[-1]
+                except FileNotFoundError:
+                    pass
+            else:
+                if not self.file_exists and os.path.exists(self.filename):
+                    self.file_exists = True
     observer = Observer()
     event_handler = LastLineMonitor(log_file)
     observer.schedule(event_handler, log_file, recursive=False)
@@ -28034,6 +28035,7 @@ def run_horde_worker_regen(page):
         page.snd_error.play()
         page.snd_delete.play()
         observer.stop()
+        observer.join()
         autoscroll(False)
         os.chdir(root_dir)
         return
@@ -28045,6 +28047,7 @@ def run_horde_worker_regen(page):
         alert_msg(page, "Error Running AI-Horde Worker:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         pass
     observer.stop()
+    observer.join()
     autoscroll(False)
     os.chdir(root_dir)
 
