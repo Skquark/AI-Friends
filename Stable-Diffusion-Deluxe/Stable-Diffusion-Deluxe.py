@@ -6699,7 +6699,7 @@ horde_worker_regen_prefs = {
     'safety_on_gpu': False,
     'require_upfront_kudos': False,
     'max_resolution': '768x768', #max_power 8,18,32,50
-    'blacklist': '',
+    'blacklist': [],
     'nsfw': True,
     'censor_nsfw': False,
     'censorlist': '',
@@ -27916,46 +27916,49 @@ def run_horde_worker_regen(page):
     autoscroll()
     installer = Installing("Installing Horde Worker reGen Libraries... See console for progress.")
     prt(installer)
-    horde_worker_regen_dir = os.path.join(root_dir, "horde-worker-reGen")
-    if os.path.exists(horde_worker_regen_dir) and force_update("horde-worker"):
+    horde_worker_reGen_dir = os.path.join(root_dir, "horde-worker-reGen")
+    horde_worker_regen_dir = os.path.join(horde_worker_reGen_dir, "horde_worker_regen")
+    if os.path.exists(horde_worker_reGen_dir) and force_update("horde-worker"):
         installer.status("...removing old horde-worker-reGen")
-        shutil.rmtree(horde_worker_regen_dir)
-    if not os.path.exists(horde_worker_regen_dir):
+        shutil.rmtree(horde_worker_reGen_dir)
+    if not os.path.exists(horde_worker_reGen_dir):
         try:
             installer.status("...cloning Haidra-Org/horde-worker-reGen")
             run_sp("git clone https://github.com/Haidra-Org/horde-worker-reGen.git", cwd=root_dir, realtime=False)
+            if os.path.exists(os.path.join(horde_worker_reGen_dir, "bridgeData_template.yaml")):
+                os.remove(os.path.join(horde_worker_reGen_dir, "bridgeData_template.yaml"))
             installer.status("...installing Horde requirements")
             #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
-            pip_install("horde_sdk~=0.8.3 horde_safety~=0.2.3 hordelib~=2.7.6 horde_model_reference~=0.6.3 python-dotenv ruamel.yaml semver python-Levenshtein pydantic typing_extensions requests StrEnum loguru babel watchdog yaml", installer=installer, upgrade=True)
+            pip_install("horde_sdk~=0.8.3 horde_safety~=0.2.3 hordelib~=2.7.6 horde_model_reference~=0.6.3 python-dotenv|dotenv ruamel.yaml semver python-Levenshtein|Levenshtein pydantic typing_extensions requests StrEnum loguru babel watchdog yaml", installer=installer, upgrade=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Horde Worker Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     clear_pipes()
-    os.chdir(horde_worker_regen_dir)
-    installer.status("...downloading models")
-    run_sp("python download_models.py", cwd=horde_worker_regen_dir, realtime=True)
+    
     installer.status("...preparing yaml")
     max_res = horde_worker_regen_prefs["max_resolution"]
     max_power = 8 if max_res == "512x512" else 18 if max_res == "768x768" else 32 if max_res == "1024x1024" else 50
     models_to_skip = horde_worker_regen_prefs['models_to_skip']
     models_to_skip.append("SDXL_beta::stability.ai#6901")
+    censorlist = horde_worker_regen_prefs["censorlist"]
+    censorlist = [word.strip() for word in censorlist.split(',')]
     bridgeData = {
         "horde_url": "https://aihorde.net",
         "api_key": prefs["AIHorde_api_key"],
         "priority_usernames": [],
-        "max_threads": 1,
-        "queue_size": 1,
+        "max_threads": horde_worker_regen_prefs['max_threads'],
+        "queue_size": horde_worker_regen_prefs['queue_size'],
         "max_batch": horde_worker_regen_prefs["max_batch"],
         "safety_on_gpu": horde_worker_regen_prefs["safety_on_gpu"],
-        "require_upfront_kudos": False,
+        "require_upfront_kudos": horde_worker_regen_prefs['require_upfront_kudos'],
         # "civitai_api_token": '',
         "dreamer_name": horde_worker_regen_prefs["dreamer_name"],
         "max_power": max_power,
         "blacklist": horde_worker_regen_prefs["blacklist"],
         "nsfw": horde_worker_regen_prefs["nsfw"],
         "censor_nsfw": horde_worker_regen_prefs["censor_nsfw"],
-        "censorlist": horde_worker_regen_prefs["censorlist"],
+        "censorlist": censorlist,
         "allow_img2img": horde_worker_regen_prefs["allow_img2img"],
         "allow_painting": horde_worker_regen_prefs["allow_painting"],
         "allow_unsafe_ip": True,
@@ -27986,48 +27989,92 @@ def run_horde_worker_regen(page):
         "forms": ["caption", "nsfw", "interrogation", "post-process"],
     }
     import yaml, subprocess
-    bridgeData_yaml_file = os.path.join(horde_worker_regen_dir, "bridgeData.yaml")
+    bridgeData_yaml_file = os.path.join(horde_worker_reGen_dir, "bridgeData.yaml")
     with open(bridgeData_yaml_file, "w") as outfile:
         yaml.dump(bridgeData, outfile, sort_keys=False)
     if not os.path.exists(bridgeData_yaml_file):
         alert_msg(page, f"Error creating json file {bridgeData_yaml_file}")
         return
+    shutil.copy(bridgeData_yaml_file, os.path.join(horde_worker_regen_dir, "bridgeData.yaml"))
+    os.chdir(horde_worker_reGen_dir)
+    installer.status("...downloading models")
+    try:
+        run_sp("python convert_config_to_env.py", cwd=horde_worker_reGen_dir, realtime=True)
+        run_sp("python download_models.py", cwd=horde_worker_reGen_dir, realtime=True)
+    except Exception as e:
+        #clear_last()
+        alert_msg(page, "Error Running python download_models.py:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        pass
     clear_last()
     autoscroll(True)
-    log_file = os.path.join(horde_worker_regen_dir, "logs", "bridge.log")
+    log_file = os.path.join(horde_worker_reGen_dir, "logs", "bridge.log")
+    make_dir(os.path.dirname(log_file))
+    if not os.path.exists(log_file):
+        open(log_file, 'a').close()
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
     class LastLineMonitor(FileSystemEventHandler):
         def __init__(self, filename):
             self.last_line = None
             self.filename = filename
-            self.file_exists = os.path.exists(filename)
+            #self.file_exists = os.path.exists(filename)
         def on_modified(self, event):
             if event.is_file and event.src_path == self.filename:
-                try:
-                    with open(self.filename, 'r') as f:
-                        lines = f.readlines()
-                        if lines:
-                            if self.last_line is None:
-                                self.last_line = lines[-1]
-                            else:
-                                new_lines = lines[lines.index(self.last_line) + 1:]
-                                for line in new_lines:
-                                    prt(Markdown(line.strip()))
-                                self.last_line = lines[-1]
-                except FileNotFoundError:
-                    pass
-            else:
-                if not self.file_exists and os.path.exists(self.filename):
-                    self.file_exists = True
+                with open(self.filename, 'r') as f:
+                    lines = f.readlines()
+                    if lines:
+                        if self.last_line is None:
+                            self.last_line = lines[-1]
+                        else:
+                            # Get all lines starting from the index after the last stored line
+                            new_lines = lines[lines.index(self.last_line) + 1:]
+                            for line in new_lines:
+                                txt = line.rpartition(' - ')[2].strip() if ' - ' in line else line
+                                status = (line.split('|', 1)[1].strip() + ": ") if ' | ' in line else ""
+                                prt(Markdown(f"{status}{txt}", tooltip=line))
+                            self.last_line = lines[-1]  # Update last_line for next modification
+        '''def on_modified(self, event):
+            if event.is_directory or event.src_path != self.filename:
+                return
+            if not self.file_exists:
+                # Create the file if it doesn't exist
+                open(self.filename, 'a').close()
+                self.file_exists = True
+            try:
+                with open(self.filename, 'r') as f:
+                    lines = f.readlines()
+                    if lines:
+                        if self.last_line is None:
+                            self.last_line = lines[-1]
+                        else:
+                            new_lines = lines[lines.index(self.last_line) + 1:]
+                            for line in new_lines:
+                                if ' - ' in line:
+                                    txt = line.rpartition(' - ')[2].strip()
+                                else:
+                                    txt = line.strip()
+                                if ' | ' in line:
+                                    status = line.split("|", 1)[1].strip()
+                                    status += ": "
+                                else:
+                                    status = ""
+                                prt(Markdown(f"{status}{txt}"))
+                            self.last_line = lines[-1]
+            except FileNotFoundError:
+                # File was deleted during the event, do nothing
+                pass'''
     observer = Observer()
     event_handler = LastLineMonitor(log_file)
-    observer.schedule(event_handler, log_file, recursive=False)
-    observer.start()
+    try:
+        observer.schedule(event_handler, log_file, recursive=False)
+        observer.start()
+    except Exception as e:
+        print(e)
+        pass
     def abort_worker(e):
         nonlocal horde_process, observer
         horde_process.terminate()
-        prt("🛑  Aborted reGen Horde Worker Server")
+        prt("🛑  Terminated reGen Horde Worker Server")
         page.snd_error.play()
         page.snd_delete.play()
         observer.stop()
@@ -28037,14 +28084,19 @@ def run_horde_worker_regen(page):
         return
     prt(Header("▶️   Running reGen Horde Worker Server...", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Horde Worker Server Sharing", on_click=abort_worker)]))
     try:
-        horde_process = subprocess.Popen(['python', 'run_worker.py'], cwd=horde_worker_regen_dir)
+        horde_process = subprocess.Popen(['python', 'run_worker.py'], cwd=horde_worker_reGen_dir)
     except Exception as e:
         clear_last()
         alert_msg(page, "Error Running AI-Horde Worker:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         pass
-    observer.stop()
-    observer.join()
+    try:
+        observer.stop()
+        observer.join()
+    except Exception as e:
+        print(e)
+        pass
     autoscroll(False)
+    play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
 loaded_blip_diffusion_task = ""
