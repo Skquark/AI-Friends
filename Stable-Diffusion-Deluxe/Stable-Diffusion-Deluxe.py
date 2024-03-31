@@ -6699,7 +6699,7 @@ horde_worker_regen_prefs = {
     'safety_on_gpu': False,
     'require_upfront_kudos': False,
     'max_resolution': '768x768', #max_power 8,18,32,50
-    'blacklist': [],
+    'blacklist': '',
     'nsfw': True,
     'censor_nsfw': False,
     'censorlist': '',
@@ -6715,7 +6715,9 @@ horde_worker_regen_prefs = {
     'max_length': 80,
     'max_context_length': 1024,
     'alchemist_name': '',
-    'alchemist_forms': ['caption', 'nsfw', 'interrogation', 'post-process']
+    'alchemist_forms': ['caption', 'nsfw', 'interrogation', 'post-process'],
+    'log_levels': ['SUCCESS', 'ERROR', 'INFO', 'DEBUG'],
+    'log_lines': 35,
 }
 
 def buildHordeWorker(page):
@@ -6751,6 +6753,11 @@ def buildHordeWorker(page):
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     max_resolution = Dropdown(label="Max Resolution", width=150, options=[dropdown.Option("512x512"), dropdown.Option("768x768"), dropdown.Option("1024x1024"), dropdown.Option("1280x1280")], value=horde_worker_regen_prefs["max_resolution"], on_change=lambda e: changed(e, 'max_resolution'))
     dreamer_name = TextField(label="Dreamer Instance Name", hint_text="An Awesome Dreamer", filled=True, expand=True, value=horde_worker_regen_prefs['dreamer_name'], on_change=lambda e:changed(e,'dreamer_name'))
+    def changed_levels(e):
+        if e.control.label in horde_worker_regen_prefs['log_levels']:
+            horde_worker_regen_prefs['log_levels'].remove(e.control.label)
+        else:
+            horde_worker_regen_prefs['log_levels'].append(e.control.label)
     def changed_model(e):
         on = e.control.value
         if on is None:
@@ -6773,14 +6780,20 @@ def buildHordeWorker(page):
     max_batch = NumberPicker(label="Max Batch: ", min=1, max=2, value=horde_worker_regen_prefs['max_threads'], tooltip="This will try to pull these many jobs per request and perform batched inference. This is way more optimized than doing them 1 by 1, but is slower. Keep in mind, that the horde will not give your max batch at your max resolution", on_change=lambda e: changed(e, 'max_batch'))
     safety_on_gpu = Switcher(label="Safety Check on GPU ", value=horde_worker_regen_prefs['safety_on_gpu'], on_change=lambda e:changed(e,'safety_on_gpu'), tooltip="Run CLIP model (Checking for potential CSAM or NSFW) on GPU insted of CPU. nable this on cards with 12gb or more VRAM to increase the rate you complete jobs. You can enable this on cards with less VRAM if you do not load SD2.0 or SDXL models, and keep your max_power low (<32)")
     require_upfront_kudos = Switcher(label="Require Upfront Kudos", value=horde_worker_regen_prefs['require_upfront_kudos'], on_change=lambda e:changed(e,'require_upfront_kudos'), tooltip="Worker will not only pick up jobs where the user has the required kudos upfront. Effectively this will exclude all anonymous accounts, and registered accounts who haven't contributed.")
-    nsfw = Checkbox(label="Allow NSFW", value=horde_worker_regen_prefs['nsfw'], tooltip="If you do not want to serve NSFW images, set this to false.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
-    censor_nsfw = Checkbox(label="Censor NSFW", value=horde_worker_regen_prefs['censor_nsfw'], tooltip="If you want to censor Not Safe For Work images.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    nsfw = Checkbox(label="Allow NSFW", value=horde_worker_regen_prefs['nsfw'], on_change=lambda e:changed(e,'nsfw'), tooltip="If you do not want to serve NSFW images, set this to false.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    censor_nsfw = Checkbox(label="Censor NSFW", value=horde_worker_regen_prefs['censor_nsfw'], on_change=lambda e:changed(e,'censor_nsfw'), tooltip="If you want to censor Not Safe For Work images.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
     censorlist = TextField(label="Censor Word List (optional)", value=horde_worker_regen_prefs['censorlist'], on_change=lambda e:changed(e,'censorlist'), tooltip="A list of words for which you always want to censor, even if `nsfw` is true.", col={'xs':12, 'sm':6, 'md':6, 'lg':6, 'xl': 4})
-    allow_img2img = Checkbox(label="Allow Img2Img", value=horde_worker_regen_prefs['allow_img2img'], tooltip="Accept jobs which use a user-supplied image.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
-    allow_painting = Checkbox(label="Allow Painting", value=horde_worker_regen_prefs['allow_painting'], tooltip="Accept jobs which use a user-supplied image and an inpainting specific model.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
-    allow_post_processing = Checkbox(label="Allow Post-Processing", value=horde_worker_regen_prefs['allow_post_processing'], tooltip="Allow upscaling, facefixer and other post-generation features to be performed by the worker.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
-    allow_controlnet = Checkbox(label="Allow ControlNet", value=horde_worker_regen_prefs['allow_controlnet'], tooltip="Allow controlnet jobs to be done by this worker. Note: There is additional RAM/VRAM overhead with this option. Low VRAM cards (<6gb) should be cautious to enable this.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
-    allow_lora = Checkbox(label="Allow LoRA", value=horde_worker_regen_prefs['allow_lora'], tooltip="Allow LoRas to be used. This requires that you have a fast internet connection, LoRas will be downloaded on demand..", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_img2img = Checkbox(label="Allow Img2Img", value=horde_worker_regen_prefs['allow_img2img'], on_change=lambda e:changed(e,'allow_img2img'), tooltip="Accept jobs which use a user-supplied image.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_painting = Checkbox(label="Allow Painting", value=horde_worker_regen_prefs['allow_painting'], on_change=lambda e:changed(e,'allow_painting'), tooltip="Accept jobs which use a user-supplied image and an inpainting specific model.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_post_processing = Checkbox(label="Allow Post-Processing", value=horde_worker_regen_prefs['allow_post_processing'], on_change=lambda e:changed(e,'allow_post_processing'), tooltip="Allow upscaling, facefixer and other post-generation features to be performed by the worker.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_controlnet = Checkbox(label="Allow ControlNet", value=horde_worker_regen_prefs['allow_controlnet'], on_change=lambda e:changed(e,'allow_controlnet'), tooltip="Allow controlnet jobs to be done by this worker. Note: There is additional RAM/VRAM overhead with this option. Low VRAM cards (<6gb) should be cautious to enable this.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    allow_lora = Checkbox(label="Allow LoRA", value=horde_worker_regen_prefs['allow_lora'], on_change=lambda e:changed(e,'allow_lora'), tooltip="Allow LoRas to be used. This requires that you have a fast internet connection, LoRas will be downloaded on demand..", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2})
+    log_success = Checkbox(label="SUCCESS", value="SUCCESS" in horde_worker_regen_prefs['log_levels'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}, on_change=changed_levels)
+    log_info = Checkbox(label="INFO", value="INFO" in horde_worker_regen_prefs['log_levels'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}, on_change=changed_levels)
+    log_debug = Checkbox(label="DEBUG", value="DEBUG" in horde_worker_regen_prefs['log_levels'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}, on_change=changed_levels)
+    log_error = Checkbox(label="ERROR", value="ERROR" in horde_worker_regen_prefs['log_levels'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}, on_change=changed_levels)
+    log_warning = Checkbox(label="WARNING", value="WARNING" in horde_worker_regen_prefs['log_levels'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':3, 'xl': 2}, on_change=changed_levels)
+    log_lines = NumberPicker(label="  Max Lines: ", min=1, max=2000, value=horde_worker_regen_prefs['log_lines'], tooltip="How many Log Lines to display in UI before clearing oldest lines.", on_change=lambda e: changed(e, 'log_lines'))
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
@@ -6792,6 +6805,7 @@ def buildHordeWorker(page):
         Row([max_resolution, safety_on_gpu, require_upfront_kudos]),
         Row([Text("Select one or more models to Share, or -- to Skip:", weight=FontWeight.BOLD, theme_style=TextThemeStyle.TITLE_MEDIUM), horde_models_info], vertical_alignment=CrossAxisAlignment.END),
         horde_models,
+        Row([Text("Console Log Levels: ", weight=FontWeight.BOLD), log_success, log_info, log_debug, log_error, log_warning, log_lines]),
         ElevatedButton(content=Text("⛅  Start reGen Server", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_horde_worker_regen(page)),
       ]
     ))], scroll=ScrollMode.AUTO)
@@ -27913,9 +27927,10 @@ def run_horde_worker_regen(page):
         page.reGen.auto_scroll = scroll
         page.reGen.update()
     page.reGen.controls = page.reGen.controls[:1]
-    autoscroll()
+    #autoscroll()
     installer = Installing("Installing Horde Worker reGen Libraries... See console for progress.")
     prt(installer)
+    nudge(page.reGen, page)
     horde_worker_reGen_dir = os.path.join(root_dir, "horde-worker-reGen")
     horde_worker_regen_dir = os.path.join(horde_worker_reGen_dir, "horde_worker_regen")
     if os.path.exists(horde_worker_reGen_dir) and force_update("horde-worker"):
@@ -27929,18 +27944,20 @@ def run_horde_worker_regen(page):
                 os.remove(os.path.join(horde_worker_reGen_dir, "bridgeData_template.yaml"))
             installer.status("...installing Horde requirements")
             #run_sp("pip install -r requirements.txt", realtime=True) #pytorch-lightning==1.5.0
-            pip_install("horde_sdk~=0.8.3 horde_safety~=0.2.3 hordelib~=2.7.6 horde_model_reference~=0.6.3 python-dotenv|dotenv ruamel.yaml semver python-Levenshtein|Levenshtein pydantic typing_extensions requests StrEnum loguru babel watchdog yaml", installer=installer, upgrade=True)
+            pip_install("horde_sdk~=0.8.3 horde_safety~=0.2.3 hordelib~=2.7.6 horde_model_reference~=0.6.3 python-dotenv|dotenv ruamel.yaml semver python-Levenshtein|Levenshtein pydantic typing_extensions requests StrEnum loguru babel yaml watchdog", installer=installer, upgrade=True)
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Installing Horde Worker Requirements:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     clear_pipes()
-    
+    os.environ['AIWORKER_CACHE_HOME'] = os.path.join(horde_worker_reGen_dir, "models")
     installer.status("...preparing yaml")
     max_res = horde_worker_regen_prefs["max_resolution"]
     max_power = 8 if max_res == "512x512" else 18 if max_res == "768x768" else 32 if max_res == "1024x1024" else 50
     models_to_skip = horde_worker_regen_prefs['models_to_skip']
     models_to_skip.append("SDXL_beta::stability.ai#6901")
+    blacklist = horde_worker_regen_prefs["blacklist"]
+    blacklist = [word.strip() for word in blacklist.split(',')]
     censorlist = horde_worker_regen_prefs["censorlist"]
     censorlist = [word.strip() for word in censorlist.split(',')]
     bridgeData = {
@@ -27955,7 +27972,7 @@ def run_horde_worker_regen(page):
         # "civitai_api_token": '',
         "dreamer_name": horde_worker_regen_prefs["dreamer_name"],
         "max_power": max_power,
-        "blacklist": horde_worker_regen_prefs["blacklist"],
+        "blacklist": blacklist,
         "nsfw": horde_worker_regen_prefs["nsfw"],
         "censor_nsfw": horde_worker_regen_prefs["censor_nsfw"],
         "censorlist": censorlist,
@@ -28000,7 +28017,7 @@ def run_horde_worker_regen(page):
     installer.status("...downloading models")
     try:
         run_sp("python convert_config_to_env.py", cwd=horde_worker_reGen_dir, realtime=False)
-        console = RunConsole("Downloading Models...", show_progress=False)
+        console = RunConsole(show_progress=False)
         prt(console)
         console.run_process("python download_models.py", cwd=horde_worker_reGen_dir)
         #run_sp("python download_models.py", cwd=horde_worker_reGen_dir, realtime=True)
@@ -28010,17 +28027,44 @@ def run_horde_worker_regen(page):
         alert_msg(page, "Error Running python download_models.py:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         pass
     clear_last()
-    autoscroll(True)
+    #autoscroll(True)
+    console_column = Column([], spacing=0, scroll=ScrollMode.AUTO, auto_scroll=True)
+    def prt_console(line):
+        if type(line) == str:
+            line = Text(line)
+        #if len(console_column.controls) > horde_worker_regen_prefs['log_lines']:
+        while len(console_column.controls) >= horde_worker_regen_prefs['log_lines']:
+            console_column.controls.pop(0)
+        console_column.controls.append(line)
+        console_column.update()
     import loguru
     from loguru import logger
     #reGen_logger = logger.bind(context="reGen")
-    custom_handler = {"sink": lambda msg: display_log(msg, colorize=False)}
-    logger.configure(handlers=[custom_handler])
-    def display_log(message, colorize):
-        if colorize:
-            prt(message)
-        else:
-            prt(message.strip())
+    def display_log(message):
+        level = message.record['level'].name.upper()
+        if level in horde_worker_regen_prefs['log_levels']:
+            try:
+                color = colors.GREEN if level == "SUCCESS" else colors.CYAN if level == "INFO" else colors.BLUE if level == "WARNING" else colors.RED if level == "ERROR" else colors.PURPLE
+                msg = Tooltip(message=message, content=Row([Text(f"[{level}] ", color=color), Text(message.record['message'], selectable=True)]))
+                prt_console(msg)#
+            except Exception as e:
+                print(f"Error during logging: {e}")
+    class CustomSink:
+        def __init__(self):
+            pass
+        def write(self, message):
+            display_log(message)
+    custom_sink = CustomSink()
+    #custom_handler = {"sink": lambda msg: display_log(msg)}
+    #custom_handler = lambda message: display_log(message)
+    #custom_handler = logger.sink(display_log)
+    #logger.configure(handlers=[custom_handler])
+    if hasattr(logger, 'sink'):  # Check if sink method exists
+        custom_handler = logger.sink(custom_sink)
+    else:
+        custom_handler = logger.add(custom_sink)
+    logger.level("INFO")
+    
     log_file = os.path.join(horde_worker_reGen_dir, "logs", "bridge.log")
     os.makedirs(os.path.dirname(log_file), exist_ok=True)
     #if not os.path.exists(log_file):
@@ -28042,45 +28086,25 @@ def run_horde_worker_regen(page):
                         if self.last_line is None:
                             self.last_line = lines[-1]
                         else:
-                            new_lines = lines[lines.index(self.last_line) + 1:]
-                            for line in new_lines:
-                                txt = line.rpartition(' - ')[2].strip() if ' - ' in line else line
-                                status = (line.split('|', 1)[1].strip() + ": ") if ' | ' in line else ""
-                                prt(Markdown(f"{status}{txt}", tooltip=line))
-                            self.last_line = lines[-1]
+                            try:
+                                new_lines = lines[lines.index(self.last_line) + 1:]
+                                for line in new_lines:
+                                    #print(line)
+                                    level = line.split('|')[1].strip()# if ' | ' in line else ""
+                                    if level.upper() in horde_worker_regen_prefs['log_levels']:
+                                        color = colors.GREEN if level == "SUCCESS" else colors.CYAN if level == "INFO" else colors.BLUE if level == "WARNING" else colors.RED if level == "ERROR" else colors.TEAL if level == "DEBUG"  else colors.PURPLE
+                                        txt = line.rpartition('- ')[2].strip()# if ' - ' in line else line
+                                        msg = Tooltip(message=line.strip(), content=Row([Text(f"[{level}]", color=color), Text(txt, selectable=True)]))
+                                        prt_console(msg)#
+                                        self.last_line = lines[-1]
+                                    #txt = line.rpartition(' - ')[2].strip() if ' - ' in line else line
+                                    #prt_console(Markdown(f"[{level}] {txt}", tooltip=line))
+                            except Exception as e:
+                                print(e)
+                                pass
             except FileNotFoundError as e:
                 print(e)
                 pass
-        '''def on_modified(self, event):
-            if event.is_directory or event.src_path != self.filename:
-                return
-            if not self.file_exists:
-                # Create the file if it doesn't exist
-                open(self.filename, 'a').close()
-                self.file_exists = True
-            try:
-                with open(self.filename, 'r') as f:
-                    lines = f.readlines()
-                    if lines:
-                        if self.last_line is None:
-                            self.last_line = lines[-1]
-                        else:
-                            new_lines = lines[lines.index(self.last_line) + 1:]
-                            for line in new_lines:
-                                if ' - ' in line:
-                                    txt = line.rpartition(' - ')[2].strip()
-                                else:
-                                    txt = line.strip()
-                                if ' | ' in line:
-                                    status = line.split("|", 1)[1].strip()
-                                    status += ": "
-                                else:
-                                    status = ""
-                                prt(Markdown(f"{status}{txt}"))
-                            self.last_line = lines[-1]
-            except FileNotFoundError:
-                # File was deleted during the event, do nothing
-                pass'''
     observer = Observer()
     event_handler = LastLineMonitor(log_file)
     try:
@@ -28090,19 +28114,28 @@ def run_horde_worker_regen(page):
         print(e)
         pass
     def abort_worker(e):
-        nonlocal horde_process, observer
-        horde_process.terminate()
-        prt("🛑  Terminated reGen Horde Worker Server")
-        page.snd_error.play()
+        nonlocal horde_process
         page.snd_delete.play()
-        observer.stop()
-        observer.join()
+        horde_process.terminate()
+        clear_last(2)
+        prt("🛑  Terminated reGen Horde Worker Server")
+        nudge(page.reGen, page)
+        page.snd_error.play()
+        try:
+            observer.stop()
+            observer.join()
+        except Exception as e:
+            print(e)
+            pass
         autoscroll(False)
         os.chdir(root_dir)
-        #logger.remove(custom_handler)
-        logger.complete()
+        logger.remove(custom_handler)
+        #logger.complete()
         return
-    prt(Header("▶️   Running reGen Horde Worker Server...", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Horde Worker Server Sharing", on_click=abort_worker)]))
+    header = Header("▶️   Running reGen Horde Worker Server...", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Horde Worker Server Sharing", on_click=abort_worker)])
+    prt(header)
+    prt(console_column)
+    nudge(page.reGen, page)
     try:
         horde_process = subprocess.Popen(['python', 'run_worker.py'], cwd=horde_worker_reGen_dir)
     except Exception as e:
@@ -28119,7 +28152,7 @@ def run_horde_worker_regen(page):
         pass
     autoscroll(False)'''
     play_snd(Snd.ALERT, page)
-    os.chdir(root_dir)
+    #os.chdir(root_dir)
 
 loaded_blip_diffusion_task = ""
 def run_blip_diffusion(page, from_list=False, with_params=False):
