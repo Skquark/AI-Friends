@@ -21780,9 +21780,9 @@ if torch_device == "cuda":
         if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.39.0"):
             #import importlib
             print(f"Uninstalling old Transformers v{transformers.__version__}")
+            run_sp("pip uninstall -y transformers", realtime=False)
             t_ver = latest_version("transformers")
             t_ver = f" v{t_ver}" if t_ver is not None else ""
-            run_sp("pip uninstall -y transformers", realtime=False)
             print(f"Installing latest Transformers{t_ver} package...")
             run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=False)
             print("Installing latest HuggingFace packages...")
@@ -27999,18 +27999,32 @@ def run_horde_worker_regen(page):
     os.chdir(horde_worker_reGen_dir)
     installer.status("...downloading models")
     try:
-        run_sp("python convert_config_to_env.py", cwd=horde_worker_reGen_dir, realtime=True)
-        run_sp("python download_models.py", cwd=horde_worker_reGen_dir, realtime=True)
+        run_sp("python convert_config_to_env.py", cwd=horde_worker_reGen_dir, realtime=False)
+        console = RunConsole("Downloading Models...", show_progress=False)
+        prt(console)
+        console.run_process("python download_models.py", cwd=horde_worker_reGen_dir)
+        #run_sp("python download_models.py", cwd=horde_worker_reGen_dir, realtime=True)
+        clear_last()
     except Exception as e:
         #clear_last()
         alert_msg(page, "Error Running python download_models.py:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         pass
     clear_last()
     autoscroll(True)
+    import loguru
+    from loguru import logger
+    #reGen_logger = logger.bind(context="reGen")
+    custom_handler = {"sink": lambda msg: display_log(msg, colorize=False)}
+    logger.configure(handlers=[custom_handler])
+    def display_log(message, colorize):
+        if colorize:
+            prt(message)
+        else:
+            prt(message.strip())
     log_file = os.path.join(horde_worker_reGen_dir, "logs", "bridge.log")
-    make_dir(os.path.dirname(log_file))
-    if not os.path.exists(log_file):
-        open(log_file, 'a').close()
+    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    #if not os.path.exists(log_file):
+    open(log_file, 'a').close()
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
     class LastLineMonitor(FileSystemEventHandler):
@@ -28019,20 +28033,24 @@ def run_horde_worker_regen(page):
             self.filename = filename
             #self.file_exists = os.path.exists(filename)
         def on_modified(self, event):
-            if event.is_file and event.src_path == self.filename:
+            if event.is_directory or event.src_path != self.filename:
+                return
+            try:
                 with open(self.filename, 'r') as f:
                     lines = f.readlines()
                     if lines:
                         if self.last_line is None:
                             self.last_line = lines[-1]
                         else:
-                            # Get all lines starting from the index after the last stored line
                             new_lines = lines[lines.index(self.last_line) + 1:]
                             for line in new_lines:
                                 txt = line.rpartition(' - ')[2].strip() if ' - ' in line else line
                                 status = (line.split('|', 1)[1].strip() + ": ") if ' | ' in line else ""
                                 prt(Markdown(f"{status}{txt}", tooltip=line))
-                            self.last_line = lines[-1]  # Update last_line for next modification
+                            self.last_line = lines[-1]
+            except FileNotFoundError as e:
+                print(e)
+                pass
         '''def on_modified(self, event):
             if event.is_directory or event.src_path != self.filename:
                 return
@@ -28081,6 +28099,8 @@ def run_horde_worker_regen(page):
         observer.join()
         autoscroll(False)
         os.chdir(root_dir)
+        #logger.remove(custom_handler)
+        logger.complete()
         return
     prt(Header("▶️   Running reGen Horde Worker Server...", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Horde Worker Server Sharing", on_click=abort_worker)]))
     try:
@@ -28089,13 +28109,15 @@ def run_horde_worker_regen(page):
         clear_last()
         alert_msg(page, "Error Running AI-Horde Worker:", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         pass
-    try:
+    '''try:
         observer.stop()
         observer.join()
+        #logger.remove(custom_handler)
+        logger.complete()
     except Exception as e:
         print(e)
         pass
-    autoscroll(False)
+    autoscroll(False)'''
     play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
