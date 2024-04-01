@@ -728,6 +728,7 @@ def buildImageAIs(page):
     page.LCM = buildLCM(page)
     page.LCMInterpolation = buildLCMInterpolation(page)
     page.InstaFlow = buildInstaFlow(page)
+    page.PAG = buildPAG(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE2 = buildDallE2(page)
     page.DallE3 = buildDallE3(page)
@@ -761,6 +762,7 @@ def buildImageAIs(page):
             Tab(text="LCM", content=page.LCM, icon=icons.MEMORY),
             Tab(text="LCM Interpolation", content=page.LCMInterpolation, icon=icons.TRANSFER_WITHIN_A_STATION),
             Tab(text="InstaFlow", content=page.InstaFlow, icon=icons.ELECTRIC_BOLT),
+            Tab(text="PAG", content=page.PAG, icon=icons.SYNC_PROBLEM),
             Tab(text="TaskMatrix", content=page.TaskMatrix, icon=icons.ADD_TASK),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
@@ -5783,6 +5785,8 @@ marigold_depth_prefs = {
     'color_map': 'Spectral', #
     'processing_res': 768,
     'batch_folder_name': '',
+    'use_LCM': False,
+    'seed': 0,
 }
 def buildMarigoldDepth(page):
     global marigold_depth_prefs, prefs
@@ -5817,7 +5821,9 @@ def buildMarigoldDepth(page):
     ensemble_size = SliderRow(label="Ensemble Size", min=1, max=50, divisions=49, pref=marigold_depth_prefs, key='ensemble_size', tooltip="Number of inference passes in the ensemble.")
     #pano_360 = Switcher(label="Input 360 Panoramic", value=marigold_depth_prefs['pano_360'], on_change=lambda e:changed(e,'pano_360'))
     #colorize = Switcher(label="Show Colorized Depth", value=marigold_depth_prefs['colorize'], on_change=lambda e:changed(e,'colorize'))
+    use_LCM = Switcher(label="Use LCM Model", value=marigold_depth_prefs['use_LCM'], on_change=lambda e:changed(e,'use_LCM'), tooltip="Runs much faster, at the expense of some quality. Set Denoising Steps to 2-8.")
     processing_res = SliderRow(label="Processing Resolution", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=marigold_depth_prefs, key='processing_res')
+    seed = TextField(label="Seed", value=marigold_depth_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 90)
     page.marigold_depth_output = Column([])
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
@@ -5828,7 +5834,7 @@ def buildMarigoldDepth(page):
         denoising_steps,
         ensemble_size,
         #Row([match_input_res, pano_360, colorize]),
-        Row([color_map, match_input_res]),
+        Row([seed, color_map, match_input_res, use_LCM]),
         ElevatedButton(content=Text("🌺  Get Marigold Depth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_marigold_depth(page)),
         page.marigold_depth_output,
       ]
@@ -11414,6 +11420,138 @@ def buildInstaFlow(page):
             page.ESRGAN_block_instaflow,
             parameters_row,
             page.instaflow_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+pag_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "pag-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":0.0,
+    'num_inference_steps': 50,
+    'pag_scale': 5.0,
+    'pag_adaptive_scaling': 0.0,
+    'pag_drop_rate': 0.5,
+    'pag_applied_layers': "down",  # ['down', 'mid', 'up']
+    'pag_applied_layers_index': "m0",  # ['d4', 'd5', 'm0']
+    "seed": 0,
+    'init_image': '',
+    'init_image_strength': 0.8,
+    "cpu_offload": False,
+    "cpu_only": False,
+    "pag_model": "PAG_Dreamshaper_v7",
+    "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_strength': 0.8,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildPAG(page):
+    global prefs, pag_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            pag_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            pag_prefs[pref] = float(e.control.value)
+          else:
+            pag_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def pag_help(e):
+        alert_msg(page, "💁   Help with Perturbed-Attention Guidance", [
+            "Perturbed-Attention Guidance significantly improves sample quality in unconditional and conditional generation, without additional training or external conditions. It can be easily used with any kinds of diffusion models. Qualitative comparisons between unguided (baseline) and perturbed-attention-guided (PAG) diffusion samples. Without any external conditions, e.g., class labels or text prompts, or additional training, our PAG dramatically elevates the quality of diffusion samples even in unconditional generation, where classifier-free guidance (CFG) is inapplicable. Our guidance can also enhance the baseline performance in various downstream tasks such as ControlNet with empty prompt and image restoration such as inpainting and deblurring.",
+            "Recent studies prove that diffusion models can generate high-quality samples, but their quality is often highly reliant on sampling guidance techniques such as classifier guidance (CG) and classifier-free guidance (CFG), which are inapplicable in unconditional generation or various downstream tasks such as image restoration. In this paper, we propose a novel diffusion sampling guidance, called Perturbed-Attention Guidance (PAG), which improves sample quality across both unconditional and conditional settings, achieving this without requiring further training or the integration of external modules. PAG is designed to progressively enhance the structure of synthesized samples throughout the denoising process by considering the self-attention mechanisms' ability to capture structural information. It involves generating intermediate samples with degraded structure by substituting selected self-attention maps in diffusion U-Net with an identity matrix, and guiding the denoising process away from these degraded samples.",
+            Markdown("[Project Page](https://ku-cvlab.github.io/Perturbed-Attention-Guidance/) | [GitHub Repo](https://github.com/KU-CVLAB/Perturbed-Attention-Guidance) | [Paper](https://arxiv.org/abs/2403.17377) | [HuggingFace](https://huggingface.co/hyoungwoncho/sd_perturbed_attention_guidance)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], "💑  Attention is Perturbed", False)
+    def changed_model(e):
+        pag_prefs['pag_model'] = e.control.value
+        pag_custom_model.visible = e.control.value == "Custom"
+        pag_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        pag_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=pag_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=pag_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    #init_image = FileInput(label="Init Image (optional)", pref=pag_prefs, key='init_image', page=page, col={'md':6})
+    #init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=pag_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=pag_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=pag_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=40, divisions=40, pref=pag_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='guidance_scale')
+    pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='pag_scale')
+    pag_adaptive_scaling = SliderRow(label="PAG Adaptive Scaling", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='pag_adaptive_scaling', col={'lg':6}, tooltip="Scales the Diffusion Adaptivly (I don't know)")
+    pag_drop_rate = SliderRow(label="PAG Drop Rate", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='pag_drop_rate', col={'lg':6}, tooltip="Experiment...")
+    pag_applied_layers = Dropdown(label="PAG Applied Layers", width=200, options=[dropdown.Option(o) for o in ['down', 'mid', 'up']], value=pag_prefs['pag_applied_layers'], on_change=lambda e:changed(e,'pag_applied_layers'))
+    pag_applied_layers_index = Dropdown(label="PAG Applied Layers Index", width=200, options=[dropdown.Option(o) for o in ['d4', 'd5', 'm0']], value=pag_prefs['pag_applied_layers_index'], on_change=lambda e:changed(e,'pag_applied_layers_index'))
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pag_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pag_prefs, key='height')
+    def toggle_ip_adapter(e):
+        pag_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=pag_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=pag_prefs['ip_adapter_model'], visible=pag_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=pag_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if pag_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+
+    pag_model = Dropdown(label="PAG Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("PAG_Dreamshaper_v7"), dropdown.Option("PAG_Dreamshaper_v8")], value=pag_prefs['pag_model'], on_change=changed_model)
+    pag_custom_model = TextField(label="Custom PAG Model (URL or Path)", value=pag_prefs['custom_model'], expand=True, visible=pag_prefs['pag_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=pag_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    cpu_only = Switcher(label="CPU Only (not yet)", value=pag_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
+    seed = TextField(label="Seed", width=90, value=str(pag_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pag_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=pag_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=pag_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=pag_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_pag = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_pag.height = None if status['installed_ESRGAN'] else 0
+    if not pag_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🍝   Run PAG", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pag(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pag(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pag(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.pag_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("💫  Perturbed-Attention Guidance (PAG)", "Self-Rectifying Diffusion Sampling. Will use SD Model in Installation settings...", actions=[save_default(pag_prefs, ['init_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with PAG Settings", on_click=pag_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            #ResponsiveRow([init_image, init_image_strength]),
+            steps,
+            guidance,
+            pag_scale,
+            ResponsiveRow([pag_adaptive_scaling, pag_drop_rate]),
+            Row([pag_applied_layers, pag_applied_layers_index]),
+            width_slider, height_slider, #Divider(height=9, thickness=2),
+            #Row([pag_model, pag_custom_model]),
+            Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
+            #Row([cpu_offload, cpu_only]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_pag,
+            parameters_row,
+            page.pag_output
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -21139,6 +21277,7 @@ pipe_lmd_plus = None
 pipe_lcm = None
 pipe_lcm_interpolation = None
 pipe_instaflow = None
+pipe_PAG = None
 pipe_task_matrix = None
 pipe_ldm3d = None
 pipe_ldm3d_upscale = None
@@ -21278,6 +21417,9 @@ def get_SDXL_model(name):
       if mod['name'] == name:
         extra = {key: mod.get(key) for key in ['variant', 'revision', 'vae'] if key in mod}
         return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'] if 'prefix' in mod else '', 'use_safetensors': safetensors, **extra}
+
+def get_seed(seed, min=0, max=4294967295):
+    return int(seed) if int(seed) > 0 else rnd.randint(min, max)
 
 HFapi = None
 def get_diffusers(page):
@@ -23720,6 +23862,12 @@ def clear_SAG_pipe():
     del pipe_SAG
     flush()
     pipe_SAG = None
+def clear_PAG_pipe():
+  global pipe_PAG
+  if pipe_PAG is not None:
+    del pipe_PAG
+    flush()
+    pipe_PAG = None
 def clear_demofusion_pipe():
   global pipe_demofusion
   if pipe_demofusion is not None:
@@ -24107,6 +24255,7 @@ def clear_pipes(allbut=None):
     if not 'lcm' in but: clear_lcm_pipe()
     if not 'lcm_interpolation' in but: clear_lcm_interpolation_pipe()
     if not 'instaflow' in but: clear_instaflow_pipe()
+    if not 'PAG' in but: clear_PAG_pipe()
     if not 'task_matrix' in but: clear_task_matrix_pipe()
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'svd' in but: clear_svd_pipe()
@@ -26751,7 +26900,7 @@ def run_magic_prompt(page):
     prt(progress)
 
     def generate(starting_text):
-        random_seed = int(magic_prompt_prefs['seed']) if int(magic_prompt_prefs['seed']) > 0 else rnd.randint(100, 1000000)
+        random_seed = get_seed(magic_prompt_prefs['seed'], 100, 1000000)
         set_seed(random_seed)
         if starting_text == "":
             starting_text: str = line[rnd.randrange(0, len(line))].replace("\n", "").lower().capitalize()
@@ -26853,7 +27002,7 @@ def run_distil_gpt2(page):
     prt(progress)
 
     def generate(starting_text):
-        random_seed = int(distil_gpt2_prefs['seed']) if int(distil_gpt2_prefs['seed']) > 0 else rnd.randint(100, 1000000)
+        random_seed = get_seed(distil_gpt2_prefs['seed'], 100, 1000000)
         set_seed(random_seed)
         input_ids = tokenizer(starting_text, return_tensors='pt').input_ids
         output = pipe_distil_gpt2.generate(input_ids, do_sample=True, temperature=distil_gpt2_prefs['AI_temperature'], top_k=distil_gpt2_prefs['top_k'], max_length=distil_gpt2_prefs['max_length'], num_return_sequences=distil_gpt2_prefs['amount'], repetition_penalty=distil_gpt2_prefs['repetition_penalty'], penalty_alpha=distil_gpt2_prefs['penalty_alpha'], no_repeat_ngram_size=distil_gpt2_prefs['no_repeat_ngram_size'], early_stopping=True)
@@ -27704,7 +27853,7 @@ def run_image_variation(page):
     prt(f"Generating Variation{s} of your Image... ")
     prt(progress)
     autoscroll(False)
-    random_seed = int(image_variation_prefs['seed']) if int(image_variation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(image_variation_prefs['seed'], 100, 1000000)
     generator = torch.Generator(device=torch_device).manual_seed(random_seed)
 
     try:
@@ -28321,7 +28470,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
             init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")
         total_steps = pr['steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         cond_subject = [x.strip() for x in blip_diffusion_prefs['source_subject_category'].split(',')]
         tgt_subject = [x.strip() for x in blip_diffusion_prefs['target_subject_category'].split(',')]
@@ -28637,7 +28786,7 @@ def run_anytext(page, from_list=False, with_params=False):
         autoscroll(False)
         n_lines = count_lines(pr['prompt'])
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         params = {
             "sort_priority": anytext_prefs['sort_priority'],
             "show_debug": True,
@@ -28982,7 +29131,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         init_img = None
         mask_img = None
@@ -29278,7 +29427,7 @@ def run_reference(page, from_list=False):
         for num in range(reference_prefs['num_images']):
             prt(progress)
             autoscroll(False)
-            random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(pr['seed'])
             #generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
                 images = pipe_reference(ref_image=init_img, prompt=pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=pr['num_inference_steps'], attention_auto_machine_weight=reference_prefs['attention_auto_machine_weight'], gn_auto_machine_weight=reference_prefs['gn_auto_machine_weight'], style_fidelity=reference_prefs['style_fidelity'], reference_attn=reference_prefs['reference_attn'], reference_adain=reference_prefs['reference_adain'], guidance_scale=pr['guidance_scale'], width=width, height=height, num_images_per_prompt=reference_prefs['batch_size'], callback=callback_fnc, callback_steps=1).images
@@ -29560,7 +29709,7 @@ def run_controlnet_qr(page, from_list=False):
             prt(Container(content=None))
             clear_last()
             autoscroll(False)
-            random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(pr['seed']) + num)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
                 images = pipe_controlnet_qr(prompt=[pr['prompt']] * batch_size, negative_prompt=[pr['negative_prompt']] * batch_size, image=[init_img] * batch_size, control_image=qrcode_image, num_inference_steps=pr['num_inference_steps'], guidance_scale=pr['guidance_scale'], controlnet_conditioning_scale=float(controlnet_qr_prefs['conditioning_scale']), control_guidance_start=controlnet_qr_prefs['control_guidance_start'], control_guidance_end=controlnet_qr_prefs['control_guidance_end'], width=width, height=height, num_images_per_prompt=controlnet_qr_prefs['batch_size'], strength=pr['strength'], generator=generator, callback=callback_fnc, callback_steps=1, **ip_adapter_args).images
@@ -29789,7 +29938,7 @@ def run_controlnet_segment(page, from_list=False):
         segmented_image = os.path.join(stable_dir, controlnet_segment_prefs['batch_folder_name'], f"{fname}-segmented.png")
         for num in range(controlnet_segment_prefs['num_images']):
             prt("Creating Segmented Mask Image...")
-            random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(pr['seed']) + num)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             np.random.seed(int(random_seed))
             init_img_np = np.asarray(init_img)
@@ -30639,10 +30788,10 @@ def run_semantic(page):
     prt(progress)
     autoscroll(False)
     batch_output = os.path.join(stable_dir, semantic_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     batch_output = os.path.join(prefs['image_output'], semantic_prefs['batch_folder_name'])
-    make_dir(batch_output)
-    random_seed = int(semantic_prefs['seed']) if int(semantic_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    makedir(batch_output)
+    random_seed = get_seed(pr['seed'])
     generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     #generator = torch.manual_seed(random_seed)
     width = semantic_prefs['width']
@@ -30789,9 +30938,9 @@ def run_demofusion(page, from_list=False, with_params=False):
         clear_pipes('demofusion')
     clear_last()
     txt2img_output = os.path.join(stable_dir, demofusion_prefs['batch_folder_name'])
-    make_dir(txt2img_output)
+    makedir(txt2img_output)
     batch_output = os.path.join(prefs['image_output'], demofusion_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     s = "" if len(demofusion_prompts) == 1 or pr['num_images'] == 1 else "s"
     progress = Progress(f"Generating your DemoFusion Image{s}...")
     total_steps = demofusion_prefs['steps']
@@ -30835,7 +30984,7 @@ def run_demofusion(page, from_list=False, with_params=False):
             image_lr = load_and_process_image(init_img, pr['width'], pr['height']).to('cuda')
             image_args = {'image_lr': image_lr}
         total_steps = pr['steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         try:
             images = pipe_demofusion(
@@ -31772,7 +31921,7 @@ def run_audio_diffusion(page):
     clear_last()
     prt(Text("  Generating Audio Diffusion Sounds...", weight=FontWeight.BOLD))
     prt(progress)
-    random_seed = int(audio_diffusion_prefs['seed']) if int(audio_diffusion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(audio_diffusion_prefs['seed'])
     generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     try:
         output = pipe_audio_diffusion(audio_file=init_audio, slice=audio_diffusion_prefs['slice'], steps=audio_diffusion_prefs['steps'], start_step=audio_diffusion_prefs['start_step'], mask_start_secs=audio_diffusion_prefs['mask_start_secs'], mask_end_secs=audio_diffusion_prefs['mask_end_secs'], eta=audio_diffusion_prefs['eta'], batch_size=int(audio_diffusion_prefs['batch_size']), generator=generator)#, callback=callback_fnc)
@@ -32360,7 +32509,7 @@ def run_textualinversion(page):
     clear_pipes()
     clear_last()
     #num_new_images = None
-    random_seed = int(textualinversion_prefs['seed']) if int(textualinversion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(textualinversion_prefs['seed'])
     name_of_your_model = textualinversion_prefs['name_of_your_model']
     from argparse import Namespace
     textualinversion_args = Namespace(
@@ -32612,7 +32761,7 @@ def run_LoRA_dreambooth(page):
     clear_pipes()
     clear_last()
     #num_new_images = None
-    random_seed = int(LoRA_dreambooth_prefs['seed']) if int(LoRA_dreambooth_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(LoRA_dreambooth_prefs['seed'])
     name_of_your_model = LoRA_dreambooth_prefs['name_of_your_model']
     from argparse import Namespace
     LoRA_dreambooth_args = Namespace(
@@ -32883,7 +33032,7 @@ def run_LoRA(page):
     clear_pipes()
     clear_last()
     #num_new_images = None
-    random_seed = int(LoRA_prefs['seed']) if int(LoRA_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(LoRA_prefs['seed'])
     name_of_your_model = LoRA_prefs['name_of_your_model']
     repo_id = f"{your_username}/{format_filename(name_of_your_model, use_dash=True)}"
     from argparse import Namespace
@@ -33109,7 +33258,7 @@ def run_converter(page):
     custom_models = os.path.join(root_dir, 'custom_models',)
     custom_path = os.path.join(custom_models, format_filename(model_name, use_dash=True))
     checkpoint_file = os.path.join(custom_models, model_file)
-    make_dir(custom_path)
+    makedir(custom_path)
     pip_install("omegaconf gdown==4.7.3", installer=installer)
     installer.status("...get Diffusers")
     diffusers_dir = os.path.join(root_dir, "diffusers")
@@ -33717,7 +33866,7 @@ def run_audio_ldm(page):
     clear_last()
     prt(Text("  Generating AudioLDM Sounds...", weight=FontWeight.BOLD))
     prt(progress)
-    random_seed = int(audioLDM_prefs['seed']) if int(audioLDM_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(audioLDM_prefs['seed'])
     try:
       waveform = text_to_audio(pipe_audio_ldm, audioLDM_prefs['text'], random_seed, duration=audioLDM_prefs['duration'], guidance_scale=audioLDM_prefs['guidance_scale'], n_candidate_gen_per_text=int(audioLDM_prefs['n_candidates']))
     except Exception as e:
@@ -33725,11 +33874,11 @@ def run_audio_ldm(page):
       alert_msg(page, "Error generating text_to_audio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
       return
     save_dir = os.path.join(root_dir, 'audio_out', audioLDM_prefs['batch_folder_name'])
-    make_dir(save_dir)
+    makedir(save_dir)
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(audioLDM_prefs['batch_folder_name']):
       audio_out = os.path.join(audio_out, audioLDM_prefs['batch_folder_name'])
-    make_dir(audio_out)
+    makedir(audio_out)
     #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm-tts", 'audioldm', 'voices'))
     #print(str(voice_dirs))
     fname = format_filename(audioLDM_prefs['text'])
@@ -33819,7 +33968,7 @@ def run_audio_ldm2(page):
     clear_last()
     prt(Text("  Generating AudioLDM-2 Sounds...", weight=FontWeight.BOLD))
     prt(progress)
-    random_seed = int(audioLDM2_prefs['seed']) if int(audioLDM2_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(audioLDM2_prefs['seed'])
     generator = torch.Generator("cuda").manual_seed(random_seed)
     try:
       audios = pipe_audio_ldm2(audioLDM2_prefs['text'],
@@ -33837,11 +33986,11 @@ def run_audio_ldm2(page):
       alert_msg(page, "Error generating AudioLDM2 waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
       return
     save_dir = os.path.join(root_dir, 'audio_out', audioLDM2_prefs['batch_folder_name'])
-    make_dir(save_dir)
+    makedir(save_dir)
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(audioLDM2_prefs['batch_folder_name']):
       audio_out = os.path.join(audio_out, audioLDM2_prefs['batch_folder_name'])
-    make_dir(audio_out)
+    makedir(audio_out)
     #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm2-tts", 'audioldm2', 'voices'))
     #print(str(voice_dirs))
     # waveform = [(16000, np.random.randn(16000)), (16000, np.random.randn(16000))]
@@ -33927,7 +34076,7 @@ def run_music_lang(page):
     if not os.path.isfile(fluidR3):
         installer.status("...downloading FluidR3_GM.sf2")
         download_file("https://musical-artifacts.com/artifacts/738/FluidR3_GM.sf2", to=uploads_dir)
-    random_seed = int(musiclang_prefs['seed']) if int(musiclang_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(musiclang_prefs['seed'])
     #time_signature = (4, 4)
     midi_file = musiclang_prefs['midi_file'].strip()
     bar_range = musiclang_prefs['bar_range']
@@ -34000,11 +34149,11 @@ def run_music_lang(page):
         return
     chord_repr = generated_score.to_chord_repr()
     save_dir = os.path.join(root_dir, 'audio_out', musiclang_prefs['batch_folder_name'])
-    make_dir(save_dir)
+    makedir(save_dir)
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(musiclang_prefs['batch_folder_name']):
       audio_out = os.path.join(audio_out, musiclang_prefs['batch_folder_name'])
-    make_dir(audio_out)
+    makedir(audio_out)
     #voice_dirs = os.listdir(os.path.join(root_dir, "audioldm-tts", 'audioldm', 'voices'))
     #print(str(voice_dirs))
     fname = format_filename(musiclang_prefs['audio_name'])
@@ -34126,17 +34275,17 @@ def run_zeta_editing(page):
         return
     clear_last()
     save_dir = os.path.join(root_dir, 'audio_out', zeta_editing_prefs['batch_folder_name'])
-    make_dir(save_dir)
+    makedir(save_dir)
     audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
     if bool(zeta_editing_prefs['batch_folder_name']):
         audio_out = os.path.join(audio_out, zeta_editing_prefs['batch_folder_name'])
-    make_dir(audio_out)
+    makedir(audio_out)
     x0 = utils.load_audio(init_audio, pipe_audio_ldm2.get_fn_STFT(), device=torch_device)
     for num in range(zeta_editing_prefs['batch_size']):
         do_inversion = True
         prt(Text("  Generating ZETA Editing Sounds... See console for progress.", weight=FontWeight.BOLD))
         prt(progress)
-        random_seed = int(zeta_editing_prefs['seed']) if int(zeta_editing_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(zeta_editing_prefs['seed'])
         random_seed += num
         torch.manual_seed(random_seed)
         if do_inversion:  # always re-run inversion
@@ -34269,7 +34418,7 @@ def run_music_ldm(page):
     clear_last()
     prt(Text("  Generating MusicLDM Songs...", weight=FontWeight.BOLD))
     prt(progress)
-    random_seed = int(musicLDM_prefs['seed']) if int(musicLDM_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(musicLDM_prefs['seed'])
     generator = torch.Generator("cuda").manual_seed(random_seed)
     try:
       audios = pipe_music_ldm(musicLDM_prefs['text'],
@@ -34413,7 +34562,6 @@ def run_bark(page):
     for i in range(bark_prefs['n_iterations']):
         prt(Text("  Generating Bark Audio...", weight=FontWeight.BOLD))
         prt(progress)
-        #random_seed = int(bark_prefs['seed']) if int(bark_prefs['seed']) > 0 else rnd.randint(0,4294967295)
         try:
             if not bark_prefs['use_bettertransformer']:
                 audio_array = generate_audio(bark_prefs['text'], history_prompt=history_prompt, text_temp=bark_prefs['text_temp'], waveform_temp=bark_prefs['waveform_temp'])
@@ -34551,7 +34699,7 @@ def run_riffusion(page):
     clear_last()
     prt(Text("  Generating Riffusion Sounds...", weight=FontWeight.BOLD))
     prt(progress)
-    random_seed = int(riffusion_prefs['seed']) if int(riffusion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(riffusion_prefs['seed'])
     generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     try:
         if init_audio == None:
@@ -34630,7 +34778,7 @@ def run_mubert(page):
     mubert_dir = os.path.join(root_dir, "mubert-songs")
     if bool(mubert_prefs['batch_folder_name']):
         mubert_dir = os.path.join(mubert_dir, mubert_prefs['batch_folder_name'])
-    make_dir(mubert_dir)
+    makedir(mubert_dir)
     import time
     pip_install("sentence_transformers httpx", installer=installer)
     from sentence_transformers import SentenceTransformer
@@ -35299,7 +35447,7 @@ def run_unCLIP(page, from_list=False):
         for num in range(unCLIP_prefs['num_images']):
             prt(progress)
             autoscroll(False)
-            random_seed = (int(unCLIP_prefs['seed']) + num) if int(unCLIP_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(unCLIP_prefs['seed'])
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
                 if unCLIP_prefs['use_StableUnCLIP_pipeline']:#decoder_num_inference_steps=unCLIP_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_prefs['super_res_num_inference_steps'], decoder_guidance_scale=unCLIP_prefs['decoder_guidance_scale'],
@@ -35473,7 +35621,7 @@ def run_unCLIP_image_variation(page, from_list=False):
         for num in range(unCLIP_image_variation_prefs['num_images']):
             prt(progress)
             autoscroll(False)
-            random_seed = (int(unCLIP_image_variation_prefs['seed']) + num) if int(unCLIP_image_variation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(unCLIP_image_variation_prefs['seed']) + num)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
                 images = pipe_unCLIP_image_variation(image=init_img, decoder_num_inference_steps=unCLIP_image_variation_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_image_variation_prefs['super_res_num_inference_steps'], decoder_guidance_scale=unCLIP_image_variation_prefs['decoder_guidance_scale'], num_images_per_prompt=1, generator=generator).images #, callback=callback_fnc, callback_steps=1
@@ -35633,7 +35781,7 @@ def run_unCLIP_interpolation(page, from_list=False):
         for num in range(unCLIP_interpolation_prefs['num_images']):
             prt(progress)
             autoscroll(False)
-            random_seed = (int(unCLIP_interpolation_prefs['seed']) + num) if int(unCLIP_interpolation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(unCLIP_interpolation_prefs['seed']) + num)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
                 images = pipe_unCLIP_interpolation(start_prompt=pr['start_prompt'], end_prompt=pr['end_prompt'], steps=unCLIP_interpolation_prefs['steps'], prior_num_inference_steps=unCLIP_interpolation_prefs['prior_num_inference_steps'], decoder_num_inference_steps=unCLIP_interpolation_prefs['decoder_num_inference_steps'], super_res_inference_steps=unCLIP_interpolation_prefs['super_res_inference_steps'], prior_guidance_scale=unCLIP_interpolation_prefs['prior_guidance_scale'], decoder_guidance_scale=unCLIP_interpolation_prefs['decoder_guidance_scale'], callback=callback_fnc, generator=generator).images
@@ -35815,7 +35963,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
         prt(progress)
         autoscroll(False)
         num = 0
-        random_seed = (int(unCLIP_image_interpolation_prefs['seed']) + num) if int(unCLIP_image_interpolation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(int(unCLIP_image_interpolation_prefs['seed']) + num)
         generator = torch.Generator(device=torch_device).manual_seed(random_seed)
         try:
             images = pipe_unCLIP_image_interpolation(image=[init_img, end_img], steps=unCLIP_image_interpolation_prefs['interpolation_steps'], decoder_num_inference_steps=unCLIP_image_interpolation_prefs['decoder_num_inference_steps'], super_res_num_inference_steps=unCLIP_image_interpolation_prefs['super_res_num_inference_steps'], decoder_guidance_scale=unCLIP_image_interpolation_prefs['decoder_guidance_scale'], num_images_per_prompt=unCLIP_image_interpolation_prefs['num_images'], generator=generator).images #, callback=callback_fnc, callback_steps=1
@@ -36010,7 +36158,7 @@ def run_magic_mix(page, from_list=False):
         for num in range(magic_mix_prefs['num_images']):
             prt(progress)
             autoscroll(False)
-            random_seed = (int(magic_mix_prefs['seed']) + num) if int(magic_mix_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(magic_mix_prefs['seed']) + num)
             #generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             try:
                 image = pipe_magic_mix(img=init_img, prompt=pr, steps=magic_mix_prefs['num_inference_steps'], kmin=magic_mix_prefs['kmin'], kmax=magic_mix_prefs['kmax'], mix_factor=magic_mix_prefs['mix_factor'], guidance_scale=magic_mix_prefs['guidance_scale'], seed=random_seed, callback=callback_fnc, callback_steps=1)#.images
@@ -36451,7 +36599,7 @@ def run_instruct_pix2pix(page, from_list=False):
         original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
       for num in range(instruct_pix2pix_prefs['num_images']):
         prt(progress)
-        random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(int(pr['seed']) + num)
         generator = torch.Generator(device=torch_device).manual_seed(random_seed)
         #generator = torch.manual_seed(random_seed)
         try:
@@ -36679,7 +36827,7 @@ def run_ledits(page, from_list=False):
       pipe_args = {'target_size':(width, height)} if ledits_prefs['use_SDXL'] else {}
       for num in range(ledits_prefs['num_images']):
           prt(progress)
-          random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+          random_seed = get_seed(int(pr['seed']) + num)
           generator = torch.Generator(device=torch_device).manual_seed(random_seed)
           #generator = torch.manual_seed(random_seed)
           try:
@@ -37226,9 +37374,9 @@ def run_controlnet(page, from_list=False):
     clear_last()
     prt(f"Generating ControlNet {controlnet_prefs['control_task']} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     batch_output = os.path.join(prefs['image_output'], controlnet_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     for pr in controlnet_prompts:
         prt(progress)
         autoscroll(False)
@@ -37254,7 +37402,7 @@ def run_controlnet(page, from_list=False):
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
         try:
-            random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(pr['seed'])
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             if controlnet_type == "text2image":
                 if not controlnet_prefs['use_init_video']:
@@ -37867,7 +38015,7 @@ def run_controlnet_xl(page, from_list=False):
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
         try:
-            random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(pr['seed'])
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             if controlnet_type == "text2image":
                 if not controlnet_xl_prefs['use_init_video']:
@@ -38378,7 +38526,7 @@ def run_controlnet_xs(page, from_list=False):
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
    
         try:
-            random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(pr['seed'])
             generator = torch.Generator(device="cpu").manual_seed(random_seed)
             if controlnet_type == "text2image":
                 if not controlnet_xs_prefs['use_init_video']:
@@ -38564,9 +38712,9 @@ def run_controlnet_video2video(page):
     if bool(controlnet_video2video_prefs['batch_folder_name']):
         batch_output = os.path.join(stable_dir, controlnet_video2video_prefs['batch_folder_name'])
     else: batch_output = stable_dir
-    make_dir(batch_output)
+    makedir(batch_output)
     output_path = os.path.join(prefs['image_output'], controlnet_video2video_prefs['batch_folder_name'])
-    make_dir(output_path)
+    makedir(output_path)
     init_vid = controlnet_video2video_prefs['init_video']
     if init_vid.startswith('http'):
         init_vid = download_file(init_vid, batch_output)
@@ -38918,7 +39066,7 @@ def run_deepfloyd(page, from_list=False):
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
         for num in range(deepfloyd_prefs['num_images']):
-            random_seed = (int(pr['seed']) + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(pr['seed']) + num)
             generator = torch.Generator(device="cpu").manual_seed(random_seed)
             try:
                 installer = Installing("Running DeepFloyd-IF Text Encoder...")
@@ -39355,7 +39503,7 @@ def run_amused(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(int(pr['seed']) + num)
         generator = torch.Generator().manual_seed(random_seed)
         init_img = None
         mask_img = None
@@ -39580,7 +39728,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
             prt(progress)
             nudge(page.imageColumn if from_list else page.Wuerstchen, page)
             autoscroll(False)
-            random_seed = (int(pr['seed']) + n) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(pr['seed']) + n)
             generator = torch.Generator(device="cuda").manual_seed(random_seed)
             try:
                 images = pipe_wuerstchen(
@@ -39770,7 +39918,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
             prt(progress)
             nudge(page.imageColumn if from_list else page.StableCascade, page)
             autoscroll(False)
-            random_seed = (int(pr['seed']) + n) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(pr['seed']) + n)
             generator = torch.Generator(device="cuda").manual_seed(random_seed)
             try:
                 prior_output = pipe_stable_cascade_prior(
@@ -39995,7 +40143,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         guidance_scale = pr['guidance_scale']
         num_inference_steps = pr['num_inference_steps']
@@ -40285,7 +40433,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(int(pr['seed']) + num)
         generator = torch.Generator().manual_seed(random_seed)
         prompt_full = llm_template.format(prompt=pr['prompt'].strip().rstrip("."), width=pr['width'], height=pr['height'])
         response = get_response(prompt_full, AI_engine=lmd_plus_prefs['AI_engine'])
@@ -40323,7 +40471,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         txt2img_output = stable_dir
         if bool(lmd_plus_prefs['batch_folder_name']):
             txt2img_output = os.path.join(stable_dir, lmd_plus_prefs['batch_folder_name'])
-        make_dir(txt2img_output)
+        makedir(txt2img_output)
         if images is None:
             prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
             return
@@ -40338,7 +40486,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             if not lmd_plus_prefs['display_upscaled_image'] or not lmd_plus_prefs['apply_ESRGAN_upscale']:
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], lmd_plus_prefs['batch_folder_name'])
-            make_dir(batch_output)
+            makedir(batch_output)
             if storage_type == "PyDrive Google Drive":
                 newFolder = gdrive.CreateFile({'title': lmd_plus_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
@@ -40500,7 +40648,7 @@ def run_lcm(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(int(pr['seed']) + num)
         generator = torch.Generator(device="cpu").manual_seed(random_seed)
         init_img = None
         if bool(pr['init_image']):
@@ -40671,7 +40819,7 @@ def run_lcm_interpolation(page):
     prt("Generating your LCM Interpolation Image...")
     prt(progress)
     autoscroll(False)
-    random_seed = int(lcm_interpolation_prefs['seed']) if int(lcm_interpolation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(lcm_interpolation_prefs['seed'])
     generator = torch.Generator(device="cuda").manual_seed(random_seed)
     try:
         images = pipe_lcm_interpolation(
@@ -40873,7 +41021,7 @@ def run_instaflow(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(int(pr['seed']) + num)
         generator = torch.Generator().manual_seed(random_seed)
         try:
             images = pipe_instaflow(
@@ -40942,6 +41090,223 @@ def run_instaflow(page, from_list=False, with_params=False):
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+
+def run_pag(page, from_list=False, with_params=False):
+    global pag_prefs, pipe_PAG, prefs, status
+    if not check_diffusers(page): return
+    pag_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            pag_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':pag_prefs['guidance_scale'], 'num_inference_steps':pag_prefs['num_inference_steps'], 'width':pag_prefs['width'], 'height':pag_prefs['height'], 'init_image':pag_prefs['init_image'], 'init_image_strength':pag_prefs['init_image_strength'], 'num_images':pag_prefs['num_images'], 'seed':pag_prefs['seed']})
+        else:
+            pag_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(pag_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      pag_prompts.append({'prompt': pag_prefs['prompt'], 'negative_prompt':pag_prefs['negative_prompt'], 'guidance_scale':pag_prefs['guidance_scale'], 'num_inference_steps':pag_prefs['num_inference_steps'], 'width':pag_prefs['width'], 'height':pag_prefs['height'], 'init_image':pag_prefs['init_image'], 'init_image_strength':pag_prefs['init_image_strength'], 'num_images':pag_prefs['num_images'], 'seed':pag_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.PAG.controls.append(line)
+        if update:
+          page.PAG.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.PAG, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.PAG.auto_scroll = scroll
+        page.PAG.update()
+      else:
+        page.PAG.auto_scroll = scroll
+        page.PAG.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.PAG.controls = page.PAG.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = pag_prefs['num_inference_steps']
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing(f"Installing PAG Engine & {model['name']} Model...")
+    prt(installer)
+    clear_pipes("PAG")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = pag_prefs['cpu_offload']
+    model = get_model(prefs['model_ckpt'])
+    pag_model = model['path']
+    #"SimianLuo/PAG_Dreamshaper_v7" if pag_prefs['pag_model'] == "PAG_Dreamshaper_v7" else "Lykon/dreamshaper-8-pag" if pag_prefs['pag_model'] == "PAG_Dreamshaper_v8" else pag_prefs['pag_custom_model']
+    if 'loaded_pag' not in status: status['loaded_pag'] = ""
+    if pag_model != status['loaded_pag']:
+        clear_pipes()
+    else:
+        clear_pipes('PAG')
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/PAG-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    from accelerate.utils import set_seed
+    from diffusers import StableDiffusionPipeline
+    if pipe_PAG == None:
+        installer.status(f"...initialize PAG Pipeline")
+        try:
+            pipe_PAG = StableDiffusionPipeline.from_pretrained(pag_model, custom_pipeline="hyoungwoncho/sd_perturbed_attention_guidance", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_PAG = pipeline_scheduler(pipe_PAG)
+            #pipe_PAG.scheduler = PAGScheduler.from_config(pipe_PAG.scheduler.config)
+            pipe_PAG = optimize_pipe(pipe_PAG)
+            pipe_PAG.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing PAG...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_pag'] = pag_model
+    ip_adapter_arg = {}
+    if pag_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if pag_prefs['ip_adapter_image'].startswith('http'):
+          i_response = requests.get(pag_prefs['ip_adapter_image'])
+          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+          if os.path.isfile(pag_prefs['ip_adapter_image']):
+            ip_adapter_img = PILImage.open(pag_prefs['ip_adapter_image'])
+          else:
+            clear_last()
+            prt(f"ERROR: Couldn't find your ip_adapter_image {pag_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == pag_prefs['ip_adapter_model'])
+            pipe_PAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_PAG.set_ip_adapter_scale(pag_prefs['ip_adapter_strength'])
+    clear_last()
+    s = "" if len(pag_prompts) == 0 else "s"
+    prt(f"Generating your PAG Image{s}...")
+    for pr in pag_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(pr['seed'])
+        set_seed(random_seed)
+        #generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        '''init_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")'''
+        try:
+            latent_input = randn_tensor(shape=(1,4,64,64), generator=None, device=torch_device, dtype=torch.float16)
+            images = pipe_PAG(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                pag_scale=pag_prefs['pag_scale'],
+                pag_applied_layers=[pag_prefs['pag_applied_layers']],
+                pag_applied_layers_index=[pag_prefs['pag_applied_layers_index']],
+                pag_adaptive_scaling=pag_prefs['pag_adaptive_scaling'],
+                pag_drop_rate=pag_prefs['pag_drop_rate'],
+                latents=latent_input,
+                #generator=generator,
+                callback_on_step_end=callback_fnc,
+                **ip_adapter_arg,
+            ).images
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=pag_prefs)
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(pag_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, pag_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{pag_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            
+            batch_output = os.path.join(prefs['image_output'], pag_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': pag_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if pag_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=pag_prefs["enlarge_scale"], face_enhance=pag_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if pag_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(pag_prefs["enlarge_scale"]), height=pr['height'] * float(pag_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            save_metadata(image_path, pag_prefs, f"PAG", pag_model, random_seed, extra=pr)
+            if not pag_prefs['display_upscaled_image'] or not pag_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], pag_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], pag_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            if not pag_prefs['display_upscaled_image'] or not pag_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 
 def run_ldm3d(page, from_list=False, with_params=False):
     global ldm3d_prefs, pipe_ldm3d, pipe_ldm3d_upscale, prefs
@@ -41079,7 +41444,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         try:
             images = pipe_ldm3d(
@@ -41236,7 +41601,7 @@ def run_task_matrix(page):
             run_sp("pip install git+https://github.com/facebookresearch/segment-anything.git") #langchain==0.0.101
         pip_install("langchain accelerate addict albumentations basicsr controlnet-aux einops gradio imageio imageio-ffmpeg invisible-watermark|imwatermark kornia numpy omegaconf open_clip_torch openai opencv-python prettytable safetensors streamlit test-tube timm torchmetrics webdataset yapf mediapipe", print=False, installer=installer)
         os.environ['OPENAI_API_KEY'] = prefs['OpenAI_api_key']
-        make_dir(os.path.join(task_matrix_dir, 'checkpoint'))
+        makedir(os.path.join(task_matrix_dir, 'checkpoint'))
     try:
         from visual_chatgpt import ConversationBot
     except Exception as e:
@@ -41376,13 +41741,11 @@ def run_text_to_video(page):
     prt(progress)
     autoscroll(False)
     batch_output = os.path.join(stable_dir, text_to_video_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    makedir(batch_output)
     local_output = batch_output
     batch_output = os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
-    random_seed = int(text_to_video_prefs['seed']) if int(text_to_video_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    makedir(batch_output)
+    random_seed = get_seed(text_to_video_prefs['seed'])
     generator = torch.Generator(device="cpu").manual_seed(random_seed)
     #generator = torch.manual_seed(random_seed)
     width = text_to_video_prefs['width']
@@ -41525,13 +41888,11 @@ def run_text_to_video_zero(page):
     prt(progress)
     autoscroll(False)
     batch_output = os.path.join(stable_dir, text_to_video_zero_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    makedir(batch_output)
     local_output = batch_output
     batch_output = os.path.join(prefs['image_output'], text_to_video_zero_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
-    random_seed = int(text_to_video_zero_prefs['seed']) if int(text_to_video_zero_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    makedir(batch_output)
+    random_seed = get_seed(text_to_video_zero_prefs['seed'])
     generator = torch.Generator(device="cuda").manual_seed(random_seed)
     #generator = torch.manual_seed(random_seed)
     width = text_to_video_zero_prefs['width']
@@ -41737,13 +42098,11 @@ def run_video_to_video(page):
     prt(progress)
     autoscroll(False)
     batch_output = os.path.join(stable_dir, video_to_video_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
+    makedir(batch_output)
     local_output = batch_output
     batch_output = os.path.join(prefs['image_output'], video_to_video_prefs['batch_folder_name'])
-    if not os.path.isdir(batch_output):
-      os.makedirs(batch_output)
-    random_seed = int(video_to_video_prefs['seed']) if int(video_to_video_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    makedir(batch_output)
+    random_seed = get_seed(video_to_video_prefs['seed'])
     generator = torch.Generator(device="cpu").manual_seed(random_seed)
     #generator = torch.manual_seed(random_seed)
     width = video_to_video_prefs['width']
@@ -41885,17 +42244,17 @@ def run_controlnet_temporalnet(page):
     
     save_dir = os.path.join(stable_dir, controlnet_temporalnet_prefs['batch_folder_name'])
     frames_dir = os.path.join(save_dir, 'frames')
-    make_dir(frames_dir)
+    makedir(frames_dir)
     batch_output = os.path.join(prefs['image_output'], controlnet_temporalnet_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     output_frames_dir = os.path.join(save_dir, 'output_frames')
-    make_dir(output_frames_dir)
+    makedir(output_frames_dir)
     if controlnet_temporalnet_prefs['save_canny']:
         canny_frames_dir = os.path.join(batch_output, 'canny_frames')
-        make_dir(canny_frames_dir)
+        makedir(canny_frames_dir)
     if controlnet_temporalnet_prefs['save_frames']:
         save_frames_dir = os.path.join(batch_output, 'frames')
-        make_dir(save_frames_dir)
+        makedir(save_frames_dir)
     init_image_path = controlnet_temporalnet_prefs['init_image']
     video_path = controlnet_temporalnet_prefs['init_video']
     if video_path.startswith('http'):
@@ -41937,7 +42296,7 @@ def run_controlnet_temporalnet(page):
     clear_last()
     prt(f"Generating Controlnet TemporalNet XL on Frames with your Prompt...")
     fname = format_filename(controlnet_temporalnet_prefs['prompt'])
-    random_seed = int(controlnet_temporalnet_prefs['seed']) if int(controlnet_temporalnet_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(controlnet_temporalnet_prefs['seed'])
     generator = torch.manual_seed(random_seed)
     frame_files = sorted(os.listdir(frames_dir), key=frame_number)
 
@@ -42171,7 +42530,7 @@ def run_infinite_zoom(page):
     prompt = animation_prompts[0]
     negative_prompt = infinite_zoom_prefs['negative_prompt']
     num_init_images = 1 #TODO: Make multiple to pick from before processing
-    random_seed = int(infinite_zoom_prefs['seed']) if int(infinite_zoom_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(infinite_zoom_prefs['seed'])
     num_inference_steps = infinite_zoom_prefs['num_inference_steps']
     guidance_scale = infinite_zoom_prefs['guidance_scale']
     width = infinite_zoom_prefs['width']
@@ -42395,7 +42754,7 @@ def run_potat1(page):
     batch_output = os.path.join(prefs['image_output'], potat1_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
-    random_seed = int(potat1_prefs['seed']) if int(potat1_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(potat1_prefs['seed'])
     #generator = torch.Generator(device="cpu").manual_seed(random_seed)
     #generator = torch.manual_seed(random_seed)
     width = potat1_prefs['width']
@@ -42561,7 +42920,7 @@ def run_stable_animation(page):
     batch_output = os.path.join(prefs['image_output'], stable_animation_prefs['batch_folder_name'])
     if not os.path.isdir(batch_output):
       os.makedirs(batch_output)
-    random_seed = int(stable_animation_prefs['seed']) if int(stable_animation_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(stable_animation_prefs['seed'])
     width = stable_animation_prefs['width']
     height = stable_animation_prefs['height']
     animation_prompts = stable_animation_prefs['animation_prompts']
@@ -42840,10 +43199,10 @@ def run_svd(page):
     init_img = init_img.resize((width, height))#, resample=PILImage.Resampling.BICUBIC)
     init_img = ImageOps.exif_transpose(init_img).convert("RGB")
     batch_output = os.path.join(prefs['image_output'], svd_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     #for v in range(svd_prefs['num_videos']):
     frames_batch = None
-    random_seed = int(svd_prefs['seed']) if int(svd_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(svd_prefs['seed'])
     generator = torch.manual_seed(random_seed)
     try: #, callback_on_step_end=callback_fnc , callback_on_step_end=progress.callback_alt
         frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
@@ -42880,7 +43239,7 @@ def run_svd(page):
             frames_dir = os.path.join(batch_output, f"frames-{b}")
         else:
             exists = False
-    make_dir(frames_dir)
+    makedir(frames_dir)
     #idx = 0
     for image in frames_batch:
         fname = f"{svd_prefs['file_prefix']}{format_filename(svd_prefs['batch_folder_name'])}-{b}"
@@ -43136,7 +43495,7 @@ def run_video_retalking(page):
             clear_last()
             alert_msg(page, "Error Installing Video-ReTalking Requirements", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
-    make_dir(video_retalking_checkpoints)
+    makedir(video_retalking_checkpoints)
     if not os.path.isfile(video_retalking_checkpoints, '30_net_gen.pth'):
         installer.status("...downloading checkpoints")
         download_file("https://github.com/vinthony/video-retalking/releases/download/v0.0.1/30_net_gen.pth", to=video_retalking_checkpoints)
@@ -43170,13 +43529,13 @@ def run_video_retalking(page):
         batch_output = os.path.join(stable_dir, video_retalking_prefs['batch_folder_name'])
     else:
         batch_output = stable_dir
-    make_dir(batch_output)
+    makedir(batch_output)
     results_dir = os.path.join(video_retalking_dir, "results")
-    make_dir(results_dir)
+    makedir(results_dir)
     inputs_dir = os.path.join(video_retalking_dir, "inputs")
-    make_dir(inputs_dir)
+    makedir(inputs_dir)
     output_path = os.path.join(prefs['image_output'], video_retalking_prefs['batch_folder_name'])
-    make_dir(output_path)
+    makedir(output_path)
 
     expression_img = None
     target_name = video_retalking_prefs['target_video'].rpartition("/")[2] if "/" in video_retalking_prefs['target_video'] else video_retalking_prefs['target_video'].rpartition(slash)[2]
@@ -43329,20 +43688,20 @@ def run_style_crafter(page):
     outputs_dir = os.path.join(style_crafter_dir, "outputs")
     if os.path.exists(outputs_dir):
         shutil.rmtree(outputs_dir, ignore_errors=True)
-    make_dir(outputs_dir)
+    makedir(outputs_dir)
     save_dir = os.path.join(style_crafter_dir, "my_eval_data")
     if os.path.exists(save_dir):
         shutil.rmtree(save_dir, ignore_errors=True)
-    make_dir(save_dir)
+    makedir(save_dir)
     prompt_json = os.path.join(save_dir, 'eval_prompt.json')
     #frames_dir = os.path.join(save_dir, 'frames')
-    #make_dir(frames_dir)
+    #makedir(frames_dir)
     batch_output = os.path.join(prefs['image_output'], style_crafter_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     output_frames_dir = os.path.join(save_dir, 'output_frames')
-    make_dir(output_frames_dir)
+    makedir(output_frames_dir)
     data_dir = os.path.join(save_dir, 'data')
-    make_dir(data_dir)
+    makedir(data_dir)
     style_images = []
     init_images = []
     for fl in page.style_file_list.controls:
@@ -43384,7 +43743,7 @@ def run_style_crafter(page):
     prompt_list = [{'prompt': style_crafter_prefs['prompt'], 'style_path': init_images}]
     with open(prompt_json, "w") as f:
         json.dump(prompt_list, f, ensure_ascii=False, indent=4, cls=CustomEncoder)
-    random_seed = int(style_crafter_prefs['seed']) if int(style_crafter_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(style_crafter_prefs['seed'])
     config="configs/inference_video_320_512.yaml"
     ckpt="checkpoints/videocrafter_t2v_320_512/model.ckpt"
     adapter_ckpt="checkpoints/stylecrafter/adapter_v1.pth"
@@ -43480,14 +43839,14 @@ def run_rave(page):
     results_dir = os.path.join(rave_dir, "results")
     if os.path.exists(results_dir):
         shutil.rmtree(results_dir, ignore_errors=True)
-    make_dir(results_dir)
+    makedir(results_dir)
     #if bool(rave_prefs['batch_folder_name']):
     #    batch_output = os.path.join(stable_dir, rave_prefs['batch_folder_name'])
     #else: batch_output = stable_dir
     #if not os.path.exists(batch_output):
     #    os.makedirs(batch_output)
     output_path = os.path.join(prefs['image_output'], rave_prefs['batch_folder_name'])
-    make_dir(output_path)
+    makedir(output_path)
     init_vid = rave_prefs['init_video']
     if init_vid.startswith('http'):
         init_vid = download_file(init_vid, uploads_dir, ext="mp4")
@@ -43499,9 +43858,9 @@ def run_rave(page):
     w, h = scale_video(init_vid, os.path.join(data_dir, f"{fname}.mp4"), rave_prefs["max_size"])
     #shutil.copy(init_vid, os.path.join(data_dir, f"{fname}.mp4"))
     #video_out_path = os.path.join(data_dir, rave_prefs['batch_folder_name'])
-    #make_dir(video_out_path)
+    #makedir(video_out_path)
     installer.status("...preparing yaml")
-    random_seed = int(rave_prefs['seed']) if int(rave_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(rave_prefs['seed'])
     output_file = available_file(output_path, fname, 0, ext='mp4', no_num=True)
     config_yaml_file = os.path.join(rave_dir, "configs", "sdd_rave.yaml")
     config_yaml = {
@@ -43673,9 +44032,9 @@ def run_tokenflow(page):
     #  os.makedirs(batch_output)
     #local_output = batch_output
     batch_output = os.path.join(prefs['image_output'], tokenflow_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     data_folder = format_filename(tokenflow_prefs['batch_folder_name'], use_dash=True)
-    make_dir(os.path.join(data_dir, data_folder))
+    makedir(os.path.join(data_dir, data_folder))
     init_vid = tokenflow_prefs['init_video']
     if init_vid.startswith('http'):
         progressbar.status("...Downloading Video")
@@ -43691,7 +44050,7 @@ def run_tokenflow(page):
     w, h = scale_video(init_vid, os.path.join(data_dir, data_folder, video_file), tokenflow_prefs["max_size"])
     progressbar.status("...Preparing Run")
     #shutil.copy(init_vid, os.path.join(data_dir, data_folder, video_file))
-    random_seed = int(tokenflow_prefs['seed']) if int(tokenflow_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(tokenflow_prefs['seed'])
     #width = tokenflow_prefs['width']
     #height = tokenflow_prefs['height']
     selected_mode = tokenflow_prefs['selected_mode']
@@ -43976,7 +44335,7 @@ def run_animate_diff(page):
             #editing_prompts.append(animate_diff_prefs['prompt'])
             prompt_map["0"] = animate_diff_prefs['prompt']
             negative_prompts.append(animate_diff_prefs['negative_prompt'])
-            random_seed = int(animate_diff_prefs['seed']) if int(animate_diff_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(animate_diff_prefs['seed'])
             seeds.append(random_seed)
     else:
         num = 0
@@ -43984,7 +44343,7 @@ def run_animate_diff(page):
             #editing_prompts.append(ep['prompt'])
             prompt_map[str(int(num * (animate_diff_prefs['video_length'] / len(animate_diff_prefs['editing_prompts']))))] = animate_diff_prefs['prompt']
             negative_prompts.append(ep['negative_prompt'])
-            random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(ep['seed'])
             seeds.append(random_seed)
             num += 1'''
     if len(animate_diff_prefs['animation_prompts']) == 0:
@@ -44001,7 +44360,7 @@ def run_animate_diff(page):
         return
     installer.status("...preparing json")
     negative_prompts.append(animate_diff_prefs['negative_prompt'])
-    random_seed = int(animate_diff_prefs['seed']) if int(animate_diff_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(animate_diff_prefs['seed'])
     seeds.append(random_seed)
     context = min(animate_diff_prefs['video_length'], animate_diff_prefs['context'])
 
@@ -44027,7 +44386,7 @@ def run_animate_diff(page):
             #editing_prompts.append(ep['prompt'])
             prompt_map[ep[frame]] = animate_diff_prefs['prompt']
             negative_prompts.append(ep['negative_prompt'])
-            random_seed = int(ep['seed']) if int(ep['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(ep['seed'])
             seeds.append(random_seed)
             num += 1'''
     prompts_json = {
@@ -44287,7 +44646,7 @@ def run_animate_diff(page):
         ip_adapter_image_dir = os.path.join(animatediff_dir, 'data', 'ip_adapter_image', 'test')
         if os.path.isdir(ip_adapter_image_dir):
             os.rmdir(ip_adapter_image_dir)
-        make_dir(ip_adapter_image_dir)
+        makedir(ip_adapter_image_dir)
         for f, ip_image in animate_diff_prefs['ip_adapter_layers'].items():
             img_path = os.path.join(ip_adapter_image_dir, f'{str(f).zfill(4)}.png')
             installer.status(f"...saving {os.path.basename(ip_image)}")
@@ -44314,7 +44673,7 @@ def run_animate_diff(page):
         img2img_image_dir = os.path.join(animatediff_dir, 'data', 'img2img_image', 'test')
         if os.path.isdir(img2img_image_dir):
             os.rmdir(img2img_image_dir)
-        make_dir(img2img_image_dir)
+        makedir(img2img_image_dir)
         for f, img2img_image in animate_diff_prefs['img2img_layers'].items():
             if bool(img2img_image):
                 img_path = os.path.join(img2img_image_dir, f'{str(f).zfill(4)}.png')
@@ -44756,7 +45115,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
         autoscroll(False)
         mode = "Video2Video" if pr['init_image'].endswith(('mp4', 'gif')) else "Image2Video"
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator().manual_seed(random_seed)
         init_img = None
         if bool(pr['init_image']):
@@ -44841,11 +45200,11 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
             prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
             return
         batch_output = os.path.join(prefs['image_output'], animatediff_img2video_prefs['batch_folder_name'])
-        make_dir(batch_output)
+        makedir(batch_output)
         for v, frames_batch in enumerate(output):
             fname = format_filename(pr['prompt'])
             frames_dir = available_folder(batch_output, "frames", v)
-            make_dir(frames_dir)
+            makedir(frames_dir)
             for idx, image in enumerate(frames_batch):
                 #fname = f"{animatediff_img2video_prefs['file_prefix']}{format_filename(animatediff_img2video_prefs['batch_folder_name'])}-{b}"
                 image_path = available_file(frames_dir, "frame", idx, zfill=4)
@@ -45044,7 +45403,7 @@ def run_pia(page, from_list=False, with_params=False):
         nudge(page.imageColumn if from_list else page.PIA, page)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator("cpu").manual_seed(random_seed)
         init_img = None
         fname = os.path.basename(pr['init_image'])
@@ -45087,11 +45446,11 @@ def run_pia(page, from_list=False, with_params=False):
             prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
             return
         batch_output = os.path.join(prefs['image_output'], pia_prefs['batch_folder_name'])
-        make_dir(batch_output)
+        makedir(batch_output)
         for v, frames_batch in enumerate(output):
             fname = format_filename(pr['prompt'])
             frames_dir = available_folder(batch_output, "frames", v)
-            make_dir(frames_dir)
+            makedir(frames_dir)
             for idx, image in enumerate(frames_batch):
                 #fname = f"{pia_prefs['file_prefix']}{format_filename(pia_prefs['batch_folder_name'])}-{b}"
                 image_path = available_file(frames_dir, "frame", idx, zfill=4)
@@ -45268,7 +45627,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
         nudge(page.imageColumn if from_list else page.I2VGenXL, page)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator("cpu").manual_seed(random_seed)
         init_img = None
         fname = os.path.basename(pr['init_image'])
@@ -45308,11 +45667,11 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
             prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
             return
         batch_output = os.path.join(prefs['image_output'], i2vgen_xl_prefs['batch_folder_name'])
-        make_dir(batch_output)
+        makedir(batch_output)
         for v, frames_batch in enumerate(output):
             fname = format_filename(pr['prompt'])
             frames_dir = available_folder(batch_output, "frames", v)
-            make_dir(frames_dir)
+            makedir(frames_dir)
             for idx, image in enumerate(frames_batch):
                 #fname = f"{i2vgen_xl_prefs['file_prefix']}{format_filename(i2vgen_xl_prefs['batch_folder_name'])}-{b}"
                 image_path = available_file(frames_dir, "frame", idx, zfill=4)
@@ -45461,7 +45820,7 @@ def run_hotshot_xl(page):
     gif = f' --control_type {hotshot_xl_prefs["controlnet_type"].lower()} --controlnet_conditioning_scale {hotshot_xl_prefs["conditioning_scale"]} --control_guidance_start {hotshot_xl_prefs["control_guidance_start"]} --control_guidance_end {hotshot_xl_prefs["control_guidance_end"]} --gif "input/{os.path.basename(hotshot_xl_prefs["gif"])}"' if bool(hotshot_xl_prefs["gif"]) else ''
     clear_last()
     for num in range(hotshot_xl_prefs["num_images"]):
-        random_seed = (int(hotshot_xl_prefs['seed']) + num) if int(hotshot_xl_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(int(hotshot_xl_prefs['seed']) + num)
         prt("Generating Hotshot-XL of your Prompt...")
         prt(progress)
         autoscroll(False)
@@ -45555,7 +45914,7 @@ def run_rerender_a_video(page):
     #if not os.path.exists(batch_output):
     #    os.makedirs(batch_output)
     output_path = os.path.join(prefs['image_output'], rerender_a_video_prefs['batch_folder_name'])
-    make_dir(output_path)
+    makedir(output_path)
     init_vid = rerender_a_video_prefs['init_video']
     if init_vid.startswith('http'):
         init_vid = download_file(init_vid, uploads_dir, ext="mp4")
@@ -45568,9 +45927,9 @@ def run_rerender_a_video(page):
         video_file += ".mp4"
     shutil.copy(init_vid, os.path.join(video_dir, video_file))
     video_out_path = os.path.join(video_dir, rerender_a_video_prefs['batch_folder_name'])
-    make_dir(video_out_path)
+    makedir(video_out_path)
     lora_dir = os.path.join(rerender_a_video_dir, 'models')
-    make_dir(lora_dir)
+    makedir(lora_dir)
     lora_path = ""
     if rerender_a_video_prefs['dreambooth_lora'] == "Custom":
         lora = rerender_a_video_prefs['custom_lora']
@@ -45595,7 +45954,7 @@ def run_rerender_a_video(page):
             download_file(lora_model['path'], to=lora_dir, ext="safetensors")
     sd_model = os.path.basename(lora_path)
     installer.status("...preparing json")
-    random_seed = int(rerender_a_video_prefs['seed']) if int(rerender_a_video_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(rerender_a_video_prefs['seed'])
     '''total_steps = rerender_a_video_prefs['steps']
     def callback_fnc(step: int) -> None:
       callback_fnc.has_been_called = True
@@ -45801,9 +46160,9 @@ def run_fresco(page):
     prt(progressbar)
     autoscroll(False)
     batch_output = os.path.join(prefs['image_output'], fresco_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     #data_folder = format_filename(fresco_prefs['batch_folder_name'], use_dash=True)
-    #make_dir(os.path.join(data_dir, data_folder))
+    #makedir(os.path.join(data_dir, data_folder))
     init_vid = fresco_prefs['init_video']
     if init_vid.startswith('http'):
         progressbar.status("...Downloading Video")
@@ -45819,7 +46178,7 @@ def run_fresco(page):
     #w, h = scale_video(init_vid, os.path.join(data_dir, data_folder, video_file), fresco_prefs["max_size"])
     progressbar.status("...Preparing Run")
     sd_model = fresco_models[fresco_prefs['sd_model']]
-    random_seed = int(fresco_prefs['seed']) if int(fresco_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(fresco_prefs['seed'])
     inputs = {
         'input_path':video_file,
         'prompt':fresco_prefs['prompt'],
@@ -45971,7 +46330,7 @@ def run_materialdiffusion(page):
     prt("Generating your Material Diffusion Image...")
     prt(progress)
     autoscroll(False)
-    random_seed = int(materialdiffusion_prefs['seed']) if int(materialdiffusion_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(materialdiffusion_prefs['seed'])
     #input = {'prompt':materialdiffusion_prefs['material_prompt'], 'width':materialdiffusion_prefs['width'], 'height':materialdiffusion_prefs['height'], 'init_image':init_img, 'mask':mask_img, 'prompt_strength':materialdiffusion_prefs['prompt_strength'], 'num_outputs':materialdiffusion_prefs['num_outputs'], 'num_inference_steps':materialdiffusion_prefs['steps'], 'guidance_scale':materialdiffusion_prefs['guidance_scale'], 'seed':random_seed}
     try:
         if init_img != None and mask_img != None:
@@ -46094,7 +46453,7 @@ def run_materialdiffusion_sdxl(page):
     prt("Generating your Material Diffusion SDXL Image...")
     prt(progress)
     autoscroll(False)
-    random_seed = int(materialdiffusion_sdxl_prefs['seed']) if int(materialdiffusion_sdxl_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(materialdiffusion_sdxl_prefs['seed'])
     #input = {'prompt':materialdiffusion_sdxl_prefs['material_prompt'], 'width':materialdiffusion_sdxl_prefs['width'], 'height':materialdiffusion_sdxl_prefs['height'], 'init_image':init_img, 'mask':mask_img, 'prompt_strength':materialdiffusion_sdxl_prefs['prompt_strength'], 'num_outputs':materialdiffusion_sdxl_prefs['num_outputs'], 'num_inference_steps':materialdiffusion_sdxl_prefs['steps'], 'guidance_scale':materialdiffusion_sdxl_prefs['guidance_scale'], 'seed':random_seed}
     try:
         images = replicate.run("pwntus/material-diffusion-sdxl:ce888cbe17a7c04d4b9c4cbd2b576715d480c55b2ba8f9f3d33f2ad70a26cd99",
@@ -46229,14 +46588,14 @@ def run_DiT(page, from_list=False):
     s = "s" if DiT_prefs['num_images'] > 1 else ""
     prt(f"Generating DiT{s} of your Image...")
     batch_output = os.path.join(stable_dir, DiT_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     batch_output = os.path.join(prefs['image_output'], DiT_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     for pr in DiT_prompts:
         for num in range(DiT_prefs['num_images']):
             prt(progress)
             autoscroll(False)
-            random_seed = (int(DiT_prefs['seed']) + num) if int(DiT_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(DiT_prefs['seed']) + num)
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             words = [w.strip() for w in pr.split(',')]
             try:
@@ -46959,7 +47318,7 @@ def run_zoe_depth(page):
         pipe_zoe_depth = torch.hub.load(zoe_depth_dir, zoe_depth_prefs["zoe_model"], pretrained=True).to(torch_device).eval()
         zoe_depth_prefs['loaded_model'] = zoe_depth_prefs['zoe_model']
     batch_output = os.path.join(prefs['image_output'], zoe_depth_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     installer.set_message("Running ZoeDepth on your Image...")
     installer.show_progress(False)
     installer.status("...infering depth")
@@ -47035,23 +47394,33 @@ def run_marigold_depth(page):
     clear_list()
     prt(installer)
     from diffusers import DiffusionPipeline
-    clear_pipes('marigold_depth')
+    if 'loaded_marigold' not in status: status['loaded_marigold'] = ""
+    model_id = "prs-eth/marigold-v1-0" #if not marigold_depth_prefs['use_LCM'] else "prs-eth/marigold-lcm-v1-0"
+    if model_id != status['loaded_marigold']:
+        clear_pipes()
+    else:
+        clear_pipes('marigold_depth')
     if pipe_marigold_depth == None:
-        installer.status("...loading Bingxin/Marigold")
-        mem_kwargs = {} if prefs['higher_vram_mode'] else {'torch_dtype': torch.float16}
-        pipe_marigold_depth = DiffusionPipeline.from_pretrained("Bingxin/Marigold", custom_pipeline="marigold_depth_estimation", **mem_kwargs)
+        installer.status(f"...loading {model_id}")
+        mem_kwargs = {} if prefs['higher_vram_mode'] else {'torch_dtype': torch.float16, 'variant': 'fp16'}
+        pipe_marigold_depth = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="marigold_depth_estimation", **mem_kwargs)
         pipe_marigold_depth.to(torch_device)
+        if marigold_depth_prefs['use_LCM']:
+            pipe_marigold_depth = pipeline_scheduler(pipe_marigold_depth, scheduler="LCM")
+        status['loaded_marigold'] = model_id
     batch_output = os.path.join(prefs['image_output'], marigold_depth_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     clear_last()
     prt("Generating Marigold Depth Estimation Images...")
     prt(progress)
+    random_seed = get_seed(marigold_depth_prefs['seed'], max=1000000)
     marigold_output = pipe_marigold_depth(
         image,                  # Input image.
         denoising_steps=marigold_depth_prefs['denoising_steps'],     # (optional) Number of denoising steps of each inference pass. Default: 10.
         ensemble_size=marigold_depth_prefs['ensemble_size'],       # (optional) Number of inference passes in the ensemble. Default: 10.
         processing_res=marigold_depth_prefs['processing_res'],     # (optional) Maximum resolution of processing. If set to 0: will not resize at all. Defaults to 768.
         match_input_res=marigold_depth_prefs['match_input_res'],   # (optional) Resize depth prediction to match input resolution.
+        seed=random_seed,
         # batch_size=0,           # (optional) Inference batch size, no bigger than `num_ensemble`. If set to 0, the script will automatically decide the proper batch size. Defaults to 0.
         color_map=marigold_depth_prefs['color_map'] if marigold_depth_prefs['color_map'] != 'None' else None,   # (optional) Colormap used to colorize the depth map. Defaults to "Spectral".
         show_progress_bar=True, # (optional) If true, will show progress bars of the inference progress.
@@ -47349,7 +47718,7 @@ def run_crm(page):
     clear_last()
     prt(status_txt)
     prt(progress)
-    random_seed = int(crm_prefs['seed']) if int(crm_prefs['seed']) > 0 else rnd.randint(0, 1000000)
+    random_seed = get_seed(crm_prefs['seed'], max=1000000)
     obj_path = available_file(crm_out, fname, ext='obj', no_num=True)
     glb_path = available_file(crm_out, fname, ext='glb', no_num=True)
     image_path = available_file(crm_out, fname)
@@ -47560,7 +47929,7 @@ def run_meshy(page):
                 return
     file_name = format_filename(meshy_prefs['title']) if bool(meshy_prefs['title']) else format_filename(meshy_prefs['prompt']) if bool(meshy_prefs['prompt']) else format_filename(meshy_prefs['batch_folder_name'])
     batch_output = os.path.join(prefs['image_output'], meshy_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     pb = Progress(f"Running Meshy {mode.title()} API Client...")
     prt(pb)
     headers = {"Authorization": f"Bearer {prefs['meshy_api_key']}"}
@@ -47580,7 +47949,7 @@ def run_meshy(page):
         }
     elif mode == "text-to-3d":
         dest = "v2/text-to-3d"
-        random_seed = int(meshy_prefs['seed']) if int(meshy_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(meshy_prefs['seed'])
         payload = {
             "mode": "preview",
             "prompt": meshy_prefs["prompt"],
@@ -47771,7 +48140,7 @@ def run_luma_vid_to_3d(page):
     file_name = format_filename(title)
     camera_type = CameraType.EQUIRECTANGULAR if luma_vid_to_3d_prefs["camera_type"] == "Equirectangular 360" else CameraType.FISHEYE if luma_vid_to_3d_prefs["camera_type"] == "Fisheye Lens" else CameraType.NORMAL
     batch_output = os.path.join(prefs['image_output'], luma_vid_to_3d_prefs['batch_folder_name'])
-    make_dir(batch_output)
+    makedir(batch_output)
     clear_last()
     pb = Progress("Running Luma Video-to-3D on your file...")
     prt(pb)
@@ -47926,7 +48295,7 @@ def run_dall_e(page, from_list=False):
         autoscroll(True)
         txt2img_output = stable_dir
         batch_output = os.path.join(prefs['image_output'], dall_e_prefs['batch_folder_name'])
-        make_dir(batch_output)
+        makedir(batch_output)
         #print(str(images))
         if response is None:
             prt(f"ERROR: Problem generating images, check your settings and run above blocks again, or report the error to Skquark if it really seems broken.")
@@ -47942,7 +48311,7 @@ def run_dall_e(page, from_list=False):
             txt2img_output = stable_dir
             if bool(dall_e_prefs['batch_folder_name']):
                 txt2img_output = os.path.join(stable_dir, dall_e_prefs['batch_folder_name'])
-            make_dir(txt2img_output)
+            makedir(txt2img_output)
             image_path = available_file(txt2img_output, fname, 1)
             #image.save(image_path)
             response = requests.get(image, stream=True)
@@ -48114,7 +48483,7 @@ def run_dall_e_3(page, from_list=False):
             new_file = image_path.rpartition(slash)[2].rpartition('-')[0]
             #size = int(dall_e_3_prefs['size'].rpartition('x')[0])
             batch_output = os.path.join(prefs['image_output'], dall_e_3_prefs['batch_folder_name'])
-            make_dir(batch_output)
+            makedir(batch_output)
             out_path = batch_output# if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
             if not dall_e_3_prefs['display_upscaled_image'] or not dall_e_3_prefs['apply_ESRGAN_upscale']:
@@ -48296,7 +48665,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         try:
             if task_type == "text2img":
@@ -48545,7 +48914,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['steps']
-        random_seed = int(pr['seed']) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+        random_seed = get_seed(pr['seed'])
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
         try:
             #image_embeds, negative_image_embeds = pipe_kandinsky_prior(pr['prompt'], negative_prompt=pr['negative_prompt'], num_inference_steps=5, guidance_scale=1.0, generator=generator).to_tuple()
@@ -48943,7 +49312,7 @@ def run_kandinsky_fuse(page):
     prt("Generating your Kandinsky 2.2 Fused Image...")
     prt(progress)
     autoscroll(False)
-    random_seed = int(kandinsky_fuse_prefs['seed']) if int(kandinsky_fuse_prefs['seed']) > 0 else rnd.randint(0,4294967295)
+    random_seed = get_seed(kandinsky_fuse_prefs['seed'])
     generator = torch.Generator(device="cuda").manual_seed(random_seed)
 
     try:
@@ -49287,7 +49656,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
         autoscroll(False)
         hint = make_hint(init_img, depth_estimator).unsqueeze(0).half().to('cuda')
         for num in range(pr['num_images']):
-            random_seed = int(pr['seed'] + num) if int(pr['seed']) > 0 else rnd.randint(0,4294967295)
+            random_seed = get_seed(int(pr['seed'] + num))
             generator = torch.Generator(device="cuda").manual_seed(random_seed)
             try:
                 image_embeds = pipe_kandinsky_controlnet_prior(prompt=pr['prompt'], image=init_img, strength=kandinsky_controlnet_prefs['prior_strength'], num_inference_steps = kandinsky_controlnet_prefs['prior_steps'], generator=generator)
@@ -50299,19 +50668,34 @@ def pip_install(packages, installer=None, print=False, prt=None, cwd=None, upgra
                 pass
             pass
 
+def get_percentage(line):
+    if '%' not in line:
+        return None
+    match = re.search(r'\d+%', line)
+    if match:
+        percentage_str = match.group()
+        try:
+            return int(percentage_str.rstrip('%'))
+        except ValueError:
+            return None
+    else:
+        return None
+
 class RunConsole(UserControl):
     def __init__(self, title="", height=200, show_progress=True):
         super().__init__()
         self.title = title
         self.height = height
         self.show_progress = show_progress
+        self.progress = ProgressBar(bar_height=8)
+        self.last_line = ""
         self.build()
     def add_text(self, text):
         try:
-          self.column.controls.append(Text(text, theme_style=TextThemeStyle.TITLE_SMALL, color=colors.ON_SURFACE_VARIANT))
-          self.column.update()
+            self.column.controls.append(Text(text, theme_style=TextThemeStyle.TITLE_SMALL, color=colors.ON_SURFACE_VARIANT))
+            self.column.update()
         except Exception:
-          pass
+            pass
     def clear_last(self):
         del self.column.controls[-1]
         self.column.update()
@@ -50321,31 +50705,48 @@ class RunConsole(UserControl):
     def run_process(self, cmd_str, cwd=None):
         cmd_list = cmd_str if type(cmd_str) is list else cmd_str.split()
         if cwd is None:
-          process = subprocess.Popen(cmd_str, shell = True, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' )
+            process = subprocess.Popen(cmd_str, shell = True, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' )
         else:
-          process = subprocess.Popen(cmd_str, shell = True, cwd=cwd, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' )
+            process = subprocess.Popen(cmd_str, shell = True, cwd=cwd, env=env, bufsize = 1, stdout=subprocess.PIPE, stderr = subprocess.STDOUT, encoding='utf-8', errors = 'replace' )
         while True:
-          realtime_output = process.stdout.readline()
-          if realtime_output == '' and process.poll() is not None:
-            break
-          if "Downloading" in realtime_output:
-              self.clear_last()
-          self.add_text(realtime_output.strip())
-          #self.column.controls.append(Text(realtime_output.strip(), style="titleSmall", color=colors.TERTIARY))
-          #self.column.update()
-          sys.stdout.flush()
+            realtime_output = process.stdout.readline()
+            if realtime_output == '' and process.poll() is not None:
+                break
+            percent = get_percentage(realtime_output.strip())
+            last_percent = get_percentage(self.last_line)
+            if last_percent is not None and last_percent != 100:
+                self.clear_last()
+            elif "Downloading" in realtime_output:
+                self.clear_last()
+            if self.show_progress:
+                if percent is not None:
+                    self.progress.value = percent
+                    self.progress.update()
+                else:
+                    if self.progress.value is not None:
+                        self.progress.value = percent
+                        if percent != last_percent:
+                            self.progress.update()
+            self.add_text(realtime_output.strip())
+            self.last_line = realtime_output.strip()
+            #self.column.controls.append(Text(realtime_output.strip(), style="titleSmall", color=colors.TERTIARY))
+            #self.column.update()
+            sys.stdout.flush()
         self.clear()
     def build(self):
         #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
         self.column = Column([], spacing=1, scroll=ScrollMode.AUTO, auto_scroll=True) #, width=(page.width if page.web else page.window_width) - 20
+        height = (self.height + 48) if bool(self.title) else self.height
         self.container = Container(content=self.column, border_radius=ft.border_radius.all(16), height=self.height, bgcolor=colors.SURFACE_VARIANT, padding=ft.padding.symmetric(10, 12))
         self.main_column = Column([])
         if bool(self.title):
-            self.main_column.controls.append(Text(self.title, theme_style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=3))
+            self.main_column.controls.append(Text(self.title, theme_style=ft.TextThemeStyle.BODY_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD, max_lines=2))
         self.main_column.controls.append(self.container)
+        height = (self.height + 48) if bool(self.title) else self.height
         if self.show_progress:
-            self.main_column.controls.append(ProgressBar(bar_height=8))
-        return self.main_column
+            self.main_column.controls.append(self.progress)
+            height += 10
+        return Container(content=self.main_column, height=height)
 
 def elapsed(start_time, end_time=None):
     if end_time is None:
@@ -50395,7 +50796,7 @@ def nudge(column:Column, page=None):
     if page is not None:
         page.update()
     
-def make_dir(path):
+def makedir(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
@@ -50614,7 +51015,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
         if frame_interpolation_dir not in sys.path:
             sys.path.append(frame_interpolation_dir)
     if not os.path.exists(saved_model_dir):
-        make_dir(saved_model_dir)
+        makedir(saved_model_dir)
         run_sp(f"gdown -q --folder 1q8110-qp225asX3DQvZnfLfJPkCHmDpy -O {saved_model_dir}", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp(f"gdown 1C1YwOo293_yrgSS8tAyFbbVcMeXxzftE -O pretrained_models-20220214T214839Z-001.zip", cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
         #run_sp('unzip -o "pretrained_models-20220214T214839Z-001.zip"', cwd=frame_interpolation_dir, realtime=False) #1GhVNBPq20X7eaMsesydQ774CgGcDGkc6
@@ -50623,7 +51024,7 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
     saved_model = './pretrained_models/film_net/Style/saved_model' #os.path.join(saved_model_dir, 'film_net','Style','saved_model') #
     stat("copying photo frames")
     shutil.rmtree(photos_dir)
-    make_dir(photos_dir)
+    makedir(photos_dir)
     #for f in os.listdir(photos_dir):
     #    os.remove(os.path.join(photos_dir, f))
     if isinstance(frames_dir, list):
