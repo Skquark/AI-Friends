@@ -702,6 +702,7 @@ def buildImageAIs(page):
     page.BLIPDiffusion = buildBLIPDiffusion(page)
     page.AnyText = buildAnyText(page)
     page.IP_Adapter = buildIP_Adapter(page)
+    page.HD_Painter = buildHD_Painter(page)
     page.Reference = buildReference(page)
     page.ControlNetQR = buildControlNetQR(page)
     page.ControlNetSegmentAnything = buildControlNetSegmentAnything(page)
@@ -763,14 +764,13 @@ def buildImageAIs(page):
             Tab(text="LCM Interpolation", content=page.LCMInterpolation, icon=icons.TRANSFER_WITHIN_A_STATION),
             Tab(text="InstaFlow", content=page.InstaFlow, icon=icons.ELECTRIC_BOLT),
             Tab(text="PAG", content=page.PAG, icon=icons.SYNC_PROBLEM),
-            Tab(text="TaskMatrix", content=page.TaskMatrix, icon=icons.ADD_TASK),
             Tab(text="unCLIP", content=page.unCLIP, icon=icons.ATTACHMENT_SHARP),
             Tab(text="unCLIP Interpolation", content=page.unCLIP_Interpolation, icon=icons.TRANSFORM),
             Tab(text="unCLIP Image Interpolation", content=page.unCLIP_ImageInterpolation, icon=icons.ANIMATION),
             Tab(text="unCLIP Image Variation", content=page.UnCLIP_ImageVariation, icon=icons.AIRLINE_STOPS),
             Tab(text="Image Variation", content=page.ImageVariation, icon=icons.FORMAT_COLOR_FILL),
             Tab(text="BLIP-Diffusion", content=page.BLIPDiffusion, icon=icons.RADAR),
-            Tab(text="AnyText", content=page.AnyText, icon=icons.TEXT_ROTATE_VERTICAL),
+            Tab(text="HD-Painter", content=page.HD_Painter, icon=icons.BRUSH),
             Tab(text="IP-Adapter", content=page.IP_Adapter, icon=icons.ROOM_PREFERENCES),
             Tab(text="Reference-Only", content=page.Reference, icon=icons.CRISIS_ALERT),
             Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
@@ -778,6 +778,8 @@ def buildImageAIs(page):
             Tab(text="Null-Text", content=page.Null_Text, icon=icons.FORMAT_OVERLINE),
             Tab(text="EDICT Edit", content=page.EDICT, icon=icons.AUTO_AWESOME),
             Tab(text="DiffEdit", content=page.DiffEdit, icon=icons.AUTO_GRAPH),
+            Tab(text="AnyText", content=page.AnyText, icon=icons.TEXT_ROTATE_VERTICAL),
+            Tab(text="TaskMatrix", content=page.TaskMatrix, icon=icons.ADD_TASK),
             Tab(text="RePainter", content=page.RePainter, icon=icons.FORMAT_PAINT),
             Tab(text="MagicMix", content=page.MagicMix, icon=icons.BLENDER),
             Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
@@ -2071,6 +2073,8 @@ def buildInstallers(page):
           page.ESRGAN_block_semantic,
           page.ESRGAN_block_EDICT,
           page.ESRGAN_block_DiffEdit,
+          page.ESRGAN_block_PAG,
+          page.ESRGAN_block_hd_painter,
           page.ESRGAN_block_anytext,
           page.ESRGAN_block_null_text,
           page.ESRGAN_block_magic_mix,
@@ -7207,6 +7211,139 @@ def buildIP_Adapter(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+hd_painter_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "hd_painter-",
+    "num_images": 1,
+    "max_size":1024,
+    "guidance_scale": 7.5,
+    'num_inference_steps': 50,
+    'eta': 0.01,
+    "seed": 0,
+    'init_image': '',
+    'mask_image': '',
+    'init_image_strength': 0.9,
+    'use_rasg': True,
+    'use_painta': True,
+    "cpu_offload": False,
+    "hd_painter_model": "stabilityai/stable-diffusion-2-inpainting",
+    "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_strength': 0.8,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildHD_Painter(page):
+    global prefs, hd_painter_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            hd_painter_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            hd_painter_prefs[pref] = float(e.control.value)
+          else:
+            hd_painter_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def hd_painter_help(e):
+      def close_hd_painter_dlg(e):
+        nonlocal hd_painter_help_dlg
+        hd_painter_help_dlg.open = False
+        page.update()
+      hd_painter_help_dlg = AlertDialog(title=Text("🙅   Help with HD-Painter Pipeline"), content=Column([
+          Text("Recent progress in text-guided image inpainting, based on the unprecedented success of text-to-image diffusion models, has led to exceptionally realistic and visually plausible results. However, there is still significant potential for improvement in current text-to-image inpainting models, particularly in better aligning the inpainted area with user prompts and performing high-resolution inpainting. Therefore, in this paper we introduce _HD-Painter_, a completely **training-free** approach that **accurately follows to prompts** and coherently **scales to high-resolution** image inpainting. To this end, we design the _Prompt-Aware Introverted Attention (PAIntA)_ layer enhancing self-attention scores by prompt information and resulting in better text alignment generations."),
+          Text("To further improve the prompt coherence we introduce the _Reweighting Attention Score Guidance (RASG)_ mechanism seamlessly integrating a post-hoc sampling strategy into general form of DDIM to prevent out-of-distribution latent shifts. Moreover, HD-Painter allows extension to larger scales by introducing a specialized super-resolution technique customized for inpainting, enabling the completion of missing regions in images of up to 2K resolution.  Our experiments demonstrate that HD-Painter surpasses existing state-of-the-art approaches qualitatively and quantitatively, achieving an impressive generation accuracy improvement of **61.4** vs **51.9**. "),
+          Markdown("[Github Project](https://github.com/Picsart-AI-Research/HD-Painter) | [Paper](https://arxiv.org/abs/2312.14091) | [HuggingFace Space](https://huggingface.co/spaces/PAIR/HD-Painter)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("Contributors include Hayk Manukyan, Andranik Sargsyan, Barsegh Atanyan, Zhangyang Wang, Shant Navasardyan and Humphrey Shi, Picsart AI Resarch (PAIR), UT Austin, Georgia Tech.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🧑‍🎨️  Commission an Artist...", on_click=close_hd_painter_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = hd_painter_help_dlg
+      hd_painter_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        hd_painter_prefs['hd_painter_model'] = e.control.value
+        hd_painter_custom_model.visible = e.control.value == "Custom"
+        hd_painter_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        hd_painter_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=hd_painter_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=hd_painter_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image", pref=hd_painter_prefs, key='init_image', page=page, col={'md':6})
+    mask_image = FileInput(label="Mask Image", pref=hd_painter_prefs, key='mask_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=hd_painter_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=hd_painter_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=hd_painter_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=20, step=1, value=hd_painter_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=100, divisions=100, pref=hd_painter_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=hd_painter_prefs, key='guidance_scale')
+    eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=100, round=2, pref=hd_painter_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=2048, divisions=112, multiple=16, suffix="px", pref=hd_painter_prefs, key='max_size', tooltip="Resizes your Init and Mask Image to save memory.")
+    def toggle_ip_adapter(e):
+        hd_painter_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=hd_painter_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=hd_painter_prefs['ip_adapter_model'], visible=hd_painter_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=hd_painter_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=hd_painter_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if hd_painter_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    hd_painter_model = Dropdown(label="Inpainting Model", width=376, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers", "Lykon/dreamshaper-8-inpainting", "parlance/dreamlike-diffusion-1.0-inpainting", "ghunkins/stable-diffusion-liberty-inpainting", "piyushaaryan011/realistic-vision-inpainting", "Custom"]], value=hd_painter_prefs['hd_painter_model'], on_change=changed_model)
+    hd_painter_custom_model = TextField(label="Custom HD_Painter Model (URL or Path)", value=hd_painter_prefs['custom_model'], expand=True, visible=hd_painter_prefs['hd_painter_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    use_rasg = Switcher(label="Use RASG", value=hd_painter_prefs['use_rasg'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_rasg'), tooltip="Reweighting Attention Score Guidance improves the prompt coherence by seamlessly integrating a post-hoc sampling strategy into the general form of DDIM to prevent out-of-distribution latent shifts.")
+    use_painta = Switcher(label="Use PAIntA", value=hd_painter_prefs['use_painta'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_painta'), tooltip="Prompt-Aware Introverted Attention layer enhancing self-attention scores by prompt information resulting in better text aligned generations.")
+    cpu_offload = Switcher(label="CPU Offload", value=hd_painter_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    seed = TextField(label="Seed", width=90, value=str(hd_painter_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=hd_painter_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=hd_painter_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=hd_painter_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=hd_painter_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_hd_painter = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_hd_painter.height = None if status['installed_ESRGAN'] else 0
+    if not hd_painter_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🖌   Run HD-Painter", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hd_painter(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hd_painter(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hd_painter(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.hd_painter_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("💅  HD-Painter by Picsart AI-Research", "Prompt-Faithful and High-Resolution (up to 2k) Text-Guided Image Inpainting with Diffusion Models...", actions=[save_default(hd_painter_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with HD-Painter Settings", on_click=hd_painter_help)]),
+            ResponsiveRow([init_image, mask_image]),
+            ResponsiveRow([prompt, negative_prompt]),
+            init_image_strength,
+            steps,
+            guidance,
+            eta,
+            max_row, #Divider(height=9, thickness=2),
+            Row([hd_painter_model, hd_painter_custom_model]),
+            Row([use_rasg, use_painta]),
+            Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_hd_painter,
+            parameters_row,
+            page.hd_painter_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+
 reference_prefs = {
     'ref_image': '',
     'prompt': '',
@@ -11535,7 +11672,7 @@ def buildPAG(page):
     page.pag_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("💫  Perturbed-Attention Guidance (PAG)", "Self-Rectifying Diffusion Sampling. Will use SD Model in Installation settings...", actions=[save_default(pag_prefs, ['init_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with PAG Settings", on_click=pag_help)]),
+            Header("💫  Perturbed-Attention Guidance (PAG)", "Self-Rectifying Diffusion Sampling. Uses SD Model in Installation settings...", actions=[save_default(pag_prefs, ['init_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with PAG Settings", on_click=pag_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             #ResponsiveRow([init_image, init_image_strength]),
             steps,
@@ -12510,7 +12647,7 @@ def buildInfiniteZoom(page):
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=infinite_zoom_prefs, key='height')
     use_SDXL = Switcher(label="Use Stable Diffusion XL", value=infinite_zoom_prefs['use_SDXL'], on_change=lambda e:changed(e,'use_SDXL'), tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
-    inpainting_model = Dropdown(label="Inpainting Model", width=386, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers", "parlance/dreamlike-diffusion-1.0-inpainting", "ghunkins/stable-diffusion-liberty-inpainting", "piyushaaryan011/realistic-vision-inpainting"]], value=infinite_zoom_prefs['inpainting_model'], on_change=lambda e: changed(e, 'inpainting_model'))
+    inpainting_model = Dropdown(label="Inpainting Model", width=386, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers", "Lykon/dreamshaper-8-inpainting", "parlance/dreamlike-diffusion-1.0-inpainting", "ghunkins/stable-diffusion-liberty-inpainting", "piyushaaryan011/realistic-vision-inpainting"]], value=infinite_zoom_prefs['inpainting_model'], on_change=lambda e: changed(e, 'inpainting_model'))
     save_frames = Switcher(label="Save Frames", value=infinite_zoom_prefs['save_frames'], on_change=lambda e:changed(e,'save_frames'))
     save_gif = Switcher(label="Save Animated GIF", value=infinite_zoom_prefs['save_gif'], on_change=lambda e:changed(e,'save_gif'))
     save_video = Switcher(label="Save Video", value=infinite_zoom_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
@@ -15880,10 +16017,8 @@ def buildMaterialDiffusion(page):
     #num_outputs = NumberPicker(label="Num of Outputs", min=1, max=4, step=4, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))
     #num_outputs = TextField(label="num_outputs", value=materialdiffusion_prefs['num_outputs'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_outputs', ptype="int"))
     #n_iterations = TextField(label="Number of Iterations", value=materialdiffusion_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
-    steps = TextField(label="Inference Steps", value=materialdiffusion_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
-    eta = TextField(label="DDIM ETA", value=materialdiffusion_prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta', ptype="float"))
     steps = SliderRow(label="Inference Steps", min=0, max=200, divisions=200, pref=materialdiffusion_prefs, key='steps')
-    eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=1, pref=materialdiffusion_prefs, key='eta')
+    eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=2, pref=materialdiffusion_prefs, key='eta')
     seed = TextField(label="Seed", value=materialdiffusion_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width=120, on_change=lambda e:changed(e,'seed', ptype="int"))
     param_rows = ResponsiveRow([Column([batch_folder_name, file_prefix, NumberPicker(label="Output Images", min=1, max=8, step=1, value=materialdiffusion_prefs['num_outputs'], on_change=lambda e:changed(e,'num_outputs', ptype="int"))], col={'xs':12, 'md':6}),
                       Column([steps, eta, seed], col={'xs':12, 'lg':6})], vertical_alignment=CrossAxisAlignment.START)
@@ -21329,6 +21464,7 @@ pipe_blip_diffusion = None
 pipe_anytext = None
 pipe_reference = None
 pipe_ip_adapter = None
+pipe_hd_painter = None
 pipe_controlnet_qr = None
 pipe_controlnet_segment = None
 pipe_kandinsky_controlnet_prior = None
@@ -24072,6 +24208,12 @@ def clear_ip_adapter_pipe():
     del pipe_ip_adapter
     flush()
     pipe_ip_adapter = None
+def clear_hd_painter_pipe():
+  global pipe_hd_painter
+  if pipe_hd_painter is not None:
+    del pipe_hd_painter
+    flush()
+    pipe_hd_painter = None
 def clear_controlnet_qr_pipe():
   global pipe_controlnet_qr, pipe_controlnet
   if pipe_controlnet_qr is not None:
@@ -24269,6 +24411,7 @@ def clear_pipes(allbut=None):
     if not 'fuyu' in but: clear_fuyu_pipe()
     if not 'moondream2' in but: clear_moondream2_pipe()
     if not 'ip_adapter' in but: clear_ip_adapter_pipe()
+    if not 'hd_painter' in but: clear_hd_painter_pipe()
     if not 'reference' in but: clear_reference_pipe()
     if not 'controlnet_qr' in but: clear_controlnet_qr_pipe()
     if not 'controlnet_segment' in but: clear_controlnet_segment_pipe()
@@ -29284,6 +29427,249 @@ def run_ip_adapter(page, from_list=False, with_params=False):
                 shutil.copy(image_path, new_file)
             elif bool(prefs['image_output']):
                 new_file = available_file(os.path.join(prefs['image_output'], ip_adapter_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+def run_hd_painter(page, from_list=False, with_params=False):
+    global hd_painter_prefs, pipe_hd_painter, prefs, status
+    if not check_diffusers(page): return
+    if not bool(hd_painter_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+    hd_painter_prompts = []
+    if from_list:
+        if len(prompts) < 1:
+            alert_msg(page, "You need to add Prompts to your List first... ")
+            return
+        for p in prompts:
+            if with_params:
+                hd_painter_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':hd_painter_prefs['guidance_scale'], 'num_inference_steps':hd_painter_prefs['num_inference_steps'], 'width':hd_painter_prefs['width'], 'height':hd_painter_prefs['height'], 'init_image':hd_painter_prefs['init_image'], 'mask_image':hd_painter_prefs['mask_image'], 'init_image_strength':hd_painter_prefs['init_image_strength'], 'num_images':hd_painter_prefs['num_images'], 'seed':hd_painter_prefs['seed']})
+            else:
+                hd_painter_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'mask_image':p['mask_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+        if not bool(hd_painter_prefs['init_image']) or not bool(hd_painter_prefs['mask_image']):
+            alert_msg(page, "You must provide an initial image and mask image to process your image generation...")
+            return
+        hd_painter_prompts.append({'prompt': hd_painter_prefs['prompt'], 'negative_prompt':hd_painter_prefs['negative_prompt'], 'guidance_scale':hd_painter_prefs['guidance_scale'], 'num_inference_steps':hd_painter_prefs['num_inference_steps'], 'width':hd_painter_prefs['width'], 'height':hd_painter_prefs['height'], 'init_image':hd_painter_prefs['init_image'], 'mask_image':hd_painter_prefs['mask_image'], 'init_image_strength':hd_painter_prefs['init_image_strength'], 'num_images':hd_painter_prefs['num_images'], 'seed':hd_painter_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.HD_Painter.controls.append(line)
+        if update:
+          page.HD_Painter.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.HD_Painter, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.HD_Painter.auto_scroll = scroll
+        page.HD_Painter.update()
+      else:
+        page.HD_Painter.auto_scroll = scroll
+        page.HD_Painter.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.HD_Painter.controls = page.HD_Painter.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = hd_painter_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    def callback_fn(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing HD-Painter Engine & Models... See console for progress.")
+    prt(installer)
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = hd_painter_prefs['cpu_offload']
+    hd_painter_model = hd_painter_prefs['hd_painter_model'] if hd_painter_prefs['hd_painter_model'] != "Custom" else hd_painter_prefs['hd_painter_custom_model'] #"hd_painter/hd_painter-512" if hd_painter_prefs['hd_painter_model'] == "hd_painter-512" else "hd_painter/hd_painter-256" if hd_painter_prefs['hd_painter_model'] == "hd_painter-256" else hd_painter_prefs['hd_painter_custom_model']
+    if 'loaded_hd_painter' not in status: status['loaded_hd_painter'] = ""
+    if hd_painter_model != status['loaded_hd_painter']:
+        clear_pipes()
+    else:
+        clear_pipes("hd_painter")
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/HD_Painter-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    mem_kwargs = {} if prefs['higher_vram_mode'] else {'variant': "fp16", 'torch_dtype': torch.float16}
+    from diffusers import DiffusionPipeline, DDIMScheduler
+    if pipe_hd_painter == None:
+        installer.status(f"...initialize HD-Painter Pipeline")
+        try:
+            pipe_hd_painter = DiffusionPipeline.from_pretrained(hd_painter_model, custom_pipeline="hd_painter", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **mem_kwargs)
+            #if prefs['enable_torch_compile']:
+            #    installer.status(f"...Torch compiling transformer")
+            #    pipe_hd_painter.transformer = torch.compile(pipe_hd_painter.transformer, mode="reduce-overhead", fullgraph=True)
+            #    pipe_hd_painter = pipe_hd_painter.to(torch_device)
+            #elif cpu_offload:
+            #    pipe_hd_painter.enable_model_cpu_offload()
+            #else:
+            pipe_hd_painter.to(torch_device)
+            pipe_hd_painter.scheduler = DDIMScheduler.from_config(pipe_hd_painter.scheduler.config)
+            #pipe_hd_painter = pipe_scheduler(pipe_hd_painter)
+            pipe_hd_painter.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing HD-Painter...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_hd_painter'] = hd_painter_model
+    else:
+        clear_pipes('hd_painter')
+    ip_adapter_arg = {}
+    if hd_painter_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if hd_painter_prefs['ip_adapter_image'].startswith('http'):
+            i_response = requests.get(hd_painter_prefs['ip_adapter_image'])
+            ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+            if os.path.isfile(hd_painter_prefs['ip_adapter_image']):
+                ip_adapter_img = PILImage.open(hd_painter_prefs['ip_adapter_image'])
+            else:
+                clear_last()
+                prt(f"ERROR: Couldn't find your ip_adapter_image {hd_painter_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+            ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == hd_painter_prefs['ip_adapter_model'])
+            pipe_hd_painter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_hd_painter.set_ip_adapter_scale(hd_painter_prefs['ip_adapter_strength'])
+    clear_last()
+    s = "" if len(hd_painter_prompts) == 0 else "s"
+    prt(f"Generating your HD-Painter Image{s}...")
+    for pr in hd_painter_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(int(pr['seed']) + num)
+        generator = torch.manual_seed(random_seed)
+        init_img = None
+        mask_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, hd_painter_prefs['max_size'], multiple=32)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        if bool(pr['mask_image']):
+            fname = pr['mask_image'].rpartition(slash)[2]
+            if pr['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['mask_image']):
+                    mask_img = PILImage.open(pr['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                    return
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, hd_painter_prefs['max_size'], multiple=32)
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
+        try:
+            images = pipe_hd_painter(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                image=init_img,
+                mask=mask_img,
+                strength=pr['init_image_strength'],
+                num_images_per_prompt=pr['num_images'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                eta=hd_painter_prefs['eta'],
+                use_rasg=hd_painter_prefs['use_rasg'],
+                use_painta=hd_painter_prefs['use_painta'],
+                generator=generator,
+                #painta_scale_factors=[2, 4],  # 16 x 16 and 32 x 32
+                #rasg_scale_factor=4,  # 16x16 by default
+                #list_of_painta_layer_names=None,
+                #list_of_rasg_layer_names=None,
+                callback_on_step_end=callback_fn,
+                **ip_adapter_arg,
+            ).images
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(hd_painter_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, hd_painter_prefs['batch_folder_name'])
+        makedir(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        for idx, image in range(images):
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{hd_painter_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            batch_output = os.path.join(prefs['image_output'], hd_painter_prefs['batch_folder_name'])
+            makedir(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': hd_painter_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+            if hd_painter_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=hd_painter_prefs["enlarge_scale"], face_enhance=hd_painter_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if hd_painter_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(hd_painter_prefs["enlarge_scale"]), height=pr['height'] * float(hd_painter_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            save_metadata(image_path, hd_painter_prefs, f"HD-Painter {mode}", hd_painter_model, random_seed, extra=pr)
+            if not hd_painter_prefs['display_upscaled_image'] or not hd_painter_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], hd_painter_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], hd_painter_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
                 shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
@@ -40637,7 +41023,7 @@ def run_lcm(page, from_list=False, with_params=False):
         if bool(ip_adapter_img):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
-            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == lcm_prefs['ip_adapter_model'])
+            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == lcm_prefs['ip_adapter_model'])
             pipe_lcm.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
             pipe_lcm.set_ip_adapter_scale(lcm_prefs['ip_adapter_strength'])
 
