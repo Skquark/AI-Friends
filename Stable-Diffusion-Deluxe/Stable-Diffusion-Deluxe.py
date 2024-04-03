@@ -670,6 +670,7 @@ def buildPromptHelpers(page):
     page.Image2Text = buildImage2Text(page)
     page.MagicPrompt = buildMagicPrompt(page)
     page.DistilGPT2 = buildDistilGPT2(page)
+    page.SuperPrompt = buildSuperPrompt(page)
     page.RetrievePrompts = buildRetrievePrompts(page)
     page.InitFolder = buildInitFolder(page)
     page.InitVideo = buildInitVideo(page)
@@ -684,6 +685,7 @@ def buildPromptHelpers(page):
             Tab(text="Negatives", content=page.negatives, icon=icons.REMOVE_CIRCLE),
             Tab(text="Image2Text", content=page.Image2Text, icon=icons.WRAP_TEXT),
             Tab(text="Magic Prompt", content=page.MagicPrompt, icon=icons.AUTO_FIX_HIGH),
+            Tab(text="SuperPrompt", content=page.SuperPrompt, icon=icons.EV_STATION),
             Tab(text="Distil GPT-2", content=page.DistilGPT2, icon=icons.FILTER_ALT),
             Tab(text="Retrieve Prompt from Image", content=page.RetrievePrompts, icon=icons.PHOTO_LIBRARY_OUTLINED),
             Tab(text="Init Images from Folder", content=page.InitFolder, icon=icons.FOLDER_SPECIAL),
@@ -725,6 +727,7 @@ def buildImageAIs(page):
     page.Wuerstchen = buildWuerstchen(page)
     page.StableCascade = buildStableCascade(page)
     page.PixArtAlpha = buildPixArtAlpha(page)
+    page.Differential_Diffusion = buildDifferential_Diffusion(page)
     page.LMD_Plus = buildLMD_Plus(page)
     page.LCM = buildLCM(page)
     page.LCMInterpolation = buildLCMInterpolation(page)
@@ -757,6 +760,7 @@ def buildImageAIs(page):
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
+            Tab(text="Differential Diffusion", content=page.Differential_Diffusion, icon=icons.SENTIMENT_NEUTRAL),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
             Tab(text="LMD+", content=page.LMD_Plus, icon=icons.HIGHLIGHT_ALT),
@@ -3082,16 +3086,66 @@ def buildPromptsList(page):
           duplicate_modal.open = False
           page.update()
       def save_dlg(e):
-          for i in range(num_times):
-            add_to_prompts(open_dream.prompt, open_dream.arg)
+          params = [
+              {
+                  'guidance_scale': guidance_scale if transition_guidance_scale.switch.value else open_dream.arg['guidance_scale'],
+                  'steps': steps if transition_steps.switch.value else open_dream.arg['steps'],
+                  'init_image_strength': init_image_strength if transition_init_image_strength.switch.value else open_dream.arg['init_image_strength']
+              }
+              for guidance_scale, steps, init_image_strength in zip(
+                  tween_value(start_guidance_scale.value, end_guidance_scale.value, num_times) if transition_guidance_scale.switch.value else [open_dream.arg['guidance_scale']] * num_times,
+                  tween_value(start_steps.value, end_steps.value, num_times) if transition_steps.switch.value else [open_dream.arg['steps']] * num_times,
+                  tween_value(start_init_image_strength.value, end_init_image_strength.value, num_times) if transition_init_image_strength.switch.value else [open_dream.arg['init_image_strength']] * num_times
+              )
+          ]
+          '''params = [{} for _ in range(num_times)]
+          if transition_guidance_scale.value:
+              for i, p in enumerate(tween_value(start_guidance_scale.value, end_guidance_scale.value, num_times)):
+                params[i]['guidance_scale'] = p
+          if transition_steps.value:
+              for i, p in enumerate(tween_value(start_steps.value, end_steps.value, num_times)):
+                params[i]['steps'] = p
+          if transition_init_image_strength.value:
+              for i, p in enumerate(tween_value(start_init_image_strength.value, end_init_image_strength.value, num_times)):
+                params[i]['steps'] = p'''
+          for i in params:#range(num_times):
+            #print(i)
+            add_to_prompts(open_dream.prompt, merge_dict(open_dream.arg, i))
           duplicate_modal.open = False
           page.update()
       def change_num(e):
           nonlocal num_times
           num_times = int(e.control.value)
+      def change_transition(e, prop):
+          if prop == "guidance_scale":
+            guidance_scale_row.visible = e.control.value
+            guidance_scale_row.update()
+          elif prop == "steps":
+            steps_row.visible = e.control.value
+            steps_row.update()
+          elif prop == "init_image_strength":
+            init_image_strength_row.visible = e.control.value
+            init_image_strength_row.update()
+      transition_guidance_scale = Switcher(label="Transition Guidance Scale", value=False, active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:change_transition(e,'guidance_scale'), tooltip="Create Prompts Tweening the Starting and Ending Values Between.")
+      transition_steps = Switcher(label="Transition Interpolation Steps", value=False, active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:change_transition(e,'steps'), tooltip="Create Prompts Tweening the Starting and Ending Values Between.")
+      transition_init_image_strength = Switcher(label="Transition Init Image Strength", value=False, active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:change_transition(e,'init_image_strength'), tooltip="Create Prompts Tweening the Starting and Ending Values Between.")
+      start_guidance_scale = SliderRow(label="Start Guidance", min=0, max=50, divisions=100, round=1, value=float(open_dream['guidance_scale']), col={'md':6})
+      end_guidance_scale = SliderRow(label="End Guidance", min=0, max=50, divisions=100, round=1, value=float(open_dream['guidance_scale']), col={'md':6})
+      start_steps = SliderRow(label="Start Steps", min=0, max=100, divisions=100, value=int(open_dream['steps']), col={'md':6})
+      end_steps = SliderRow(label="End Steps", min=0, max=100, divisions=100, value=int(open_dream['steps']), col={'md':6})
+      #start_init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=float(open_dream['init_image_strength']), col={'md':6}, tooltip="The Starting init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+      #end_init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=float(open_dream['init_image_strength']), col={'md':6}, tooltip="The Ending init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+      start_init_image_strength = SliderRow(label="Start Init Strength", min=0.0, max=1.0, divisions=20, round=2, value=float(open_dream['init_image_strength']), col={'md':6}, tooltip="Starting init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+      end_init_image_strength = SliderRow(label="End Init Strength", min=0.0, max=1.0, divisions=20, round=2, value=float(open_dream['init_image_strength']), col={'md':6}, tooltip="Ending init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+      guidance_scale_row = ResponsiveRow([start_guidance_scale, end_guidance_scale], visible=False, width=(e.page.width if e.page.web else e.page.window_width) - 200)
+      steps_row = ResponsiveRow([start_steps, end_steps], visible=False, width=(e.page.width if e.page.web else e.page.window_width) - 200)
+      init_image_strength_row = ResponsiveRow([start_init_image_strength, end_init_image_strength], visible=False, width=(e.page.width if e.page.web else e.page.window_width) - 200)
       duplicate_modal = AlertDialog(modal=False, title=Text("🌀  Duplicate Prompt Multiple Times"), content=Container(Column([
             Container(content=None, height=7),
             NumberPicker(label="Number of Copies: ", min=1, max=99, value=num_times, on_change=change_num),
+            transition_guidance_scale, guidance_scale_row,
+            transition_steps, steps_row,
+            transition_init_image_strength, init_image_strength_row
           ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":bowling:") + "  Duplicate Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
       e.page.dialog = duplicate_modal
       duplicate_modal.open = True
@@ -3787,6 +3841,96 @@ def buildDistilGPT2(page):
         page.distil_gpt2_output,
         page.distil_gpt2_list,
         distil_list_buttons,
+      ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+superprompt_prefs = {
+    'seed_prompt': '',
+    'seed': 0,
+    'amount': 8,
+    'AI_temperature': 0.5,
+    'top_p': 8,
+    'top_k': 1,
+    'max_new_tokens': 512,
+    'repetition_penalty': 1.2,
+    'random_artists': 0,
+    'random_styles': 0,
+    'permutate_artists': True,
+}
+
+def buildSuperPrompt(page):
+    global superprompt_prefs, prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            superprompt_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            superprompt_prefs[pref] = float(e.control.value)
+          else:
+            superprompt_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def superprompt_help(e):
+        alert_msg(page, "💁   Help with SuperPrompt", [
+            "Brian Fitzgerald trained a 77M T5 model to expand prompts, and it meets or exceeds existing 1B+ parameter LLMs in quality and prompt alignment. The idea here is that the existing model (in my experiments, SDXL 1.0) is conditioned on CLIP text embeddings; and within a CLIP embedding space, the existing prompt, and a better prettier prompt, both exist - so I'd train a ~20M parameter MLP to convert the CLIP embeddings (unpooled, as is used in the diffusion model) from an worse looking prompt to a nicer one. For the dataset, I'd use the DiffusionDB prompt dataset, and use Llama2 to rewrite the prompts to remove any descriptors that might improve the fidelity of the image.",
+            "Thinking about why the CLIP augmenter didn't work, I wondered if it might be easier to instead augment the latent during certain steps of the denoising process. Taking a page from SD Ultimate Upscale - which uses a secondary U-net to upscale a latent - I tried training a latent augmenter, while performing inference on prompts from the same DiffusionDB dataset. ",
+            Markdown("[Project Page](https://brianfitzgerald.xyz/prompt-augmentation/) | [GitHub Repo](https://github.com/sammcj/superprompter) | [HuggingFace Model](https://huggingface.co/roborovski/superprompt-v1)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], "🧛  Super Cool...", False)
+    page.superprompt_list = Column([], spacing=0)
+    page.superprompt_output = Column([])
+    def add_to_prompt_list(p):
+      page.add_to_prompts(p)
+      play_snd(Snd.DROP, page)
+    def add_to_superprompt(p):
+      page.superprompt_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.superprompt_list.update()
+      superprompt_list_buttons.visible = True
+      superprompt_list_buttons.update()
+    page.add_to_superprompt = add_to_superprompt
+    def add_to_list(e):
+      play_snd(Snd.DROP, page)
+      for p in page.superprompt_list.controls:
+        page.add_to_prompts(p.title.value)
+    def clear_prompts(e):
+      play_snd(Snd.DELETE, page)
+      page.superprompt_list.controls = []
+      page.superprompt_list.update()
+      superprompt_list_buttons.visible = False
+      superprompt_list_buttons.update()
+    AI_temperature = Row([Text("AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, tooltip="The value used to module the next token probabilities", value=superprompt_prefs['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6})
+    top_k = Row([Text("Top-K Samples:"), Slider(label="{value}", min=1, max=100, divisions=99, expand=True, tooltip="Higher k means more diverse outputs by considering a range of tokens. Number of highest probability vocabulary tokens to keep for top-k-filtering", value=superprompt_prefs['top_k'], on_change=lambda e: changed(e, 'top_k'))], col={'lg':6})
+    top_p = Row([Text("Top-P Samples:"), Slider(label="{value}", min=0, max=2, divisions=12, expand=True, tooltip="Higher values sample more low-probability tokens.", value=superprompt_prefs['top_p'], on_change=lambda e: changed(e, 'top_p'))], col={'lg':6})
+    max_new_tokens = SliderRow(label="Max New Tokens", min=250, max=512, divisions=262, pref=superprompt_prefs, key='max_new_tokens', col={'lg':6})
+    repetition_penalty = SliderRow(label="Repetition Penalty", min=0, max=2, divisions=8, round=2, pref=superprompt_prefs, key='repetition_penalty', col={'lg':6})
+    seed = TextField(label="Seed", value=superprompt_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width = 90, on_change=lambda e:changed(e,'seed', ptype="int"))
+    superprompt_list_buttons = Row([
+        ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
+        FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
+    ], alignment=MainAxisAlignment.SPACE_BETWEEN)
+    if len(page.superprompt_list.controls) < 1:
+      superprompt_list_buttons.visible = False
+
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🦸  SuperPrompt v1 Generator", "Generates more detailed prompts in a 77M Parameter custom trained LLM...", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)), IconButton(icon=icons.HELP, tooltip="Help with SuperPrompt Settings", on_click=superprompt_help)]),
+        Row([TextField(label="Starter Prompt Text", expand=True, value=superprompt_prefs['seed_prompt'], multiline=True, on_change=lambda e: changed(e, 'seed_prompt'))]),
+        AI_temperature,
+        ResponsiveRow([top_k, top_p]),
+        ResponsiveRow([max_new_tokens, repetition_penalty]),
+        ResponsiveRow([
+          Row([NumberPicker(label="Amount: ", min=1, max=40, value=superprompt_prefs['amount'], on_change=lambda e: changed(e, 'amount')), seed,
+              NumberPicker(label="Random Artists: ", min=0, max=10, value=superprompt_prefs['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=CrossAxisAlignment.START),
+          Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=superprompt_prefs['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
+              Checkbox(label="Permutate Artists", value=superprompt_prefs['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+        ]),
+        ElevatedButton(content=Text("🍄   Make SuperPrompts", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_superprompt(page)),
+        page.superprompt_output,
+        page.superprompt_list,
+        superprompt_list_buttons,
       ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -11035,6 +11179,134 @@ def buildPixArtAlpha(page):
     ))], scroll=ScrollMode.AUTO)
     return c
   
+differential_diffusion_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "differential-",
+    "num_images": 1,
+    "max_size":1024,
+    "guidance_scale": 7.5,
+    'num_inference_steps': 12,
+    'eta': 0.0,
+    "seed": 0,
+    'init_image': '',
+    'mask_image': '',
+    'init_image_strength': 0.9,
+    "differential_diffusion_model": "stabilityai/stable-diffusion-2-inpainting",
+    "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SDXL',
+    'ip_adapter_strength': 0.8,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildDifferential_Diffusion(page):
+    global prefs, differential_diffusion_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            differential_diffusion_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            differential_diffusion_prefs[pref] = float(e.control.value)
+          else:
+            differential_diffusion_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def differential_diffusion_help(e):
+      def close_differential_diffusion_dlg(e):
+        nonlocal differential_diffusion_help_dlg
+        differential_diffusion_help_dlg.open = False
+        page.update()
+      differential_diffusion_help_dlg = AlertDialog(title=Text("🙅   Help with Differential Diffusion Pipeline"), content=Column([
+          Text("Diffusion models have revolutionized image generation and editing, producing state-of-the-art results in conditioned and unconditioned image synthesis. While current techniques enable user control over the degree of change in an image edit, the controllability is limited to global changes over an entire edited region. This paper introduces a novel framework that enables customization of the amount of change per pixel or per image region. Our framework can be integrated into any existing diffusion model, enhancing it with this capability. Such granular control on the quantity of change opens up a diverse array of new editing capabilities, such as control of the extent to which individual objects are modified, or the ability to introduce gradual spatial changes. Furthermore, we showcase the framework's effectiveness in soft-inpainting---the completion of portions of an image while subtly adjusting the surrounding areas to ensure seamless integration. Additionally, we introduce a new tool for exploring the effects of different change quantities. Our framework operates solely during inference, requiring no model training or fine-tuning. We demonstrate our method with the current open state-of-the-art models, and validate it via both quantitative and qualitative comparisons, and a user study."),
+          #Text(""),
+          Markdown("[Project Page](https://differential-diffusion.github.io/) | [Github](https://github.com/exx8/differential-diffusion) | [Paper](https://differential-diffusion.github.io/paper.pdf) | [HuggingFace Space](https://huggingface.co/spaces/exx8/differential-diffusion) | [Colab Notebook](https://colab.research.google.com/github/exx8/differential-diffusion/blob/main/examples/SD2.ipynb)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("Contributors include [Eran Levin](https://github.com/exx8), [Ohad Fried](https://www.ohadf.com/), Tel Aviv University, Reichman University", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🐻  That Different...", on_click=close_differential_diffusion_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = differential_diffusion_help_dlg
+      differential_diffusion_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        differential_diffusion_prefs['differential_diffusion_model'] = e.control.value
+        differential_diffusion_custom_model.visible = e.control.value == "Custom"
+        differential_diffusion_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        differential_diffusion_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=differential_diffusion_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=differential_diffusion_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Input Image", pref=differential_diffusion_prefs, key='init_image', page=page, col={'md':6})
+    mask_image = FileInput(label="Greyscale Map Gradient Mask", pref=differential_diffusion_prefs, key='mask_image', page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=differential_diffusion_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=differential_diffusion_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=differential_diffusion_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=20, step=1, value=differential_diffusion_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=40, divisions=40, pref=differential_diffusion_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=differential_diffusion_prefs, key='guidance_scale')
+    eta = SliderRow(label="DDIM ETA", min=0, max=1, divisions=20, round=2, pref=differential_diffusion_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=2048, divisions=112, multiple=16, suffix="px", pref=differential_diffusion_prefs, key='max_size', tooltip="Resizes your Init and Mask Image to save memory.")
+    def toggle_ip_adapter(e):
+        differential_diffusion_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_SDXL_model.visible = e.control.value
+        ip_adapter_SDXL_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=differential_diffusion_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=differential_diffusion_prefs['ip_adapter_model'], visible=differential_diffusion_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=differential_diffusion_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=differential_diffusion_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if differential_diffusion_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    differential_diffusion_model = Dropdown(label="Inpainting Model", width=386, options=[dropdown.Option(m) for m in ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers", "Lykon/dreamshaper-8-inpainting", "parlance/dreamlike-diffusion-1.0-inpainting", "ghunkins/stable-diffusion-liberty-inpainting", "piyushaaryan011/realistic-vision-inpainting", "Custom"]], value=differential_diffusion_prefs['differential_diffusion_model'], on_change=changed_model)
+    differential_diffusion_custom_model = TextField(label="Custom Differential_Diffusion Model (URL or Path)", value=differential_diffusion_prefs['custom_model'], expand=True, visible=differential_diffusion_prefs['differential_diffusion_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    #cpu_offload = Switcher(label="CPU Offload", value=differential_diffusion_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    seed = TextField(label="Seed", width=90, value=str(differential_diffusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=differential_diffusion_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=differential_diffusion_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=differential_diffusion_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=differential_diffusion_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_differential_diffusion = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_differential_diffusion.height = None if status['installed_ESRGAN'] else 0
+    if not differential_diffusion_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="😕   Run Differential Diffusion", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_differential_diffusion(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_differential_diffusion(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_differential_diffusion(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.differential_diffusion_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🙈  Differential Diffusion Image2Image", "Modifies an image according to a text prompt, and according to a map that specifies the amount of change in each region... Uses SDXL Model in Installation.", actions=[save_default(differential_diffusion_prefs, ['init_image', 'mask_image']), IconButton(icon=icons.HELP, tooltip="Help with Differential Diffusion Settings", on_click=differential_diffusion_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            ResponsiveRow([init_image, mask_image]),
+            init_image_strength,
+            steps,
+            guidance,
+            #eta,
+            max_row, #Divider(height=9, thickness=2),
+            #Row([differential_diffusion_model, differential_diffusion_custom_model]),
+            #Row([cpu_offload, cpu_only]),
+            Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_differential_diffusion,
+            parameters_row,
+            page.differential_diffusion_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+
 lmd_plus_prefs = {
     "prompt": '',
     "negative_prompt": '',
@@ -21399,6 +21671,7 @@ pipe_stable_cascade_prior = None
 pipe_stable_cascade_decoder = None
 pipe_pixart_alpha = None
 pipe_pixart_alpha_encoder = None
+pipe_differential_diffusion = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
 pipe_instruct_pix2pix = None
@@ -21445,6 +21718,8 @@ pipe_deepfloyd3 = None
 pipe_amused = None
 pipe_gpt2 = None
 pipe_distil_gpt2 = None
+pipe_superprompt = None
+tokenizer_superprompt = None
 pipe_background_remover = None
 pipe_shap_e = None
 pipe_zoe_depth = None
@@ -23956,6 +24231,12 @@ def clear_pixart_alpha_pipe():
     flush()
     pipe_pixart_alpha = None
     pipe_pixart_alpha_encoder = None
+def clear_differential_diffusion_pipe():
+  global pipe_differential_diffusion
+  if pipe_differential_diffusion is not None:
+    del pipe_differential_diffusion
+    flush()
+    pipe_differential_diffusion = None
 def clear_magic_mix_pipe():
   global pipe_magic_mix
   if pipe_magic_mix is not None:
@@ -24291,6 +24572,14 @@ def clear_distil_gpt2_pipe():
     del pipe_distil_gpt2
     flush()
     pipe_distil_gpt2 = None
+def clear_superprompt_pipe():
+  global pipe_superprompt, tokenizer_superprompt
+  if pipe_superprompt is not None:
+    del pipe_superprompt
+    del tokenizer_superprompt
+    flush()
+    pipe_superprompt = None
+    tokenizer_superprompt = None
 def clear_background_remover_pipe():
   global pipe_background_remover
   if pipe_background_remover is not None:
@@ -24384,6 +24673,7 @@ def clear_pipes(allbut=None):
     if not 'wuerstchen' in but: clear_wuerstchen_pipe()
     if not 'stable_cascade' in but: clear_stable_cascade_pipe()
     if not 'pixart_alpha' in but: clear_pixart_alpha_pipe()
+    if not 'differential_diffusion' in but: clear_differential_diffusion_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
     if not 'alt_diffusion_img2img' in but: clear_alt_diffusion_img2img_pipe()
@@ -24436,6 +24726,7 @@ def clear_pipes(allbut=None):
     if not 'music_ldm' in but: clear_music_ldm_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
+    if not 'superprompt' in but: clear_superprompt_pipe()
     if not 'shap_e' in but: clear_shap_e_pipe()
     if not 'zoe_depth' in but: clear_zoe_depth_pipe()
     if not 'marigold_depth' in but: clear_marigold_depth_pipe()
@@ -26161,6 +26452,13 @@ def nsp_parse(prompt):
     else:
         return
 
+def tween_value(start, end, amount):
+    values = []
+    step = (end - start) / (amount - 1)
+    for i in range(amount):
+        value = start + i * step
+        values.append(value)
+    return values
 
 #Code a function in Python programming language named list_variations, which takes a list and returns a set of lists with possible permutations of the list. Example list_variations([1,2,3]) returns [[1,2,3],[1,2],[1,3],[2,3],[1],[2],[3]] */
 def list_variations(lst):
@@ -27183,6 +27481,88 @@ def run_distil_gpt2(page):
         page.add_to_distil_gpt2(item)
     play_snd(Snd.ALERT, page)
 
+def run_superprompt(page):
+    global artists, styles, superprompt_prefs, pipe_superprompt, tokenizer_superprompt
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.superprompt_output.controls.append(line)
+      page.superprompt_output.update()
+    def clear_last(lines=1):
+      clear_line(page.superprompt_output, lines=lines)
+    progress = ProgressBar(bar_height=8)
+    installer = Installing("Installing SuperPrompt Pipeline...")
+    prt(installer)
+    try:
+        from transformers import T5Tokenizer, T5ForConditionalGeneration, set_seed
+    except:
+        installer.status("...installing Transformers")
+        run_sp("pip install -qq --upgrade git+https://github.com/huggingface/transformers.git")
+        from transformers import T5Tokenizer, T5ForConditionalGeneration, set_seed
+        pass
+    pip_install("sentencepiece", installer=installer)
+    prompts_superprompt = []
+    prompt_results = []
+    if '_' in superprompt_prefs['seed_prompt']:
+        seed_prompt = nsp_parse(superprompt_prefs['seed_prompt'])
+    else:
+        seed_prompt = superprompt_prefs['seed_prompt']
+    clear_pipes("superprompt")
+    if pipe_superprompt == None:
+        try:
+            installer.status("...loading Google Flan-T5 Tokenizer")
+            tokenizer_superprompt = T5Tokenizer.from_pretrained("google/flan-t5-small")
+            installer.status("...loading roborovski/superprompt-v1 model")
+            pipe_superprompt = T5ForConditionalGeneration.from_pretrained("roborovski/superprompt-v1", torch_dtype=torch.float16)
+            #pipe_superprompt = GPT2LMHeadModel.from_pretrained('FredZhang7/superpromptgpt2-stable-diffusion-v2')
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error Initializing SuperPrompt Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]), debug_pref=superprompt_prefs)
+            return
+    clear_last()
+    prt("Generating SuperPrompt Results from your Text Input...")
+    prt(progress)
+
+    def generate(starting_text):
+        random_seed = get_seed(superprompt_prefs['seed'], 10, 1000000)
+        set_seed(random_seed)
+        #input_ids = tokenizer(starting_text, return_tensors='pt').input_ids
+        #output = pipe_superprompt.generate(input_ids, do_sample=True, temperature=superprompt_prefs['AI_temperature'], top_k=superprompt_prefs['top_k'], max_new_tokens=superprompt_prefs['max_new_tokens'], num_return_sequences=superprompt_prefs['amount'], repetition_penalty=superprompt_prefs['repetition_penalty'], penalty_alpha=superprompt_prefs['penalty_alpha'], no_repeat_ngram_size=superprompt_prefs['no_repeat_ngram_size'], early_stopping=True)
+        input_ids = tokenizer_superprompt(seed_prompt, return_tensors="pt").input_ids.to(torch_device)
+        outputs = pipe_superprompt.generate(input_ids, max_new_tokens=superprompt_prefs['max_new_tokens'], num_return_sequences=superprompt_prefs['amount'], repetition_penalty=superprompt_prefs['repetition_penalty'], do_sample=True, temperature=superprompt_prefs['AI_temperature'], top_p=superprompt_prefs['top_p'], top_k=superprompt_prefs['top_k'])
+        #better_prompt = tokenizer.decode(outputs[0])
+        results = []
+        for i in range(len(output)):
+            results.append(tokenizer_superprompt.decode(output[i], skip_special_tokens=True))
+        return results
+    prompt_results = generate(seed_prompt)
+    clear_last(2)
+    for p in prompt_results:
+        random_artist=[]
+        for a in range(superprompt_prefs['random_artists']):
+            random_artist.append(rnd.choice(artists))
+        #print(list_variations(random_artist))
+        artist = " and ".join([", ".join(random_artist[:-1]),random_artist[-1]] if len(random_artist) > 2 else random_artist)
+        random_style = []
+        for s in range(superprompt_prefs['random_styles']):
+            random_style.append(rnd.choice(styles))
+        style = ", ".join(random_style)
+        text_prompt = p
+        prompts_superprompt.append(text_prompt)
+        if superprompt_prefs['random_artists'] > 0: text_prompt += f", by {artist}"
+        if superprompt_prefs['random_styles'] > 0: text_prompt += f", style of {style}"
+        #if superprompt_prefs['random_styles'] == 0 and superprompt_prefs['permutate_artists']:
+        #    prompts_superprompt.append(text_prompt)
+        if superprompt_prefs['permutate_artists']:
+            for a in list_variations(random_artist):
+                prompt_variation = p + f", by {and_list(a)}"
+                prompts_superprompt.append(prompt_variation)
+            if superprompt_prefs['random_styles'] > 0:
+                prompts_superprompt.append(p + f", style of {style}")
+        else: prompts_superprompt.append(text_prompt)
+    for item in prompts_superprompt:
+        page.add_to_superprompt(item)
+    play_snd(Snd.ALERT, page)
 
 def run_upscaling(page):
     from collections import Counter
@@ -40642,6 +41022,269 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
+
+def run_differential_diffusion(page, from_list=False, with_params=False):
+    global differential_diffusion_prefs, pipe_differential_diffusion, prefs, status
+    if not check_diffusers(page): return
+    if not bool(differential_diffusion_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+    differential_diffusion_prompts = []
+    if from_list:
+        if len(prompts) < 1:
+            alert_msg(page, "You need to add Prompts to your List first... ")
+            return
+        for p in prompts:
+            if with_params:
+                differential_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':differential_diffusion_prefs['guidance_scale'], 'num_inference_steps':differential_diffusion_prefs['num_inference_steps'], 'width':differential_diffusion_prefs['width'], 'height':differential_diffusion_prefs['height'], 'init_image':differential_diffusion_prefs['init_image'], 'mask_image':differential_diffusion_prefs['mask_image'], 'init_image_strength':differential_diffusion_prefs['init_image_strength'], 'num_images':differential_diffusion_prefs['num_images'], 'seed':differential_diffusion_prefs['seed']})
+            else:
+                differential_diffusion_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'mask_image':p['mask_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+        if not bool(differential_diffusion_prefs['init_image']) or not bool(differential_diffusion_prefs['mask_image']):
+            alert_msg(page, "You must provide an initial image and mask image to process your image generation...")
+            return
+        differential_diffusion_prompts.append({'prompt': differential_diffusion_prefs['prompt'], 'negative_prompt':differential_diffusion_prefs['negative_prompt'], 'guidance_scale':differential_diffusion_prefs['guidance_scale'], 'num_inference_steps':differential_diffusion_prefs['num_inference_steps'], 'width':differential_diffusion_prefs['width'], 'height':differential_diffusion_prefs['height'], 'init_image':differential_diffusion_prefs['init_image'], 'mask_image':differential_diffusion_prefs['mask_image'], 'init_image_strength':differential_diffusion_prefs['init_image_strength'], 'num_images':differential_diffusion_prefs['num_images'], 'seed':differential_diffusion_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Differential_Diffusion.controls.append(line)
+        if update:
+          page.Differential_Diffusion.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.Differential_Diffusion, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Differential_Diffusion.auto_scroll = scroll
+        page.Differential_Diffusion.update()
+      else:
+        page.Differential_Diffusion.auto_scroll = scroll
+        page.Differential_Diffusion.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Differential_Diffusion.controls = page.Differential_Diffusion.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = differential_diffusion_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    def callback_fn(pipe, step, timestep, callback_kwargs):
+      callback_fnc.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing Differential Diffusion Engine & Models... See console for progress.")
+    prt(installer)
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = differential_diffusion_prefs['cpu_offload']
+    #model_id = differential_diffusion_prefs['differential_diffusion_model'] if differential_diffusion_prefs['differential_diffusion_model'] != "Custom" else differential_diffusion_prefs['differential_diffusion_custom_model'] #"differential_diffusion/differential_diffusion-512" if differential_diffusion_prefs['differential_diffusion_model'] == "differential_diffusion-512" else "differential_diffusion/differential_diffusion-256" if differential_diffusion_prefs['differential_diffusion_model'] == "differential_diffusion-256" else differential_diffusion_prefs['differential_diffusion_custom_model']
+    SDXL_model = get_SDXL_model(prefs['SDXL_model'])
+    model_id = SDXL_model['path']
+    if 'loaded_differential_diffusion' not in status: status['loaded_differential_diffusion'] = ""
+    if model_id != status['loaded_differential_diffusion']:
+        clear_pipes()
+    else:
+        clear_pipes("differential_diffusion")
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/Differential_Diffusion-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    variant = {'variant': SDXL_model['revision']} if 'revision' in SDXL_model else {}
+    variant = {'variant': SDXL_model['variant']} if 'variant' in SDXL_model else variant
+    #mem_kwargs = {} if prefs['higher_vram_mode'] else {'variant': "fp16", 'torch_dtype': torch.float16}
+    from diffusers import DPMSolverMultistepScheduler
+    from examples.community.pipeline_stable_diffusion_xl_differential_img2img import (
+        StableDiffusionXLDifferentialImg2ImgPipeline,
+    )
+    if pipe_differential_diffusion == None:
+        installer.status(f"...initialize Differential Diffusion Pipeline")
+        try:
+            pipe_differential_diffusion = StableDiffusionXLDifferentialImg2ImgPipeline.from_pretrained(model_id, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None, **variant)
+            #if prefs['enable_torch_compile']:
+            #    installer.status(f"...Torch compiling transformer")
+            #    pipe_differential_diffusion.transformer = torch.compile(pipe_differential_diffusion.transformer, mode="reduce-overhead", fullgraph=True)
+            #    pipe_differential_diffusion = pipe_differential_diffusion.to(torch_device)
+            #elif cpu_offload:
+            #    pipe_differential_diffusion.enable_model_cpu_offload()
+            #else:
+            pipe_differential_diffusion.to(torch_device)
+            pipe_differential_diffusion.scheduler = DPMSolverMultistepScheduler.from_config(pipe_differential_diffusion.scheduler.config, use_karras_sigmas=True)
+            #pipe_differential_diffusion = pipe_scheduler(pipe_differential_diffusion)
+            pipe_differential_diffusion.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Differential Diffusion...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_differential_diffusion'] = model_id
+    else:
+        clear_pipes('differential_diffusion')
+    ip_adapter_arg = {}
+    if differential_diffusion_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if differential_diffusion_prefs['ip_adapter_image'].startswith('http'):
+            i_response = requests.get(differential_diffusion_prefs['ip_adapter_image'])
+            ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+            if os.path.isfile(differential_diffusion_prefs['ip_adapter_image']):
+                ip_adapter_img = PILImage.open(differential_diffusion_prefs['ip_adapter_image'])
+            else:
+                clear_last()
+                prt(f"ERROR: Couldn't find your ip_adapter_image {differential_diffusion_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+            ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == differential_diffusion_prefs['ip_adapter_model'])
+            pipe_differential_diffusion.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_differential_diffusion.set_ip_adapter_scale(differential_diffusion_prefs['ip_adapter_strength'])
+    def preprocess_image(image):
+        image = image.convert("RGB")
+        image = transforms.CenterCrop((image.size[1] // 64 * 64, image.size[0] // 64 * 64))(image)
+        image = transforms.ToTensor()(image)
+        image = image * 2 - 1
+        image = image.unsqueeze(0).to("cuda")
+        return image
+    def preprocess_map(map):
+        map = map.convert("L")
+        map = transforms.CenterCrop((map.size[1] // 64 * 64, map.size[0] // 64 * 64))(map)
+        map = transforms.ToTensor()(map)
+        map = map.to("cuda")
+        return map
+    clear_last()
+    s = "" if len(differential_diffusion_prompts) == 0 else "s"
+    prt(f"Generating your Differential Diffusion Image{s}...")
+    for pr in differential_diffusion_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(int(pr['seed']) + num)
+        generator = torch.Generator().manual_seed(random_seed)
+        init_img = None
+        mask_img = None
+        if bool(pr['init_image']):
+            fname = pr['init_image'].rpartition(slash)[2]
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, differential_diffusion_prefs['max_size'], multiple=32)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            init_img = preprocess_image(init_img)
+        if bool(pr['mask_image']):
+            fname = pr['mask_image'].rpartition(slash)[2]
+            if pr['mask_image'].startswith('http'):
+                mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['mask_image']):
+                    mask_img = PILImage.open(pr['mask_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                    return
+            width, height = mask_img.size
+            width, height = scale_dimensions(width, height, differential_diffusion_prefs['max_size'], multiple=32)
+            mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
+            mask_img = preprocess_map(mask_img)
+        try:
+            images = pipe_differential_diffusion(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                original_image=init_img,
+                map=mask_img,
+                strength=pr['init_image_strength'],
+                num_images_per_prompt=pr['num_images'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                eta=differential_diffusion_prefs['eta'],
+                generator=generator,
+                #aesthetic_score: float = 6.0,
+                #negative_aesthetic_score: float = 2.5,
+                callback_on_step_end=callback_fn,
+                **ip_adapter_arg,
+            ).images
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(differential_diffusion_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, differential_diffusion_prefs['batch_folder_name'])
+        makedir(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        for idx, image in range(images):
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{differential_diffusion_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            batch_output = os.path.join(prefs['image_output'], differential_diffusion_prefs['batch_folder_name'])
+            makedir(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': differential_diffusion_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+            if differential_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=differential_diffusion_prefs["enlarge_scale"], face_enhance=differential_diffusion_prefs["face_enhance"])
+                image_path = upscaled_path
+                os.chdir(stable_dir)
+                if differential_diffusion_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(differential_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(differential_diffusion_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            save_metadata(image_path, differential_diffusion_prefs, f"Differential Diffusion Image2Image", model_id, random_seed, extra=pr)
+            if not differential_diffusion_prefs['display_upscaled_image'] or not differential_diffusion_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], differential_diffusion_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], differential_diffusion_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+
 def run_lmd_plus(page, from_list=False, with_params=False):
     global lmd_plus_prefs, pipe_lmd_plus, prefs
     from sdd_utils import llm_template
@@ -50821,7 +51464,8 @@ class SliderRow(UserControl):
             if self.on_change is not None:
               e.control = self
               self.on_change(e)
-            self.pref[self.key] = int(self.value) if self.round == 0 else float(self.value)
+            if self.pref is not None:
+              self.pref[self.key] = int(self.value) if self.round == 0 else float(self.value)
         def changed(e):
             try:
               self.value = int(e.control.value) if self.round == 0 else round(float(e.control.value), self.round)
@@ -50853,7 +51497,8 @@ class SliderRow(UserControl):
             self.slider.update()
             self.slider_value.value = f"{self.value}{self.suffix}"
             self.slider_value.update()
-            self.pref[self.key] = int(self.value) if self.round == 0 else float(self.value)
+            if self.pref is not None:
+              self.pref[self.key] = int(self.value) if self.round == 0 else float(self.value)
         def blur(e):
             self.slider_edit.visible = False
             slider_text.visible = True
@@ -50873,8 +51518,9 @@ class SliderRow(UserControl):
             #e.control.update()
             #e.page.update()
         self.slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
-        self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), round=self.round, label="{value}" + self.suffix, value=float(self.pref[self.key]), tooltip=self.tooltip, expand=True, on_change=change_slider)
-        self.slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
+        self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), round=self.round, label="{value}" + self.suffix, value=float(self.value), tooltip=self.tooltip, expand=True, on_change=change_slider)
+        #self.slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
+        self.slider_value = Text(f" {self.value}{self.suffix}", weight=FontWeight.BOLD)
         slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
         
         slider_label = Text(f"{self.label}: ")
@@ -50889,8 +51535,10 @@ class SliderRow(UserControl):
         self.value = value
         self.slider.value = value
         self.slider_edit.value = value
-        self.pref[self.key] = value
-        self.slider_value.value = f" {self.pref[self.key]}{self.suffix}"
+        if self.pref is not None:
+          self.pref[self.key] = value
+        #self.slider_value.value = f" {self.pref[self.key]}{self.suffix}"
+        self.slider_value.value = f" {self.value}{self.suffix}"
         self.slider_value.update()
         self.slider.update()
     def set_min(self, value):
