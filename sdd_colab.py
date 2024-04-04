@@ -3092,9 +3092,9 @@ def buildPromptsList(page):
       def save_dlg(e):
           params = [
               {
-                  'guidance_scale': guidance_scale if transition_guidance_scale.switch.value else open_dream.arg['guidance_scale'],
-                  'steps': steps if transition_steps.switch.value else open_dream.arg['steps'],
-                  'init_image_strength': init_image_strength if transition_init_image_strength.switch.value else open_dream.arg['init_image_strength']
+                  'guidance_scale': round(guidance_scale * 100) / 100 if transition_guidance_scale.switch.value else open_dream.arg['guidance_scale'],
+                  'steps': int(steps) if transition_steps.switch.value else open_dream.arg['steps'],
+                  'init_image_strength': round(init_image_strength * 100) / 100 if transition_init_image_strength.switch.value else open_dream.arg['init_image_strength']
               }
               for guidance_scale, steps, init_image_strength in zip(
                   tween_value(start_guidance_scale.value, end_guidance_scale.value, num_times) if transition_guidance_scale.switch.value else [open_dream.arg['guidance_scale']] * num_times,
@@ -3837,7 +3837,7 @@ def buildDistilGPT2(page):
         max_length,
         ResponsiveRow([
           Row([NumberPicker(label="Amount: ", min=1, max=40, value=distil_gpt2_prefs['amount'], on_change=lambda e: changed(e, 'amount')), seed,
-              NumberPicker(label="Random Artists: ", min=0, max=10, value=distil_gpt2_prefs['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
+              NumberPicker(label="Random Artists: ", min=0, max=10, value=distil_gpt2_prefs['random_artists'], on_change=lambda e: changed(e, 'random_artists')),], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=CrossAxisAlignment.START),
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=distil_gpt2_prefs['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=distil_gpt2_prefs['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'xl':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
@@ -3852,7 +3852,7 @@ def buildDistilGPT2(page):
 superprompt_prefs = {
     'seed_prompt': '',
     'seed': 0,
-    'amount': 8,
+    'amount': 1,
     'AI_temperature': 0.5,
     'top_p': 8,
     'top_k': 1,
@@ -27155,6 +27155,7 @@ def run_prompt_brainstormer(page):
         return generation
 
     def stable_lm_request(input_sentence):
+        global pipe_stable_lm, tokenizer_stable_lm
         inputs = tokenizer_stable_lm(input_sentence, return_tensors="pt")
         inputs.to(pipe_stable_lm.device)
         tokens = pipe_stable_lm.generate(
@@ -27171,6 +27172,7 @@ def run_prompt_brainstormer(page):
         return completion
 
     def prompt_brainstormer():
+      global pipe_stable_lm, tokenizer_stable_lm
       #(prompt=prompt, temperature=AI_temperature, presence_penalty=1, stop= "\n")
       page.prompt_brainstormer_list.controls.append(Installing("Storming the AI's Brain..."))
       page.prompt_brainstormer_list.update()
@@ -27416,15 +27418,16 @@ def run_distil_gpt2(page):
     def clear_last(lines=1):
       clear_line(page.distil_gpt2_output, lines=lines)
     progress = ProgressBar(bar_height=8)
-    prt(Installing("Installing Distil GPT-2 Pipeline..."))
-
+    installer = Installing("Installing Distil GPT-2 Pipeline...")
+    prt(installer)
     try:
         from transformers import GPT2Tokenizer, GPT2LMHeadModel, set_seed
     except:
+        installer.status("...installing transformers")
         run_sp("pip install -qq --upgrade git+https://github.com/huggingface/transformers.git")
         from transformers import GPT2Tokenizer, GPT2LMHeadModel, set_seed
         pass
-
+    pip_install("tokenizers", installer=installer)
     prompts_distil = []
     prompt_results = []
     if '_' in distil_gpt2_prefs['seed_prompt']:
@@ -27432,25 +27435,25 @@ def run_distil_gpt2(page):
     else:
         seed_prompt = distil_gpt2_prefs['seed_prompt']
     clear_pipes("distil_gpt2")
+    installer.status("...GPT2Tokenizer distilgpt2")
     tokenizer = GPT2Tokenizer.from_pretrained('distilgpt2')
     tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     if pipe_distil_gpt2 == None:
         try:
+            installer.status("...FredZhang7/distilgpt2-stable-diffusion-v2")
             pipe_distil_gpt2 = GPT2LMHeadModel.from_pretrained('FredZhang7/distilgpt2-stable-diffusion-v2')
         except Exception as e:
             clear_last()
             alert_msg(page, "Error Initializing Distil GPT-2 Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]), debug_pref=distil_gpt2_prefs)
             return
-
     clear_last()
     prt("Generating Distil GPT-2 Results from your Text Input...")
     prt(progress)
-
     def generate(starting_text):
         random_seed = get_seed(distil_gpt2_prefs['seed'], 100, 1000000)
         set_seed(random_seed)
         input_ids = tokenizer(starting_text, return_tensors='pt').input_ids
-        output = pipe_distil_gpt2.generate(input_ids, do_sample=True, temperature=distil_gpt2_prefs['AI_temperature'], top_k=distil_gpt2_prefs['top_k'], max_length=distil_gpt2_prefs['max_length'], num_return_sequences=distil_gpt2_prefs['amount'], repetition_penalty=distil_gpt2_prefs['repetition_penalty'], penalty_alpha=distil_gpt2_prefs['penalty_alpha'], no_repeat_ngram_size=distil_gpt2_prefs['no_repeat_ngram_size'], early_stopping=True)
+        output = pipe_distil_gpt2.generate(input_ids, do_sample=True, temperature=distil_gpt2_prefs['AI_temperature'], top_k=distil_gpt2_prefs['top_k'], max_new_tokens=distil_gpt2_prefs['max_length'], num_return_sequences=distil_gpt2_prefs['amount'], repetition_penalty=distil_gpt2_prefs['repetition_penalty'], penalty_alpha=distil_gpt2_prefs['penalty_alpha'], no_repeat_ngram_size=distil_gpt2_prefs['no_repeat_ngram_size'], early_stopping=True)
         results = []
         for i in range(len(output)):
             results.append(tokenizer.decode(output[i], skip_special_tokens=True))
@@ -27536,8 +27539,8 @@ def run_superprompt(page):
         outputs = pipe_superprompt.generate(input_ids, max_new_tokens=superprompt_prefs['max_new_tokens'], num_return_sequences=superprompt_prefs['amount'], repetition_penalty=superprompt_prefs['repetition_penalty'], do_sample=True, temperature=superprompt_prefs['AI_temperature'], top_p=superprompt_prefs['top_p'], top_k=superprompt_prefs['top_k'])
         #better_prompt = tokenizer.decode(outputs[0])
         results = []
-        for i in range(len(output)):
-            results.append(tokenizer_superprompt.decode(output[i], skip_special_tokens=True))
+        for i in range(len(outputs)):
+            results.append(tokenizer_superprompt.decode(outputs[i], skip_special_tokens=True))
         return results
     prompt_results = generate(seed_prompt)
     clear_last(2)
