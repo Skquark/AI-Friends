@@ -357,6 +357,10 @@ def load_settings_file():
       'AIHorde_model': 'stable_diffusion',
       'AIHorde_sampler': 'k_euler_a',
       'AIHorde_post_processing': "None",
+      'AIHorde_lora_layer': 'Horde Aesthetics Improver',
+      'AIHorde_lora_layer_alpha': 1.0,
+      'AIHorde_custom_lora_layer': '',
+      'AIHorde_lora_map': [],
       'install_ESRGAN': True,
       'batch_folder_name': "",
       'batch_size': 1,
@@ -542,8 +546,12 @@ status = {
     'updated': [],
 }
 
-if 'last_updated' in prefs:
-    last_time = datetime.datetime.strptime(prefs['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
+if 'last_updated' in prefs and prefs['last_updated'] is not None:
+    try:
+        last_time = datetime.datetime.strptime(prefs['last_updated'], '%Y-%m-%dT%H:%M:%S.%fZ')
+    except ValueError:
+        force_updates = True
+        pass
     #diff = datetime.datetime.now() - last_time
     if last_time <  datetime.datetime.now() - datetime.timedelta(days=4):
         force_updates = True
@@ -554,18 +562,17 @@ sdd_utils_py = os.path.join(root_dir, "sdd_utils.py")
 sdd_components_py = os.path.join(root_dir, "sdd_components.py")
 if not os.path.exists(sdd_utils_py) or force_updates:
     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
-if not os.path.exists(sdd_components_py) or force_updates:
+if not os.path.exists(sdd_components_py): #or force_updates
     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_components.py", to=root_dir, raw=False, replace=True)
 try:
     from flet_contrib.color_picker import ColorPicker
 except ModuleNotFoundError: #Also flexible_slider, vertical_splitter, shimmer
-    run_sp("pip install flet-contrib", realtime=False)
+    run_sp("pip install --upgrade flet-contrib", realtime=False)
     from flet_contrib.color_picker import ColorPicker
     pass
 #sys.path.append(sdd_utils_py)
 import sdd_utils
-from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS, AIHorde_models
-import sdd_components
+from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS, AIHorde_models, CivitAI_LoRAs
 from sdd_components import PanZoom, VideoContainer
 
 def save_settings_file(page, change_icon=True):
@@ -1073,6 +1080,10 @@ if 'use_AIHorde_api' not in prefs: prefs['use_AIHorde_api'] = False
 if 'AIHorde_model' not in prefs: prefs['AIHorde_model'] = 'stable_diffusion'
 if 'AIHorde_sampler' not in prefs: prefs['AIHorde_sampler'] = 'k_euler_a'
 if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "None"
+if 'AIHorde_lora_layer' not in prefs: prefs['AIHorde_lora_layer'] = 'Horde Aesthetics Improver'
+if 'AIHorde_lora_layer_alpha' not in prefs: prefs['AIHorde_lora_layer_alpha'] = 1.0
+if 'AIHorde_custom_lora_layer' not in prefs: prefs['AIHorde_custom_lora_layer'] = ''
+if 'AIHorde_lora_map' not in prefs: prefs['AIHorde_lora_map'] = []
 if 'PaLM_api_key' not in prefs: prefs['PaLM_api_key'] = ''
 if 'Anthropic_api_key' not in prefs: prefs['Anthropic_api_key'] = ''
 if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
@@ -1821,7 +1832,65 @@ def buildInstallers(page):
   horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
   AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=375, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
   AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=375, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
-  AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_AIHorde, Row([AIHorde_model, horde_models_info]), AIHorde_sampler, AIHorde_post_processing]))
+  def changed_AIHorde_lora_layer(e):
+    prefs['AIHorde_lora_layer'] = e.control.value
+    AIHorde_custom_lora_layer.visible = e.control.value == "Custom"
+    AIHorde_custom_lora_layer.update()
+  def add_AIHorde_lora(e, LoRA_map=None):
+    if LoRA_map != None:
+      lora = LoRA_map['name']
+      lora_scale = LoRA_map['scale']
+      lora_layer = LoRA_map
+    else:
+      lora = prefs['AIHorde_lora_layer']
+      lora_scale = prefs['AIHorde_lora_layer_alpha']
+      lora_layer = {}
+      if lora == "Custom":
+        lora_layer = {'name': 'Custom', 'model': prefs['AIHorde_custom_lora_layer'], 'scale': lora_scale}
+      else:
+        for l in CivitAI_LoRAs:
+          if l['name'] == lora:
+            lora_layer = l.copy()
+            lora_layer['scale'] = lora_scale
+        for l in prefs['AIHorde_lora_map']:
+          if l['name'] == lora:
+            return
+      prefs['AIHorde_lora_map'].append(lora_layer)
+    title = Markdown(f"[**{lora_layer['name']}**](https://civitai.com/models/{lora_layer['model']}) - Scale: [{lora_layer['scale']}] - Model: {lora_layer['model']}")
+    AIHorde_lora_layer_map.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+      items=[
+          PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_AIHorde_lora_layer, data=lora_layer),
+          PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_AIHorde_lora_layers, data=lora_layer),
+      ]), data=lora_layer))
+    if LoRA_map == None:
+      AIHorde_lora_layer_map.update()
+  def delete_AIHorde_lora_layer(e):
+      for l in prefs['AIHorde_lora_map']:
+        if l['name'] == e.control.data['name']:
+          prefs['AIHorde_lora_map'].remove(l)
+        #del l #pia_prefs['lora_map'][]
+      for c in AIHorde_lora_layer_map.controls:
+        if c.data['name'] == e.control.data['name']:
+            AIHorde_lora_layer_map.controls.remove(c)
+            break
+      AIHorde_lora_layer_map.update()
+  def delete_all_AIHorde_lora_layers(e):
+      prefs['AIHorde_lora_map'].clear()
+      AIHorde_lora_layer_map.controls.clear()
+      AIHorde_lora_layer_map.update()
+  AIHorde_lora_layer = Dropdown(label="LoRA Layer Map", width=260, options=[dropdown.Option("Custom")], value=prefs['AIHorde_lora_layer'], on_change=changed_AIHorde_lora_layer)
+  AIHorde_custom_lora_layer = TextField(label="Custom LoRA CivitAI (Model ID)", value=prefs['AIHorde_custom_lora_layer'], expand=True, visible=prefs['AIHorde_lora_layer']=="Custom", on_change=lambda e:changed(e,'AIHorde_custom_lora_layer'))
+  for m in CivitAI_LoRAs:
+      AIHorde_lora_layer.options.append(dropdown.Option(m['name']))
+  AIHorde_lora_layer_alpha = SliderRow(label="LoRA Alpha", min=-5, max=5, divisions=20, round=1, expand=True, pref=prefs, key='AIHorde_lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+  AIHorde_add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_AIHorde_lora)
+  AIHorde_lora_layer_map = Column([], spacing=0)
+  for l in prefs['AIHorde_lora_map']:
+      add_AIHorde_lora(None, l)
+  AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column(
+    [use_AIHorde, Row([AIHorde_model, horde_models_info]), AIHorde_sampler, AIHorde_post_processing,
+      Row([AIHorde_lora_layer, AIHorde_custom_lora_layer, AIHorde_lora_layer_alpha, AIHorde_add_lora_layer]),
+      AIHorde_lora_layer_map]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
   def toggle_upscale(e):
       prefs['install_ESRGAN'] = e.control.value
@@ -2132,8 +2201,8 @@ def buildInstallers(page):
       page.Parameters.controls[0].content.update()
       #page.Parameters.updater()
       if force_updates:
-          prefs['last_updated'] = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-          #force_updates = False
+        prefs['last_updated'] = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        #force_updates = False
       if current_tab==1:
         page.Installers.controls[0].content.update()
         page.Installers.update()
@@ -3916,7 +3985,7 @@ def buildSuperPrompt(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🦸  SuperPrompt v1 Generator", "Generates more detailed prompts in a 77M Parameter custom trained LLM...", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)), IconButton(icon=icons.HELP, tooltip="Help with SuperPrompt Settings", on_click=superprompt_help)]),
+        Header("🦸  SuperPrompt v1 Detailer", "Generates more detailed prompts in a 77M Parameter custom trained Google Flan-T5...", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page)), IconButton(icon=icons.HELP, tooltip="Help with SuperPrompt Settings", on_click=superprompt_help)]),
         Row([TextField(label="Starter Prompt Text", expand=True, value=superprompt_prefs['seed_prompt'], multiline=True, on_change=lambda e: changed(e, 'seed_prompt'))]),
         AI_temperature,
         ResponsiveRow([top_k, top_p]),
@@ -20525,7 +20594,7 @@ def buildAudioLDM2(page):
         else:
             transcription.visible = False
         transcription.update()
-    model_name = Dropdown(label="Audio-LDM2 Model", width=225, options=[dropdown.Option("cvssp/audioldm2"), dropdown.Option("cvssp/audioldm2-music"), dropdown.Option("cvssp/audioldm2-large")], value=audioLDM2_prefs['model_name'], on_change=change_model)
+    model_name = Dropdown(label="Audio-LDM2 Model", width=270, options=[dropdown.Option("cvssp/audioldm2"), dropdown.Option("cvssp/audioldm2-music"), dropdown.Option("cvssp/audioldm2-large"), dropdown.Option("anhnct/audioldm2_gigaspeech")], value=audioLDM2_prefs['model_name'], on_change=change_model)
     duration_row = SliderRow(label="Duration", min=1, max=320, divisions=319, round=1, suffix="s", pref=audioLDM2_prefs, key='duration')
     guidance = SliderRow(label="Guidance Scale", min=0, max=10, divisions=20, round=1, pref=audioLDM2_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
     steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=audioLDM2_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
@@ -23779,17 +23848,18 @@ def get_AIHorde(page):
       return
     payload = response.json()
     print(str(payload))
-    AI_Horde = os.path.join(dist_dir, "AI-Horde-CLI")
+    AI_Horde = os.path.join(root_dir, "AI-Horde-CLI")
     if not os.path.exists(AI_Horde) or force_update("AI-Horde"):
       if os.path.exists(AI_Horde):
+        #run_sp(f"chmod -R u+w {AI_Horde}")
+        chmod_recursive(AI_Horde, 0o755)
         shutil.rmtree(AI_Horde, ignore_errors=True)
-      run_sp("git clone https://github.com/db0/AI-Horde-CLI.git", cwd=dist_dir, realtime=False)
-      run_sp("pip install -r cli_requirements.txt --user", cwd=AI_Horde, realtime=False)
-    try:
-      import yaml
-    except ModuleNotFoundError:
-      run_sp("pip install pyyaml", realtime=False)
-      pass
+      try:
+        run_sp("git clone -q https://github.com/Haidra-Org/AI-Horde-CLI.git", cwd=root_dir, realtime=False)
+      except Exception:
+        pass
+      pip_install("loguru omegaconf tqdm pyyaml|yaml")
+      #run_sp("pip install -r cli_requirements.txt --user", cwd=AI_Horde, realtime=False)
     status['installed_AIHorde'] = True
 
 def get_ESRGAN(page, model=None, installer=None):
@@ -25243,6 +25313,20 @@ def start_diffusion(page):
         }
         if prefs['AIHorde_post_processing'] != "None":
           params['post_processing'] = [prefs['AIHorde_post_processing']]
+        AIHorde_loras = []
+        if len(prefs['AIHorde_lora_map']) > 0:
+          for l in prefs['AIHorde_lora_map']:
+            lora = {
+              "name": l['model'],
+              "model": float(l['scale']),
+              "clip": l['clip'] if 'clip' in l else 1,
+              "is_version": True,#l['is_version'] if 'is_version' in l else False,
+            }
+            if 'inject_trigger' in l:
+              lora['inject_trigger'] = l['inject_trigger']
+            AIHorde_loras.append(lora)
+        if AIHorde_loras:
+          params['lora'] = AIHorde_loras
         if bool(arg['mask_image']) or (bool(arg['init_image']) and arg['alpha_mask']):
           if not bool(arg['init_image']):
             clear_last()
@@ -27535,8 +27619,8 @@ def run_superprompt(page):
         outputs = pipe_superprompt.generate(input_ids, max_new_tokens=superprompt_prefs['max_new_tokens'], num_return_sequences=superprompt_prefs['amount'], repetition_penalty=superprompt_prefs['repetition_penalty'], do_sample=True, temperature=superprompt_prefs['AI_temperature'], top_p=superprompt_prefs['top_p'], top_k=superprompt_prefs['top_k'])
         #better_prompt = tokenizer.decode(outputs[0])
         results = []
-        for i in range(len(outputs)):
-            results.append(tokenizer_superprompt.decode(outputs[i], skip_special_tokens=True))
+        for o in outputs:
+            results.append(tokenizer_superprompt.decode(o, skip_special_tokens=True))
         return results
     prompt_results = generate(seed_prompt)
     clear_last(2)
@@ -32230,7 +32314,7 @@ def run_image2text(page):
           full = f", by {attrs['artist' if 'artist' in attrs else 'artists']}, as {attrs['medium' if 'medium' in attrs else 'mediums']}, style of {attrs['flavors' if 'flavors' in attrs else 'flavor']}, {attrs['tags' if 'tags' in attrs else 'tag']}, {attrs['movement' if 'movement' in attrs else 'movements']}, technique of {attrs['techniques' if 'techniques' in attrs else 'technique']}, trending on {attrs['trending' if 'trending' in attrs else 'sites']}"
           return full
         import yaml
-        AI_Horde = os.path.join(dist_dir, "AI-Horde-CLI")
+        AI_Horde = os.path.join(root_dir, "AI-Horde-CLI")
         cli_response = os.path.join(AI_Horde, "cliRequests.log")
         alchemy_yml = os.path.join(AI_Horde, "cliRequestsData_Alchemy.yml")
         interrogation_txt = os.path.join(AI_Horde, "cliRequestsData_Alchemy.yml_interrogation.txt")
@@ -34739,6 +34823,7 @@ def run_audio_ldm2(page):
     prt(progress)
     random_seed = get_seed(audioLDM2_prefs['seed'])
     generator = torch.Generator("cuda").manual_seed(random_seed)
+    extra_args = {'transcription': audioLDM2_prefs['transcription'], 'max_new_tokens': b512} if 'speech' in model_id else {}
     try:
       audios = pipe_audio_ldm2(audioLDM2_prefs['text'],
           negative_prompt=audioLDM2_prefs['negative_prompt'],
@@ -34748,6 +34833,7 @@ def run_audio_ldm2(page):
           num_waveforms_per_prompt=audioLDM2_prefs['batch_size'],
           generator=generator,
           callback=callback_fnc,
+          **extra_args,
       ).audios
       #waveform = text_to_audio(pipe_audio_ldm2, audioLDM2_prefs['text'], random_seed, duration=10, guidance_scale=audioLDM2_prefs['guidance_scale'], n_candidate_gen_per_text=int(audioLDM2_prefs['n_candidates']), batchsize=int(audioLDM2_prefs['batch_size']), transcript=audioLDM2_prefs['transcription'] if 'speech' in model_id else "")
     except Exception as e:
@@ -51179,7 +51265,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     #page.add(ElevatedButton("Show Banner", on_click=show_banner_click))
     #page.add (Text ("Enhanced Stable Diffusion Deluxe by Skquark, Inc."))
 
-class Header(UserControl):
+class Header(Stack):
     def __init__(self, title="", subtitle="", value="", actions=[], divider=True):
         super().__init__()
         self.title = title
@@ -51193,7 +51279,7 @@ class Header(UserControl):
         self.column = Column([Row([Column([Text(self.title, theme_style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Text(self.subtitle, theme_style=TextThemeStyle.TITLE_SMALL, color=colors.TERTIARY) if bool(self.subtitle) else Container(content=None)], spacing=4, expand=True), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=1, vertical_alignment=CrossAxisAlignment.END), Divider(thickness=3, height=5, color=colors.SURFACE_VARIANT) if self.divider else Container(content=None), Container(content=None, height=3)], spacing=2)
         return self.column
 
-class FileInput(UserControl):
+class FileInput(Stack):
     def __init__(self, label="Initial Image", ftype="image", pref="", key="", expand=False, col=None, filled=False, visible=True, max_size=None, output_dir=None, page=None):
         super().__init__()
         self.label = label
@@ -51285,7 +51371,7 @@ class FileInput(UserControl):
         self.textfield.visible = value
         self.textfield.update()
 
-class ImageButton(UserControl):
+class ImageButton(Stack):
     def __init__(self, src="", subtitle="", actions=[], center=True, width=None, height=None, data=None, src_base64=None, fit=ImageFit.SCALE_DOWN, show_subtitle=False, zoom=False, page=None):
         super().__init__()
         self.src = src
@@ -51379,7 +51465,7 @@ class ImageButton(UserControl):
         return self.column
 
 
-class NumberPicker(UserControl):
+class NumberPicker(Row):
     def __init__(self, label="", value=1, min=0, max=20, step=1, height=45, tooltip=None, on_change=None):
         super().__init__()
         self.value = value
@@ -51427,7 +51513,7 @@ class NumberPicker(UserControl):
         label_text = Text(self.label) if not self.tooltip else Tooltip(message=self.tooltip, content=Text(self.label))
         return Row([label_text, IconButton(icons.REMOVE, on_click=minus_click), self.txt_number, IconButton(icons.ADD, on_click=plus_click)], spacing=1)
 
-class SliderRow(UserControl):
+class SliderRow(Stack):
     def __init__(self, label="", value=None, min=0, max=20, divisions=20, step=None, multiple=1, round=0, suffix="", left_text=None, right_text=None, visible=True, tooltip="", pref=None, key=None, expand=None, col=None, on_change=None, data=None):
         super().__init__()
         self.value = value or pref[key]
@@ -51532,7 +51618,7 @@ class SliderRow(UserControl):
         if bool(self.left_text): left.value = self.left_text
         if bool(self.right_text): right.value = self.right_text
         self.slider_number = slider_text
-        self.slider_row = Container(Row([slider_label, slider_text, self.slider_edit, left, self.slider, right]), expand=self.expand, visible=self._visible, col=self.col)
+        self.slider_row = Container(Row([slider_label, slider_text, self.slider_edit, left, self.slider, right], expand=True), expand=self.expand, visible=self._visible, col=self.col)
         return self.slider_row
     def set_value(self, value):
         self.value = value
@@ -51564,7 +51650,7 @@ class SliderRow(UserControl):
     def update_slider(self):
         self.slider.update()
 
-class Switcher(UserControl):
+class Switcher(Row):
     def __init__(self, label="", value=False, tooltip=None, disabled=False, on_change=None, active_color=None, active_track_color=None, label_position=ft.LabelPosition.RIGHT):
         super().__init__()
         self.label = label
@@ -51583,7 +51669,7 @@ class Switcher(UserControl):
         else:
             return self.switch
 
-class Installing(UserControl):
+class Installing(Stack):
     def __init__(self, message=""):
         super().__init__()
         self.message = message
@@ -51603,7 +51689,7 @@ class Installing(UserControl):
         self.progress.visible = show
         self.progress.update()
 
-class Progress(UserControl):
+class Progress(Stack):
     def __init__(self, message="", steps=50):
         super().__init__()
         self.message = message
@@ -51718,7 +51804,7 @@ def get_percentage(line):
     else:
         return None
 
-class RunConsole(UserControl):
+class RunConsole(Stack):
     def __init__(self, title="", height=200, show_progress=True):
         super().__init__()
         self.title = title
@@ -51837,6 +51923,13 @@ def makedir(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
+def chmod_recursive(path, mode):
+    for root, dirs, files in os.walk(path):
+        os.chmod(root, mode)
+        for file in files:
+            file_path = os.path.join(root, file)
+            os.chmod(file_path, mode)
+            
 stop_thread = False
 def background_update(page):
     global stop_thread
@@ -52182,7 +52275,7 @@ def scale_video(video_path, to, max_size, multiple=16):
     resized_video.write_videofile(to)
     return width, height
 
-class VideoPlayer(UserControl):
+class VideoPlayer(Stack):
     def __init__(self, video_file="", width=500, height=500):
         super().__init__()
         self.video_file = video_file
@@ -52221,7 +52314,7 @@ class VideoPlayer(UserControl):
         update_image_thread.start()
         return video_container
 
-class AudioPlayer(UserControl):
+class AudioPlayer(Stack):
     def __init__(self, src="", display="", data=None, autoplay=False, page=None):
         super().__init__()
         self.src = src

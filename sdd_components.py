@@ -347,7 +347,7 @@ class VideoContainer(ft.Container):
             alignment=None,
             bgcolor=None,
             gradient=None,
-            blend_mode=ft.BlendMode.NONE,
+            blend_mode=ft.BlendMode.SCREEN,
             border=None,
             border_radius=None,
             image_src=None,
