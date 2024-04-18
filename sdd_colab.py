@@ -364,6 +364,7 @@ def load_settings_file():
       'AIHorde_lora_layer': 'Horde Aesthetics Improver',
       'AIHorde_lora_layer_alpha': 1.0,
       'AIHorde_custom_lora_layer': '',
+      'custom_CivitAI_LoRA_models': [],
       'AIHorde_lora_map': [],
       'install_ESRGAN': True,
       'batch_folder_name': "",
@@ -457,6 +458,7 @@ def load_settings_file():
 
 load_settings_file()
 #version_checker()
+
 
 
 
@@ -557,6 +559,7 @@ if 'last_updated' in prefs and prefs['last_updated'] is not None:
         force_updates = True
         pass
     #diff = datetime.datetime.now() - last_time
+    #force_updates = force_updates or (last_time < datetime.datetime.now() - datetime.timedelta(days=4))
     if last_time <  datetime.datetime.now() - datetime.timedelta(days=4):
         force_updates = True
 else:
@@ -1086,6 +1089,7 @@ if 'AIHorde_sampler' not in prefs: prefs['AIHorde_sampler'] = 'k_euler_a'
 if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "None"
 if 'AIHorde_lora_layer' not in prefs: prefs['AIHorde_lora_layer'] = 'Horde Aesthetics Improver'
 if 'AIHorde_lora_layer_alpha' not in prefs: prefs['AIHorde_lora_layer_alpha'] = 1.0
+if 'custom_CivitAI_LoRA_models' not in prefs: prefs['custom_CivitAI_LoRA_models'] = []
 if 'AIHorde_custom_lora_layer' not in prefs: prefs['AIHorde_custom_lora_layer'] = ''
 if 'AIHorde_lora_map' not in prefs: prefs['AIHorde_lora_map'] = []
 if 'PaLM_api_key' not in prefs: prefs['PaLM_api_key'] = ''
@@ -1812,7 +1816,7 @@ def buildInstallers(page):
   generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM"), dropdown.Option("K_EULER"), dropdown.Option("K_EULER_ANCESTRAL"), dropdown.Option("K_HEUN"), dropdown.Option("K_DPMPP_2M"), dropdown.Option("K_DPM_2_ANCESTRAL"), dropdown.Option("K_LMS"), dropdown.Option("K_DPMPP_2S_ANCESTRAL"), dropdown.Option("K_DPM_2")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   #"K_EULER" "K_DPM_2" "K_LMS" "K_DPMPP_2S_ANCESTRAL" "K_DPMPP_2M" "DDIM" "DDPM" "K_EULER_ANCESTRAL" "K_HEUN" "K_DPM_2_ANCESTRAL"
   stability_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column([use_Stability_api, model_checkpoint, generation_sampler, clip_guidance_preset]))
-
+  # TODO: Move this to Parameters and show if prefs['install_AIHorde_api'] and status['installed_AIHorde_api']
   def toggle_AIHorde(e):
       prefs['install_AIHorde_api'] = e.control.value
       AIHorde_settings.height=None if prefs['install_AIHorde_api'] else 0
@@ -1856,6 +1860,11 @@ def buildInstallers(page):
           if l['name'] == lora:
             lora_layer = l.copy()
             lora_layer['scale'] = lora_scale
+        if not lora_layer:
+          for l in prefs['custom_CivitAI_LoRA_models']:
+            if l['name'] == lora:
+              lora_layer = l.copy()
+              lora_layer['scale'] = lora_scale
         for l in prefs['AIHorde_lora_map']:
           if l['name'] == lora:
             return
@@ -1883,6 +1892,10 @@ def buildInstallers(page):
       AIHorde_lora_layer_map.controls.clear()
       AIHorde_lora_layer_map.update()
   AIHorde_lora_layer = Dropdown(label="LoRA Layer Map", width=260, options=[dropdown.Option("Custom")], value=prefs['AIHorde_lora_layer'], on_change=changed_AIHorde_lora_layer)
+  page.AIHorde_lora_layer = AIHorde_lora_layer
+  if len(prefs['custom_CivitAI_LoRA_models']) > 0:
+      for l in prefs['custom_CivitAI_LoRA_models']:
+          AIHorde_lora_layer.options.append(dropdown.Option(l['name']))
   AIHorde_custom_lora_layer = TextField(label="Custom LoRA CivitAI (Model ID)", value=prefs['AIHorde_custom_lora_layer'], expand=True, visible=prefs['AIHorde_lora_layer']=="Custom", on_change=lambda e:changed(e,'AIHorde_custom_lora_layer'))
   for m in CivitAI_LoRAs:
       AIHorde_lora_layer.options.append(dropdown.Option(m['name']))
@@ -1896,6 +1909,7 @@ def buildInstallers(page):
       Row([AIHorde_lora_layer, AIHorde_custom_lora_layer, AIHorde_lora_layer_alpha, AIHorde_add_lora_layer]),
       AIHorde_lora_layer_map]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
+  
   def toggle_upscale(e):
       prefs['install_ESRGAN'] = e.control.value
       upscale_settings.height=None if prefs['install_ESRGAN'] else 0
@@ -21379,6 +21393,10 @@ def buildCustomModelManager(page):
             token = mod['prefix'] if 'prefix' in mod else ""
             weights = mod['weights'] if 'weights' in mod else ""
             custom_SDXL_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], token, "SDXL LoRA", weights=weights))
+        for mod in prefs['custom_CivitAI_LoRA_models']:
+            token = mod['inject_trigger'] if 'inject_trigger' in mod else ""
+            clip = mod['clip'] if 'clip' in mod else 1
+            custom_CivitAI_LoRA_models.controls.append(model_tile(mod['name'], mod['model'], token, "CivitAI LoRA", weights="Clip: "+clip))
         for mod in prefs['custom_dance_diffusion_models']:
             token = mod['prefix'] if 'prefix' in mod else ""
             custom_dance_diffusion_models.controls.append(model_tile(mod['name'], mod['path'], token, "DanceDiffusion"))
@@ -21394,6 +21412,8 @@ def buildCustomModelManager(page):
             return prefs["custom_LoRA_models"]
         elif type == "SDXL LoRA":
             return prefs["custom_SDXL_LoRA_models"]
+        elif type == "CivitAI LoRA":
+            return prefs["custom_CivitAI_LoRA_models"]
         elif type == "DanceDiffusion":
             return prefs["custom_dance_diffusion_models"]
         elif type == "Tortoise":
@@ -21408,8 +21428,10 @@ def buildCustomModelManager(page):
                 mod = sub
                 break
         if mod is None: return
-        path = mod['path' if type != "Tortoise" else 'folder']
-        if 'LoRA' in type:
+        path = mod['model' if type == "CivitAI LoRA" else 'path' if type != "Tortoise" else 'folder']
+        if type == "CivitAI LoRA":
+            weights = mod['clip']
+        elif 'LoRA' in type:
             weights = mod['weights'] if 'LoRA' in type and 'weights' in mod else ""
         else: weights = None
         #print(str(mod))
@@ -21438,6 +21460,13 @@ def buildCustomModelManager(page):
                         m.title.controls[1].value = model_path.value
                         m.title.controls[2].value = model_weights.value
                         m.update()
+            elif type == "CivitAI LoRA":
+                for m in custom_CivitAI_LoRA_models.controls:
+                    if m.title.controls[0].value == name:
+                        m.title.controls[0].value = model_name.value
+                        m.title.controls[1].value = model_path.value
+                        m.title.controls[2].value = "Clip: "+model_weights.value
+                        m.update()
             elif type == "DanceDiffusion":
                 for m in custom_dance_diffusion_models.controls:
                     if m.title.controls[0].value == name:
@@ -21451,16 +21480,21 @@ def buildCustomModelManager(page):
                         m.title.controls[1].value = model_path.value
                         m.update()
             mod['name'] = model_name.value
-            mod['path' if type != "Tortoise" else 'folder'] = model_path.value
+            mod['model' if type == "CivitAI LoRA" else 'path' if type != "Tortoise" else 'folder'] = model_path.value
             if weights != None:
-                mod['weights'] = model_weights.value
+                mod['clip' if type == "CivitAI LoRA" else 'weights'] = model_weights.value
             dlg_edit.open = False
             e.control.update()
             page.update()
         model_name = TextField(label="Custom Model Name", value=name)
         model_path = TextField(label="Model Path", value=path)
         model_weights = TextField(label="Model Weights (safetensor)", value=weights or "")
-        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit {type} Model Info"), content=Container(Column([model_name, model_path, model_weights if weights != None else Container(content=None)], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
+        if type == "CivitAI LoRA":
+            model_path.label = "CivitAI Model ID #"
+            model_weights.label = "LoRA Clip Skip"
+            model_weights.value = "1"
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit {type} Model Info"), content=Container(
+          Column([model_name, model_path, model_weights if weights != None else Container(content=None)], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
         page.dialog = dlg_edit
         dlg_edit.open = True
         page.update()
@@ -21473,6 +21507,8 @@ def buildCustomModelManager(page):
             mod = {'name': model_name.value, 'path' if type != "Tortoise" else 'folder': model_path.value}
             if 'LoRA' in type:
                 mod['weights'] = model_weights.value
+            if type == "CivitAI LoRA":
+                mod = {'name': model_name.value, 'model': model_path.value, 'clip': model_weights.value}
             mod_list.append(mod)
             if type == "Finetuned":
                 custom_models.controls.append(model_tile(mod['name'], mod['path'], "", "Finetuned"))
@@ -21485,6 +21521,10 @@ def buildCustomModelManager(page):
                 weights = mod['weights'] if 'weights' in mod else ""
                 custom_SDXL_LoRA_models.controls.append(model_tile(mod['name'], mod['path'], "", "SDXL LoRA", weights=weights))
                 custom_SDXL_LoRA_models.update()
+            elif type == "CivitAI LoRA":
+                weights = mod['clip'] if 'clip' in mod else "1"
+                custom_CivitAI_LoRA_models.controls.append(model_tile(mod['name'], mod['model'], "", "CivitAI LoRA", weights="Clip: "+weights))
+                custom_CivitAI_LoRA_models.update()
             elif type == "DanceDiffusion":
                 custom_dance_diffusion_models.controls.append(model_tile(mod['name'], mod['path'], "", "DanceDiffusion"))
                 custom_dance_diffusion_models.update()
@@ -21497,6 +21537,10 @@ def buildCustomModelManager(page):
         model_name = TextField(label="Custom Model Name")
         model_path = TextField(label="Model Path")
         model_weights = TextField(label="Model Weights (safetensor)")
+        if type == "CivitAI LoRA":
+            model_path.label = "CivitAI Model ID #"
+            model_weights.label = "LoRA Clip Skip"
+            model_weights.value = "1"
         dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Add Custom {type} Model"), content=Container(Column([model_name, model_path, model_weights if 'LoRA' in type else Container(content=None)], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
         page.dialog = dlg_edit
         dlg_edit.open = True
@@ -21526,6 +21570,12 @@ def buildCustomModelManager(page):
                 if l.title.controls[0].value == name:
                     del custom_SDXL_LoRA_models.controls[i]
                     custom_SDXL_LoRA_models.update()
+                    break
+        elif type == "CivitAI LoRA":
+            for i, l in enumerate(custom_CivitAI_LoRA_models.controls):
+                if l.title.controls[0].value == name:
+                    del custom_CivitAI_LoRA_models.controls[i]
+                    custom_CivitAI_LoRA_models.update()
                     break
         elif type == "DanceDiffusion":
             for i, l in enumerate(custom_dance_diffusion_models.controls):
@@ -21564,6 +21614,14 @@ def buildCustomModelManager(page):
         page.SDXL_LoRA_model.options.append(dropdown.Option("Custom SDXL LoRA Path"))
         try: page.SDXL_LoRA_model.update()
         except: pass
+        page.AIHorde_lora_layer.options.clear()
+        page.AIHorde_lora_layer.options.append(dropdown.Option("Custom"))
+        for cust in model_list("CivitAI LoRA"):
+            page.AIHorde_lora_layer.options.append(dropdown.Option(cust["name"]))
+        for mod in CivitAI_LoRAs:
+            page.AIHorde_lora_layer.options.append(dropdown.Option(mod['name']))
+        try: page.AIHorde_lora_layer.update()
+        except: pass
         page.community_dance_diffusion_model.options.clear()
         for cust in model_list("DanceDiffusion"):
             page.community_dance_diffusion_model.options.append(dropdown.Option(cust["name"]))
@@ -21584,6 +21642,7 @@ def buildCustomModelManager(page):
     custom_models = Column([], spacing=0)
     custom_LoRA_models = Column([], spacing=0)
     custom_SDXL_LoRA_models = Column([], spacing=0)
+    custom_CivitAI_LoRA_models = Column([], spacing=0)
     custom_dance_diffusion_models = Column([], spacing=0)
     tortoise_custom_voices = Column([], spacing=0)
     load_customs()
@@ -21597,6 +21656,8 @@ def buildCustomModelManager(page):
         custom_LoRA_models,
         title_header("Custom SDXL LoRA Models", "SDXL LoRA"),
         custom_SDXL_LoRA_models,
+        title_header("Custom CivitAI LoRA Models", "CivitAI LoRA"),
+        custom_CivitAI_LoRA_models,
         title_header("Custom Tortoise Voice Models", "Tortoise"),
         tortoise_custom_voices,
         title_header("Custom Dance Diffusion Models", "DanceDiffusion"),
@@ -25330,7 +25391,7 @@ def start_diffusion(page):
               lora['inject_trigger'] = l['inject_trigger']
             AIHorde_loras.append(lora)
         if AIHorde_loras:
-          params['lora'] = AIHorde_loras
+          params['lora'] = AIHorde_loras #json.dumps(AIHorde_loras, indent = 4)
         if bool(arg['mask_image']) or (bool(arg['init_image']) and arg['alpha_mask']):
           if not bool(arg['init_image']):
             clear_last()
@@ -25346,10 +25407,11 @@ def start_diffusion(page):
               clear_last()
               prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
           init_img = init_img.resize((arg['width'], arg['height']))
-          buff = BytesIO()
-          init_img.save(buff, format="PNG")
-          buff.seek(0)
-          img_str = io.BufferedReader(buff).read()
+          img_str = pil_to_base64(init_img)
+          #buff = BytesIO()
+          #init_img.save(buff, format="PNG")
+          #buff.seek(0)
+          #img_str = io.BufferedReader(buff).read()
           #init_image = preprocess(init_img)
           if not arg['alpha_mask']:
             if arg['mask_image'].startswith('http'):
@@ -25361,11 +25423,12 @@ def start_diffusion(page):
               else:
                 clear_last()
                 prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
-            mask = mask_img.resize((arg['width'], arg['height']))
-            buff = BytesIO()
-            mask.save(buff, format="PNG")
-            buff.seek(0)
-            mask_str = io.BufferedReader(buff).read()
+            mask_img = mask_img.resize((arg['width'], arg['height']))
+            mask_str = pil_to_base64(mask_img)
+            #buff = BytesIO()
+            #mask.save(buff, format="PNG")
+            #buff.seek(0)
+            #mask_str = io.BufferedReader(buff).read()
           payload['source_image'] = img_str
           if not arg['alpha_mask']:
             payload['source_mask'] = mask_str
@@ -25385,10 +25448,11 @@ def start_diffusion(page):
               clear_last()
               prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
           init_img = init_img.resize((arg['width'], arg['height']))
-          buff = BytesIO()
-          init_img.save(buff, format="PNG")
-          buff.seek(0)
-          img_str = io.BufferedReader(buff).read()
+          img_str = pil_to_base64(init_img)
+          #buff = BytesIO()
+          #init_img.save(buff, format="PNG")
+          #buff.seek(0)
+          #img_str = io.BufferedReader(buff).read()
           #img_str = open(buff.read(), 'rb') #base64.b64encode(buff.getvalue())  init_img.tobytes("raw")
           payload['source_image'] = img_str
           pipe_used = "Stable Horde-API Image-to-Image"
@@ -25400,7 +25464,12 @@ def start_diffusion(page):
           #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
         payload["params"] = params
         #print(params)
-        response = requests.post(url, headers=headers, json=payload)
+        try:
+            response = requests.post(url, headers=headers, json=payload)#json.dumps(payload, indent = 4))
+        except Exception as e:
+            alert_msg(page, f"ERROR: Problem sending JSON request and getting response.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]), debug_pref=payload)
+            print(payload)
+            return
         if response != None:
           if response.status_code != 202:
             clear_last()
