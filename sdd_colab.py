@@ -119,7 +119,7 @@ try:
   import flet
 except ImportError as e:
   if newest_flet:
-    run_sp("pip install --upgrade flet==0.20.2", realtime=False)
+    run_sp("pip install --upgrade flet", realtime=False)
     #0.3.0, 0.3.1, 0.3.2, 0.4.0, 0.4.1, 0.4.2, 0.5.0, 0.5.1, 0.5.2, 0.6.0.dev1309, 0.6.0.dev1310, 0.6.0.dev1312, 0.6.0.dev1322, 0.6.0.dev1336, 0.6.0.dev1344, 0.6.0.dev1350, 0.6.0.dev1352, 0.6.0.dev1355, 0.6.0.dev1357, 0.6.0, 0.6.1, 0.6.2, 0.7.0.dev1359, 0.7.0.dev1361, 0.7.0.dev1363, 0.7.0.dev1365, 0.7.0.dev1372, 0.7.0.dev1395, 0.7.0.dev1397, 0.7.0.dev1398, 0.7.0.dev1399, 0.7.0, 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.8.0.dev1402, 0.8.0.dev1406, 0.8.0.dev1425, 0.8.0.dev1436, 0.8.0.dev1441, 0.8.0.dev1443, 0.8.0.dev1459
   else:
     run_sp("pip install --upgrade flet==0.3.2", realtime=False)
@@ -127,6 +127,15 @@ except ImportError as e:
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   #run_sp("pip install --upgrade flet_ivid")
   pass
+if is_Colab:
+  try:
+    import nest_asyncio
+  except ModuleNotFoundError:
+    run_sp("pip install nest_asyncio", realtime=False)
+  finally:
+    import nest_asyncio
+    nest_asyncio.apply()
+    pass
 '''try:
   from flet_ivid import VideoContainer
 except ModuleNotFoundError:
@@ -458,6 +467,7 @@ def load_settings_file():
 
 load_settings_file()
 #version_checker()
+
 
 
 
@@ -26297,13 +26307,13 @@ def start_diffusion(page):
           last_image = os.path.join(root_dir, 'init_images', f'{fname}-{num}.png')
         page.auto_scrolling(True)
         #if (not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']) and prefs['apply_ESRGAN_upscale']:
-        if not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+        #if not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+          #upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
+          #prt(Row([ImageButton(src=fpath, data=new_file, width=arg['width'], height=arg['height'], subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           #print(f"Image path:{image_path}")
-          upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           #time.sleep(0.2)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(fpath), width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
-          prt(Row([ImageButton(src=fpath, data=new_file, width=arg['width'], height=arg['height'], subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           #prt(ImageButton(src=fpath, width=arg['width'], height=arg['height'], data=new_file, subtitle=pr[0] if type(pr) == list else pr, center=True, page=page))
           #time.sleep(0.3)
           #display(image)
@@ -26428,6 +26438,10 @@ def start_diffusion(page):
         elif not prefs['apply_ESRGAN_upscale'] or not status['installed_ESRGAN']:
           upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           prt(Row([ImageButton(src=upscaled_path, width=arg['width'], height=arg['height'], data=upscaled_path, subtitle=pr[0] if type(pr) == list else pr, page=page)], alignment=MainAxisAlignment.CENTER))
+        elif not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+          #print(f"Image path:{image_path}")
+          upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
+          prt(Row([ImageButton(src=fpath, data=new_file, width=arg['width'], height=arg['height'], subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
 
         prt(Row([Text(fpath.rpartition(slash)[2])], alignment=MainAxisAlignment.CENTER))
         idx += 1

@@ -122,7 +122,7 @@ def wget(url, to):
 try:
   import flet
 except ImportError as e:
-  run_sp("pip install --upgrade --quiet flet==0.20.2")
+  run_sp("pip install --upgrade --quiet flet")
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
@@ -454,6 +454,7 @@ def load_settings_file():
 if prefs == {}:
   load_settings_file()
 #version_checker()
+
 
 
 
@@ -26293,13 +26294,13 @@ def start_diffusion(page):
           last_image = os.path.join(root_dir, 'init_images', f'{fname}-{num}.png')
         page.auto_scrolling(True)
         #if (not prefs['display_upscaled_image'] or not prefs['apply_ESRGAN_upscale']) and prefs['apply_ESRGAN_upscale']:
-        if not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+        #if not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+          #upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
+          #prt(Row([ImageButton(src=fpath, data=new_file, width=arg['width'], height=arg['height'], subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           #print(f"Image path:{image_path}")
-          upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           #time.sleep(0.2)
           #prt(Row([GestureDetector(content=Img(src_base64=get_base64(fpath), width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
           #prt(Row([GestureDetector(content=Img(src=fpath, width=arg['width'], height=arg['height'], fit=ImageFit.FILL, gapless_playback=True), data=new_file, on_long_press_end=download_image, on_secondary_tap=download_image)], alignment=MainAxisAlignment.CENTER))
-          prt(Row([ImageButton(src=fpath, data=new_file, width=arg['width'], height=arg['height'], subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
           #prt(ImageButton(src=fpath, width=arg['width'], height=arg['height'], data=new_file, subtitle=pr[0] if type(pr) == list else pr, center=True, page=page))
           #time.sleep(0.3)
           #display(image)
@@ -26424,6 +26425,10 @@ def start_diffusion(page):
         elif not prefs['apply_ESRGAN_upscale'] or not status['installed_ESRGAN']:
           upscaled_path = os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
           prt(Row([ImageButton(src=upscaled_path, width=arg['width'], height=arg['height'], data=upscaled_path, subtitle=pr[0] if type(pr) == list else pr, page=page)], alignment=MainAxisAlignment.CENTER))
+        elif not prefs['display_upscaled_image'] and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+          #print(f"Image path:{image_path}")
+          upscaled_path = new_file #os.path.join(batch_output if save_to_GDrive else txt2img_output, new_file)
+          prt(Row([ImageButton(src=fpath, data=new_file, width=arg['width'], height=arg['height'], subtitle=pr[0] if type(pr) == list else pr, center=True, page=page)], alignment=MainAxisAlignment.CENTER))
 
         prt(Row([Text(fpath.rpartition(slash)[2])], alignment=MainAxisAlignment.CENTER))
         idx += 1
