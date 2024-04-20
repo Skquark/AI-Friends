@@ -816,6 +816,7 @@ def build3DAIs(page):
     page.ZoeDepth = buildZoeDepth(page)
     page.MarigoldDepth = buildMarigoldDepth(page)
     page.Tripo = buildTripo(page)
+    page.InstantMesh = buildInstantMesh(page)
     page.CRM = buildCRM(page)
     page.LDM3D = buildLDM3D(page)
     page.InstantNGP = buildInstantNGP(page)
@@ -829,6 +830,7 @@ def build3DAIs(page):
             Tab(text="ZoeDepth 3D", content=page.ZoeDepth, icon=icons.GRADIENT),
             Tab(text="MarigoldDepth", content=page.MarigoldDepth, icon=icons.FILTER_VINTAGE),
             Tab(text="Tripo", content=page.Tripo, icon=icons.CONNECTING_AIRPORTS),
+            Tab(text="InstantMesh", content=page.InstantMesh, icon=icons.ELECTRIC_BOLT),
             Tab(text="CRM-3D", content=page.CRM, icon=icons.ENGINEERING),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
@@ -1830,7 +1832,7 @@ def buildInstallers(page):
             model_info = [f"{model['name']} - Count: {model['count']}{f' Jobs: '+str(int(model['jobs'])) if model['jobs'] != 0.0 else ''}" for model in horde_models]
             alert_msg(e.page, "🏇  AI-Horde Current Model Stats", model_info, sound=False)
           else: print(response)
-  install_AIHorde = Switcher(label="Install AIHorde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'], on_change=toggle_AIHorde, tooltip="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.")
+  install_AIHorde = Switcher(label="Install AI-Horde Crowdsorced Pipeline", value=prefs['install_AIHorde_api'], on_change=toggle_AIHorde, tooltip="Use AIHorde.net Crowdsourced cloud without your GPU to create images on CPU.")
   use_AIHorde = Checkbox(label="Use Stable Horde API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_AIHorde_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_AIHorde_api'))
   AIHorde_model = Dropdown(label="Model Checkpoint", hint_text="", width=375, options=[], value=prefs['AIHorde_model'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_model'))
   AIHorde_model.options = [dropdown.Option(m) for m in AIHorde_models]
@@ -6133,6 +6135,73 @@ def buildTripo(page):
         mesh_threshold,
         Row([batch_folder_name, title]),
         ElevatedButton(content=Text("✈️  Run Tripo", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_tripo(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+instantmesh_prefs = {
+    'init_image': '',
+    'foreground_ratio': 0.85,
+    'remove_background': True,
+    'save_video': False,
+    'max_size': 720,
+    #'guidance_scale': 5.5,
+    'steps': 75,
+    'seed': 0,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'title': '',
+}
+
+def buildInstantMesh(page):
+    global prefs, instantmesh_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            instantmesh_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            instantmesh_prefs[pref] = float(e.control.value)
+          else:
+            instantmesh_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def instantmesh_help(e):
+      def close_instantmesh_dlg(e):
+        nonlocal instantmesh_help_dlg
+        instantmesh_help_dlg.open = False
+        page.update()
+      instantmesh_help_dlg = AlertDialog(title=Text("💁   Help with InstantMesh"), content=Column([
+          Text("We present InstantMesh, a feed-forward framework for instant 3D mesh generation from a single image, featuring state-of-the-art generation quality and significant training scalability. By synergizing the strengths of an off-the-shelf multiview diffusion model and a sparse-view reconstruction model based on the LRM architecture, InstantMesh is able to create diverse 3D assets within 10 seconds. To enhance the training efficiency and exploit more geometric supervisions, e.g, depths and normals, we integrate a differentiable iso-surface extraction module into our framework and directly optimize on the mesh representation. Experimental results on public datasets demonstrate that InstantMesh significantly outperforms other latest image-to-3D baselines, both qualitatively and quantitatively. We release all the code, weights, and demo of InstantMesh, with the intention that it can make substantial contributions to the community of 3D generative AI and empower both researchers and content creators."),
+          Markdown("[HuggingFace Space](https://huggingface.co/spaces/TencentARC/InstantMesh) | [Model Card](https://huggingface.co/TencentARC/InstantMesh) | [GitHub](https://github.com/TencentARC/InstantMesh)| [InstantMesh Paper](https://arxiv.org/abs/2404.07191)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Jiale Xu, Weihao Cheng, Yiming Gao, Xintao Wang, Shenghua Gao, Ying Shan"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("💙  Insta-Cool", on_click=close_instantmesh_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = instantmesh_help_dlg
+      instantmesh_help_dlg.open = True
+      page.update()
+    init_image = FileInput(label="Initial Image (clear background = better results)", pref=instantmesh_prefs, key='init_image', filled=True, page=page)
+    batch_folder_name = TextField(label="3D Model Folder Name", value=instantmesh_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    title = TextField(label="Project Title", value=instantmesh_prefs['title'], expand=True, on_change=lambda e:changed(e,'title'))
+    #batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=instantmesh_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    remove_background = Switcher(label="Remove Background", value=instantmesh_prefs['remove_background'], on_change=lambda e:changed(e,'remove_background'), tooltip="You can clear the background yourself cleaner and save transparent png.")
+    foreground_ratio = SliderRow(label="Foreground Ratio", min=0, max=1, divisions=20, round=2, expand=True, pref=instantmesh_prefs, key='foreground_ratio')
+    save_video = Switcher(label="Save Video", value=instantmesh_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=instantmesh_prefs, key='max_size')
+    steps = SliderRow(label="Inference Steps", min=5, max=75, divisions=14, pref=instantmesh_prefs, key='steps')
+    #guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=instantmesh_prefs, key='guidance_scale')
+    seed = TextField(label="Seed", width=90, value=str(instantmesh_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("⚡️  InstantMesh Image-to-3D (under construction)", "Single Image to 3D Textured Mesh with LRM/Instant3D architecture...", actions=[save_default(instantmesh_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with InstantMesh Settings", on_click=instantmesh_help)]),
+        init_image,
+        Row([remove_background, foreground_ratio]),
+        steps,
+        #guidance,
+        max_row,
+        Row([seed, batch_folder_name, title, save_video]),
+        ElevatedButton(content=Text("🦔  Run InstantMesh 3D", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instantmesh(page)),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -21858,6 +21927,9 @@ pipe_marigold_depth = None
 pipe_tripo = None
 pipe_crm = None
 crm_rembg_session=None
+pipe_instantmesh = None
+instantmesh_model = None
+instantmesh_rembg_session=None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
@@ -24743,6 +24815,14 @@ def clear_crm_pipe():
     flush()
     pipe_crm = None
     crm_rembg_session=None
+def clear_instantmesh_pipe():
+  global pipe_instantmesh, instantmesh_model, instantmesh_rembg_session
+  if pipe_instantmesh is not None:
+    del pipe_instantmesh, instantmesh_model, instantmesh_rembg_session
+    flush()
+    pipe_instantmesh = None
+    instantmesh_model = None
+    instantmesh_rembg_session = None
 def clear_zoe_depth_pipe():
   global pipe_zoe_depth
   if pipe_zoe_depth is not None:
@@ -48753,6 +48833,273 @@ def run_tripo(page):
     #prt("Finished generating Tripo Mesh... Hope it's good.")
     play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
+
+def run_instantmesh(page):
+    global instantmesh_prefs, pipe_instantmesh, instantmesh_model, instantmesh_rembg_session, status
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) < 16:
+        alert_msg(page, f"Sorry, you need at least 16GB CPU RAM to run this. {'Change Runtime to High-RAM and try again.' if is_Colab else 'Upgrade your memory if you want to use it.'}")
+        return
+    if not bool(instantmesh_prefs['init_image']):
+        alert_msg(page, f"ERROR: You must provide an init image to prrocess.")
+        return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.InstantMesh.controls.append(line)
+      page.InstantMesh.update()
+    def prt_status(text):
+        nonlocal status_txt
+        status_txt.value = text
+        status_txt.update()
+    def clear_last(lines=1):
+      clear_line(page.InstantMesh, lines=lines)
+    page.InstantMesh.controls = page.InstantMesh.controls[:1]
+    installer = Installing("Installing InstantMesh 3D Libraries... See console for progress.")
+    prt(installer)
+    instantmesh_dir = os.path.join(root_dir, "InstantMesh")
+    if not os.path.exists(instantmesh_dir):
+        installer.status("...cloning TencentARC/InstantMesh")
+        run_sp("git clone https://github.com/TencentARC/InstantMesh.git", cwd=root_dir)
+    if instantmesh_dir not in sys.path:
+        sys.path.append(instantmesh_dir)
+    try:
+        import triton
+    except ModuleNotFoundError:
+        installer.status("...installing Triton")
+        if sys.platform.startswith("win"):
+            run_sp("pip install https://huggingface.co/r4ziel/xformers_pre_built/resolve/main/triton-2.0.0-cp310-cp310-win_amd64.whl", realtime=False)
+        else:
+            run_sp("pip install triton", realtime=False)
+        pass
+    try:
+        os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+        import bitsandbytes
+    except ModuleNotFoundError:
+        installer.status("...installing bitsandbytes")
+        if sys.platform.startswith("win"):
+            run_sp("pip install bitsandbytes-windows", realtime=False)
+        else:
+            run_sp("pip install bitsandbytes", realtime=False)
+        pass
+    try:
+        import xformers
+    except ModuleNotFoundError:
+        installer.status("...installing FaceBook's Xformers (slow)")
+        run_sp(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+        status['installed_xformers'] = True
+        pass
+    pip_install("pytorch-lightning==2.1.2 einops omegaconf torchmetrics webdataset tensorboard PyMCubes|mcubes rembg imageio[ffmpeg]|imageio xatlas plyfile git+https://github.com/NVlabs/nvdiffrast|nvdiffrast jax==0.4.19 jaxlib==0.4.19 ninja", installer=installer)
+    os.chdir(instantmesh_dir)
+    name = instantmesh_prefs['title'] if bool(instantmesh_prefs['title']) else instantmesh_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
+    fname = format_filename(name)
+    clear_pipes("instantmesh")
+
+    import numpy as np
+    import rembg
+    from PIL import ImageOps
+    from pytorch_lightning import seed_everything
+    from einops import rearrange #, repeat
+    from diffusers import DiffusionPipeline, EulerAncestralDiscreteScheduler
+    from huggingface_hub import hf_hub_download
+    from src.utils.infer_util import remove_background, resize_foreground
+    from torchvision.transforms import v2
+    from omegaconf import OmegaConf
+    import imageio
+    from src.utils.train_util import instantiate_from_config
+    from src.utils.camera_util import (FOV_to_intrinsics, get_zero123plus_input_cameras,get_circular_camera_poses,)
+    from src.utils.mesh_util import save_obj, save_glb, save_obj_with_mtl
+    
+    instantmesh_out = os.path.join(prefs['image_output'], instantmesh_prefs['batch_folder_name'])
+    if not os.path.exists(instantmesh_out):
+        os.makedirs(instantmesh_out)
+    def get_render_cameras(batch_size=1, M=120, radius=2.5, elevation=10.0, is_flexicubes=False):
+        c2ws = get_circular_camera_poses(M=M, radius=radius, elevation=elevation)
+        if is_flexicubes:
+            cameras = torch.linalg.inv(c2ws)
+            cameras = cameras.unsqueeze(0).repeat(batch_size, 1, 1, 1)
+        else:
+            extrinsics = c2ws.flatten(-2)
+            intrinsics = FOV_to_intrinsics(50.0).unsqueeze(0).repeat(M, 1, 1).float().flatten(-2)
+            cameras = torch.cat([extrinsics, intrinsics], dim=-1)
+            cameras = cameras.unsqueeze(0).repeat(batch_size, 1, 1)
+        return cameras
+    def images_to_video(images, output_path, fps=30):
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        frames = []
+        for i in range(images.shape[0]):
+            frame = (images[i].permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8).clip(0, 255)
+            assert frame.shape[0] == images.shape[2] and frame.shape[1] == images.shape[3], \
+                f"Frame shape mismatch: {frame.shape} vs {images.shape}"
+            assert frame.min() >= 0 and frame.max() <= 255, \
+                f"Frame value out of range: {frame.min()} ~ {frame.max()}"
+            frames.append(frame)
+        imageio.mimwrite(output_path, np.stack(frames), fps=fps, codec='h264')
+    def find_cuda(): # Check if CUDA_HOME or CUDA_PATH environment variables are set
+        cuda_home = os.environ.get('CUDA_HOME') or os.environ.get('CUDA_PATH')
+        if cuda_home and os.path.exists(cuda_home):
+            return cuda_home
+        nvcc_path = shutil.which('nvcc') # Search for the nvcc executable in the system's PATH
+        if nvcc_path: # Remove the 'bin/nvcc' part to get the CUDA installation path
+            cuda_path = os.path.dirname(os.path.dirname(nvcc_path))
+            return cuda_path
+        return None
+    cuda_path = find_cuda()
+    if not cuda_path:
+        alert_msg(page, "CUDA installation not found")
+        return
+    config_path = 'configs/instant-mesh-large.yaml'
+    config = OmegaConf.load(config_path)
+    config_name = os.path.basename(config_path).replace('.yaml', '')
+    model_config = config.model_config
+    infer_config = config.infer_config
+    IS_FLEXICUBES = True if config_name.startswith('instant-mesh') else False
+    device = torch.device('cuda')
+    if pipe_instantmesh == None:
+        try:
+            installer.status(f"...loading InstantMesh Pipeline")
+            pipe_instantmesh = DiffusionPipeline.from_pretrained("sudo-ai/zero123plus-v1.2", custom_pipeline="zero123plus",torch_dtype=torch.float16,)
+            pipe_instantmesh.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe_instantmesh.scheduler.config, timestep_spacing='trailing')
+            installer.status(f"...downloading TencentARC/InstantMesh")
+            unet_ckpt_path = hf_hub_download(repo_id="TencentARC/InstantMesh", filename="diffusion_pytorch_model.bin", repo_type="model")
+            state_dict = torch.load(unet_ckpt_path, map_location='cpu')
+            pipe_instantmesh.unet.load_state_dict(state_dict, strict=True)
+            device = torch.device('cuda')
+            pipe_instantmesh = pipe_instantmesh.to(device)
+            
+            print('Loading reconstruction model ...')
+            model_ckpt_path = hf_hub_download(repo_id="TencentARC/InstantMesh", filename="instant_mesh_large.ckpt", repo_type="model")
+            instantmesh_model = instantiate_from_config(model_config)
+            state_dict = torch.load(model_ckpt_path, map_location='cpu')['state_dict']
+            state_dict = {k[14:]: v for k, v in state_dict.items() if k.startswith('lrm_generator.') and 'source_camera' not in k}
+            instantmesh_model.load_state_dict(state_dict, strict=True)
+            instantmesh_model = instantmesh_model.to(device)
+        except Exception as e:
+            #clear_last()
+            alert_msg(page, "Error Installing InstantMesh Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            os.chdir(root_dir)
+            return
+
+    init_img = None
+    if bool(instantmesh_prefs['init_image']):
+        if instantmesh_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(instantmesh_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(instantmesh_prefs['init_image']):
+                init_img = PILImage.open(instantmesh_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {instantmesh_prefs['init_image']}")
+                if not bool(instantmesh_prefs['prompt_text']):
+                    return
+        if init_img != None:
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, instantmesh_prefs['max_size'])
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    if instantmesh_rembg_session == None:
+        instantmesh_rembg_session = rembg.new_session() if instantmesh_prefs["remove_background"] else None
+    if instantmesh_prefs["remove_background"]:
+        init_img = remove_background(init_img, instantmesh_rembg_session)
+        init_img = resize_foreground(init_img, instantmesh_prefs["foreground_ratio"])
+    status_txt = Text("Generating your 3D model... See console for progress.")
+    progress = ProgressBar(bar_height=8)
+    clear_last()
+    prt(status_txt)
+    prt(progress)
+    random_seed = get_seed(instantmesh_prefs['seed'], max=1000000)
+    obj_path = available_file(instantmesh_out, fname, ext='obj', no_num=True)
+    glb_path = available_file(instantmesh_out, fname, ext='glb', no_num=True)
+    video_path = available_file(instantmesh_out, fname, ext='mp4', no_num=True)
+    image_path = available_file(instantmesh_out, fname)
+    xyz_path = available_file(instantmesh_out+"-xyz", fname)
+    model_names = and_list([f"[obj]({filepath_to_url(obj_path)})", f"[glb]({filepath_to_url(glb_path)})"])
+    try:
+        seed_everything(random_seed)
+        #z123_image
+        images = pipe_instantmesh(init_img, num_inference_steps=instantmesh_prefs["steps"]).images[0]
+        show_image = np.asarray(images, dtype=np.uint8)
+        show_image = torch.from_numpy(show_image)   # (960, 640, 3)
+        show_image = rearrange(show_image, '(n h) (m w) c -> (n m) h w c', n=3, m=2)
+        show_image = rearrange(show_image, '(n m) h w c -> (n h) (m w) c', n=2, m=3)
+        show_image = PILImage.fromarray(show_image.numpy())
+        prt_status("Exporting Mesh to 3D Files...")
+        if IS_FLEXICUBES:
+            instantmesh_model.init_flexicubes_geometry(device, use_renderer=False)
+        instantmesh_model = instantmesh_model.eval()
+        images = np.asarray(images, dtype=np.float32) / 255.0
+        images = torch.from_numpy(images).permute(2, 0, 1).contiguous().float()     # (3, 960, 640)
+        images = rearrange(images, 'c (n h) (m w) -> (n m) c h w', n=3, m=2)        # (6, 3, 320, 320)
+        input_cameras = get_zero123plus_input_cameras(batch_size=1, radius=4.0).to(device)
+        render_cameras = get_render_cameras(batch_size=1, radius=2.5, is_flexicubes=IS_FLEXICUBES).to(device)
+        images = images.unsqueeze(0).to(device)
+        images = v2.functional.resize(images, (320, 320), interpolation=3, antialias=True).clamp(0, 1)
+        #mesh_basename = os.path.basename(obj_path).split('.')[0]
+        #mesh_dirname = os.path.dirname(obj_path)
+        #video_fpath = os.path.join(mesh_dirname, f"{mesh_basename}.mp4")
+        #mesh_glb_fpath = os.path.join(mesh_dirname, f"{mesh_basename}.glb")
+        with torch.no_grad(): # get triplane
+            planes = instantmesh_model.forward_planes(images, input_cameras)
+            if instantmesh_prefs["save_video"]:
+                prt_status("Rendering 3D to Video File...")
+                chunk_size = 20 if IS_FLEXICUBES else 1
+                render_size = 384
+                frames = []
+                for i in range(0, render_cameras.shape[1], chunk_size):
+                    if IS_FLEXICUBES:
+                        frame = instantmesh_model.forward_geometry(
+                            planes,
+                            render_cameras[:, i:i+chunk_size],
+                            render_size=render_size,
+                        )['img']
+                    else:
+                        frame = instantmesh_model.synthesizer(
+                            planes,
+                            cameras=render_cameras[:, i:i+chunk_size],
+                            render_size=render_size,
+                        )['images_rgb']
+                    frames.append(frame)
+                frames = torch.cat(frames, dim=1)
+                images_to_video(
+                    frames[0],
+                    video_path,
+                    fps=30,
+                )
+                #print(f"Video saved to {video_path}")
+            prt_status("Saving Mesh OBJ and GLB 3D Files...")
+            mesh_out = instantmesh_model.extract_mesh(
+                planes,
+                use_texture_map=False,
+                **infer_config,
+            )
+            vertices, faces, vertex_colors = mesh_out
+            vertices = vertices[:, [1, 2, 0]]
+            save_glb(vertices, faces, vertex_colors, glb_path)
+            save_obj(vertices, faces, vertex_colors, obj_path)
+        #shutil.copy(glb, glb_path)
+        #shutil.copy(obj, obj_path)
+        imgs = PILImage.fromarray(images)
+        imgs.save(image_path)
+        save_metadata(image_path, instantmesh_prefs, f"InstantMesh 3D", "TencentARC/InstantMesh", random_seed)
+        xyz = PILImage.fromarray(images)
+        xyz.save(xyz_path)
+        width, height = imgs.size
+        width_x, height_x = xyz.size
+        #return Image.fromarray(np_imgs), Image.fromarray(np_xyzs), glb_path, obj_path
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error running InstantMesh pipeline.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        os.chdir(root_dir)
+        return
+    clear_last(2)
+    prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([ImageButton(src=xyz_path, width=width_x, height=height_x, data=xyz_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([Markdown(f"Saved Models as {model_names}{f'. Video saved to [video_path]({filepath_to_url(video_path)})' if instantmesh_prefs['save_video'] else ''}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+    flush()
+    #prt(ImageButton(src=gif_file, width=instantmesh_prefs['size'], height=instantmesh_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
+    #prt("Finished generating InstantMesh Mesh... Hope it's good.")
+    play_snd(Snd.ALERT, page)
+    os.chdir(root_dir)
+
 
 def run_crm(page):
     global crm_prefs, pipe_crm, crm_rembg_session, status
