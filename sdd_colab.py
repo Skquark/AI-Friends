@@ -558,6 +558,10 @@ status = {
     'kandinsky_version': 'Kandinsky 3.0',
     'kandinsky_2_2': True,
     'kandinsky_fuse_2_2': True,
+    'gpu_used': None,
+    'gpu_memory': None,
+    'cpu_used': None,
+    'cpu_memory': None,
     'initialized': False,
     'updated': [],
 }
@@ -608,7 +612,7 @@ def save_settings_file(page, change_icon=True):
         pass
 
 current_tab = 0
-def tab_on_change (e):
+def tab_on_change(e):
     global current_tab, status
     t = e.control
     #print (f"tab changed from {current_tab} to: {t.selected_index}")
@@ -1822,7 +1826,7 @@ def buildInstallers(page):
       page.update()
   install_Stability_api = Switcher(label="Install Stability-API DreamStudio Pipeline", value=prefs['install_Stability_api'], disabled=status['installed_stability'], on_change=toggle_stability, tooltip="Use DreamStudio.com servers without your GPU to create images on CPU.")
   use_Stability_api = Checkbox(label="Use Stability-ai API by default", tooltip="Instead of using Diffusers, generate images in their cloud. Can toggle to compare batches..", value=prefs['use_Stability_api'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'use_Stability_api'))
-  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("stable-diffusion-xl-1024-v1-0"), dropdown.Option("stable-diffusion-xl-1024-v0-9"), dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
+  model_checkpoint = Dropdown(label="Model Checkpoint", hint_text="", width=350, options=[dropdown.Option("Stable Image Core"), dropdown.Option("Stable Diffusion 3"), dropdown.Option("Stable Diffusion 3 Turbo"), dropdown.Option("stable-diffusion-xl-1024-v1-0"), dropdown.Option("stable-diffusion-xl-1024-v0-9"), dropdown.Option("stable-diffusion-xl-beta-v2-2-2"), dropdown.Option("stable-diffusion-768-v2-1"), dropdown.Option("stable-diffusion-512-v2-1"), dropdown.Option("stable-diffusion-768-v2-0"), dropdown.Option("stable-diffusion-512-v2-0"), dropdown.Option("stable-diffusion-v1-5"), dropdown.Option("stable-diffusion-v1"), dropdown.Option("stable-inpainting-512-v2-0"), dropdown.Option("stable-inpainting-v1-0")], value=prefs['model_checkpoint'], autofocus=False, on_change=lambda e:changed(e, 'model_checkpoint'))
   clip_guidance_preset = Dropdown(label="Clip Guidance Preset", width=350, options=[dropdown.Option("SIMPLE"), dropdown.Option("FAST_BLUE"), dropdown.Option("FAST_GREEN"), dropdown.Option("SLOW"), dropdown.Option("SLOWER"), dropdown.Option("SLOWEST"), dropdown.Option("NONE")], value=prefs['clip_guidance_preset'], autofocus=False, on_change=lambda e:changed(e, 'clip_guidance_preset'))
   #generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("ddim"), dropdown.Option("plms"), dropdown.Option("k_euler"), dropdown.Option("k_euler_ancestral"), dropdown.Option("k_heun"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_ancestral"), dropdown.Option("k_lms")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
   generation_sampler = Dropdown(label="Generation Sampler", hint_text="", width=350, options=[dropdown.Option("DDIM"), dropdown.Option("DDPM"), dropdown.Option("K_EULER"), dropdown.Option("K_EULER_ANCESTRAL"), dropdown.Option("K_HEUN"), dropdown.Option("K_DPMPP_2M"), dropdown.Option("K_DPM_2_ANCESTRAL"), dropdown.Option("K_LMS"), dropdown.Option("K_DPMPP_2S_ANCESTRAL"), dropdown.Option("K_DPM_2")], value=prefs['generation_sampler'], autofocus=False, on_change=lambda e:changed(e, 'generation_sampler'))
@@ -3437,8 +3441,8 @@ def buildPromptsList(page):
           clear_prompt(None)
   page.on_keyboard_event = on_keyboard
   def run_diffusion(e):
-      if not status['installed_diffusers'] and not status['installed_stability'] and not status['installed_AIHorde']:
-        alert_msg(e.page, "You must Install the required Diffusers or Stability api first...")
+      if not status['installed_diffusers'] and not prefs['install_Stability_api'] and not prefs['install_AIHorde_api']:
+        alert_msg(e.page, "You must Install the required Diffusers first or use Stability.ai API or AI-Horde to use without GPU...")
         return
       if prefs['use_interpolation'] and prefs['install_interpolation'] and not status['installed_interpolation']:
         alert_msg(e.page, "You must Install Walk Interpolation Pipeline first...")
@@ -24239,7 +24243,7 @@ def resize_for_condition_image(input_image: PILImage, resolution: int):
     W *= k
     H = int(round(H / 64.0)) * 64
     W = int(round(W / 64.0)) * 64
-    img = input_image.resize((W, H), resample=PILImage.LANCZOS)
+    img = input_image.resize((W, H), resample=PILImage.Resampling.LANCZOS)
     return img
 
 def flush():
@@ -25112,6 +25116,7 @@ def start_diffusion(page):
         generator = torch.Generator("cuda").manual_seed(rand_seed)
     last_seed = rand_seed
   else:
+    rand_seed = args['seed']
     if not (prefs['use_Stability_api'] or (not status['installed_diffusers'] and status['installed_stability'])) and (not (prefs['use_AIHorde_api'] or (not status['installed_diffusers'] and status['installed_AIHorde']))):
       if use_custom_scheduler:
         generator = torch.manual_seed(args['seed'])
@@ -25262,165 +25267,14 @@ def start_diffusion(page):
       #prt(f'{pr[0] if type(pr) == list else pr} - seed:{arg["seed"]}')
       total_steps = arg['steps']
       #if prefs['use_Stability_api'] or bool(arg['use_Stability'] or (not status['installed_diffusers'] and status['installed_stability'])):
-      if status['installed_stability'] and (not status['installed_diffusers'] or prefs['use_Stability_api']) and not (status['installed_AIHorde'] and prefs['use_AIHorde_api']):
-        #print('use_Stability_api')
-        if not status['installed_stability']:
-          alert_msg(page, f"ERROR: To use Stability-API, you must run the install it first and have proper API key")
-          return
-        else:
-          prt('Stability API Diffusion ')# + ('─' * 100))
-          #print(f'"{SD_prompt}", height={SD_height}, width={SD_width}, steps={SD_steps}, cfg_scale={SD_guidance_scale}, seed={SD_seed}, sampler={generation_sampler}')
-          #strikes = 0
-          images = []
-          arg['width'] = multiple_of_64(arg['width'])
-          arg['height'] = multiple_of_64(arg['height'])
-          prt(pb)
-          import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
-          answers = response = None
-
-          import requests
-          from io import BytesIO
-          import base64
-          api_host = os.getenv('API_HOST', 'https://api.stability.ai')
-          engine_id = prefs['model_checkpoint']# if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
-          url = f"{api_host}/v1/generation/{engine_id}/"#image-to-image"
-          headers = {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',#'image/png',
-              'Authorization': prefs['Stability_api_key'],
-          }
-          payload = {
-              "cfg_scale": arg['guidance_scale'],
-              "clip_guidance_preset": prefs['clip_guidance_preset'],
-              "height": arg['height'],
-              "width": arg['width'],
-              "sampler": prefs['generation_sampler'],
-              "samples": arg['batch_size'],
-              "seed": arg['seed'],
-              "steps": arg['steps'],
-              "text_prompts": [
-                  {
-                      "text": pr[0] if type(pr) == list else pr,
-                      "weight": 1
-                  }
-              ],
-          }
-          if bool(arg['negative_prompt']):
-            payload['text_prompts'].append({"text": arg['negative_prompt'][0] if type(arg['negative_prompt']) == list else arg['negative_prompt'], "weight": -10})
-          if bool(arg['mask_image']) or (bool(arg['init_image']) and arg['alpha_mask']):
-            if not bool(arg['init_image']):
-              clear_last()
-              prt(f"ERROR: You have not selected an init_image to go with your image mask..")
-              continue
-            if arg['init_image'].startswith('http'):
-              i_response = requests.get(arg['init_image'])
-              init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
-            else:
-              if os.path.isfile(arg['init_image']):
-                init_img = PILImage.open(arg['init_image'])
-              else:
-                clear_last()
-                prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
-            init_img = init_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS)
-            buff = BytesIO()
-            init_img.save(buff, format="PNG")
-            buff.seek(0)
-            img_str = io.BufferedReader(buff).read()
-            #init_image = preprocess(init_img)
-            if not arg['alpha_mask']:
-              if arg['mask_image'].startswith('http'):
-                i_response = requests.get(arg['mask_image'])
-                mask_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
-              else:
-                if os.path.isfile(arg['mask_image']):
-                  mask_img = PILImage.open(arg['mask_image'])
-                else:
-                  clear_last()
-                  prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
-              mask = mask_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS)
-
-              buff = BytesIO()
-              mask.save(buff, format="PNG")
-              buff.seek(0)
-              mask_str = io.BufferedReader(buff).read()
-            #payload["step_schedule_end"] = 0.01
-            payload["step_schedule_start"] = 1# - arg['init_image_strength']
-            files = {
-                'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
-                #'mask_image': mask_str,
-                'mask_source': "INIT_IMAGE_ALPHA" if arg['alpha_mask'] else "MASK_IMAGE_BLACK" if arg['invert_mask'] else "MASK_IMAGE_WHITE",
-                'options': (None, json.dumps(payload)),
-            }
-            if not arg['alpha_mask']:
-              files['mask_image'] = mask_str
-            pipe_used = "Stability-API Inpainting"
-            #engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
-            response = requests.post(url+"image-to-image/masking", headers=headers, files=files)
-            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
-          elif bool(arg['init_image']):
-            if arg['init_image'].startswith('http'):
-              i_response = requests.get(arg['init_image'])
-              init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
-            else:
-              if os.path.isfile(arg['init_image']):
-                init_img = PILImage.open(arg['init_image']).convert("RGB")
-              else:
-                clear_last()
-                prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
-            init_img = init_img.resize((arg['width'], arg['height']), resample=PILImage.LANCZOS)
-
-            buff = BytesIO()
-            init_img.save(buff, format="PNG")
-            buff.seek(0)
-            img_str = io.BufferedReader(buff).read()
-            #img_str = open(buff.read(), 'rb') #base64.b64encode(buff.getvalue())  init_img.tobytes("raw")
-            payload["step_schedule_end"] = 0.01
-            payload["step_schedule_start"] = 1 - arg['init_image_strength']
-            files = {
-                'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
-                'options': (None, json.dumps(payload)),
-            }
-            pipe_used = "Stability-API Image-to-Image"
-            response = requests.post(url+"image-to-image", headers=headers, files=files)
-            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
-          else:
-            pipe_used = "Stability-API Text-to-Image"
-            response = requests.post(url+"text-to-image", headers=headers, json=payload)
-            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
-          clear_last(update=False)
-          clear_last()
-          if response != None:
-            if response.status_code != 200:
-              if response.status_code == 402:
-                alert_msg(page, "Stability-API ERROR: Insufficient Credit Balance. Reload at DreamStudio.com...", content=Text(str(response.text)))
-                return
-              else:
-                prt(Text(f"Stability-API ERROR {response.status_code}: " + str(response.text), selectable=True))
-                print(payload)
-                continue
-            #with open(output_file, "wb") as f:
-            #  f.write(response.content)
-            artifacts = json.loads(response.content)
-            for resp in artifacts['artifacts']:
-              #print(f'{type(resp)} - {resp["seed"]}')
-              if resp == None: continue
-              images.append(PILImage.open(io.BytesIO(base64.b64decode(resp['base64']))))
-            #print(f'{type(response.content)} {response.content}')
-          if answers != None:
-            for resp in answers:
-              for artifact in resp.artifacts:
-                print("Artifact reason: " + str(artifact.finish_reason))
-                if artifact.finish_reason == generation.FILTER:
-                  usable_image = False
-                if artifact.finish_reason == generation.ARTIFACT_TEXT:
-                  usable_image = False
-                  prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
-                if artifact.type == generation.ARTIFACT_IMAGE:
-                  images.append(PILImage.open(io.BytesIO(artifact.binary)))
-      elif prefs['use_AIHorde_api'] and status['installed_AIHorde']:# or bool(prefs['use_AIHorde_api'] or (not status['installed_diffusers'] and status['installed_AIHorde'])):
+      
+      if prefs['install_AIHorde_api'] and (prefs['use_AIHorde_api'] or not status['installed_diffusers']):# and status['installed_AIHorde']:# or bool(prefs['use_AIHorde_api'] or (not status['installed_diffusers'] and status['installed_AIHorde'])):
         if not status['installed_AIHorde']:
-          alert_msg(page, f"ERROR: To use AIHorde-API, you must run the install it first and have proper API key")
-          return
+          prt(Installing("Installing AI-Horde Cloudsourced Pipeline..."))
+          get_AIHorde(page)
+          clear_last()
+          #alert_msg(page, f"ERROR: To use AIHorde-API, you must run the install it first and have proper API key")
+          #return
         stats = Text(f"Stable Horde API Diffusion - Using {prefs['AIHorde_model']} Model...")
         prt(stats)
         #prt('Stable Horde API Diffusion ')# + ('─' * 100))
@@ -25642,6 +25496,227 @@ def start_diffusion(page):
                   prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
                 if artifact.type == generation.ARTIFACT_IMAGE:
                   images.append(PILImage.open(io.BytesIO(artifact.binary)))'''
+      
+      elif prefs['install_Stability_api'] and (not status['installed_diffusers'] or prefs['use_Stability_api']):
+      #elif status['installed_stability'] and (not status['installed_diffusers'] or prefs['use_Stability_api']) and not (status['installed_AIHorde'] and prefs['use_AIHorde_api']):
+        #print('use_Stability_api')
+        if not status['installed_stability']:
+          prt(Installing("Installing Stability-API DreamStudio.ai Pipeline..."))
+          get_stability(page)
+          clear_last()
+          #alert_msg(page, f"ERROR: To use Stability-API, you must run the install it first and have proper API key")
+          #return
+        #else:
+        prt('Stability API Diffusion ')# + ('─' * 100))
+        #print(f'"{SD_prompt}", height={SD_height}, width={SD_width}, steps={SD_steps}, cfg_scale={SD_guidance_scale}, seed={SD_seed}, sampler={generation_sampler}')
+        #strikes = 0
+        images = []
+        arg['width'] = multiple_of_64(arg['width'])
+        arg['height'] = multiple_of_64(arg['height'])
+        prt(pb)
+        import stability_sdk.interfaces.gooseai.generation.generation_pb2 as generation
+        answers = response = None
+        files = {}
+        import requests
+        from io import BytesIO
+        import base64
+        import uuid
+        api_host = os.getenv('API_HOST', 'https://api.stability.ai')
+        engine_id = prefs['model_checkpoint']# if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
+        sd3 = "Stable Diffusion 3" in engine_id or "Stable Image" in engine_id
+        if sd3:
+            engine = "core" if "Stable Image" in engine_id else "sd3"
+            url = f"{api_host}/v2beta/stable-image/generate/{engine}"#image-to-image"
+            boundary = str(uuid.uuid4())
+            headers = {
+                #'Content-Type': f'multipart/form-data; boundary="{boundary}"',
+                'Accept': 'image/*',#'application/json',#'image/png',
+                'Authorization': f"Bearer {prefs['Stability_api_key']}",
+            }
+            payload = {
+                "prompt": pr[0] if type(pr) == list else pr,
+                "negative_prompt": arg['negative_prompt'] if "Turbo" not in engine_id else "",
+                "aspect_ratio": closest_aspect_ratio(arg['width'], arg['height']),
+                "seed": rand_seed,
+                #"style_preset": 3d-model analog-film anime cinematic comic-book digital-art enhance fantasy-art isometric line-art low-poly modeling-compound neon-punk origami photographic pixel-art tile-texture
+            }
+            if "Turbo" in engine_id:
+                payload['model'] = "sd3-turbo"
+        else:
+            url = f"{api_host}/v1/generation/{engine_id}/"#image-to-image"
+            headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',#'image/png',
+                'Authorization': prefs['Stability_api_key'],
+            }
+            payload = {
+                "cfg_scale": arg['guidance_scale'],
+                "clip_guidance_preset": prefs['clip_guidance_preset'],
+                "height": arg['height'],
+                "width": arg['width'],
+                "sampler": prefs['generation_sampler'],
+                "samples": arg['batch_size'],
+                "seed": rand_seed,
+                "steps": arg['steps'],
+                "text_prompts": [
+                    {
+                        "text": pr[0] if type(pr) == list else pr,
+                        "weight": 1
+                    }
+                ],
+            }
+        if bool(arg['negative_prompt']) and not sd3:
+          payload['text_prompts'].append({"text": arg['negative_prompt'][0] if type(arg['negative_prompt']) == list else arg['negative_prompt'], "weight": -10})
+        if bool(arg['mask_image']) or (bool(arg['init_image']) and arg['alpha_mask']):
+          if not bool(arg['init_image']):
+            clear_last()
+            prt(f"ERROR: You have not selected an init_image to go with your image mask..")
+            continue
+          if arg['init_image'].startswith('http'):
+            i_response = requests.get(arg['init_image'])
+            init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+          else:
+            if os.path.isfile(arg['init_image']):
+              init_img = PILImage.open(arg['init_image'])
+            else:
+              clear_last()
+              prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
+          init_img = init_img.resize((arg['width'], arg['height']), resample=PILImage.Resampling.LANCZOS)
+          #init_image = preprocess(init_img)
+          if not arg['alpha_mask']:
+            if arg['mask_image'].startswith('http'):
+              i_response = requests.get(arg['mask_image'])
+              mask_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+            else:
+              if os.path.isfile(arg['mask_image']):
+                mask_img = PILImage.open(arg['mask_image'])
+              else:
+                clear_last()
+                prt(f"ERROR: Couldn't find your mask_image {arg['mask_image']}")
+            mask = mask_img.resize((arg['width'], arg['height']), resample=PILImage.Resampling.LANCZOS)
+          if not sd3:
+            buff = BytesIO()
+            init_img.save(buff, format="PNG")
+            buff.seek(0)
+            img_str = io.BufferedReader(buff).read()
+            buff = BytesIO()
+            mask.save(buff, format="PNG")
+            buff.seek(0)
+            mask_str = io.BufferedReader(buff).read()
+            #payload["step_schedule_end"] = 0.01
+            payload["step_schedule_start"] = 1# - arg['init_image_strength']
+            files = {
+                'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
+                #'mask_image': mask_str,
+                'mask_source': "INIT_IMAGE_ALPHA" if arg['alpha_mask'] else "MASK_IMAGE_BLACK" if arg['invert_mask'] else "MASK_IMAGE_WHITE",
+                'options': (None, json.dumps(payload)),
+            }
+            if not arg['alpha_mask']:
+              files['mask_image'] = mask_str
+            #engine_id = prefs['model_checkpoint'] if prefs['model_checkpoint'] == "stable-diffusion-v1-5" else "stable-diffusion-v1"
+            response = requests.post(url+"image-to-image/masking", headers=headers, files=files)
+            #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
+          else:
+            url = f"{api_host}/v2beta/stable-image/generate/edit/inpaint"
+            #payload['mode'] = "mask"
+            #payload['image'] = img_str
+            del payload['aspect_ratio']
+            img_byte_array = io.BytesIO()
+            init_img.save(img_byte_array, format='PNG')
+            img_byte_array.seek(0)
+            mask_byte_array = io.BytesIO()
+            mask_img.save(mask_byte_array, format='PNG')
+            mask_byte_array.seek(0)
+            payload['strength'] = arg['init_image_strength']
+            files = {"image": img_byte_array, "mask": mask_byte_array}
+            response = requests.post(url, headers=headers, data=payload, files=files)
+          pipe_used = "Stability-API Inpainting"
+        elif bool(arg['init_image']):
+          if arg['init_image'].startswith('http'):
+            i_response = requests.get(arg['init_image'])
+            init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+          else:
+            if os.path.isfile(arg['init_image']):
+              init_img = PILImage.open(arg['init_image']).convert("RGB")
+            else:
+              clear_last()
+              prt(f"ERROR: Couldn't find your init_image {arg['init_image']}")
+          init_img = init_img.resize((arg['width'], arg['height']), resample=PILImage.Resampling.LANCZOS)
+
+          if not sd3:
+            buff = BytesIO()
+            init_img.save(buff, format="PNG")
+            buff.seek(0)
+            img_str = io.BufferedReader(buff).read()
+            #img_str = open(buff.read(), 'rb') #base64.b64encode(buff.getvalue())  init_img.tobytes("raw")
+            payload["step_schedule_end"] = 0.01
+            payload["step_schedule_start"] = 1 - arg['init_image_strength']
+            files = {
+                'init_image': img_str,#base64.b64encode(init_img.tobytes()).decode(),#open(init_img, 'rb'),
+                'options': (None, json.dumps(payload)),
+            }
+            pipe_used = "Stability-API Image-to-Image"
+            response = requests.post(url+"image-to-image", headers=headers, files=files)
+          else:
+            payload['mode'] = "image-to-image"
+            del payload['aspect_ratio']
+            #payload['image'] = img_str
+            img_byte_array = io.BytesIO()
+            init_img.save(img_byte_array, format='PNG')
+            img_byte_array.seek(0)
+            payload['strength'] = arg['init_image_strength']
+            files = {"image":img_byte_array}
+            response = requests.post(url, headers=headers, data=payload, files=files)
+          #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
+        else:
+          pipe_used = "Stability-API Text-to-Image"
+          if not sd3:
+            response = requests.post(url+"text-to-image", headers=headers, json=payload)
+          else:
+            #print(headers)
+            response = requests.post(url, headers=headers, data=payload, files={'none':''})
+          #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], seed=arg['seed'], samples=arg['batch_size'], safety=False, sampler=SD_sampler)
+        clear_last(update=False)
+        clear_last()
+        if response != None:
+          if response.status_code != 200:
+            if response.status_code == 402:
+              alert_msg(page, "Stability-API ERROR: Insufficient Credit Balance. Reload at DreamStudio.com...", content=Text(str(response.text)))
+              return
+            else:
+              prt(Text(f"Stability-API ERROR {response.status_code}: " + str(response.text), selectable=True))
+              #print(payload)
+              continue
+          #with open(output_file, "wb") as f:
+          #  f.write(response.content)
+          if sd3:
+            finish_reason = response.headers.get("finish-reason")
+            if finish_reason == 'CONTENT_FILTERED':
+              usable_image = False
+              prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
+              continue
+            output_image = response.content
+            images.append(PILImage.open(io.BytesIO(output_image)))
+          else:
+            artifacts = json.loads(response.content)
+            if 'artifacts' in artifacts:
+              for resp in artifacts['artifacts']:
+                #print(f'{type(resp)} - {resp["seed"]}')
+                if resp == None: continue
+                images.append(PILImage.open(io.BytesIO(base64.b64decode(resp['base64']))))
+            #print(f'{type(response.content)} {response.content}')
+        if answers != None:
+          for resp in answers:
+            for artifact in resp.artifacts:
+              print("Artifact reason: " + str(artifact.finish_reason))
+              if artifact.finish_reason == generation.FILTER:
+                usable_image = False
+              if artifact.finish_reason == generation.ARTIFACT_TEXT:
+                usable_image = False
+                prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
+              if artifact.type == generation.ARTIFACT_IMAGE:
+                images.append(PILImage.open(io.BytesIO(artifact.binary)))
+      
       else:
         #from torch.amp.autocast_mode import autocast
         #precision_scope = autocast if prefs['precision']=="autocast" else nullcontext
@@ -28449,6 +28524,20 @@ def scale_dimensions(width, height, max=1024, multiple=16):
       r_height = height
   return multiple_of(r_width, multiple), multiple_of(r_height, multiple)
 
+def closest_aspect_ratio(width, height):
+    aspect_ratio = width / height
+    aspect_ratios = ["21:9", "16:9", "3:2", "5:4", "1:1", "4:5", "2:3", "9:16", "9:21"]
+    closest_ratio = None
+    min_difference = float('inf')
+    for ratio_str in aspect_ratios:
+        ratio_width, ratio_height = map(int, ratio_str.split(':'))
+        ratio_value = ratio_width / ratio_height
+        difference = abs(aspect_ratio - ratio_value)
+        if difference < min_difference:
+            closest_ratio = ratio_str
+            min_difference = difference
+    return closest_ratio
+
 def run_repainter(page):
     global repaint_prefs, prefs, status, pipe_repaint
     if not check_diffusers(page): return
@@ -30704,7 +30793,7 @@ def run_controlnet_qr(page, from_list=False):
         clear_last()
     width, height = qrcode_image.size
     width, height = scale_dimensions(width, height, controlnet_qr_prefs['max_size'], multiple=32)
-    qrcode_image = qrcode_image.resize((width, height), resample=PILImage.LANCZOS)
+    qrcode_image = qrcode_image.resize((width, height), resample=PILImage.Resampling.LANCZOS)
 
     for pr in controlnet_qr_prompts:
         if bool(pr['init_image']):
@@ -30717,7 +30806,7 @@ def run_controlnet_qr(page, from_list=False):
                     alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
                     return
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")
-            init_img = init_img.resize((width, height), resample=PILImage.LANCZOS)
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
             #width = pr['width']
             #height = pr['height']
         else:
@@ -38119,7 +38208,7 @@ def run_controlnet(page, from_list=False):
         W *= k
         H = int(round(H / 64.0)) * 64
         W = int(round(W / 64.0)) * 64
-        img = input_image.resize((W, H), resample=PILImage.LANCZOS)
+        img = input_image.resize((W, H), resample=PILImage.Resampling.LANCZOS)
         return img
     def prep_image(task, img):
         nonlocal hed, openpose, depth_estimator, mlsd, image_processor, image_segmentor, normal, lineart, shuffle, face_detector
@@ -38740,7 +38829,7 @@ def run_controlnet_xl(page, from_list=False):
         W *= k
         H = int(round(H / 64.0)) * 64
         W = int(round(W / 64.0)) * 64
-        img = input_image.resize((W, H), resample=PILImage.LANCZOS)
+        img = input_image.resize((W, H), resample=PILImage.Resampling.LANCZOS)
         return img
     def prep_image(task, img):
         nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
@@ -39279,7 +39368,7 @@ def run_controlnet_xs(page, from_list=False):
         W *= k
         H = int(round(H / 64.0)) * 64
         W = int(round(W / 64.0)) * 64
-        img = input_image.resize((W, H), resample=PILImage.LANCZOS)
+        img = input_image.resize((W, H), resample=PILImage.Resampling.LANCZOS)
         return img
     def prep_image(task, img):
         nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
@@ -43753,7 +43842,7 @@ def run_infinite_zoom(page):
                 return
             image = PILImage.open(address)
         image = image.convert('RGB')
-        image = image.resize(res, resample=PILImage.LANCZOS)
+        image = image.resize(res, resample=PILImage.Resampling.LANCZOS)
         return image
     use_SDXL = infinite_zoom_prefs['use_SDXL']
     model_id = infinite_zoom_prefs['inpainting_model'] #param ["stabilityai/stable-diffusion-2-inpainting", "runwayml/stable-diffusion-inpainting", "ImNoOne/f222-inpainting-diffusers","parlance/dreamlike-diffusion-1.0-inpainting","ghunkins/stable-diffusion-liberty-inpainting"] {allow-input: true}
@@ -48850,8 +48939,8 @@ def run_tripo(page):
 def run_instantmesh(page):
     global instantmesh_prefs, pipe_instantmesh, instantmesh_model, instantmesh_rembg_session, status
     if not check_diffusers(page): return
-    if int(status['cpu_memory']) < 16:
-        alert_msg(page, f"Sorry, you need at least 16GB CPU RAM to run this. {'Change Runtime to High-RAM and try again.' if is_Colab else 'Upgrade your memory if you want to use it.'}")
+    if int(status['cpu_memory']) < 12:
+        alert_msg(page, f"Sorry, you need at least 12GB CPU RAM to run this. {'Change Runtime to High-RAM and try again.' if is_Colab else 'Upgrade your memory if you want to use it.'}")
         return
     if not bool(instantmesh_prefs['init_image']):
         alert_msg(page, f"ERROR: You must provide an init image to prrocess.")
@@ -48902,7 +48991,7 @@ def run_instantmesh(page):
         run_sp(f"pip install -U xformers=={'0.0.25' if upgrade_torch else '0.0.22.post7'} --index-url https://download.pytorch.org/whl/cu121", realtime=False)
         status['installed_xformers'] = True
         pass
-    pip_install("pytorch-lightning==2.1.2 einops omegaconf torchmetrics webdataset tensorboard PyMCubes|mcubes rembg imageio[ffmpeg]|imageio xatlas plyfile git+https://github.com/NVlabs/nvdiffrast|nvdiffrast jax==0.4.19 jaxlib==0.4.19 ninja", installer=installer)
+    pip_install("pytorch-lightning==2.1.2 einops omegaconf torchmetrics webdataset tensorboard PyMCubes|mcubes rembg imageio[ffmpeg]|imageio xatlas plyfile git+https://github.com/NVlabs/nvdiffrast|nvdiffrast jax==0.4.19 jaxlib==0.4.19 ninja trimesh", installer=installer)
     os.chdir(instantmesh_dir)
     name = instantmesh_prefs['title'] if bool(instantmesh_prefs['title']) else instantmesh_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
     fname = format_filename(name)
@@ -52848,6 +52937,7 @@ def show_port(adr, height=500):
 #logging.getLogger("flet_core").setLevel(logging.DEBUG)
 #logging.basicConfig(level=logging.DEBUG)
 #ft.app(target=main, view=ft.WEB_BROWSER, port=8000, assets_dir=root_dir, upload_dir=root_dir, web_renderer="html")
+os.environ["FLET_SECRET_KEY"] = "skquark"
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
