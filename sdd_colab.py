@@ -834,6 +834,7 @@ def build3DAIs(page):
     page.MarigoldDepth = buildMarigoldDepth(page)
     page.Tripo = buildTripo(page)
     page.InstantMesh = buildInstantMesh(page)
+    page.SplatterImage = buildSplatterImage(page)
     page.CRM = buildCRM(page)
     page.LDM3D = buildLDM3D(page)
     page.InstantNGP = buildInstantNGP(page)
@@ -848,6 +849,7 @@ def build3DAIs(page):
             Tab(text="MarigoldDepth", content=page.MarigoldDepth, icon=icons.FILTER_VINTAGE),
             Tab(text="Tripo", content=page.Tripo, icon=icons.CONNECTING_AIRPORTS),
             Tab(text="InstantMesh", content=page.InstantMesh, icon=icons.ELECTRIC_BOLT),
+            Tab(text="Splatter Image", content=page.SplatterImage, icon=icons.DIRTY_LENS),
             Tab(text="CRM-3D", content=page.CRM, icon=icons.ENGINEERING),
             Tab(text="LDM3D", content=page.LDM3D, icon=icons.ROTATE_90_DEGREES_CW),
             Tab(text="Instant-NGP", content=page.InstantNGP, icon=icons.STADIUM),
@@ -6219,6 +6221,74 @@ def buildInstantMesh(page):
         max_row,
         Row([seed, batch_folder_name, title, save_video]),
         ElevatedButton(content=Text("🦔  Run InstantMesh 3D", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_instantmesh(page)),
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+splatter_image_prefs = {
+    'init_image': '',
+    'foreground_ratio': 0.70,
+    'remove_background': True,
+    'save_video': True,
+    'max_size': 720,
+    #'guidance_scale': 5.5,
+    'steps': 30,
+    'seed': 0,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'title': '',
+}
+
+def buildSplatterImage(page):
+    global prefs, splatter_image_prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            splatter_image_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            splatter_image_prefs[pref] = float(e.control.value)
+          else:
+            splatter_image_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def splatter_image_help(e):
+      def close_splatter_image_dlg(e):
+        nonlocal splatter_image_help_dlg
+        splatter_image_help_dlg.open = False
+        page.update()
+      splatter_image_help_dlg = AlertDialog(title=Text("💁   Help with Splatter Image"), content=Column([
+          Text("Splatter Image formulates 3D reconstruction as an image-to-image translation task. It maps the input image to another image, in which every pixel represents one 3D Gaussian and the channels of the output represent parameters of these Gaussians, including their shapes, colours and locations. The resulting image thus represents a set of Gaussians (almost like a point cloud) which reconstruct the shape and colour of the object. The method is very cheap: the reconstruction amounts to a single forward pass of a neural network with only 2D operators (2D convolutions and attention). The rendering is also very fast, due to using Gaussian Splatting. Combined, this results in very cheap training and high-quality results."),
+          Text("The Splatter Image is based on Gaussian Splatting, which has recently brought real-time rendering, fast training, and excellent scaling to multi-view reconstruction. For the first time, we apply Gaussian Splatting in a monocular reconstruction setting. Our approach is learning-based, and, at test time, reconstruction only requires the feed-forward evaluation of a neural network. The main innovation of the Splatter Image is its surprisingly straightforward design: it uses a 2D image-to-image network to map the input image to one 3D Gaussian per pixel. The resulting Gaussians thus have the form of an image, the Splatter Image.  We further extend the method to incorporate more than one image as input, which we do by adding cross-attention views. Owning to the speed of the renderer (588 FPS), furthermore, we can easily generate entire images during training, to optimize perceptual metrics like LPIPS. Furthermore, we use a single GPU for training. On standard benchmarks, we demonstrate not only fast reconstruction but also better results than recent and much more expensive baselines in terms of PSNR, LPIPS, and other metrics."),
+          Markdown("[Project Page](https://szymanowiczs.github.io/splatter-image) | [HuggingFace Space](https://huggingface.co/spaces/szymanowiczs/splatter_image) | [Model Card](https://huggingface.co/szymanowiczs/splatter-image-v1) | [GitHub](https://github.com/szymanowiczs/splatter-image) | [SplatterImage Paper](https://arxiv.org/abs/2312.13150) | [Video](https://youtu.be/pcKTf9SVh4g)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Stanislaw Szymanowicz, Christian Rupprecht, Andrea Vedaldi and Visual Geometry Group - University of Oxford"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("💙  Splattastic!", on_click=close_splatter_image_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = splatter_image_help_dlg
+      splatter_image_help_dlg.open = True
+      page.update()
+    init_image = FileInput(label="Initial Image (clear background = better results)", pref=splatter_image_prefs, key='init_image', filled=True, page=page)
+    batch_folder_name = TextField(label="3D Model Folder Name", value=splatter_image_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    title = TextField(label="Project Title", value=splatter_image_prefs['title'], expand=True, on_change=lambda e:changed(e,'title'))
+    #batch_size = NumberPicker(label="Batch Size: ", min=1, max=5, value=splatter_image_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    remove_background = Switcher(label="Remove Background", value=splatter_image_prefs['remove_background'], on_change=lambda e:changed(e,'remove_background'), tooltip="You can clear the background yourself cleaner and save transparent png.")
+    foreground_ratio = SliderRow(label="Foreground Ratio", min=0, max=1, divisions=20, round=2, expand=True, pref=splatter_image_prefs, key='foreground_ratio')
+    #save_video = Switcher(label="Save Video", value=splatter_image_prefs['save_video'], on_change=lambda e:changed(e,'save_video'))
+    max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=32, multiple=32, suffix="px", pref=splatter_image_prefs, key='max_size')
+    #steps = SliderRow(label="Inference Steps", min=0, max=100, divisions=100, pref=splatter_image_prefs, key='steps')
+    #guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=splatter_image_prefs, key='guidance_scale')
+    #seed = TextField(label="Seed", width=90, value=str(splatter_image_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🗿  Splatter Image 3D (under construction)", "Ultra-Fast Single-View 3D Reconstruction...", actions=[save_default(splatter_image_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with SplatterImage Settings", on_click=splatter_image_help)]),
+        init_image,
+        Row([remove_background, foreground_ratio]),
+        #steps,
+        #guidance,
+        max_row,
+        Row([batch_folder_name, title]),
+        ElevatedButton(content=Text("⌛  Run SplatterImage 3D", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_splatter_image(page)),
       ]
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -21947,6 +22017,9 @@ crm_rembg_session=None
 pipe_instantmesh = None
 instantmesh_model = None
 instantmesh_rembg_session=None
+pipe_splatter_image = None
+splatter_image_model = None
+splatter_image_rembg_session=None
 pipe_stable_lm = None
 tokenizer_stable_lm = None
 depth_estimator = None
@@ -24840,6 +24913,14 @@ def clear_instantmesh_pipe():
     pipe_instantmesh = None
     instantmesh_model = None
     instantmesh_rembg_session = None
+def clear_splatter_image_pipe():
+  global pipe_splatter_image, splatter_image_model, splatter_image_rembg_session
+  if pipe_splatter_image is not None:
+    del pipe_splatter_image, splatter_image_model, splatter_image_rembg_session
+    flush()
+    pipe_splatter_image = None
+    splatter_image_model = None
+    splatter_image_rembg_session = None
 def clear_zoe_depth_pipe():
   global pipe_zoe_depth
   if pipe_zoe_depth is not None:
@@ -24960,6 +25041,8 @@ def clear_pipes(allbut=None):
     if not 'zoe_depth' in but: clear_zoe_depth_pipe()
     if not 'marigold_depth' in but: clear_marigold_depth_pipe()
     if not 'tripo' in but: clear_tripo_pipe()
+    if not 'instantmesh' in but: clear_instantmesh_pipe()
+    if not 'splatter_image' in but: clear_splatter_image_pipe()
     if not 'crm' in but: clear_crm_pipe()
     if not 'background_remover' in but: clear_background_remover_pipe()
     if not 'controlnet' in but: clear_controlnet_pipe()
@@ -49068,8 +49151,7 @@ def run_instantmesh(page):
             pipe_instantmesh.unet.load_state_dict(state_dict, strict=True)
             device = torch.device('cuda')
             pipe_instantmesh = pipe_instantmesh.to(device)
-            
-            print('Loading reconstruction model ...')
+            #print('Loading reconstruction model ...')
             model_ckpt_path = hf_hub_download(repo_id="TencentARC/InstantMesh", filename="instant_mesh_large.ckpt", repo_type="model")
             instantmesh_model = instantiate_from_config(model_config)
             state_dict = torch.load(model_ckpt_path, map_location='cpu')['state_dict']
@@ -49179,12 +49261,12 @@ def run_instantmesh(page):
             save_obj(vertices, faces, vertex_colors, obj_path)
         #shutil.copy(glb, glb_path)
         #shutil.copy(obj, obj_path)
-        imgs = PILImage.fromarray(images)
-        imgs.save(image_path)
+        #imgs = PILImage.fromarray(show_image)
+        show_image.save(image_path)
         save_metadata(image_path, instantmesh_prefs, f"InstantMesh 3D", "TencentARC/InstantMesh", random_seed)
         xyz = PILImage.fromarray(images)
         xyz.save(xyz_path)
-        width, height = imgs.size
+        width, height = show_image.size
         width_x, height_x = xyz.size
         #return Image.fromarray(np_imgs), Image.fromarray(np_xyzs), glb_path, obj_path
     except Exception as e:
@@ -49202,6 +49284,178 @@ def run_instantmesh(page):
     play_snd(Snd.ALERT, page)
     os.chdir(root_dir)
 
+def run_splatter_image(page):
+    global splatter_image_prefs, pipe_splatter_image, splatter_image_model, splatter_image_rembg_session, status
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) < 12:
+        alert_msg(page, f"Sorry, you need at least 12GB CPU RAM to run this. {'Change Runtime to High-RAM and try again.' if is_Colab else 'Upgrade your memory if you want to use it.'}")
+        return
+    if not bool(splatter_image_prefs['init_image']):
+        alert_msg(page, f"ERROR: You must provide an init image to prrocess.")
+        return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.SplatterImage.controls.append(line)
+      page.SplatterImage.update()
+    def prt_status(text):
+        nonlocal status_txt
+        status_txt.value = text
+        status_txt.update()
+    def clear_last(lines=1):
+      clear_line(page.SplatterImage, lines=lines)
+    page.SplatterImage.controls = page.SplatterImage.controls[:1]
+    installer = Installing("Installing SplatterImage 3D Libraries... See console for progress.")
+    prt(installer)
+    splatter_image_dir = os.path.join(root_dir, "splatter-image")
+    if not os.path.exists(splatter_image_dir):
+        installer.status("...cloning szymanowiczs/splatter-image")
+        run_sp("git clone https://github.com/szymanowiczs/splatter-image.git", cwd=root_dir)
+    if splatter_image_dir not in sys.path:
+        sys.path.append(splatter_image_dir)
+    pip_install("ema-pytorch tqdm hydra-core omegaconf lpips plyfile timm einops imageio wandb moviepy lightning==2.0 markupsafe==2.0.1 trimesh", installer=installer)
+    os.chdir(splatter_image_dir)
+    name = splatter_image_prefs['title'] if bool(splatter_image_prefs['title']) else splatter_image_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
+    fname = format_filename(name)
+    clear_pipes("splatter_image")
+    import torchvision
+    import numpy as np
+    from omegaconf import OmegaConf
+    from utils.app_utils import (
+        remove_background, 
+        resize_foreground, 
+        set_white_background,
+        resize_to_128,
+        to_tensor,
+        get_source_camera_v2w_rmo_and_quats,
+        get_target_cameras,
+        export_to_obj)
+    import imageio
+    import trimesh
+    from scene.gaussian_predictor import GaussianSplatPredictor
+    from gaussian_renderer import render_predicted
+    import rembg
+    from huggingface_hub import hf_hub_download
+    from PIL import ImageOps
+    splatter_image_out = os.path.join(prefs['image_output'], splatter_image_prefs['batch_folder_name'])
+    if not os.path.exists(splatter_image_out):
+        os.makedirs(splatter_image_out)
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    device = torch.device("cuda:0")
+    torch.cuda.set_device(device)
+    if pipe_splatter_image == None:
+        try:
+            installer.status(f"...downloading SplatterImage model")
+            model_cfg = OmegaConf.load(os.path.join(splatter_image_dir, "gradio_config.yaml"))
+            model_ckpt_path = hf_hub_download(repo_id="szymanowiczs/splatter-image-multi-category-v1",  filename="model_latest.pth")
+            installer.status('...loading Gaussian Splat Predictor')
+            splatter_image_model = GaussianSplatPredictor(model_cfg)
+            pipe_splatter_image = torch.load(model_ckpt_path, map_location=device)
+            splatter_image_model.load_state_dict(pipe_splatter_image["model_state_dict"])
+            splatter_image_model.to(device)
+        except Exception as e:
+            #clear_last()
+            alert_msg(page, "Error Installing SplatterImage Pipeline", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            os.chdir(root_dir)
+            return
+    init_img = None
+    if bool(splatter_image_prefs['init_image']):
+        if splatter_image_prefs['init_image'].startswith('http'):
+            init_img = PILImage.open(requests.get(splatter_image_prefs['init_image'], stream=True).raw)
+        else:
+            if os.path.isfile(splatter_image_prefs['init_image']):
+                init_img = PILImage.open(splatter_image_prefs['init_image'])
+            else:
+                alert_msg(page, f"ERROR: Couldn't find your init_image {splatter_image_prefs['init_image']}")
+                if not bool(splatter_image_prefs['prompt_text']):
+                    return
+        if init_img != None:
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, splatter_image_prefs['max_size'])
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            init_img = ImageOps.exif_transpose(init_img).convert("RGB")
+    if splatter_image_rembg_session == None:
+        splatter_image_rembg_session = rembg.new_session() if splatter_image_prefs["remove_background"] else None
+    if splatter_image_prefs["remove_background"]:
+        init_img = remove_background(init_img, splatter_image_rembg_session)
+        init_img = resize_foreground(init_img, splatter_image_prefs["foreground_ratio"])
+        init_img = set_white_background(init_img)
+    else:
+        if init_img.mode == "RGBA":
+            init_img = set_white_background(init_img)
+    init_img = resize_to_128(init_img)
+    status_txt = Text("Generating your 3D model... See console for progress.")
+    progress = ProgressBar(bar_height=8)
+    clear_last()
+    prt(status_txt)
+    prt(progress)
+    #random_seed = get_seed(splatter_image_prefs['seed'], max=1000000)
+    ply_path = available_file(splatter_image_out, fname, ext='ply', no_num=True)
+    obj_path = available_file(splatter_image_out, fname, ext='obj', no_num=True)
+    mtl_path = available_file(splatter_image_out, fname, ext='mtl', no_num=True)
+    video_path = available_file(splatter_image_out, fname, ext='mp4', no_num=True)
+    image_path = available_file(splatter_image_out, fname)
+    model_names = and_list([f"[ply]({filepath_to_url(ply_path)})", f"[obj]({filepath_to_url(obj_path)})", f"[mtl]({filepath_to_url(mtl_path)})"])
+    try:
+        prt_status("Saving Reconstructed 3D Files...")
+        image = to_tensor(image).to(device)
+        view_to_world_source, rot_transform_quats = get_source_camera_v2w_rmo_and_quats()
+        view_to_world_source = view_to_world_source.to(device)
+        rot_transform_quats = rot_transform_quats.to(device)
+        reconstruction_unactivated = splatter_image_model(
+            image.unsqueeze(0).unsqueeze(0),
+            view_to_world_source,
+            rot_transform_quats,
+            None,
+            activate_output=False)
+        reconstruction = {k: v[0].contiguous() for k, v in reconstruction_unactivated.items()}
+        reconstruction["scaling"] = splatter_image_model.scaling_activation(reconstruction["scaling"])
+        reconstruction["opacity"] = splatter_image_model.opacity_activation(reconstruction["opacity"])
+        prt_status("Rendering Images in a Loop...")
+        world_view_transforms, full_proj_transforms, camera_centers = get_target_cameras()
+        background = torch.tensor([1, 1, 1] , dtype=torch.float32, device=device)
+        loop_renders = []
+        t_to_512 = torchvision.transforms.Resize(512, interpolation=torchvision.transforms.InterpolationMode.NEAREST)
+        for r_idx in range(world_view_transforms.shape[0]):
+            image = render_predicted(reconstruction,
+                                        world_view_transforms[r_idx].to(device),
+                                        full_proj_transforms[r_idx].to(device), 
+                                        camera_centers[r_idx].to(device),
+                                        background,
+                                        model_cfg,
+                                        focals_pixels=None)["render"]
+            image = t_to_512(image)
+            loop_renders.append(torch.clamp(image * 255, 0.0, 255.0).detach().permute(1, 2, 0).cpu().numpy().astype(np.uint8))
+        imageio.mimsave(video_path, loop_renders, fps=25)
+        prt_status("Saving Mesh PLY 3D Files...")
+        export_to_obj(reconstruction_unactivated, ply_path)
+        prt_status("Saving Mesh OBJ 3D File...")
+        mesh = trimesh.open(ply_path)
+        mesh.export(obj_path)
+        prt_status("Saving Texture MTL File...")
+        textures = mesh.visual.material.image
+        with open(mtl_path, 'w') as f:
+            for i, texture in enumerate(textures):
+                f.write(f"newmtl material_{i}\n")
+                f.write(f"map_Kd {texture}\n")
+        #shutil.copy(glb, glb_path)
+        #shutil.copy(obj, obj_path)
+        #save_metadata(image_path, splatter_image_prefs, f"SplatterImage 3D", "TencentARC/SplatterImage", random_seed)
+        #width, height = imgs.size
+        #return Image.fromarray(np_imgs), Image.fromarray(np_xyzs), glb_path, obj_path
+    except Exception as e:
+        clear_last()
+        alert_msg(page, "Error running SplatterImage pipeline.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+        os.chdir(root_dir)
+        return
+    clear_last(2)
+    #prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([Markdown(f"Saved Models as {model_names}{f'. Video saved to {[video_path]({filepath_to_url(video_path)})}' if splatter_image_prefs['save_video'] else ''}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+    flush()
+    #prt(ImageButton(src=gif_file, width=splatter_image_prefs['size'], height=splatter_image_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
+    #prt("Finished generating SplatterImage Mesh... Hope it's good.")
+    play_snd(Snd.ALERT, page)
+    os.chdir(root_dir)
 
 def run_crm(page):
     global crm_prefs, pipe_crm, crm_rembg_session, status
