@@ -283,6 +283,7 @@ def load_settings_file():
       'tome_ratio': 0.5,
       'enable_freeu': False,
       'freeu_args': {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2},
+      'enable_hidiffusion': False,
       'enable_deepcache': False,
       'cache_dir': '',
       'install_diffusers': True,
@@ -349,7 +350,7 @@ def load_settings_file():
       'clip_model_id': "laion/CLIP-ViT-B-32-laion2B-s34B-b79K",
       'install_Stability_api': False,
       'use_Stability_api': False,
-      'model_checkpoint': "stable-diffusion-768-v2-1",
+      'model_checkpoint': "Stable Diffusion 3",
       'generation_sampler': "K_EULER_ANCESTRAL",
       'clip_guidance_preset': "FAST_BLUE",
       'install_AIHorde_api': False,
@@ -742,6 +743,7 @@ def buildImageAIs(page):
     page.Wuerstchen = buildWuerstchen(page)
     page.StableCascade = buildStableCascade(page)
     page.PixArtAlpha = buildPixArtAlpha(page)
+    page.PixArtSigma = buildPixArtSigma(page)
     page.Differential_Diffusion = buildDifferential_Diffusion(page)
     page.LMD_Plus = buildLMD_Plus(page)
     page.LCM = buildLCM(page)
@@ -774,6 +776,7 @@ def buildImageAIs(page):
             Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
+            Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
             Tab(text="Differential Diffusion", content=page.Differential_Diffusion, icon=icons.SENTIMENT_NEUTRAL),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
@@ -1105,6 +1108,7 @@ if 'enable_tome' not in prefs: prefs['enable_tome'] = False
 if 'tome_ratio' not in prefs: prefs['tome_ratio'] = 0.5
 if 'enable_freeu' not in prefs: prefs['enable_freeu'] = False
 if 'freeu_args' not in prefs: prefs['freeu_args'] = {'b1': 1.2, 'b2':1.4, 's1':0.9, 's2':0.2}
+if 'enable_hidiffusion' not in prefs: prefs['enable_hidiffusion'] = False
 if 'enable_deepcache' not in prefs: prefs['enable_deepcache'] = False
 if 'negatives' not in prefs: prefs['negatives'] = ['Blurry']
 if 'custom_negatives' not in prefs: prefs['custom_negatives'] = ""
@@ -1705,6 +1709,7 @@ def buildInstallers(page):
   enable_vae_tiling = Checkbox(label="Enable VAE Tiling", tooltip="The VAE will split the input tensor into tiles to compute decoding and encoding in several steps. This is useful to save a large amount of memory and to allow the processing of larger images.", value=prefs['vae_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_tiling'))
   enable_vae_slicing = Checkbox(label="Enable VAE Slicing", tooltip="Sliced VAE decode latents for larger batches of images with limited VRAM. Splits the input tensor in slices to compute decoding in several steps", value=prefs['vae_slicing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'vae_slicing'))
   enable_tome = Checkbox(label="Enable Token Merging", tooltip="ToMe optimizes the Pipelines to create images faster, at the expense of some quality. Works by merging the redundant tokens / patches progressively in the forward pass of a Transformer-based network.", value=prefs['enable_tome'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_tome'))
+  enable_hidiffusion = Checkbox(label="Enable HiDiffusion", tooltip="Unlock Higher-Resolution Creativity and Efficiency in Pretrained Diffusion Models. Faster and better image details.", value=prefs['enable_hidiffusion'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_hidiffusion'))
   enable_deepcache = Checkbox(label="Enable DeepCache", tooltip="Accelerates pipeline by strategically caching and reusing high-level features while efficiently updating low-level features by taking advantage of the U-Net architecture. Slightly reduces quality for speed...", value=prefs['enable_deepcache'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_deepcache'))
   enable_torch_compile = Checkbox(label="Enable Torch Compiling", tooltip="Speeds up Torch 2.0 Processing, but takes a bit longer to initialize.", value=prefs['enable_torch_compile'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'enable_torch_compile'))
   enable_torch_compile.visible = not sys.platform.startswith('win')
@@ -1799,10 +1804,10 @@ def buildInstallers(page):
                                 Container(content=None, height=4), Row([scheduler_mode, scheduler_help_btn]),
                                  Row([enable_attention_slicing, higher_vram_mode, enable_xformers,#memory_optimization,
                                       ]),
-                                 Row([enable_vae_slicing, enable_vae_tiling, enable_bitsandbytes]),
+                                 Row([enable_vae_slicing, enable_vae_tiling, enable_torch_compile, enable_bitsandbytes]),
                                  #enable_attention_slicing,
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
-                                 Row([enable_freeu, enable_tome, enable_deepcache, enable_torch_compile]),
+                                 Row([enable_freeu, enable_tome, enable_hidiffusion, enable_deepcache]),
                                  ]), padding=padding.only(left=32, top=4)),
                                          install_text2img, SD_params, install_SDXL, SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
@@ -11405,7 +11410,119 @@ def buildPixArtAlpha(page):
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
-  
+
+pixart_sigma_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "pixart-",
+    "num_images": 1,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4.5,
+    'num_inference_steps': 30,
+    "seed": 0,
+    "clean_caption": True,
+    "resolution_binning": True,
+    #"mask_feature": True,
+    "cpu_offload": True,
+    "use_8bit": False,
+    "pixart_model": "PixArt-Sigma-XL-2-512-MS",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildPixArtSigma(page):
+    global prefs, pixart_sigma_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            pixart_sigma_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            pixart_sigma_prefs[pref] = float(e.control.value)
+          else:
+            pixart_sigma_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def pixart_sigma_help(e):
+      def close_pixart_sigma_dlg(e):
+        nonlocal pixart_sigma_help_dlg
+        pixart_sigma_help_dlg.open = False
+        page.update()
+      pixart_sigma_help_dlg = AlertDialog(title=Text("🙅   Help with PixArt-Σ Pipeline"), content=Column([
+          Text("PixArt-Σ is a Diffusion Transformer model (DiT) capable of directly generating images at 4K resolution. PixArt-Σ represents a significant advancement over its predecessor, PixArt-α, offering images of markedly higher fidelity and improved alignment with text prompts. A key feature of PixArt-Σ is its training efficiency. Leveraging the foundational pre-training of PixArt-α, it evolves from the ‘weaker’ baseline to a ‘stronger’ model via incorporating higher quality data, a process we term “weak-to-strong training”. The advancements in PixArt-Σ are twofold: (1) High-Quality Training Data: PixArt-Σ incorporates superior-quality image data, paired with more precise and detailed image captions. (2) Efficient Token Compression: we propose a novel attention module within the DiT framework that compresses both keys and values, significantly improving efficiency and facilitating ultra-high-resolution image generation. Thanks to these improvements, PixArt-Σ achieves superior image quality and user prompt adherence capabilities with significantly smaller model size (0.6B parameters) than existing text-to-image diffusion models, such as SDXL (2.6B parameters) and SD Cascade (5.1B parameters). Moreover, PixArt-Σ’s capability to generate 4K images supports the creation of high-resolution posters and wallpapers, efficiently bolstering the production of high-quality visual content in industries such as film and gaming."),
+          Text("PixArt-Sigma achieves superior image quality and alignment with prompts compared to previous models like PixArt-alpha. It does so efficiently, evolving from PixArt-alpha through a process termed weak-to-strong training - leveraging higher quality data and an improved attention mechanism. With just 0.6 billion parameters, PixArt-Sigma reaches new heights in text-to-image generation. Output stunning, intricate 4K images for posters, wallpapers, concept art, and more. Guide the model with descriptive prompts and fine-tune parameters like guidance scale and number of inference steps."),
+          Markdown("[Project Page](https://pixart-alpha.github.io/PixArt-sigma-project/) | [Paper](https://arxiv.org/abs/2403.04692) | [PixArt-sigma GitHub](https://pixart-alpha.github.io/PixArt-sigma-project/) | [PixArt-sigma Checkpoints](https://huggingface.co/PixArt-alpha/PixArt-Sigma-XL-2-1024-MS) | [HuggingFace Space](https://huggingface.co/spaces/PixArt-alpha/PixArt-Sigma) | [Recomended Sizes](https://github.com/PixArt-sigma/PixArt-sigma/blob/master/diffusion/data/datasets/utils.py)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Junsong Chen, Chongjian Ge, Enze Xie, Yue Wu, Lewei Yao, Xiaozhe Ren, Zhongdao Wang, Ping Luo, Huchuan Lu, Zhenguo Li"),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🐗  Pix that Art ", on_click=close_pixart_sigma_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = pixart_sigma_help_dlg
+      pixart_sigma_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        pixart_sigma_prefs['pixart_model'] = e.control.value
+        pixart_custom_model.visible = e.control.value == "Custom"
+        pixart_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        pixart_sigma_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=pixart_sigma_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=pixart_sigma_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=pixart_sigma_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=pixart_sigma_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    #num_inference_steps = TextField(label="Number of Steps", value=pixart_sigma_prefs['num_inference_steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_inference_steps', ptype="int"))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=pixart_sigma_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=pixart_sigma_prefs, key='num_inference_steps')
+    #prior_guidance_scale = SliderRow(label="Prior Guidance Scale", min=0, max=10, divisions=20, round=1, expand=True, pref=pixart_sigma_prefs, key='prior_guidance_scale', col={'xs':12, 'md':6})
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pixart_sigma_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='height')
+    pixart_model = Dropdown(label="PixArt-Σ Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-Sigma-XL-2-512-MS"), dropdown.Option("PixArt-Sigma-XL-2-1024-MS")], value=pixart_sigma_prefs['pixart_model'], on_change=changed_model)
+    pixart_custom_model = TextField(label="Custom PixArt-Σ Model (URL or Path)", value=pixart_sigma_prefs['custom_model'], expand=True, visible=pixart_sigma_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    clean_caption = Switcher(label="Clean Caption", value=pixart_sigma_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
+    resolution_binning = Switcher(label="Resolution Binning", value=pixart_sigma_prefs['resolution_binning'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'resolution_binning'), tooltip="The requested height and width are first mapped to the closest resolutions using `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to the requested resolution. Useful for generating non-square images.")
+    #mask_feature = Switcher(label="Feature Mask", value=pixart_sigma_prefs['mask_feature'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'mask_feature'), tooltip="If enabled, the text embeddings will be masked.")
+    cpu_offload = Switcher(label="CPU Offload", value=pixart_sigma_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    use_8bit = Switcher(label="Use 8-bit Precision", value=pixart_sigma_prefs['use_8bit'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'use_8bit'), tooltip="Runs with under 8GB VRAM by loading the text encoder in 8-bit numerical precision. Reduces quality & loads slower.")
+    seed = TextField(label="Seed", width=90, value=str(pixart_sigma_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pixart_sigma_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=pixart_sigma_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=pixart_sigma_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=pixart_sigma_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_pixart_sigma = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_pixart_sigma.height = None if status['installed_ESRGAN'] else 0
+    if not pixart_sigma_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🏂   Run PixArt-Σ", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pixart_sigma(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pixart_sigma(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_pixart_sigma(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.pixart_sigma_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🧚  PixArt-Σ Sigma", "Weak-to-Strong Training of Diffusion Transformer for 4K Text-to-Image Generation... Note: Uses a lot of RAM & Space, may run out.", actions=[save_default(pixart_sigma_prefs), IconButton(icon=icons.HELP, tooltip="Help with PixArt-Σ Settings", on_click=pixart_sigma_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            #ResponsiveRow([num_inference_steps]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            Row([pixart_model, pixart_custom_model]),
+            Row([clean_caption, resolution_binning, cpu_offload, use_8bit]),
+            #Can't get wrap to work!! Container(Row([Container(clean_caption), Container(resolution_binning), Container(cpu_offload), Container(use_8bit)], wrap=True, expand=True, width=page.width, alignment=ft.MainAxisAlignment.START), width=800),#], expand=True),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_pixart_sigma,
+            parameters_row,
+            page.pixart_sigma_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+
 differential_diffusion_prefs = {
     "prompt": '',
     "negative_prompt": '',
@@ -21945,6 +22062,8 @@ pipe_stable_cascade_prior = None
 pipe_stable_cascade_decoder = None
 pipe_pixart_alpha = None
 pipe_pixart_alpha_encoder = None
+pipe_pixart_sigma = None
+pipe_pixart_sigma_encoder = None
 pipe_differential_diffusion = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
@@ -22233,6 +22352,14 @@ def get_diffusers(page):
         run_process("pip install --upgrade git+https://github.com/Skquark/diffusers.git@main#egg=diffusers[torch]", page=page)
         page.status()
         pass
+    if prefs['enable_hidiffusion']:
+        try:
+            import hidiffusion
+        except ModuleNotFoundError:
+            page.status("...installing HiDiffusion")
+            run_process("pip install -upgrade hidiffusion", page=page)
+            page.status()
+            pass
     if prefs['enable_deepcache']:
         try:
             import DeepCache
@@ -22776,6 +22903,9 @@ def optimize_pipe(p, vae_slicing=False, unet=False, no_cpu=False, vae_tiling=Fal
         import tomesd
         pass
       tomesd.apply_patch(p, ratio=prefs['tome_ratio'])
+    if prefs['enable_hidiffusion']:
+        from hidiffusion import apply_hidiffusion
+        apply_hidiffusion(p)
     if prefs['enable_deepcache']:
         try:
             from DeepCache import DeepCacheSDHelper
@@ -22833,6 +22963,9 @@ def optimize_SDXL(p, vae_slicing=False, no_cpu=False, vae_tiling=True, torch_com
         import tomesd
         pass
       tomesd.apply_patch(p, ratio=prefs['tome_ratio'])
+    if prefs['enable_hidiffusion']:
+        from hidiffusion import apply_hidiffusion
+        apply_hidiffusion(p)
     if prefs['enable_deepcache']:
         try:
             from DeepCache import DeepCacheSDHelper
@@ -24512,6 +24645,13 @@ def clear_pixart_alpha_pipe():
     flush()
     pipe_pixart_alpha = None
     pipe_pixart_alpha_encoder = None
+def clear_pixart_sigma_pipe():
+  global pipe_pixart_sigma, pipe_pixart_sigma_encoder
+  if pipe_pixart_sigma is not None:
+    del pipe_pixart_sigma, pipe_pixart_sigma_encoder
+    flush()
+    pipe_pixart_sigma = None
+    pipe_pixart_sigma_encoder = None
 def clear_differential_diffusion_pipe():
   global pipe_differential_diffusion
   if pipe_differential_diffusion is not None:
@@ -24970,6 +25110,7 @@ def clear_pipes(allbut=None):
     if not 'wuerstchen' in but: clear_wuerstchen_pipe()
     if not 'stable_cascade' in but: clear_stable_cascade_pipe()
     if not 'pixart_alpha' in but: clear_pixart_alpha_pipe()
+    if not 'pixart_sigma' in but: clear_pixart_sigma_pipe()
     if not 'differential_diffusion' in but: clear_differential_diffusion_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
@@ -41438,6 +41579,252 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     play_snd(Snd.ALERT, page)
 
 
+def run_pixart_sigma(page, from_list=False, with_params=False):
+    global pixart_sigma_prefs, pipe_pixart_sigma, pipe_pixart_sigma_encoder, prefs
+    if not check_diffusers(page): return
+    pixart_sigma_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            pixart_sigma_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':pixart_sigma_prefs['guidance_scale'], 'num_inference_steps':pixart_sigma_prefs['num_inference_steps'], 'width':pixart_sigma_prefs['width'], 'height':pixart_sigma_prefs['height'], 'num_images':pixart_sigma_prefs['num_images'], 'seed':pixart_sigma_prefs['seed']})
+        else:
+            pixart_sigma_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(pixart_sigma_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      pixart_sigma_prompts.append({'prompt': pixart_sigma_prefs['prompt'], 'negative_prompt':pixart_sigma_prefs['negative_prompt'], 'guidance_scale':pixart_sigma_prefs['guidance_scale'], 'num_inference_steps':pixart_sigma_prefs['num_inference_steps'], 'width':pixart_sigma_prefs['width'], 'height':pixart_sigma_prefs['height'], 'num_images':pixart_sigma_prefs['num_images'], 'seed':pixart_sigma_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.PixArtSigma.controls.append(line)
+        if update:
+          page.PixArtSigma.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.PixArtSigma, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.PixArtSigma.auto_scroll = scroll
+        page.PixArtSigma.update()
+      else:
+        page.PixArtSigma.auto_scroll = scroll
+        page.PixArtSigma.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.PixArtSigma.controls = page.PixArtSigma.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = pixart_sigma_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing PixArt-Σ Engine & Models... See console for progress, may take a while.")
+    prt(installer)
+    clear_pipes("pixart_sigma")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    pip_install("sentencepiece", installer=installer, upgrade=True)
+    use_8bit = pixart_sigma_prefs['use_8bit']
+    if use_8bit:
+        try:
+          os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+          import bitsandbytes
+        except ModuleNotFoundError:
+          if sys.platform.startswith("win"):
+              run_sp("pip install bitsandbytes-windows", realtime=False)
+          else:
+              run_sp("pip install bitsandbytes", realtime=False, upgrade=True)
+          import bitsandbytes
+          pass
+        #pip_install("bitsandbytes", q=True, installer=installer)
+    if pixart_sigma_prefs['clean_caption']:
+        pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
+    text_encoder = None
+    cpu_offload = pixart_sigma_prefs['cpu_offload']
+    pixart_model = "PixArt-sigma/PixArt-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-sigma/PixArt-Sigma-XL-2-512-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-512-MS" else "PixArt-sigma/PixArt-Sigma-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-1024-MS" else pixart_sigma_prefs['pixart_custom_model']
+    if 'loaded_pixart_8bit' not in status: status['loaded_pixart_8bit'] = use_8bit
+    if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
+    if pixart_model != status['loaded_pixart'] or use_8bit != status['loaded_pixart_8bit']:
+        clear_pipes()
+    scheduler = {'scheduler': 'LCM'} if 'LCM' in pixart_model else {}
+    if pipe_pixart_sigma == None:
+        installer.status(f"...initialize PixArtSigma Pipeline")
+        try:
+            from diffusers import PixArtSigmaPipeline
+            if not use_8bit:
+                pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
+                if prefs['enable_torch_compile']:
+                    installer.status(f"...Torch compiling transformer")
+                    pipe_pixart_sigma.transformer = torch.compile(pipe_pixart_sigma.transformer, mode="reduce-overhead", fullgraph=True)
+                    pipe_pixart_sigma = pipe_pixart_sigma.to(torch_device)
+                elif cpu_offload:
+                    pipe_pixart_sigma.enable_model_cpu_offload()
+                else:
+                    pipe_pixart_sigma.to(torch_device)
+            else:
+                from transformers import T5EncoderModel
+                installer.status(f"...loading text encoder")
+                text_encoder = T5EncoderModel.from_pretrained(pixart_model, subfolder="text_encoder", load_in_8bit=True, device_map="auto")
+                pipe_pixart_sigma_encoder = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=text_encoder, transformer=None, device_map="auto", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...loading pipeline")
+                pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=None, torch_dtype=torch.float16).to("cuda")
+                pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
+            pipe_pixart_sigma.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing PixArt-Σ...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_pixart'] = pixart_model
+        status['loaded_pixart_8bit'] = use_8bit
+    else:
+        clear_pipes('pixart_sigma')
+        if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
+    clear_last()
+    s = "" if len(pixart_sigma_prompts) == 0 else "s"
+    prt(f"Generating your PixArt-Σ Image{s}...")
+    for pr in pixart_sigma_prompts:
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(pr['seed'])
+        generator = torch.Generator(device="cpu" if cpu_offload else "cuda").manual_seed(random_seed)
+        guidance_scale = pr['guidance_scale']
+        num_inference_steps = pr['num_inference_steps']
+        if 'LCM' in pixart_model:
+            guidance_scale = 0.
+            if num_inference_steps > 10:
+                num_inference_steps = 8
+        try:
+            if not use_8bit:
+                images = pipe_pixart_sigma(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                    clean_caption=pixart_sigma_prefs['clean_caption'],
+                    use_resolution_binning=pixart_sigma_prefs['resolution_binning'],
+                    #mask_feature=pixart_sigma_prefs['mask_feature'],resolution_binning
+                    generator=generator,
+                    callback=callback_fnc,
+                ).images
+            else:
+                with torch.no_grad():
+                    prompt_embeds, prompt_attention_mask, negative_embeds, negative_prompt_attention_mask = pipe_pixart_sigma_encoder.encode_prompt(pr['prompt'], negative_prompt=pr['negative_prompt'], num_images_per_prompt=pr['num_images'], clean_caption=pixart_sigma_prefs['clean_caption'])
+                pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=None, torch_dtype=torch.float16).to("cuda")
+                latents = pipe_pixart_sigma(
+                    negative_prompt=None, 
+                    prompt_embeds=prompt_embeds,
+                    negative_prompt_embeds=negative_embeds,
+                    prompt_attention_mask=prompt_attention_mask,
+                    negative_prompt_attention_mask=negative_prompt_attention_mask,
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_images_per_prompt=pr['num_images'],
+                    num_inference_steps=num_inference_steps,
+                    guidance_scale=guidance_scale,
+                    output_type="latent",
+                    clean_caption=pixart_sigma_prefs['clean_caption'],
+                    use_resolution_binning=pixart_sigma_prefs['resolution_binning'],
+                    generator=generator,
+                    callback=callback_fnc,
+                ).images
+                del pipe_pixart_sigma.transformer
+                flush()
+                with torch.no_grad():
+                    images = pipe_pixart_sigma.vae.decode(latents / pipe_pixart_sigma.vae.config.scaling_factor, return_dict=False)
+        except Exception as e:
+            clear_last()
+            clear_last()
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(pixart_sigma_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, pixart_sigma_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
+            fname = f'{pixart_sigma_prefs["file_prefix"]}{fname}'
+            if use_8bit:
+                image = pipe_pixart_sigma.image_processor.postprocess(image, output_type="pil")[0]
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not pixart_sigma_prefs['display_upscaled_image'] or not pixart_sigma_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], pixart_sigma_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            if storage_type == "PyDrive Google Drive":
+                newFolder = gdrive.CreateFile({'title': pixart_sigma_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder.Upload()
+                batch_output = newFolder
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if pixart_sigma_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=pixart_sigma_prefs["enlarge_scale"], face_enhance=pixart_sigma_prefs["face_enhance"])
+                image_path = upscaled_path
+                if pixart_sigma_prefs['display_upscaled_image']:
+                    #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(pixart_sigma_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_sigma_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(pixart_sigma_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_sigma_prefs["enlarge_scale"]), data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            save_metadata(image_path, pixart_sigma_prefs, f"PixArt-Σ", pixart_model, random_seed, extra=pr)
+            if storage_type == "Colab Google Drive":
+                new_file = available_file(os.path.join(prefs['image_output'], pixart_sigma_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            elif bool(prefs['image_output']):
+                new_file = available_file(os.path.join(prefs['image_output'], pixart_sigma_prefs['batch_folder_name']), fname, 0)
+                out_path = new_file
+                shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+    del text_encoder
+    #del pipe_pixart_sigma_encoder
+    flush()
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+
 def run_differential_diffusion(page, from_list=False, with_params=False):
     global differential_diffusion_prefs, pipe_differential_diffusion, prefs, status
     if not check_diffusers(page): return
@@ -49285,10 +49672,6 @@ def run_splatter_image(page):
         line = Text(line)
       page.SplatterImage.controls.append(line)
       page.SplatterImage.update()
-    def prt_status(text):
-        nonlocal status_txt
-        status_txt.value = text
-        status_txt.update()
     def clear_last(lines=1):
       clear_line(page.SplatterImage, lines=lines)
     page.SplatterImage.controls = page.SplatterImage.controls[:1]
@@ -49335,6 +49718,7 @@ def run_splatter_image(page):
             installer.status(f"...downloading SplatterImage model")
             model_cfg = OmegaConf.load(os.path.join(splatter_image_dir, "gradio_config.yaml"))
             model_ckpt_path = hf_hub_download(repo_id="szymanowiczs/splatter-image-multi-category-v1",  filename="model_latest.pth")
+            #TODO: Change more settings in config
             installer.status('...loading Gaussian Splat Predictor')
             splatter_image_model = GaussianSplatPredictor(model_cfg)
             pipe_splatter_image = torch.load(model_ckpt_path, map_location=device)
@@ -49371,10 +49755,11 @@ def run_splatter_image(page):
         if init_img.mode == "RGBA":
             init_img = set_white_background(init_img)
     init_img = resize_to_128(init_img)
-    status_txt = Text("Generating your 3D model... See console for progress.")
-    progress = ProgressBar(bar_height=8)
+    progress = Progress("Generating your 3D model... See console for progress.")
+    #status_txt = Text("Generating your 3D model... See console for progress.")
+    #progress = ProgressBar(bar_height=8)
     clear_last()
-    prt(status_txt)
+    #prt(status_txt)
     prt(progress)
     #random_seed = get_seed(splatter_image_prefs['seed'], max=1000000)
     ply_path = available_file(splatter_image_out, fname, ext='ply', no_num=True)
@@ -49384,7 +49769,7 @@ def run_splatter_image(page):
     image_path = available_file(splatter_image_out, fname)
     model_names = and_list([f"[ply]({filepath_to_url(ply_path)})", f"[obj]({filepath_to_url(obj_path)})", f"[mtl]({filepath_to_url(mtl_path)})"])
     try:
-        prt_status("Saving Reconstructed 3D Files...")
+        progress.status("...Saving Reconstructed 3D Files")
         image = to_tensor(image).to(device)
         view_to_world_source, rot_transform_quats = get_source_camera_v2w_rmo_and_quats()
         view_to_world_source = view_to_world_source.to(device)
@@ -49398,7 +49783,7 @@ def run_splatter_image(page):
         reconstruction = {k: v[0].contiguous() for k, v in reconstruction_unactivated.items()}
         reconstruction["scaling"] = splatter_image_model.scaling_activation(reconstruction["scaling"])
         reconstruction["opacity"] = splatter_image_model.opacity_activation(reconstruction["opacity"])
-        prt_status("Rendering Images in a Loop...")
+        progress.status("...Rendering Images in a Loop")
         world_view_transforms, full_proj_transforms, camera_centers = get_target_cameras()
         background = torch.tensor([1, 1, 1] , dtype=torch.float32, device=device)
         loop_renders = []
@@ -49414,12 +49799,12 @@ def run_splatter_image(page):
             image = t_to_512(image)
             loop_renders.append(torch.clamp(image * 255, 0.0, 255.0).detach().permute(1, 2, 0).cpu().numpy().astype(np.uint8))
         imageio.mimsave(video_path, loop_renders, fps=25)
-        prt_status("Saving Mesh PLY 3D Files...")
+        progress.status("...Saving Mesh PLY 3D Files")
         export_to_obj(reconstruction_unactivated, ply_path)
-        prt_status("Saving Mesh OBJ 3D File...")
+        progress.status("...Saving Mesh OBJ 3D File")
         mesh = trimesh.open(ply_path)
         mesh.export(obj_path)
-        prt_status("Saving Texture MTL File...")
+        progress.status("...Saving Texture MTL File")
         textures = mesh.visual.material.image
         with open(mtl_path, 'w') as f:
             for i, texture in enumerate(textures):
@@ -49435,9 +49820,9 @@ def run_splatter_image(page):
         alert_msg(page, "Error running SplatterImage pipeline.", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         os.chdir(root_dir)
         return
-    clear_last(2)
+    clear_last()
     #prt(Row([ImageButton(src=image_path, width=width, height=height, data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-    prt(Row([Markdown(f"Saved Models as {model_names}{f'. Video saved to {[video_path]({filepath_to_url(video_path)})}' if splatter_image_prefs['save_video'] else ''}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+    prt(Row([Markdown(f"Saved Models as {model_names}. Video saved to [{video_path}]({filepath_to_url(video_path)})", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
     flush()
     #prt(ImageButton(src=gif_file, width=splatter_image_prefs['size'], height=splatter_image_prefs['size'], data=gif_file, subtitle=ply_path, page=page))
     #prt("Finished generating SplatterImage Mesh... Hope it's good.")
