@@ -1202,6 +1202,8 @@ def initState(page):
       page.tabs.selected_index = 0
       page.tabs.update()
       page.update()
+    time.sleep(8)
+    page.update()
     if prefs['show_stats']:
       start_thread(page)
       #start_polling(prefs['stats_update'], update_stats(page))
@@ -2174,6 +2176,7 @@ def buildInstallers(page):
           page.ESRGAN_block_stable_cascade,
           page.ESRGAN_block_wuerstchen,
           page.ESRGAN_block_pixart_alpha,
+          page.ESRGAN_block_pixart_sigma,
           page.ESRGAN_block_lcm,
           page.ESRGAN_block_lmd_plus,
           page.ESRGAN_block_ip_adapter,
@@ -2187,7 +2190,7 @@ def buildInstallers(page):
           page.ESRGAN_block_semantic,
           page.ESRGAN_block_EDICT,
           page.ESRGAN_block_DiffEdit,
-          page.ESRGAN_block_PAG,
+          page.ESRGAN_block_pag,
           page.ESRGAN_block_hd_painter,
           page.ESRGAN_block_anytext,
           page.ESRGAN_block_null_text,
@@ -11495,7 +11498,7 @@ def buildPixArtSigma(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pixart_sigma_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='height')
-    pixart_model = Dropdown(label="PixArt-Σ Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-Sigma-XL-2-512-MS"), dropdown.Option("PixArt-Sigma-XL-2-1024-MS")], value=pixart_sigma_prefs['pixart_model'], on_change=changed_model)
+    pixart_model = Dropdown(label="PixArt-Σ Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-Sigma-XL-2-512-MS"), dropdown.Option("PixArt-Sigma-XL-2-1024-MS"), dropdown.Option("PixArt-Sigma-XL-2-2K-MS")], value=pixart_sigma_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-Σ Model (URL or Path)", value=pixart_sigma_prefs['custom_model'], expand=True, visible=pixart_sigma_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     clean_caption = Switcher(label="Clean Caption", value=pixart_sigma_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
     resolution_binning = Switcher(label="Resolution Binning", value=pixart_sigma_prefs['resolution_binning'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'resolution_binning'), tooltip="The requested height and width are first mapped to the closest resolutions using `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to the requested resolution. Useful for generating non-square images.")
@@ -22764,7 +22767,7 @@ finally:
 if torch_device == "cuda":
     try:
         import transformers
-        if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.39.0"):
+        if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.40.0"):
             #import importlib
             print(f"Uninstalling old Transformers v{transformers.__version__}")
             run_sp("pip uninstall -y transformers", realtime=False)
@@ -29623,6 +29626,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not blip_diffusion_prefs['display_upscaled_image'] or not blip_diffusion_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             #if save_to_GDrive:
             batch_output = os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name'])
@@ -29639,10 +29643,9 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
             if blip_diffusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=blip_diffusion_prefs["enlarge_scale"], face_enhance=blip_diffusion_prefs["face_enhance"])
                 image_path = upscaled_path
+                save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
                 if blip_diffusion_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -29987,6 +29990,7 @@ def run_anytext(page, from_list=False, with_params=False):
             #image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not anytext_prefs['display_upscaled_image'] or not anytext_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, anytext_prefs, f"AnyText {mode}", anytext_model, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], anytext_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
@@ -30002,9 +30006,9 @@ def run_anytext(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=anytext_prefs["enlarge_scale"], face_enhance=anytext_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
+                save_metadata(image_path, anytext_prefs, f"AnyText {mode}", anytext_model, random_seed, extra=pr)
                 if anytext_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(anytext_prefs["enlarge_scale"]), height=pr['height'] * float(anytext_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, anytext_prefs, f"AnyText {mode}", anytext_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], anytext_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -30351,6 +30355,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not ip_adapter_prefs['display_upscaled_image'] or not ip_adapter_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, ip_adapter_prefs, f"IP-Adapter", model_id, random_seed, scheduler=True, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], ip_adapter_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
@@ -30365,9 +30370,9 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             if ip_adapter_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=ip_adapter_prefs["enlarge_scale"], face_enhance=ip_adapter_prefs["face_enhance"])
                 image_path = upscaled_path
+                save_metadata(image_path, ip_adapter_prefs, f"IP-Adapter", model_id, random_seed, scheduler=True, extra=pr)
                 if ip_adapter_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(ip_adapter_prefs["enlarge_scale"]), height=pr['height'] * float(ip_adapter_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, ip_adapter_prefs, f"IP-Adapter", model_id, random_seed, scheduler=True, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], ip_adapter_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -30606,10 +30611,11 @@ def run_hd_painter(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=hd_painter_prefs["enlarge_scale"], face_enhance=hd_painter_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
+                save_metadata(image_path, hd_painter_prefs, f"HD-Painter {mode}", hd_painter_model, random_seed, extra=pr)
                 if hd_painter_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(hd_painter_prefs["enlarge_scale"]), height=pr['height'] * float(hd_painter_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, hd_painter_prefs, f"HD-Painter {mode}", hd_painter_model, random_seed, extra=pr)
             if not hd_painter_prefs['display_upscaled_image'] or not hd_painter_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, hd_painter_prefs, f"HD-Painter {mode}", hd_painter_model, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], hd_painter_prefs['batch_folder_name']), fname, 0)
@@ -30781,17 +30787,16 @@ def run_reference(page, from_list=False):
                 out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not reference_prefs['display_upscaled_image'] or not reference_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(image_path, reference_prefs, f"Reference", model, random_seed, extra=pr)
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                    time.sleep(0.6)
                 if reference_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     upscale_image(image_path, upscaled_path, scale=reference_prefs["enlarge_scale"])
                     image_path = upscaled_path
+                    save_metadata(image_path, reference_prefs, f"Reference", model, random_seed, extra=pr)
                     if reference_prefs['display_upscaled_image']:
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(reference_prefs["enlarge_scale"]), height=height * float(reference_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
-                        time.sleep(0.6)
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                save_metadata(image_path, reference_prefs, f"Reference", model, random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], reference_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -30800,7 +30805,6 @@ def run_reference(page, from_list=False):
                     new_file = available_file(os.path.join(prefs['image_output'], reference_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
                     shutil.copy(image_path, new_file)
-                time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -31304,17 +31308,16 @@ def run_controlnet_segment(page, from_list=False):
                 out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not controlnet_segment_prefs['display_upscaled_image'] or not controlnet_segment_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(image_path, controlnet_segment_prefs, f"ControlNetSegmentAnything", model, random_seed, extra=pr)
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                    time.sleep(0.8)
                 if controlnet_segment_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     upscale_image(image_path, upscaled_path, scale=controlnet_segment_prefs["enlarge_scale"])
                     image_path = upscaled_path
+                    save_metadata(image_path, controlnet_segment_prefs, f"ControlNetSegmentAnything", model, random_seed, extra=pr)
                     if controlnet_segment_prefs['display_upscaled_image']:
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(controlnet_segment_prefs["enlarge_scale"]), height=height * float(controlnet_segment_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
-                        time.sleep(0.6)
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                save_metadata(image_path, controlnet_segment_prefs, f"ControlNetSegmentAnything", model, random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], controlnet_segment_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -31323,7 +31326,6 @@ def run_controlnet_segment(page, from_list=False):
                     new_file = available_file(os.path.join(prefs['image_output'], controlnet_segment_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
                     shutil.copy(image_path, new_file)
-                time.sleep(0.2)
                 prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -31458,16 +31460,16 @@ def run_EDICT(page):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not EDICT_prefs['display_upscaled_image'] or not EDICT_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, EDICT_prefs, f"EDICT Editor", model_id, random_seed)
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if EDICT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=EDICT_prefs["enlarge_scale"])
                 image_path = upscaled_path
+                save_metadata(image_path, EDICT_prefs, f"EDICT Editor", model_id, random_seed)
                 if EDICT_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(EDICT_prefs["enlarge_scale"]), height=height * float(EDICT_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, EDICT_prefs, f"EDICT Editor", model_id, random_seed)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], EDICT_prefs['batch_folder_name']), fname, num)
                 out_path = new_file
@@ -31476,7 +31478,6 @@ def run_EDICT(page):
                 new_file = available_file(os.path.join(prefs['image_output'], EDICT_prefs['batch_folder_name']), fname, num)
                 out_path = new_file
                 shutil.copy(image_path, new_file)
-            time.sleep(0.2)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
             num += 1
         random_seed += 1
@@ -31642,16 +31643,16 @@ def run_DiffEdit(page):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not DiffEdit_prefs['display_upscaled_image'] or not DiffEdit_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, DiffEdit_prefs, f"DiffEdit", model_id, random_seed)
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if DiffEdit_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=DiffEdit_prefs["enlarge_scale"])
                 image_path = upscaled_path
+                save_metadata(image_path, DiffEdit_prefs, f"DiffEdit", model_id, random_seed)
                 if DiffEdit_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(DiffEdit_prefs["enlarge_scale"]), height=height * float(DiffEdit_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, DiffEdit_prefs, f"DiffEdit", model_id, random_seed)
             #TODO: PyDrive
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], DiffEdit_prefs['batch_folder_name']), fname, num)
@@ -31661,7 +31662,6 @@ def run_DiffEdit(page):
                 new_file = available_file(os.path.join(prefs['image_output'], DiffEdit_prefs['batch_folder_name']), fname, num)
                 out_path = new_file
                 shutil.copy(image_path, new_file)
-            time.sleep(0.2)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
             num += 1
         random_seed += 1
@@ -31798,16 +31798,16 @@ def run_null_text(page):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not null_text_prefs['display_upscaled_image'] or not null_text_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, null_text_prefs, f"Null-Text Inversion", model_id, random_seed)
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if null_text_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=null_text_prefs["enlarge_scale"])
                 image_path = upscaled_path
+                save_metadata(image_path, null_text_prefs, f"Null-Text Inversion", model_id, random_seed)
                 if null_text_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(null_text_prefs["enlarge_scale"]), height=height * float(null_text_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, null_text_prefs, f"Null-Text Inversion", model_id, random_seed)
             #TODO: PyDrive
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], null_text_prefs['batch_folder_name']), fname, num)
@@ -32166,15 +32166,15 @@ def run_semantic(page):
         out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not semantic_prefs['display_upscaled_image'] or not semantic_prefs['apply_ESRGAN_upscale']:
+            save_metadata(image_path, semantic_prefs, f"Semantic Guidance", model_path, random_seed, scheduler=True)
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if semantic_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscale_image(image_path, upscaled_path, scale=semantic_prefs["enlarge_scale"])
             image_path = upscaled_path
+            save_metadata(image_path, semantic_prefs, f"Semantic Guidance", model_path, random_seed, scheduler=True)
             if semantic_prefs['display_upscaled_image']:
-                time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(semantic_prefs["enlarge_scale"]), height=height * float(semantic_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        save_metadata(image_path, semantic_prefs, f"Semantic Guidance", model_path, random_seed, scheduler=True)
         #TODO: PyDrive
         if storage_type == "Colab Google Drive":
             new_file = available_file(os.path.join(prefs['image_output'], semantic_prefs['batch_folder_name']), fname, num)
@@ -32357,6 +32357,7 @@ def run_demofusion(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not demofusion_prefs['display_upscaled_image'] or not demofusion_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "PyDrive Google Drive":
                 newFolder = gdrive.CreateFile({'title': demofusion_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
@@ -32368,9 +32369,9 @@ def run_demofusion(page, from_list=False, with_params=False):
             if demofusion_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=demofusion_prefs["enlarge_scale"], faceenhance=demofusion_prefs["face_enhance"])
                 image_path = upscaled_path
+                save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
                 if demofusion_prefs['display_upscaled_image']:
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(batch_output, fname, 0)
                 out_path = new_file
@@ -38190,16 +38191,16 @@ def run_ledits(page, from_list=False):
               out_path = os.path.dirname(image_path)
               upscaled_path = os.path.join(out_path, output_file)
               if not ledits_prefs['display_upscaled_image'] or not ledits_prefs['apply_ESRGAN_upscale']:
+                  save_metadata(unscaled_path, pipe_ledits, f"LEdits++{' SDXL' if ledits_prefs['use_SDXL'] else ''}", model_id_SDXL if ledits_prefs['use_SDXL'] else model_id, random_seed, extra=pr)
                   prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                   #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
               if ledits_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                   upscale_image(image_path, upscaled_path, scale=ledits_prefs["enlarge_scale"])
                   image_path = upscaled_path
+                  save_metadata(unscaled_path, pipe_ledits, f"LEdits++{' SDXL' if ledits_prefs['use_SDXL'] else ''}", model_id_SDXL if ledits_prefs['use_SDXL'] else model_id, random_seed, extra=pr)
                   if ledits_prefs['display_upscaled_image']:
-                      time.sleep(0.6)
                       prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(ledits_prefs["enlarge_scale"]), height=height * float(ledits_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                       #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-              save_metadata(image_path, pipe_ledits, f"LEdits++{' SDXL' if ledits_prefs['use_SDXL'] else ''}", model_id_SDXL if ledits_prefs['use_SDXL'] else model_id, random_seed, extra=pr)
               if storage_type == "Colab Google Drive":
                   new_file = available_file(os.path.join(prefs['image_output'], ledits_prefs['batch_folder_name']), fname, num)
                   out_path = new_file
@@ -38208,7 +38209,6 @@ def run_ledits(page, from_list=False):
                   new_file = available_file(os.path.join(prefs['image_output'], ledits_prefs['batch_folder_name']), fname, num)
                   out_path = new_file
                   shutil.copy(image_path, new_file)
-              time.sleep(0.2)
               prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
               #num += 1
     play_snd(Snd.ALERT, page)
@@ -40672,6 +40672,7 @@ def run_deepfloyd(page, from_list=False):
                 out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not deepfloyd_prefs['display_upscaled_image'] or not deepfloyd_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(image_path, deepfloyd_prefs, "DeepFloyd-IF", model_id, random_seed, extra=pr)
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if deepfloyd_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
@@ -40682,13 +40683,10 @@ def run_deepfloyd(page, from_list=False):
                     upscale_image(image_path, upscaled_path, scale=deepfloyd_prefs["enlarge_scale"])
                     image_path = upscaled_path
                     clear_last()
+                    save_metadata(image_path, deepfloyd_prefs, "DeepFloyd-IF", model_id, random_seed, extra=pr)
                     if deepfloyd_prefs['display_upscaled_image']:
-                        time.sleep(0.6)
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(deepfloyd_prefs["enlarge_scale"]), height=height * float(deepfloyd_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                else:
-                    time.sleep(0.8)
-                save_metadata(image_path, deepfloyd_prefs, "DeepFloyd-IF", model_id, random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], deepfloyd_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -40923,8 +40921,6 @@ def run_amused(page, from_list=False, with_params=False):
             image_path = available_file(txt2img_output, fname, 1)
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
-            if not amused_prefs['display_upscaled_image'] or not amused_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], amused_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
                 os.makedirs(batch_output)
@@ -40935,13 +40931,15 @@ def run_amused(page, from_list=False, with_params=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
+            save_metadata(image_path, amused_prefs, f"Amused {mode}", amused_model, random_seed, extra=pr)
+            if not amused_prefs['display_upscaled_image'] or not amused_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if amused_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=amused_prefs["enlarge_scale"], face_enhance=amused_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
                 if amused_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(amused_prefs["enlarge_scale"]), height=pr['height'] * float(amused_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, amused_prefs, f"Amused {mode}", amused_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], amused_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -41121,9 +41119,8 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                 if wuerstchen_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     upscale_image(image_path, upscaled_path, scale=wuerstchen_prefs["enlarge_scale"], faceenhance=wuerstchen_prefs["face_enhance"])
                     image_path = upscaled_path
+                    save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                     if wuerstchen_prefs['display_upscaled_image']:
-                        save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
-                        time.sleep(0.6)
                         prt(Row([Img(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
@@ -41327,9 +41324,8 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                 if stable_cascade_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     upscale_image(image_path, upscaled_path, scale=stable_cascade_prefs["enlarge_scale"], faceenhance=stable_cascade_prefs["face_enhance"])
                     image_path = upscaled_path
+                    save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                     if stable_cascade_prefs['display_upscaled_image']:
-                        save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
-                        time.sleep(0.6)
                         prt(Row([Img(src=upscaled_path, width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name']), fname, 0)
@@ -41431,7 +41427,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
         pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     text_encoder = None
     cpu_offload = pixart_alpha_prefs['cpu_offload']
-    pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else "PixArt-alpha/PixArt-LCM-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-LCM-XL-2-1024-MS" else pixart_alpha_prefs['pixart_custom_model']
+    pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else "PixArt-alpha/PixArt-LCM-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-LCM-XL-2-1024-MS" else pixart_alpha_prefs['ustom_model']
     if 'loaded_pixart_8bit' not in status: status['loaded_pixart_8bit'] = use_8bit
     if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
     if pixart_model != status['loaded_pixart'] or use_8bit != status['loaded_pixart_8bit']:
@@ -41557,8 +41553,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
             image_path = available_file(txt2img_output, fname, 1)
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
-            if not pixart_alpha_prefs['display_upscaled_image'] or not pixart_alpha_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            
             batch_output = os.path.join(prefs['image_output'], pixart_alpha_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
                 os.makedirs(batch_output)
@@ -41568,14 +41563,15 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
                 batch_output = newFolder
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
-
+            save_metadata(image_path, pixart_alpha_prefs, f"PixArt-α", pixart_model, random_seed, extra=pr)
+            if not pixart_alpha_prefs['display_upscaled_image'] or not pixart_alpha_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if pixart_alpha_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=pixart_alpha_prefs["enlarge_scale"], face_enhance=pixart_alpha_prefs["face_enhance"])
                 image_path = upscaled_path
                 if pixart_alpha_prefs['display_upscaled_image']:
                     #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(pixart_alpha_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_alpha_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(pixart_alpha_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_alpha_prefs["enlarge_scale"]), data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, pixart_alpha_prefs, f"PixArt-α", pixart_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], pixart_alpha_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -41595,6 +41591,9 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
 def run_pixart_sigma(page, from_list=False, with_params=False):
     global pixart_sigma_prefs, pipe_pixart_sigma, pipe_pixart_sigma_encoder, prefs
     if not check_diffusers(page): return
+    if int(status['cpu_memory']) < 16:
+        alert_msg(page, f"Sorry, you need at least 16GB CPU RAM to run this. {'Change Runtime to High-RAM and try again.' if is_Colab else 'Upgrade your memory if you want to use it.'}")
+        return
     pixart_sigma_prompts = []
     if from_list:
       if len(prompts) < 1:
@@ -41680,18 +41679,28 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
         pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     text_encoder = None
     cpu_offload = pixart_sigma_prefs['cpu_offload']
-    pixart_model = "PixArt-sigma/PixArt-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-sigma/PixArt-Sigma-XL-2-512-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-512-MS" else "PixArt-sigma/PixArt-Sigma-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-1024-MS" else pixart_sigma_prefs['pixart_custom_model']
+    pixart_model = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-1024-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-512-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-512-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-2K-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-2K-MS" else pixart_sigma_prefs['custom_model']
+    pixart_vae = "PixArt-alpha/pixart_sigma_sdxlvae_T5_diffusers"
     if 'loaded_pixart_8bit' not in status: status['loaded_pixart_8bit'] = use_8bit
     if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
     if pixart_model != status['loaded_pixart'] or use_8bit != status['loaded_pixart_8bit']:
         clear_pipes()
     scheduler = {'scheduler': 'LCM'} if 'LCM' in pixart_model else {}
     if pipe_pixart_sigma == None:
-        installer.status(f"...initialize PixArtSigma Pipeline")
+        installer.status(f"...initialize PixArt-Sigma Pipeline")
         try:
-            from diffusers import PixArtSigmaPipeline
+            from diffusers import PixArtSigmaPipeline, Transformer2DModel
             if not use_8bit:
-                pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                installer.status(f"...initialize PixArtSigma Transformer 2D")
+                transformer = Transformer2DModel.from_pretrained(
+                    pixart_model,
+                    subfolder="transformer",
+                    torch_dtype=torch.float16,
+                    use_additional_conditions=False,
+                    use_safetensors=True,
+                )
+                installer.status(f"...initialize PixArt-Sigma Pipeline")
+                pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_vae, transformer=transformer, torch_dtype=torch.float16, use_safetensors=True, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
                 if prefs['enable_torch_compile']:
                     installer.status(f"...Torch compiling transformer")
@@ -41803,8 +41812,6 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
             image_path = available_file(txt2img_output, fname, 1)
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
-            if not pixart_sigma_prefs['display_upscaled_image'] or not pixart_sigma_prefs['apply_ESRGAN_upscale']:
-                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], pixart_sigma_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
                 os.makedirs(batch_output)
@@ -41815,13 +41822,15 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
 
+            save_metadata(image_path, pixart_sigma_prefs, f"PixArt-Σ", pixart_model, random_seed, extra=pr)
+            if not pixart_sigma_prefs['display_upscaled_image'] or not pixart_sigma_prefs['apply_ESRGAN_upscale']:
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if pixart_sigma_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=pixart_sigma_prefs["enlarge_scale"], face_enhance=pixart_sigma_prefs["face_enhance"])
                 image_path = upscaled_path
                 if pixart_sigma_prefs['display_upscaled_image']:
                     #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(pixart_sigma_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_sigma_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(pixart_sigma_prefs["enlarge_scale"]), height=pr['height'] * float(pixart_sigma_prefs["enlarge_scale"]), data=upscaled_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, pixart_sigma_prefs, f"PixArt-Σ", pixart_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], pixart_sigma_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -42082,10 +42091,11 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=differential_diffusion_prefs["enlarge_scale"], face_enhance=differential_diffusion_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
+                save_metadata(image_path, differential_diffusion_prefs, f"Differential Diffusion Image2Image", model_id, random_seed, extra=pr)
                 if differential_diffusion_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(differential_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(differential_diffusion_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, differential_diffusion_prefs, f"Differential Diffusion Image2Image", model_id, random_seed, extra=pr)
             if not differential_diffusion_prefs['display_upscaled_image'] or not differential_diffusion_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, differential_diffusion_prefs, f"Differential Diffusion Image2Image", model_id, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], differential_diffusion_prefs['batch_folder_name']), fname, 0)
@@ -42328,6 +42338,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not lmd_plus_prefs['display_upscaled_image'] or not lmd_plus_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, lmd_plus_prefs, f"LMD+", lmd_plus_model, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], lmd_plus_prefs['batch_folder_name'])
             makedir(batch_output)
@@ -42342,10 +42353,10 @@ def run_lmd_plus(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=lmd_plus_prefs["enlarge_scale"], face_enhance=lmd_plus_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
+                save_metadata(image_path, lmd_plus_prefs, f"LMD+", lmd_plus_model, random_seed, extra=pr)
                 if lmd_plus_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(lmd_plus_prefs["enlarge_scale"]), height=pr['height'] * float(lmd_plus_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, width=pr['width'] * float(lmd_plus_prefs["enlarge_scale"]), height=pr['height'] * float(lmd_plus_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, lmd_plus_prefs, f"LMD+", lmd_plus_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], lmd_plus_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -42567,6 +42578,7 @@ def run_lcm(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not lcm_prefs['display_upscaled_image'] or not lcm_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, lcm_prefs, f"LCM", lcm_model, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], lcm_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
@@ -42582,9 +42594,9 @@ def run_lcm(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=lcm_prefs["enlarge_scale"], face_enhance=lcm_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
+                save_metadata(image_path, lcm_prefs, f"LCM", lcm_model, random_seed, extra=pr)
                 if lcm_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(lcm_prefs["enlarge_scale"]), height=pr['height'] * float(lcm_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, lcm_prefs, f"LCM", lcm_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], lcm_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -42905,6 +42917,7 @@ def run_instaflow(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not instaflow_prefs['display_upscaled_image'] or not instaflow_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, instaflow_prefs, "InstaFlow", instaflow_model, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], instaflow_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
@@ -42920,9 +42933,9 @@ def run_instaflow(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=instaflow_prefs["enlarge_scale"], face_enhance=instaflow_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
+                save_metadata(image_path, instaflow_prefs, "InstaFlow", instaflow_model, random_seed, extra=pr)
                 if instaflow_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(instaflow_prefs["enlarge_scale"]), height=pr['height'] * float(instaflow_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, instaflow_prefs, "InstaFlow", instaflow_model, random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], instaflow_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -43132,10 +43145,11 @@ def run_pag(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=pag_prefs["enlarge_scale"], face_enhance=pag_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
+                save_metadata(image_path, pag_prefs, f"PAG", pag_model, random_seed, extra=pr)
                 if pag_prefs['display_upscaled_image']:
                     prt(Row([ImageButton(src=upscaled_path, width=pr['width'] * float(pag_prefs["enlarge_scale"]), height=pr['height'] * float(pag_prefs["enlarge_scale"]), data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, pag_prefs, f"PAG", pag_model, random_seed, extra=pr)
             if not pag_prefs['display_upscaled_image'] or not pag_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, pag_prefs, f"PAG", pag_model, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], pag_prefs['batch_folder_name']), fname, 0)
@@ -43637,15 +43651,15 @@ def run_text_to_video(page):
             out_path = os.path.dirname(image_path)
             upscaled_path = os.path.join(out_path, output_file)
             if not text_to_video_prefs['display_upscaled_image'] or not text_to_video_prefs['apply_ESRGAN_upscale']:
+                save_metadata(unscaled_path, text_to_video_prefs, f"Text-To-Video", model_id, random_seed, scheduler=True)
                 prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
             if text_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=text_to_video_prefs["enlarge_scale"])
                 image_path = upscaled_path
+                save_metadata(image_path, text_to_video_prefs, f"Text-To-Video", model_id, random_seed, scheduler=True)
                 if text_to_video_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_prefs["enlarge_scale"]), height=height * float(text_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, text_to_video_prefs, f"Text-To-Video", model_id, random_seed, scheduler=True)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], text_to_video_prefs['batch_folder_name']), fname, num)
                 out_path = new_file
@@ -43796,14 +43810,15 @@ def run_text_to_video_zero(page):
         out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not text_to_video_zero_prefs['display_upscaled_image'] or not text_to_video_zero_prefs['apply_ESRGAN_upscale']:
+            save_metadata(unscaled_path, text_to_video_zero_prefs, f"Text-To-Video Zero", model_id, random_seed)
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if text_to_video_zero_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscale_image(image_path, upscaled_path, scale=text_to_video_zero_prefs["enlarge_scale"])
             image_path = upscaled_path
+            save_metadata(image_path, text_to_video_zero_prefs, f"Text-To-Video Zero", model_id, random_seed)
             if text_to_video_zero_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(text_to_video_zero_prefs["enlarge_scale"]), height=height * float(text_to_video_zero_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        save_metadata(image_path, text_to_video_zero_prefs, f"Text-To-Video Zero", model_id, random_seed)
         if storage_type == "Colab Google Drive":
             new_file = available_file(os.path.join(prefs['image_output'], text_to_video_zero_prefs['batch_folder_name']), fname, num)
             out_path = new_file
@@ -43994,15 +44009,15 @@ def run_video_to_video(page):
         out_path = os.path.dirname(image_path)
         upscaled_path = os.path.join(out_path, output_file)
         if not video_to_video_prefs['display_upscaled_image'] or not video_to_video_prefs['apply_ESRGAN_upscale']:
+            save_metadata(unscaled_path, video_to_video_prefs, f"Video-To-Video", model_id, random_seed, scheduler=True)
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         if video_to_video_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscale_image(image_path, upscaled_path, scale=video_to_video_prefs["enlarge_scale"], face_enhance=video_to_video_prefs["face_enhance"])
             image_path = upscaled_path
+            save_metadata(image_path, video_to_video_prefs, f"Video-To-Video", model_id, random_seed, scheduler=True)
             if video_to_video_prefs['display_upscaled_image']:
-                time.sleep(0.6)
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(video_to_video_prefs["enlarge_scale"]), height=height * float(video_to_video_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-        save_metadata(image_path, video_to_video_prefs, f"Video-To-Video", model_id, random_seed, scheduler=True)
         if storage_type == "Colab Google Drive":
             new_file = available_file(os.path.join(prefs['image_output'], video_to_video_prefs['batch_folder_name']), fname, num)
             out_path = new_file
@@ -44905,12 +44920,12 @@ def run_stable_animation(page):
         if stable_animation_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscale_image(image_path, upscaled_path, scale=stable_animation_prefs["enlarge_scale"])
             image_path = upscaled_path
+            save_metadata(image_path, stable_animation_prefs, f"Stable Animation", model_path, random_seed, scheduler=True)
             if stable_animation_prefs['display_upscaled_image']:
                 prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=width * float(stable_animation_prefs["enlarge_scale"]), height=height * float(stable_animation_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                time.sleep(0.2)
-        save_metadata(image_path, stable_animation_prefs, f"Stable Animation", model_path, random_seed, scheduler=True)
         if not stable_animation_prefs['display_upscaled_image'] or not stable_animation_prefs['apply_ESRGAN_upscale']:
+            save_metadata(unscaled_path, stable_animation_prefs, f"Stable Animation", model_path, random_seed, scheduler=True)
             prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=width, height=height, page=page)], alignment=MainAxisAlignment.CENTER))
         prt(Row([Text(image_path)], alignment=MainAxisAlignment.CENTER))
     except Exception as e:
@@ -48214,6 +48229,7 @@ def run_materialdiffusion(page):
           f.write(response.content)
         new_file = image_path.rpartition(slash)[2]
         if not materialdiffusion_prefs['display_upscaled_image'] or not materialdiffusion_prefs['apply_ESRGAN_upscale']:
+            save_metadata(image_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
             #prt(Row([Img(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([ImageButton(src=image_path, width=materialdiffusion_prefs['width'], height=materialdiffusion_prefs['height'], page=page)], alignment=MainAxisAlignment.CENTER))
 
@@ -48231,6 +48247,7 @@ def run_materialdiffusion(page):
             upscaled_path = os.path.join(out_path, new_file)
             upscale_image(image_path, upscaled_path, scale=materialdiffusion_prefs["enlarge_scale"])
             image_path = upscaled_path
+            save_metadata(image_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
             if materialdiffusion_prefs['display_upscaled_image']:
                 prt(Row([Img(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
@@ -48238,7 +48255,6 @@ def run_materialdiffusion(page):
             try:
               shutil.copy(image_path, new_path)
             except shutil.SameFileError: pass
-        save_metadata(new_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     del rep_model, rep_version
     autoscroll(False)
@@ -48349,6 +48365,7 @@ def run_materialdiffusion_sdxl(page):
         new_file = image_path.rpartition(slash)[2]
         if not materialdiffusion_sdxl_prefs['display_upscaled_image'] or not materialdiffusion_sdxl_prefs['apply_ESRGAN_upscale']:
             #prt(Row([Img(src=image_path, width=materialdiffusion_sdxl_prefs['width'], height=materialdiffusion_sdxl_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            save_metadata(image_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
             prt(Row([ImageButton(src=image_path, width=int(materialdiffusion_sdxl_prefs['width']), height=int(materialdiffusion_sdxl_prefs['height']), page=page)], alignment=MainAxisAlignment.CENTER))
         batch_output = os.path.join(prefs['image_output'], materialdiffusion_sdxl_prefs['batch_folder_name'])
         if not os.path.exists(batch_output):
@@ -48363,6 +48380,7 @@ def run_materialdiffusion_sdxl(page):
             upscaled_path = os.path.join(out_path, new_file)
             upscale_image(image_path, upscaled_path, scale=materialdiffusion_sdxl_prefs["enlarge_scale"])
             image_path = upscaled_path
+            save_metadata(image_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
             if materialdiffusion_sdxl_prefs['display_upscaled_image']:
                 prt(Row([Img(src=upscaled_path, width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
@@ -48370,7 +48388,6 @@ def run_materialdiffusion_sdxl(page):
             try:
               shutil.copy(image_path, new_path)
             except shutil.SameFileError: pass
-        save_metadata(new_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -48471,15 +48488,16 @@ def run_DiT(page, from_list=False):
                 out_path = os.path.dirname(image_path)
                 upscaled_path = os.path.join(out_path, output_file)
                 if not DiT_prefs['display_upscaled_image'] or not DiT_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(unscaled_path, DiT_prefs, "DiT", "facebook/DiT-XL-2-512", random_seed, prompt=pr)
                     prt(Row([ImageButton(src=unscaled_path, data=upscaled_path, width=512, height=512, page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=unscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if DiT_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     upscale_image(image_path, upscaled_path, scale=DiT_prefs["enlarge_scale"], face_enhance=DiT_prefs["face_enhance"])
                     image_path = upscaled_path
+                    save_metadata(upscaled_path, DiT_prefs, "DiT", "facebook/DiT-XL-2-512", random_seed, prompt=pr)
                     if DiT_prefs['display_upscaled_image']:
                         prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=512 * float(DiT_prefs["enlarge_scale"]), height=512 * float(DiT_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                         #prt(Row([Img(src=upscaled_path, fit=ImageFit.FIT_WIDTH, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-                save_metadata(image_path, DiT_prefs, "DiT", "facebook/DiT-XL-2-512", random_seed, prompt=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], DiT_prefs['batch_folder_name']), fname, num)
                     out_path = new_file
@@ -49691,12 +49709,22 @@ def run_splatter_image(page):
     installer = Installing("Installing SplatterImage 3D Libraries... See console for progress.")
     prt(installer)
     splatter_image_dir = os.path.join(root_dir, "splatter-image")
+    gaussian_splatting_dir = os.path.join(root_dir, "gaussian-splatting")
+    if not os.path.exists(gaussian_splatting_dir):
+        installer.status("...cloning graphdeco-inria/gaussian-splatting")
+        run_sp("git clone https://github.com/graphdeco-inria/gaussian-splatting.git", cwd=root_dir)
+    try:
+        import diff_gaussian_rasterization
+    except ModuleNotFoundError:
+        installer.status("...installing diff-gaussian-rasterization")
+        run_sp("pip install submodules/diff-gaussian-rasterization", cwd=gaussian_splatting_dir)
+        pass
     if not os.path.exists(splatter_image_dir):
         installer.status("...cloning szymanowiczs/splatter-image")
         run_sp("git clone https://github.com/szymanowiczs/splatter-image.git", cwd=root_dir)
     if splatter_image_dir not in sys.path:
         sys.path.append(splatter_image_dir)
-    pip_install("ema-pytorch tqdm hydra-core omegaconf lpips plyfile timm einops imageio wandb moviepy lightning==2.0 markupsafe==2.0.1 trimesh", installer=installer)
+    pip_install("ema-pytorch tqdm hydra-core omegaconf lpips plyfile timm einops imageio wandb moviepy lightning==2.0 markupsafe==2.0.1 trimesh diff_gaussian_rasterization rembg", installer=installer)
     os.chdir(splatter_image_dir)
     name = splatter_image_prefs['title'] if bool(splatter_image_prefs['title']) else splatter_image_prefs['init_image'].rpartition(slash)[1].rparition('.')[0]
     fname = format_filename(name)
@@ -50603,6 +50631,7 @@ def run_dall_e(page, from_list=False):
             out_path = batch_output# if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
             if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, dall_e_prefs, "Dall-E 2")
                 prt(Row([ImageButton(src=image_path, data=new_path, width=size, height=size, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             #if save_to_GDrive:
@@ -50614,13 +50643,12 @@ def run_dall_e(page, from_list=False):
             if dall_e_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscaled_path = new_path
                 upscale_image(image_path, upscaled_path, scale=dall_e_prefs["enlarge_scale"], face_enhance=dall_e_prefs["face_enhance"])
+                save_metadata(upscaled_path, dall_e_prefs, "Dall-E 2")
                 if dall_e_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
-            save_metadata(new_path, dall_e_prefs, "Dall-E 2")
             prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -50767,6 +50795,7 @@ def run_dall_e_3(page, from_list=False):
             out_path = batch_output# if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
             if not dall_e_3_prefs['display_upscaled_image'] or not dall_e_3_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, dall_e_3_prefs, "Dall-E 3")
                 prt(Row([ImageButton(src=image_path, data=new_path, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "PyDrive Google Drive":
                 newFolder = gdrive.CreateFile({'title': dall_e_3_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
@@ -50776,13 +50805,12 @@ def run_dall_e_3(page, from_list=False):
             if dall_e_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscaled_path = new_path
                 upscale_image(image_path, upscaled_path, scale=dall_e_3_prefs["enlarge_scale"], face_enhance=dall_e_3_prefs["face_enhance"])
+                save_metadata(upscaled_path, dall_e_3_prefs, "Dall-E 3")
                 if dall_e_3_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=w * float(dall_e_3_prefs["enlarge_scale"]), height=h * float(dall_e_3_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
-            save_metadata(new_path, dall_e_3_prefs, "Dall-E 3")
             prt(Row([Text(new_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -51010,6 +51038,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not kandinsky_3_prefs['display_upscaled_image'] or not kandinsky_3_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
@@ -51020,10 +51049,9 @@ def run_kandinsky3(page, from_list=False, with_params=False):
             if kandinsky_3_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=kandinsky_3_prefs["enlarge_scale"], face_enhance=kandinsky_3_prefs["face_enhance"])
                 image_path = upscaled_path
+                save_metadata(upscaled_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
                 if kandinsky_3_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
-            save_metadata(image_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
             new_file = available_file(os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -51285,6 +51313,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not kandinsky_prefs['display_upscaled_image'] or not kandinsky_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
                 #prt(Row([Img(src=image_path, width=kandinsky_prefs['width'], height=kandinsky_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             #if save_to_GDrive:
@@ -51303,13 +51332,12 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 upscale_image(image_path, upscaled_path, scale=kandinsky_prefs["enlarge_scale"], face_enhance=kandinsky_prefs["face_enhance"])
                 image_path = upscaled_path
                 os.chdir(stable_dir)
+                save_metadata(upscaled_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
                 if kandinsky_prefs['display_upscaled_image']:
-                    time.sleep(0.6)
                     prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             #else:
             #    time.sleep(1.2)
             #    shutil.copy(image_path, os.path.join(out_path, output_file))
-            save_metadata(image_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], kandinsky_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -51474,6 +51502,7 @@ def run_kandinsky21(page):
         image.save(image_path)
         new_file = image_path.rpartition(slash)[2]
         if not kandinsky21_prefs['display_upscaled_image'] or not kandinsky21_prefs['apply_ESRGAN_upscale']:
+            save_metadata(image_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
             #prt(Row([Img(src=image_path, width=kandinsky21_prefs['width'], height=kandinsky21_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([ImageButton(src=image_path, width=kandinsky21_prefs['width'], height=kandinsky21_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
         #if save_to_GDrive:
@@ -51489,12 +51518,11 @@ def run_kandinsky21(page):
         if kandinsky21_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = new_path
             upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
+            save_metadata(upscaled_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
             if kandinsky21_prefs['display_upscaled_image']:
-                time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
-        save_metadata(new_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -51636,6 +51664,7 @@ def run_kandinsky_fuse(page):
         new_file = image_path.rpartition(slash)[2]
         if not kandinsky_fuse_prefs['display_upscaled_image'] or not kandinsky_fuse_prefs['apply_ESRGAN_upscale']:
             #prt(Row([Img(src=image_path, width=kandinsky_fuse_prefs['width'], height=kandinsky_fuse_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            save_metadata(image_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
             prt(Row([ImageButton(src=image_path, width=kandinsky_fuse_prefs['width'], height=kandinsky_fuse_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
 
         #if save_to_GDrive:
@@ -51651,13 +51680,11 @@ def run_kandinsky_fuse(page):
         if kandinsky_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = os.path.join(out_path, new_file)
             upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"])
+            save_metadata(upscaled_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
             if kandinsky_fuse_prefs['display_upscaled_image']:
-                time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
-            time.sleep(1.2)
             shutil.copy(image_path, new_path)
-        save_metadata(new_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -51771,6 +51798,7 @@ def run_kandinsky21_fuse(page):
         image.save(image_path)
         new_file = image_path.rpartition(slash)[2]
         if not kandinsky21_fuse_prefs['display_upscaled_image'] or not kandinsky21_fuse_prefs['apply_ESRGAN_upscale']:
+            save_metadata(image_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
             #prt(Row([Img(src=image_path, width=kandinsky21_fuse_prefs['width'], height=kandinsky21_fuse_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             prt(Row([ImageButton(src=image_path, width=kandinsky21_fuse_prefs['width'], height=kandinsky21_fuse_prefs['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
 
@@ -51787,12 +51815,11 @@ def run_kandinsky21_fuse(page):
         if kandinsky21_fuse_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
             upscaled_path = new_path
             upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
+            save_metadata(upscaled_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
             if kandinsky21_fuse_prefs['display_upscaled_image']:
-                time.sleep(0.6)
                 prt(Row([Img(src=upscaled_path, width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
-        save_metadata(new_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
@@ -51985,6 +52012,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                 image.save(image_path)
                 output_file = image_path.rpartition(slash)[2]
                 if not kandinsky_controlnet_prefs['display_upscaled_image'] or not kandinsky_controlnet_prefs['apply_ESRGAN_upscale']:
+                    save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                     #prt(Row([Img(src=image_path, width=kandinsky_controlnet_prefs['width'], height=kandinsky_controlnet_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                     prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
                 #if save_to_GDrive:
@@ -52002,13 +52030,12 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                 if kandinsky_controlnet_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                     upscale_image(image_path, upscaled_path, scale=kandinsky_controlnet_prefs["enlarge_scale"], face_enhance=kandinsky_controlnet_prefs["face_enhance"])
                     image_path = upscaled_path
+                    save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                     if kandinsky_controlnet_prefs['display_upscaled_image']:
-                        time.sleep(0.6)
                         prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 #else:
                 #    time.sleep(1.2)
                 #    shutil.copy(image_path, os.path.join(out_path, output_file))
-                save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], kandinsky_controlnet_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -53094,11 +53121,14 @@ def chmod_recursive(path, mode):
             
 stop_thread = False
 def background_update(page):
-    global stop_thread
-    while not stop_thread:
-        update_stats(page)
-        time.sleep(prefs['stats_update'])
-
+    try:
+      global stop_thread
+      while not stop_thread:
+          update_stats(page)
+          time.sleep(prefs['stats_update'])
+    except Exception:
+      pass
+    
 def start_thread(page):
     global stop_thread
     stop_thread = False
