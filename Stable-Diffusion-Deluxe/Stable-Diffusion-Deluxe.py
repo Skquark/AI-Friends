@@ -3446,7 +3446,7 @@ def buildPromptsList(page):
         return
       if len(prompts) < 1:
         if not bool(prompt_text.value):
-          alert_msg(p.page, "Add some Prompts to the Batch List before running, or at least fill in Prompt Text first.")
+          alert_msg(e.page, "Add some Prompts to the Batch List before running, or at least fill in Prompt Text first.")
           return
         add_prompt(e)
       page.tabs.selected_index = 4
@@ -3504,7 +3504,6 @@ def buildPromptsList(page):
   return c
 
 def buildImages(page):
-    auto_scroll = True
     def auto_scrolling(auto):
       page.imageColumn.auto_scroll = auto
       page.imageColumn.update()
@@ -22342,7 +22341,7 @@ def get_diffusers(page):
         import accelerate
     except ModuleNotFoundError:
         page.status("...installing accelerate")
-        run_sp("pip install git+https://github.com/huggingface/accelerate.git", realtime=False)
+        run_sp("pip install --upgrade git+https://github.com/huggingface/accelerate.git", realtime=False)
         import accelerate
         page.status()
         pass
@@ -49699,7 +49698,7 @@ def run_splatter_image(page):
     gaussian_splatting_dir = os.path.join(root_dir, "gaussian-splatting")
     if not os.path.exists(gaussian_splatting_dir):
         installer.status("...cloning graphdeco-inria/gaussian-splatting")
-        run_sp("git clone https://github.com/graphdeco-inria/gaussian-splatting.git", cwd=root_dir)
+        run_sp("git clone --recursive https://github.com/graphdeco-inria/gaussian-splatting.git", cwd=root_dir)
     try:
         import diff_gaussian_rasterization
     except ModuleNotFoundError:
@@ -49798,7 +49797,7 @@ def run_splatter_image(page):
     model_names = and_list([f"[ply]({filepath_to_url(ply_path)})", f"[obj]({filepath_to_url(obj_path)})", f"[mtl]({filepath_to_url(mtl_path)})"])
     try:
         progress.status("...Saving Reconstructed 3D Files")
-        image = to_tensor(image).to(device)
+        image = to_tensor(init_img).to(device)
         view_to_world_source, rot_transform_quats = get_source_camera_v2w_rmo_and_quats()
         view_to_world_source = view_to_world_source.to(device)
         rot_transform_quats = rot_transform_quats.to(device)
@@ -53597,4 +53596,5 @@ os.environ["FLET_SECRET_KEY"] = "skquark"
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
+  os.environ["FLET_FORCE_WEB_SERVER"] = "false"
   ft.app(target=main, view=ft.WEB_BROWSER, port=port, assets_dir=os.path.abspath(root_dir), upload_dir=os.path.abspath(root_dir), use_color_emoji=True)
