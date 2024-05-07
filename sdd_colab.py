@@ -2,7 +2,7 @@ import os, subprocess, sys, shutil, re, argparse
 import random as rnd
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--storage_type", type=str, required=True, default="Colab Google Drive")
+parser.add_argument("--storage_type", type=str, default="Colab Google Drive")
 parser.add_argument("--saved_settings_json", type=str, default="/content/drive/MyDrive/AI/Stable_Diffusion/sdd-settings.json")
 parser.add_argument("--tunnel_type", type=str, default="localtunnel")
 parser.add_argument("--auto_launch_website", default=False, action='store_true')
@@ -764,8 +764,7 @@ def buildImageAIs(page):
     page.InstaFlow = buildInstaFlow(page)
     page.PAG = buildPAG(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
-    page.DallE2 = buildDallE2(page)
-    page.DallE3 = buildDallE3(page)
+    page.DallE = buildDallE3(page)
     page.Kandinsky = buildKandinsky3(page) if status['kandinsky_version'] == "Kandinsky 3.0" else buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page) if status['kandinsky_fuse_2_2'] else buildKandinsky21Fuse(page)
     page.KandinskyControlNet = buildKandinskyControlNet(page)
@@ -786,6 +785,7 @@ def buildImageAIs(page):
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
             Tab(text="QRCode", content=page.ControlNetQR, icon=icons.QR_CODE_2),
+            Tab(text="DALL•E", content=page.DallE, icon=icons.BLUR_ON),
             Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
@@ -808,6 +808,7 @@ def buildImageAIs(page):
             Tab(text="HD-Painter", content=page.HD_Painter, icon=icons.BRUSH),
             Tab(text="IP-Adapter", content=page.IP_Adapter, icon=icons.ROOM_PREFERENCES),
             Tab(text="Reference-Only", content=page.Reference, icon=icons.CRISIS_ALERT),
+            Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
             Tab(text="Re-Segment-Anything", content=page.ControlNetSegmentAnything, icon=icons.SEND_TIME_EXTENSION),
             Tab(text="LEdits++", content=page.LEdits, icon=icons.PUBLISHED_WITH_CHANGES),
             Tab(text="Null-Text", content=page.Null_Text, icon=icons.FORMAT_OVERLINE),
@@ -820,9 +821,8 @@ def buildImageAIs(page):
             Tab(text="Paint-by-Example", content=page.PaintByExample, icon=icons.FORMAT_SHAPES),
             Tab(text="CLIP-Styler", content=page.CLIPstyler, icon=icons.STYLE),
             Tab(text="Semantic Guidance", content=page.SemanticGuidance, icon=icons.ROUTE),
-            Tab(text="Material Diffusion", content=page.MaterialDiffusion, icon=icons.TEXTURE),
-            Tab(text="DALL•E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
-            Tab(text="DALL•E 3", content=page.DallE3, icon=icons.BLUR_ON),
+            #Tab(text="DALL•E 2", content=page.DallE2, icon=icons.BLUR_CIRCULAR),
+            #Tab(text="DALL•E 3", content=page.DallE3, icon=icons.BLUR_ON),
             Tab(text="DiT", content=page.DiT, icon=icons.ANALYTICS),
             Tab(text="DeepDaze", content=page.DeepDaze, icon=icons.FACE),
         ],
@@ -1166,11 +1166,11 @@ def initState(page):
       status['installed_ESRGAN'] = True
     page.load_prompts()
     # TODO: Try to load from assets folder
-    page.snd_alert = Audio(src=os.path.join(assets, "snd-alert.mp3"), autoplay=False)
-    page.snd_delete = Audio(src=os.path.join(assets, "snd-delete.mp3"), autoplay=False)
-    page.snd_error = Audio(src=os.path.join(assets, "snd-error.mp3"), autoplay=False)
-    page.snd_done = Audio(src=os.path.join(assets, "snd-done.mp3"), autoplay=False)
-    page.snd_drop = Audio(src=os.path.join(assets, "snd-drop.mp3"), autoplay=False)
+    page.snd_alert = Audio(src=get_dir(os.path.join(assets, "snd-alert.mp3")), autoplay=False)
+    page.snd_delete = Audio(src=get_dir(os.path.join(assets, "snd-delete.mp3")), autoplay=False)
+    page.snd_error = Audio(src=get_dir(os.path.join(assets, "snd-error.mp3")), autoplay=False)
+    page.snd_done = Audio(src=get_dir(os.path.join(assets, "snd-done.mp3")), autoplay=False)
+    page.snd_drop = Audio(src=get_dir(os.path.join(assets, "snd-drop.mp3")), autoplay=False)
     #page.snd_notification = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-notification.mp3?raw=true", autoplay=False)
     page.overlay.append(page.snd_alert)
     page.overlay.append(page.snd_delete)
@@ -14369,7 +14369,7 @@ def buildStyleCrafter(page):
     def image_details(e):
         img = e.control.data
         #TODO: Get file size & resolution
-        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=img, gapless_playback=True)]), sound=False)
+        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=get_dir(img), gapless_playback=True)]), sound=False)
     def add_file(fpath, update=True):
         page.style_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[#TODO: View Image
@@ -16923,7 +16923,7 @@ def buildDiT(page):
     ], scroll=ScrollMode.AUTO, auto_scroll=False)
     return c
 
-dall_e_prefs = {
+dall_e_2_prefs = {
     'prompt': '',
     'size': '512x512',
     'num_images': 1,
@@ -16940,16 +16940,16 @@ dall_e_prefs = {
 }
 
 def buildDallE2(page):
-    global dall_e_prefs
+    global dall_e_2_prefs
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
           if ptype == "int":
-            dall_e_prefs[pref] = int(e.control.value)
+            dall_e_2_prefs[pref] = int(e.control.value)
           elif ptype == "float":
-            dall_e_prefs[pref] = float(e.control.value)
+            dall_e_2_prefs[pref] = float(e.control.value)
           else:
-            dall_e_prefs[pref] = e.control.value
+            dall_e_2_prefs[pref] = e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -16988,11 +16988,11 @@ def buildDallE2(page):
             if pick_type == "init":
                 init_image.value = fname
                 init_image.update()
-                dall_e_prefs['init_image'] = fname
+                dall_e_2_prefs['init_image'] = fname
             elif pick_type == "mask":
                 mask_image.value = fname
                 mask_image.update()
-                dall_e_prefs['mask_image'] = fname
+                dall_e_2_prefs['mask_image'] = fname
             page.update()
     file_picker = FilePicker(on_result=file_picker_result, on_upload=on_upload_progress)
     def upload_files(e):
@@ -17017,50 +17017,58 @@ def buildDallE2(page):
         file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
-        dall_e_prefs['apply_ESRGAN_upscale'] = e.control.value
+        dall_e_2_prefs['apply_ESRGAN_upscale'] = e.control.value
         ESRGAN_settings.update()
     def change_enlarge_scale(e):
         enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
         enlarge_scale_slider.update()
         changed(e, 'enlarge_scale', ptype="float")
+    def switch_version(e):
+        page.DallE = buildDallE3(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "DALL•E":
+            t.content = page.DallE
+            t.icon = icons.BLUR_ON
+            break
+        page.ImageAIs.update()
+        page.update()
+    prompt = TextField(label="Prompt Text", value=dall_e_2_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=dall_e_2_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=dall_e_2_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    #num_images = NumberPicker(label="Num of Images", min=1, max=10, step=9, value=dall_e_2_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    #num_images = TextField(label="num_images", value=dall_e_2_prefs['num_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_images', ptype="int"))
+    #n_iterations = TextField(label="Number of Iterations", value=dall_e_2_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
+    #steps = TextField(label="Inference Steps", value=dall_e_2_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
+    #eta = TextField(label="DDIM ETA", value=dall_e_2_prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta', ptype="float"))
+    #seed = TextField(label="Seed", value=dall_e_2_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
+    size = Dropdown(label="Image Size", width=120, options=[dropdown.Option("256x256"), dropdown.Option("512x512"), dropdown.Option("1024x1024")], value=dall_e_2_prefs['size'], on_change=lambda e:changed(e,'size'))
+    param_rows = ResponsiveRow([Row([batch_folder_name, file_prefix], col={'lg':6}), Row([size, NumberPicker(label=" Number of Images", min=1, max=10, step=1, value=dall_e_2_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))], col={'lg':6})])
 
-    prompt = TextField(label="Prompt Text", value=dall_e_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
-    batch_folder_name = TextField(label="Batch Folder Name", value=dall_e_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    file_prefix = TextField(label="Filename Prefix", value=dall_e_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
-    #num_images = NumberPicker(label="Num of Images", min=1, max=10, step=9, value=dall_e_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
-    #num_images = TextField(label="num_images", value=dall_e_prefs['num_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'num_images', ptype="int"))
-    #n_iterations = TextField(label="Number of Iterations", value=dall_e_prefs['n_iterations'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'n_iterations', ptype="int"))
-    #steps = TextField(label="Inference Steps", value=dall_e_prefs['steps'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'steps', ptype="int"))
-    #eta = TextField(label="DDIM ETA", value=dall_e_prefs['eta'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'eta', ptype="float"))
-    #seed = TextField(label="Seed", value=dall_e_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'seed', ptype="int"))
-    size = Dropdown(label="Image Size", width=120, options=[dropdown.Option("256x256"), dropdown.Option("512x512"), dropdown.Option("1024x1024")], value=dall_e_prefs['size'], on_change=lambda e:changed(e,'size'))
-    param_rows = ResponsiveRow([Row([batch_folder_name, file_prefix], col={'lg':6}), Row([size, NumberPicker(label=" Number of Images", min=1, max=10, step=1, value=dall_e_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))], col={'lg':6})])
-
-    #width = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_prefs['width'], on_change=change_width, expand=True)
-    #width_value = Text(f" {int(dall_e_prefs['width'])}px", weight=FontWeight.BOLD)
+    #width = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_2_prefs['width'], on_change=change_width, expand=True)
+    #width_value = Text(f" {int(dall_e_2_prefs['width'])}px", weight=FontWeight.BOLD)
     #width_slider = Row([Text(f"Width: "), width_value, width])
-    #height = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_prefs['height'], on_change=change_height, expand=True)
-    #height_value = Text(f" {int(dall_e_prefs['height'])}px", weight=FontWeight.BOLD)
+    #height = Slider(min=128, max=1024, divisions=6, label="{value}px", value=dall_e_2_prefs['height'], on_change=change_height, expand=True)
+    #height_value = Text(f" {int(dall_e_2_prefs['height'])}px", weight=FontWeight.BOLD)
     #height_slider = Row([Text(f"Height: "), height_value, height])
-    init_image = TextField(label="Init Image (optional)", value=dall_e_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
-    mask_image = TextField(label="Mask Image (optional)", value=dall_e_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
-    variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_prefs['variation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
-    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    init_image = TextField(label="Init Image (optional)", value=dall_e_2_prefs['init_image'], on_change=lambda e:changed(e,'init_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_init, col={"*":1, "md":3}))
+    mask_image = TextField(label="Mask Image (optional)", value=dall_e_2_prefs['mask_image'], on_change=lambda e:changed(e,'mask_image'), expand=True, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD_OUTLINED, on_click=pick_mask, col={"*":1, "md":3}))
+    variation = Checkbox(label="Variation   ", tooltip="Creates Variation of Init Image. Disregards the Prompt and Mask.", value=dall_e_2_prefs['variation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'variation'))
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=dall_e_2_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
     image_pickers = Container(content=ResponsiveRow([Row([init_image, variation], col={"md":6}), Row([mask_image, invert_mask], col={"md":6})], run_spacing=2), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    #prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=dall_e_prefs['prompt_strength'], on_change=change_strength, expand=True)
-    #strength_value = Text(f" {int(dall_e_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
+    #prompt_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}%", value=dall_e_2_prefs['prompt_strength'], on_change=change_strength, expand=True)
+    #strength_value = Text(f" {int(dall_e_2_prefs['prompt_strength'] * 100)}%", weight=FontWeight.BOLD)
     #strength_slider = Row([Text("Prompt Strength: "), strength_value, prompt_strength])
     img_block = Container(Column([image_pickers, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=dall_e_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
-    enlarge_scale_value = Text(f" {float(dall_e_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
-    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=dall_e_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=dall_e_2_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_value = Text(f" {float(dall_e_2_prefs['enlarge_scale'])}x", weight=FontWeight.BOLD)
+    enlarge_scale = Slider(min=1, max=4, divisions=6, label="{value}x", round=1, value=dall_e_2_prefs['enlarge_scale'], on_change=change_enlarge_scale, expand=True)
     enlarge_scale_slider = Row([Text("Enlarge Scale: "), enlarge_scale_value, enlarge_scale])
-    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=dall_e_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
-    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=dall_e_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=dall_e_2_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=dall_e_2_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_dalle = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     page.ESRGAN_block_dalle.height = None if status['installed_ESRGAN'] else 0
-    if not dall_e_prefs['apply_ESRGAN_upscale']:
+    if not dall_e_2_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
     list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page, from_list=True))
     parameters_button = ElevatedButton(content=Text(value="🖼️   Run DALL•E 2", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_dall_e(page))
@@ -17069,7 +17077,7 @@ def buildDallE2(page):
     page.dall_e_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("👺  OpenAI DALL•E 2", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
+            Header("👺  OpenAI DALL•E 2", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website.", actions=[ft.OutlinedButton(content=Text("Switch to DALL•E 3", size=18), on_click=switch_version), save_default(dall_e_2_prefs, ['init_image', 'mask_image'])]),
             prompt,
             img_block, page.ESRGAN_block_dalle,
             #(img_block if status['installed_img2img'] or status['installed_stability'] else Container(content=None)), (clip_block if prefs['install_CLIP_guided'] else Container(content=None)), (ESRGAN_block if prefs['install_ESRGAN'] else Container(content=None)),
@@ -17177,7 +17185,15 @@ def buildDallE3(page):
         enlarge_scale_slider.controls[1].value = f" {float(e.control.value)}x"
         enlarge_scale_slider.update()
         changed(e, 'enlarge_scale', ptype="float")
-
+    def switch_version(e):
+        page.DallE = buildDallE2(page)
+        for t in page.ImageAIs.tabs:
+          if t.text == "DALL•E":
+            t.content = page.DallE
+            t.icon = icons.BLUR_CIRCULAR
+            break
+        page.ImageAIs.update()
+        page.update()
     prompt = TextField(label="Prompt Text", value=dall_e_3_prefs['prompt'], filled=True, multiline=True, on_change=lambda e:changed(e,'prompt'))
     batch_folder_name = TextField(label="Batch Folder Name", value=dall_e_3_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=dall_e_3_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
@@ -17211,7 +17227,7 @@ def buildDallE3(page):
     dall_e_3_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("🏇  OpenAI DALL•E 3", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website."),
+            Header("🏇  OpenAI DALL•E 3", "Generates Images using your OpenAI API Key. Note: Uses same credits as official website.", actions=[ft.OutlinedButton(content=Text("Switch to DALL•E 2", size=18), on_click=switch_version), save_default(dall_e_3_prefs, ['init_image', 'mask_image'])]),
             prompt,
             Row([hd_quality, natural_style]),
             #img_block,
@@ -19764,6 +19780,8 @@ LoRA_prefs = {
     'image_path': '',
     'readme_description': '',
     'urls': [],
+    'dream_training': False,
+    'dream_detail_preservation': 1.0,
 }
 
 def buildLoRA_Dreambooth(page):
@@ -20044,7 +20062,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     def image_details(e):
         img = e.control.data
         #TODO: Get file size & resolution
-        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=img, gapless_playback=True)]), sound=False)
+        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=get_dir(img), gapless_playback=True)]), sound=False)
     def add_file(fpath, update=True):
         page.lora_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[#TODO: View Image
@@ -20146,6 +20164,10 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         where_to_save_model.update()
         readme_description.visible = LoRA_prefs['save_model']
         readme_description.update()
+    def toggle_dream(e):
+        changed(e, 'dream_training')
+        dream_detail_preservation.visible = LoRA_prefs['dream_training']
+        dream_detail_preservation.update()
     validation_prompt = Container(content=Tooltip(message="A prompt that is sampled during training for inference.", content=TextField(label="Validation Prompt Text", value=LoRA_prefs['validation_prompt'], on_change=lambda e:changed(e,'validation_prompt'))), col={'md':9})
     name_of_your_model = TextField(label="Name of your Model", value=LoRA_prefs['name_of_your_model'], on_change=lambda e:changed(e,'name_of_your_model'), col={'md':3})
     #class_prompt = TextField(label="Class Prompt", value=LoRA_prefs['class_prompt'], on_change=lambda e:changed(e,'class_prompt'))
@@ -20156,6 +20178,8 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     lr_scheduler = Dropdown(label="Learning Rate Scheduler", width=250, options=[dropdown.Option("constant"), dropdown.Option("constant_with_warmup"), dropdown.Option("linear"), dropdown.Option("cosine"), dropdown.Option("cosine_with_restarts"), dropdown.Option("polynomial")], value=LoRA_prefs['lr_scheduler'], on_change=lambda e: changed(e, 'lr_scheduler'))
     prior_preservation = Checkbox(label="Prior Preservation", tooltip="If you'd like class of the model (e.g.: toy, dog, painting) is guaranteed to be preserved. This increases the quality and helps with generalization at the cost of training time", value=LoRA_prefs['prior_preservation'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'prior_preservation'))
     gradient_checkpointing = Checkbox(label="Gradient Checkpointing   ", tooltip="Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.", value=LoRA_prefs['gradient_checkpointing'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'gradient_checkpointing'))
+    #dream_training = Switcher(label="DREAM Training   ", value=LoRA_prefs['dream_training'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_dream, tooltip="Diffusion Rectification and Estimation-Adaptive Models. Trains epsilon (noise) prediction models to make training more efficient and accurate at the expense of doing an extra forward pass.")
+    #dream_detail_preservation = SliderRow(label="DREAM Detail Preservation", min=0, max=2, divisions=40, round=2, pref=LoRA_prefs, key='dream_detail_preservation', tooltip="Controls the Dream detail preservation variable p.", visible=LoRA_prefs['dream_training'])
     #num_class_images = Tooltip(message="Minimal class images for prior preservation loss. If there are not enough images already present in class_data_dir, additional images will be sampled with class_prompt.", content=TextField(label="Number of Class Images", value=LoRA_prefs['num_class_images'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'num_class_images', ptype='int'), width = 160))
     #sample_batch_size = Tooltip(message="Batch size (per device) for sampling images.", content=TextField(label="Sample Batch Size", value=LoRA_prefs['sample_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'sample_batch_size', ptype='int'), width = 160))
     train_batch_size = Tooltip(message="Batch size (per device) for the training dataloader.", content=TextField(label="Train Batch Size", value=LoRA_prefs['train_batch_size'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'train_batch_size', ptype='int'), width = 160))
@@ -20167,7 +20191,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     #lr_num_cycles = Tooltip(message="Number of hard resets of the lr in cosine_with_restarts scheduler.", content=TextField(label="LR Number of Cycles", value=LoRA_prefs['lr_num_cycles'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_num_cycles', ptype='int'), width = 160))
     #lr_power = Tooltip(message="Power factor of the polynomial scheduler.", content=TextField(label="LR Power", value=LoRA_prefs['lr_power'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'lr_power', ptype='int'), width = 160))
     seed = Tooltip(message="0 or -1 for Random. Pick any number.", content=TextField(label="Seed", value=LoRA_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 160))
-    save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
+    #save_model = Checkbox(label="Save Model to HuggingFace   ", tooltip="", value=LoRA_prefs['save_model'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_model'))
     save_model = Tooltip(message="Requires WRITE access on API Key to Upload Checkpoint", content=Switcher(label="Save Model to HuggingFace    ", value=LoRA_prefs['save_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_save))
     where_to_save_model = Dropdown(label="Where to Save Model", width=250, options=[dropdown.Option("Public HuggingFace"), dropdown.Option("Private HuggingFace")], value=LoRA_prefs['where_to_save_model'], on_change=lambda e: changed(e, 'where_to_save_model'))
     #class_data_dir = TextField(label="Prior Preservation Class Folder", value=LoRA_prefs['class_data_dir'], on_change=lambda e:changed(e,'class_data_dir'))
@@ -20193,6 +20217,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
         Row([prior_preservation, gradient_checkpointing]),
         Row([learning_rate, lr_warmup_steps, lr_scheduler]),
         Row([max_train_steps, gradient_accumulation_steps, seed]),
+        #Row([dream_training, dream_detail_preservation]),
         Row([save_model, where_to_save_model]),
         readme_description,
         #Row([class_data_dir]),
@@ -24201,7 +24226,11 @@ def get_AIHorde(page):
     import requests
     api_host = os.getenv('API_HOST', 'https://stablehorde.net/api/')
     horde_url = f"{api_host}/v2/find_user" #user/account"
-    response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'})
+    try:
+      response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'})
+    except Exception as e:
+      alert_msg(page, "ERROR with AIHorde Authentication", content=Text(str(e)))
+      return
     if response.status_code != 200:
       alert_msg(page, "ERROR {response.status_code} with AIHorde Authentication", content=Text(str(response.text)))
       return
@@ -25234,7 +25263,7 @@ def available_folder(folder, name, idx):
 def filepath_to_url(path):
     if is_Colab:
         from urllib.parse import quote
-        path = quote(path)
+        path = quote(get_dir(path))
         return path
     windows_path_pattern = re.compile(r"(.)\:\/")
     linux_path_pattern = re.compile(r"^\/")
@@ -28454,7 +28483,7 @@ def run_retrieve(page):
         img = PILImage.open(filename)
         metadata = img.info
         if display_image:
-          page.add_to_retrieve_output(Img(src=filename, gapless_playback=True))
+          page.add_to_retrieve_output(Img(src=get_dir(filename), gapless_playback=True))
           #display(img)
         if metadata is None or len(metadata) < 1:
           alert_msg(page, 'Sorry, image has no exif data.')
@@ -28656,7 +28685,7 @@ def run_init_video(page):
             cv2.imwrite(os.path.join(output_dir, filename), image)
             files.append(filename)
             if show_images:
-                page.add_to_init_video_output(Row([Img(src=filename, width=w, height=h, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                page.add_to_init_video_output(Row([Img(src=get_dir(filename), width=w, height=h, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 #page.add_to_init_video_output(Row([Text(filename)], alignment=MainAxisAlignment.CENTER))
             count += 1
     cap.release()
@@ -29644,7 +29673,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
                 if blip_diffusion_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -31282,7 +31311,7 @@ def run_controlnet_segment(page, from_list=False):
             segmented_map = show_anns(masks)
             segmented_map.save(segmented_image)
             clear_last()#src_base64=pil_to_base64(segmented_map)
-            prt(Row([Img(src=segmented_image, width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([Img(src=get_dir(segmented_image), width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             del masks
             flush()
             prt(progress)
@@ -32370,7 +32399,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
                 if demofusion_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(batch_output, fname, 0)
                 out_path = new_file
@@ -33291,7 +33320,7 @@ def run_audio_diffusion(page):
         iname = available_file(save_dir, audio_name, 0)
         image.save(iname)
         out_path = iname
-        prt(Row([Img(src=iname, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Img(src=get_dir(iname), fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if storage_type == "Colab Google Drive":
             new_file = available_file(prefs['image_output'], fname, 0)
             out_path = new_file
@@ -34405,6 +34434,8 @@ def run_LoRA(page):
         #class_data_dir=LoRA_prefs['class_data_dir'],
         #class_prompt=LoRA_prefs['class_prompt'],
         #num_class_images=LoRA_prefs['num_class_images'],
+        #dream_training=LoRA_prefs['dream_training'],
+        #dream_detail_preservation=LoRA_prefs['dream_detail_preservation'],
         cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
         hub_model_id=repo_id,
         output_dir=os.path.join(root_dir, "LoRA-model", format_filename(LoRA_prefs['name_of_your_model'], use_dash=True)),
@@ -34837,7 +34868,7 @@ def run_checkpoint_merger(page):
         fpath = available_file(stable_dir, fname, 0)
         image.save(fpath)
         clear_last()
-        prt(Img(src=fpath))
+        prt(Img(src=get_dir(fpath)))
     if checkpoint_merger_prefs['save_model']:
         private = False if checkpoint_merger_prefs['where_to_save_model'] == "Public HuggingFace" else True
         from huggingface_hub import HfFolder, create_repo, Repository
@@ -41120,7 +41151,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                     if wuerstchen_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=upscaled_path, width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -41325,7 +41356,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                     if stable_cascade_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=upscaled_path, width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -42731,7 +42762,7 @@ def run_lcm_interpolation(page):
             upscale_image(image_path, image_path, scale=lcm_interpolation_prefs["enlarge_scale"], face_enhance=lcm_interpolation_prefs["face_enhance"])
             if lcm_interpolation_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=image_path, width=lcm_interpolation_prefs['width'] * float(lcm_interpolation_prefs["enlarge_scale"]), height=lcm_interpolation_prefs['height'] * float(lcm_interpolation_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=get_dir(image_path), width=lcm_interpolation_prefs['width'] * float(lcm_interpolation_prefs["enlarge_scale"]), height=lcm_interpolation_prefs['height'] * float(lcm_interpolation_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             time.sleep(0.2)
             shutil.copy(image_path, os.path.join(out_path, new_file))
@@ -44181,7 +44212,7 @@ def run_controlnet_temporalnet(page):
         last_generated_image = image
         clear_last()
         autoscroll(True)
-        prt(Row([Img(src=output_path, fit=ImageFit.CONTAIN, width=w, height=h, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Img(src=get_dir(output_path), fit=ImageFit.CONTAIN, width=w, height=h, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         prt(Row([Text(output_path)], alignment=MainAxisAlignment.CENTER))
     prt(Installing(f"Saving Video File... Frames at {output_frames_dir if not controlnet_temporalnet_prefs['save_frames'] else save_frames_dir}"))
     if controlnet_temporalnet_prefs['save_frames']:
@@ -45061,6 +45092,7 @@ def run_svd(page):
     #for v in range(svd_prefs['num_videos']):
     frames_batch = None
     random_seed = get_seed(svd_prefs['seed'])
+    
     generator = torch.manual_seed(random_seed)
     try: #, callback_on_step_end=callback_fnc , callback_on_step_end=progress.callback_alt
         frames_batch = pipe_svd(init_img, width=width, height=height, num_frames=svd_prefs["num_frames"], decode_chunk_size=svd_prefs["decode_chunk_size"], motion_bucket_id=svd_prefs['motion_bucket_id'], noise_aug_strength=svd_prefs['noise_aug_strength'], num_inference_steps=svd_prefs['num_inference_steps'], min_guidance_scale=svd_prefs['min_guidance_scale'], max_guidance_scale=svd_prefs['max_guidance_scale'], fps=svd_prefs['fps'], generator=generator).frames[0]
@@ -45111,7 +45143,7 @@ def run_svd(page):
             upscale_image(image_path, image_path, scale=svd_prefs["enlarge_scale"], face_enhance=svd_prefs["face_enhance"])
             if svd_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=image_path, width=width * float(svd_prefs["enlarge_scale"]), height=height * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=get_dir(image_path), width=width * float(svd_prefs["enlarge_scale"]), height=height * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         #else:
         #    time.sleep(0.2)
         #shutil.copy(image_path, os.path.join(frames_dir, new_file))
@@ -45628,7 +45660,7 @@ def run_style_crafter(page):
         image_path = os.path.join(outputs_dir, frame_file)
         output_path = os.path.join(batch_output, frame_file)#os.path.join(outputs_dir, f"frame{str(i).zfill(4)}.png")
         shutil.copy(image_path, output_path)
-        prt(Row([Img(src=output_path, fit=ImageFit.CONTAIN, width=style_crafter_prefs["width"], height=style_crafter_prefs["height"], gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Img(src=get_dir(output_path), fit=ImageFit.CONTAIN, width=style_crafter_prefs["width"], height=style_crafter_prefs["height"], gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         prt(Row([Text(output_path)], alignment=MainAxisAlignment.CENTER))
     if mode == "video":
         installer = Installing(f"Saving Video File... Frames at {outputs_dir if not style_crafter_prefs['save_frames'] else batch_output}")
@@ -47075,7 +47107,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=animatediff_img2video_prefs["enlarge_scale"], face_enhance=animatediff_img2video_prefs["face_enhance"])
                     if animatediff_img2video_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=image_path, width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=get_dir(image_path), width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=animatediff_img2video_prefs['fps'])
@@ -47321,7 +47353,7 @@ def run_pia(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=pia_prefs["enlarge_scale"], face_enhance=pia_prefs["face_enhance"])
                     if pia_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=image_path, width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=get_dir(image_path), width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=pia_prefs['fps'])
@@ -47542,7 +47574,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=i2vgen_xl_prefs["enlarge_scale"], face_enhance=i2vgen_xl_prefs["face_enhance"])
                     if i2vgen_xl_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=image_path, width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=get_dir(image_path), width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=i2vgen_xl_prefs['fps'])
@@ -48248,7 +48280,7 @@ def run_materialdiffusion(page):
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
             if materialdiffusion_prefs['display_upscaled_image']:
-                prt(Row([Img(src=upscaled_path, width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=get_dir(upscaled_path), width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             new_path
             try:
@@ -48381,7 +48413,7 @@ def run_materialdiffusion_sdxl(page):
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
             if materialdiffusion_sdxl_prefs['display_upscaled_image']:
-                prt(Row([Img(src=upscaled_path, width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=get_dir(upscaled_path), width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             new_path
             try:
@@ -50494,8 +50526,8 @@ def run_luma_vid_to_3d(page):
 
 
 def run_dall_e(page, from_list=False):
-    global dall_e_prefs, prefs, prompts
-    if (not bool(dall_e_prefs['prompt']) and not from_list) or (from_list and (len(prompts) == 0)):
+    global dall_e_2_prefs, prefs, prompts
+    if (not bool(dall_e_2_prefs['prompt']) and not from_list) or (from_list and (len(prompts) == 0)):
       alert_msg(page, "You must provide a text prompt to process your image generation...")
       return
     if not bool(prefs['OpenAI_api_key']):
@@ -50543,7 +50575,7 @@ def run_dall_e(page, from_list=False):
             alert_msg(page, f"Your Prompts List is empty. Add to your batch list to use feature.")
             return
     else:
-        dall_e_list.append({'prompt': dall_e_prefs['prompt'], 'init_image': dall_e_prefs['init_image'], 'mask_image': dall_e_prefs['mask_image']})
+        dall_e_list.append({'prompt': dall_e_2_prefs['prompt'], 'init_image': dall_e_2_prefs['init_image'], 'mask_image': dall_e_2_prefs['mask_image']})
     clear_list()
     autoscroll(True)
     for p in dall_e_list:
@@ -50560,7 +50592,7 @@ def run_dall_e(page, from_list=False):
                 else:
                     alert_msg(page, f"ERROR: Couldn't find your init_image {init_image}")
                     return
-            init_img = init_img.resize((dall_e_prefs['size'], dall_e_prefs['size']), resample=PILImage.Resampling.LANCZOS)
+            init_img = init_img.resize((dall_e_2_prefs['size'], dall_e_2_prefs['size']), resample=PILImage.Resampling.LANCZOS)
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")
             init_img.save(init_file)
         mask_img = None
@@ -50575,9 +50607,9 @@ def run_dall_e(page, from_list=False):
                 else:
                     alert_msg(page, f"ERROR: Couldn't find your mask_image {mask_image}")
                     return
-                if dall_e_prefs['invert_mask']:
+                if dall_e_2_prefs['invert_mask']:
                     mask_img = ImageOps.invert(mask_img.convert('RGB'))
-            mask_img = mask_img.resize((dall_e_prefs['size'], dall_e_prefs['size']), resample=PILImage.NEAREST)
+            mask_img = mask_img.resize((dall_e_2_prefs['size'], dall_e_2_prefs['size']), resample=PILImage.NEAREST)
             mask_img = ImageOps.exif_transpose(init_img).convert("RGB")
             mask_img.save(mask_file)
         #print(f'Resize to {width}x{height}')
@@ -50586,14 +50618,14 @@ def run_dall_e(page, from_list=False):
         prt(progress)
         autoscroll(False)
         try:
-            if bool(init_image) and bool(dall_e_prefs['variation']):
-                response = openai_client.images.create_variation(image=open(init_file, 'rb'), size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
+            if bool(init_image) and bool(dall_e_2_prefs['variation']):
+                response = openai_client.images.create_variation(image=open(init_file, 'rb'), size=dall_e_2_prefs['size'], n=dall_e_2_prefs['num_images'])
             elif bool(init_image) and not bool(mask_image):
-                response = openai_client.images.edit(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'))
+                response = openai_client.images.edit(prompt=p['prompt'], size=dall_e_2_prefs['size'], n=dall_e_2_prefs['num_images'], image=open(init_file, 'rb'))
             elif bool(init_image) and bool(mask_image):
-                response = openai_client.images.edit(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'], image=open(init_file, 'rb'), mask=open(mask_file, 'rb'))
+                response = openai_client.images.edit(prompt=p['prompt'], size=dall_e_2_prefs['size'], n=dall_e_2_prefs['num_images'], image=open(init_file, 'rb'), mask=open(mask_file, 'rb'))
             else:
-                response = openai_client.images.generate(prompt=p['prompt'], size=dall_e_prefs['size'], n=dall_e_prefs['num_images'])
+                response = openai_client.images.generate(prompt=p['prompt'], size=dall_e_2_prefs['size'], n=dall_e_2_prefs['num_images'])
         except Exception as e:
             clear_last()
             clear_last()
@@ -50603,7 +50635,7 @@ def run_dall_e(page, from_list=False):
         clear_last()
         autoscroll(True)
         txt2img_output = stable_dir
-        batch_output = os.path.join(prefs['image_output'], dall_e_prefs['batch_folder_name'])
+        batch_output = os.path.join(prefs['image_output'], dall_e_2_prefs['batch_folder_name'])
         makedir(batch_output)
         #print(str(images))
         if response is None:
@@ -50616,10 +50648,10 @@ def run_dall_e(page, from_list=False):
             #random_seed += idx
             fname = format_filename(p['prompt'])
             #seed_suffix = f"-{random_seed}" if bool(prefs['file_suffix_seed']) else ''
-            fname = f'{dall_e_prefs["file_prefix"]}{fname}'
+            fname = f'{dall_e_2_prefs["file_prefix"]}{fname}'
             txt2img_output = stable_dir
-            if bool(dall_e_prefs['batch_folder_name']):
-                txt2img_output = os.path.join(stable_dir, dall_e_prefs['batch_folder_name'])
+            if bool(dall_e_2_prefs['batch_folder_name']):
+                txt2img_output = os.path.join(stable_dir, dall_e_2_prefs['batch_folder_name'])
             makedir(txt2img_output)
             image_path = available_file(txt2img_output, fname, 1)
             #image.save(image_path)
@@ -50628,25 +50660,25 @@ def run_dall_e(page, from_list=False):
                 f.write(response.content)
             #img = i['url']
             new_file = image_path.rpartition(slash)[2].rpartition('-')[0]
-            size = int(dall_e_prefs['size'].rpartition('x')[0])
+            size = int(dall_e_2_prefs['size'].rpartition('x')[0])
             out_path = batch_output# if save_to_GDrive else txt2img_output
             new_path = available_file(out_path, new_file, idx)
-            if not dall_e_prefs['display_upscaled_image'] or not dall_e_prefs['apply_ESRGAN_upscale']:
-                save_metadata(image_path, dall_e_prefs, "Dall-E 2")
+            if not dall_e_2_prefs['display_upscaled_image'] or not dall_e_2_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, dall_e_2_prefs, "Dall-E 2")
                 prt(Row([ImageButton(src=image_path, data=new_path, width=size, height=size, page=page)], alignment=MainAxisAlignment.CENTER))
                 #prt(Row([Img(src=image_path, width=size, height=size, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             #if save_to_GDrive:
             if storage_type == "PyDrive Google Drive":
-                newFolder = gdrive.CreateFile({'title': dall_e_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
+                newFolder = gdrive.CreateFile({'title': dall_e_2_prefs['batch_folder_name'], "parents": [{"kind": "drive#fileLink", "id": prefs['image_output']}],"mimeType": "application/vnd.google-apps.folder"})
                 newFolder.Upload()
                 batch_output = newFolder
 
-            if dall_e_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+            if dall_e_2_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscaled_path = new_path
-                upscale_image(image_path, upscaled_path, scale=dall_e_prefs["enlarge_scale"], face_enhance=dall_e_prefs["face_enhance"])
-                save_metadata(upscaled_path, dall_e_prefs, "Dall-E 2")
-                if dall_e_prefs['display_upscaled_image']:
-                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_prefs["enlarge_scale"]), height=size * float(dall_e_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
+                upscale_image(image_path, upscaled_path, scale=dall_e_2_prefs["enlarge_scale"], face_enhance=dall_e_2_prefs["face_enhance"])
+                save_metadata(upscaled_path, dall_e_2_prefs, "Dall-E 2")
+                if dall_e_2_prefs['display_upscaled_image']:
+                    prt(Row([ImageButton(src=upscaled_path, data=upscaled_path, width=size * float(dall_e_2_prefs["enlarge_scale"]), height=size * float(dall_e_2_prefs["enlarge_scale"]), page=page)], alignment=MainAxisAlignment.CENTER))
                     #prt(Row([Img(src=upscaled_path,fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             else:
                 shutil.copy(image_path, new_path)#os.path.join(out_path, new_file))
@@ -51052,7 +51084,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
                 if kandinsky_3_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -51335,7 +51367,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 os.chdir(stable_dir)
                 save_metadata(upscaled_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
                 if kandinsky_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             #else:
             #    time.sleep(1.2)
             #    shutil.copy(image_path, os.path.join(out_path, output_file))
@@ -51521,7 +51553,7 @@ def run_kandinsky21(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
             if kandinsky21_prefs['display_upscaled_image']:
-                prt(Row([Img(src=upscaled_path, width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=get_dir(upscaled_path), width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -51683,7 +51715,7 @@ def run_kandinsky_fuse(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
             if kandinsky_fuse_prefs['display_upscaled_image']:
-                prt(Row([Img(src=upscaled_path, width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=get_dir(upscaled_path), width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -51818,7 +51850,7 @@ def run_kandinsky21_fuse(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
             if kandinsky21_fuse_prefs['display_upscaled_image']:
-                prt(Row([Img(src=upscaled_path, width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=get_dir(upscaled_path), width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -52033,7 +52065,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                     if kandinsky_controlnet_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=upscaled_path, width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 #else:
                 #    time.sleep(1.2)
                 #    shutil.copy(image_path, os.path.join(out_path, output_file))
@@ -52131,7 +52163,7 @@ def run_deep_daze(page):
             output_file = os.path.join(output_dir, fname)
             image_files.append(output_file)
             if s == 0:
-                img = Img(src=output_file, fit=ImageFit.FIT_WIDTH, gapless_playback=True)
+                img = Img(src=get_dir(output_file), fit=ImageFit.FIT_WIDTH, gapless_playback=True)
                 prt(Row([img], alignment=MainAxisAlignment.CENTER))
             else:
                 img.src=output_file
@@ -52583,18 +52615,22 @@ class ImageButton(Stack):
         def download_image(e):
             #print(f"{type(self.data)} {self.data}")
             if is_Colab:
-              from urllib.parse import quote
-              self.page.launch_url(quote(self.data))
-              '''from google.colab import files
-              if os.path.isfile(self.data):
-                  files.download(self.data)
-              else:
-                  time.sleep(4)
-                  files.download(self.data)'''
+                from urllib.parse import quote
+                self.page.launch_url(quote(get_dir(self.data)))
+                '''from google.colab import files
+                if os.path.isfile(self.data):
+                    files.download(self.data)
+                else:
+                    time.sleep(4)
+                    files.download(self.data)'''
             else:#, initial_directory=
                 self.file_saver = FilePicker(on_result=file_saver_result)
                 self.page.overlay.append(self.file_saver)
-                self.file_saver.save_file(dialog_title="Save Image to...", allowed_extensions=["png", "PNG"], file_name=os.path.basename(self.data), file_type=ft.FilePickerFileType.IMAGE)
+                try:
+                    self.file_saver.save_file(dialog_title="Save Image to...", allowed_extensions=["png", "PNG"], file_name=os.path.basename(self.data), file_type=ft.FilePickerFileType.IMAGE)
+                except Exception as e:
+                    toast_msg(self.page, f"📲  Error Downloading {self.data}... {e}")
+                    return
             toast_msg(self.page, f"📲  Downloading {self.data}...{' May have to Stop Script for Downloads to start in Colab.' if is_Colab else ''}")
         def file_saver_result(e: FilePickerResultEvent):
             if e.path != None:
@@ -52604,7 +52640,7 @@ class ImageButton(Stack):
             toast_msg(self.page, f"📋  {self.data} copied to clipboard... Paste as Init Image.")
         def image_details(e):
           #TODO: Get size & meta
-            img = Img(src=self.data, gapless_playback=True)
+            img = Img(src=get_dir(self.data), gapless_playback=True)
             #if self.zoom:
             #img = PanZoom(img, self.width, self.height, width=self.width, height=self.height)
             alert_msg(self.page, "Image Details", content=Column([Text(self.subtitle or self.data, selectable=True), img], horizontal_alignment=CrossAxisAlignment.CENTER), sound=False)
@@ -52628,13 +52664,13 @@ class ImageButton(Stack):
             if self.src_base64 != None:
               self.image = Img(src_base64=self.src_base64, fit=self.fit, gapless_playback=True)
             else:
-              self.image = Img(src=self.src, fit=self.fit, gapless_playback=True)
+              self.image = Img(src=get_dir(self.src), fit=self.fit, gapless_playback=True)
         else:
             self.width, self.height = scale_width(self.width, self.height, (self.page.width if self.page.web else self.page.window_width) - 28)
             if self.src_base64 != None:
               self.image = Img(src_base64=self.src_base64, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
             else:
-              self.image = Img(src=self.src, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
+              self.image = Img(src=get_dir(self.src), width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
         if self.zoom:
             self.image = PanZoom(self.image, self.width, self.height,
                       width=self.width,
@@ -53108,7 +53144,19 @@ def nudge(column:Column, page=None):
         column.auto_scroll = False
     if page is not None:
         page.update()
-    
+
+def get_dir(path):
+    """
+    A hack because of change to Flet to get the assets directory path relative to '/content'.
+    """
+    if is_Colab:
+        if path.startswith('/content'):
+            return os.path.relpath(path, '/content')
+        else:
+            return path
+    else:
+        return path
+
 def makedir(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
@@ -53119,7 +53167,7 @@ def chmod_recursive(path, mode):
         for file in files:
             file_path = os.path.join(root, file)
             os.chmod(file_path, mode)
-            
+
 stop_thread = False
 def background_update(page):
     try:
@@ -53129,14 +53177,14 @@ def background_update(page):
           time.sleep(prefs['stats_update'])
     except Exception:
       pass
-    
+
 def start_thread(page):
     global stop_thread
     stop_thread = False
     polling_task = threading.Thread(target=background_update, args=(page,))
     polling_task.daemon = True
     polling_task.start()
-    
+
 def get_memory_stats(used=True):
     global status
     try:
@@ -53515,7 +53563,7 @@ class AudioPlayer(Stack):
         self.data = data if data != None else src
         self.page = page
         self.state = "stopped"
-        self.audio = Audio(src=self.src, autoplay=autoplay, on_state_changed=self.state_changed)
+        self.audio = Audio(src=get_dir(self.src), autoplay=autoplay, on_state_changed=self.state_changed)
         self.page.overlay.append(self.audio)
         self.build()
     def play_audio(self, e):
@@ -53554,7 +53602,7 @@ class AudioPlayer(Stack):
         self.row = Row([self.button, Text(self.display)])
         return self.row
 
-port = 8000
+port = 8084
 if tunnel_type == "ngrok":
     from pyngrok import conf, ngrok
     conf.get_default().ngrok_version = "v3"
@@ -53574,6 +53622,11 @@ if bool(public_url):
     print("\nOpen URL in browser to launch app in tab: " + str(public_url))
     if tunnel_type == "localtunnel":
         print("Copy/Paste the Password/Enpoint IP for localtunnel:",urllib.request.urlopen('https://ipv4.icanhazip.com').read().decode('utf8').strip("\n"))
+elif tunnel_type == "Local_Colab":
+    from google.colab import output
+    port = 8000#8084
+    print("\nOpen URL in browser to launch app in tab: ")
+    output.serve_kernel_port_as_window(port, anchor_text = "Open Colab URL")
 def close_tab():
   display(Javascript("window.close('', '_parent', '');"))
 #await google.colab.kernel.proxyPort(%s)
@@ -53611,5 +53664,6 @@ os.environ["FLET_SECRET_KEY"] = "skquark"
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
-  os.environ["FLET_FORCE_WEB_SERVER"] = "false"
+  os.environ["FLET_FORCE_WEB_SERVER"] = "true"
+  #print(f"Assets Dir: {os.path.abspath(os.path.join(root_dir, 'assets'))}") , host="0.0.0.0"
   ft.app(target=main, view=ft.WEB_BROWSER, port=port, assets_dir=os.path.abspath(root_dir), upload_dir=os.path.abspath(root_dir), use_color_emoji=True)
