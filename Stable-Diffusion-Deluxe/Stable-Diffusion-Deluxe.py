@@ -752,6 +752,8 @@ def buildImageAIs(page):
     page.PAG = buildPAG(page)
     page.MaterialDiffusion = buildMaterialDiffusion(page)
     page.DallE = buildDallE3(page)
+    page.DallE2 = buildDallE2(page)
+    page.DallE3 = buildDallE3(page)
     page.Kandinsky = buildKandinsky3(page) if status['kandinsky_version'] == "Kandinsky 3.0" else buildKandinsky(page)
     page.KandinskyFuse = buildKandinskyFuse(page) if status['kandinsky_fuse_2_2'] else buildKandinsky21Fuse(page)
     page.KandinskyControlNet = buildKandinskyControlNet(page)
@@ -1153,11 +1155,11 @@ def initState(page):
       status['installed_ESRGAN'] = True
     page.load_prompts()
     # TODO: Try to load from assets folder
-    page.snd_alert = Audio(src=get_dir(os.path.join(assets, "snd-alert.mp3")), autoplay=False)
-    page.snd_delete = Audio(src=get_dir(os.path.join(assets, "snd-delete.mp3")), autoplay=False)
-    page.snd_error = Audio(src=get_dir(os.path.join(assets, "snd-error.mp3")), autoplay=False)
-    page.snd_done = Audio(src=get_dir(os.path.join(assets, "snd-done.mp3")), autoplay=False)
-    page.snd_drop = Audio(src=get_dir(os.path.join(assets, "snd-drop.mp3")), autoplay=False)
+    page.snd_alert = Audio(src=asset_dir(os.path.join(assets, "snd-alert.mp3")), autoplay=False)
+    page.snd_delete = Audio(src=asset_dir(os.path.join(assets, "snd-delete.mp3")), autoplay=False)
+    page.snd_error = Audio(src=asset_dir(os.path.join(assets, "snd-error.mp3")), autoplay=False)
+    page.snd_done = Audio(src=asset_dir(os.path.join(assets, "snd-done.mp3")), autoplay=False)
+    page.snd_drop = Audio(src=asset_dir(os.path.join(assets, "snd-drop.mp3")), autoplay=False)
     #page.snd_notification = Audio(src="https://github.com/Skquark/AI-Friends/blob/main/assets/snd-notification.mp3?raw=true", autoplay=False)
     page.overlay.append(page.snd_alert)
     page.overlay.append(page.snd_delete)
@@ -14356,7 +14358,7 @@ def buildStyleCrafter(page):
     def image_details(e):
         img = e.control.data
         #TODO: Get file size & resolution
-        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=get_dir(img), gapless_playback=True)]), sound=False)
+        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=asset_dir(img), gapless_playback=True)]), sound=False)
     def add_file(fpath, update=True):
         page.style_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[#TODO: View Image
@@ -20049,7 +20051,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     def image_details(e):
         img = e.control.data
         #TODO: Get file size & resolution
-        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=get_dir(img), gapless_playback=True)]), sound=False)
+        alert_msg(e.page, "Image Details", content=Column([Text(img), Img(src=asset_dir(img), gapless_playback=True)]), sound=False)
     def add_file(fpath, update=True):
         page.lora_file_list.controls.append(ListTile(title=Text(fpath), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
           items=[#TODO: View Image
@@ -22755,10 +22757,14 @@ try:
     else:
         upgrade_torch = True
 except ModuleNotFoundError:
+    import platform
     #page.console_msg("Installing PyTorch with CUDA 1.17")
     pt_ver = latest_version("torch")
     print(f"Installing PyTorch {pt_ver} with CUDA 1.21...")
-    run_sp("pip install -qq -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
+    if platform.system() == 'Darwin':  # macOS
+      run_sp("pip install -qq -U --force-reinstall torch torchvision torchaudio")
+    else:
+      run_sp("pip install -qq -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
     #run_sp("pip install -U --force-reinstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121", realtime=False)
     #pip install --pre torch torchvision torchaudio --force-reinstall --index-url https://download.pytorch.org/whl/nightly/cu118
     #run_sp("pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu117", realtime=False)
@@ -25250,7 +25256,7 @@ def available_folder(folder, name, idx):
 def filepath_to_url(path):
     if is_Colab:
         from urllib.parse import quote
-        path = quote(get_dir(path))
+        path = quote(asset_dir(path))
         return path
     windows_path_pattern = re.compile(r"(.)\:\/")
     linux_path_pattern = re.compile(r"^\/")
@@ -25698,7 +25704,11 @@ def start_diffusion(page):
         except Exception as e:
           alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
           return
-        get_response = requests.get(api_get_result_url + q_id)
+        try:
+          get_response = requests.get(api_get_result_url + q_id)
+        except Exception as e:
+          prt(f"ERROR: {e}")
+          pass
         final_results = json.loads(get_response.content)
         clear_last(update=False)
         clear_last()
@@ -27225,6 +27235,7 @@ def run_prompt_generator(page):
       pr = p.strip()
       if not bool(pr): continue
       if pr[-1] == '.': pr = pr[:-1]
+      if pr[0] == ':': pr = pr[1:].strip()
       if pr[0] == '*': pr = pr[1:].strip()
       elif '.' in pr: # Sometimes got 1. 2.
         pr = pr.partition('.')[2].strip()
@@ -28470,7 +28481,7 @@ def run_retrieve(page):
         img = PILImage.open(filename)
         metadata = img.info
         if display_image:
-          page.add_to_retrieve_output(Img(src=get_dir(filename), gapless_playback=True))
+          page.add_to_retrieve_output(Img(src=asset_dir(filename), gapless_playback=True))
           #display(img)
         if metadata is None or len(metadata) < 1:
           alert_msg(page, 'Sorry, image has no exif data.')
@@ -28672,7 +28683,7 @@ def run_init_video(page):
             cv2.imwrite(os.path.join(output_dir, filename), image)
             files.append(filename)
             if show_images:
-                page.add_to_init_video_output(Row([Img(src=get_dir(filename), width=w, height=h, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                page.add_to_init_video_output(Row([Img(src=asset_dir(filename), width=w, height=h, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 #page.add_to_init_video_output(Row([Text(filename)], alignment=MainAxisAlignment.CENTER))
             count += 1
     cap.release()
@@ -29660,7 +29671,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(image_path, blip_diffusion_prefs, f"BLIP-Diffusion {task_type} {'' if blip_diffusion_prefs['controlnet_type'] == 'None' else blip_diffusion_prefs['controlnet_type']}", model_id, random_seed, extra=pr)
                 if blip_diffusion_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(blip_diffusion_prefs["enlarge_scale"]), height=pr['height'] * float(blip_diffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(os.path.join(prefs['image_output'], blip_diffusion_prefs['batch_folder_name']), fname, 0)
                 out_path = new_file
@@ -31298,7 +31309,7 @@ def run_controlnet_segment(page, from_list=False):
             segmented_map = show_anns(masks)
             segmented_map.save(segmented_image)
             clear_last()#src_base64=pil_to_base64(segmented_map)
-            prt(Row([Img(src=get_dir(segmented_image), width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            prt(Row([Img(src=asset_dir(segmented_image), width=width, height=height, fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             del masks
             flush()
             prt(progress)
@@ -32386,7 +32397,7 @@ def run_demofusion(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(image_path, demofusion_prefs, f"DemoFusion", model_ckpt, random_seed, extra=pr)
                 if demofusion_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(demofusion_prefs["enlarge_scale"]), height=pr['height'] * float(demofusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             if storage_type == "Colab Google Drive":
                 new_file = available_file(batch_output, fname, 0)
                 out_path = new_file
@@ -33307,7 +33318,7 @@ def run_audio_diffusion(page):
         iname = available_file(save_dir, audio_name, 0)
         image.save(iname)
         out_path = iname
-        prt(Row([Img(src=get_dir(iname), fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Img(src=asset_dir(iname), fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         if storage_type == "Colab Google Drive":
             new_file = available_file(prefs['image_output'], fname, 0)
             out_path = new_file
@@ -34855,7 +34866,7 @@ def run_checkpoint_merger(page):
         fpath = available_file(stable_dir, fname, 0)
         image.save(fpath)
         clear_last()
-        prt(Img(src=get_dir(fpath)))
+        prt(Img(src=asset_dir(fpath)))
     if checkpoint_merger_prefs['save_model']:
         private = False if checkpoint_merger_prefs['where_to_save_model'] == "Public HuggingFace" else True
         from huggingface_hub import HfFolder, create_repo, Repository
@@ -41138,7 +41149,7 @@ def run_wuerstchen(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, wuerstchen_prefs, f"Würstchen", "wuerstchen-community/wuerstchen-2-2-decoder", random_seed, extra=pr)
                     if wuerstchen_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(wuerstchen_prefs["enlarge_scale"]), height=pr['height'] * float(wuerstchen_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], wuerstchen_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -41343,7 +41354,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, stable_cascade_prefs, f"Stable Cascade", "warp-ai/Wuerstchen-v3", random_seed, extra=pr)
                     if stable_cascade_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(stable_cascade_prefs["enlarge_scale"]), height=pr['height'] * float(stable_cascade_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 if storage_type == "Colab Google Drive":
                     new_file = available_file(os.path.join(prefs['image_output'], stable_cascade_prefs['batch_folder_name']), fname, 0)
                     out_path = new_file
@@ -42749,7 +42760,7 @@ def run_lcm_interpolation(page):
             upscale_image(image_path, image_path, scale=lcm_interpolation_prefs["enlarge_scale"], face_enhance=lcm_interpolation_prefs["face_enhance"])
             if lcm_interpolation_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=get_dir(image_path), width=lcm_interpolation_prefs['width'] * float(lcm_interpolation_prefs["enlarge_scale"]), height=lcm_interpolation_prefs['height'] * float(lcm_interpolation_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=asset_dir(image_path), width=lcm_interpolation_prefs['width'] * float(lcm_interpolation_prefs["enlarge_scale"]), height=lcm_interpolation_prefs['height'] * float(lcm_interpolation_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             time.sleep(0.2)
             shutil.copy(image_path, os.path.join(out_path, new_file))
@@ -44199,7 +44210,7 @@ def run_controlnet_temporalnet(page):
         last_generated_image = image
         clear_last()
         autoscroll(True)
-        prt(Row([Img(src=get_dir(output_path), fit=ImageFit.CONTAIN, width=w, height=h, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Img(src=asset_dir(output_path), fit=ImageFit.CONTAIN, width=w, height=h, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         prt(Row([Text(output_path)], alignment=MainAxisAlignment.CENTER))
     prt(Installing(f"Saving Video File... Frames at {output_frames_dir if not controlnet_temporalnet_prefs['save_frames'] else save_frames_dir}"))
     if controlnet_temporalnet_prefs['save_frames']:
@@ -45130,7 +45141,7 @@ def run_svd(page):
             upscale_image(image_path, image_path, scale=svd_prefs["enlarge_scale"], face_enhance=svd_prefs["face_enhance"])
             if svd_prefs['display_upscaled_image']:
                 time.sleep(0.6)
-                prt(Row([Img(src=get_dir(image_path), width=width * float(svd_prefs["enlarge_scale"]), height=height * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=asset_dir(image_path), width=width * float(svd_prefs["enlarge_scale"]), height=height * float(svd_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         #else:
         #    time.sleep(0.2)
         #shutil.copy(image_path, os.path.join(frames_dir, new_file))
@@ -45647,7 +45658,7 @@ def run_style_crafter(page):
         image_path = os.path.join(outputs_dir, frame_file)
         output_path = os.path.join(batch_output, frame_file)#os.path.join(outputs_dir, f"frame{str(i).zfill(4)}.png")
         shutil.copy(image_path, output_path)
-        prt(Row([Img(src=get_dir(output_path), fit=ImageFit.CONTAIN, width=style_crafter_prefs["width"], height=style_crafter_prefs["height"], gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+        prt(Row([Img(src=asset_dir(output_path), fit=ImageFit.CONTAIN, width=style_crafter_prefs["width"], height=style_crafter_prefs["height"], gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         prt(Row([Text(output_path)], alignment=MainAxisAlignment.CENTER))
     if mode == "video":
         installer = Installing(f"Saving Video File... Frames at {outputs_dir if not style_crafter_prefs['save_frames'] else batch_output}")
@@ -47094,7 +47105,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=animatediff_img2video_prefs["enlarge_scale"], face_enhance=animatediff_img2video_prefs["face_enhance"])
                     if animatediff_img2video_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=get_dir(image_path), width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=asset_dir(image_path), width=int(pr['width'] * float(animatediff_img2video_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_img2video_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=animatediff_img2video_prefs['fps'])
@@ -47340,7 +47351,7 @@ def run_pia(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=pia_prefs["enlarge_scale"], face_enhance=pia_prefs["face_enhance"])
                     if pia_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=get_dir(image_path), width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=asset_dir(image_path), width=int(pr['width'] * float(pia_prefs["enlarge_scale"])), height=int(pr['height'] * float(pia_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=pia_prefs['fps'])
@@ -47561,7 +47572,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
                     upscale_image(image_path, image_path, scale=i2vgen_xl_prefs["enlarge_scale"], face_enhance=i2vgen_xl_prefs["face_enhance"])
                     if i2vgen_xl_prefs['display_upscaled_image']:
                         time.sleep(0.6)
-                        prt(Row([Img(src=get_dir(image_path), width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=asset_dir(image_path), width=int(pr['width'] * float(i2vgen_xl_prefs["enlarge_scale"])), height=int(pr['height'] * float(i2vgen_xl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
             gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
             export_to_gif(frames_batch, gif_file, fps=i2vgen_xl_prefs['fps'])
@@ -48267,7 +48278,7 @@ def run_materialdiffusion(page):
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_prefs, "Material Diffusion", seed=random_seed)
             if materialdiffusion_prefs['display_upscaled_image']:
-                prt(Row([Img(src=get_dir(upscaled_path), width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=asset_dir(upscaled_path), width=materialdiffusion_prefs['width'] * float(materialdiffusion_prefs["enlarge_scale"]), height=materialdiffusion_prefs['height'] * float(materialdiffusion_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             new_path
             try:
@@ -48400,7 +48411,7 @@ def run_materialdiffusion_sdxl(page):
             image_path = upscaled_path
             save_metadata(image_path, materialdiffusion_sdxl_prefs, "Material Diffusion SDXL", seed=random_seed)
             if materialdiffusion_sdxl_prefs['display_upscaled_image']:
-                prt(Row([Img(src=get_dir(upscaled_path), width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=asset_dir(upscaled_path), width=int(materialdiffusion_sdxl_prefs['width']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), height=int(materialdiffusion_sdxl_prefs['height']) * float(materialdiffusion_sdxl_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             new_path
             try:
@@ -50701,7 +50712,7 @@ def run_dall_e_3(page, from_list=False):
             run_process("pip uninstall -y openai", realtime=False)
             raise ModuleNotFoundError("Forcing update")
         if force_update("openai"): raise ModuleNotFoundError("Forcing update")
-    except:
+    except Exception:
         prt(Installing("Installing OpenAI DALL•E 3 API..."))
         run_process("pip install -q --upgrade openai", realtime=False)
         clear_last()
@@ -51071,7 +51082,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
                 image_path = upscaled_path
                 save_metadata(upscaled_path, kandinsky_3_prefs, f"Kandinsky 3 {task_type}", "kandinsky-community/kandinsky-3", random_seed, extra=pr)
                 if kandinsky_3_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(kandinsky_3_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_3_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], kandinsky_3_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
@@ -51354,7 +51365,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
                 os.chdir(stable_dir)
                 save_metadata(upscaled_path, kandinsky_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-decoder", random_seed, extra=pr)
                 if kandinsky_prefs['display_upscaled_image']:
-                    prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(kandinsky_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             #else:
             #    time.sleep(1.2)
             #    shutil.copy(image_path, os.path.join(out_path, output_file))
@@ -51540,7 +51551,7 @@ def run_kandinsky21(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky21_prefs["enlarge_scale"], face_enhance=kandinsky21_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky21_prefs, "Kandinsky 2.1", seed=random_seed)
             if kandinsky21_prefs['display_upscaled_image']:
-                prt(Row([Img(src=get_dir(upscaled_path), width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=asset_dir(upscaled_path), width=kandinsky21_prefs['width'] * float(kandinsky21_prefs["enlarge_scale"]), height=kandinsky21_prefs['height'] * float(kandinsky21_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -51702,7 +51713,7 @@ def run_kandinsky_fuse(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky_fuse_prefs["enlarge_scale"], face_enhance=kandinsky_fuse_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky_fuse_prefs, "Kandinsky Fuse", seed=random_seed)
             if kandinsky_fuse_prefs['display_upscaled_image']:
-                prt(Row([Img(src=get_dir(upscaled_path), width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=asset_dir(upscaled_path), width=kandinsky_fuse_prefs['width'] * float(kandinsky_fuse_prefs["enlarge_scale"]), height=kandinsky_fuse_prefs['height'] * float(kandinsky_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -51837,7 +51848,7 @@ def run_kandinsky21_fuse(page):
             upscale_image(image_path, upscaled_path, scale=kandinsky21_fuse_prefs["enlarge_scale"], face_enhance=kandinsky21_fuse_prefs["face_enhance"])
             save_metadata(upscaled_path, kandinsky21_fuse_prefs, "Kandinsky 2.1 Fuse", seed=random_seed)
             if kandinsky21_fuse_prefs['display_upscaled_image']:
-                prt(Row([Img(src=get_dir(upscaled_path), width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Img(src=asset_dir(upscaled_path), width=kandinsky21_fuse_prefs['width'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), height=kandinsky21_fuse_prefs['height'] * float(kandinsky21_fuse_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
         else:
             shutil.copy(image_path, new_path)
         prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
@@ -52052,7 +52063,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
                     image_path = upscaled_path
                     save_metadata(image_path, kandinsky_controlnet_prefs, f"Kandinsky 2.1 {task_type}", "kandinsky-community/kandinsky-2-2-controlnet-depth", random_seed, extra=pr)
                     if kandinsky_controlnet_prefs['display_upscaled_image']:
-                        prt(Row([Img(src=get_dir(upscaled_path), width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                        prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), height=pr['height'] * float(kandinsky_controlnet_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
                 #else:
                 #    time.sleep(1.2)
                 #    shutil.copy(image_path, os.path.join(out_path, output_file))
@@ -52150,7 +52161,7 @@ def run_deep_daze(page):
             output_file = os.path.join(output_dir, fname)
             image_files.append(output_file)
             if s == 0:
-                img = Img(src=get_dir(output_file), fit=ImageFit.FIT_WIDTH, gapless_playback=True)
+                img = Img(src=asset_dir(output_file), fit=ImageFit.FIT_WIDTH, gapless_playback=True)
                 prt(Row([img], alignment=MainAxisAlignment.CENTER))
             else:
                 img.src=output_file
@@ -52603,7 +52614,7 @@ class ImageButton(Stack):
             #print(f"{type(self.data)} {self.data}")
             if is_Colab:
                 from urllib.parse import quote
-                self.page.launch_url(quote(get_dir(self.data)))
+                self.page.launch_url(quote(asset_dir(self.data)))
                 '''from google.colab import files
                 if os.path.isfile(self.data):
                     files.download(self.data)
@@ -52627,7 +52638,7 @@ class ImageButton(Stack):
             toast_msg(self.page, f"📋  {self.data} copied to clipboard... Paste as Init Image.")
         def image_details(e):
           #TODO: Get size & meta
-            img = Img(src=get_dir(self.data), gapless_playback=True)
+            img = Img(src=asset_dir(self.data), gapless_playback=True)
             #if self.zoom:
             #img = PanZoom(img, self.width, self.height, width=self.width, height=self.height)
             alert_msg(self.page, "Image Details", content=Column([Text(self.subtitle or self.data, selectable=True), img], horizontal_alignment=CrossAxisAlignment.CENTER), sound=False)
@@ -52651,13 +52662,13 @@ class ImageButton(Stack):
             if self.src_base64 != None:
               self.image = Img(src_base64=self.src_base64, fit=self.fit, gapless_playback=True)
             else:
-              self.image = Img(src=get_dir(self.src), fit=self.fit, gapless_playback=True)
+              self.image = Img(src=asset_dir(self.src), fit=self.fit, gapless_playback=True)
         else:
             self.width, self.height = scale_width(self.width, self.height, (self.page.width if self.page.web else self.page.window_width) - 28)
             if self.src_base64 != None:
               self.image = Img(src_base64=self.src_base64, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
             else:
-              self.image = Img(src=get_dir(self.src), width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
+              self.image = Img(src=asset_dir(self.src), width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
         if self.zoom:
             self.image = PanZoom(self.image, self.width, self.height,
                       width=self.width,
@@ -53132,7 +53143,7 @@ def nudge(column:Column, page=None):
     if page is not None:
         page.update()
 
-def get_dir(path):
+def asset_dir(path):
     """
     A hack because of change to Flet to get the assets directory path relative to '/content'.
     """
@@ -53550,7 +53561,7 @@ class AudioPlayer(Stack):
         self.data = data if data != None else src
         self.page = page
         self.state = "stopped"
-        self.audio = Audio(src=get_dir(self.src), autoplay=autoplay, on_state_changed=self.state_changed)
+        self.audio = Audio(src=asset_dir(self.src), autoplay=autoplay, on_state_changed=self.state_changed)
         self.page.overlay.append(self.audio)
         self.build()
     def play_audio(self, e):
