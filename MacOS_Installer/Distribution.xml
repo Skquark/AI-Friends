@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="1">
+    <title>Diffusion Deluxe Installer</title>
+    <welcome>Your All-In-One Multimedia AI App from Skquark, Inc.. See https://DiffusionDeluxe.com for information.</welcome>
+    <!-- <license file="License.txt">License Agreement</license> -->
+    <conclusion>Installation Successful. Have Fun...</conclusion>
+</installer-gui-script>

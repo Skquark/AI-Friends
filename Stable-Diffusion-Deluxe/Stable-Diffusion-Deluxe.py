@@ -879,6 +879,7 @@ def buildVideoAIs(page):
     page.StableAnimation = buildStableAnimation(page)
     page.SVD = buildSVD(page)
     page.AnimateDiffImage2Video = buildAnimateDiffImage2Video(page)
+    page.AnimateDiffSDXL = buildAnimateDiffSDXL(page)
     page.PIA = buildPIA(page)
     page.I2VGenXL = buildI2VGenXL(page)
     page.ControlNet = buildControlNet(page)
@@ -900,6 +901,7 @@ def buildVideoAIs(page):
             Tab(text="Stable Animation", content=page.StableAnimation, icon=icons.SHUTTER_SPEED),
             Tab(text="SVD Image-to-Video", content=page.SVD, icon=icons.SLOW_MOTION_VIDEO),
             Tab(text="AnimateDiff to-Video", content=page.AnimateDiffImage2Video, icon=icons.CATCHING_POKEMON),
+            Tab(text="AnimateDiff SDXL", content=page.AnimateDiffSDXL, icon=icons.TWO_WHEELER),
             Tab(text="I2VGen-XL", content=page.I2VGenXL, icon=icons.TIPS_AND_UPDATES),
             Tab(text="PIA Image Animator", content=page.PIA, icon=icons.EMERGENCY_RECORDING),
             Tab(text="Text-to-Video", content=page.TextToVideo, icon=icons.MISSED_VIDEO_CALL),
@@ -15564,7 +15566,7 @@ def buildAnimateDiffImage2Video(page):
             lora_layer.options.append(dropdown.Option(l['name']))
     for m in LoRA_models:
         lora_layer.options.append(dropdown.Option(m['name']))
-    lora_layer.options.append(dropdown.Option("Custom LoRA Path"))
+    #lora_layer.options.append(dropdown.Option("Custom LoRA Path"))
     #for lora in animatediff_motion_loras:
     #    lora_layer.options.insert(1, dropdown.Option(lora['name']))
     lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animatediff_img2video_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
@@ -15620,6 +15622,229 @@ def buildAnimateDiffImage2Video(page):
             page.ESRGAN_block_animatediff_img2video,
             parameters_row,
             page.animatediff_img2video_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+animatediff_sdxl_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "animatediff-",
+    "num_images": 1,
+    "width": 1024 if prefs['higher_vram_mode'] else 512,
+    "height":1024 if prefs['higher_vram_mode'] else 512,
+    "guidance_scale": 7.5,
+    'num_inference_steps': 50,
+    "seed": 0,
+    'init_image': '',
+    'init_image_strength': 0.8,
+    'video_length': 16,
+    'fps': 8,
+    'target_fps': 25,
+    'latent_interpolation_method': "Slerp",
+    'clip_skip': 1,
+    'lora_alpha': 0.8,
+    'custom_lora': '',
+    'lora_layer': '3D Redmond',
+    'lora_layer_alpha': 0.8,
+    'custom_lora_layer': '',
+    'lora_map': [],
+    'motion_loras': [],
+    'motion_loras_strength': 0.5,
+    'motion_module': 'animatediff-motion-adapter-sdxl-beta',
+    "animatediff_sdxl_model": "Realistic_Vision_V5.1_noVAE",
+    "custom_model": "",
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_SDXL_model': 'SDXL',
+    'ip_adapter_strength': 0.8,
+    'export_to_video': True,
+    "interpolate_video": True,
+    "cpu_offload": False,
+    "free_init": True,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildAnimateDiffSDXL(page):
+    global prefs, animatediff_sdxl_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            animatediff_sdxl_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            animatediff_sdxl_prefs[pref] = float(e.control.value)
+          else:
+            animatediff_sdxl_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def animatediff_sdxl_help(e):
+      def close_animatediff_sdxl_dlg(e):
+        nonlocal animatediff_sdxl_help_dlg
+        animatediff_sdxl_help_dlg.open = False
+        page.update()
+      animatediff_sdxl_help_dlg = AlertDialog(title=Text("🙅   Help with AnimateDiff SDXL Pipeline"), content=Column([
+          Text("Experimental Stable Diffusion XL support for AnimateDiff (open to improvements). This is currently an experimental feature as only a beta release of the motion adapter checkpoint is available."),
+          Text("AnimateDiff can also be used to generate visually similar videos or enable style/character/background, allowing you to seamlessly explore creative possibilities."),
+          Markdown("[Diffusers Project](https://github.com/huggingface/diffusers/pull/6721) | [Motion Module](https://github.com/guoyww/AnimateDiff/tree/sdxl) | [Colab](https://colab.research.google.com/drive/1076fX0AtMgYNdQyYF-mwug8Bl2SfZ8Be) | [Aryan V S (a-r-r-o-w)](https://github.com/a-r-r-o-w)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🤩  Might Wow", on_click=close_animatediff_sdxl_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = animatediff_sdxl_help_dlg
+      animatediff_sdxl_help_dlg.open = True
+      page.update()
+    def changed_lora_layer(e):
+      animatediff_sdxl_prefs['lora_layer'] = e.control.value
+      custom_lora_layer.visible = e.control.value == "Custom"
+      custom_lora_layer.update()
+    def add_lora(e):
+      lora = animatediff_sdxl_prefs['lora_layer']
+      lora_scale = animatediff_sdxl_prefs['lora_layer_alpha']
+      lora_layer = {}
+      if lora == "Custom":
+        lora_layer = {'name': 'Custom', 'file':'', 'path':animatediff_sdxl_prefs['custom_lora_layer'], 'scale': lora_scale}
+      else:
+        for l in SDXL_LoRA_models:
+          if l['name'] == lora:
+            lora_layer = l.copy()
+            lora_layer['scale'] = lora_scale
+        for l in animatediff_sdxl_prefs['lora_map']:
+          if l['name'] == lora:
+            return
+      animatediff_sdxl_prefs['lora_map'].append(lora_layer)
+      title = Markdown(f"**{lora_layer['name']}** - Alpha Scale: [{lora_layer['scale']}] - {lora_layer['path']}")
+      lora_layer_map.controls.append(ListTile(title=title, dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+        items=[
+            PopupMenuItem(icon=icons.DELETE, text="Delete LoRA Layer", on_click=delete_lora_layer, data=lora_layer),
+            PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_lora_layers, data=lora_layer),
+        ]), data=lora_layer))
+      lora_layer_map.update()
+    def delete_lora_layer(e):
+        for l in animatediff_sdxl_prefs['lora_map']:
+          if l['name'] == e.control.data['name']:
+            animatediff_sdxl_prefs['lora_map'].remove(l)
+          #del l #animatediff_sdxl_prefs['lora_map'][]
+        for c in lora_layer_map.controls:
+          if c.data['name'] == e.control.data['name']:
+             lora_layer_map.controls.remove(c)
+             break
+        lora_layer_map.update()
+    def delete_all_lora_layers(e):
+        animatediff_sdxl_prefs['lora_map'].clear()
+        lora_layer_map.controls.clear()
+        lora_layer_map.update()
+    def toggle_ip_adapter(e):
+      animatediff_sdxl_prefs['use_ip_adapter'] = e.control.value
+      ip_adapter_container.height=None if animatediff_sdxl_prefs['use_ip_adapter'] else 0
+      ip_adapter_container.update()
+    def changed_model(e):
+        animatediff_sdxl_prefs['animatediff_sdxl_model'] = e.control.value
+        animatediff_sdxl_custom_model.visible = e.control.value == "Custom"
+        animatediff_sdxl_custom_model.update()
+    def changed_motion_lora(e):
+        on = e.control.value
+        if e.control.data in animatediff_sdxl_prefs['motion_loras']:
+            animatediff_sdxl_prefs['motion_loras'].remove(e.control.data)
+        else:
+            animatediff_sdxl_prefs['motion_loras'].append(e.control.data)
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        animatediff_sdxl_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=animatediff_sdxl_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=animatediff_sdxl_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    init_image = FileInput(label="Init Image or Video", pref=animatediff_sdxl_prefs, key='init_image', ftype="picture", page=page, col={'md':6})
+    init_image_strength = SliderRow(label="Init-Image Strength", min=0.0, max=1.0, divisions=20, round=2, pref=animatediff_sdxl_prefs, key='init_image_strength', col={'md':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    video_length = SliderRow(label="Video Length", min=1, max=64, divisions=63, pref=animatediff_sdxl_prefs, key='video_length', tooltip="The number of frames to animate.")
+    batch_folder_name = TextField(label="Batch Folder Name", value=animatediff_sdxl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=animatediff_sdxl_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Videos", min=1, max=9, step=1, value=animatediff_sdxl_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=80, divisions=80, pref=animatediff_sdxl_prefs, key='num_inference_steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=animatediff_sdxl_prefs, key='guidance_scale')
+    clip_skip = SliderRow(label="Clip Skip", min=0, max=4, divisions=4, pref=animatediff_sdxl_prefs, key='clip_skip', expand=True, col={'md': 6}, tooltip="Skips part of the image generation process, leading to slightly different results from the LoRA CLIP model.")
+    width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=animatediff_sdxl_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=animatediff_sdxl_prefs, key='height')
+    def toggle_ip_adapter(e):
+        animatediff_sdxl_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_SDXL_model.visible = e.control.value
+        ip_adapter_SDXL_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=animatediff_sdxl_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=animatediff_sdxl_prefs['ip_adapter_SDXL_model'], visible=animatediff_sdxl_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=animatediff_sdxl_prefs, key='ip_adapter_image', page=page, col={'lg':6})
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=animatediff_sdxl_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ResponsiveRow([ip_adapter_image, ip_adapter_strength]), Divider(thickness=4, height=4)]), height = None if animatediff_sdxl_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    lora_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animatediff_sdxl_prefs, key='lora_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    lora_layer = Dropdown(label="LoRA Layer Map", options=[dropdown.Option("Custom")], value=animatediff_sdxl_prefs['lora_layer'], on_change=changed_lora_layer)
+    custom_lora_layer = TextField(label="Custom LoRA Safetensor (URL or Path)", value=animatediff_sdxl_prefs['custom_lora_layer'], expand=True, visible=animatediff_sdxl_prefs['lora_layer']=="Custom", on_change=lambda e:changed(e,'custom_lora_layer'))
+    if len(prefs['custom_SDXL_LoRA_models']) > 0:
+        for l in prefs['custom_SDXL_LoRA_models']:
+            lora_layer.options.append(dropdown.Option(l['name']))
+    for m in SDXL_LoRA_models:
+        lora_layer.options.append(dropdown.Option(m['name']))
+    #lora_layer.options.append(dropdown.Option("Custom SDXL LoRA Path"))
+    #for lora in animatediff_motion_loras:
+    #    lora_layer.options.insert(1, dropdown.Option(lora['name']))
+    lora_layer_alpha = SliderRow(label="LoRA Alpha", min=0, max=1, divisions=10, round=1, expand=True, pref=animatediff_sdxl_prefs, key='lora_layer_alpha', tooltip="The Weight of the custom LoRA Model to influence diffusion.")
+    add_lora_layer = ft.FilledButton("➕  Add LoRA", on_click=add_lora)
+    lora_layer_map = Column([], spacing=0)
+    motion_loras_checkboxes = ResponsiveRow(controls=[Text("Motion Module LoRAs:", col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1.5})], run_spacing=0, vertical_alignment=CrossAxisAlignment.CENTER)
+    for m in animatediff_motion_loras:
+        motion_loras_checkboxes.controls.append(Checkbox(label=m['name'], data=m['name'], value=m['name'] in animatediff_sdxl_prefs['motion_loras'], on_change=changed_motion_lora, fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'xs':12, 'sm':6, 'md':3, 'lg':2, 'xl': 1}))
+    motion_loras_strength = SliderRow(label="Motion Module LoRA Strength", min=0, max=1, divisions=10, round=1, pref=animatediff_sdxl_prefs, key='motion_loras_strength', tooltip="The Weight of the custom Motion LoRA Module to influence camera.")
+    animatediff_sdxl_model = Dropdown(label="AnimateDiff Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("Realistic_Vision_V5.1_noVAE"), dropdown.Option("dreamshaper-8"), dropdown.Option("epiCRealism")], value=animatediff_sdxl_prefs['animatediff_sdxl_model'], on_change=changed_model)
+    animatediff_sdxl_custom_model = TextField(label="Custom AnimateDiff Model (URL or Path)", value=animatediff_sdxl_prefs['custom_model'], expand=True, visible=animatediff_sdxl_prefs['animatediff_sdxl_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=animatediff_sdxl_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    free_init = Switcher(label="Free-Init", value=animatediff_sdxl_prefs['free_init'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'free_init'), tooltip="Improves temporal consistency and overall quality of videos generated using video-diffusion-models without any addition training.")
+    export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=animatediff_sdxl_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    interpolate_video = Switcher(label="Interpolate Video", value=animatediff_sdxl_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=animatediff_sdxl_prefs, key='fps', col={'md': 6}, tooltip="The rate at which the generated images shall be exported to a video after generation. Note that Stable Diffusion Video's UNet was micro-conditioned on fps-1 during training.")
+    latent_interpolation_method = Dropdown(label="Latent Interpolation", width=140, options=[dropdown.Option("Slerp"), dropdown.Option("Lerp")], value=animatediff_sdxl_prefs['latent_interpolation_method'], on_change=lambda e: changed(e, 'latent_interpolation_method'))
+    seed = TextField(label="Seed", width=90, value=str(animatediff_sdxl_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=animatediff_sdxl_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=animatediff_sdxl_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=animatediff_sdxl_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=animatediff_sdxl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_animatediff_sdxl = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_animatediff_sdxl.height = None if status['installed_ESRGAN'] else 0
+    if not animatediff_sdxl_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🙀   Run AnimateDiff SDXL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_sdxl(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_sdxl(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_animatediff_sdxl(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.animatediff_sdxl_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([
+            Header("🤯  AnimateDiff SDXL", "Create Video Clips from Text Prompt with SDXL Model and Beta Motion Module...", actions=[save_default(animatediff_sdxl_prefs, ['init_image', 'ip_adapter_image', 'lora_map']), IconButton(icon=icons.HELP, tooltip="Help with AnimateDiff SDXL Settings", on_click=animatediff_sdxl_help)]),
+            #ResponsiveRow([init_image, init_image_strength]),
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider, #Divider(height=9, thickness=2),
+            video_length,
+            ResponsiveRow([fps, clip_skip]),
+            Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
+            ip_adapter_container,
+            Row([lora_layer, custom_lora_layer, lora_layer_alpha, add_lora_layer]),
+            lora_layer_map,
+            Divider(thickness=4, height=4),
+            #motion_loras_checkboxes,
+            #motion_loras_strength,
+            #Divider(thickness=4, height=4),
+            #Row([animatediff_sdxl_model, animatediff_sdxl_custom_model, latent_interpolation_method]),
+            Row([free_init, cpu_offload, export_to_video, interpolate_video]),
+            ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            page.ESRGAN_block_animatediff_sdxl,
+            parameters_row,
+            page.animatediff_sdxl_output
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -22113,6 +22338,7 @@ pipe_ldm3d = None
 pipe_ldm3d_upscale = None
 pipe_svd = None
 pipe_animatediff_img2video = None
+pipe_animatediff_sdxl = None
 pipe_pia = None
 pipe_i2vgen_xl = None
 pipe_panorama = None
@@ -22505,49 +22731,49 @@ def upload_HF(file, folder="", filename=None, media="images"):
     print(f"Saved https://huggingface.co/datasets/{repo_name}/blob/main/{path}")
     return f" https://huggingface.co/datasets/{repo_name}/blob/main/{path}"
 
-def model_scheduler(model, big3=False):
+def model_scheduler(model, big3=False, **kwargs):
     scheduler_mode = prefs['scheduler_mode']
     if scheduler_mode == "LMS Discrete":
       from diffusers import LMSDiscreteScheduler
-      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "PNDM":
       from diffusers import PNDMScheduler
-      s = PNDMScheduler.from_pretrained(model, subfolder="scheduler")
+      s = PNDMScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "DDIM":
       from diffusers import DDIMScheduler
-      s = DDIMScheduler.from_pretrained(model, subfolder="scheduler")
+      s = DDIMScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif big3:
       from diffusers import DDIMScheduler
-      s = DDIMScheduler.from_pretrained(model, subfolder="scheduler")
+      s = DDIMScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "DPM Solver":
       from diffusers import DPMSolverMultistepScheduler #"hf-internal-testing/tiny-stable-diffusion-torch"
-      s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+      s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "DPM Solver Singlestep":
       from diffusers import DPMSolverSinglestepScheduler
-      s = DPMSolverSinglestepScheduler.from_pretrained(model, subfolder="scheduler")
+      s = DPMSolverSinglestepScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "DPM Solver Inverse":
       from diffusers import DPMSolverMultistepInverseScheduler
-      s = DPMSolverMultistepInverseScheduler.from_pretrained(model, subfolder="scheduler")
+      s = DPMSolverMultistepInverseScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "K-Euler Discrete":
       from diffusers import EulerDiscreteScheduler
-      s = EulerDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      s = EulerDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
-      s = EulerAncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      s = EulerAncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "EDM Euler":
       from diffusers import EDMEulerScheduler
-      s = EDMEulerScheduler.from_pretrained(model, subfolder="scheduler")
+      s = EDMEulerScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "Karras-LMS":
       from diffusers import LMSDiscreteScheduler
-      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
       scheduler_config = s.get_scheduler_config()
       s = LMSDiscreteScheduler(**scheduler_config, use_karras_sigmas=True)
     elif scheduler_mode == "DPM Stochastic":
       from diffusers import DPMSolverSDEScheduler
-      s = DPMSolverSDEScheduler.from_pretrained(model, subfolder="scheduler")
+      s = DPMSolverSDEScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "SDE-DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
-      s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+      s = DPMSolverMultistepScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
       s.config.algorithm_type = 'sde-dpmsolver++'
     elif scheduler_mode == "DPM Solver++":
       from diffusers import DPMSolverMultistepScheduler
@@ -22565,31 +22791,32 @@ def model_scheduler(model, big3=False):
         solver_order=2,
         #denoise_final=True,
         lower_order_final=True,
+        **kwargs,
       )
     elif scheduler_mode == "Heun Discrete":
       from diffusers import HeunDiscreteScheduler
-      s = HeunDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      s = HeunDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "Karras Heun Discrete":
       from diffusers import HeunDiscreteScheduler
-      s = HeunDiscreteScheduler.from_pretrained(model, subfolder="scheduler", use_karras_sigmas=True)
+      s = HeunDiscreteScheduler.from_pretrained(model, subfolder="scheduler", use_karras_sigmas=True, **kwargs)
     elif scheduler_mode == "K-DPM2 Ancestral":
       from diffusers import KDPM2AncestralDiscreteScheduler
-      s = KDPM2AncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      s = KDPM2AncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "K-DPM2 Discrete":
       from diffusers import KDPM2DiscreteScheduler
-      s = KDPM2DiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      s = KDPM2DiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "IPNDM":
       from diffusers import IPNDMScheduler
-      s = IPNDMScheduler.from_pretrained(model, subfolder="scheduler")
+      s = IPNDMScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "DEIS Multistep":
       from diffusers import DEISMultistepScheduler
-      s = DEISMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+      s = DEISMultistepScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "UniPC Multistep":
       from diffusers import UniPCMultistepScheduler
-      s = UniPCMultistepScheduler.from_pretrained(model, subfolder="scheduler")
+      s = UniPCMultistepScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "TCD":
       from diffusers import TCDScheduler
-      s = TCDScheduler.from_pretrained(model, subfolder="scheduler")
+      s = TCDScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     #elif scheduler_mode == "Score-SDE-Vp":
     #  from diffusers import ScoreSdeVpScheduler
     #  s = ScoreSdeVpScheduler() #(num_train_timesteps=2000, beta_min=0.1, beta_max=20, sampling_eps=1e-3, tensor_format="np")
@@ -22604,18 +22831,18 @@ def model_scheduler(model, big3=False):
     #  use_custom_scheduler = True
     elif scheduler_mode == "DDPM":
       from diffusers import DDPMScheduler
-      s = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt")
+      s = DDPMScheduler(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, variance_type="fixed_small", clip_sample=True, tensor_format="pt", **kwargs)
       use_custom_scheduler = True
     elif scheduler_mode == "LMS": #no more
       from diffusers import LMSScheduler
-      s = LMSScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear")
+      s = LMSScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", **kwargs)
       #(num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, beta_schedule="linear", trained_betas=None, timestep_values=None, tensor_format="pt")
       use_custom_scheduler = True
     #print(f"Loaded Schedueler {scheduler_mode} {type(scheduler)}")
     else:
       print(f"Unknown scheduler request {scheduler_mode} - Using LMS Discrete")
       from diffusers import LMSDiscreteScheduler
-      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler")
+      s = LMSDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     return s
 
 def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None, trailing=False):
@@ -24805,6 +25032,12 @@ def clear_animatediff_img2video_pipe():
     del pipe_animatediff_img2video
     flush()
     pipe_animatediff_img2video = None
+def clear_animatediff_sdxl_pipe():
+  global pipe_animatediff_sdxl
+  if pipe_animatediff_sdxl is not None:
+    del pipe_animatediff_sdxl
+    flush()
+    pipe_animatediff_sdxl = None
 def clear_pia_pipe():
   global pipe_pia
   if pipe_pia is not None:
@@ -25167,6 +25400,7 @@ def clear_pipes(allbut=None):
     if not 'ldm3d' in but: clear_ldm3d_pipe()
     if not 'svd' in but: clear_svd_pipe()
     if not 'animatediff_img2video' in but: clear_animatediff_img2video_pipe()
+    if not 'animatediff_sdxl' in but: clear_animatediff_sdxl_pipe()
     if not 'pia' in but: clear_pia_pipe()
     if not 'i2vgen_xl' in but: clear_i2vgen_xl_pipe()
     if not 'deepfloyd' in but: clear_deepfloyd_pipe()
@@ -25704,11 +25938,23 @@ def start_diffusion(page):
         except Exception as e:
           alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
           return
-        try:
-          get_response = requests.get(api_get_result_url + q_id)
-        except Exception as e:
-          prt(f"ERROR: {e}")
-          pass
+        attempts = 0
+        success = False
+        while not success:
+          try:
+            get_response = requests.get(api_get_result_url + q_id)
+            success = True
+          except Exception as e:
+            attempts += 1
+            if attempts < 3:
+              print(f"ERROR: {e}. Trying again {attempts}/3")
+              time.sleep(3)
+              pass
+            else:
+              clear_last(update=False)
+              clear_last()
+              prt(f"💢  ERROR after 3 attempts: {e}")
+              return
         final_results = json.loads(get_response.content)
         clear_last(update=False)
         clear_last()
@@ -47132,6 +47378,291 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+
+def run_animatediff_sdxl(page, from_list=False, with_params=False):
+    global animatediff_sdxl_prefs, pipe_animatediff_sdxl, prefs, status
+    if not check_diffusers(page): return
+    animatediff_sdxl_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            animatediff_sdxl_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':animatediff_sdxl_prefs['guidance_scale'], 'num_inference_steps':animatediff_sdxl_prefs['num_inference_steps'], 'width':animatediff_sdxl_prefs['width'], 'height':animatediff_sdxl_prefs['height'], 'init_image':animatediff_sdxl_prefs['init_image'], 'init_image_strength':animatediff_sdxl_prefs['init_image_strength'], 'num_images':animatediff_sdxl_prefs['num_images'], 'seed':animatediff_sdxl_prefs['seed']})
+        else:
+            animatediff_sdxl_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(animatediff_sdxl_prefs['init_image']):
+        alert_msg(page, "You must provide an Init Image or Video to process your video generation...")
+        return
+      animatediff_sdxl_prompts.append({'prompt': animatediff_sdxl_prefs['prompt'], 'negative_prompt':animatediff_sdxl_prefs['negative_prompt'], 'guidance_scale':animatediff_sdxl_prefs['guidance_scale'], 'num_inference_steps':animatediff_sdxl_prefs['num_inference_steps'], 'width':animatediff_sdxl_prefs['width'], 'height':animatediff_sdxl_prefs['height'], 'init_image':animatediff_sdxl_prefs['init_image'], 'init_image_strength':animatediff_sdxl_prefs['init_image_strength'], 'num_images':animatediff_sdxl_prefs['num_images'], 'seed':animatediff_sdxl_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.AnimateDiffSDXL.controls.append(line)
+        if update:
+          page.AnimateDiffSDXL.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.AnimateDiffSDXL, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.AnimateDiffSDXL.auto_scroll = scroll
+        page.AnimateDiffSDXL.update()
+      else:
+        page.AnimateDiffSDXL.auto_scroll = scroll
+        page.AnimateDiffSDXL.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.AnimateDiffSDXL.controls = page.AnimateDiffSDXL.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = animatediff_sdxl_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    def callback_step(pipe, step, timestep, callback_kwargs):
+      callback_step.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    mode = "Video2Video" if animatediff_sdxl_prompts[0]['init_image'].endswith('mp4') or animatediff_sdxl_prompts[0]['init_image'].endswith('gif') else "SDXL"
+    installer = Installing(f"Installing AnimateDiff SDXL Engine & Models...")
+    prt(installer)
+    clear_pipes("animatediff_sdxl")
+    import requests
+    from io import BytesIO
+    from PIL.PngImagePlugin import PngInfo
+    from PIL import ImageOps
+    cpu_offload = animatediff_sdxl_prefs['cpu_offload']
+    motion_module = "a-r-r-o-w/animatediff-motion-adapter-sdxl-beta"
+    #"guoyww/animatediff-motion-adapter-v1-5-2" if animatediff_sdxl_prefs['motion_module'] == "animatediff-motion-adapter-v1-5-2" else "guoyww/animatediff-motion-adapter-v1-5-2"
+    model_SDXL = get_SDXL_model(prefs['SDXL_model'])
+    animatediff_sdxl_model = model_SDXL['path']
+    variant = {'variant': model_SDXL['variant']} if 'variant' in model_SDXL else {}
+    
+    #"SG161222/Realistic_Vision_V5.1_noVAE" if animatediff_sdxl_prefs['animatediff_sdxl_model'] == "Realistic_Vision_V5.1_noVAE" else "Lykon/dreamshaper-8" if animatediff_sdxl_prefs['animatediff_sdxl_model'] == "dreamshaper-8" else "emilianJR/epiCRealism" if animatediff_sdxl_prefs['animatediff_sdxl_model'] == "epiCRealism" else animatediff_sdxl_prefs['animatediff_sdxl_custom_model']
+    if 'loaded_animatediff_sdxl' not in status: status['loaded_animatediff_sdxl'] = ""
+    if animatediff_sdxl_model != status['loaded_animatediff_sdxl']:
+        clear_pipes()
+    #from optimum.intel import OVLatentConsistencyModelPipeline
+    #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/AnimateDiffSDXL-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
+    # if mode == "Video2Video":
+    #     pip_install("imageio", installer=installer)
+    #from diffusers import AutoPipelineForVideo2Video, AutoPipelineForSDXL, AnimateDiffSDXLScheduler
+    from diffusers import MotionAdapter, DiffusionPipeline, AnimateDiffSDXLPipeline, DDIMScheduler
+    from diffusers.utils import export_to_gif, load_image
+    ie_arg = {}
+    if animatediff_sdxl_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter Image Encoder")
+        from transformers import CLIPVisionModelWithProjection
+        image_encoder = CLIPVisionModelWithProjection.from_pretrained(
+            "h94/IP-Adapter", 
+            subfolder="models/image_encoder",
+            torch_dtype=torch.float16,
+        )
+        ie_arg = {'image_encoder': image_encoder}
+    if pipe_animatediff_sdxl == None:
+        installer.status(f"...initialize AnimateDiff SDXL with {model_SDXL['name']} Model")
+        try:
+            adapter = MotionAdapter.from_pretrained(motion_module, torch_dtype=torch.float16)
+            pipe_animatediff_sdxl = AnimateDiffSDXLPipeline.from_pretrained(animatediff_sdxl_model, motion_adapter=adapter, torch_dtype=torch.float16, **variant, **ie_arg, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_animatediff_sdxl = DiffusionPipeline.from_pretrained(animatediff_sdxl_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_video2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            #pipe_animatediff_sdxl = AutoPipelineForVideo2Video.from_pretrained(animatediff_sdxl_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_animatediff_sdxl.scheduler = model_scheduler(animatediff_sdxl_model, clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
+            #pipe_animatediff_sdxl.scheduler = DDIMScheduler.from_pretrained(animatediff_sdxl_model, subfolder="scheduler", clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
+            #pipe_animatediff_sdxl = pipeline_scheduler(pipe_animatediff_sdxl)
+            #pipe_animatediff_sdxl.scheduler = AnimateDiffSDXLScheduler.from_config(pipe_animatediff_sdxl.scheduler.config)
+            if prefs['vae_slicing']:
+                pipe_animatediff_sdxl.enable_vae_slicing()
+            if prefs['vae_tiling']:
+                pipe_animatediff_sdxl.enable_vae_tiling()
+            if animatediff_sdxl_prefs['free_init']:
+                installer.status(f"...enable FreeInit")
+                pipe_animatediff_sdxl.enable_free_init(method="butterworth", use_fast_sampling=True)
+            '''if prefs['enable_freeu']:
+                installer.status(f"...enable FreeU")
+                pipe_animatediff_sdxl.enable_freeu(s1=0.6, s2=0.4, b1=1.1, b2=1.2)'''
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling transformer")
+                pipe_animatediff_sdxl.transformer = torch.compile(pipe_animatediff_sdxl.transformer, mode="reduce-overhead", fullgraph=True)
+                pipe_animatediff_sdxl = pipe_animatediff_sdxl.to(torch_device)
+            elif cpu_offload:
+                pipe_animatediff_sdxl.enable_model_cpu_offload()
+            else:
+                pipe_animatediff_sdxl = pipe_animatediff_sdxl.to(torch_device)
+            pipe_animatediff_sdxl.set_progress_bar_config(disable=True)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing AnimateDiff SDXL...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        status['loaded_animatediff_sdxl'] = animatediff_sdxl_model
+    else:
+        clear_pipes('animatediff_sdxl')
+        if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_animatediff_sdxl.scheduler = model_scheduler(animatediff_sdxl_model, clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
+    status['loaded_scheduler'] = prefs['scheduler_mode']
+    '''
+    motion_loras = []
+    animation_types = []
+    adapter_weights = []
+    for m in animatediff_sdxl_prefs['motion_loras']:
+        for mm in animatediff_motion_loras:
+            if mm['name'] == m:
+                animation_types.append(mm['name'])
+                adapter_weights.append(animatediff_sdxl_prefs['motion_loras_strength'])
+                motion_loras.append(mm)
+    if len(motion_loras) > 0:
+        for ml in motion_loras:
+            pipe_animatediff_sdxl.load_lora_weights(ml['path'], adapter_name=ml['name'])
+        pipe_animatediff_sdxl.set_adapters(animation_types, adapter_weights=adapter_weights)
+    '''
+    #animation_type = ["zoom-out", "tilt-up", "pan-left"]
+    #adapter_weight = [0.75]
+    #pipe_animatediff_sdxl.set_adapters([animation_type], adapter_weights=adapter_weight)
+    #pipe_animatediff_sdxl.load_lora_weights(f"guoyww/animatediff-motion-lora-{animation_type}", adapter_name=animation_type)
+    if len(animatediff_sdxl_prefs['lora_map']) > 0:
+        adapters = []
+        scales = []
+        for l in animatediff_sdxl_prefs['lora_map']:
+            adapters.append(l['name'])
+            scales.append(l['scale'])
+            weight_args = {}
+            if 'weights' in l and bool(l['weights']):
+                weight_args['weight_name'] = l['weights']
+            pipe_animatediff_sdxl.load_lora_weights(l['path'], adapter_name=l['name'], torch_dtype=torch.float16, **weight_args)
+        pipe_animatediff_sdxl.set_adapters(adapters, adapter_weights=scales)
+    #else: p.disable_lora()
+    ip_adapter_arg = {}
+    if animatediff_sdxl_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if animatediff_sdxl_prefs['ip_adapter_image'].startswith('http'):
+          i_response = requests.get(animatediff_sdxl_prefs['ip_adapter_image'])
+          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+          if os.path.isfile(animatediff_sdxl_prefs['ip_adapter_image']):
+            ip_adapter_img = PILImage.open(animatediff_sdxl_prefs['ip_adapter_image'])
+          else:
+            clear_last()
+            prt(f"ERROR: Couldn't find your ip_adapter_image {animatediff_sdxl_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            for m in ip_adapter_SDXL_models:
+                if m['name'] == animatediff_sdxl_prefs['ip_adapter_SDXL_model']:
+                    ip_adapter_SDXL_model = m
+                    break
+            #ip_adapter_SDXL_model = next(m for m in ip_adapter_SDXL_models if m['name'] == animatediff_sdxl_prefs['ip_adapter_SDXL_model'])
+            pipe_animatediff_sdxl.load_ip_adapter(ip_adapter_SDXL_model['path'], subfolder=ip_adapter_SDXL_model['subfolder'], weight_name=ip_adapter_SDXL_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_animatediff_sdxl.set_ip_adapter_scale(animatediff_sdxl_prefs['ip_adapter_strength'])
+
+    clear_last()
+    s = "" if len(animatediff_sdxl_prompts) == 0 else "s"
+    prt(f"Generating your AnimateDiff Video{s}...")
+    for pr in animatediff_sdxl_prompts:
+        prt(progress)
+        nudge(page.imageColumn if from_list else page.AnimateDiffSDXL, page)
+        autoscroll(False)
+        mode = "Video2Video" if pr['init_image'].endswith(('mp4', 'gif')) else "SDXL"
+        total_steps = pr['num_inference_steps']
+        random_seed = get_seed(pr['seed'])
+        generator = torch.Generator().manual_seed(random_seed)
+        try:
+            output = pipe_animatediff_sdxl(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_frames=animatediff_sdxl_prefs['video_length'],
+                num_videos_per_prompt=pr['num_images'],
+                height=pr['height'],
+                width=pr['width'],
+                num_inference_steps=pr['num_inference_steps'],
+                guidance_scale=pr['guidance_scale'],
+                clip_skip=animatediff_sdxl_prefs['clip_skip'],
+                latent_interpolation_method=animatediff_sdxl_prefs['latent_interpolation_method'].lower(), # can be lerp, slerp, or your own callback
+                generator=generator,
+                callback=callback_fnc,
+                **ip_adapter_arg,
+            ).frames
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating video...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        #clear_last()
+        clear_last()
+        autoscroll(True)
+        if output is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        batch_output = os.path.join(prefs['image_output'], animatediff_sdxl_prefs['batch_folder_name'])
+        makedir(batch_output)
+        for v, frames_batch in enumerate(output):
+            fname = format_filename(pr['prompt'])
+            frames_dir = available_folder(batch_output, "frames", v)
+            makedir(frames_dir)
+            for idx, image in enumerate(frames_batch):
+                #fname = f"{animatediff_sdxl_prefs['file_prefix']}{format_filename(animatediff_sdxl_prefs['batch_folder_name'])}-{b}"
+                image_path = available_file(frames_dir, "frame", idx, zfill=4)
+                image.save(image_path)
+                new_file = os.path.basename(image_path)
+                if not animatediff_sdxl_prefs['display_upscaled_image'] or not animatediff_sdxl_prefs['apply_ESRGAN_upscale']:
+                    #prt(Row([Img(src=image_path, width=animatediff_sdxl_prefs['width'], height=animatediff_sdxl_prefs['height'], fit=ImageFit.FILL, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                    prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+                if animatediff_sdxl_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                    upscale_image(image_path, image_path, scale=animatediff_sdxl_prefs["enlarge_scale"], face_enhance=animatediff_sdxl_prefs["face_enhance"])
+                    if animatediff_sdxl_prefs['display_upscaled_image']:
+                        time.sleep(0.6)
+                        prt(Row([Img(src=asset_dir(image_path), width=int(pr['width'] * float(animatediff_sdxl_prefs["enlarge_scale"])), height=int(pr['height'] * float(animatediff_sdxl_prefs["enlarge_scale"])), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+                prt(Row([Text(new_file)], alignment=MainAxisAlignment.CENTER))
+            gif_file = available_file(batch_output, fname, no_num=True, ext="gif")
+            export_to_gif(frames_batch, gif_file, fps=animatediff_sdxl_prefs['fps'])
+            prt(Row([ImageButton(src=gif_file, width=pr['width'], height=pr['height'], data=gif_file, page=page)], alignment=MainAxisAlignment.CENTER))
+            if animatediff_sdxl_prefs['export_to_video']:
+                try:
+                    installer = Installing("Running Google FILM: Frame Interpolation for Large Motion...")
+                    prt(installer)
+                    out_file = available_file(batch_output, fname, no_num=True, ext="mp4")
+                    if animatediff_sdxl_prefs['interpolate_video']:
+                        interpolate_video(frames_dir, input_fps=animatediff_sdxl_prefs['fps'], output_fps=animatediff_sdxl_prefs['target_fps'], output_video=out_file, installer=installer)
+                    else:
+                        installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+                        pattern = create_pattern(new_file) #fname+"-%04d.png"
+                        frames_to_video(frames_dir, pattern=pattern, input_fps=animatediff_sdxl_prefs['fps'], output_fps=animatediff_sdxl_prefs['target_fps'], output_video=out_file, installer=installer, deflicker=True)
+                except Exception as e:
+                    clear_last()
+                    alert_msg(page, f"ERROR: Couldn't interpolate video, but frames still saved...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+                    pass
+                clear_last()
+                if not os.path.isfile(out_file):
+                    prt(f"Problem creating video file, but frames still saved...")
+                else:
+                    prt(Markdown(f"Video saved to [{out_file}]({out_file})", on_tap_link=lambda e: e.page.launch_url(e.data)))
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
 
 def run_pia(page, from_list=False, with_params=False):
     global pia_prefs, pipe_pia, prefs, status
