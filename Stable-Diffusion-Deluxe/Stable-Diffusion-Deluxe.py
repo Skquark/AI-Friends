@@ -1434,7 +1434,7 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
             content_msg = Column(controls=[content_msg])
         for c in content_msg.controls:
             if isinstance(c, Text) or isinstance(c, Markdown):
-                debug_msg += c.value + "\n"
+                debug_msg += str(c.value) + "\n"
         import platform
         memory = f"GPU VRAM: {status['gpu_used']:.1f}/{status['gpu_memory']:.0f}GB - CPU RAM: {status['cpu_used']:.1f}/{status['cpu_memory']:.0f}GB{' - on Colab' if is_Colab else ''}"
         os_info = f" - OS: {platform.system()} {platform.version()} - Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} - Torch {torch.__version__} - Transformers {transformers.__version__}"
@@ -2003,7 +2003,9 @@ def buildInstallers(page):
         console_msg("Downloading Stable Diffusion Text2Image, Image2Image & Inpaint Pipeline...")
         #with io.StringIO() as buf, redirect_stdout(buf):
         #print('redirected')
+        page.status(f"...loading {get_model(prefs['model_ckpt'])['name']}")
         get_text2image(page)
+        page.status()
         #output = buf.getvalue()
         #page.banner.content.controls.append(Text(output.strip()))
         status['installed_txt2img'] = True
@@ -2028,6 +2030,7 @@ def buildInstallers(page):
         page.img_block.update()'''
       if prefs['install_SDXL'] and prefs['install_diffusers']:
         console_msg("Installing Stable Diffusion XL Text2Image, Image2Image & Inpaint Pipeline...")
+        page.status(f"...loading {get_SDXL_model(prefs['SDXL_model'])['name']}")
         if get_SDXL(page):
           status['installed_SDXL'] = True
           page.img_block.height = None
@@ -2036,6 +2039,7 @@ def buildInstallers(page):
           page.use_SDXL.update()
           page.SDXL_params.visible = True
           page.SDXL_params.update()
+        page.status()
       if prefs['install_alt_diffusion'] and prefs['install_diffusers']:
         console_msg("Installing AltDiffusion Text2Image & Image2Image Pipeline...")
         get_alt_diffusion(page)
@@ -3554,7 +3558,7 @@ def buildPromptGenerator(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request, tooltip="The way it asks for the visual description.")
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini"), dropdown.Option("Anthropic Claude 3")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Anthropic Claude 3")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3623,7 +3627,7 @@ def buildPromptRemixer(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "Google Gemini", "Anthropic Claude 3"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Anthropic Claude 3"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3709,7 +3713,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Anthropic Claude 3"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Anthropic Claude 3"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -4891,9 +4895,9 @@ def buildImage2Text(page):
       fuyu_mode.update()
       gemini_mode.visible = method=="Google Gemini Pro"
       gemini_mode.update()
-      openai_mode.visible = method=="OpenAI GPT-4 Vision" or method=="Anthropic Claude 3 Vision" or method=="Moondream 2"
+      openai_mode.visible = "GPT-4" in method or method=="Anthropic Claude 3 Vision" or method=="Moondream 2"
       openai_mode.update()
-      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question") or ((method=="OpenAI GPT-4 Vision" or method=="Anthropic Claude 3 Vision" or method=="Moondream 2") and image2text_prefs['openai_mode']=="Question")
+      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question") or (("GPT-4" in method or method=="Anthropic Claude 3 Vision" or method=="Moondream 2") and image2text_prefs['openai_mode']=="Question")
       question_prompt.update()
     def change_fuyu(e):
       fuyu = e.control.value
@@ -4923,13 +4927,13 @@ def buildImage2Text(page):
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
-    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("Moondream 2"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
+    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("OpenAI GPT-4o"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("Moondream 2"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
     #use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
     mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
     request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
     fuyu_mode = Dropdown(label="Fuyu Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['fuyu_mode'], visible=image2text_prefs['method']=="Fuyu-8B", on_change=change_fuyu)
     gemini_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
-    openai_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible=image2text_prefs['method']=="OpenAI GPT-4 Vision" or image2text_prefs['method']=="Anthropic Claude 3 Vision" or image2text_prefs['method']=="Moondream 2", on_change=change_openai)
+    openai_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible="GPT-4" in image2text_prefs['method'] or image2text_prefs['method']=="Anthropic Claude 3 Vision" or image2text_prefs['method']=="Moondream 2", on_change=change_openai)
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
     AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), visible=image2text_prefs['method']=="AIHorde Crowdsourced", animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -11729,7 +11733,7 @@ def buildLMD_Plus(page):
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=lmd_plus_prefs, key='height')
     lmd_plus_model = Dropdown(label="LMD+ Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("longlian/lmd_plus")], value=lmd_plus_prefs['lmd_plus_model'], on_change=changed_model)
     lmd_plus_custom_model = TextField(label="Custom LMD_Plus Model (URL or Path)", value=lmd_plus_prefs['custom_model'], expand=True, visible=lmd_plus_prefs['lmd_plus_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=lmd_plus_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini")], value=lmd_plus_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, expand=True, pref=lmd_plus_prefs, key='temperature', tooltip="Softmax value used to module the next token probabilities", col={'lg':6})
     gligen_scheduled_sampling_beta = SliderRow(label="Gligen Scheduled Sampling Beta", min=0, max=1, divisions=10, round=1, pref=lmd_plus_prefs, key='gligen_scheduled_sampling_beta', tooltip="Scheduled Sampling factor from GLIGEN: Open-Set Grounded Text-to-Image Generation. Scheduled Sampling factor is only varied for scheduled sampling during inference for improved quality and controllability.", col={'lg':6})
     cpu_offload = Switcher(label="CPU Offload", value=lmd_plus_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
@@ -21746,7 +21750,7 @@ def buildWhisper(page):
     audio_file = FileInput(label="Input Media File (MP3, MP4, AVI, URL or YouTube URL)", pref=whisper_prefs, key='audio_file', ftype="media", page=page)
     model_size = Dropdown(label="Whisper Model Size", width=200, options=[dropdown.Option("tiny"), dropdown.Option("base"), dropdown.Option("small"), dropdown.Option("medium"), dropdown.Option("large"), dropdown.Option("large-v2"), dropdown.Option("large-v3")], value=whisper_prefs['model_size'], on_change=lambda e: changed(e, 'model_size'))
     trim_audio = Checkbox(label="Trim Audio to 30s", value=whisper_prefs['trim_audio'], tooltip="Prefers a short audio chunk", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trim_audio'))
-    AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("Google Gemini")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=200, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini")], value=whisper_prefs['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     AI_temperature = SliderRow(label="AI Temperature", min=0, max=1, divisions=10, round=1, expand=True, pref=whisper_prefs, key="AI_temperature")
     reformat = Checkbox(label="Reformat grammar and structure of transcript", value=whisper_prefs['reformat'], tooltip=whisper_requests['reformat'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'reformat'))
     rewrite = Checkbox(label="Rewrite and edit content of transcript", value=whisper_prefs['rewrite'], tooltip=whisper_requests['rewrite'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, col={'md':6, 'lg':4, 'xl':3}, on_change=lambda e:changed(e,'rewrite'))
@@ -22594,7 +22598,8 @@ def get_diffusers(page):
         import accelerate
     except ModuleNotFoundError:
         page.status("...installing accelerate")
-        run_sp("pip install --upgrade git+https://github.com/huggingface/accelerate.git", realtime=False)
+        #run_sp("pip install --upgrade git+https://github.com/huggingface/accelerate.git", realtime=False)
+        run_sp("pip install --upgrade accelerate", realtime=False)
         import accelerate
         page.status()
         pass
@@ -22654,6 +22659,7 @@ def get_diffusers(page):
         page.status()
         pass
 
+    page.status("...setting up credentials")
     from huggingface_hub import notebook_login, HfApi, HfFolder, login
     #from diffusers import StableDiffusionPipeline, logging
     from diffusers import logging
@@ -22661,6 +22667,7 @@ def get_diffusers(page):
         run_process("git config --global credential.helper store", page=page)
     logging.set_verbosity_error()
     if not os.path.exists(HfFolder.path_token):
+        page.status("...logging into HuggingFace")
         #from huggingface_hub.commands.user import _login
         #_login(HfApi(), token=prefs['HuggingFace_api_key'])
         try:
@@ -22670,6 +22677,7 @@ def get_diffusers(page):
           return
     # TODO: Get Username to prefs
     HFapi = HfApi()
+    page.status("...getting model")
     prefs['HuggingFace_username'] = HFapi.whoami()["name"]
     #if prefs['model_ckpt'] == "Stable Diffusion v1.5": model_path =  "runwayml/stable-diffusion-v1-5"
     #elif prefs['model_ckpt'] == "Stable Diffusion v1.4": model_path =  "CompVis/stable-diffusion-v1-4"
@@ -22681,6 +22689,7 @@ def get_diffusers(page):
     #  alert_msg(page, f"ERROR: {prefs['scheduler_mode']} Scheduler couldn't load for {model_path}", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
     #  pass
     status['finetuned_model'] = False if model['name'].startswith("Stable") else True
+    page.status()
 
 def save_file(file, folder="", filename=None, media="images"):
     if 'save_to_HF' in prefs and prefs['save_to_HF']:
@@ -24449,10 +24458,10 @@ def get_AIHorde(page):
     try:
       response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'})
     except Exception as e:
-      alert_msg(page, "ERROR with AIHorde Authentication", content=Text(str(e)))
+      alert_msg(page, "ERROR with AIHorde Authentication", content=Text(str(e), selectable=True))
       return
     if response.status_code != 200:
-      alert_msg(page, "ERROR {response.status_code} with AIHorde Authentication", content=Text(str(response.text)))
+      alert_msg(page, "ERROR {response.status_code} with AIHorde Authentication", content=Text(str(response.text), selectable=True))
       return
     payload = response.json()
     print(str(payload))
@@ -24498,7 +24507,6 @@ def get_ESRGAN(page, model=None, installer=None):
     if not bool(model_url):
         print(f"ESRGAN model {model} not found.")
         return
-    
     '''if model =="realesr-general-x4v3":
         model_url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/realesr-general-x4v3.pth"
     elif model == "RealESRGAN_x2plus":
@@ -26271,10 +26279,10 @@ def start_diffusion(page):
               latents = scheduler.step(noise_pred, i, latents)["prev_sample"]#We now use the vae to decode the generated latents back into the image.
             latents = 1 / 0.18215 * latents
             with torch.no_grad():
-              image = vae.decode(latents)
-            image = (image / 2 + 0.5).clip(0, 1)
-            image = image.detach().cpu().permute(0, 2, 3, 1).numpy()
-            uint8_images = (image * 255).round().astype("uint8")
+              face_image = vae.decode(latents)
+            face_image = (face_image / 2 + 0.5).clip(0, 1)
+            face_image = face_image.detach().cpu().permute(0, 2, 3, 1).numpy()
+            uint8_images = (face_image * 255).round().astype("uint8")
             #for img in uint8_images: images.append(Image.fromarray(img))
             images = [PILImage.fromarray(img) for img in uint8_images]
           else:
@@ -26344,7 +26352,7 @@ def start_diffusion(page):
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
-                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               else:
                 clear_pipes("txt2img")
@@ -26357,9 +26365,32 @@ def start_diffusion(page):
                 else:
                   pipe = get_SD_pipe(task="inpaint")
                 if bool(ip_adapter_arg):
-                  ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
-                  pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
+                  if 'FaceID' not in prefs['ip_adapter_model']:
+                    ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
+                    pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+                    pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
+                  else:
+                    pipe.load_ip_adapter("h94/IP-Adapter-FaceID", subfolder=None, weight_name="ip-adapter-faceid_sd15.bin", image_encoder_folder=None)
+                    pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
+                    if 'ip_adapter_image_embeds' not in ip_adapter_arg:
+                      try:
+                          import insightface
+                      except Exception:
+                          pip_install("insightface")
+                          pass
+                      from insightface.app import FaceAnalysis
+                      face_image = ip_adapter_arg['ip_adapter_image']
+                      ref_images_embeds = []
+                      face_app = FaceAnalysis(name="buffalo_l", providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+                      face_app.prepare(ctx_id=0, det_size=(640, 640))
+                      face_image = cv2.cvtColor(np.asarray(face_image), cv2.COLOR_BGR2RGB)
+                      faces = face_app.get(face_image)
+                      face_image = torch.from_numpy(faces[0].normed_embedding)
+                      ref_images_embeds.append(face_image.unsqueeze(0))
+                      ref_images_embeds = torch.stack(ref_images_embeds, dim=0).unsqueeze(0)
+                      neg_ref_images_embeds = torch.zeros_like(ref_images_embeds)
+                      id_embeds = torch.cat([neg_ref_images_embeds, ref_images_embeds]).to(dtype=torch.float16, device="cuda")
+                      ip_adapter_arg = {'ip_adapter_image_embeds': [id_embeds]}
               '''if pipe_img2img is None:
                 try:
                   pipe_img2img = get_img2img_pipe()
@@ -26424,22 +26455,22 @@ def start_diffusion(page):
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   #, target_size=(arg['width'], arg['height'])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  face_image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  face_image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
                     prompt_embed, pooled = compel_refiner(pr)
                     negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                     #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=face_image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
                     del prompt_embed, negative_embed, pooled, negative_pooled
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=face_image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
@@ -26492,7 +26523,7 @@ def start_diffusion(page):
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
-                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion_img2img")
@@ -26514,7 +26545,7 @@ def start_diffusion(page):
                   clear_last()
                   if bool(ip_adapter_arg):
                     ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                    pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                    pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                     pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_imagic'] and status['installed_imagic']:
                 clear_pipes("imagic")
@@ -26536,7 +26567,7 @@ def start_diffusion(page):
                   pipe = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               '''if pipe_img2img is None:
                 try:
@@ -26579,12 +26610,12 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  face_image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                   #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  face_image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
@@ -26592,10 +26623,10 @@ def start_diffusion(page):
                     prompt_embed, pooled = compel_refiner(pr)
                     negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                     #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=face_image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                     del prompt_embed, negative_embed, pooled, negative_pooled
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=face_image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                 #images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -26670,7 +26701,7 @@ def start_diffusion(page):
                   pipe_SDXL = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == prefs['ip_adapter_SDXL_model'])
-                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe_SDXL.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe_SDXL.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 clear_pipes("alt_diffusion")
@@ -26686,7 +26717,7 @@ def start_diffusion(page):
                   clear_last()
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe_SAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe_SAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe_SAG.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_attend_and_excite'] and status['installed_attend_and_excite']:
                 clear_pipes("attend_and_excite")
@@ -26696,7 +26727,7 @@ def start_diffusion(page):
                   clear_last()
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe_attend_and_excite.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe_attend_and_excite.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe_attend_and_excite.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_versatile'] and status['installed_versatile']:
                 clear_pipes("versatile_text2img")
@@ -26712,7 +26743,7 @@ def start_diffusion(page):
                   clear_last()
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe_safe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe_safe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe_safe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               elif prefs['use_panorama'] and status['installed_panorama']:
                 clear_pipes("panorama")
@@ -26722,7 +26753,7 @@ def start_diffusion(page):
                   clear_last()
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe_panorama.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe_panorama.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe_panorama.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               else:
                 clear_pipes("txt2img")
@@ -26739,7 +26770,7 @@ def start_diffusion(page):
                   pipe = pipeline_scheduler(pipe_SDXL, trailing=True)
                 if bool(ip_adapter_arg):
                   ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == prefs['ip_adapter_model'])
-                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+                  pipe.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
                   pipe.set_ip_adapter_scale(prefs['ip_adapter_strength'])
               '''with io.StringIO() as buf, redirect_stdout(buf):
                 get_text2image(page)
@@ -26772,21 +26803,21 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  face_image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                   del pooled, negative_pooled
                 else:
-                  image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  face_image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
                     prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
                     negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
                     #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=face_image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                     #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                     del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt' if bool(arg['negative_prompt']) else "blurry"], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt' if bool(arg['negative_prompt']) else "blurry"], image=face_image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
@@ -26904,7 +26935,7 @@ def start_diffusion(page):
         images = []
 
       idx = num = 0
-      for image in images:
+      for face_image in images:
         cur_seed = arg['seed']
         if idx > 0:
           cur_seed += idx
@@ -26920,7 +26951,7 @@ def start_diffusion(page):
         image_path = available_file(txt2img_output, fname, idx)
         num = int(image_path.rpartition('-')[2].partition('.')[0])
         #image_path = os.path.join(txt2img_output, f'{fname}-{idx}.png')
-        image.save(image_path)
+        face_image.save(image_path)
         #print(f'size:{os.path.getsize(f"{fname}-{idx}.png")}')
         if os.path.getsize(image_path) < 2000 or not usable_image: #False: #not sum(image.convert("L").getextrema()) in (0, 2): #image.getbbox():#
           os.remove(os.path.join(txt2img_output, f'{fname}-{num}.png'))
@@ -26978,7 +27009,7 @@ def start_diffusion(page):
             clear_last()
           prt(Row([Text("Upscaling 4X"), pb]))
           try:
-            output = pipe_upscale(prompt=pr, image=image, guidance_scale=arg['guidance_scale'], generator=generator, noise_level=prefs['upscale_noise_level'], callback=callback_fn, callback_steps=1)
+            output = pipe_upscale(prompt=pr, image=face_image, guidance_scale=arg['guidance_scale'], generator=generator, noise_level=prefs['upscale_noise_level'], callback=callback_fn, callback_steps=1)
             output.images[0].save(fpath)
             #clear_upscale()
           except Exception as e:
@@ -27439,7 +27470,7 @@ def run_prompt_generator(page):
       #print(str(response))
       result = response.choices[0].message.content.strip()#["choices"][0]["message"]["content"].strip()
     elif "GPT-4" in prefs['prompt_generator']['AI_engine']:
-      gpt_model = "gpt-4-0125-preview" if "Turbo" in prefs['prompt_generator']['AI_engine'] else "gpt-4"
+      gpt_model = "gpt-4-turbo" if "Turbo" in prefs['prompt_generator']['AI_engine'] else "gpt-4o" if "4o" in prefs['prompt_generator']['AI_engine'] else "gpt-4"
       response = openai_client.chat.completions.create(
         model=gpt_model,
         temperature=prefs['prompt_generator']['AI_temperature'],
@@ -27481,7 +27512,6 @@ def run_prompt_generator(page):
       pr = p.strip()
       if not bool(pr): continue
       if pr[-1] == '.': pr = pr[:-1]
-      if pr[0] == ':': pr = pr[1:].strip()
       if pr[0] == '*': pr = pr[1:].strip()
       elif '.' in pr: # Sometimes got 1. 2.
         pr = pr.partition('.')[2].strip()
@@ -27489,6 +27519,7 @@ def run_prompt_generator(page):
       if pr.endswith("."):
         pr = pr[:(-1)]
       if '*' in pr: pr = pr.rpartition('*')[2].strip()
+      if pr[0] == ':': pr = pr[1:].strip()
       prompt_results.append(pr)
   #print(f"Request mode influence: {request_modes[prefs['prompt_generator']['request_mode']]}\n")
   page.prompt_generator_list.controls.append(Installing("Requesting Prompts from the AI..."))
@@ -27661,7 +27692,7 @@ def run_prompt_remixer(page):
       #print(str(response))
       result = response.choices[0].message.content.strip()
     elif "GPT-4" in engine:
-      gpt_model = "gpt-4-0125-preview" if "Turbo" in engine else "gpt-4"
+      gpt_model = "gpt-4-turbo" if "Turbo" in engine else "gpt-4o" if "4o" in engine else "gpt-4"
       response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       result = response.choices[0].message.content.strip()
     elif engine == "Google Gemini":
@@ -28009,7 +28040,7 @@ def run_prompt_brainstormer(page):
         response = openai_client.chat.completions.create(model="gpt-3.5-turbo-0125", temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
         result = response.choices[0].message.content.strip()
       elif "GPT-4" in prefs['prompt_brainstormer']['AI_engine']:
-        gpt_model = "gpt-4-0125-preview" if "Turbo" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4"
+        gpt_model = "gpt-4-turbo" if "Turbo" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4o" if "4o" in prefs['prompt_brainstormer']['AI_engine'] else "gpt-4"
         response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs['prompt_brainstormer']['AI_temperature'], messages=[{"role": "user", "content": request}])
         result = response.choices[0].message.content.strip()
       elif prefs['prompt_brainstormer']['AI_engine'] == "HuggingFace Bloom 176B":
@@ -30383,6 +30414,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
             import insightface
         except Exception:
             pip_install("insightface", installer=installer)
+            pass
         finally:
             import insightface
             from insightface.app import FaceAnalysis
@@ -30470,7 +30502,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
         else:
             pipe_ip_adapter.load_ip_adapter_face_id(ip_adapter_model['path'], weight_name=ip_adapter_model['weight_name'])
     else:
-        pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+        pipe_ip_adapter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
     pipe_ip_adapter.set_ip_adapter_scale(ip_adapter_prefs['ip_adapter_strength'])
     if ip_adapter_prefs['ip_adapter_image'].startswith('http'):
         ip_adapter_image = PILImage.open(requests.get(ip_adapter_prefs['ip_adapter_image'], stream=True).raw)
@@ -30787,7 +30819,7 @@ def run_hd_painter(page, from_list=False, with_params=False):
             ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
             ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == hd_painter_prefs['ip_adapter_model'])
-            pipe_hd_painter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_hd_painter.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_hd_painter.set_ip_adapter_scale(hd_painter_prefs['ip_adapter_strength'])
     clear_last()
     s = "" if len(hd_painter_prompts) == 0 else "s"
@@ -31238,7 +31270,7 @@ def run_controlnet_qr(page, from_list=False):
     else:
         pipe_controlnet_qr = pipeline_scheduler(pipe_controlnet_qr)
     if use_ip_adapter:
-        pipe_controlnet_qr.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+        pipe_controlnet_qr.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
         pipe_controlnet_qr.set_ip_adapter_scale(controlnet_qr_prefs['ip_adapter_strength'])
         if controlnet_qr_prefs['ip_adapter_image'].startswith('http'):
             ip_adapter_image = PILImage.open(requests.get(controlnet_qr_prefs['ip_adapter_image'], stream=True).raw)
@@ -32783,9 +32815,10 @@ def run_image2text(page):
             clear_last()
             i2t_prompts.append(prompt)
             page.add_to_image2text(prompt)
-    elif image2text_prefs['method'] == "OpenAI GPT-4 Vision":
-        installer = Installing("Installing OpenAI API Library......")
+    elif "OpenAI GPT-4" in image2text_prefs['method']:
+        installer = Installing("Installing OpenAI API Library...")
         prt(installer)
+        gpt_model = "gpt-4-vision-preview" if image2text_prefs['method'] == "OpenAI GPT-4 Vision" else "gpt-4o"
         if not bool(prefs['OpenAI_api_key']):
           alert_msg(page, "You must provide your OpenAI API key in Settings first")
           return
@@ -32818,7 +32851,7 @@ def run_image2text(page):
             image = encode_image(os.path.join(folder_path, file))
             headers = {"Content-Type": "application/json", "Authorization": f"Bearer {prefs['OpenAI_api_key']}"}
             payload = {
-              "model": "gpt-4-vision-preview",
+              "model": gpt_model,
               "messages": [
                 {
                   "role": "user",
@@ -36732,7 +36765,7 @@ def run_whisper(page):
             response = openai_client.chat.completions.create(model="gpt-3.5-turbo-0125", temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
             result = response.choices[0].message.content.strip()
         elif "GPT-4" in whisper_prefs['AI_engine']:
-            gpt_model = "gpt-4-0125-preview" if "Turbo" in whisper_prefs['AI_engine'] else "gpt-4"
+            gpt_model = "gpt-4-turbo" if "Turbo" in whisper_prefs['AI_engine'] else "gpt-4o" if "4o" in whisper_prefs['AI_engine'] else "gpt-4"
             response = openai_client.chat.completions.create(model=gpt_model, temperature=whisper_prefs['AI_temperature'], messages=[{"role": "user", "content": request}])
             result = response.choices[0].message.content.strip()
         elif whisper_prefs['AI_engine'] == "Google Gemini":
@@ -38127,7 +38160,7 @@ def run_instruct_pix2pix(page, from_list=False):
             ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == instruct_pix2pix_prefs['ip_adapter_SDXL_model'])
           else:
             ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == instruct_pix2pix_prefs['ip_adapter_model'])
-          pipe_instruct_pix2pix.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+          pipe_instruct_pix2pix.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
           pipe_instruct_pix2pix.set_ip_adapter_scale(instruct_pix2pix_prefs['ip_adapter_strength'])
     clear_last()
     prt("Generating Instruct-Pix2Pix of your Image...")
@@ -38401,7 +38434,7 @@ def run_ledits(page, from_list=False):
             ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == ledits_prefs['ip_adapter_SDXL_model'])
           else:
             ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == ledits_prefs['ip_adapter_model'])
-          pipe_ledits.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+          pipe_ledits.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
           pipe_ledits.set_ip_adapter_scale(ledits_prefs['ip_adapter_strength'])
     clear_last()
     prt("Generating LEdits++ of your Image...")
@@ -38965,7 +38998,7 @@ def run_controlnet(page, from_list=False):
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
     if use_ip_adapter:
-        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
         pipe_controlnet.set_ip_adapter_scale(controlnet_prefs['ip_adapter_strength'])
         if controlnet_prefs['ip_adapter_image'].startswith('http'):
             ip_adapter_image = PILImage.open(requests.get(controlnet_prefs['ip_adapter_image'], stream=True).raw)
@@ -39576,7 +39609,7 @@ def run_controlnet_xl(page, from_list=False):
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
     if use_ip_adapter:
-        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
         pipe_controlnet.set_ip_adapter_scale(controlnet_xl_prefs['ip_adapter_strength'])
         if controlnet_xl_prefs['ip_adapter_image'].startswith('http'):
             ip_adapter_image = PILImage.open(requests.get(controlnet_xl_prefs['ip_adapter_image'], stream=True).raw)
@@ -40086,7 +40119,7 @@ def run_controlnet_xs(page, from_list=False):
             from PIL import ImageOps
             mask_img = ImageOps.invert(mask_img.convert('RGB'))
     if use_ip_adapter:
-        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+        pipe_controlnet.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
         pipe_controlnet.set_ip_adapter_scale(controlnet_xs_prefs['ip_adapter_strength'])
         if controlnet_xs_prefs['ip_adapter_image'].startswith('http'):
             ip_adapter_image = PILImage.open(requests.get(controlnet_xs_prefs['ip_adapter_image'], stream=True).raw)
@@ -42258,7 +42291,7 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
             ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
             ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == differential_diffusion_prefs['ip_adapter_model'])
-            pipe_differential_diffusion.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_differential_diffusion.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_differential_diffusion.set_ip_adapter_scale(differential_diffusion_prefs['ip_adapter_strength'])
     def preprocess_image(image):
         image = image.convert("RGB")
@@ -42504,7 +42537,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
             )
             result = response.choices[0].message.content.strip()
         elif "GPT-4" in AI_engine:
-            gpt_model = "gpt-4-0125-preview" if "Turbo" in AI_engine else "gpt-4"
+            gpt_model = "gpt-4-turbo" if "Turbo" in AI_engine else "gpt-4o" if "4o" in AI_engine else "gpt-4"
             response = openai_client.chat.completions.create(
                 model=gpt_model,
                 temperature=temperature,
@@ -42767,7 +42800,7 @@ def run_lcm(page, from_list=False, with_params=False):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
             ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == lcm_prefs['ip_adapter_model'])
-            pipe_lcm.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_lcm.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_lcm.set_ip_adapter_scale(lcm_prefs['ip_adapter_strength'])
 
     clear_last()
@@ -43335,7 +43368,7 @@ def run_pag(page, from_list=False, with_params=False):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
             ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == pag_prefs['ip_adapter_model'])
-            pipe_PAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_PAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_PAG.set_ip_adapter_scale(pag_prefs['ip_adapter_strength'])
     clear_last()
     s = "" if len(pag_prompts) == 0 else "s"
@@ -43566,7 +43599,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
         ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
       if bool(ip_adapter_arg):
           ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == ldm3d_prefs['ip_adapter_model'])
-          pipe_ldm3d.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+          pipe_ldm3d.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
           pipe_ldm3d.set_ip_adapter_scale(ldm3d_prefs['ip_adapter_strength'])
 
     clear_last()
@@ -47237,7 +47270,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
                     ip_adapter_model = m
                     break
             #ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == animatediff_img2video_prefs['ip_adapter_model'])
-            pipe_animatediff_img2video.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_animatediff_img2video.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_animatediff_img2video.set_ip_adapter_scale(animatediff_img2video_prefs['ip_adapter_strength'])
 
     clear_last()
@@ -47393,9 +47426,6 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
         else:
             animatediff_sdxl_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
     else:
-      if not bool(animatediff_sdxl_prefs['init_image']):
-        alert_msg(page, "You must provide an Init Image or Video to process your video generation...")
-        return
       animatediff_sdxl_prompts.append({'prompt': animatediff_sdxl_prefs['prompt'], 'negative_prompt':animatediff_sdxl_prefs['negative_prompt'], 'guidance_scale':animatediff_sdxl_prefs['guidance_scale'], 'num_inference_steps':animatediff_sdxl_prefs['num_inference_steps'], 'width':animatediff_sdxl_prefs['width'], 'height':animatediff_sdxl_prefs['height'], 'init_image':animatediff_sdxl_prefs['init_image'], 'init_image_strength':animatediff_sdxl_prefs['init_image_strength'], 'num_images':animatediff_sdxl_prefs['num_images'], 'seed':animatediff_sdxl_prefs['seed']})
     def prt(line, update=True):
       if type(line) == str:
@@ -47496,7 +47526,6 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
             pipe_animatediff_sdxl.scheduler = model_scheduler(animatediff_sdxl_model, clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
             #pipe_animatediff_sdxl.scheduler = DDIMScheduler.from_pretrained(animatediff_sdxl_model, subfolder="scheduler", clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
             #pipe_animatediff_sdxl = pipeline_scheduler(pipe_animatediff_sdxl)
-            #pipe_animatediff_sdxl.scheduler = AnimateDiffSDXLScheduler.from_config(pipe_animatediff_sdxl.scheduler.config)
             if prefs['vae_slicing']:
                 pipe_animatediff_sdxl.enable_vae_slicing()
             if prefs['vae_tiling']:
@@ -47573,14 +47602,9 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
         if bool(ip_adapter_img):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
-            for m in ip_adapter_SDXL_models:
-                if m['name'] == animatediff_sdxl_prefs['ip_adapter_SDXL_model']:
-                    ip_adapter_SDXL_model = m
-                    break
-            #ip_adapter_SDXL_model = next(m for m in ip_adapter_SDXL_models if m['name'] == animatediff_sdxl_prefs['ip_adapter_SDXL_model'])
-            pipe_animatediff_sdxl.load_ip_adapter(ip_adapter_SDXL_model['path'], subfolder=ip_adapter_SDXL_model['subfolder'], weight_name=ip_adapter_SDXL_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            ip_adapter_SDXL_model = next((m for m in ip_adapter_SDXL_models if m['name'] == animatediff_sdxl_prefs['ip_adapter_SDXL_model']), None)
+            pipe_animatediff_sdxl.load_ip_adapter(ip_adapter_SDXL_model['path'], subfolder=ip_adapter_SDXL_model['subfolder'], weight_name=ip_adapter_SDXL_model['weight_name'])
             pipe_animatediff_sdxl.set_ip_adapter_scale(animatediff_sdxl_prefs['ip_adapter_strength'])
-
     clear_last()
     s = "" if len(animatediff_sdxl_prompts) == 0 else "s"
     prt(f"Generating your AnimateDiff Video{s}...")
@@ -47811,7 +47835,7 @@ def run_pia(page, from_list=False, with_params=False):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
             ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == pia_prefs['ip_adapter_model'])
-            pipe_pia.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'], low_cpu_mem_usage=not prefs['higher_vram_mode'])
+            pipe_pia.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_pia.set_ip_adapter_scale(pia_prefs['ip_adapter_strength'])
 
     clear_last()
@@ -54131,7 +54155,7 @@ class AudioPlayer(Stack):
         self.row = Row([self.button, Text(self.display)])
         return self.row
 
-port = 8084
+port = 8500#8084
 if tunnel_type == "ngrok":
     from pyngrok import conf, ngrok
     conf.get_default().ngrok_version = "v3"
@@ -54153,7 +54177,7 @@ if bool(public_url):
         print("Copy/Paste the Password/Enpoint IP for localtunnel:",urllib.request.urlopen('https://ipv4.icanhazip.com').read().decode('utf8').strip("\n"))
 elif tunnel_type == "Local_Colab":
     from google.colab import output
-    port = 8000#8084
+    port = 8084
     print("\nOpen URL in browser to launch app in tab: ")
     output.serve_kernel_port_as_window(port, anchor_text = "Open Colab URL")
 def close_tab():
@@ -54193,6 +54217,6 @@ os.environ["FLET_SECRET_KEY"] = "skquark"
 if tunnel_type == "desktop":
   ft.app(target=main, assets_dir=root_dir, upload_dir=root_dir)
 else:
-  os.environ["FLET_FORCE_WEB_SERVER"] = "true"
+  os.environ["FLET_FORCE_WEB_SERVER"] = "false"
   #print(f"Assets Dir: {os.path.abspath(os.path.join(root_dir, 'assets'))}") , host="0.0.0.0"
   ft.app(target=main, view=ft.WEB_BROWSER, port=port, assets_dir=os.path.abspath(root_dir), upload_dir=os.path.abspath(root_dir), use_color_emoji=True)
