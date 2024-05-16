@@ -1841,7 +1841,7 @@ def buildInstallers(page):
   def models_AIHorde(e):
       model_request = "https://stablehorde.net/api/v2/status/models"
       headers = {'apikey': prefs['AIHorde_api_key']}
-      response = requests.get(model_request, headers=headers)
+      response = requests.get(model_request, headers=headers, verify=False)
       if response != None:
           if response.status_code == 200:
             horde_models = json.loads(response.content)
@@ -7138,7 +7138,7 @@ def buildHordeWorker(page):
     def models_AIHorde(e):
         model_request = "https://stablehorde.net/api/v2/status/models"
         headers = {'apikey': prefs['AIHorde_api_key']}
-        response = requests.get(model_request, headers=headers)
+        response = requests.get(model_request, headers=headers, verify=False)
         if response != None:
             if response.status_code == 200:
               horde_models = json.loads(response.content)
@@ -24453,10 +24453,13 @@ def update_stability():
 def get_AIHorde(page):
     global prefs, status
     import requests
+    from requests.packages.urllib3.exceptions import InsecureRequestWarning
+    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)# Suppress InsecureRequestWarning
     api_host = os.getenv('API_HOST', 'https://stablehorde.net/api/')
     horde_url = f"{api_host}/v2/find_user" #user/account"
+    #horde_url = f"https://stablehorde.net/api/v2/find_user" #user/account"
     try:
-      response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'})
+      response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'}, verify=False)
     except Exception as e:
       alert_msg(page, "ERROR with AIHorde Authentication", content=Text(str(e), selectable=True))
       return
@@ -25832,7 +25835,7 @@ def start_diffusion(page):
             prt(f"ERROR: You have not selected an init_image to go with your image mask..")
             continue
           if arg['init_image'].startswith('http'):
-            i_response = requests.get(arg['init_image'])
+            i_response = requests.get(arg['init_image'], verify=False)
             init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
           else:
             if os.path.isfile(arg['init_image']):
@@ -25849,7 +25852,7 @@ def start_diffusion(page):
           #init_image = preprocess(init_img)
           if not arg['alpha_mask']:
             if arg['mask_image'].startswith('http'):
-              i_response = requests.get(arg['mask_image'])
+              i_response = requests.get(arg['mask_image'], verify=False)
               mask_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
             else:
               if os.path.isfile(arg['mask_image']):
@@ -25873,7 +25876,7 @@ def start_diffusion(page):
           #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
         elif bool(arg['init_image']):
           if arg['init_image'].startswith('http'):
-            i_response = requests.get(arg['init_image'])
+            i_response = requests.get(arg['init_image'], verify=False)
             init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
           else:
             if os.path.isfile(arg['init_image']):
@@ -25899,7 +25902,7 @@ def start_diffusion(page):
         payload["params"] = params
         #print(params)
         try:
-            response = requests.post(url, headers=headers, json=payload)#json.dumps(payload, indent = 4))
+            response = requests.post(url, headers=headers, json=payload, verify=False)#json.dumps(payload, indent = 4))
         except Exception as e:
             alert_msg(page, f"ERROR: Problem sending JSON request and getting response.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]), debug_pref=payload)
             print(payload)
@@ -25921,7 +25924,7 @@ def start_diffusion(page):
         try:
           while True:
             if abort_run: break
-            check_response = requests.get(api_check_url + q_id)
+            check_response = requests.get(api_check_url + q_id, verify=False)
             check = json.loads(check_response.content)
             #print(check)
             try:
@@ -25950,7 +25953,7 @@ def start_diffusion(page):
         success = False
         while not success:
           try:
-            get_response = requests.get(api_get_result_url + q_id)
+            get_response = requests.get(api_get_result_url + q_id, verify=False)
             success = True
           except Exception as e:
             attempts += 1
@@ -25972,7 +25975,7 @@ def start_diffusion(page):
             prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
             #TODO: Retry Attempts
             continue
-          img_response = requests.get(gen['img'])
+          img_response = requests.get(gen['img'], verify=False)
           webp_file = io.BytesIO(img_response.content)
           cv_img = cv2.imdecode(np.frombuffer(webp_file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
           images.append(PILImage.fromarray(cv_img))
