@@ -371,6 +371,10 @@ def load_settings_file():
       'AIHorde_model': 'stable_diffusion',
       'AIHorde_sampler': 'k_euler_a',
       'AIHorde_post_processing': "None",
+      'AIHorde_karras': False,
+      'AIHorde_tiling': False,
+      'AIHorde_hires_fix': False,
+      'AIHorde_strip_background': False,
       'AIHorde_lora_layer': 'Horde Aesthetics Improver',
       'AIHorde_lora_layer_alpha': 1.0,
       'AIHorde_custom_lora_layer': '',
@@ -1114,6 +1118,10 @@ if 'AIHorde_sampler' not in prefs: prefs['AIHorde_sampler'] = 'k_euler_a'
 if 'AIHorde_post_processing' not in prefs: prefs['AIHorde_post_processing'] = "None"
 if 'AIHorde_lora_layer' not in prefs: prefs['AIHorde_lora_layer'] = 'Horde Aesthetics Improver'
 if 'AIHorde_lora_layer_alpha' not in prefs: prefs['AIHorde_lora_layer_alpha'] = 1.0
+if 'AIHorde_karras' not in prefs: prefs['AIHorde_karras'] = False
+if 'AIHorde_tiling' not in prefs: prefs['AIHorde_tiling'] = False
+if 'AIHorde_hires_fix' not in prefs: prefs['AIHorde_hires_fix'] = False
+if 'AIHorde_strip_background' not in prefs: prefs['AIHorde_strip_background'] = False
 if 'custom_CivitAI_LoRA_models' not in prefs: prefs['custom_CivitAI_LoRA_models'] = []
 if 'AIHorde_custom_lora_layer' not in prefs: prefs['AIHorde_custom_lora_layer'] = ''
 if 'AIHorde_lora_map' not in prefs: prefs['AIHorde_lora_map'] = []
@@ -1852,7 +1860,7 @@ def buildInstallers(page):
       AIHorde_settings.update()
       page.update()
   def models_AIHorde(e):
-      model_request = "https://stablehorde.net/api/v2/status/models"
+      model_request = "https://aihorde.net/api/v2/status/models"
       headers = {'apikey': prefs['AIHorde_api_key']}
       response = requests.get(model_request, headers=headers, verify=False)
       if response != None:
@@ -1868,7 +1876,11 @@ def buildInstallers(page):
   AIHorde_model.options = [dropdown.Option(m) for m in AIHorde_models]
   horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
   AIHorde_sampler = Dropdown(label="Generation Sampler", hint_text="", width=375, options=[dropdown.Option("k_lms"), dropdown.Option("k_heun"), dropdown.Option("k_euler"), dropdown.Option("k_euler_a"), dropdown.Option("k_dpm_2"), dropdown.Option("k_dpm_2_a"), dropdown.Option("k_dpm_fast"), dropdown.Option("k_dpm_adaptive"), dropdown.Option("k_dpmpp_2s_a"), dropdown.Option("k_dpmpp_2m"), dropdown.Option("dpmsolver"), dropdown.Option("k_dpmpp_sde"), dropdown.Option("DDIM")], value=prefs['AIHorde_sampler'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_sampler'))
-  AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=375, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers"), dropdown.Option("strip_background")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
+  AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=375, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
+  AIHorde_karras = Checkbox(label="Karras", tooltip="Noise Scheduling tweaks prioritize fine-tuning the noise levels, emphasizing appearance customization & promoting diversity in generated content.", value=prefs['AIHorde_karras'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_karras'))
+  AIHorde_tiling = Checkbox(label="Tiling", tooltip="Create tiled images that stitch together seamlessly.", value=prefs['AIHorde_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_tiling'))
+  AIHorde_hires_fix = Checkbox(label="Hires Fix", tooltip="Process the image at base resolution before upscaling and re-processing with SD 1.5 models or to use Stable Cascade 2-pass.", value=prefs['AIHorde_hires_fix'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_hires_fix'))
+  AIHorde_strip_background = Checkbox(label="Strip Background", tooltip="Try to isolate subject and remove the background.", value=prefs['AIHorde_strip_background'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_strip_background'))
   def changed_AIHorde_lora_layer(e):
     prefs['AIHorde_lora_layer'] = e.control.value
     AIHorde_custom_lora_layer.visible = e.control.value == "Custom"
@@ -1934,7 +1946,7 @@ def buildInstallers(page):
   for l in prefs['AIHorde_lora_map']:
       add_AIHorde_lora(None, l)
   AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column(
-    [use_AIHorde, Row([AIHorde_model, horde_models_info]), AIHorde_sampler, AIHorde_post_processing,
+    [use_AIHorde, Row([AIHorde_model, horde_models_info]), AIHorde_sampler, Row([AIHorde_post_processing, AIHorde_tiling, AIHorde_karras, AIHorde_hires_fix, AIHorde_strip_background]),
       Row([AIHorde_lora_layer, AIHorde_custom_lora_layer, AIHorde_lora_layer_alpha, AIHorde_add_lora_layer]),
       AIHorde_lora_layer_map]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
@@ -7149,7 +7161,7 @@ def buildHordeWorker(page):
             Markdown("[AI-Horde Page](https://aihorde.net/) | [GitHub Repo](https://github.com/Haidra-Org/horde-worker-reGen) | [A Division of Zer0 Discord](https://discord.com/channels/781145214752129095/1076124012305993768) | [dbZer0 Project](https://dbzer0.itch.io)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], "💑  Sharing is Caring", False)
     def models_AIHorde(e):
-        model_request = "https://stablehorde.net/api/v2/status/models"
+        model_request = "https://aihorde.net/api/v2/status/models"
         headers = {'apikey': prefs['AIHorde_api_key']}
         response = requests.get(model_request, headers=headers, verify=False)
         if response != None:
@@ -24468,9 +24480,9 @@ def get_AIHorde(page):
     import requests
     from requests.packages.urllib3.exceptions import InsecureRequestWarning
     requests.packages.urllib3.disable_warnings(InsecureRequestWarning)# Suppress InsecureRequestWarning
-    api_host = os.getenv('API_HOST', 'https://stablehorde.net/api/')
+    api_host = os.getenv('API_HOST', 'https://aihorde.net/api/')
     horde_url = f"{api_host}/v2/find_user" #user/account"
-    #horde_url = f"https://stablehorde.net/api/v2/find_user" #user/account"
+    #horde_url = f"https://aihorde.net/api/v2/find_user" #user/account"
     try:
       response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'}, verify=False)
     except Exception as e:
@@ -25798,7 +25810,7 @@ def start_diffusion(page):
         import requests
         from io import BytesIO
         import base64
-        api_host = 'https://stablehorde.net/api'
+        api_host = 'https://aihorde.net/api'
         engine_id = prefs['AIHorde_model']
         api_check_url = f"{api_host}/v2/generate/check/"
         api_get_result_url = f"{api_host}/v2/generate/status/"
@@ -25824,10 +25836,17 @@ def start_diffusion(page):
           "sampler_name": prefs['AIHorde_sampler'],
           "n": arg['batch_size'],
           "seed": str(arg['seed']),
+          "seed_variation": 1,
           "steps": arg['steps'],
+          "post_processing": [],
+          "karras": prefs['AIHorde_karras'],
+          "tiling": prefs['AIHorde_tiling'],
+          "hires_fix": prefs['AIHorde_hires_fix'] and 'XL' not in prefs["AIHorde_model"],
         }
         if prefs['AIHorde_post_processing'] != "None":
           params['post_processing'] = [prefs['AIHorde_post_processing']]
+        if prefs['AIHorde_strip_background']:
+          params['post_processing'].append("strip_background")
         AIHorde_loras = []
         if len(prefs['AIHorde_lora_map']) > 0:
           for l in prefs['AIHorde_lora_map']:
@@ -33068,7 +33087,7 @@ def run_image2text(page):
         import requests
         from io import BytesIO
 
-        api_host = 'https://stablehorde.net/api'
+        api_host = 'https://aihorde.net/api'
         api_check_url = f"{api_host}/v2/generate/check/"
         api_get_result_url = f"{api_host}/v2/interrogate/status/"
         interrogate_url = f"{api_host}/v2/interrogate/async"
