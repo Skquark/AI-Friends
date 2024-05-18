@@ -3583,7 +3583,7 @@ def buildPromptGenerator(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request, tooltip="The way it asks for the visual description.")
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Anthropic Claude 3")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3594,7 +3594,7 @@ def buildPromptGenerator(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧠  OpenAI GPT-3/4/PaLM Prompt Genenerator", "Enter a phrase each prompt should start with and the amount of prompts to generate. Just experiment, AI will continue to surprise."),
+        Header("🧠  OpenAI GPT-3/4/Gemini Prompt Genenerator", "Enter a phrase each prompt should start with and the amount of prompts to generate. Just experiment, AI will continue to surprise."),
         Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], multiline=True, on_change=lambda e: changed(e, 'phrase')),
              TextField(label="Subject Detail (optional)", expand=True, hint_text="About Details (optional)", value=prefs['prompt_generator']['subject_detail'], multiline=True, on_change=lambda e: changed(e, 'subject_detail')), 
              Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, tooltip="Makes it about phrase and subject detail.", on_change=lambda e: changed(e, 'phrase_as_subject'))]),
@@ -3652,7 +3652,7 @@ def buildPromptRemixer(page):
       changed(e, 'request_mode')
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Anthropic Claude 3"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3663,7 +3663,7 @@ def buildPromptRemixer(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🔄  Prompt Remixer - GPT-3/4/PaLM AI Helper", "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friend. Experiment.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
+        Header("🔄  Prompt Remixer - GPT-3/4/Gemini AI Helper", "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friend. Experiment.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
         Row([TextField(label="Seed Prompt", expand=True, value=prefs['prompt_remixer']['seed_prompt'], multiline=True, on_change=lambda e: changed(e, 'seed_prompt')), 
              TextField(label="About Detail (optional)", expand=True, hint_text="Subject Details (optional)", value=prefs['prompt_remixer']['optional_about_influencer'], multiline=True, on_change=lambda e: changed(e, 'optional_about_influencer'))]),
         ResponsiveRow([
@@ -3736,9 +3736,9 @@ def buildPromptBrainstormer(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT-3 & HuggingFace Bloom AI",
+        Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT, Gemini & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Anthropic Claude 3"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -27392,7 +27392,7 @@ def run_prompt_generator(page):
       alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
       return
     status['installed_OpenAI'] = True
-  if prefs['prompt_generator']['AI_engine'] == "Google Gemini":
+  if prefs['prompt_generator']['AI_engine'] == "Google Gemini 1.0":
     if not bool(prefs['PaLM_api_key']):
       alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
       return
@@ -27413,7 +27413,7 @@ def run_prompt_generator(page):
       alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
       return
     gemini_model = genai.GenerativeModel(model_name='gemini-pro')
-  if prefs['prompt_generator']['AI_engine'] == "Google Gemini Pro":
+  if prefs['prompt_generator']['AI_engine'] == "Gemini Pro":
     if not bool(prefs['PaLM_api_key']):
       alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
       return
@@ -27432,7 +27432,7 @@ def run_prompt_generator(page):
     except:
       alert_msg(page, "Invalid Google Cloud Authentication. Change in Settings...")
       return
-  if prefs['prompt_generator']['AI_engine'] == "Google Gemini":
+  if prefs['prompt_generator']['AI_engine'].startswith("Google Gemini"):
     if not bool(prefs['PaLM_api_key']):
       alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
       return
@@ -27452,7 +27452,9 @@ def run_prompt_generator(page):
     except:
       alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
       return
-    gemini_model = genai.GenerativeModel(model_name='gemini-pro')
+    #for model in genai.list_models(): print(model)
+    gemini_model_name = 'gemini-1.5-flash-latest' if '1.5 Flash' in prefs['prompt_generator']['AI_engine'] else 'gemini-1.5-pro-latest' if '1.5 Pro' in prefs['prompt_generator']['AI_engine'] else 'gemini-1.0-pro-latest'
+    gemini_model = genai.GenerativeModel(model_name=gemini_model_name)
   if prefs['prompt_generator']['AI_engine'] == "Anthropic Claude 3":
     if not bool(prefs['Anthropic_api_key']):
       alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
@@ -27512,15 +27514,34 @@ def run_prompt_generator(page):
         messages=[{"role": "user", "content": prompt}]
       )
       result = response.choices[0].message.content.strip()#["choices"][0]["message"]["content"].strip()
-    elif prefs['prompt_generator']['AI_engine'] == "Google Gemini":
+    elif prefs['prompt_generator']['AI_engine'].startswith("Google Gemini"):
+      from google.generativeai.types import HarmCategory, HarmBlockThreshold
       #print(palm.list_models())
       completion = gemini_model.generate_content(prompt, generation_config={
           'temperature': prefs['prompt_generator']['AI_temperature'],
           'max_output_tokens': 1024
+          }, safety_settings={
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
       })
       #completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_generator']['AI_temperature'], max_output_tokens=1024)
+      try:
+        #print(completion.text)
+        response = completion.text
+      except ValueError:
+        try:
+          response = completion.candidates[0].content.parts[0].text
+        except Exception:
+          print(completion.prompt_feedback)
+          print(completion.candidates[0].finish_reason)
+          print(completion.candidates[0].safety_ratings)
+          print(response)
+          return
+        pass
       #print(str(completion))
-      result = completion.text.strip()
+      result = response.strip()
     elif prefs['prompt_generator']['AI_engine'] == "Anthropic Claude 3":
       try:
         response = anthropic_client.messages.create(
@@ -27546,6 +27567,7 @@ def run_prompt_generator(page):
     for p in result.split('\n'):
       pr = p.strip()
       if not bool(pr): continue
+      if pr.startswith('#'): continue
       if pr[-1] == '.': pr = pr[:-1]
       if pr[0] == '*': pr = pr[1:].strip()
       elif '.' in pr: # Sometimes got 1. 2.
@@ -27553,8 +27575,11 @@ def run_prompt_generator(page):
       if '"' in pr: pr = pr.replace('"', '')
       if pr.endswith("."):
         pr = pr[:(-1)]
-      if '*' in pr: pr = pr.rpartition('*')[2].strip()
-      if pr[0] == ':': pr = pr[1:].strip()
+      if '*' in pr:
+        pr = pr.replace('*', '')
+        #pr = pr.rpartition('*')[2].strip()
+      if bool(pr.strip()):
+        if pr[0] == ':': pr = pr[1:].strip()
       prompt_results.append(pr)
   #print(f"Request mode influence: {request_modes[prefs['prompt_generator']['request_mode']]}\n")
   page.prompt_generator_list.controls.append(Installing("Requesting Prompts from the AI..."))
@@ -27651,7 +27676,7 @@ def run_prompt_remixer(page):
       alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
       return
     status['installed_OpenAI'] = True
-  elif engine == "Google Gemini":
+  elif engine.startwith("Google Gemini"):
     if not bool(prefs['PaLM_api_key']):
       alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
       return
@@ -27671,7 +27696,8 @@ def run_prompt_remixer(page):
     except:
       alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
       return
-    gemini_model = genai.GenerativeModel(model_name='gemini-pro')
+    gemini_model_name = 'gemini-1.5-flash-latest' if '1.5 Flash' in engine else 'gemini-1.5-pro-latest' if '1.5 Pro' in engine else 'gemini-1.0-pro-latest'
+    gemini_model = genai.GenerativeModel(model_name=gemini_model_name)
   elif engine == "Anthropic Claude 3":
     if not bool(prefs['Anthropic_api_key']):
       alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
@@ -27730,7 +27756,7 @@ def run_prompt_remixer(page):
       gpt_model = "gpt-4-turbo" if "Turbo" in engine else "gpt-4o" if "4o" in engine else "gpt-4"
       response = openai_client.chat.completions.create(model=gpt_model, temperature=prefs["prompt_remixer"]['AI_temperature'], messages=[{"role": "user", "content": prompt}])
       result = response.choices[0].message.content.strip()
-    elif engine == "Google Gemini":
+    elif engine.startswith("Google Gemini"):
       completion = gemini_model.generate_content(prompt, generation_config={
           'temperature': prefs['prompt_remixer']['AI_temperature'],
           'max_output_tokens': 1024
@@ -27939,7 +27965,7 @@ def run_prompt_brainstormer(page):
         alert_msg(page, f"Missing HuggingFace_api_key... Define your key in Settings.")
         return
     #ask_OpenAI_instead = False #@param {type:'boolean'}
-    elif prefs['prompt_brainstormer']['AI_engine'] == "Google Gemini":
+    elif prefs['prompt_brainstormer']['AI_engine'].startswith("Google Gemini"):
       if not bool(prefs['PaLM_api_key']):
         alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
         return
@@ -27959,6 +27985,7 @@ def run_prompt_brainstormer(page):
       except:
         alert_msg(page, "Invalid Google Gemini API Key. Change in Settings...")
         return
+      gemini_model_name = 'gemini-1.5-flash-latest' if '1.5 Flash' in prefs['prompt_brainstormer']['AI_engine'] else 'gemini-1.5-pro-latest' if '1.5 Pro' in prefs['prompt_brainstormer']['AI_engine'] else 'gemini-1.0-pro-latest'
       gemini_model = genai.GenerativeModel(model_name='gemini-pro')
     if prefs['prompt_brainstormer']['AI_engine'] == "Anthropic Claude 3":
       if not bool(prefs['Anthropic_api_key']):
@@ -28089,7 +28116,7 @@ def run_prompt_brainstormer(page):
           del page.prompt_brainstormer_list.controls[-1]
           page.prompt_brainstormer_list.update()
         result = stable_lm_request(request, temperature=prefs['prompt_brainstormer']['AI_temperature'])
-      elif prefs['prompt_brainstormer']['AI_engine'] == "Google Gemini":
+      elif prefs['prompt_brainstormer']['AI_engine'].startswith("Google Gemini"):
         completion = gemini_model.generate_content(request, generation_config={
             'temperature': prefs['prompt_brainstormer']['AI_temperature'],
             'max_output_tokens': 1024
