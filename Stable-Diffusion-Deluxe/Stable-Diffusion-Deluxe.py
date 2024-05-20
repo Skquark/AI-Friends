@@ -426,6 +426,7 @@ def load_settings_file():
           'request_mode': 3,
           'AI_temperature': 0.8,
           'AI_engine': "ChatGPT-3.5 Turbo",
+          'AIHorde_model': "Pantheon-RP-1.0-8b-Llama-3",
           'economy_mode': True,
       },
       'prompt_remixer': {
@@ -438,12 +439,14 @@ def load_settings_file():
           'request_mode': 3,
           'AI_temperature': 0.8,
           'AI_engine': "ChatGPT-3.5 Turbo",
+          'AIHorde_model': "Pantheon-RP-1.0-8b-Llama-3",
       },
       'prompt_brainstormer': {
           'AI_engine': 'ChatGPT-3.5 Turbo',
           'about_prompt': '',
           'request_mode': 'Brainstorm',
           'AI_temperature': 0.8,
+          'AIHorde_model': "Pantheon-RP-1.0-8b-Llama-3",
       },
       'prompt_writer': {
           'art_Subjects': '',
@@ -459,7 +462,6 @@ def load_settings_file():
 if prefs == {}:
   load_settings_file()
 #version_checker()
-
 
 
 
@@ -1112,6 +1114,9 @@ if 'AIHorde_strip_background' not in prefs: prefs['AIHorde_strip_background'] = 
 if 'custom_CivitAI_LoRA_models' not in prefs: prefs['custom_CivitAI_LoRA_models'] = []
 if 'AIHorde_custom_lora_layer' not in prefs: prefs['AIHorde_custom_lora_layer'] = ''
 if 'AIHorde_lora_map' not in prefs: prefs['AIHorde_lora_map'] = []
+if 'AIHorde_model' not in prefs['prompt_generator']: prefs['prompt_generator']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
+if 'AIHorde_model' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
+if 'AIHorde_model' not in prefs['prompt_brainstormer']: prefs['prompt_brainstormer']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
 if 'PaLM_api_key' not in prefs: prefs['PaLM_api_key'] = ''
 if 'Anthropic_api_key' not in prefs: prefs['Anthropic_api_key'] = ''
 if 'enable_torch_compile' not in prefs: prefs['enable_torch_compile'] = False
@@ -1201,6 +1206,8 @@ def initState(page):
       page.tabs.selected_index = 0
       page.tabs.update()
       page.update()
+    if prefs['prompt_generator']['AI_engine']=="AI-Horde" or prefs['prompt_remixer']['AI_engine']=="AI-Horde" or prefs['prompt_brainstormer']['AI_engine']=="AI-Horde":
+        load_horde_text(page, False)
     time.sleep(8)
     page.update()
     if prefs['show_stats']:
@@ -1849,7 +1856,7 @@ def buildInstallers(page):
   def models_AIHorde(e):
       model_request = "https://aihorde.net/api/v2/status/models"
       headers = {'apikey': prefs['AIHorde_api_key']}
-      response = requests.get(model_request, headers=headers, verify=False)
+      response = requests.get(model_request, headers=headers)
       if response != None:
           if response.status_code == 200:
             horde_models = json.loads(response.content)
@@ -3514,7 +3521,7 @@ def buildPromptsList(page):
     prompts_buttons.visible=False
   c = Column([Container(
       padding=padding.only(18, 14, 20, 10), content=Column([
-        Header("🗒️   List of Prompts to Diffuse", actions=[prompt_help_button, copy_prompts_button, paste_prompts_button]),
+        Header("🗒️   List of Prompts to Diffuse", actions=[prompt_help_button, paste_prompts_button, copy_prompts_button]),
         #add_prompt_button,
         prompt_row,
         prompts_list,
@@ -3533,7 +3540,10 @@ def buildImages(page):
     c = Container(padding=padding.only(18, 12, 0, 0), content=page.imageColumn)
     return c
 
+horde_text_models = []
+
 def buildPromptGenerator(page):
+    global horde_text_models
     def changed(e, pref=None):
       if pref is not None:
         prefs['prompt_generator'][pref] = e.control.value
@@ -3543,7 +3553,7 @@ def buildPromptGenerator(page):
       page.add_to_prompts(p)
       play_snd(Snd.DROP, page)
     def add_to_prompt_generator(p):
-      page.prompt_generator_list.controls.append(ListTile(title=Text(p, max_lines=3, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
+      page.prompt_generator_list.controls.append(ListTile(title=Text(p, max_lines=8, theme_style=TextThemeStyle.BODY_LARGE), dense=True, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_generator_list.update()
       generator_list_buttons.visible = True
       generator_list_buttons.update()
@@ -3568,9 +3578,19 @@ def buildPromptGenerator(page):
       request_slider.label = generator_request_modes[int(request_slider.value)]
       request_slider.update()
       changed(e, 'request_mode')
+    def changed_engine(e):
+      changed(e, 'AI_engine')
+      if prefs['prompt_generator']['AI_engine']=="AI-Horde":
+        load_horde_text(page)
+      AIHorde_model_container.visible = prefs['prompt_generator']['AI_engine']=="AI-Horde"
+      AIHorde_model_container.update()
+    horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request, tooltip="The way it asks for the visual description.")
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3"), dropdown.Option("AI-Horde")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AIHorde_model = Dropdown(label="Horde AI Engine", width=380, options=[], value=prefs['prompt_generator']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
+    AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_generator']['AI_engine']=="AI-Horde")
+    page.AIHorde_model_generator = AIHorde_model
     generator_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("➕  Add All Prompts to List", size=20), on_click=add_to_list)
@@ -3591,7 +3611,7 @@ def buildPromptGenerator(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_generator']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_generator']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
-        AI_engine,
+        Row([AI_engine, AIHorde_model_container]),
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_generator']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
@@ -3637,9 +3657,19 @@ def buildPromptRemixer(page):
       request_slider.label = remixer_request_modes[int(request_slider.value)]
       request_slider.update()
       changed(e, 'request_mode')
+    def changed_engine(e):
+      changed(e, 'AI_engine')
+      if prefs['prompt_remixer']['AI_engine']=="AI-Horde":
+        load_horde_text(page)
+      AIHorde_model_container.visible = prefs['prompt_remixer']['AI_engine']=="AI-Horde"
+      AIHorde_model_container.update()
+    horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine'))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "AI-Horde"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AIHorde_model = Dropdown(label="Horde AI Engine", width=380, options=[], value=prefs['prompt_remixer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
+    AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_remixer']['AI_engine']=="AI-Horde")
+    page.AIHorde_model_remixer = AIHorde_model
     remixer_list_buttons = Row([
         ElevatedButton(content=Text("❌   Clear Prompts", size=18), on_click=clear_prompts),
         FilledButton(content=Text("Add All Prompts to List", size=20), height=45, on_click=add_to_list),
@@ -3659,7 +3689,7 @@ def buildPromptRemixer(page):
           Row([NumberPicker(label="Random Styles: ", min=0, max=10, value=prefs['prompt_remixer']['random_styles'], on_change=lambda e: changed(e, 'random_styles')),
               Checkbox(label="Permutate Artists", value=prefs['prompt_remixer']['permutate_artists'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e: changed(e, 'permutate_artists'), tooltip="Shuffles the list of Artists and Styles to make Combo Variations.")], col={'lg':6}, alignment=MainAxisAlignment.SPACE_BETWEEN),
         ]),
-        AI_engine,
+        Row([AI_engine, AIHorde_model_container]),
         ResponsiveRow([
           Row([Text("Request Mode:"), request_slider,], col={'lg':6}),
           Row([Text(" AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, value=prefs['prompt_remixer']['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6}),
@@ -3710,7 +3740,16 @@ def buildPromptBrainstormer(page):
     def clear_prompt_text(e):
       new_prompt_text.value = ""
       new_prompt_text.update()
-
+    def changed_engine(e):
+      changed(e, 'AI_engine')
+      if prefs['prompt_brainstormer']['AI_engine']=="AI-Horde":
+        load_horde_text(page)
+      AIHorde_model_container.visible = prefs['prompt_brainstormer']['AI_engine']=="AI-Horde"
+      AIHorde_model_container.update()
+    horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
+    AIHorde_model = Dropdown(label="Horde AI Engine", width=380, options=[], value=prefs['prompt_brainstormer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
+    AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_brainstormer']['AI_engine']=="AI-Horde")
+    page.AIHorde_model_brainstormer = AIHorde_model
     new_prompt_text = TextField(label="New Prompt Text", expand=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt_text), autofocus=True, on_submit=add_to_prompts)
     add_to_prompts_button = ElevatedButton("➕  Add to Prompts", on_click=add_to_prompts)#, icon=icons.ADD_ROUNDED
     brainstormer_list_buttons = Row([
@@ -3725,7 +3764,8 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT, Gemini & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed(e, 'AI_engine')),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "AI-Horde"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed_engine(e)),
+          AIHorde_model_container,
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
         Row([TextField(label="About Prompt", expand=True, value=prefs['prompt_brainstormer']['about_prompt'], multiline=True, on_change=lambda e: changed(e, 'about_prompt')),]),
@@ -7150,7 +7190,7 @@ def buildHordeWorker(page):
     def models_AIHorde(e):
         model_request = "https://aihorde.net/api/v2/status/models"
         headers = {'apikey': prefs['AIHorde_api_key']}
-        response = requests.get(model_request, headers=headers, verify=False)
+        response = requests.get(model_request, headers=headers)
         if response != None:
             if response.status_code == 200:
               horde_models = json.loads(response.content)
@@ -24471,7 +24511,7 @@ def get_AIHorde(page):
     horde_url = f"{api_host}/v2/find_user" #user/account"
     #horde_url = f"https://aihorde.net/api/v2/find_user" #user/account"
     try:
-      response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'}, verify=False)
+      response = requests.get(horde_url, headers={"apikey": prefs['AIHorde_api_key'], 'accept': 'application/json'})
     except Exception as e:
       alert_msg(page, "ERROR with AIHorde Authentication", content=Text(str(e), selectable=True))
       return
@@ -25854,7 +25894,7 @@ def start_diffusion(page):
             prt(f"ERROR: You have not selected an init_image to go with your image mask..")
             continue
           if arg['init_image'].startswith('http'):
-            i_response = requests.get(arg['init_image'], verify=False)
+            i_response = requests.get(arg['init_image'])
             init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
           else:
             if os.path.isfile(arg['init_image']):
@@ -25871,7 +25911,7 @@ def start_diffusion(page):
           #init_image = preprocess(init_img)
           if not arg['alpha_mask']:
             if arg['mask_image'].startswith('http'):
-              i_response = requests.get(arg['mask_image'], verify=False)
+              i_response = requests.get(arg['mask_image'])
               mask_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
             else:
               if os.path.isfile(arg['mask_image']):
@@ -25895,7 +25935,7 @@ def start_diffusion(page):
           #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], mask_image=mask, init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
         elif bool(arg['init_image']):
           if arg['init_image'].startswith('http'):
-            i_response = requests.get(arg['init_image'], verify=False)
+            i_response = requests.get(arg['init_image'])
             init_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
           else:
             if os.path.isfile(arg['init_image']):
@@ -25921,7 +25961,7 @@ def start_diffusion(page):
         payload["params"] = params
         #print(params)
         try:
-            response = requests.post(url, headers=headers, json=payload, verify=False)#json.dumps(payload, indent = 4))
+            response = requests.post(url, headers=headers, json=payload)#json.dumps(payload, indent = 4))
         except Exception as e:
             alert_msg(page, f"ERROR: Problem sending JSON request and getting response.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]), debug_pref=payload)
             print(payload)
@@ -25943,7 +25983,7 @@ def start_diffusion(page):
         try:
           while True:
             if abort_run: break
-            check_response = requests.get(api_check_url + q_id, verify=False)
+            check_response = requests.get(api_check_url + q_id)
             check = json.loads(check_response.content)
             #print(check)
             try:
@@ -25972,7 +26012,7 @@ def start_diffusion(page):
         success = False
         while not success:
           try:
-            get_response = requests.get(api_get_result_url + q_id, verify=False)
+            get_response = requests.get(api_get_result_url + q_id)
             success = True
           except Exception as e:
             attempts += 1
@@ -25994,7 +26034,7 @@ def start_diffusion(page):
             prt(f"Couldn't process NSFW text in prompt.  Can't retry so change your request.")
             #TODO: Retry Attempts
             continue
-          img_response = requests.get(gen['img'], verify=False)
+          img_response = requests.get(gen['img'])
           webp_file = io.BytesIO(img_response.content)
           cv_img = cv2.imdecode(np.frombuffer(webp_file.read(), np.uint8), cv2.IMREAD_UNCHANGED)
           images.append(PILImage.fromarray(cv_img))
@@ -27359,7 +27399,7 @@ generator_request_modes = ["visually detailed",
 
 def run_prompt_generator(page):
   import random as rnd
-  global artists, styles, status
+  global artists, styles, status, horde_text_models
   if 'GPT' in prefs['prompt_generator']['AI_engine']:
     try:
       import openai
@@ -27469,7 +27509,7 @@ def run_prompt_generator(page):
       subject = ", and " + prefs['prompt_generator']['subject_detail']
 
   def prompt_gen():
-    prompt = f'''Write a list of {prefs['prompt_generator']['amount'] if prefs['prompt_generator']['phrase_as_subject'] else (prefs['prompt_generator']['amount'] + 4)} image generation prompts about "{prefs['prompt_generator']['phrase']}"{subject}, {generator_request_modes[int(prefs['prompt_generator']['request_mode'])]}, and unique without repetition:
+    prompt = f'''Write a bullet list of {prefs['prompt_generator']['amount'] if prefs['prompt_generator']['phrase_as_subject'] else (prefs['prompt_generator']['amount'] + 4)} image generation prompts per line about "{prefs['prompt_generator']['phrase']}"{subject}, {generator_request_modes[int(prefs['prompt_generator']['request_mode'])]}, and unique without repetition:
 
 '''
     #print(prompt)
@@ -27549,6 +27589,10 @@ def run_prompt_generator(page):
       #print(str(response))
       result = response.content[0].text
       print(str(result))
+    elif prefs['prompt_generator']['AI_engine'] == "AI-Horde":
+      del page.prompt_generator_list.controls[-1]
+      page.prompt_generator_list.update()
+      result = get_horde_text(page, page.prompt_generator_list, prompt, prefs['prompt_generator']['AIHorde_model'], prefs['prompt_generator']['AI_temperature'])
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -27572,8 +27616,9 @@ def run_prompt_generator(page):
   page.prompt_generator_list.controls.append(Installing("Requesting Prompts from the AI..."))
   page.prompt_generator_list.update()
   prompt_gen()
-  del page.prompt_generator_list.controls[-1]
-  page.prompt_generator_list.update()
+  if len(page.prompt_generator_list.controls) > 1:
+    del page.prompt_generator_list.controls[-1]
+    page.prompt_generator_list.update()
   if len(prompt_results) < prefs['prompt_generator']['amount']:
     additional = prefs['prompt_generator']['amount'] - len(prompt_results)
     print(f"Didn't make enough prompts.. Needed {additional} more.")
@@ -27663,7 +27708,7 @@ def run_prompt_remixer(page):
       alert_msg(page, "Invalid OpenAI API Key. Change in Settings...")
       return
     status['installed_OpenAI'] = True
-  elif engine.startwith("Google Gemini"):
+  elif engine.startswith("Google Gemini"):
     if not bool(prefs['PaLM_api_key']):
       alert_msg(page, "You must provide your Google Gemini MakerSuite API key in Settings first")
       return
@@ -27766,6 +27811,10 @@ def run_prompt_remixer(page):
         page.prompt_remixer_list.update()
         return
       result = response.content[0].text
+    elif engine == "AI-Horde":
+      del page.prompt_remixer_list.controls[-1]
+      page.prompt_remixer_list.update()
+      result = get_horde_text(page, page.prompt_remixer_list, prompt, prefs['prompt_remixer']['AIHorde_model'], prefs['prompt_remixer']['AI_temperature'])
     #if result[-1] == '.': result = result[:-1]
     #print(str(result))
     for p in result.split('\n'):
@@ -27786,7 +27835,8 @@ def run_prompt_remixer(page):
   page.prompt_remixer_list.controls.append(Installing("Requesting Prompt Remixes..."))
   page.prompt_remixer_list.update()
   prompt_remix()
-  del page.prompt_remixer_list.controls[-1]
+  if len(page.prompt_remixer_list.controls) > 1:
+    del page.prompt_remixer_list.controls[-1]
   del page.prompt_remixer_list.controls[-1]
   page.prompt_remixer_list.update()
 
@@ -28124,7 +28174,12 @@ def run_prompt_brainstormer(page):
           page.prompt_brainstormer_list.update()
           return
         result = response.content[0].text.strip()
-      del page.prompt_brainstormer_list.controls[-1]
+      elif prefs['prompt_brainstormer']['AI_engine'] == "AI-Horde":
+        del page.prompt_brainstormer_list.controls[-1]
+        page.prompt_brainstormer_list.update()
+        result = get_horde_text(page, page.prompt_brainstormer_list, request, prefs['prompt_brainstormer']['AIHorde_model'], prefs['prompt_brainstormer']['AI_temperature'])
+      if len(page.prompt_brainstormer_list.controls) > 1:
+        del page.prompt_brainstormer_list.controls[-1]
       page.prompt_brainstormer_list.update()
       if '*' in result:
         result = result.replace('*', '').strip()
@@ -42643,7 +42698,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
         prt(progress)
         autoscroll(False)
         total_steps = pr['num_inference_steps']
-        random_seed = get_seed(int(pr['seed']) + num)
+        random_seed = get_seed(int(pr['seed']))
         generator = torch.Generator().manual_seed(random_seed)
         prompt_full = llm_template.format(prompt=pr['prompt'].strip().rstrip("."), width=pr['width'], height=pr['height'])
         response = get_response(prompt_full, AI_engine=lmd_plus_prefs['AI_engine'])
@@ -53880,6 +53935,178 @@ def save_metadata(image_path, pref, pipeline="", model="", seed=None, prompt=Non
         return img
     else:
         return img
+
+def load_horde_text(page, update=True):
+    global horde_text_models
+    if not horde_text_models:
+      model_request = "https://aihorde.net/api/v2/status/models?type=text"
+      headers = {'apikey': prefs['AIHorde_api_key']}
+      response = requests.get(model_request, headers=headers)
+      if response != None:
+          if response.status_code == 200:
+            horde_models = json.loads(response.content)
+            horde_models = sorted(horde_models, key=lambda x: (-x['count'], x['name']), reverse=False)
+            horde_text_models = horde_models
+      for model in horde_text_models:
+        m = model['name'].rpartition('/')[2]
+        page.AIHorde_model_generator.options.append(dropdown.Option(m))
+        page.AIHorde_model_remixer.options.append(dropdown.Option(m))
+        page.AIHorde_model_brainstormer.options.append(dropdown.Option(m))
+      if update:
+        page.AIHorde_model_generator.update()
+        page.AIHorde_model_remixer.update()
+        page.AIHorde_model_brainstormer.update()
+
+def models_AIHorde(e):
+    model_request = "https://aihorde.net/api/v2/status/models?type=text"
+    headers = {'apikey': prefs['AIHorde_api_key']}
+    response = requests.get(model_request, headers=headers)
+    if response != None:
+        if response.status_code == 200:
+          horde_models = json.loads(response.content)
+          horde_models = sorted(horde_models, key=lambda x: (-x['count'], x['name']), reverse=False)
+          horde_text_models = horde_models
+          model_info = [f"{model['name']} - Count: {model['count']}{f' Jobs: '+str(int(model['jobs'])) if model['jobs'] != 0.0 else ''}" for model in horde_models]
+          alert_msg(e.page, "🏇  AI-Horde Current Text Model Stats", model_info, sound=False)
+        else: print(response)
+
+def get_horde_text(page, column, text_prompt, llm_model="aphrodite/Gryphe/Pantheon-RP-1.0-8b-Llama-3", temperature=0.8):
+    global horde_text_models
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      column.controls.append(line)
+      column.update()
+    def clear_last(lines=1):
+      clear_line(column, lines=lines)
+    progress = Progress(f"Getting Prompts with Stable Horde API - Using {llm_model} Model...")
+    prt(progress)
+    if '/' not in llm_model:
+      horde_model = next((model['name'] for model in horde_text_models if llm_model in model['name']), llm_model)
+    else:
+      horde_model = llm_model
+    import requests
+    from io import BytesIO
+    import base64
+    api_host = 'https://aihorde.net/api'
+    #api_check_url = f"{api_host}/v2/generate/check/"
+    api_check_url = f"{api_host}/v2/generate/text/status/"
+    api_get_result_url = f"{api_host}/v2/generate/text/status/"
+    url = f"{api_host}/v2/generate/text/async"
+    headers = {
+        #'Content-Type': 'application/json',
+        #'Accept': 'application/json',
+        'apikey': prefs['AIHorde_api_key'],
+    }
+    payload = {
+      "prompt": text_prompt,
+      "models": [horde_model],
+      "trusted_workers": False,
+      "slow_workers": True,
+      "dry_run": False,
+      "disable_batching": False,
+      "allow_downgrade": False,
+    }
+    params = {
+      "n": 1,
+      "frmtadsnsp": False,
+      "frmtrmblln": False,
+      "frmtrmspch": False,
+      "frmttriminc": True,
+      "max_context_length": 1024,
+      "max_length": 512,
+      "rep_pen": 3,
+      "rep_pen_range": 4096,
+      "rep_pen_slope": 10,
+      "singleline": False,
+      "temperature": temperature,
+      "tfs": 1,
+      "top_a": 1,
+      "top_k": 100,
+      "top_p": 0.92,
+      "typical": 1,
+      "sampler_order": [6, 0, 1, 3, 4, 2, 5],
+      "use_default_badwordsids": True,
+      #"stop_sequence": ["string"],
+      "min_p": 0,
+      "smoothing_factor": 0,
+      "dynatemp_range": 0,
+      "dynatemp_exponent": 1,
+    }
+    payload["params"] = params
+    #print(params)
+    try:
+        response = requests.post(url, headers=headers, json=payload)#json.dumps(payload, indent = 4))
+    except Exception as e:
+        alert_msg(page, f"ERROR: Problem sending JSON request and getting response.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]), debug_pref=payload)
+        print(payload)
+        return ""
+    if response != None:
+      if response.status_code != 202:
+        clear_last()
+        if response.status_code == 400:
+          alert_msg(page, "Stable Horde-API ERROR: Validation Error...", content=Text(str(response.text)))
+          return ""
+        else:
+          prt(Text(f"Stable Horde-API ERROR {response.status_code}: " + str(response.text), selectable=True))
+          print(payload)
+          return ""
+    artifacts = json.loads(response.content)
+    q_id = artifacts['id']
+    #print(str(artifacts))
+    elapsed_seconds = 0
+    try:
+      while True:
+        if abort_run: break
+        check_response = requests.get(api_check_url + q_id)
+        check = json.loads(check_response.content)
+        #print(check)
+        if not check['is_possible']:
+          clear_last()
+          alert_msg(page, f"💢  {artifacts['message']}", content=[str(payload)])
+          print(payload)
+          return ""
+        try:
+          div = check['wait_time'] + elapsed_seconds
+          percentage = (1 - check['wait_time'] / div)
+        except Exception:
+          div = 0
+          percentage = None
+          #continue
+          pass
+        #if div == 0: continue
+        progress.progress.value = percentage
+        progress.progress.update()
+        status_txt = f"Stable Horde API LLM - Queued Position: {check['queue_position']} - Waiting: {check['waiting']} - Wait Time: {check['wait_time']} - Elapsed: {elapsed_seconds}s"
+        progress.set_message(status_txt)
+        if bool(check['finished']):
+          kudos = check['kudos']
+          print(f"AI-Horde Kudos Used: {kudos}")
+          break
+        time.sleep(2)
+        elapsed_seconds += 2
+    except Exception as e:
+      alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
+      return ""
+    attempts = 0
+    success = False
+    while not success:
+      try:
+        get_response = requests.get(api_get_result_url + q_id)
+        success = True
+      except Exception as e:
+        attempts += 1
+        if attempts < 3:
+          print(f"ERROR: {e}. Trying again {attempts}/3")
+          time.sleep(3)
+          pass
+        else:
+          clear_last()
+          alert_msg(page, f"💢  ERROR after 3 attempts: {e}", content=[str(payload)])
+          return ""
+    final_results = json.loads(get_response.content)
+    clear_last()
+    return final_results['generations'][0]['text']
 
 def pastebin_file(file_path):
     pip_install("pbwrap")
