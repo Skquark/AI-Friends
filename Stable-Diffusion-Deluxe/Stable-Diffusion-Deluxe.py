@@ -466,6 +466,7 @@ if prefs == {}:
 
 
 
+
 #@title ## **▶️ Run Stable Diffusion Deluxe** - Flet/Flutter WebUI App
 import flet as ft
 #from flet import *
@@ -589,7 +590,8 @@ except ModuleNotFoundError: #Also flexible_slider, vertical_splitter, shimmer
 import sdd_utils
 from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS, AIHorde_models, CivitAI_LoRAs
 from sdd_components import PanZoom, VideoContainer
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="pip._vendor.packaging.specifiers")
 def save_settings_file(page, change_icon=True):
     if change_icon:
         page.app_icon_save()
@@ -663,7 +665,7 @@ def buildTabs(page):
     page.Extras = buildExtras(page)
     page.PromptHelpers.on_change = tab_changed
     
-    t = Tabs(selected_index=0, animation_duration=300, expand=1,
+    t = Tabs(selected_index=1 if prefs['start_in_installation'] else 0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Settings", content=page.Settings, icon=icons.SETTINGS_OUTLINED),
             Tab(text="Installation", content=page.Installers, icon=icons.INSTALL_DESKTOP),
@@ -1196,7 +1198,7 @@ def initState(page):
         else:
           eta.visible = False
           eta.update()
-    if prefs['start_in_installation'] and current_tab == 0:
+    '''if prefs['start_in_installation'] and current_tab == 0:
       page.tabs.selected_index = 1
       page.tabs.update()
       page.show_install_fab(True)
@@ -1205,14 +1207,15 @@ def initState(page):
     else:
       page.tabs.selected_index = 0
       page.tabs.update()
-      page.update()
+      page.update()'''
     if prefs['prompt_generator']['AI_engine']=="AI-Horde" or prefs['prompt_remixer']['AI_engine']=="AI-Horde" or prefs['prompt_brainstormer']['AI_engine']=="AI-Horde":
         load_horde_text(page, False)
-    time.sleep(8)
     page.update()
     if prefs['show_stats']:
       start_thread(page)
       #start_polling(prefs['stats_update'], update_stats(page))
+    #time.sleep(8)
+    #page.update()
 
 def buildSettings(page):
   global prefs, status
@@ -1228,7 +1231,6 @@ def buildSettings(page):
   def changed(e, pref=None):
       if pref is not None:
         prefs[pref] = e.control.value
-      has_changed = True
       page.update()
       status['changed_prefs'] = True
   def change_theme_mode(e):
@@ -2295,7 +2297,7 @@ def buildInstallers(page):
         #install_CLIP_guided,
         #clip_settings,
         install_ESRGAN, upscale_settings,
-        install_OpenAI,
+        #install_OpenAI,
         #install_TextSynth,
         #install_button,
         Container(content=None, height=32),
@@ -3750,7 +3752,7 @@ def buildPromptBrainstormer(page):
     AIHorde_model = Dropdown(label="Horde AI Engine", width=380, options=[], value=prefs['prompt_brainstormer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_brainstormer']['AI_engine']=="AI-Horde")
     page.AIHorde_model_brainstormer = AIHorde_model
-    new_prompt_text = TextField(label="New Prompt Text", expand=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt_text), autofocus=True, on_submit=add_to_prompts)
+    new_prompt_text = TextField(label="New Prompt Text", expand=True, filled=True, suffix=IconButton(icons.CLEAR, on_click=clear_prompt_text), autofocus=True, on_submit=add_to_prompts)
     add_to_prompts_button = ElevatedButton("➕  Add to Prompts", on_click=add_to_prompts)#, icon=icons.ADD_ROUNDED
     brainstormer_list_buttons = Row([
         new_prompt_text, add_to_prompts_button,
@@ -26008,6 +26010,13 @@ def start_diffusion(page):
         except Exception as e:
           alert_msg(page, f"EXCEPTION ERROR: Unknown error processing image. Check parameters and try again. Restart app if persists.", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip(), selectable=True)]))
           return
+        if abort_run:
+          clear_last(False)
+          clear_last()
+          prt(Text("🛑   Aborting Current Diffusion Run..."))
+          abort_run = False
+          requests.delete(api_get_result_url + q_id)
+          return
         attempts = 0
         success = False
         while not success:
@@ -33599,11 +33608,11 @@ def run_audio_diffusion(page):
       page.audio_diffusion_output.update()
     def clear_last(lines=1):
       clear_line(page.audio_diffusion_output, lines=lines)
-    def play_audio(e):
-      e.control.data.play()
     #if not bool(audio_diffusion_prefs['text']):
     #  alert_msg(page, "Provide Text for the AI to create the sound of...")
     #  return
+    #prt(AudioPlayer(asset_dir(os.path.join(root_dir, 'audio_out', 'Experiments', 'tts-Shimmer-Youve_got_to_check_out_Stable_Diffusion_Deluxe_Its_got_almost_every_AI_tool_out_there_with_a_beautiful_UI_thats_so_easy_to_use-0.mp3')), 'tts-Shimmer-Youve_got_to_check_out_Stable_Diffusion_Deluxe_Its_got_almost_every_AI_tool_out_there_with_a_beautiful_UI_thats_so_easy_to_use-0.mp3', page=page))
+    #return #- Was testing Spectrogram
     if not check_diffusers(page): return
     total_steps = audio_diffusion_prefs['steps']
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
@@ -36513,10 +36522,10 @@ def run_mubert(page):
     def prt(line):
       if type(line) == str:
         line = Text(line)
-      page.tortoise_output.controls.append(line)
-      page.tortoise_output.update()
+      page.mubert_output.controls.append(line)
+      page.mubert_output.update()
     def clear_last(lines=1):
-      clear_line(page.tortoise_output, lines=lines)
+      clear_line(page.mubert_output, lines=lines)
     def play_audio(e):
       e.control.data.play()
     progress = ProgressBar(bar_height=8)
@@ -42125,7 +42134,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
                 from transformers import T5EncoderModel
                 installer.status(f"...loading text encoder")
                 text_encoder = T5EncoderModel.from_pretrained(pixart_model, subfolder="text_encoder", load_in_8bit=True, device_map="auto")
-                pipe_pixart_sigma_encoder = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=text_encoder, transformer=None, device_map="auto", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_pixart_sigma_encoder = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=text_encoder, transformer=None, device_map="balanced", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 installer.status(f"...loading pipeline")
                 pipe_pixart_sigma = PixArtSigmaPipeline.from_pretrained(pixart_model, text_encoder=None, torch_dtype=torch.float16).to("cuda")
                 pipe_pixart_sigma = pipeline_scheduler(pipe_pixart_sigma, **scheduler)
@@ -51354,15 +51363,15 @@ def run_dall_e_3(page, from_list=False):
     def prt(line):
       if type(line) == str:
         line = Text(line, size=17)
-      page.DallE3.controls.append(line)
-      page.DallE3.update()
+      page.DallE.controls.append(line)
+      page.DallE.update()
     def clear_last(lines=1):
-      clear_line(page.DallE3, lines=lines)
+      clear_line(page.DallE, lines=lines)
     def autoscroll(scroll=True):
-      page.DallE3.auto_scroll = scroll
-      page.DallE3.update()
+      page.DallE.auto_scroll = scroll
+      page.DallE.update()
     def clear_list():
-      page.DallE3.controls = page.DallE3.controls[:1]
+      page.DallE.controls = page.DallE.controls[:1]
     progress = ProgressBar(bar_height=8)
     try:
         import openai
@@ -53476,7 +53485,7 @@ class SliderRow(Stack):
             slider_text.visible = True
             self.slider_edit.update()
             slider_text.update()
-            slider_label.value = f"{self.label}: "
+            slider_label.value = f"{self.label}:"
             slider_label.update()
         def edit(e):
             self.slider_edit.visible = True
@@ -53491,11 +53500,9 @@ class SliderRow(Stack):
             #e.page.update()
         self.slider_edit = TextField(value=str(self.value), on_blur=blur, autofocus=True, visible=False, text_align=TextAlign.CENTER, width=51, height=45, content_padding=padding.only(top=6), keyboard_type=KeyboardType.NUMBER, on_change=changed)
         self.slider = Slider(min=float(self.min), max=float(self.max), divisions=int(self.divisions), round=self.round, label="{value}" + self.suffix, value=float(self.value), tooltip=self.tooltip, expand=True, on_change=change_slider)
-        #self.slider_value = Text(f" {self.pref[self.key]}{self.suffix}", weight=FontWeight.BOLD)
         self.slider_value = Text(f" {self.value}{self.suffix}", weight=FontWeight.BOLD)
         slider_text = GestureDetector(self.slider_value, on_tap=edit, mouse_cursor=ft.MouseCursor.PRECISE)
-        
-        slider_label = Text(f"{self.label}: ")
+        slider_label = Text(f"{self.label}:")
         left = Text("", visible=False)
         right = Text("", visible=False)
         if bool(self.left_text): left.value = self.left_text
@@ -54385,13 +54392,16 @@ class VideoPlayer(Stack):
         return video_container
 
 class AudioPlayer(Stack):
-    def __init__(self, src="", display="", data=None, autoplay=False, page=None):
+    def __init__(self, src="", display="", data=None, autoplay=False, page=None, show_wav=True):
         super().__init__()
         self.src = src
         self.display = display
         self.data = data if data != None else src
         self.page = page
+        self.show_wav = show_wav
         self.state = "stopped"
+        self.duration = 0
+        self.loaded = False
         self.audio = Audio(src=asset_dir(self.src), autoplay=autoplay, on_state_changed=self.state_changed)
         self.page.overlay.append(self.audio)
         self.build()
@@ -54414,21 +54424,72 @@ class AudioPlayer(Stack):
     def did_mount(self):
         self.page.update()
         try:
-            duration = self.audio.get_duration()
+            self.duration = self.audio.get_duration()
         except Exception:
-            duration = 0
+            self.duration = 0
             pass
         #print(duration)
-        if duration > 0:
-            dt = datetime.datetime.fromtimestamp(duration / 1000)
-            dur = dt.strftime('%H:%M:%S.%f')[:-3]
+        if self.duration > 0:
+            dt = datetime.datetime.fromtimestamp(self.duration / 1000)
+            dur = dt.strftime('%H:%M:%S')[:-3]
             self.button.tooltip = f"Duration: {dur}"
-            self.button.update()
+            try:
+                self.button.update()
+            except Exception: pass
+
+    def generate_spectrogram_base64(self):
+        try:
+            import librosa
+        except Exception:
+            pip_install("librosa")
+            import librosa
+            pass
+        try:
+            import matplotlib.pyplot as plt
+        except Exception:
+            pip_install("matplotlib")
+            import matplotlib.pyplot as plt
+            pass
+        from base64 import b64encode
+        import matplotlib
+        matplotlib.use('Agg')
+        #print(self.loaded)
+        if torch_device == "cpu":
+            y, sr = librosa.load(asset_dir(self.src), sr=None)
+            CQT = librosa.cqt(y, sr=sr, bins_per_octave=12, n_bins=84)
+            CQT_db = librosa.amplitude_to_db(np.abs(CQT), ref=np.max)
+        else:
+            import torchaudio
+            waveform, sr = torchaudio.load(asset_dir(self.src))
+            cqt_transform = torchaudio.transforms.ConstantQ(sample_rate=sr, n_bins=84, bins_per_octave=12, hop_length=512)
+            CQT = cqt_transform(waveform)
+            CQT_db = 20 * np.log10(CQT.numpy() + 1e-6)
+        fig, ax = plt.subplots(figsize=(15, 1))
+        librosa.display.specshow(CQT_db, sr=sr, x_axis=None, y_axis=None, ax=ax, cmap='inferno')
+        ax.set_axis_off()
+        ax.text(0.01, 0.05, self.display, fontsize=11, fontweight='bold', ha='left', va='bottom', transform=ax.transAxes, color='white' if prefs['theme_mode'] == 'Dark' else 'black', bbox=dict(facecolor='none', edgecolor='none'))
+        #ax.set_title(self.display)
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0, transparent=True)
+        plt.close(fig)
+        buf.seek(0)
+        base64_string = b64encode(buf.read()).decode('utf-8')
+        return base64_string
     def build(self):
+        if self.loaded: #Hack because it was building twice
+            return Row([self.button, self.wav_img])#self.row
         self.icon = icons.PLAY_CIRCLE_FILLED
         dur = ""#dt.strftime('%H:%M:%S.%f')[:-3]
         self.button = IconButton(icon=self.icon, icon_size=48, tooltip=f"Duration: {dur}", on_click=self.play_audio, data=self.data)
-        self.row = Row([self.button, Text(self.display)])
+        #if self.duration == 0:
+        #    return Row([self.button, Text("Loading Waveform...")])
+        if self.show_wav:
+            wav_img_src = self.generate_spectrogram_base64()
+            self.wav_img = Img(src_base64=wav_img_src, fit=ImageFit.FIT_WIDTH)
+            self.row = Row([self.button]) #, self.wav_img
+        else:
+            self.row = Row([self.button, Text(self.display)])
+        self.loaded = True
         return self.row
 
 port = 8500#8084
