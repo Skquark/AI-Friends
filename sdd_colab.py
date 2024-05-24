@@ -120,7 +120,7 @@ try:
 except ImportError as e:
   if newest_flet:
     run_sp("pip install --upgrade flet", realtime=False)
-    #0.3.0, 0.3.1, 0.3.2, 0.4.0, 0.4.1, 0.4.2, 0.5.0, 0.5.1, 0.5.2, 0.6.0.dev1309, 0.6.0.dev1310, 0.6.0.dev1312, 0.6.0.dev1322, 0.6.0.dev1336, 0.6.0.dev1344, 0.6.0.dev1350, 0.6.0.dev1352, 0.6.0.dev1355, 0.6.0.dev1357, 0.6.0, 0.6.1, 0.6.2, 0.7.0.dev1359, 0.7.0.dev1361, 0.7.0.dev1363, 0.7.0.dev1365, 0.7.0.dev1372, 0.7.0.dev1395, 0.7.0.dev1397, 0.7.0.dev1398, 0.7.0.dev1399, 0.7.0, 0.7.1, 0.7.2, 0.7.3, 0.7.4, 0.8.0.dev1402, 0.8.0.dev1406, 0.8.0.dev1425, 0.8.0.dev1436, 0.8.0.dev1441, 0.8.0.dev1443, 0.8.0.dev1459
+    #0.19.0, 0.21.2, 0.22.0, 0.22.1, 0.23.0.dev2664, 0.23.0.dev2665, 0.23.0.dev2666, 0.23.0.dev2679, 0.23.0.dev2697, 0.23.0.dev2734, 0.23.0.dev2744, 0.23.0.dev2766, 0.23.0.dev2768, 0.23.0.dev2868, 0.23.0.dev2870, 0.23.0.dev2872, 0.23.0.dev2880)
   else:
     run_sp("pip install --upgrade flet==0.3.2", realtime=False)
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
@@ -2382,7 +2382,7 @@ def buildParameters(page):
       page.update()
   def save_parameters():
       update_args()
-      page.update_prompts()
+      page.update_prompts(False)
       save_settings_file(page)
       status['changed_prefs'] = False
   def apply_to_prompts(e):
@@ -3337,7 +3337,7 @@ def buildPromptsList(page):
       p = prompt_parse(p)
       dream = Dream(p)
       if arg is not None:
-        if 'prompt' in arg: del arg['prompt']
+        #if 'prompt' in arg: del arg['prompt']
         arg = merge_dict(args, arg)
         dream.arg = arg
       #if prefs['']
@@ -3353,6 +3353,7 @@ def buildPromptsList(page):
               PopupMenuItem(icon=icons.ARROW_DOWNWARD, text="Move Down", on_click=move_down, data=dream),
           ],
       )))
+      page.prompts_list = prompts_list
       #prompts_list.controls.append(Text("Prompt 1 added to the list of prompts"))
       if update:
           prompts_list.update()
@@ -3377,7 +3378,8 @@ def buildPromptsList(page):
           for d in prompts:
             a = d.arg.copy()
             #a['prompt'] = d.prompt if bool(d.prompt) else d['prompt']
-            a['prompt'] = d.prompt[0] if type(d.prompt) == list else d.prompt if bool(d.prompt) else d.arg['prompt'] if 'prompt' in d.arg else ''
+            a['prompt'] = d.prompt[0] if type(d.prompt) == list else d.prompt if bool(d.prompt) or type(d) == Dream else d.arg['prompt'] if 'prompt' in d.arg else ''
+            if not bool(a['prompt']): print(f"No Prompt for {d} - {d.prompt} {type(d) == Dream}")
             if 'batch_size' in a: del a['batch_size']
             if 'n_iterations' in a: del a['n_iterations']
             if 'precision' in a: del a['precision']
@@ -3421,17 +3423,20 @@ def buildPromptsList(page):
             prompts_prefs.append(a)
             #j = json.dumps(a)
           prefs['prompt_list'] = prompts_prefs
+          #print(f"Save Prompts {prompts_prefs}")
   page.save_prompts = save_prompts
+  
   def load_prompts():
       saved_prompts = prefs['prompt_list']
+      #print(f"Load Prompts {saved_prompts}")
       if len(saved_prompts) > 0:
           for d in saved_prompts:
             #print(f'Loading {d}')
             if 'prompt' not in d: continue
             p = d['prompt']
-            page.add_to_prompts(p, d)
+            page.add_to_prompts(p, d, update=False)
+          page.prompts_list.update()
           page.update()
-
   page.load_prompts = load_prompts
 
   def update_prompts(update=True):
@@ -23098,6 +23103,12 @@ finally:
 
 if torch_device == "cuda":
     try:
+        import accelerate
+    except ModuleNotFoundError:
+        print("Installing HuggingFace Accelerate packages...")
+        run_sp("pip install --upgrade -q accelerate", realtime=False)
+        pass
+    try:
         import transformers
         if version.parse(version.parse(transformers.__version__).base_version) < version.parse("4.40.0"):
             #import importlib
@@ -31331,14 +31342,6 @@ def run_controlnet_qr(page, from_list=False):
         import qrcode
         clear_last()
         pass
-    try:
-        import accelerate
-    except ImportError:
-        prt(Installing(f"Installing QRCode Library... "))
-        run_sp("pip install qrcode", realtime=False)
-        import qrcode
-        clear_last()
-        pass
     use_SDXL = 'SDXL' in controlnet_qr_prefs['controlnet_version']
     if not use_SDXL:
         if '2.1' in controlnet_qr_prefs['controlnet_version']:
@@ -33809,8 +33812,8 @@ def run_music_gen(page):
     except ModuleNotFoundError:
         installer.status("...facebookresearch/audiocraft")
         #run_sp("pip install -U audiocraft", realtime=True)
-        #run_sp("pip install -U git+https://github.com/facebookresearch/audiocraft#egg=audiocraft", realtime=False)
-        run_sp("pip install -U git+https://github.com/Oncorporation/audiocraft#egg=audiocraft", realtime=False)
+        run_sp("pip install -U git+https://github.com/facebookresearch/audiocraft#egg=audiocraft", realtime=False)
+        #run_sp("pip install -U git+https://github.com/Oncorporation/audiocraft#egg=audiocraft", realtime=False)
         pass
     finally:
         from audiocraft.models import musicgen
@@ -36171,6 +36174,7 @@ def run_music_ldm(page):
     if musicLDM_prefs['save_mp3']:
         pip_install("ffmpeg pydub", q=True, installer=installer)
         import pydub, ffmpeg
+    import scipy
     from diffusers import MusicLDMPipeline, PNDMScheduler
     model_id = musicLDM_prefs['model_name']
     if 'loaded_ldm' not in status:
@@ -47770,7 +47774,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
                 num_inference_steps=pr['num_inference_steps'],
                 guidance_scale=pr['guidance_scale'],
                 clip_skip=animatediff_sdxl_prefs['clip_skip'],
-                latent_interpolation_method=animatediff_sdxl_prefs['latent_interpolation_method'].lower(), # can be lerp, slerp, or your own callback
+                #latent_interpolation_method=animatediff_sdxl_prefs['latent_interpolation_method'].lower(), # can be lerp, slerp, or your own callback
                 generator=generator,
                 callback=callback_fnc,
                 **ip_adapter_arg,
@@ -53178,6 +53182,8 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
             prefs['window_maximized'] = True
         if prefs['window_maximized']:
             maximize_window("e")
+    page.update()
+    time.sleep(1)
     initState(page)
     if not status['initialized']:
         status['initialized'] = True
@@ -53567,7 +53573,10 @@ class SliderRow(Stack):
     def show(self, value):
         self._visible = value
         self.slider_row.visible = value
-        self.slider_row.update()
+        try:
+            self.slider_row.update()
+        except Exception:
+            pass
     def update_slider(self):
         self.slider.update()
 
