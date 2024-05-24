@@ -380,6 +380,8 @@ def load_settings_file():
       'AIHorde_custom_lora_layer': '',
       'custom_CivitAI_LoRA_models': [],
       'AIHorde_lora_map': [],
+      'AIHorde_use_controlnet': False,
+      'AIHorde_controlnet': "Canny",
       'install_ESRGAN': True,
       'batch_folder_name': "",
       'batch_size': 1,
@@ -1129,6 +1131,8 @@ if 'AIHorde_strip_background' not in prefs: prefs['AIHorde_strip_background'] = 
 if 'custom_CivitAI_LoRA_models' not in prefs: prefs['custom_CivitAI_LoRA_models'] = []
 if 'AIHorde_custom_lora_layer' not in prefs: prefs['AIHorde_custom_lora_layer'] = ''
 if 'AIHorde_lora_map' not in prefs: prefs['AIHorde_lora_map'] = []
+if 'AIHorde_use_controlnet' not in prefs: prefs['AIHorde_use_controlnet'] = False
+if 'AIHorde_controlnet' not in prefs: prefs['AIHorde_controlnet'] = 'Canny'
 if 'AIHorde_model' not in prefs['prompt_generator']: prefs['prompt_generator']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
 if 'AIHorde_model' not in prefs['prompt_remixer']: prefs['prompt_remixer']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
 if 'AIHorde_model' not in prefs['prompt_brainstormer']: prefs['prompt_brainstormer']['AIHorde_model'] = 'Pantheon-RP-1.0-8b-Llama-3'
@@ -1850,7 +1854,6 @@ def buildInstallers(page):
                                          install_versatile, install_SAG, install_attend_and_excite, install_panorama, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
       prefs['install_Stability_api'] = e.control.value
-      has_changed=True
       stability_settings.height=None if prefs['install_Stability_api'] else 0
       stability_settings.update()
       page.update()
@@ -1867,6 +1870,11 @@ def buildInstallers(page):
       prefs['install_AIHorde_api'] = e.control.value
       AIHorde_settings.height=None if prefs['install_AIHorde_api'] else 0
       AIHorde_settings.update()
+      page.update()
+  def toggle_AIHorde_controlnet(e):
+      prefs['AIHorde_use_controlnet'] = e.control.value
+      AIHorde_controlnet.visible = prefs['AIHorde_use_controlnet']
+      AIHorde_controlnet.update()
       page.update()
   def models_AIHorde(e):
       model_request = "https://aihorde.net/api/v2/status/models"
@@ -1890,6 +1898,8 @@ def buildInstallers(page):
   AIHorde_tiling = Checkbox(label="Tiling", tooltip="Create tiled images that stitch together seamlessly.", value=prefs['AIHorde_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_tiling'))
   AIHorde_hires_fix = Checkbox(label="Hires Fix", tooltip="Process the image at base resolution before upscaling and re-processing with SD 1.5 models or to use Stable Cascade 2-pass.", value=prefs['AIHorde_hires_fix'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_hires_fix'))
   AIHorde_strip_background = Checkbox(label="Strip Background", tooltip="Try to isolate subject and remove the background.", value=prefs['AIHorde_strip_background'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_strip_background'))
+  AIHorde_use_controlnet = Checkbox(label="Use ControlNet on Init-Image  ", tooltip="Applies ControlNet Processing to your initial image.", value=prefs['AIHorde_use_controlnet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_AIHorde_controlnet)
+  AIHorde_controlnet = Dropdown(label="ControlNet Type", hint_text="", width=180, options=[dropdown.Option("Canny"), dropdown.Option("HED"), dropdown.Option("Depth"), dropdown.Option("Normal"), dropdown.Option("OpenPose"), dropdown.Option("Seg"), dropdown.Option("Scribble"), dropdown.Option("FakeScribbles"), dropdown.Option("Hough")], value=prefs['AIHorde_controlnet'], autofocus=False, visible=prefs['AIHorde_use_controlnet'], on_change=lambda e:changed(e, 'AIHorde_controlnet'))
   def changed_AIHorde_lora_layer(e):
     prefs['AIHorde_lora_layer'] = e.control.value
     AIHorde_custom_lora_layer.visible = e.control.value == "Custom"
@@ -1955,7 +1965,9 @@ def buildInstallers(page):
   for l in prefs['AIHorde_lora_map']:
       add_AIHorde_lora(None, l)
   AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column(
-    [use_AIHorde, Row([AIHorde_model, horde_models_info]), AIHorde_sampler, Row([AIHorde_post_processing, AIHorde_tiling, AIHorde_karras, AIHorde_hires_fix, AIHorde_strip_background]),
+    [use_AIHorde, Row([AIHorde_model, horde_models_info]),
+      Row([AIHorde_sampler, AIHorde_use_controlnet, AIHorde_controlnet]),
+      Row([AIHorde_post_processing, AIHorde_tiling, AIHorde_karras, AIHorde_hires_fix, AIHorde_strip_background]),
       Row([AIHorde_lora_layer, AIHorde_custom_lora_layer, AIHorde_lora_layer_alpha, AIHorde_add_lora_layer]),
       AIHorde_lora_layer_map]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
@@ -2443,11 +2455,11 @@ def buildParameters(page):
   def pick_init(e):
       nonlocal pick_type
       pick_type = "init"
-      file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Init Image File")
+      file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "JPG"], dialog_title="Pick Init Image File")
   def pick_mask(e):
       nonlocal pick_type
       pick_type = "mask"
-      file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG"], dialog_title="Pick Black & White Mask Image")
+      file_picker.pick_files(allow_multiple=False, allowed_extensions=["png", "PNG", "jpg", "JPG"], dialog_title="Pick Black & White Mask Image")
   def toggle_ESRGAN(e):
       ESRGAN_settings.height = None if e.control.value else 0
       prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -25966,7 +25978,13 @@ def start_diffusion(page):
           #img_str = io.BufferedReader(buff).read()
           #img_str = open(buff.read(), 'rb') #base64.b64encode(buff.getvalue())  init_img.tobytes("raw")
           payload['source_image'] = img_str
-          pipe_used = "Stable Horde-API Image-to-Image"
+          if prefs["AIHorde_use_controlnet"]:
+            params["image_is_control"] = True
+            params["control_type"] = prefs["AIHorde_controlnet"].lower()
+            params["return_control_map"] = False
+            pipe_used = f"Stable Horde-API ControlNet {prefs['AIHorde_controlnet']}"
+          else:
+            pipe_used = "Stable Horde-API Image-to-Image"
           payload['source_processing'] = "img2img"
           #answers = stability_api.generate(prompt=pr, height=arg['height'], width=arg['width'], init_image=init_img, start_schedule= 1 - arg['init_image_strength'], steps=arg['steps'], cfg_scale=arg['guidance_scale'], samples=arg['batch_size'], safety=not prefs["disable_nsfw_filter"], seed=arg['seed'], sampler=SD_sampler)
         else:
@@ -26097,7 +26115,7 @@ def start_diffusion(page):
           #alert_msg(page, f"ERROR: To use Stability-API, you must run the install it first and have proper API key")
           #return
         #else:
-        prt('Stability API Diffusion ')# + ('─' * 100))
+        prt(f'Stability API Diffusion - Using {prefs["model_checkpoint"]} Model...')# + ('─' * 100))
         #print(f'"{SD_prompt}", height={SD_height}, width={SD_width}, steps={SD_steps}, cfg_scale={SD_guidance_scale}, seed={SD_seed}, sampler={generation_sampler}')
         #strikes = 0
         images = []
