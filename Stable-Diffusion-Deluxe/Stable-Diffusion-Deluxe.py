@@ -899,7 +899,7 @@ def buildVideoAIs(page):
     page.Video_ReTalking = buildVideoReTalking(page)
     page.StyleCrafter = buildStyleCrafter(page)
     page.RAVE = buildRAVE(page)
-    page.Fresco = buildFresco(page)
+    page.Fresco = buildFrescoV2V(page)
     page.TokenFlow = buildTokenFlow(page)
     page.AnimateDiff = buildAnimateDiff(page)
     page.HotshotXL = buildHotshotXL(page)
@@ -920,8 +920,8 @@ def buildVideoAIs(page):
             Tab(text="ROOP Face-Swap", content=page.Roop, icon=icons.FACE_RETOUCHING_NATURAL),
             Tab(text="Video-ReTalking", content=page.Video_ReTalking, icon=icons.RECORD_VOICE_OVER),
             Tab(text="Infinite Zoom", content=page.InfiniteZoom, icon=icons.ZOOM_IN_MAP),
-            Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
             Tab(text="FRESCO", content=page.Fresco, icon=icons.PARK),
+            Tab(text="StyleCrafter", content=page.StyleCrafter, icon=icons.HIGHLIGHT),
             Tab(text="RAVE", content=page.RAVE, icon=icons.FLUTTER_DASH),
             Tab(text="Rerender-a-Video", content=page.Rerender_a_video, icon=icons.MEMORY),
             Tab(text="TokenFlow", content=page.TokenFlow, icon=icons.TOKEN),
@@ -16718,6 +16718,15 @@ def buildFresco(page):
         fresco_prefs['sd_model'] = e.control.value
         sd_custom_model.visible = e.control.value == "Custom"
         sd_custom_model.update()
+    def switch_version(e):
+        page.Fresco = buildFrescoV2V(page)
+        for t in page.VideoAIs.tabs:
+          if t.text == "FRESCO":
+            t.content = page.Fresco
+            #t.icon = icons.PARK
+            break
+        page.VideoAIs.update()
+        page.update()
     prompt = TextField(label="Animation Prompt Text", value=fresco_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=fresco_prefs['negative_prompt'], filled=False, col={'md':4}, on_change=lambda e:changed(e,'negative_prompt'))
     a_prompt = TextField(label="Additional Prompt Text", value=fresco_prefs['a_prompt'], multiline=True, filled=True, col={'md':4}, on_change=lambda e:changed(e,'a_prompt'))
@@ -16771,7 +16780,7 @@ def buildFresco(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌿  FRESCO Video-To-Video (under construction)", "Spatial-Temporal Correspondence for Zero-Shot Video Translation...", actions=[save_default(fresco_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with Fresco Settings", on_click=fresco_help)]),
+        Header("🌿  FRESCO Video-To-Video (under construction)", "Spatial-Temporal Correspondence for Zero-Shot Video Translation...", actions=[ft.OutlinedButton(content=Text("Switch to Diffusers FRESCO", size=18), on_click=switch_version), save_default(fresco_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with Fresco Settings", on_click=fresco_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         #init_video,
         ResponsiveRow([prompt, a_prompt]),
@@ -16803,6 +16812,173 @@ def buildFresco(page):
         Row([seed, batch_folder_name]),
         Row([
             ElevatedButton(content=Text("🌱  Run Fresco", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_fresco(page)),
+        ]),
+      ]
+    ))], scroll=ScrollMode.AUTO, auto_scroll=False)
+    return c
+
+fresco_v2v_prefs = {
+    'init_video': '',
+    'prompt': '',
+    'negative_prompt': 'ugly, blurry, low res, unrealistic, unaesthetic',
+    'a_prompt': '',
+    'image_resolution': 512, #256-512 x64
+    'control_strength': 1.0, #0-2 x0.01
+    'x0_strength': 0.75,
+    'control_type': 'HED',
+    'low_threshold': 50,
+    'high_threshold': 100,
+    'num_inference_steps': 50,
+    'guidance_scale': 7.5,
+    'guess_mode': False,
+    'control_guidance_start': 0.0,
+    'control_guidance_end': 1.0,
+    'end_opt_step': 15,
+    'num_intraattn_steps':1,
+    'step_interattn_end':350,
+    #'use_constraints': ['Spatial-Guided Attention', 'Cross-Frame Attention', 'Temporal-Guided Attention', 'Spatial-Guided Optimization', 'Temporal-Guided Optimization'],
+    #'max_process': 4, #1-16
+    'use_ip_adapter': False,
+    'ip_adapter_image': '',
+    'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_strength': 0.8,
+    'fps': 30,
+    'num_frames': 100, #8-300
+    'save_frames': False,
+    'export_to_video': False,
+    "interpolate_video": False,
+    "source_fps": 8,
+    "target_fps": 24,
+    'seed': 0,
+    'max_size': 672,
+    'batch_size': 8, #3-8
+    'batch_folder_name': '',
+    'project_name': '',
+}
+def buildFrescoV2V(page):
+    global fresco_v2v_prefs, prefs
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            fresco_v2v_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            fresco_v2v_prefs[pref] = float(e.control.value)
+          else:
+            fresco_v2v_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def fresco_v2v_help(e):
+      def close_fresco_v2v_dlg(e):
+        nonlocal fresco_v2v_help_dlg
+        fresco_v2v_help_dlg.open = False
+        page.update()
+      fresco_v2v_help_dlg = AlertDialog(title=Text("💁   Help with Fresco Video-To-Video"), content=Column([
+          Text("The remarkable efficacy of text-to-image diffusion models has motivated extensive exploration of their potential application in video domains. Zero-shot methods seek to extend image diffusion models to videos without necessitating model training. Recent methods mainly focus on incorporating inter-frame correspondence into attention mechanisms. However, the soft constraint imposed on determining where to attend to valid features can sometimes be insufficient, resulting in temporal inconsistency. In this paper, we introduce FRESCO, intra-frame correspondence alongside inter-frame correspondence to establish a more robust spatial-temporal constraint. This enhancement ensures a more consistent transformation of semantically similar content across frames. Beyond mere attention guidance, our approach involves an explicit update of features to achieve high spatial-temporal consistency with the input video, significantly improving the visual coherence of the resulting translated videos. Extensive experiments demonstrate the effectiveness of our proposed framework in producing high-quality, coherent videos, marking a notable improvement over existing zero-shot methods."),
+          Text("Features: Temporal consistency: use intra-and inter-frame constraint with better consistency and coverage than optical flow alone. Compared with our previous work Rerender-A-Video, FRESCO is more robust to large and quick motion. Zero-shot: no training or fine-tuning required. Flexibility: compatible with off-the-shelf models (e.g., ControlNet, LoRA) for customized translation."),
+          Markdown("[Project Page](https://www.mmlab-ntu.com/project/fresco_v2v/) | [GitHub repository](https://github.com/williamyang1991/FRESCO) | [Paper](https://arxiv.org/abs/2403.12962)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Text("Credits go to Shuai Yang, Yifan Zhou, Ziwei Liu and Chen Change Loy")
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🍑  So Fresh... ", on_click=close_fresco_v2v_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = fresco_v2v_help_dlg
+      fresco_v2v_help_dlg.open = True
+      page.update()
+    def change_task(e):
+        changed(e,'control_type')
+        canny_threshold.height = None if fresco_v2v_prefs['control_type'] == "Canny" or fresco_v2v_prefs['control_type'] == "Canny21" else 0
+        canny_threshold.update()
+    def switch_version(e):
+        page.Fresco = buildFresco(page)
+        for t in page.VideoAIs.tabs:
+          if t.text == "FRESCO":
+            t.content = page.Fresco
+            #t.icon = icons.PARK
+            break
+        page.VideoAIs.update()
+        page.update()
+    prompt = TextField(label="Animation Prompt Text", value=fresco_v2v_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt  = TextField(label="Negative Prompt Text", value=fresco_v2v_prefs['negative_prompt'], filled=False, col={'md':4}, on_change=lambda e:changed(e,'negative_prompt'))
+    a_prompt = TextField(label="Additional Prompt Text", value=fresco_v2v_prefs['a_prompt'], multiline=True, filled=True, col={'md':4}, on_change=lambda e:changed(e,'a_prompt'))
+    control_type = Dropdown(label="ControlNet Task", width=150, options=[dropdown.Option("HED"), dropdown.Option("Canny"), dropdown.Option("Depth")], value=fresco_v2v_prefs['control_type'], on_change=change_task)
+    control_strength = SliderRow(label="ControlNet Strength", min=0.0, max=2.0, divisions=40, round=2, pref=fresco_v2v_prefs, key='control_strength', tooltip="how well the output matches the input control edges.")
+    x0_strength = SliderRow(label="Denoise Strength", min=0.0, max=1.05, divisions=21, round=2, pref=fresco_v2v_prefs, key='x0_strength', tooltip="Repaint degree, low to make output look more like init video. 0: fully recover the input.1.05: fully rerender the input.")
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=fresco_v2v_prefs, key='low_threshold', expand=True, col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=fresco_v2v_prefs, key='high_threshold', expand=True, col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
+    canny_threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, height = None if fresco_v2v_prefs['control_type'] == "Canny" else 0)
+    control_guidance_start = SliderRow(label="Control Guidance Start", min=0, max=1.0, divisions=20, round=2, pref=fresco_v2v_prefs, key='control_guidance_start', expand=True, col={'md':6}, tooltip="The percentage of total steps at which the ControlNet starts applying.")
+    control_guidance_end = SliderRow(label="Control Guidance End", min=0, max=1.0, divisions=20, round=2, pref=fresco_v2v_prefs, key='control_guidance_end', expand=True, col={'md':6}, tooltip="The percentage of total steps at which the ControlNet stops applying.")
+    end_opt_step = SliderRow(label="End Optimization Step", min=1, max=60, divisions=59, pref=fresco_v2v_prefs, key='end_opt_step', tooltip="The feature optimization is activated from strength * num_inference_step to end_opt_step.")
+    num_intraattn_steps = SliderRow(label="Attention Steps", min=1, max=60, divisions=59, pref=fresco_v2v_prefs, key='num_intraattn_steps', tooltip="Apply num_interattn_steps steps of spatial-guided attention.")
+    step_interattn_end = SliderRow(label="Attention End Step", min=1, max=1000, divisions=999, pref=fresco_v2v_prefs, key='step_interattn_end', tooltip="Apply temporal-guided attention in [step_interattn_end, 1000] steps.")
+    #max_process = SliderRow(label="Parallel Processes", min=1, max=16, divisions=15, pref=fresco_v2v_prefs, key='max_process', col={'md':6}, tooltip="Multiprocessing to speed up the process. Large value (4) is recommended.")
+    init_video = FileInput(label="Initial Video Clip", pref=fresco_v2v_prefs, expand=True, key='init_video', ftype="video", page=page)
+    #num_frames = SliderRow(label="Number of Frames", min=1, max=300, divisions=299, pref=fresco_v2v_prefs, key='num_frames', tooltip="The number of video frames that are generated from init video.")
+    source_fps = SliderRow(label="Source FPS", min=1, max=30, suffix="fps", divisions=29, expand=1, pref=fresco_v2v_prefs, col={'md':6}, key='source_fps')
+    target_fps = SliderRow(label="Target FPS", min=1, max=30, suffix="fps", divisions=29, expand=1, pref=fresco_v2v_prefs, col={'md':6}, key='target_fps')
+    num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=150, divisions=149, pref=fresco_v2v_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=fresco_v2v_prefs, key='guidance_scale')
+    def toggle_ip_adapter(e):
+        fresco_v2v_prefs['use_ip_adapter'] = e.control.value
+        ip_adapter_container.height = None if e.control.value else 0
+        ip_adapter_container.update()
+        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.update()
+    use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=fresco_v2v_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
+    ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=fresco_v2v_prefs['ip_adapter_model'], visible=fresco_v2v_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    for m in ip_adapter_models:
+        ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_image = FileInput(label="IP-Adapter Image", pref=fresco_v2v_prefs, key='ip_adapter_image', page=page, col={'lg':6})
+    ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=fresco_v2v_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
+    ip_adapter_container = Container(Column([ResponsiveRow([ip_adapter_image, ip_adapter_strength]), Divider(thickness=4, height=4)]), height = None if fresco_v2v_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    fps = SliderRow(label="Frames per Second", min=1, max=30, divisions=29, suffix='fps', pref=fresco_v2v_prefs, key='fps')
+    batch_size = SliderRow(label="Batch Size", min=1, max=60, divisions=59, pref=fresco_v2v_prefs, key='batch_size', tooltip="Affects coherancy. To avoid out-of-memory, use small batch size.")
+    #eta_slider = SliderRow(label="ETA", min=0, max=1.0, divisions=20, round=1, pref=fresco_v2v_prefs, key='eta', tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.")
+    #width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=fresco_v2v_prefs, key='width')
+    #height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=fresco_v2v_prefs, key='height')
+    #export_to_video = Tooltip(message="Save mp4 file along with Image Sequence", content=Switcher(label="Export to Video", value=fresco_v2v_prefs['export_to_video'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'export_to_video')))
+    max_size = SliderRow(label="Frame Resolution Size", min=256, max=512, divisions=4, multiple=64, suffix="px", pref=fresco_v2v_prefs, key='max_size', tooltip="Resize the Short side of the video.")
+    save_frames = Switcher(label="Save Frames", value=fresco_v2v_prefs['save_frames'], tooltip="Save the dumped frames to images_out batch folder. Otherwise only saves final video, keeping pngs in temp folder.", active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'save_frames'))
+    interpolate_vid = Switcher(label="Interpolate", value=fresco_v2v_prefs['interpolate_video'], tooltip="Use Google FiLM Interpolation to transition between frames.", on_change=lambda e:changed(e,'interpolate_video'))
+    guess_mode = Switcher(label="Guess Mode", value=fresco_v2v_prefs['guess_mode'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'guess_mode'), tooltip="The ControlNet encoder tries to recognize the content of the input image even if you remove all prompts. A `guidance_scale` value between 3.0 and 5.0 is recommended.")
+    batch_folder_name = TextField(label="Video Folder Name", value=fresco_v2v_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    project_name = TextField(label="Project Output Name", value=fresco_v2v_prefs['project_name'], on_change=lambda e:changed(e,'project_name'))
+    seed = TextField(label="Seed", width=90, value=str(fresco_v2v_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    #page.fresco_v2v_output = Column([], scroll=ScrollMode.AUTO, auto_scroll=False)
+    #clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
+    #clear_button.visible = len(page.fresco_v2v_output.controls) > 0
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🌿  FRESCO Video-To-Video", "Spatial-Temporal Correspondence for Zero-Shot Video Translation...", actions=[ft.OutlinedButton(content=Text("Switch to Original FRESCO", size=18), on_click=switch_version), save_default(fresco_v2v_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with Fresco Settings", on_click=fresco_v2v_help)]),
+        #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
+        ResponsiveRow([prompt, a_prompt]),
+        negative_prompt,
+        Row([control_type, init_video]),
+        canny_threshold,
+        control_strength,
+        x0_strength,
+        num_inference_row,
+        guidance,
+        #num_frames,
+        #fps,
+        #freeu_args,
+        ResponsiveRow([control_guidance_start, control_guidance_end]),
+        end_opt_step,
+        num_intraattn_steps,
+        step_interattn_end,
+        #batch_size,
+        #max_process,
+        Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+        ip_adapter_container,
+        ResponsiveRow([source_fps, target_fps]),
+        #max_size,
+        Row([guess_mode, save_frames, interpolate_vid]),
+        #eta_slider,
+        #width_slider, height_slider,
+        #page.ESRGAN_block_fresco_v2v,
+        Row([seed, batch_folder_name]),
+        Row([
+            ElevatedButton(content=Text("🌱  Run Fresco", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_fresco_v2v(page)),
         ]),
       ]
     ))], scroll=ScrollMode.AUTO, auto_scroll=False)
@@ -22434,6 +22610,7 @@ pipe_whisper = None
 pipe_text_to_video = None
 pipe_text_to_video_zero = None
 pipe_video_to_video = None
+pipe_fresco_v2v = None
 pipe_infinite_zoom = None
 pipe_deepfloyd = None
 pipe_deepfloyd2 = None
@@ -25206,6 +25383,12 @@ def clear_video_to_video_pipe():
     del pipe_video_to_video
     flush()
     pipe_video_to_video = None
+def clear_fresco_pipe():
+  global pipe_fresco_v2v
+  if pipe_fresco_v2v is not None:
+    del pipe_fresco_v2v
+    flush()
+    pipe_fresco_v2v = None
 def clear_infinite_zoom_pipe():
   global pipe_infinite_zoom
   if pipe_infinite_zoom is not None:
@@ -25516,6 +25699,7 @@ def clear_pipes(allbut=None):
     if not 'text_to_video' in but: clear_text_to_video_pipe()
     if not 'text_to_video_zero' in but: clear_text_to_video_zero_pipe()
     if not 'video_to_video' in but: clear_video_to_video_pipe()
+    if not 'fresco' in but: clear_fresco_pipe()
     if not 'infinite_zoom' in but: clear_infinite_zoom_pipe()
     if not 'tortoise_tts' in but: clear_tortoise_tts_pipe()
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
@@ -48681,7 +48865,7 @@ def run_rerender_a_video(page):
 
 
 def run_fresco(page):
-    global fresco_prefs, prefs, status, pipe_fresco, model_path
+    global fresco_prefs, prefs, status, model_path
     if not check_diffusers(page): return
     def prt(line):
       if type(line) == str:
@@ -48816,6 +49000,226 @@ def run_fresco(page):
         prt("Something went wrong generating video...")
     autoscroll(False)
     play_snd(Snd.ALERT, page)
+
+def run_fresco_v2v(page):
+    global fresco_v2v_prefs, prefs, status, pipe_fresco_v2v, model_path
+    if not check_diffusers(page): return
+    def prt(line):
+      if type(line) == str:
+        line = Text(line, size=17)
+      page.Fresco.controls.append(line)
+      page.Fresco.update()
+    def clear_last(lines=1):
+      clear_line(page.Fresco, lines=lines)
+    def clear_list():
+      page.Fresco.controls = page.Fresco.controls[:1]
+    def autoscroll(scroll=True):
+      page.Fresco.auto_scroll = scroll
+      page.Fresco.update()
+    progress = ProgressBar(bar_height=8)
+    total_steps = fresco_v2v_prefs['num_inference_steps']
+    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      #total_steps = len(latents)
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+      #print(f'{type(latents)} {len(latents)}- {str(latents)}')
+    clear_list()
+    autoscroll(True)
+    installer = Installing("Installing FRESCO Video-To-Video Pipeline...")
+    prt(installer)
+    #model_id = "damo-vilab/text-to-video-ms-1.7b"
+    clear_pipes()
+    gmflow_dir = os.path.join(root_dir, "gmflow")
+    if not os.path.exists(gmflow_dir):
+        installer.status("...cloning haofeixu/gmflow") #XmYx/Fresco
+        run_sp("git clone https://github.com/haofeixu/gmflow.git", realtime=False, cwd=root_dir)
+    #data_dir = os.path.join(fresco_v2v_dir, "data")
+    pip_install("controlnet-aux einops opencv-python|cv2 imageio-ffmpeg", installer=installer)
+    if gmflow_dir not in sys.path:
+        sys.path.append(gmflow_dir)
+    batch_output = os.path.join(prefs['image_output'], fresco_v2v_prefs['batch_folder_name'])
+    #data_folder = format_filename(fresco_v2v_prefs['batch_folder_name'], use_dash=True)
+    #makedir(os.path.join(data_dir, data_folder))
+    init_vid = fresco_v2v_prefs['init_video']
+    if init_vid.startswith('http'):
+        installer.status("...Downloading Video")
+        init_vid = download_file(init_vid, uploads_dir, ext="mp4")
+    else:
+        if not os.path.isfile(init_vid):
+            alert_msg(page, f"ERROR: Couldn't find your init_video {init_vid}")
+            return
+    video_file = os.path.basename(init_vid)
+    if not video_file.endswith("mp4"):
+        video_file += ".mp4"
+    #installer.status("...Scaling Video")
+    #w, h = scale_video(init_vid, os.path.join(data_dir, data_folder, video_file), fresco_v2v_prefs["max_size"])
+    
+    from diffusers import ControlNetModel, DDIMScheduler, DiffusionPipeline
+    model = get_model(prefs['model_ckpt'])
+    sd_model = model['path']
+    frames = video_to_frame(video_file, fresco_v2v_prefs['source_fps'])
+    control_frames = []
+    installer.status(f"...Preparing Frames with {fresco_v2v_prefs['control_type']}")
+    total_frames = len(frames)
+    if fresco_v2v_prefs['control_type'].lower() == "canny":
+        for f, frame in enumerate(frames):
+            installer.progress.value = f / total_frames
+            installer.progress.update()
+            image = cv2.Canny(frame, fresco_v2v_prefs['low_threshold'], fresco_v2v_prefs['high_threshold'])
+            np_image = np.array(image)
+            np_image = np_image[:, :, None]
+            np_image = np.concatenate([np_image, np_image, np_image], axis=2)
+            canny_image = PILImage.fromarray(np_image)
+            control_frames.append(canny_image)
+        controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-canny").to('cuda')
+    elif fresco_v2v_prefs['control_type'].lower() == "depth":
+        from transformers import DPTFeatureExtractor, DPTForDepthEstimation
+        depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
+        feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
+        for f, frame in enumerate(frames):
+            installer.progress.value = f / total_frames
+            installer.progress.update()
+            frame = feature_extractor(images=frame, return_tensors="pt").pixel_values.to("cuda")
+            with torch.no_grad(), torch.autocast("cuda"):
+                depth_map = depth_estimator(frame).predicted_depth
+            depth_map = torch.nn.functional.interpolate(
+                depth_map.unsqueeze(1),
+                size=(1024, 1024),
+                mode="bicubic",
+                align_corners=False,
+            )
+            depth_min = torch.amin(depth_map, dim=[1, 2, 3], keepdim=True)
+            depth_max = torch.amax(depth_map, dim=[1, 2, 3], keepdim=True)
+            depth_map = (depth_map - depth_min) / (depth_max - depth_min)
+            frame = torch.cat([depth_map] * 3, dim=1)
+            frame = frame.permute(0, 2, 3, 1).cpu().numpy()[0]
+            depth_image = PILImage.fromarray((frame * 255.0).clip(0, 255).astype(np.uint8))
+            control_frames.append(depth_image)
+        controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-depth").to('cuda')
+    elif fresco_v2v_prefs['control_type'].lower() == "hed":
+        from controlnet_aux import HEDdetector
+        hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
+        for f, frame in enumerate(frames):
+            installer.progress.value = f / total_frames
+            installer.progress.update()
+            hed_image = hed(frame, safe=True)
+            control_frames.append(hed_image)
+        controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-hed").to('cuda')
+    installer.progress.value = None
+    installer.progress.update()
+    if sd_model != status['loaded_model'] or status['loaded_controlnet'] != fresco_v2v_prefs['control_type'].lower():
+      clear_pipes()
+    else:
+      clear_pipes("fresco")
+      
+    if pipe_fresco_v2v is None:
+        installer.status(f"...Initializing Pipeline with {model['name']}")
+        pipe_fresco_v2v = DiffusionPipeline.from_pretrained(model_path, controlnet=controlnet, custom_pipeline='fresco_v2v').to('cuda')
+        status['loaded_model'] = sd_model
+        status['loaded_controlnet'] = fresco_v2v_prefs['control_type'].lower()
+        pipe_fresco_v2v = pipeline_scheduler(pipe_fresco_v2v)
+        #pipe_fresco_v2v.scheduler = DDIMScheduler.from_config(pipe_fresco_v2v.scheduler.config)
+    else:
+        if prefs['scheduler_mode'] != status['loaded_scheduler']:
+            pipe_fresco_v2v = pipeline_scheduler(pipe_fresco_v2v)
+    ip_adapter_arg = {}
+    if fresco_v2v_prefs['use_ip_adapter']:
+        installer.status(f"...initialize IP-Adapter")
+        ip_adapter_img = None
+        if fresco_v2v_prefs['ip_adapter_image'].startswith('http'):
+          i_response = requests.get(fresco_v2v_prefs['ip_adapter_image'])
+          ip_adapter_img = PILImage.open(BytesIO(i_response.content)).convert("RGB")
+        else:
+          if os.path.isfile(fresco_v2v_prefs['ip_adapter_image']):
+            ip_adapter_img = PILImage.open(fresco_v2v_prefs['ip_adapter_image'])
+          else:
+            clear_last()
+            prt(f"ERROR: Couldn't find your ip_adapter_image {fresco_v2v_prefs['ip_adapter_image']}")
+        if bool(ip_adapter_img):
+          ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
+        if bool(ip_adapter_arg):
+            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == fresco_v2v_prefs['ip_adapter_model'])
+            pipe_fresco_v2v.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
+            pipe_fresco_v2v.set_ip_adapter_scale(fresco_v2v_prefs['ip_adapter_strength'])
+    clear_last()
+    progressbar = Progress("Generating FRESCO of your Video... See console for progress.")
+    prt(progressbar)
+    autoscroll(False)
+    random_seed = get_seed(fresco_v2v_prefs['seed'])
+    generator = torch.manual_seed(random_seed)
+    frames = [PILImage.fromarray(frame) for frame in frames]
+    makedir(batch_output)
+    try:
+        progressbar.status("...Generating Frames")
+        output_frames = pipe_fresco_v2v(
+            fresco_v2v_prefs['prompt'] + ' ' + fresco_v2v_prefs['a_prompt'],
+            frames,
+            control_frames,
+            negative_prompt=fresco_v2v_prefs['n_prompt'],
+            num_inference_steps=fresco_v2v_prefs['num_inference_steps'],
+            guidance_scale=fresco_v2v_prefs['guidance_scale'],
+            strength=fresco_v2v_prefs['control_strength'],
+            controlnet_conditioning_scale=fresco_v2v_prefs['x0_strength'],
+            guess_mode=fresco_v2v_prefs['guess_mode'],
+            control_guidance_start=fresco_v2v_prefs['control_guidance_start'],
+            control_guidance_end=fresco_v2v_prefs['control_guidance_end'],
+            end_opt_step=fresco_v2v_prefs['end_opt_step'],#15
+            num_intraattn_steps=fresco_v2v_prefs['num_intraattn_steps'],#1,
+            step_interattn_end=fresco_v2v_prefs['step_interattn_end'],#350,
+            #ip_adapter_image
+            generator=generator,
+            callback_on_step_end=progress.callback_step,
+            **ip_adapter_arg,
+        ).images
+
+    except Exception as e:
+        clear_last()
+        #fresco_v2v_prefs['run_cmd'] = f'{preprocess_cmd} -&- {run_cmd}'
+        alert_msg(page, f"ERROR: Fresco Video-To-Video failed for some reason. Possibly out of memory or something wrong with the code...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=fresco_v2v_prefs)
+        os.chdir(root_dir)
+        return
+    os.chdir(root_dir)
+    
+    filename = f"{format_filename(fresco_v2v_prefs['prompt'])}"
+    #filename = filename[:int(prefs['file_max_length'])]
+    #if prefs['file_suffix_seed']: filename += f"-{random_seed}"
+    clear_last()
+    autoscroll(True)
+    installer = Installer("Saving Video File...")
+    prt(installer)
+    #output_path = os.path.join(fresco_v2v_dir, "fresco_v2v-results", "fresco_v2v_PnP.mp4")
+    #keyframe_path = available_file(batch_output, filename+"-keyframes", ext="mp4", no_num=True)
+    video_path = available_file(batch_output, filename, ext="mp4", no_num=True)
+    out_file = available_file(batch_output, filename+"-interpolated", ext="mp4", no_num=True)
+    if fresco_v2v_prefs['save_frames']:
+        installer.status("...Saving Frames")
+        imgs = []
+        for i, img in enumerate(output_frames):
+            img_file = os.path.join(batch_output, f'{filename}_{i}.png')
+            img.save(img_file)
+            imgs.append(img_file)
+    installer.status("...Saving Output Video")
+    duration = int((len(output_frames) / fresco_v2v_prefs['target_fps']) * 100)
+    output_frames[0].save(video_path, save_all=True, append_images=output_frames[1:], duration=duration, loop=0)
+    outputs = [filepath_to_url(video_path)]
+    if fresco_v2v_prefs['interpolate_video']:
+        installer.set_message("Saving Frames to Video using FFMPEG with Deflicker...")
+        interpolate_video(output_frames, input_fps=fresco_v2v_prefs['source_fps'], output_fps=fresco_v2v_prefs['target_fps'], output_video=out_file, installer=installer)
+        outputs.append(filepath_to_url(out_file))
+    clear_last()
+    play_snd(Snd.ALERT, page)
+    if os.path.exists(video_path):
+        #shutil.move(result_keyframe, keyframe_path)
+        #shutil.move(output_path, video_path)
+        prt(Row([Markdown(f"Done creating video... Check {and_list(outputs)}", on_tap_link=lambda e: e.page.launch_url(e.data))], alignment=MainAxisAlignment.CENTER))
+        prt(Row([VideoContainer(video_path)], alignment=MainAxisAlignment.CENTER))
+    else:
+        prt("Something went wrong generating video...")
+    autoscroll(False)
 
 
 def run_materialdiffusion(page):
@@ -54364,6 +54768,31 @@ def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=3
     #video.output(output_video)
     return output_video
 
+def video_to_frame(video_path: str, fps: int):
+    import cv2
+    vidcap = cv2.VideoCapture(video_path)
+    video_fps = vidcap.get(cv2.CAP_PROP_FPS)
+    if video_fps == 0:  # Handle case where FPS cannot be read
+        raise ValueError("Cannot read the frame rate of the video.")
+    interval = int(video_fps // fps)
+    if interval == 0:  # Ensure interval is at least 1
+        interval = 1
+    success = True
+    count = 0
+    res = []
+    while success:
+        success, image = vidcap.read()
+        if not success:
+            break
+        if count % interval == 0:
+            if image is not None:
+                image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                res.append(image)
+                if len(res) >= 8:
+                    break
+        count += 1
+    vidcap.release()
+    return res
 
 def scale_video(video_path, to, max_size, multiple=16):
     try:
@@ -54486,11 +54915,19 @@ class AudioPlayer(Stack):
             CQT = librosa.cqt(y, sr=sr, bins_per_octave=12, n_bins=84)
             CQT_db = librosa.amplitude_to_db(np.abs(CQT), ref=np.max)
         else:
-            import torchaudio
-            waveform, sr = torchaudio.load(asset_dir(self.src))
-            cqt_transform = torchaudio.transforms.ConstantQ(sample_rate=sr, n_bins=84, bins_per_octave=12, hop_length=512)
-            CQT = cqt_transform(waveform)
-            CQT_db = 20 * np.log10(CQT.numpy() + 1e-6)
+            pip_install("nnAudio")
+            from nnAudio import features
+            #import torchaudio
+            #waveform, sr = torchaudio.load(asset_dir(self.src))
+            waveform, sr = librosa.load(asset_dir(self.src))
+            waveform = torch.tensor(waveform, device=torch_device).float()
+            #cqt_transform = torchaudio.transforms.ConstantQ(sample_rate=sr, n_bins=84, bins_per_octave=12, hop_length=512)
+            #CQT = cqt_transform(waveform)
+            #CQT_db = 20 * np.log10(CQT.numpy() + 1e-6)
+            cqt_transform = features.CQT2010v2(sr=sr, hop_length=512, n_bins=84, bins_per_octave=12).to(torch_device)
+            cqt_spectrogram = cqt_transform(waveform)
+            CQT_db = cqt_spectrogram.squeeze(0).cpu().numpy()
+            #CQT_db = cqt_spectrogram.log2()[0,:,:].detach().numpy()
         fig, ax = plt.subplots(figsize=(15, 1))
         librosa.display.specshow(CQT_db, sr=sr, x_axis=None, y_axis=None, ax=ax, cmap='inferno')
         ax.set_axis_off()
