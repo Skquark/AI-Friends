@@ -6125,6 +6125,7 @@ marigold_depth_prefs = {
     'processing_res': 768,
     'batch_folder_name': '',
     'use_LCM': False,
+    'create_normals': False,
     'seed': 0,
 }
 def buildMarigoldDepth(page):
@@ -6148,19 +6149,22 @@ def buildMarigoldDepth(page):
         page.update()
       marigold_depth_help_dlg = AlertDialog(title=Text("🙅   Help with Marigold Depth"), content=Column([
           Text("Marigold is a universal monocular depth estimator that delivers accurate and sharp predictions in the wild. Based on Stable Diffusion, it is trained exclusively with synthetic depth data and excels in zero-shot adaptation to real-world imagery. This pipeline is an official implementation of the inference process. This depth estimation pipeline processes a single input image through multiple diffusion denoising stages to estimate depth maps. These maps are subsequently merged to produce the final output."),
+          Text("Monocular depth estimation is a fundamental computer vision task. Recovering 3D depth from a single image is geometrically ill-posed and requires scene understanding, so it is not surprising that the rise of deep learning has led to a breakthrough. The impressive progress of monocular depth estimators has mirrored the growth in model capacity, from relatively modest CNNs to large Transformer architectures. Still, monocular depth estimators tend to struggle when presented with images with unfamiliar content and layout, since their knowledge of the visual world is restricted by the data seen during training, and challenged by zero-shot generalization to new domains. This motivates us to explore whether the extensive priors captured in recent generative diffusion models can enable better, more generalizable depth estimation. We introduce Marigold, a method for affine-invariant monocular depth estimation that is derived from Stable Diffusion and retains its rich prior knowledge. The estimator can be fine-tuned in a couple of days on a single GPU using only synthetic training data. It delivers state-of-the-art performance across a wide range of datasets, including over 20% performance gains in specific cases."),
           Markdown("[Project Page](https://marigoldmonodepth.github.io) | [Paper](https://arxiv.org/abs/2312.02145) | [GitHub](https://github.com/prs-eth/marigold) | [HuggingFace Space](https://huggingface.co/spaces/toshas/marigold)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("Credits go to [Bingxin Ke](http://www.kebingxin.com/), [Anton Obukhov](https://www.obukhov.ai/), [Shengyu Huang](https://shengyuh.github.io/), [Nando Metzger](https://nandometzger.github.io/), [Rodrigo Caye Daudt](https://rcdaudt.github.io/), [Konrad Schindler](https://scholar.google.com/citations?user=FZuNgqIAAAAJ&hl=en), [Tianfu Wang](https://tianfwang.github.io/), [Kevin Qu](https://www.linkedin.com/in/kevin-qu-b3417621b/?locale=en_US), [YiYi Xu](https://yiyixuxu.github.io/) and [Sayak Paul](https://sayak.dev/).", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧊  The depths we go... ", on_click=close_marigold_depth_dlg)], actions_alignment=MainAxisAlignment.END)
       page.dialog = marigold_depth_help_dlg
       marigold_depth_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image", pref=marigold_depth_prefs, key='init_image', page=page)
-    color_map = Dropdown(label="Colormap", width=150, options=[dropdown.Option(c) for c in ['Spectral', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'coolwarm', 'bwr', 'seismic', 'None']], value=marigold_depth_prefs['color_map'], on_change=lambda e:changed(e,'color_map'))
+    color_map = Dropdown(label="Colormap", width=150, options=[dropdown.Option(c) for c in ['Spectral', 'binary', 'PiYG', 'PRGn', 'BrBG', 'PuOr', 'RdGy', 'RdBu', 'RdYlBu', 'RdYlGn', 'coolwarm', 'bwr', 'seismic', 'None']], value=marigold_depth_prefs['color_map'], on_change=lambda e:changed(e,'color_map'))
     match_input_res = Switcher(label="Match Input Resolution", value=marigold_depth_prefs['match_input_res'], on_change=lambda e:changed(e,'match_input_res'), tooltip="Resize depth prediction to match input resolution.")
     denoising_steps = SliderRow(label="Number of Denoising Steps", min=1, max=50, divisions=49, pref=marigold_depth_prefs, key='denoising_steps', tooltip="Number of denoising steps of each inference pass.")
     ensemble_size = SliderRow(label="Ensemble Size", min=1, max=50, divisions=49, pref=marigold_depth_prefs, key='ensemble_size', tooltip="Number of inference passes in the ensemble.")
     #pano_360 = Switcher(label="Input 360 Panoramic", value=marigold_depth_prefs['pano_360'], on_change=lambda e:changed(e,'pano_360'))
     #colorize = Switcher(label="Show Colorized Depth", value=marigold_depth_prefs['colorize'], on_change=lambda e:changed(e,'colorize'))
     use_LCM = Switcher(label="Use LCM Model", value=marigold_depth_prefs['use_LCM'], on_change=lambda e:changed(e,'use_LCM'), tooltip="Runs much faster, at the expense of some quality. Set Denoising Steps to 2-8.")
+    create_normals = Switcher(label="Create Normals Map", value=marigold_depth_prefs['create_normals'], on_change=lambda e:changed(e,'create_normals'), tooltip="Instead of Depth Map. The surface normals predictions are unit-length 3D vectors with values in the range from -1 to 1.")
     processing_res = SliderRow(label="Processing Resolution", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=marigold_depth_prefs, key='processing_res')
     seed = TextField(label="Seed", value=marigold_depth_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 90)
     page.marigold_depth_output = Column([])
@@ -6173,7 +6177,7 @@ def buildMarigoldDepth(page):
         denoising_steps,
         ensemble_size,
         #Row([match_input_res, pano_360, colorize]),
-        Row([seed, color_map, match_input_res, use_LCM]),
+        Row([seed, color_map, match_input_res, use_LCM, create_normals]),
         ElevatedButton(content=Text("🌺  Get Marigold Depth", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_marigold_depth(page)),
         page.marigold_depth_output,
       ]
@@ -10059,7 +10063,7 @@ def buildControlNet(page):
     prompt = TextField(label="Prompt Text", value=controlnet_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Mediapipe Face"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet Task", width=200, options=[dropdown.Option("Scribble"), dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("Marigold Depth"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Mediapipe Face"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")], value=controlnet_prefs['control_task'], on_change=change_task)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
     control_guidance_end = SliderRow(label="Control Guidance End", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_prefs, key='control_guidance_end', tooltip="The percentage of total steps at which the controlnet stops applying.")
@@ -10348,7 +10352,7 @@ def buildControlNetXL(page):
     prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Marigold Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
@@ -39009,6 +39013,10 @@ def run_controlnet(page, from_list=False):
             from controlnet_aux import OpenposeDetector
             openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
             controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
+        elif task == "Marigold Depth":
+            import diffusers
+            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to("cuda")
+            controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Depth":
             from transformers import pipeline
             depth_estimator = pipeline('depth-estimation')
@@ -39087,10 +39095,10 @@ def run_controlnet(page, from_list=False):
               else:
                   alert_msg(page, f"ERROR: Couldn't find your original_image {img}")
                   return
-          width, height = original_img.size
-          width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
-          #print(f"Size: {width}x{height}")
-          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        width, height = original_img.size
+        width, height = scale_dimensions(width, height, controlnet_prefs['max_size'])
+        #print(f"Size: {width}x{height}")
+        original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
         #return original_img
         try:
             if task == "Canny Map Edge" or task == "Video Canny Edge":
@@ -39109,6 +39117,12 @@ def run_controlnet(page, from_list=False):
                 input_image = input_image[:, :, None]
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
                 original_img = PILImage.fromarray(input_image)
+            elif task == "Marigold Depth":
+                random_seed = get_seed(controlnet_prefs['seed'])
+                generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+                input_image = depth_estimator(original_img, generator=generator).prediction
+                input_image = depth_estimator.image_processor.visualize_depth(input_image, color_map="binary")
+                original_img = input_image[0]
             elif task == "Kandinsky Depth":
                 original_img = depth_estimator(original_img)['depth']
                 input_image = np.array(original_img)
@@ -39636,6 +39650,10 @@ def run_controlnet_xl(page, from_list=False):
             depth_estimator = pipeline('depth-estimation')
             #controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
             controlnet_xl_models[task] = KandinskyV22ControlnetPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-controlnet-depth", torch_dtype=torch.float16).to(torch_device)
+        elif task == "Marigold Depth":
+            import diffusers
+            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to(torch_device)
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
         elif "Depth" in task:
             from transformers import DPTFeatureExtractor, DPTForDepthEstimation
             depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
@@ -39732,6 +39750,12 @@ def run_controlnet_xl(page, from_list=False):
                 detected_map = torch.from_numpy(input_image).float() / 255.0
                 original_img = detected_map.permute(2, 0, 1).unsqueeze(0).half().to("cuda")
                 #original_img = PILImage.fromarray(input_image)
+            elif task == "Marigold Depth":
+                random_seed = get_seed(controlnet_xl_prefs['seed'])
+                generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+                input_image = depth_estimator(original_img, generator=generator).prediction
+                input_image = depth_estimator.image_processor.visualize_depth(input_image, color_map="binary")
+                original_img = input_image[0]
             elif "Depth" in task:
                 original_img = feature_extractor(images=original_img, return_tensors="pt").pixel_values.to("cuda")
                 with torch.no_grad(), torch.autocast("cuda"):
@@ -50391,9 +50415,14 @@ def run_marigold_depth(page):
     installer = Installing("Installing Marigold Depth Pipeline...")
     clear_list()
     prt(installer)
-    from diffusers import DiffusionPipeline
+    pip_install("matplotlib", installer=installer)
+    from diffusers import DiffusionPipeline, MarigoldDepthPipeline, MarigoldNormalsPipeline
+    import diffusers
     if 'loaded_marigold' not in status: status['loaded_marigold'] = ""
-    model_id = "prs-eth/marigold-v1-0" #if not marigold_depth_prefs['use_LCM'] else "prs-eth/marigold-lcm-v1-0"
+    if marigold_depth_prefs['create_normals']:
+        model_id = "prs-eth/marigold-normals-v0-1" if not marigold_depth_prefs['use_LCM'] else "prs-eth/marigold-normals-lcm-v0-1"
+    else:
+        model_id = "prs-eth/marigold-v1-0" if not marigold_depth_prefs['use_LCM'] else "prs-eth/marigold-lcm-v1-0"
     if model_id != status['loaded_marigold']:
         clear_pipes()
     else:
@@ -50401,10 +50430,19 @@ def run_marigold_depth(page):
     if pipe_marigold_depth == None:
         installer.status(f"...loading {model_id}")
         mem_kwargs = {} if prefs['higher_vram_mode'] else {'torch_dtype': torch.float16, 'variant': 'fp16'}
-        pipe_marigold_depth = DiffusionPipeline.from_pretrained(model_id, custom_pipeline="marigold_depth_estimation", **mem_kwargs)
+        if marigold_depth_prefs['create_normals']:
+            pipe_marigold_depth = MarigoldNormalsPipeline.from_pretrained(model_id, **mem_kwargs)
+        else:
+            pipe_marigold_depth = MarigoldDepthPipeline.from_pretrained(model_id, **mem_kwargs)
         pipe_marigold_depth.to(torch_device)
+        pipe_marigold_depth.vae = diffusers.AutoencoderTiny.from_pretrained("madebyollin/taesd", torch_dtype=torch.float16).cuda()
+        if prefs['enable_torch_compile']:
+            installer.status(f"...Torch compiling unet")
+            pipe_marigold_depth.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
         if marigold_depth_prefs['use_LCM']:
             pipe_marigold_depth = pipeline_scheduler(pipe_marigold_depth, scheduler="LCM")
+        else:
+            pipe_marigold_depth = pipeline_scheduler(pipe_marigold_depth, scheduler="DDIM")
         status['loaded_marigold'] = model_id
     batch_output = os.path.join(prefs['image_output'], marigold_depth_prefs['batch_folder_name'])
     makedir(batch_output)
@@ -50412,34 +50450,43 @@ def run_marigold_depth(page):
     prt("Generating Marigold Depth Estimation Images...")
     prt(progress)
     random_seed = get_seed(marigold_depth_prefs['seed'], max=1000000)
+    generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     marigold_output = pipe_marigold_depth(
         image,                  # Input image.
-        denoising_steps=marigold_depth_prefs['denoising_steps'],     # (optional) Number of denoising steps of each inference pass. Default: 10.
+        num_inference_steps=marigold_depth_prefs['denoising_steps'],     # (optional) Number of denoising steps of each inference pass. Default: 10.
         ensemble_size=marigold_depth_prefs['ensemble_size'],       # (optional) Number of inference passes in the ensemble. Default: 10.
         processing_res=marigold_depth_prefs['processing_res'],     # (optional) Maximum resolution of processing. If set to 0: will not resize at all. Defaults to 768.
         match_input_res=marigold_depth_prefs['match_input_res'],   # (optional) Resize depth prediction to match input resolution.
-        seed=random_seed,
+        #seed=random_seed,
+        generator=generator,
         # batch_size=0,           # (optional) Inference batch size, no bigger than `num_ensemble`. If set to 0, the script will automatically decide the proper batch size. Defaults to 0.
-        color_map=marigold_depth_prefs['color_map'] if marigold_depth_prefs['color_map'] != 'None' else None,   # (optional) Colormap used to colorize the depth map. Defaults to "Spectral".
+        #color_map=marigold_depth_prefs['color_map'] if marigold_depth_prefs['color_map'] != 'None' else None,   # (optional) Colormap used to colorize the depth map. Defaults to "Spectral".
         show_progress_bar=True, # (optional) If true, will show progress bars of the inference progress.
     )
     depth_path = available_file(batch_output, file_name, no_num=True)
     colored_path = available_file(batch_output, f"{file_name}-colored", no_num=True)
-    depth: np.ndarray = marigold_output.depth_np                    # Predicted depth map
+    if marigold_depth_prefs['create_normals']:
+        depth_colored = None
+        vis = pipe_marigold_depth.image_processor.visualize_normals(marigold_output.prediction)
+    else:
+        depth_colored = pipe_marigold_depth.image_processor.visualize_depth(marigold_output.prediction, color_map=marigold_depth_prefs['color_map'] if marigold_depth_prefs['color_map'] != 'None' else None)
+        vis = pipe_marigold_depth.image_processor.export_depth_to_16bit_png(marigold_output.prediction)
+    '''depth: np.ndarray = marigold_output.depth_np                    # Predicted depth map
     depth_colored = marigold_output.depth_colored      # Colorized prediction
-    # Save as uint16 PNG
-    depth_uint16 = (depth * 65535.0).astype(np.uint16)
-    PILImage.fromarray(depth_uint16).save(depth_path, mode="I;16")
+    depth_uint16 = (depth * 65535.0).astype(np.uint16) # Save as uint16 PNG
+    PILImage.fromarray(depth_uint16).save(depth_path, mode="I;16")'''
+    w, h = vis[0].size
+    vis[0].save(depth_path)
     if depth_colored is not None:
-        depth_colored.save(colored_path)
+        depth_colored[0].save(colored_path)
     autoscroll(True)
     clear_last(2)
-    prt(Row([ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(Row([ImageButton(src=depth_path, width=w, height=h, data=depth_path, subtitle=depth_path, page=page)], alignment=MainAxisAlignment.CENTER))
     if depth_colored is not None:
-        prt(Row([ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page)], alignment=MainAxisAlignment.CENTER))
-    prt(ImageButton(src=depth_path, width=depth.shape[1], height=depth.shape[0], data=depth_path, subtitle=depth_path, page=page))
-    if depth_colored is not None:
-        prt(ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page))
+        prt(Row([ImageButton(src=colored_path, width=w, height=h, data=colored_path, subtitle=colored_path, page=page)], alignment=MainAxisAlignment.CENTER))
+    prt(ImageButton(src=depth_path, width=w, height=h, data=depth_path, subtitle=depth_path, page=page))
+    #if depth_colored is not None:
+    #    prt(ImageButton(src=colored_path, width=depth.shape[1], height=depth.shape[0], data=colored_path, subtitle=colored_path, page=page))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
