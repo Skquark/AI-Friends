@@ -2237,8 +2237,11 @@ def buildInstallers(page):
           page.ESRGAN_block_stable_animation,
         ]
         for b in ESRGAN_blocks:
-          b.height = None
-          b.update()
+          try:
+            b.height = None
+            b.update()
+          except Exception:
+            pass
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
           import openai
@@ -2267,7 +2270,7 @@ def buildInstallers(page):
       install_Stability_api.update()
       install_CLIP_guided.update()
       install_ESRGAN.update()
-      install_OpenAI.update()
+      #install_OpenAI.update()
       #install_TextSynth.update()
       update_parameters(page)
       page.Parameters.controls[0].content.update()
@@ -2853,7 +2856,7 @@ def update_args():
         "alpha_mask": prefs['alpha_mask'],
         "invert_mask": prefs['invert_mask'],
         "prompt2": None, "tweens": 10,
-        "negative_prompt": None,
+        "negative_prompt": "",
         "use_clip_guided_model": prefs['use_clip_guided_model'],
         "clip_prompt": "",
         "clip_guidance_scale": float(prefs['clip_guidance_scale']),
@@ -3584,7 +3587,8 @@ def buildPromptGenerator(page):
         alert_msg(page, "You must Install OpenAI GPT Library first before using...")
     def add_to_list(e):
       for p in page.prompt_generator_list.controls:
-        page.add_to_prompts(p.title.value)
+        if hasattr(p, "title"):
+            page.add_to_prompts(p.title.value)
       play_snd(Snd.DROP, page)
     def clear_prompts(e):
       page.prompt_generator_list.controls = []
@@ -8121,7 +8125,7 @@ def buildControlNetQR(page):
     border_thickness = SliderRow(label="Border Thickness", min=0, max=20, divisions=20, round=0, pref=controlnet_qr_prefs, key='border_thickness', tooltip="The border is equal to the thickness of 5 tiny black boxes around QR.")
     qr_generator = Container(content=Column([border_thickness], alignment=MainAxisAlignment.START), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     qr_generator.height = None if not controlnet_qr_prefs['use_image'] else 0
-    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5"), dropdown.Option("QR Code Monster v2 1.5"), dropdown.Option("QR Pattern v2 1.5"), dropdown.Option("SDXL QR Code Monster v1"), dropdown.Option("SDXL QR Pattern"), dropdown.Option("SDXL QR Pattern LLLite")], value=controlnet_qr_prefs['controlnet_version'], on_change=change_version)
+    controlnet_version = Dropdown(label="ControlNet QRCode Version", width=250, options=[dropdown.Option("Stable Diffusion 2.1"), dropdown.Option("Stable Diffusion 1.5"), dropdown.Option("QR Code Monster v2 1.5"), dropdown.Option("QR Pattern v2 1.5"), dropdown.Option("SDXL QR Code Monster v1"), dropdown.Option("SDXL QR Pattern"), dropdown.Option("SDXL QR Pattern LLLite"), dropdown.Option("SDXL Canny"), dropdown.Option("SDXL Scribble")], value=controlnet_qr_prefs['controlnet_version'], on_change=change_version)
     seed = TextField(label="Seed", width=90, value=str(controlnet_qr_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     num_inference_row = SliderRow(label="Number of Inference Steps", min=1, max=100, divisions=99, pref=controlnet_qr_prefs, key='num_inference_steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=controlnet_qr_prefs, key='guidance_scale')
@@ -10339,7 +10343,7 @@ def buildControlNetXL(page):
     prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xl_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Marigold Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet-SDXL Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Canny Map Edge mid"), dropdown.Option("Canny Map Edge small"), dropdown.Option("Depth"), dropdown.Option("Depth mid"), dropdown.Option("Depth small"), dropdown.Option("Marigold Depth"), dropdown.Option("Segmentation"), dropdown.Option("LineArt"), dropdown.Option("Softedge"), dropdown.Option("OpenPose"), dropdown.Option("Scribble"), dropdown.Option("Scribble Anime")], value=controlnet_xl_prefs['control_task'], on_change=change_task)
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xl_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xl_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
@@ -10626,7 +10630,7 @@ def buildControlNetXS(page):
     cpu_offload = Switcher(label="CPU Offload", value=controlnet_xs_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xs_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
     negative_prompt  = TextField(label="Negative Prompt Text", value=controlnet_xs_prefs['negative_prompt'], filled=True, col={'md':4}, multiline=True, on_change=lambda e:changed(e,'negative_prompt'))
-    control_task = Dropdown(label="ControlNet Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Depth")], value=controlnet_xs_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet Task", width=210, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("Depth"), dropdown.Option("Marigold Depth")], value=controlnet_xs_prefs['control_task'], on_change=change_task)
     #, dropdown.Option("Scribble"), dropdown.Option("HED"), dropdown.Option("M-LSD"), dropdown.Option("Normal Map"), dropdown.Option("Shuffle"), dropdown.Option("Instruct Pix2Pix"), dropdown.Option("Brightness"), dropdown.Option("Video Canny Edge"), dropdown.Option("Video OpenPose")
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=controlnet_xs_prefs, key='conditioning_scale', tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     control_guidance_start = SliderRow(label="Control Guidance Start", min=0.0, max=1.0, divisions=10, round=1, expand=True, pref=controlnet_xs_prefs, key='control_guidance_start', tooltip="The percentage of total steps at which the controlnet starts applying.")
@@ -23305,9 +23309,16 @@ if torch_device == "cuda":
             print("Goto Runtime -> Restart session to apply updates...")
             raise SystemExit("Please Restart Session and run all again to Upgrade... Sorry, only workaround.")
     except ModuleNotFoundError:
+        print(f"Installing latest Transformers package...")
+        run_sp("pip install --upgrade -q git+https://github.com/huggingface/transformers.git", realtime=False)
         pass
 #print(latest_version("torch"))
 if not is_Colab:
+    try:
+        import pkg_resources
+    except ImportError:
+        run_sp("pip install setuptools")
+        pass
     try:
         subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError:
@@ -23316,14 +23327,25 @@ if not is_Colab:
             install_command = "curl -fsSL https://git-scm.com/download/linux/latest.tar.gz | tar xz && mv git-*/bin/git /usr/bin/git"
         elif os_name == "nt":
             install_command = "curl -fsSL https://git-scm.com/download/Win64/Git-2.39.0-windows-x64.exe | tar xz && mv Git/bin/git.exe /usr/bin/git.exe"
+        elif os_name == "linux":
+            install_command = ["sudo", "apt-get", "install", "-y", "git"]
+        elif os_name == "darwin":
+            install_command = ["brew", "install", "git"]
+        elif os_name == "windows":
+            url = "https://github.com/git-for-windows/git/releases/download/v2.40.0.windows.1/MinGit-2.40.0-64-bit.zip"
+            install_command = ["powershell", "-Command", f"Invoke-WebRequest -Uri {url} -OutFile git.zip; Expand-Archive git.zip -DestinationPath C:\\Git"]
         else:
-            print(f"Unsupported OS for Git: {os_name}. Install manually.")
+            print(f"Unsupported OS for Git: {os_name}. Install git manually from https://git-scm.com/downloads")
             pass
         try:
             print("Installing latest GIT library....")
             subprocess.run(install_command, shell=True, check=True)
         except subprocess.CalledProcessError:
             print(f"Git installation failed on {os_name}. Please manually install it...")
+        try:
+            subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            print("Error installing Git. Install git manually from https://git-scm.com/downloads")
         pass
 
 status['cpu_memory'] = psutil.virtual_memory().total / (1024 * 1024 * 1024)
@@ -31539,6 +31561,10 @@ def run_controlnet_qr(page, from_list=False):
                 controlnet_model = "Nacholmo/controlnet-qr-pattern-sdxl"
             else:
                 controlnet_model = "Nacholmo/qr-pattern-sdxl-ControlNet-LLLite"
+        elif 'Canny' in controlnet_qr_prefs['controlnet_version']:
+            controlnet_model = "xinsir/controlnet-canny-sdxl-1.0"
+        elif 'Scribble' in controlnet_qr_prefs['controlnet_version']:
+            controlnet_model = "xinsir/controlnet-scribble-sdxl-1.0"
     #monster-labs/control_v1p_sdxl_qrcode_monster
     use_ip_adapter = controlnet_qr_prefs['use_ip_adapter']
     if use_ip_adapter:
@@ -39002,7 +39028,7 @@ def run_controlnet(page, from_list=False):
             controlnet_models[task] = ControlNetModel.from_pretrained(openpose_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Marigold Depth":
             import diffusers
-            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to("cuda")
+            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-depth-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to("cuda")
             controlnet_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "Depth":
             from transformers import pipeline
@@ -39586,7 +39612,8 @@ def run_controlnet_xl(page, from_list=False):
         alert_msg(page, f"ERROR Installing Required Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
         flush()
         return
-    canny_checkpoint = "diffusers/controlnet-canny-sdxl-1.0"
+    canny_checkpoint = "xinsir/controlnet-canny-sdxl-1.0"
+    #canny_checkpoint = "diffusers/controlnet-canny-sdxl-1.0"
     canny_small_checkpoint = "diffusers/controlnet-canny-sdxl-1.0-small"
     canny_mid_checkpoint = "diffusers/controlnet-canny-sdxl-1.0-mid"
     depth_checkpoint = "diffusers/controlnet-depth-sdxl-1.0"
@@ -39595,8 +39622,11 @@ def run_controlnet_xl(page, from_list=False):
     seg_checkpoint = "SargeZT/sdxl-controlnet-seg"
     softedge_checkpoint = "SargeZT/controlnet-sd-xl-1.0-softedge-dexined"#"SargeZT/sdxl-controlnet-softedge"
     lineart_checkpoint = "zbulrush/controlnet-sd-xl-1.0-lineart"
-    openpose_checkpoint = "OzzyGT/controlnet-openpose-sdxl-1.0"
-    scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
+    openpose_checkpoint = "xinsir/controlnet-openpose-sdxl-1.0"
+    #openpose_checkpoint = "OzzyGT/controlnet-openpose-sdxl-1.0"
+    scribble_checkpoint = "xinsir/controlnet-scribble-sdxl-1.0"
+    #scribble_checkpoint = "lllyasviel/control_v11p_sd15_scribble"
+    scribble_anime_checkpoint = "xinsir/anime-painter"
     HED_checkpoint = "lllyasviel/control_v11p_sd15_softedge"
     mlsd_checkpoint = "lllyasviel/control_v11p_sd15_mlsd"
     normal_checkpoint = "lllyasviel/control_v11p_sd15_normalbae"
@@ -39622,10 +39652,10 @@ def run_controlnet_xl(page, from_list=False):
         if "Canny Map" in task or task == "Video Canny Edge":
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(canny_mid_checkpoint if 'mid' in task else canny_small_checkpoint if 'small' in task else canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
             task = "Canny Map Edge"
-        elif task == "Scribble":
+        elif "Scribble" in task:
             from controlnet_aux import HEDdetector
             hed = HEDdetector.from_pretrained('lllyasviel/Annotators')
-            controlnet_xl_models[task] = ControlNetModel.from_pretrained(scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
+            controlnet_xl_models[task] = ControlNetModel.from_pretrained(scribble_anime_checkpoint if "Anime" in task else scribble_checkpoint, torch_dtype=torch.float16).to(torch_device)
         elif task == "OpenPose" or task == "Video OpenPose":
             task = "OpenPose"
             from controlnet_aux import OpenposeDetector
@@ -39639,7 +39669,7 @@ def run_controlnet_xl(page, from_list=False):
             controlnet_xl_models[task] = KandinskyV22ControlnetPipeline.from_pretrained("kandinsky-community/kandinsky-2-2-controlnet-depth", torch_dtype=torch.float16).to(torch_device)
         elif task == "Marigold Depth":
             import diffusers
-            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to(torch_device)
+            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-depth-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to(torch_device)
             controlnet_xl_models[task] = ControlNetModel.from_pretrained(depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
         elif "Depth" in task:
             from transformers import DPTFeatureExtractor, DPTForDepthEstimation
@@ -39725,7 +39755,7 @@ def run_controlnet_xl(page, from_list=False):
                 input_image = input_image[:, :, None]
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
                 original_img = PILImage.fromarray(input_image)
-            elif task == "Scribble":
+            elif "Scribble" in task:
                 original_img = hed(original_img, scribble=True)
             elif task == "OpenPose" or task == "Video OpenPose":
                 original_img = openpose(original_img, hand_and_face=True)
@@ -40227,6 +40257,10 @@ def run_controlnet_xs(page, from_list=False):
         if "Canny Map" in task or task == "Video Canny Edge":
             controlnet_xs_models[task] = ControlNetXSModel.from_pretrained(canny_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else canny_checkpoint, torch_dtype=torch.float16).to(torch_device)
             task = "Canny Map Edge"
+        elif "Marigold" in task:
+            import diffusers
+            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to(torch_device)
+            controlnet_xs_models[task] = ControlNetXSModel.from_pretrained(depth_SDXL_checkpoint if controlnet_xs_prefs['use_SDXL'] else depth_checkpoint, variant="fp16", use_safetensors=True, torch_dtype=torch.float16).to(torch_device)
         elif "Depth" in task:
             from transformers import DPTFeatureExtractor, DPTForDepthEstimation
             depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
@@ -40270,6 +40304,12 @@ def run_controlnet_xs(page, from_list=False):
                 input_image = input_image[:, :, None]
                 input_image = np.concatenate([input_image, input_image, input_image], axis=2)
                 original_img = PILImage.fromarray(input_image)
+            elif "Marigold Depth" in task:
+                random_seed = get_seed(controlnet_xs_prefs['seed'])
+                generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+                input_image = depth_estimator(original_img, generator=generator).prediction
+                input_image = depth_estimator.image_processor.visualize_depth(input_image, color_map="binary")
+                original_img = input_image[0]
             elif "Depth" in task:
                 original_img = feature_extractor(images=original_img, return_tensors="pt").pixel_values.to("cuda")
                 with torch.no_grad(), torch.autocast("cuda"):
@@ -44783,7 +44823,8 @@ def run_controlnet_temporalnet(page):
 
     base_model_path = "stabilityai/stable-diffusion-xl-base-1.0"
     controlnet1_path = "CiaraRowles/controlnet-temporalnet-sdxl-1.0"
-    controlnet2_path = "diffusers/controlnet-canny-sdxl-1.0"
+    controlnet2_path = "xinsir/controlnet-canny-sdxl-1.0"
+    #controlnet2_path = "diffusers/controlnet-canny-sdxl-1.0"
     if status['loaded_controlnet_type'] == "TemporalNet":
         clear_pipes('controlnet')
     else:
@@ -50409,7 +50450,7 @@ def run_marigold_depth(page):
     if marigold_depth_prefs['create_normals']:
         model_id = "prs-eth/marigold-normals-v0-1" if not marigold_depth_prefs['use_LCM'] else "prs-eth/marigold-normals-lcm-v0-1"
     else:
-        model_id = "prs-eth/marigold-v1-0" if not marigold_depth_prefs['use_LCM'] else "prs-eth/marigold-lcm-v1-0"
+        model_id = "prs-eth/marigold-v1-0" if not marigold_depth_prefs['use_LCM'] else "prs-eth/marigold-depth-lcm-v1-0"
     if model_id != status['loaded_marigold']:
         clear_pipes()
     else:
@@ -54302,6 +54343,30 @@ def asset_dir(path):
 def makedir(path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
+
+def download_github_folder(repo, folder_path, local_dir):
+    url = f"https://api.github.com/repos/{repo}/contents/{folder_path}"
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Error fetching contents of folder {folder_path} from GitHub repo {repo}. Status code: {response.status_code}")
+    folder_contents = response.json()
+    if not os.path.exists(local_dir):
+        os.makedirs(local_dir)
+    for item in folder_contents:
+        if item['type'] == 'file':
+            download_url = item['download_url']
+            file_name = os.path.join(local_dir, item['name'])
+            file_response = requests.get(download_url)
+            if file_response.status_code == 200:
+                with open(file_name, 'wb') as file:
+                    file.write(file_response.content)
+                #print(f"Downloaded {file_name}")
+            else:
+                print(f"Failed to download {file_name}. Status code: {file_response.status_code}")
+        elif item['type'] == 'dir':
+            sub_folder_path = item['path']
+            sub_local_dir = os.path.join(local_dir, item['name'])
+            download_github_folder(repo, sub_folder_path, sub_local_dir)
 
 def chmod_recursive(path, mode):
     for root, dirs, files in os.walk(path):
