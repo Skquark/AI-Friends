@@ -956,6 +956,7 @@ def buildAudioAIs(page):
     page.AudioLDM2 = buildAudioLDM2(page)
     page.ZetaEditing = buildZetaEditing(page)
     page.MusicLDM = buildMusicLDM(page)
+    page.StableAudio = buildStableAudio(page)
     page.Bark = buildBark(page)
     page.Riffusion = buildRiffusion(page)
     page.MusicLang = buildMusicLang(page)
@@ -968,6 +969,7 @@ def buildAudioAIs(page):
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
             Tab(text="MusicGen", content=page.MusicGen, icon=icons.MUSIC_NOTE),
             Tab(text="MusicLDM", content=page.MusicLDM, icon=icons.EARBUDS),
+            Tab(text="Stable Audio", content=page.StableAudio, icon=icons.MIC_EXTERNAL_ON),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
             Tab(text="AudioLDM-2", content=page.AudioLDM2, icon=icons.NOISE_CONTROL_OFF),
             Tab(text="ZETA Editing", content=page.ZetaEditing, icon=icons.HEADSET),
@@ -21670,6 +21672,93 @@ def buildMusicLDM(page):
     ))], scroll=ScrollMode.AUTO)
     return c
 
+stable_audio_prefs = {
+    'text': '',
+    'negative_prompt':'',
+    'model_name': 'stabilityai/stable-audio-open-1.0',
+    'custom_model': '',
+    'sampler': 'dpmpp-3m-sde',
+    'duration': 30.0,
+    'steps': 100,
+    'guidance_scale': 7.0,
+    'sigma_min': 0.3,
+    'sigma_max': 500,
+    'seed': 0,
+    'batch_size': 1,
+    'batch_folder_name': '',
+    'file_prefix': 'stableaudio-',
+    'save_mp3': False,
+}
+
+def buildStableAudio(page):
+    global prefs, stable_audio_prefs
+    def changed(e, pref=None, ptype="str"):
+        if pref is not None:
+          try:
+            if ptype == "int":
+              stable_audio_prefs[pref] = int(e.control.value)
+            elif ptype == "float":
+              stable_audio_prefs[pref] = float(e.control.value)
+            else:
+              stable_audio_prefs[pref] = e.control.value
+          except Exception:
+            alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+            pass
+    def stable_audio_help(e):
+        def close_stable_audio_dlg(e):
+          nonlocal stable_audio_help_dlg
+          stable_audio_help_dlg.open = False
+          page.update()
+        stable_audio_help_dlg = AlertDialog(title=Text("💁   Help with Stable Audio"), content=Column([
+            Text("Stable Audio Open 1.0 generates variable-length (up to 47s) stereo audio at 44.1kHz from text prompts. It comprises three components: an autoencoder that compresses waveforms into a manageable sequence length, a T5-based text embedding for text conditioning, and a transformer-based diffusion (DiT) model that operates in the latent space of the autoencoder.  This model is made to be used with the stable-audio-tools library for inference."),
+            Text("Our dataset consists of 486492 audio recordings, where 472618 are from Freesound and 13874 are from the Free Music Archive (FMA). All audio files are licensed under CC0, CC BY, or CC Sampling+. This data is used to train our autoencoder and DiT. We use a publicly available pre-trained T5 model (t5-base) for text conditioning. The primary use of Stable Audio Open is research and experimentation on AI-based music and audio generation."),
+            Text("Limitations: The model is not able to generate realistic vocals. The model has been trained with English descriptions and will not perform as well in other languages. The model does not perform equally well for all music styles and cultures. The model is better at generating sound effects and field recordings than music. It is sometimes difficult to assess what types of text descriptions provide the best generations. Prompt engineering may be required to obtain satisfying results."),
+            Markdown("[Project Page](https://stableaudio.com) | [Paper](https://stability.ai/research/stable-audio-efficient-timing-latent-diffusion) | [Model Card](https://huggingface.co/stabilityai/stable-audio-open-1.0) | [GitHub Code](https://github.com/Stability-AI/stable-audio-tools) | [Blog](https://stability.ai/news/stable-audio-2-0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          ], scroll=ScrollMode.AUTO), actions=[TextButton("🎛  How Stable is it? ", on_click=close_stable_audio_dlg)], actions_alignment=MainAxisAlignment.END)
+        page.dialog = stable_audio_help_dlg
+        stable_audio_help_dlg.open = True
+        page.update()
+    def change_model(e):
+        changed(e, 'model_name')
+        custom_model.visible = e.control.value == "Custom"
+        accept_model.visible = e.control.value != "Custom"
+        custom_model.update()
+        accept_model.update()
+    model_name = Dropdown(label="Stable Audio Model", width=320, options=[dropdown.Option("stabilityai/stable-audio-open-1.0"), dropdown.Option("Custom")], value=stable_audio_prefs['model_name'], on_change=change_model)
+    custom_model = TextField(label="Custom StableAudio Model (URL or HF Path)", value=stable_audio_prefs['custom_model'], expand=True, visible=stable_audio_prefs['model_name']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    accept_model = Markdown(" [ ACCEPT HF Model Agreement First](https://huggingface.co/stabilityai/stable-audio-open-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data), visible=stable_audio_prefs['model_name']!="Custom")
+    sampler = Dropdown(label="Sampler Type", width=230, options=[dropdown.Option(s) for s in ["dpmpp-2m-sde", "dpmpp-3m-sde", "k-heun", "k-lms", "k-dpmpp-2s-ancestral", "k-dpm-2", "k-dpm-fast"]], value=stable_audio_prefs['sampler'], on_change=lambda e:changed(e,'sampler'))
+    duration_row = SliderRow(label="Duration", min=1, max=47, divisions=46, round=0, suffix="s", pref=stable_audio_prefs, key='duration')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=15, divisions=30, round=1, pref=stable_audio_prefs, key='guidance_scale', tooltip="Large => better quality and relavancy to text; Small => better diversity")
+    steps_row = SliderRow(label="Number of Steps", min=1, max=300, divisions=299, pref=stable_audio_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality audio at the expense of slower inference.")
+    sigma_min = SliderRow(label="Sigma Min", min=0, max=5, divisions=100, round=2, pref=stable_audio_prefs, key='sigma_min', col={'md':6}, tooltip="")
+    sigma_max = SliderRow(label="Sigma Max", min=0, max=1000, divisions=2000, round=1, pref=stable_audio_prefs, key='sigma_max', col={'md':6}, tooltip="")
+    text = TextField(label="Audio Prompt to Generate", value=stable_audio_prefs['text'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'text'), col={'md':9})
+    negative_prompt = TextField(label="Negative Prompt", value=stable_audio_prefs['negative_prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'negative_prompt'), col={'md':3})
+    save_mp3 = Checkbox(label="Save as mp3", tooltip="Otherwise saves larger wav file.", value=stable_audio_prefs['save_mp3'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'save_mp3'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=stable_audio_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=stable_audio_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    batch_size = NumberPicker(label=" Number of Iterations:  ", min=1, max=10, value=stable_audio_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size'))
+    seed = TextField(label="Seed", value=stable_audio_prefs['seed'], keyboard_type=KeyboardType.NUMBER, on_change=lambda e: changed(e, 'seed', ptype='int'), width = 120)
+    page.stable_audio_output = Column([])
+    c = Column([Container(
+      padding=padding.only(18, 14, 20, 10),
+      content=Column([
+        Header("🫢  Stable Audio Open v1.0", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
+        ResponsiveRow([text, negative_prompt]),
+        duration_row,
+        guidance,
+        steps_row,
+        ResponsiveRow([sigma_min, sigma_max]),
+        Row([model_name, accept_model, custom_model]),
+        Row([sampler, batch_size, seed]),
+        Row([batch_folder_name, file_prefix, save_mp3]),
+        ElevatedButton(content=Text("🎺  Run Stable Audio", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_stable_audio(page)),
+        page.stable_audio_output,
+      ]
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
 bark_prefs = {
     'text': '',
     'text_temp': 0.7,
@@ -22622,6 +22711,8 @@ pipe_tortoise_tts = None
 pipe_audio_ldm = None
 pipe_audio_ldm2 = None
 pipe_music_ldm = None
+pipe_stable_audio = None
+config_stable_audio = None
 pipe_riffusion = None
 pipe_audio_diffusion = None
 pipe_music_gen = None
@@ -23328,14 +23419,17 @@ if torch_device == "cuda":
 #print(latest_version("torch"))
 if not is_Colab:
     try:
-        import pkg_resources
+        import setuptools
     except ImportError:
-        run_sp("pip install setuptools")
+        run_sp("pip install setuptools", realtime=False)
         pass
     try:
         subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError:
-        os_name = os.name.lower()
+        import platform
+        #os_name, _, _ = os.uname()
+        #os_name = os_name.lower()
+        os_name = platform.uname().system.lower()
         if os_name == "posix":
             install_command = "curl -fsSL https://git-scm.com/download/linux/latest.tar.gz | tar xz && mv git-*/bin/git /usr/bin/git"
         elif os_name == "nt":
@@ -25561,6 +25655,13 @@ def clear_music_ldm_pipe():
     del pipe_music_ldm
     flush()
     pipe_music_ldm = None
+def clear_stable_audio_pipe():
+  global pipe_stable_audio, config_stable_audio
+  if pipe_stable_audio is not None:
+    del pipe_stable_audio, config_stable_audio
+    flush()
+    pipe_stable_audio = None
+    config_stable_audio = None
 def clear_gpt2_pipe():
   global pipe_gpt2
   if pipe_gpt2 is not None:
@@ -25744,6 +25845,7 @@ def clear_pipes(allbut=None):
     if not 'audio_ldm' in but: clear_audio_ldm_pipe()
     if not 'audio_ldm2' in but: clear_audio_ldm2_pipe()
     if not 'music_ldm' in but: clear_music_ldm_pipe()
+    if not 'stable_audio' in but: clear_stable_audio_pipe()
     if not 'gpt2' in but: clear_gpt2_pipe()
     if not 'distil_gpt2' in but: clear_distil_gpt2_pipe()
     if not 'superprompt' in but: clear_superprompt_pipe()
@@ -36496,6 +36598,133 @@ def run_music_ldm(page):
         #prt(Row([IconButton(icon=icons.PLAY_CIRCLE_FILLED, icon_size=48, on_click=play_audio, data=a_out), Text(display_name)]))
         prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
         num += 1
+    play_snd(Snd.ALERT, page)
+
+def run_stable_audio(page):
+    global stable_audio_prefs, pipe_stable_audio, config_stable_audio, status
+    def prt(line):
+      if type(line) == str:
+        line = Text(line)
+      page.stable_audio_output.controls.append(line)
+      page.stable_audio_output.update()
+    def clear_last(lines=1):
+      clear_line(page.stable_audio_output, lines=lines)
+    if not bool(stable_audio_prefs['text']):
+      alert_msg(page, "Provide Text for the AI to create the sound of...")
+      return
+    progress = ProgressBar(bar_height=8)
+    installer = Installing("Loading Stable Audio Tools...")
+    prt(installer)
+    pip_install("stable-audio-tools|stable_audio_tools einops scipy", installer=installer)
+    import torchaudio
+    from einops import rearrange
+    from stable_audio_tools import get_pretrained_model
+    from stable_audio_tools.inference.generation import generate_diffusion_cond
+    if stable_audio_prefs['save_mp3']:
+        pip_install("pydub", q=True, installer=installer)
+        import pydub
+    else:
+        pip_install("soundfile", q=True, installer=installer)
+        import soundfile as sf
+    model_id = stable_audio_prefs['model_name'] if stable_audio_prefs['model_name'] != "Custom" else stable_audio_prefs['custom_model']
+    clear_pipes('stable_audio')
+    if pipe_stable_audio == None:
+      try:
+        installer.status("...loading model")
+        pipe_stable_audio, config_stable_audio = get_pretrained_model(model_id)
+        pipe_stable_audio = pipe_stable_audio.to(torch_device)
+      except Exception as e:
+        clear_last()
+        alert_msg(page, "Error downloading Stable Audio model", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+        return
+    clear_last()
+    def progress_callback(callback_info):
+        nonlocal progress
+        current_step = callback_info["i"]
+        progress.value = current_step / stable_audio_prefs['steps']
+        progress.update()
+    random_seed = get_seed(stable_audio_prefs['seed'])
+    for n in range(stable_audio_prefs['batch_size']):
+        prt(Text("  Generating Stable Audio...", weight=FontWeight.BOLD))
+        prt(progress)
+        sample_rate = config_stable_audio["sample_rate"]
+        sample_size = config_stable_audio["sample_size"]
+        conditioning = [{
+            "prompt": stable_audio_prefs['text'],
+            "seconds_start": 0,
+            "seconds_total": stable_audio_prefs['duration']
+        }]
+        if bool(stable_audio_prefs['negative_prompt']):
+            negative_conditioning = [{"prompt": stable_audio_prefs['negative_prompt'], "seconds_start": 0, "seconds_total": stable_audio_prefs['duration']}]
+        else:
+            negative_conditioning = None
+        try:
+            output = generate_diffusion_cond(
+                model_id,
+                steps=stable_audio_prefs['steps'],
+                #batch_size=stable_audio_prefs['batch_size'],
+                seed=random_seed + n,
+                cfg_scale=stable_audio_prefs['guidance_scale'],
+                conditioning=conditioning,
+                negative_conditioning=negative_conditioning,
+                sample_size=sample_size,
+                sigma_min=stable_audio_prefs['sigma_min'],
+                sigma_max=stable_audio_prefs['sigma_max'],
+                sampler_type=stable_audio_prefs['sampler'],#"dpmpp-3m-sde",
+                callback=progress_callback,
+                device=torch_device,
+            )
+            progress.value = None
+        except Exception as e:
+            clear_last()
+            alert_msg(page, "Error generating StableAudio waveform...", content=Column([Text(str(e)), Text(str(traceback.format_exc()))]))
+            return
+        audio_out = os.path.join(prefs['image_output'].rpartition(slash)[0], 'audio_out')
+        if bool(stable_audio_prefs['batch_folder_name']):
+          audio_out = os.path.join(audio_out, stable_audio_prefs['batch_folder_name'])
+        makedir(audio_out)
+        clear_last(2)
+        # TODO: Figure out batch file seperation
+        output = rearrange(output, "b d n -> d (b n)")
+        output = output.to(torch.float32).div(torch.max(torch.abs(output))).clamp(-1, 1).mul(32767).to(torch.int16).cpu()
+        max_length = sample_rate * stable_audio_prefs['duration']
+        if output.shape[1] > max_length:
+            output = output[:, :max_length]
+        fname = format_filename(stable_audio_prefs['text'])
+        if fname[-1] == '.': fname = fname[:-1]
+        file_prefix = stable_audio_prefs['file_prefix']
+        audio_name = f'{file_prefix}-{fname}'
+        audio_name = audio_name[:int(prefs['file_max_length'])]
+        audio_metadata = {
+            "sample_rate": sample_rate,
+            "sample_size": sample_size,
+            "artist": prefs['meta_ArtistName'],
+            "copyright": prefs['meta_Copyright'],
+            "software": "Stable Diffusion Deluxe",
+        }
+        if prefs['save_config_in_metadata']:
+            config_json = stable_audio_prefs.copy()
+            del config_json['batch_size']
+            del config_json['file_prefix']
+            config_json['seed'] = random_seed + n
+            audio_metadata["config"] = config_json
+        fname = available_file(audio_out, audio_name, n, ext="wav")
+        torchaudio.save(fname, output, sample_rate)
+        if stable_audio_prefs['save_mp3']:
+            wav_file = pydub.AudioSegment.from_wav(fname)
+            #tags = pydub.utils.mediainfo(wav_file).get('TAG', {})
+            mp3_name = available_file(audio_out, audio_name, n, ext="mp3")
+            mp3_file = wav_file.export(mp3_name, format="mp3", tags=audio_metadata)
+            os.remove(fname)
+            fname = mp3_name
+            display_name = fname
+        else:
+            import json
+            audio_data, _ = sf.read(fname)
+            metadata_comment = json.dumps(audio_metadata)
+            sf.write(fname, audio_data, sample_rate, format='WAV', subtype='PCM_16', **metadata_comment)
+            display_name = audio_out
+        prt(AudioPlayer(src=fname, display=display_name, data=display_name, page=page))
     play_snd(Snd.ALERT, page)
 
 def run_bark(page):
@@ -54307,9 +54536,9 @@ def its(step_time):
         output = f"{sit:.1f} s/it"
     return output
 
-def clear_line(column, lines=1, update=True):
+def clear_line(column, lines=1, update=True, protect_first=False):
     for l in range(lines):
-        if len(column.controls) < 1: return
+        if len(column.controls) < (1 if not protect_first else 2): return
         del column.controls[-1]
     if update:
         column.update()
