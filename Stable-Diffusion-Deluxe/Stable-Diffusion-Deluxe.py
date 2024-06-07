@@ -489,6 +489,11 @@ if not hasattr(PILImage, 'Resampling'):  # Allow Pillow<9.0
    PILImage.Resampling = PILImage
 import random as rnd
 import io, shutil, traceback, string, gc, datetime, time, threading
+try:
+    import packaging
+except ModuleNotFoundError:
+    run_sp("pip install packaging", realtime=False)
+    pass
 from packaging import version
 from contextlib import redirect_stdout
 from typing import Optional
@@ -27966,7 +27971,7 @@ def run_prompt_generator(page):
   page.prompt_generator_list.controls.append(Installing("Requesting Prompts from the AI..."))
   page.prompt_generator_list.update()
   prompt_gen()
-  if len(page.prompt_generator_list.controls) > 1:
+  if len(page.prompt_generator_list.controls) > 0:
     del page.prompt_generator_list.controls[-1]
     page.prompt_generator_list.update()
   if len(prompt_results) < prefs['prompt_generator']['amount']:
@@ -27983,7 +27988,7 @@ def run_prompt_generator(page):
     for s in range(prefs['prompt_generator']['random_styles']):
       random_style.append(rnd.choice(styles))
     style = ", ".join(random_style)
-    if not prefs['prompt_generator']['phrase_as_subject'] and n == 1:
+    if prefs['prompt_generator']['phrase_as_subject'] and n == 1:
       p = prefs['prompt_generator']['phrase'] + " " + p
     text_prompt = p
     #if prefs['prompt_generator']['random_artists'] > 0 or prefs['prompt_generator']['random_styles'] > 0:
@@ -36602,7 +36607,7 @@ def run_stable_audio(page):
     progress = ProgressBar(bar_height=8)
     installer = Installing("Loading Stable Audio Tools...")
     prt(installer)
-    pip_install("stable-audio-tools|stable_audio_tools einops scipy", installer=installer)
+    pip_install("stable_audio_tools|stable-audio-tools einops scipy", installer=installer)
     import torchaudio
     from einops import rearrange
     from stable_audio_tools import get_pretrained_model
