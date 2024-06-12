@@ -614,7 +614,7 @@ def save_settings_file(page, change_icon=True):
         print(str(traceback.format_exc()))
         pass
 
-current_tab = 0
+current_tab = 1 if prefs['start_in_installation'] else 0
 def tab_on_change(e):
     global current_tab, status
     t = e.control
@@ -793,10 +793,10 @@ def buildImageAIs(page):
             Tab(text="DALL•E", content=page.DallE, icon=icons.BLUR_ON),
             Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
+            Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
-            Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
             Tab(text="Differential Diffusion", content=page.Differential_Diffusion, icon=icons.SENTIMENT_NEUTRAL),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
@@ -1211,10 +1211,10 @@ def initState(page):
         else:
           eta.visible = False
           eta.update()
-    '''if prefs['start_in_installation'] and current_tab == 0:
-      page.tabs.selected_index = 1
-      page.tabs.update()
+    if prefs['start_in_installation'] and current_tab == 1:
       page.show_install_fab(True)
+    '''  page.tabs.selected_index = 1
+      page.tabs.update()
       page.update()
       current_tab = 1
     else:
@@ -42932,6 +42932,14 @@ def run_hunyuan(page, from_list=False, with_params=False):
       progress.value = percent
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
+    def callback_fn(pipe, step, timestep, callback_kwargs):
+      callback_fn.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
     if from_list:
       page.tabs.selected_index = 4
       page.tabs.update()
@@ -42965,13 +42973,15 @@ def run_hunyuan(page, from_list=False, with_params=False):
             alert_msg(page, f"ERROR Initializing Hunyuan, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
     clear_last()
+    n = 0
     for pr in hunyuan_dit_prompts:
-        prt(f"Generating your Image...")
+        prt(f"Generating Image{f' {n + 1}/{len(hunyuan_dit_prompts)}' if from_list else ''}...")
         prt(progress)
+        nudge(page.imageColumn if from_list else page.Hunyuan, page=page)
         autoscroll(False)
         total_steps = pr['steps']
         random_seed = get_seed(pr['seed'])
-        generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        generator = torch.Generator(device="cuda").manual_seed(random_seed)
         try:
             images = pipe_hunyuan(
                 prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
@@ -42981,11 +42991,11 @@ def run_hunyuan(page, from_list=False, with_params=False):
                 num_inference_steps=pr['steps'],
                 guidance_scale=pr['guidance_scale'],
                 generator=generator,
-                callback_on_step_end=callback_fnc,
+                callback_on_step_end=callback_fn,
             ).images
         except Exception as e:
             clear_last(2)
-            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Text(str(e)))
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
         clear_last(2)
         autoscroll(True)
@@ -43008,7 +43018,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
             image.save(image_path)
             output_file = image_path.rpartition(slash)[2]
             if not hunyuan_dit_prefs['display_upscaled_image'] or not hunyuan_dit_prefs['apply_ESRGAN_upscale']:
-                save_metadata(image_path, hunyuan_dit_prefs, f"Hunyuan DiT {task_type}", "hunyuan-community/hunyuan-3", random_seed, extra=pr)
+                save_metadata(image_path, hunyuan_dit_prefs, f"Hunyuan-DiT", model_id, random_seed, extra=pr)
                 prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
             batch_output = os.path.join(prefs['image_output'], hunyuan_dit_prefs['batch_folder_name'])
             if not os.path.exists(batch_output):
@@ -43019,7 +43029,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
             if hunyuan_dit_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
                 upscale_image(image_path, upscaled_path, scale=hunyuan_dit_prefs["enlarge_scale"], face_enhance=hunyuan_dit_prefs["face_enhance"])
                 image_path = upscaled_path
-                save_metadata(upscaled_path, hunyuan_dit_prefs, f"Hunyuan DiT {task_type}", "hunyuan-community/hunyuan-3", random_seed, extra=pr)
+                save_metadata(upscaled_path, hunyuan_dit_prefs, f"Hunyuan-DiT", model_id, random_seed, extra=pr)
                 if hunyuan_dit_prefs['display_upscaled_image']:
                     prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(hunyuan_dit_prefs["enlarge_scale"]), height=pr['height'] * float(hunyuan_dit_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], hunyuan_dit_prefs['batch_folder_name']), fname, 0)
@@ -43092,7 +43102,7 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
       progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
       progress.update()
     def callback_fn(pipe, step, timestep, callback_kwargs):
-      callback_fnc.has_been_called = True
+      callback_fn.has_been_called = True
       nonlocal progress
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
