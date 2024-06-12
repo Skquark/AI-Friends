@@ -243,7 +243,7 @@ SDXL_models = [
     {"name": "ProtVision-XL 1", "path": "Andyrasika/Sdxl1.0-protvisionXL", "prefix": ""},
     {"name": "ProtVision-XL 3", "path": "stablediffusionapi/protovisionxl-v3", "prefix": ""},
     {"name": "RealCartoon-XL 4", "path": "frankjoshua/realcartoonXL_v4", "prefix": "", "variant": "fp16"},
-    {"name": "Realism Engine 2 XL", "path": "GraydientPlatformAPI/realism-engine2-xl", "prefix": ""},
+    {"name": "Realism Engine 3 XL", "path": "GraydientPlatformAPI/realism-engine3-xl", "prefix": "", "use_safetensors": True},
     {"name": "RealVis-XL 2", "path": "SG161222/RealVisXL_V2.0", "prefix": "", "variant": "fp16"},
     {"name": "RealVis-XL 3", "path": "SG161222/RealVisXL_V3.0", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "RealVis-XL 4", "path": "SG161222/RealVisXL_V4.0", "prefix": "", "variant": "fp16", "use_safetensors": True},

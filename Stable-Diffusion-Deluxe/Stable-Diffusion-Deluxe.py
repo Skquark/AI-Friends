@@ -492,7 +492,7 @@ import io, shutil, traceback, string, gc, datetime, time, threading
 try:
     import packaging
 except ModuleNotFoundError:
-    run_sp("pip install packaging", realtime=False)
+    run_sp("pip install packaging==23.2", realtime=False)
     pass
 from packaging import version
 from contextlib import redirect_stdout
@@ -759,6 +759,7 @@ def buildImageAIs(page):
     page.StableCascade = buildStableCascade(page)
     page.PixArtAlpha = buildPixArtAlpha(page)
     page.PixArtSigma = buildPixArtSigma(page)
+    page.Hunyuan = buildHunyuanDiT(page)
     page.Differential_Diffusion = buildDifferential_Diffusion(page)
     page.LMD_Plus = buildLMD_Plus(page)
     page.LCM = buildLCM(page)
@@ -795,6 +796,7 @@ def buildImageAIs(page):
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
+            Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
             Tab(text="Differential Diffusion", content=page.Differential_Diffusion, icon=icons.SENTIMENT_NEUTRAL),
             Tab(text="DemoFusion", content=page.DemoFusion, icon=icons.COTTAGE),
             Tab(text="DeepFloyd-IF", content=page.DeepFloyd, icon=icons.LOOKS),
@@ -959,7 +961,6 @@ def buildAudioAIs(page):
     audioAIsTabs = Tabs(selected_index=0, animation_duration=300, expand=1,
         tabs=[
             Tab(text="Tortoise-TTS", content=page.TortoiseTTS, icon=icons.RECORD_VOICE_OVER),
-            Tab(text="MusicGen", content=page.MusicGen, icon=icons.MUSIC_NOTE),
             Tab(text="MusicLDM", content=page.MusicLDM, icon=icons.EARBUDS),
             Tab(text="Stable Audio", content=page.StableAudio, icon=icons.MIC_EXTERNAL_ON),
             Tab(text="AudioLDM", content=page.AudioLDM, icon=icons.NOISE_AWARE),
@@ -969,6 +970,7 @@ def buildAudioAIs(page):
             Tab(text="Riffusion", content=page.Riffusion, icon=icons.SPATIAL_AUDIO),
             Tab(text="Audio Diffusion", content=page.AudioDiffusion, icon=icons.GRAPHIC_EQ),
             Tab(text="MusicLang", content=page.MusicLang, icon=icons.PIANO),
+            Tab(text="MusicGen", content=page.MusicGen, icon=icons.MUSIC_NOTE),
             Tab(text="Whisper-STT", content=page.Whisper, icon=icons.HEARING),
             Tab(text="OpenAI-TTS", content=page.OpenAI_TTS, icon=icons.PHONE_IN_TALK),
             Tab(text="Voice Fixer", content=page.VoiceFixer, icon=icons.VOICE_CHAT),
@@ -2212,6 +2214,7 @@ def buildInstallers(page):
           page.ESRGAN_block_wuerstchen,
           page.ESRGAN_block_pixart_alpha,
           page.ESRGAN_block_pixart_sigma,
+          page.ESRGAN_block_hunyuan,
           page.ESRGAN_block_lcm,
           page.ESRGAN_block_lmd_plus,
           page.ESRGAN_block_ip_adapter,
@@ -2248,6 +2251,7 @@ def buildInstallers(page):
             b.height = None
             b.update()
           except Exception:
+            print(f"Failed ESRGAN block {b.__name__}")
             pass
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
@@ -5735,7 +5739,7 @@ def buildMusicGen(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🪗  Meta Audiocraft MusicGen", "Simple and Controllable Music Generation with Audio tokenization model...", actions=[save_default(music_gen_prefs, exclude=['audio_file']), IconButton(icon=icons.HELP, tooltip="Help with MusicGen Settings", on_click=music_gen_help)]),
+        Header("🪗  Meta Audiocraft MusicGen (might be broken)", "Simple and Controllable Music Generation with Audio tokenization model...", actions=[save_default(music_gen_prefs, exclude=['audio_file']), IconButton(icon=icons.HELP, tooltip="Help with MusicGen Settings", on_click=music_gen_help)]),
         prompt,
         audio_file,
         Row([audio_model, duration_row]),
@@ -11614,6 +11618,96 @@ def buildPixArtSigma(page):
             page.ESRGAN_block_pixart_sigma,
             parameters_row,
             page.pixart_sigma_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+hunyuan_dit_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "hunyuan-",
+    "num_images": 1,
+    "steps":50,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":5.0,
+    "distilled_model": False,
+    "cpu_offload": False,
+    "seed": 0,
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildHunyuanDiT(page):
+    global prefs, hunyuan_dit_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          if ptype == "int":
+            hunyuan_dit_prefs[pref] = int(e.control.value)
+          elif ptype == "float":
+            hunyuan_dit_prefs[pref] = float(e.control.value)
+          else:
+            hunyuan_dit_prefs[pref] = e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def hunyuan_dit_help(e):
+      def close_hunyuan_dit_dlg(e):
+        nonlocal hunyuan_dit_help_dlg
+        hunyuan_dit_help_dlg.open = False
+        page.update()
+      hunyuan_dit_help_dlg = AlertDialog(title=Text("🙅   Help with Hunyuan Pipeline"), content=Column([
+          Text("We present Hunyuan-DiT, a text-to-image diffusion transformer with fine-grained understanding of both English and Chinese. To construct Hunyuan-DiT, we carefully design the transformer structure, text encoder, and positional encoding. We also build from scratch a whole data pipeline to update and evaluate data for iterative model optimization. For fine-grained language understanding, we train a Multimodal Large Language Model to refine the captions of the images. Finally, Hunyuan-DiT can perform multi-turn multimodal dialogue with users, generating and refining images according to the context. Through our holistic human evaluation protocol with more than 50 professional human evaluators, Hunyuan-DiT sets a new state-of-the-art in Chinese-to-image generation compared with other open-source models."),
+          Markdown("HunyuanDiT uses two text encoders: [mT5](https://huggingface.co/google/mt5-base) and bilingual CLIP (fine-tuned by ourselves)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Paper](https://arxiv.org/abs/2405.08748) | [Project Page](https://dit.hunyuan.tencent.com/) | [Github](https://github.com/Tencent/HunyuanDiT) | [Model Checkpoint](https://huggingface.co/Tencent-Hunyuan/HunyuanDiT) | [HF Space](https://huggingface.co/spaces/Tencent-Hunyuan/HunyuanDiT)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("🥡  Tasty Aesthetics... ", on_click=close_hunyuan_dit_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.dialog = hunyuan_dit_help_dlg
+      hunyuan_dit_help_dlg.open = True
+      page.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        hunyuan_dit_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=hunyuan_dit_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=hunyuan_dit_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=hunyuan_dit_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=hunyuan_dit_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=hunyuan_dit_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=hunyuan_dit_prefs, key='steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=hunyuan_dit_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=hunyuan_dit_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=hunyuan_dit_prefs, key='height')
+    cpu_offload = Switcher(label="CPU Offload", value=hunyuan_dit_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    distilled_model = Switcher(label="Use Distilled Model", value=hunyuan_dit_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
+    seed = TextField(label="Seed", width=90, value=str(hunyuan_dit_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=hunyuan_dit_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=hunyuan_dit_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=hunyuan_dit_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=hunyuan_dit_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_hunyuan = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_hunyuan.height = None if status['installed_ESRGAN'] else 0
+    if not hunyuan_dit_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🏮   Run Hunyuan DiT", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.Hunyuan_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
+            Header("🉐️  Hunyuan-DiT", "Powerful Multi-Resolution Diffusion Transformer with Fine-Grained Chinese Understanding from Tencent Hunyuan....", actions=[save_default(hunyuan_dit_prefs), IconButton(icon=icons.HELP, tooltip="Help with Hunyuan Settings", on_click=hunyuan_dit_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider,
+            page.ESRGAN_block_hunyuan,
+            ResponsiveRow([Row([n_images, seed, distilled_model], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            parameters_row,
+            page.Hunyuan_output
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -21736,7 +21830,7 @@ def buildStableAudio(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🫢  Stable Audio Open v1.0", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
+        Header("🫢  Stable Audio Open v1.0 (Under construction)", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
         ResponsiveRow([text, negative_prompt]),
         duration_row,
         guidance,
@@ -22671,6 +22765,7 @@ pipe_pixart_alpha = None
 pipe_pixart_alpha_encoder = None
 pipe_pixart_sigma = None
 pipe_pixart_sigma_encoder = None
+pipe_hunyuan = None
 pipe_differential_diffusion = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
@@ -23413,7 +23508,7 @@ if not is_Colab:
     try:
         import setuptools
     except ImportError:
-        run_sp("pip install setuptools", realtime=False)
+        run_sp("pip install setuptools==67.7.2", realtime=False)
         pass
     try:
         subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -25306,6 +25401,12 @@ def clear_pixart_sigma_pipe():
     flush()
     pipe_pixart_sigma = None
     pipe_pixart_sigma_encoder = None
+def clear_hunyuan_pipe():
+  global pipe_hunyuan
+  if pipe_hunyuan is not None:
+    del pipe_hunyuan
+    flush()
+    pipe_hunyuan = None
 def clear_differential_diffusion_pipe():
   global pipe_differential_diffusion
   if pipe_differential_diffusion is not None:
@@ -25784,6 +25885,7 @@ def clear_pipes(allbut=None):
     if not 'stable_cascade' in but: clear_stable_cascade_pipe()
     if not 'pixart_alpha' in but: clear_pixart_alpha_pipe()
     if not 'pixart_sigma' in but: clear_pixart_sigma_pipe()
+    if not 'hunyuan' in but: clear_hunyuan_pipe()
     if not 'differential_diffusion' in but: clear_differential_diffusion_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
@@ -36607,7 +36709,7 @@ def run_stable_audio(page):
     progress = ProgressBar(bar_height=8)
     installer = Installing("Loading Stable Audio Tools...")
     prt(installer)
-    pip_install("stable_audio_tools|stable-audio-tools einops scipy", installer=installer)
+    pip_install("stable-audio-tools einops scipy", installer=installer)
     import torchaudio
     from einops import rearrange
     from stable_audio_tools import get_pretrained_model
@@ -42767,6 +42869,163 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
     del text_encoder
     #del pipe_pixart_sigma_encoder
     flush()
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+def run_hunyuan(page, from_list=False, with_params=False):
+    global hunyuan_dit_prefs, pipe_hunyuan, prefs
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) <= 8:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Hunyuan DiT right now. Either Change runtime type to High-RAM mode and restart.")
+      return
+    hunyuan_dit_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            hunyuan_dit_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':hunyuan_dit_prefs['guidance_scale'], 'steps':hunyuan_dit_prefs['steps'], 'width':hunyuan_dit_prefs['width'], 'height':hunyuan_dit_prefs['height'], 'num_images':hunyuan_dit_prefs['num_images'], 'seed':hunyuan_dit_prefs['seed']})
+        else:
+            hunyuan_dit_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(hunyuan_dit_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      hunyuan_dit_prompts.append({'prompt': hunyuan_dit_prefs['prompt'], 'negative_prompt':hunyuan_dit_prefs['negative_prompt'], 'guidance_scale':hunyuan_dit_prefs['guidance_scale'], 'steps':hunyuan_dit_prefs['steps'], 'width':hunyuan_dit_prefs['width'], 'height':hunyuan_dit_prefs['height'], 'num_images':hunyuan_dit_prefs['num_images'], 'seed':hunyuan_dit_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Hunyuan.controls.append(line)
+        if update:
+          page.Hunyuan.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.Hunyuan, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Hunyuan.auto_scroll = scroll
+        page.Hunyuan.update()
+      else:
+        page.Hunyuan.auto_scroll = scroll
+        page.Hunyuan.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Hunyuan.controls = page.Hunyuan.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = hunyuan_dit_prefs['steps']
+    def callback_fnc(step: int, timestep: int, callback_kwargs) -> None: #(pipe, step, timestep, callback_kwargs):#
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    model_id = "Tencent-Hunyuan/HunyuanDiT-Diffusers" if not hunyuan_dit_prefs['distilled_model'] else "Tencent-Hunyuan/HunyuanDiT-Diffusers-Distilled"
+    if 'loaded_hunyuan_model' not in status: status['loaded_hunyuan_model'] = ''
+    installer = Installing(f"Installing Tencent-HunyuanDiT Engine & Models... See console log for progress.")
+    cpu_offload = hunyuan_dit_prefs['cpu_offload']
+    prt(installer)
+    if status['loaded_hunyuan_model'] != model_id:
+        clear_pipes()
+    else:
+        clear_pipes('hunyuan')
+    if pipe_hunyuan == None:
+        try:
+            from diffusers import HunyuanDiTPipeline
+            pipe_hunyuan = HunyuanDiTPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling unet")
+                pipe_hunyuan.unet.to(memory_format=torch.channels_last)
+                pipe_hunyuan.unet = torch.compile(pipe_hunyuan.unet, mode="reduce-overhead", fullgraph=True)
+                pipe_hunyuan = pipe_hunyuan.to("cuda")
+            elif cpu_offload:
+                pipe_hunyuan.enable_model_cpu_offload()
+            else:
+                pipe_hunyuan.to("cuda")
+            status['loaded_hunyuan_model'] = model_id
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Hunyuan, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_last()
+    for pr in hunyuan_dit_prompts:
+        prt(f"Generating your Image...")
+        prt(progress)
+        autoscroll(False)
+        total_steps = pr['steps']
+        random_seed = get_seed(pr['seed'])
+        generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        try:
+            images = pipe_hunyuan(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                width=pr['width'],
+                height=pr['height'],
+                num_inference_steps=pr['steps'],
+                guidance_scale=pr['guidance_scale'],
+                generator=generator,
+                callback_on_step_end=callback_fnc,
+            ).images
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Text(str(e)))
+            return
+        clear_last(2)
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(hunyuan_dit_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, hunyuan_dit_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        #print(str(images))
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            fname = f'{hunyuan_dit_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not hunyuan_dit_prefs['display_upscaled_image'] or not hunyuan_dit_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, hunyuan_dit_prefs, f"Hunyuan DiT {task_type}", "hunyuan-community/hunyuan-3", random_seed, extra=pr)
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], hunyuan_dit_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if hunyuan_dit_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=hunyuan_dit_prefs["enlarge_scale"], face_enhance=hunyuan_dit_prefs["face_enhance"])
+                image_path = upscaled_path
+                save_metadata(upscaled_path, hunyuan_dit_prefs, f"Hunyuan DiT {task_type}", "hunyuan-community/hunyuan-3", random_seed, extra=pr)
+                if hunyuan_dit_prefs['display_upscaled_image']:
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(hunyuan_dit_prefs["enlarge_scale"]), height=pr['height'] * float(hunyuan_dit_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            new_file = available_file(os.path.join(prefs['image_output'], hunyuan_dit_prefs['batch_folder_name']), fname, 0)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
