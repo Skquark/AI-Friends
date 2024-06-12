@@ -3906,12 +3906,7 @@ def buildMagicPrompt(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            magic_prompt_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            magic_prompt_prefs[pref] = float(e.control.value)
-          else:
-            magic_prompt_prefs[pref] = e.control.value
+          magic_prompt_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -3983,12 +3978,7 @@ def buildDistilGPT2(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            distil_gpt2_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            distil_gpt2_prefs[pref] = float(e.control.value)
-          else:
-            distil_gpt2_prefs[pref] = e.control.value
+          distil_gpt2_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -4070,12 +4060,7 @@ def buildSuperPrompt(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            superprompt_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            superprompt_prefs[pref] = float(e.control.value)
-          else:
-            superprompt_prefs[pref] = e.control.value
+          superprompt_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -4691,12 +4676,7 @@ def buildInitVideo(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            init_video_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            init_video_prefs[pref] = float(e.control.value)
-          else:
-            init_video_prefs[pref] = e.control.value
+          init_video_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -4806,12 +4786,7 @@ def buildImage2Text(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            image2text_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            image2text_prefs[pref] = float(e.control.value)
-          else:
-            image2text_prefs[pref] = e.control.value
+          image2text_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -5078,12 +5053,7 @@ def buildBLIP2Image2Text(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            BLIP2_image2text_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            BLIP2_image2text_prefs[pref] = float(e.control.value)
-          else:
-            BLIP2_image2text_prefs[pref] = e.control.value
+          BLIP2_image2text_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -5531,12 +5501,7 @@ def buildAudioDiffusion(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              audio_diffusion_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              audio_diffusion_prefs[pref] = float(e.control.value)
-            else:
-              audio_diffusion_prefs[pref] = e.control.value
+            audio_diffusion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -5665,12 +5630,7 @@ def buildMusicGen(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              music_gen_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              music_gen_prefs[pref] = float(e.control.value)
-            else:
-              music_gen_prefs[pref] = e.control.value
+            music_gen_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -5785,12 +5745,7 @@ def buildDreamFusion(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            dreamfusion_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            dreamfusion_prefs[pref] = float(e.control.value)
-          else:
-            dreamfusion_prefs[pref] = e.control.value
+          dreamfusion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -5860,12 +5815,7 @@ def buildPoint_E(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            point_e_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            point_e_prefs[pref] = float(e.control.value)
-          else:
-            point_e_prefs[pref] = e.control.value
+          point_e_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -5970,12 +5920,7 @@ def buildShap_E(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            shap_e_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            shap_e_prefs[pref] = float(e.control.value)
-          else:
-            shap_e_prefs[pref] = e.control.value
+          shap_e_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6086,12 +6031,7 @@ def buildZoeDepth(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            zoe_depth_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            zoe_depth_prefs[pref] = float(e.control.value)
-          else:
-            zoe_depth_prefs[pref] = e.control.value
+          zoe_depth_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6148,12 +6088,7 @@ def buildMarigoldDepth(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            marigold_depth_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            marigold_depth_prefs[pref] = float(e.control.value)
-          else:
-            marigold_depth_prefs[pref] = e.control.value
+          marigold_depth_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6217,12 +6152,7 @@ def buildTripo(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            tripo_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            tripo_prefs[pref] = float(e.control.value)
-          else:
-            tripo_prefs[pref] = e.control.value
+          tripo_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6282,12 +6212,7 @@ def buildInstantMesh(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            instantmesh_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            instantmesh_prefs[pref] = float(e.control.value)
-          else:
-            instantmesh_prefs[pref] = e.control.value
+          instantmesh_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6349,12 +6274,7 @@ def buildSplatterImage(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            splatter_image_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            splatter_image_prefs[pref] = float(e.control.value)
-          else:
-            splatter_image_prefs[pref] = e.control.value
+          splatter_image_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6417,12 +6337,7 @@ def buildCRM(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            crm_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            crm_prefs[pref] = float(e.control.value)
-          else:
-            crm_prefs[pref] = e.control.value
+          crm_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6483,12 +6398,7 @@ def buildInstantNGP(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              instant_ngp_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              instant_ngp_prefs[pref] = float(e.control.value)
-            else:
-              instant_ngp_prefs[pref] = e.control.value
+            instant_ngp_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -6696,12 +6606,7 @@ def buildMeshy(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            meshy_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            meshy_prefs[pref] = float(e.control.value)
-          else:
-            meshy_prefs[pref] = e.control.value
+          meshy_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6799,12 +6704,7 @@ def buildLuma(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            luma_vid_to_3d_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            luma_vid_to_3d_prefs[pref] = float(e.control.value)
-          else:
-            luma_vid_to_3d_prefs[pref] = e.control.value
+          luma_vid_to_3d_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6868,12 +6768,7 @@ def buildRepainter(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            repaint_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            repaint_prefs[pref] = float(e.control.value)
-          else:
-            repaint_prefs[pref] = e.control.value
+          repaint_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -6997,12 +6892,7 @@ def buildImageVariation(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            image_variation_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            image_variation_prefs[pref] = float(e.control.value)
-          else:
-            image_variation_prefs[pref] = e.control.value
+          image_variation_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -7103,12 +6993,7 @@ def buildBackgroundRemover(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            background_remover_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            background_remover_prefs[pref] = float(e.control.value)
-          else:
-            background_remover_prefs[pref] = e.control.value
+          background_remover_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -7224,12 +7109,7 @@ def buildHordeWorker(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              horde_worker_regen_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              horde_worker_regen_prefs[pref] = float(e.control.value)
-            else:
-              horde_worker_regen_prefs[pref] = e.control.value
+            horde_worker_regen_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -7342,12 +7222,7 @@ def buildBLIPDiffusion(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            blip_diffusion_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            blip_diffusion_prefs[pref] = float(e.control.value)
-          else:
-            blip_diffusion_prefs[pref] = e.control.value
+          blip_diffusion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -7464,12 +7339,7 @@ def buildAnyText(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            anytext_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            anytext_prefs[pref] = float(e.control.value)
-          else:
-            anytext_prefs[pref] = e.control.value
+          anytext_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -7606,12 +7476,7 @@ def buildIP_Adapter(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            ip_adapter_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            ip_adapter_prefs[pref] = float(e.control.value)
-          else:
-            ip_adapter_prefs[pref] = e.control.value
+          ip_adapter_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -7734,12 +7599,7 @@ def buildHD_Painter(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            hd_painter_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            hd_painter_prefs[pref] = float(e.control.value)
-          else:
-            hd_painter_prefs[pref] = e.control.value
+          hd_painter_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -7863,12 +7723,7 @@ def buildReference(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            reference_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            reference_prefs[pref] = float(e.control.value)
-          else:
-            reference_prefs[pref] = e.control.value
+          reference_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -8027,12 +7882,7 @@ def buildControlNetQR(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            controlnet_qr_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            controlnet_qr_prefs[pref] = float(e.control.value)
-          else:
-            controlnet_qr_prefs[pref] = e.control.value
+          controlnet_qr_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -8242,12 +8092,7 @@ def buildControlNetSegmentAnything(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            controlnet_segment_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            controlnet_segment_prefs[pref] = float(e.control.value)
-          else:
-            controlnet_segment_prefs[pref] = e.control.value
+          controlnet_segment_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -8378,12 +8223,7 @@ def buildEDICT(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            EDICT_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            EDICT_prefs[pref] = float(e.control.value)
-          else:
-            EDICT_prefs[pref] = e.control.value
+          EDICT_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -8509,12 +8349,7 @@ def buildDiffEdit(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            DiffEdit_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            DiffEdit_prefs[pref] = float(e.control.value)
-          else:
-            DiffEdit_prefs[pref] = e.control.value
+          DiffEdit_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -8641,12 +8476,7 @@ def buildNull_Text(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            null_text_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            null_text_prefs[pref] = float(e.control.value)
-          else:
-            null_text_prefs[pref] = e.control.value
+          null_text_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -8733,12 +8563,7 @@ def buildUnCLIP(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            unCLIP_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            unCLIP_prefs[pref] = float(e.control.value)
-          else:
-            unCLIP_prefs[pref] = e.control.value
+          unCLIP_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -8857,12 +8682,7 @@ def buildUnCLIP_ImageVariation(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            unCLIP_image_variation_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            unCLIP_image_variation_prefs[pref] = float(e.control.value)
-          else:
-            unCLIP_image_variation_prefs[pref] = e.control.value
+          unCLIP_image_variation_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -8994,12 +8814,7 @@ def buildUnCLIP_Interpolation(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            unCLIP_interpolation_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            unCLIP_interpolation_prefs[pref] = float(e.control.value)
-          else:
-            unCLIP_interpolation_prefs[pref] = e.control.value
+          unCLIP_interpolation_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -9116,12 +8931,7 @@ def buildUnCLIP_ImageInterpolation(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            unCLIP_image_interpolation_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            unCLIP_image_interpolation_prefs[pref] = float(e.control.value)
-          else:
-            unCLIP_image_interpolation_prefs[pref] = e.control.value
+          unCLIP_image_interpolation_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -9274,12 +9084,7 @@ def buildMagicMix(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            magic_mix_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            magic_mix_prefs[pref] = float(e.control.value)
-          else:
-            magic_mix_prefs[pref] = e.control.value
+          magic_mix_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -9414,12 +9219,7 @@ def buildPaintByExample(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            paint_by_example_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            paint_by_example_prefs[pref] = float(e.control.value)
-          else:
-            paint_by_example_prefs[pref] = e.control.value
+          paint_by_example_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -9583,12 +9383,7 @@ def buildInstructPix2Pix(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            instruct_pix2pix_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            instruct_pix2pix_prefs[pref] = float(e.control.value)
-          else:
-            instruct_pix2pix_prefs[pref] = e.control.value
+          instruct_pix2pix_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -9782,12 +9577,7 @@ def buildLEdits(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            ledits_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            ledits_prefs[pref] = float(e.control.value)
-          else:
-            ledits_prefs[pref] = e.control.value
+          ledits_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -9914,12 +9704,7 @@ def buildControlNet(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            controlnet_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            controlnet_prefs[pref] = float(e.control.value)
-          else:
-            controlnet_prefs[pref] = e.control.value
+          controlnet_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -10204,12 +9989,7 @@ def buildControlNetXL(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            controlnet_xl_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            controlnet_xl_prefs[pref] = float(e.control.value)
-          else:
-            controlnet_xl_prefs[pref] = e.control.value
+          controlnet_xl_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -10498,12 +10278,7 @@ def buildControlNetXS(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            controlnet_xs_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            controlnet_xs_prefs[pref] = float(e.control.value)
-          else:
-            controlnet_xs_prefs[pref] = e.control.value
+          controlnet_xs_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -10784,12 +10559,7 @@ def buildControlNet_Video2Video(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            controlnet_video2video_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            controlnet_video2video_prefs[pref] = float(e.control.value)
-          else:
-            controlnet_video2video_prefs[pref] = e.control.value
+          controlnet_video2video_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -10972,12 +10742,7 @@ def buildDeepFloyd(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            deepfloyd_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            deepfloyd_prefs[pref] = float(e.control.value)
-          else:
-            deepfloyd_prefs[pref] = e.control.value
+          deepfloyd_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11151,12 +10916,7 @@ def buildAmused(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            amused_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            amused_prefs[pref] = float(e.control.value)
-          else:
-            amused_prefs[pref] = e.control.value
+          amused_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11255,12 +11015,7 @@ def buildWuerstchen(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            wuerstchen_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            wuerstchen_prefs[pref] = float(e.control.value)
-          else:
-            wuerstchen_prefs[pref] = e.control.value
+          wuerstchen_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11346,12 +11101,7 @@ def buildStableCascade(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            stable_cascade_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            stable_cascade_prefs[pref] = float(e.control.value)
-          else:
-            stable_cascade_prefs[pref] = e.control.value
+          stable_cascade_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11443,12 +11193,7 @@ def buildPixArtAlpha(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            pixart_alpha_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            pixart_alpha_prefs[pref] = float(e.control.value)
-          else:
-            pixart_alpha_prefs[pref] = e.control.value
+          pixart_alpha_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11553,12 +11298,7 @@ def buildPixArtSigma(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            pixart_sigma_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            pixart_sigma_prefs[pref] = float(e.control.value)
-          else:
-            pixart_sigma_prefs[pref] = e.control.value
+          pixart_sigma_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11659,12 +11399,7 @@ def buildHunyuanDiT(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            hunyuan_dit_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            hunyuan_dit_prefs[pref] = float(e.control.value)
-          else:
-            hunyuan_dit_prefs[pref] = e.control.value
+          hunyuan_dit_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11706,14 +11441,14 @@ def buildHunyuanDiT(page):
     page.ESRGAN_block_hunyuan.height = None if status['installed_ESRGAN'] else 0
     if not hunyuan_dit_prefs['apply_ESRGAN_upscale']:
         ESRGAN_settings.height = 0
-    parameters_button = ElevatedButton(content=Text(value="🏮   Run Hunyuan DiT", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page))
+    parameters_button = ElevatedButton(content=Text(value="🏮   Run Hunyuan-DiT", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page))
     from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page, from_list=True))
     from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_hunyuan(page, from_list=True, with_params=True))
     parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
     page.Hunyuan_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
-            Header("🉐️  Hunyuan-DiT", "Powerful Multi-Resolution Diffusion Transformer with Fine-Grained Chinese Understanding from Tencent Hunyuan....", actions=[save_default(hunyuan_dit_prefs), IconButton(icon=icons.HELP, tooltip="Help with Hunyuan Settings", on_click=hunyuan_dit_help)]),
+            Header("🉐️  Tencent Hunyuan-DiT", "Powerful Multi-Resolution Diffusion Transformer with Fine-Grained Chinese Understanding from Tencent Hunyuan....", actions=[save_default(hunyuan_dit_prefs), IconButton(icon=icons.HELP, tooltip="Help with Hunyuan Settings", on_click=hunyuan_dit_help)]),
             ResponsiveRow([prompt, negative_prompt]),
             steps,
             guidance, width_slider, height_slider,
@@ -11757,12 +11492,7 @@ def buildDifferential_Diffusion(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            differential_diffusion_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            differential_diffusion_prefs[pref] = float(e.control.value)
-          else:
-            differential_diffusion_prefs[pref] = e.control.value
+          differential_diffusion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11883,12 +11613,7 @@ def buildLMD_Plus(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            lmd_plus_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            lmd_plus_prefs[pref] = float(e.control.value)
-          else:
-            lmd_plus_prefs[pref] = e.control.value
+          lmd_plus_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -11996,12 +11721,7 @@ def buildLCM(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            lcm_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            lcm_prefs[pref] = float(e.control.value)
-          else:
-            lcm_prefs[pref] = e.control.value
+          lcm_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -12120,12 +11840,7 @@ def buildLCMInterpolation(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            lcm_interpolation_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            lcm_interpolation_prefs[pref] = float(e.control.value)
-          else:
-            lcm_interpolation_prefs[pref] = e.control.value
+          lcm_interpolation_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -12300,12 +12015,7 @@ def buildInstaFlow(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            instaflow_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            instaflow_prefs[pref] = float(e.control.value)
-          else:
-            instaflow_prefs[pref] = e.control.value
+          instaflow_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -12417,12 +12127,7 @@ def buildPAG(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            pag_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            pag_prefs[pref] = float(e.control.value)
-          else:
-            pag_prefs[pref] = e.control.value
+          pag_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -12543,12 +12248,7 @@ def buildLDM3D(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            ldm3d_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            ldm3d_prefs[pref] = float(e.control.value)
-          else:
-            ldm3d_prefs[pref] = e.control.value
+          ldm3d_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -12724,12 +12424,7 @@ def buildTextToVideo(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            text_to_video_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            text_to_video_prefs[pref] = float(e.control.value)
-          else:
-            text_to_video_prefs[pref] = e.control.value
+          text_to_video_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -12838,12 +12533,7 @@ def buildTextToVideoZero(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            text_to_video_zero_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            text_to_video_zero_prefs[pref] = float(e.control.value)
-          else:
-            text_to_video_zero_prefs[pref] = e.control.value
+          text_to_video_zero_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -12988,12 +12678,7 @@ def buildVideoToVideo(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            video_to_video_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            video_to_video_prefs[pref] = float(e.control.value)
-          else:
-            video_to_video_prefs[pref] = e.control.value
+          video_to_video_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -13140,12 +12825,7 @@ def buildTemporalNet_XL(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            controlnet_temporalnet_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            controlnet_temporalnet_prefs[pref] = float(e.control.value)
-          else:
-            controlnet_temporalnet_prefs[pref] = e.control.value
+          controlnet_temporalnet_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -13258,12 +12938,7 @@ def buildInfiniteZoom(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            infinite_zoom_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            infinite_zoom_prefs[pref] = float(e.control.value)
-          else:
-            infinite_zoom_prefs[pref] = e.control.value
+          infinite_zoom_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -13539,12 +13214,7 @@ def buildPotat1(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            potat1_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            potat1_prefs[pref] = float(e.control.value)
-          else:
-            potat1_prefs[pref] = e.control.value
+          potat1_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -13707,12 +13377,7 @@ def buildStableAnimation(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            stable_animation_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            stable_animation_prefs[pref] = float(e.control.value)
-          else:
-            stable_animation_prefs[pref] = e.control.value
+          stable_animation_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -14160,12 +13825,7 @@ def buildSVD(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            svd_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            svd_prefs[pref] = float(e.control.value)
-          else:
-            svd_prefs[pref] = e.control.value
+          svd_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -14276,12 +13936,7 @@ def buildROOP(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            roop_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            roop_prefs[pref] = float(e.control.value)
-          else:
-            roop_prefs[pref] = e.control.value
+          roop_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -14416,12 +14071,7 @@ def buildVideoReTalking(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            video_retalking_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            video_retalking_prefs[pref] = float(e.control.value)
-          else:
-            video_retalking_prefs[pref] = e.control.value
+          video_retalking_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -14515,12 +14165,7 @@ def buildStyleCrafter(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            style_crafter_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            style_crafter_prefs[pref] = float(e.control.value)
-          else:
-            style_crafter_prefs[pref] = e.control.value
+          style_crafter_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -14701,12 +14346,7 @@ def buildRAVE(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            rave_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            rave_prefs[pref] = float(e.control.value)
-          else:
-            rave_prefs[pref] = e.control.value
+          rave_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -14818,12 +14458,7 @@ def buildTokenFlow(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            tokenflow_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            tokenflow_prefs[pref] = float(e.control.value)
-          else:
-            tokenflow_prefs[pref] = e.control.value
+          tokenflow_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -15058,12 +14693,7 @@ def buildAnimateDiff(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            animate_diff_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            animate_diff_prefs[pref] = float(e.control.value)
-          else:
-            animate_diff_prefs[pref] = e.control.value
+          animate_diff_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -15648,12 +15278,7 @@ def buildAnimateDiffImage2Video(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            animatediff_img2video_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            animatediff_img2video_prefs[pref] = float(e.control.value)
-          else:
-            animatediff_img2video_prefs[pref] = e.control.value
+          animatediff_img2video_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -15871,12 +15496,7 @@ def buildAnimateDiffSDXL(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            animatediff_sdxl_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            animatediff_sdxl_prefs[pref] = float(e.control.value)
-          else:
-            animatediff_sdxl_prefs[pref] = e.control.value
+          animatediff_sdxl_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -16091,12 +15711,7 @@ def buildPIA(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            pia_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            pia_prefs[pref] = float(e.control.value)
-          else:
-            pia_prefs[pref] = e.control.value
+          pia_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -16294,12 +15909,7 @@ def buildI2VGenXL(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            i2vgen_xl_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            i2vgen_xl_prefs[pref] = float(e.control.value)
-          else:
-            i2vgen_xl_prefs[pref] = e.control.value
+          i2vgen_xl_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -16471,12 +16081,7 @@ def buildHotshotXL(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            hotshot_xl_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            hotshot_xl_prefs[pref] = float(e.control.value)
-          else:
-            hotshot_xl_prefs[pref] = e.control.value
+          hotshot_xl_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -16611,12 +16216,7 @@ def buildRerender_a_video(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            rerender_a_video_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            rerender_a_video_prefs[pref] = float(e.control.value)
-          else:
-            rerender_a_video_prefs[pref] = e.control.value
+          rerender_a_video_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -16809,12 +16409,7 @@ def buildFresco(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            fresco_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            fresco_prefs[pref] = float(e.control.value)
-          else:
-            fresco_prefs[pref] = e.control.value
+          fresco_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -16982,12 +16577,7 @@ def buildFrescoV2V(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            fresco_v2v_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            fresco_v2v_prefs[pref] = float(e.control.value)
-          else:
-            fresco_v2v_prefs[pref] = e.control.value
+          fresco_v2v_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -17134,12 +16724,7 @@ def buildMaterialDiffusion(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            materialdiffusion_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            materialdiffusion_prefs[pref] = float(e.control.value)
-          else:
-            materialdiffusion_prefs[pref] = e.control.value
+          materialdiffusion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -17316,12 +16901,7 @@ def buildMaterialDiffusion_SDXL(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            materialdiffusion_sdxl_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            materialdiffusion_sdxl_prefs[pref] = float(e.control.value)
-          else:
-            materialdiffusion_sdxl_prefs[pref] = e.control.value
+          materialdiffusion_sdxl_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -17419,12 +16999,7 @@ def buildDiT(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            DiT_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            DiT_prefs[pref] = float(e.control.value)
-          else:
-            DiT_prefs[pref] = e.control.value
+          DiT_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -17531,12 +17106,7 @@ def buildDallE2(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            dall_e_2_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            dall_e_2_prefs[pref] = float(e.control.value)
-          else:
-            dall_e_2_prefs[pref] = e.control.value
+          dall_e_2_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -17698,12 +17268,7 @@ def buildDallE3(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            dall_e_3_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            dall_e_3_prefs[pref] = float(e.control.value)
-          else:
-            dall_e_3_prefs[pref] = e.control.value
+          dall_e_3_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -17857,12 +17422,7 @@ def buildKandinsky3(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            kandinsky_3_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            kandinsky_3_prefs[pref] = float(e.control.value)
-          else:
-            kandinsky_3_prefs[pref] = e.control.value
+          kandinsky_3_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -17979,12 +17539,7 @@ def buildKandinsky(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            kandinsky_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            kandinsky_prefs[pref] = float(e.control.value)
-          else:
-            kandinsky_prefs[pref] = e.control.value
+          kandinsky_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -18186,12 +17741,7 @@ def buildKandinsky21(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            kandinsky21_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            kandinsky21_prefs[pref] = float(e.control.value)
-          else:
-            kandinsky21_prefs[pref] = e.control.value
+          kandinsky21_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -18387,12 +17937,7 @@ def buildKandinskyFuse(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            kandinsky_fuse_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            kandinsky_fuse_prefs[pref] = float(e.control.value)
-          else:
-            kandinsky_fuse_prefs[pref] = e.control.value
+          kandinsky_fuse_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -18731,12 +18276,7 @@ def buildKandinsky21Fuse(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            kandinsky21_fuse_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            kandinsky21_fuse_prefs[pref] = float(e.control.value)
-          else:
-            kandinsky21_fuse_prefs[pref] = e.control.value
+          kandinsky21_fuse_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -19073,12 +18613,7 @@ def buildKandinskyControlNet(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            kandinsky_controlnet_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            kandinsky_controlnet_prefs[pref] = float(e.control.value)
-          else:
-            kandinsky_controlnet_prefs[pref] = e.control.value
+          kandinsky_controlnet_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -19236,12 +18771,7 @@ def buildDeepDaze(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            deep_daze_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            deep_daze_prefs[pref] = float(e.control.value)
-          else:
-            deep_daze_prefs[pref] = e.control.value
+          deep_daze_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -19344,12 +18874,7 @@ def buildCLIPstyler(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            CLIPstyler_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            CLIPstyler_prefs[pref] = float(e.control.value)
-          else:
-            CLIPstyler_prefs[pref] = e.control.value
+          CLIPstyler_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -19490,12 +19015,7 @@ def buildSemanticGuidance(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            semantic_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            semantic_prefs[pref] = float(e.control.value)
-          else:
-            semantic_prefs[pref] = e.control.value
+          semantic_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -19694,12 +19214,7 @@ def buildDemoFusion(page):
     def changed(e, pref=None, ptype="str"):
       if pref is not None:
         try:
-          if ptype == "int":
-            demofusion_prefs[pref] = int(e.control.value)
-          elif ptype == "float":
-            demofusion_prefs[pref] = float(e.control.value)
-          else:
-            demofusion_prefs[pref] = e.control.value
+          demofusion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
         except Exception:
           alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
           pass
@@ -19897,12 +19412,7 @@ def buildDreamBooth(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              dreambooth_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              dreambooth_prefs[pref] = float(e.control.value)
-            else:
-              dreambooth_prefs[pref] = e.control.value
+            dreambooth_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -20111,12 +19621,7 @@ def buildTextualInversion(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              textualinversion_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              textualinversion_prefs[pref] = float(e.control.value)
-            else:
-              textualinversion_prefs[pref] = e.control.value
+            textualinversion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -20376,12 +19881,7 @@ def buildLoRA_Dreambooth(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              LoRA_dreambooth_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              LoRA_dreambooth_prefs[pref] = float(e.control.value)
-            else:
-              LoRA_dreambooth_prefs[pref] = e.control.value
+            LoRA_dreambooth_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -20595,12 +20095,7 @@ def buildLoRA(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              LoRA_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              LoRA_prefs[pref] = float(e.control.value)
-            else:
-              LoRA_prefs[pref] = e.control.value
+            LoRA_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -20838,12 +20333,7 @@ def buildConverter(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              converter_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              converter_prefs[pref] = float(e.control.value)
-            else:
-              converter_prefs[pref] = e.control.value
+            converter_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -20960,12 +20450,7 @@ def buildCheckpointMerger(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              checkpoint_merger_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              checkpoint_merger_prefs[pref] = float(e.control.value)
-            else:
-              checkpoint_merger_prefs[pref] = e.control.value
+            checkpoint_merger_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21113,12 +20598,7 @@ def buildTortoiseTTS(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              tortoise_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              tortoise_prefs[pref] = float(e.control.value)
-            else:
-              tortoise_prefs[pref] = e.control.value
+            tortoise_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21306,12 +20786,7 @@ def buildOpenAI_TTS(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              openai_tts_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              openai_tts_prefs[pref] = float(e.control.value)
-            else:
-              openai_tts_prefs[pref] = e.control.value
+            openai_tts_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21380,12 +20855,7 @@ def buildAudioLDM(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              audioLDM_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              audioLDM_prefs[pref] = float(e.control.value)
-            else:
-              audioLDM_prefs[pref] = e.control.value
+            audioLDM_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21458,12 +20928,7 @@ def buildAudioLDM2(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              audioLDM2_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              audioLDM2_prefs[pref] = float(e.control.value)
-            else:
-              audioLDM2_prefs[pref] = e.control.value
+            audioLDM2_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21550,12 +21015,7 @@ def buildMusicLang(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              musiclang_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              musiclang_prefs[pref] = float(e.control.value)
-            else:
-              musiclang_prefs[pref] = e.control.value
+            musiclang_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21623,12 +21083,7 @@ def buildZetaEditing(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              zeta_editing_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              zeta_editing_prefs[pref] = float(e.control.value)
-            else:
-              zeta_editing_prefs[pref] = e.control.value
+            zeta_editing_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21704,12 +21159,7 @@ def buildMusicLDM(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              musicLDM_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              musicLDM_prefs[pref] = float(e.control.value)
-            else:
-              musicLDM_prefs[pref] = e.control.value
+            musicLDM_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21794,12 +21244,7 @@ def buildStableAudio(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              stable_audio_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              stable_audio_prefs[pref] = float(e.control.value)
-            else:
-              stable_audio_prefs[pref] = e.control.value
+            stable_audio_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21875,12 +21320,7 @@ def buildBark(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              bark_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              bark_prefs[pref] = float(e.control.value)
-            else:
-              bark_prefs[pref] = e.control.value
+            bark_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -21966,12 +21406,7 @@ def buildRiffusion(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              riffusion_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              riffusion_prefs[pref] = float(e.control.value)
-            else:
-              riffusion_prefs[pref] = e.control.value
+            riffusion_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -22080,12 +21515,7 @@ def buildMubert(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              mubert_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              mubert_prefs[pref] = float(e.control.value)
-            else:
-              mubert_prefs[pref] = e.control.value
+            mubert_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -22174,12 +21604,7 @@ def buildWhisper(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              whisper_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              whisper_prefs[pref] = float(e.control.value)
-            else:
-              whisper_prefs[pref] = e.control.value
+            whisper_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -22253,12 +21678,7 @@ def buildVoiceFixer(page):
     def changed(e, pref=None, ptype="str"):
         if pref is not None:
           try:
-            if ptype == "int":
-              voice_fixer_prefs[pref] = int(e.control.value)
-            elif ptype == "float":
-              voice_fixer_prefs[pref] = float(e.control.value)
-            else:
-              voice_fixer_prefs[pref] = e.control.value
+            voice_fixer_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
           except Exception:
             alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
             pass
@@ -42257,6 +41677,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
     if pipe_stable_cascade_prior == None or pipe_stable_cascade_decoder == None:
         #clear_pipes('stable_cascade')
         try:
+            #TODO: Change to StableCascadeCombinedPipeline
             from diffusers import StableCascadeDecoderPipeline, StableCascadePriorPipeline
             opt = {'variant':'bf16', 'torch_dtype': torch.bfloat16} if prefs['higher_vram_mode'] else {'variant':'bf16', 'torch_dtype': torch.float16} #, revision="refs/pr/2", revision="refs/pr/44"
             pipe_stable_cascade_prior = StableCascadePriorPipeline.from_pretrained(model_id+"-prior", torch_dtype=torch.bfloat16, variant="bf16", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None).to("cuda")
@@ -42305,7 +41726,7 @@ def run_stable_cascade(page, from_list=False, with_params=False):
                     generator=generator,
                     callback_on_step_end=prior_callback_fnc,
                     #callback_on_step_end=callback_fnc,
-                )
+                )#TODO: Fix batch size embeddings
                 images = pipe_stable_cascade_decoder(
                     image_embeddings=prior_output.image_embeddings if prefs['higher_vram_mode'] else prior_output.image_embeddings.to(torch.float16),
                     prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
@@ -42988,7 +42409,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
     clear_last()
     n = 0
     for pr in hunyuan_dit_prompts:
-        prt(f"Generating Image{f' {n + 1}/{len(hunyuan_dit_prompts)}' if from_list else ''}...")
+        prt(f"{f'[{n + 1}/{len(hunyuan_dit_prompts)}]  ' if from_list else ''}{pr['prompt']}")
         prt(progress)
         nudge(page.imageColumn if from_list else page.Hunyuan, page=page)
         autoscroll(False)
@@ -43049,6 +42470,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
             out_path = new_file
             shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        n += 1
     autoscroll(False)
     play_snd(Snd.ALERT, page)
 
