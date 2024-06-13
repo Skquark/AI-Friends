@@ -320,7 +320,7 @@ def load_settings_file():
       'SDXL_model': 'SDXL-Base v1',
       'SDXL_custom_model': '',
       'SDXL_custom_models': [],
-      'use_SD3': False,
+      'use_SD3': True,
       'SD3_compel': False,
       'SD3_model': 'Stable-Diffusion-3 Medium',
       'SD3_custom_model': '',
@@ -1124,7 +1124,7 @@ if 'SDXL_watermark' not in prefs: prefs['SDXL_watermark'] = False
 if 'SDXL_model' not in prefs: prefs['SDXL_model'] = 'SDXL-Base v1'
 if 'SDXL_custom_model' not in prefs: prefs['SDXL_custom_model'] = ''
 if 'install_SD3' not in prefs: prefs['install_SD3'] = False
-if 'use_SD3' not in prefs: prefs['use_SD3'] = False
+if 'use_SD3' not in prefs: prefs['use_SD3'] = True
 if 'SD3_compel' not in prefs: prefs['SD3_compel'] = False
 if 'SD3_model' not in prefs: prefs['SD3_model'] = 'Stable-Diffusion-3 Medium'
 if 'SD3_custom_model' not in prefs: prefs['SD3_custom_model'] = ''
@@ -2151,8 +2151,8 @@ def buildInstallers(page):
           page.img_block.update()
           page.use_SD3.visible = True
           page.use_SD3.update()
-          page.SD3_params.visible = True
-          page.SD3_params.update()
+          #page.SD3_params.visible = True
+          #page.SD3_params.update()
         page.status()
       if prefs['install_alt_diffusion'] and prefs['install_diffusers']:
         console_msg("Installing AltDiffusion Text2Image & Image2Image Pipeline...")
@@ -2645,9 +2645,9 @@ def buildParameters(page):
   init_image_strength = Slider(min=0.0, max=1.0, divisions=20, label="{value}", round=2, value=prefs['init_image_strength'], on_change=change_strength, expand=True)
   strength_value = Text(f" {int(prefs['init_image_strength'] * 100)}%", weight=FontWeight.BOLD)
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
-  page.use_SDXL = Switcher(label="Use Stable Diffusion XL Model/Pipeline Instead", tooltip="The latest SDXL base model, with img2img Refiner. It's tasty..", value=prefs['use_SDXL'], on_change=toggle_SDXL)
+  page.use_SDXL = Switcher(label="Use Stable Diffusion XL Pipeline as Primary", tooltip="The latest SDXL base model, with img2img Refiner. It's tasty..", value=prefs['use_SDXL'], on_change=toggle_SDXL)
   page.use_SDXL.visible = status['installed_SDXL']
-  page.use_SD3 = Switcher(label="Use Stable Diffusion 3 Model/Pipeline Instead", tooltip="The latest SD3 base model. It's good..", value=prefs['use_SD3'], on_change=toggle_SD3)
+  page.use_SD3 = Switcher(label="Use Stable Diffusion 3 Pipeline as Primary", tooltip="The latest SD3 base model. It's good..", value=prefs['use_SD3'], on_change=toggle_SD3)
   page.use_SD3.visible = status['installed_SD3']
   #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_high_noise_frac = SliderRow(label="SDXL High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=prefs, key='SDXL_high_noise_frac', tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac', apply=False))
@@ -2860,11 +2860,11 @@ def buildParameters(page):
   page.use_imagic.visible = bool(status['installed_imagic'])
   page.use_composable = Switcher(label="Use Composable Prompts for txt2img Weight | Segments", value=prefs['use_composable'], on_change=lambda e:changed(e,'use_composable', apply=False), tooltip="Allows conjunction and negation operators for compositional generation with conditional diffusion models")
   page.use_composable.visible = bool(status['installed_composable'])
-  page.use_panorama = Column([Switcher(label="Use Panorama text2image Pipeline Instead", value=prefs['use_panorama'], on_change=lambda e:changed(e,'use_panorama', apply=False), tooltip="Fuses together images to make extra-wide 2048x512"),
+  page.use_panorama = Column([Switcher(label="Use Panorama text2image Pipeline as Primary", value=prefs['use_panorama'], on_change=lambda e:changed(e,'use_panorama', apply=False), tooltip="Fuses together images to make extra-wide 2048x512"),
                               Checkbox(label="Use Circular Padding to remove stitching artifacts", value=prefs['panorama_circular_padding'], tooltip="To seamlessly generate a transition from the right to left, maintaining consistency in a 360-degree sense.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'panorama_circular_padding', apply=False)),
                               Row([Text("Panoramic Width x 512:"), Slider(min=1024, max=4608, divisions=28, label="{value}px", expand=True, value=prefs['panorama_width'], on_change=lambda e:changed(e, 'panorama_width', asInt=True, apply=False))])])
   page.use_panorama.visible = status['installed_panorama']
-  page.use_safe = Switcher(label="Use Safe Diffusion Pipeline instead", value=prefs['use_safe'], on_change=lambda e:changed(e,'use_safe', apply=False), tooltip="Models trained only on Safe images")
+  page.use_safe = Switcher(label="Use Safe Diffusion Pipeline as Primary", value=prefs['use_safe'], on_change=lambda e:changed(e,'use_safe', apply=False), tooltip="Models trained only on Safe images")
   page.use_safe.visible = bool(status['installed_safe'])
   page.use_upscale = Switcher(label="Upscale 4X with Stable Diffusion 2", value=prefs['use_upscale'], on_change=lambda e:changed(e,'use_upscale', apply=False), tooltip="Enlarges your Image Generations guided by the same Prompt.")
   page.use_upscale.visible = bool(status['installed_upscale'])
@@ -8686,7 +8686,7 @@ def buildUnCLIP(page):
     prior_guidance = SliderRow(label="Prior Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_prefs, key='prior_guidance_scale')
     decoder_guidance = SliderRow(label="Decoder Guidance Scale", min=0, max=50, divisions=100, round=1, pref=unCLIP_prefs, key='decoder_guidance_scale')
     batch_folder_name = TextField(label="Batch Folder Name", value=unCLIP_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
-    use_StableUnCLIP_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switcher(label="Use Stable UnCLIP Pipeline Instead", value=unCLIP_prefs['use_StableUnCLIP_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_unCLIP))
+    use_StableUnCLIP_pipeline = Tooltip(message="Combines prior model (generate clip image embedding from text, UnCLIPPipeline) and decoder pipeline (decode clip image embedding to image, StableDiffusionImageVariationPipeline)", content=Switcher(label="Use Stable UnCLIP Pipeline as Primary", value=unCLIP_prefs['use_StableUnCLIP_pipeline'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_unCLIP))
     #eta = TextField(label="ETA", value=str(unCLIP_prefs['eta']), keyboard_type=KeyboardType.NUMBER, hint_text="Amount of Noise", on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta = Slider(min=0.0, max=1.0, divisions=20, label="{value}", value=float(unCLIP_prefs['eta']), tooltip="The weight of noise for added noise in a diffusion step. Its value is between 0.0 and 1.0 - 0.0 is DDIM and 1.0 is DDPM scheduler respectively.", expand=True, on_change=lambda e:changed(e,'eta', ptype='float'))
     #eta_row = Row([Text("DDIM ETA: "), eta])
@@ -23076,7 +23076,7 @@ def callback_fn(step: int, timestep: int, latents: torch.FloatTensor) -> None:
     multiplier = 2 if prefs['scheduler_mode'].startswith("Heun") or prefs['scheduler_mode'].startswith("K-DPM") else 1
     percent = (step +1)/ (total_steps * multiplier)
     pb.value = percent
-    pb.tooltip = f"[{step +1} / {total_steps * multiplier}] (Timestep: {timestep})"
+    pb.tooltip = f"[{step +1} / {total_steps * multiplier}] (Timestep: {int(timestep)})"
     #print(f"step: {step}, total: {total_steps}, latent: {len(latents)}")
     #if step == 0:
         #latents = latents.detach().cpu().numpy()
@@ -23242,7 +23242,7 @@ def optimize_SDXL(p, vae_slicing=False, no_cpu=False, vae_tiling=True, torch_com
     return p
 
 def apply_LoRA(p, SDXL=False, SD3=False, fuse=False):
-    active = p.get_active_adapters()
+    active = p.get_active_adapters() if not SD3 else []
     layers = 'active_SDXL_LoRA_layers' if SDXL else 'active_SD3_LoRA_layers' if SD3 else 'active_LoRA_layers'
     if prefs['use_LoRA_model'] and len(prefs[layers]) > 0:
       if SD3:
@@ -23957,12 +23957,13 @@ def get_SD3_pipe(task="text2image"):
       status['loaded_SD3'] = task
   if prefs['SD3_compel']:
       from compel import Compel, ReturnedEmbeddingsType
-      compel_base = Compel(tokenizer=[pipe_SD3.tokenizer, pipe_SD3.tokenizer_2], text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      compel_base = Compel(tokenizer=[pipe_SD3.tokenizer, pipe_SD3.tokenizer_2], text_encoder=[pipe_SD3.text_encoder, pipe_SD3.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
       #compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer_2], text_encoder=[pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[True])
       #compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer, pipe_SDXL_refiner.tokenizer_2] , text_encoder=[pipe_SDXL_refiner.text_encoder, pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
       #compel_refiner = Compel(tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
       #truncate_long_prompts=True,
   pipe_SD3 = apply_LoRA(pipe_SD3, SD3=True)
+  status['loaded_SD3_model'] = model_id
   return pipe_SD3
 
 def get_versatile(page):
@@ -25748,7 +25749,7 @@ def start_diffusion(page):
       pass
 # Why getting Exception: control with ID '_3607' not found when re-running after error
   #page.Images.content.controls = []
-  if int(status['cpu_memory']) <= 8 and (prefs['use_SDXL'] and status['installed_SDXL']) or (prefs['use_SD3'] and status['installed_SD3']): # and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']
+  if int(status['cpu_memory']) <= 8 and ((prefs['use_SDXL'] and status['installed_SDXL']) or (prefs['use_SD3'] and status['installed_SD3'])): # and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run SD XL. Either Change runtime type to High-RAM mode and restart or use other pipelines.")
       return
   clear_image_output()
@@ -25883,6 +25884,7 @@ def start_diffusion(page):
         ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         
     for p in updated_prompts:
+      pb.value = None
       pr = ""
       images = None
       usable_image = True
@@ -26816,10 +26818,10 @@ def start_diffusion(page):
                 if prefs['SD3_compel']:
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
-                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
                   del pooled, negative_pooled
                 else:
-                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
                 flush()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Image-to-Image"
@@ -27029,10 +27031,10 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
                   del pooled, negative_pooled
                 else:
-                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], generator=generator, callback_on_step_end=callback_step).images#[0]
                 flush()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Text-to-Image"
@@ -29379,7 +29381,7 @@ def run_repainter(page):
       total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     autoscroll(True)
@@ -29489,7 +29491,7 @@ def run_image_variation(page):
       total_steps = image_variation_prefs['num_inference_steps']#len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     autoscroll(True)
     clear_list()
@@ -29591,7 +29593,7 @@ def run_background_remover(page):
       total_steps = background_remover_prefs['num_inference_steps']#len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     autoscroll(True)
     clear_list()
@@ -30051,7 +30053,7 @@ def run_blip_diffusion(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -30302,7 +30304,7 @@ def run_anytext(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -30663,7 +30665,7 @@ def run_ip_adapter(page, from_list=False, with_params=False):
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -31034,7 +31036,7 @@ def run_hd_painter(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def callback_fn(pipe, step, timestep, callback_kwargs):
       callback_fnc.has_been_called = True
@@ -31042,7 +31044,7 @@ def run_hd_painter(page, from_list=False, with_params=False):
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -31263,7 +31265,7 @@ def run_reference(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     reference_prompts = []
     if from_list:
@@ -31440,7 +31442,7 @@ def run_controlnet_qr(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     controlnet_qr_prompts = []
     if from_list:
@@ -31742,7 +31744,7 @@ def run_controlnet_segment(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     controlnet_segment_prompts = []
     if from_list:
@@ -31946,7 +31948,7 @@ def run_EDICT(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     def center_crop_resize(im):
@@ -32099,7 +32101,7 @@ def run_DiffEdit(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     def center_crop_resize(im):
@@ -32284,7 +32286,7 @@ def run_null_text(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     def center_crop_resize(im):
@@ -32686,7 +32688,7 @@ def run_semantic(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -32873,7 +32875,7 @@ def run_demofusion(page, from_list=False, with_params=False):
         #total_steps = len(latents)
         percent = (step +1)/ total_steps
         progress.progress.value = percent
-        progress.progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+        progress.progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
         progress.progress.update()
         progress.status(stage)
     def load_and_process_image(pil_image, w=1024, h=1024):
@@ -33790,7 +33792,7 @@ def run_audio_diffusion(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     progress = ProgressBar(bar_height=8)
     installer = Installing("Downloading Audio Diffusion Pipeline...")
@@ -33934,7 +33936,7 @@ def run_music_gen(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()'''
     progress = ProgressBar(bar_height=8)
     installer = Installing("Downloading MusicGen Pipeline...")
@@ -35847,7 +35849,7 @@ def run_audio_ldm2(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     installer = Installing("Loading Audio LDM-2 Packages...")
     prt(installer)
@@ -36131,7 +36133,7 @@ def run_zeta_editing(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     installer = Installing("Loading Zeta Editing LDM-2 Packages...")
     prt(installer)
@@ -36301,7 +36303,7 @@ def run_music_ldm(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     installer = Installing("Loading Music LDM Packages...")
     prt(installer)
@@ -37415,7 +37417,7 @@ def run_unCLIP(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     unCLIP_prompts = []
     if from_list:
@@ -37612,7 +37614,7 @@ def run_unCLIP_image_variation(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     unCLIP_image_variation_inits = []
     if from_list:
@@ -37780,7 +37782,7 @@ def run_unCLIP_interpolation(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     unCLIP_interpolation_prompts = []
     if from_list:
@@ -37941,7 +37943,7 @@ def run_unCLIP_image_interpolation(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     unCLIP_image_interpolation_inits = []
     if from_list:
@@ -38126,7 +38128,7 @@ def run_magic_mix(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     magic_mix_prompts = []
     if from_list:
@@ -38307,7 +38309,7 @@ def run_paint_by_example(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     autoscroll(True)
@@ -38496,7 +38498,7 @@ def run_instruct_pix2pix(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     def clear_list():
@@ -38770,7 +38772,7 @@ def run_ledits(page, from_list=False):
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def clear_list():
       if from_list:
@@ -38978,7 +38980,7 @@ def run_controlnet(page, from_list=False):
       #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     controlnet_prompts = []
     if from_list:
@@ -39604,7 +39606,7 @@ def run_controlnet_xl(page, from_list=False):
       #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     controlnet_xl_prompts = []
     if from_list:
@@ -40227,7 +40229,7 @@ def run_controlnet_xs(page, from_list=False):
       #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     controlnet_xs_prompts = []
     if from_list:
@@ -40965,7 +40967,7 @@ def run_deepfloyd(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     def clear_list():
@@ -41508,7 +41510,7 @@ def run_amused(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -41760,14 +41762,14 @@ def run_wuerstchen(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def prior_callback_fnc(pipe, step, timestep, callback_kwargs):#(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       prior_callback_fnc.has_been_called = True
       nonlocal progress, prior_steps
       percent = (step +1)/ prior_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {prior_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {prior_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -41942,14 +41944,14 @@ def run_stable_cascade(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"Decoder {step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"Decoder {step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def prior_callback_fnc(pipe, step, timestep, callback_kwargs):#(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       prior_callback_fnc.has_been_called = True
       nonlocal progress, prior_steps
       percent = (step +1)/ prior_steps
       progress.value = percent
-      progress.tooltip = f"Prior {step +1} / {prior_steps}  Timestep: {timestep}"
+      progress.tooltip = f"Prior {step +1} / {prior_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -42147,7 +42149,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -42399,7 +42401,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -42656,7 +42658,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
       nonlocal progress, total_steps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def callback_fn(pipe, step, timestep, callback_kwargs):
       callback_fn.has_been_called = True
@@ -42664,7 +42666,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -42826,7 +42828,7 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def callback_fn(pipe, step, timestep, callback_kwargs):
       callback_fn.has_been_called = True
@@ -42834,7 +42836,7 @@ def run_differential_diffusion(page, from_list=False, with_params=False):
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -43087,7 +43089,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
       #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None:
       callback_fnc.has_been_called = True
@@ -43095,7 +43097,7 @@ def run_lmd_plus(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -43345,7 +43347,7 @@ def run_lcm(page, from_list=False, with_params=False):
       #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -43555,7 +43557,7 @@ def run_lcm_interpolation(page):
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     clear_list()
     autoscroll(True)
@@ -43740,7 +43742,7 @@ def run_instaflow(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -43924,7 +43926,7 @@ def run_pag(page, from_list=False, with_params=False):
       #total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -44142,7 +44144,7 @@ def run_ldm3d(page, from_list=False, with_params=False):
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -44477,7 +44479,7 @@ def run_text_to_video(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -44627,7 +44629,7 @@ def run_text_to_video_zero(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -44778,7 +44780,7 @@ def run_video_to_video(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -44979,7 +44981,7 @@ def run_controlnet_temporalnet(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     clear_list()
     autoscroll(True)
@@ -45148,7 +45150,7 @@ def run_infinite_zoom(page):
         #total_steps = len(latents)
         percent = (step +1)/ total_steps
         progress.value = percent
-        progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+        progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
         progress.update()
     installer = Installing("Installing Infinite Zoom Stable Diffusion Pipeline...")
     prt(installer)
@@ -45492,7 +45494,7 @@ def run_potat1(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -45957,7 +45959,7 @@ def run_svd(page):
       total_steps = pipe.num_timesteps
       percent = (step +1)/ total_steps
       progress.progress.value = percent
-      progress.progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.progress.update()
     #prt(f"Generating Stable Video of your Image... Length: {round(vid_length, 1)} seconds")
     prt(progress)
@@ -46787,7 +46789,7 @@ def run_tokenflow(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -46937,7 +46939,7 @@ def run_animate_diff(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -47742,7 +47744,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def callback_step(pipe, step, timestep, callback_kwargs):
       callback_step.has_been_called = True
@@ -47750,7 +47752,7 @@ def run_animatediff_img2video(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -48079,7 +48081,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     def callback_step(pipe, step, timestep, callback_kwargs):
       callback_step.has_been_called = True
@@ -48087,7 +48089,7 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -48358,7 +48360,7 @@ def run_pia(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -48604,7 +48606,7 @@ def run_i2vgen_xl(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -48793,7 +48795,7 @@ def run_hotshot_xl(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -49182,7 +49184,7 @@ def run_fresco(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -49319,7 +49321,7 @@ def run_fresco_v2v(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -49544,7 +49546,7 @@ def run_materialdiffusion(page):
       total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -49705,7 +49707,7 @@ def run_materialdiffusion_sdxl(page):
       total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
       #print(f'{type(latents)} {len(latents)}- {str(latents)}')
     clear_list()
@@ -49834,7 +49836,7 @@ def run_DiT(page, from_list=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     DiT_prompts = []
     if from_list:
@@ -52318,7 +52320,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -52561,7 +52563,7 @@ def run_kandinsky(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4
@@ -53000,7 +53002,7 @@ def run_kandinsky_fuse(page):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     clear_list()
     autoscroll(True)
@@ -53326,7 +53328,7 @@ def run_kandinsky_controlnet(page, from_list=False, with_params=False):
       #total_steps = len(latents)
       percent = (step +1)/ total_steps
       progress.value = percent
-      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep}"
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
       progress.update()
     if from_list:
       page.tabs.selected_index = 4

@@ -488,7 +488,7 @@ SDXL_LoRA_models = [
     #{"name": "", "path": "", "weights": "", "prefix": ""},
 ]
 SD3_models = [
-    {"name": "Stable-Diffusion-3 Medium", "path": "stabilityai/stable-diffusion-3-medium-diffusers", "variant": "fp16", "use_safetensors": True},
+    {"name": "Stable-Diffusion-3 Medium", "path": "stabilityai/stable-diffusion-3-medium-diffusers"},
 ]
 SD3_LoRA_models = [
     {"name": "sd3-lora-test", "path": "ptx0/sd3-lora-test", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
