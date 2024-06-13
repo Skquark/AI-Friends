@@ -611,8 +611,8 @@ else:
 
 sdd_utils_py = os.path.join(root_dir, "sdd_utils.py")
 sdd_components_py = os.path.join(root_dir, "sdd_components.py")
-#if not os.path.exists(sdd_utils_py) or force_updates:
-#    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
+if not os.path.exists(sdd_utils_py) or force_updates:
+    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
 if not os.path.exists(sdd_components_py): #or force_updates
     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_components.py", to=root_dir, raw=False, replace=True)
 try:
@@ -1613,7 +1613,7 @@ def buildInstallers(page):
             else:
               eta.visible = show
               eta.update()
-  scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the generated noise", width=220,
+  scheduler_mode = Dropdown(label="Scheduler/Sampler Mode", hint_text="They're very similar, with minor differences in the generated noise", width=230,
             options=[
                 dropdown.Option("DDIM"),
                 dropdown.Option("LMS Discrete"),
@@ -23832,7 +23832,7 @@ def get_SDXL_pipe(task="text2image"):
   return pipe_SDXL
 
 def get_SD3(page):
-    global pipe_SDXL
+    global pipe_SD3
     def open_url(e):
       page.launch_url(e.data)
     try:
@@ -23847,7 +23847,7 @@ def get_SD3(page):
       return False
 
 def get_SD3_pipe(task="text2image"):
-  global pipe_SD, prefs, status, compel_base, compel_refiner
+  global pipe_SD3, prefs, status, compel_base, compel_refiner
   from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image#, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL # , AutoencoderTiny
   if prefs['SD3_compel']:
       pip_install("compel", upgrade=True)
