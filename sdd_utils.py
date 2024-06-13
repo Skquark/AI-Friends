@@ -487,6 +487,12 @@ SDXL_LoRA_models = [
     {"name": "LCM LoRA SDXL", "path": "latent-consistency/lcm-lora-sdxl", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     #{"name": "", "path": "", "weights": "", "prefix": ""},
 ]
+SD3_models = [
+    {"name": "Stable-Diffusion-3 Medium", "path": "stabilityai/stable-diffusion-3-medium-diffusers", "variant": "fp16", "use_safetensors": True},
+]
+SD3_LoRA_models = [
+    {"name": "sd3-lora-test", "path": "ptx0/sd3-lora-test", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
+]
 ip_adapter_models = [
     {'name': 'SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter_sd15.bin'},
     {'name': 'Plus SD v1.5', 'path': 'h94/IP-Adapter', 'subfolder': 'models', 'weight_name': 'ip-adapter-plus_sd15.bin'},

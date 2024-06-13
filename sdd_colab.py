@@ -278,7 +278,6 @@ def load_settings_file():
       'TextSynth_api_key': "",
       'Replicate_api_key': "",
       'AIHorde_api_key': "0000000000",
-      'meshy_api_key': "",
       'luma_api_key': "",
       'HuggingFace_username': "",
       'scheduler_mode': "DDIM",
@@ -304,6 +303,7 @@ def load_settings_file():
       'install_text2img': False,
       'install_img2img': False,
       'install_SDXL': True,
+      'install_SD3': False,
       'install_megapipe': True,
       'install_CLIP_guided': False,
       'install_OpenAI': False,
@@ -321,7 +321,7 @@ def load_settings_file():
       'install_panorama': False,
       'install_upscale': False,
       'upscale_method': 'Real-ESRGAN',
-      'upscale_model': 'RealESRGAN_x4plus',
+      'upscale_model': 'realesr-general-x4v3',
       'safety_config': 'Strong',
       'use_imagic': False,
       'SD_compel': False,
@@ -333,6 +333,13 @@ def load_settings_file():
       'SDXL_model': 'SDXL-Base v1',
       'SDXL_custom_model': '',
       'SDXL_custom_models': [],
+      'use_SD3': False,
+      'SD3_compel': False,
+      'SD3_model': 'Stable-Diffusion-3 Medium',
+      'SD3_custom_model': '',
+      'SD3_custom_models': [],
+      'SD3_cpu_offload': False,
+      'SD3_bitsandbytes_8bit': False,
       'use_composable': False,
       'use_safe': False,
       'use_versatile': False,
@@ -343,6 +350,7 @@ def load_settings_file():
       'sag_scale': 0.75,
       'use_panorama': False,
       'panorama_width': 2048,
+      'panorama_circular_padding': False,
       'use_upscale': False,
       'upscale_noise_level': 20,
       'install_conceptualizer': False,
@@ -406,11 +414,15 @@ def load_settings_file():
       'LoRA_model': 'Von Platen LoRA',
       'active_LoRA_layers': [],
       'active_SDXL_LoRA_layers': [],
+      'active_SD3_LoRA_layers': [],
       'custom_LoRA_models': [],
       'custom_LoRA_model': "",
       'SDXL_LoRA_model': 'Papercut SDXL',
       'custom_SDXL_LoRA_models': [],
       'custom_SDXL_LoRA_model': "",
+      'SD3_LoRA_model': '',
+      'custom_SD3_LoRA_models': [],
+      'custom_SD3_LoRA_model': "",
       'use_interpolation': False,
       'num_interpolation_steps': 22,
       'use_clip_guided_model': False,
@@ -536,6 +548,7 @@ status = {
     'installed_txt2img': False,
     'installed_img2img': False,
     'installed_SDXL': False,
+    'installed_SD3': False,
     'installed_stability': False,
     'installed_AIHorde': False,
     'installed_megapipe': False,
@@ -566,6 +579,8 @@ status = {
     'loaded_controlnet_type': '',
     'loaded_SDXL': '',
     'loaded_SDXL_model': '',
+    'loaded_SD3': '',
+    'loaded_SD3_model': '',
     'loaded_ip_adapter_mode': '',
     'loaded_ip_adapter': '',
     'changed_prefs': False,
@@ -596,8 +611,8 @@ else:
 
 sdd_utils_py = os.path.join(root_dir, "sdd_utils.py")
 sdd_components_py = os.path.join(root_dir, "sdd_components.py")
-if not os.path.exists(sdd_utils_py) or force_updates:
-    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
+#if not os.path.exists(sdd_utils_py) or force_updates:
+#    download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_utils.py", to=root_dir, raw=False, replace=True)
 if not os.path.exists(sdd_components_py): #or force_updates
     download_file("https://raw.githubusercontent.com/Skquark/AI-Friends/main/sdd_components.py", to=root_dir, raw=False, replace=True)
 try:
@@ -608,7 +623,7 @@ except ModuleNotFoundError: #Also flexible_slider, vertical_splitter, shimmer
     pass
 #sys.path.append(sdd_utils_py)
 import sdd_utils
-from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS, AIHorde_models, CivitAI_LoRAs
+from sdd_utils import LoRA_models, SDXL_models, SDXL_LoRA_models, finetuned_models, dreambooth_models, styles, artists, concepts, Real_ESRGAN_models, SwinIR_models, SD_XL_BASE_RATIOS, AIHorde_models, CivitAI_LoRAs, SD3_models
 from sdd_components import PanZoom, VideoContainer
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="pip._vendor.packaging.specifiers")
@@ -1095,11 +1110,15 @@ if 'use_LoRA_model' not in prefs: prefs['use_LoRA_model'] = False
 if 'LoRA_model' not in prefs: prefs['LoRA_model'] = "Von Platen LoRA"
 if 'active_LoRA_layers' not in prefs: prefs['active_LoRA_layers'] = []
 if 'active_SDXL_LoRA_layers' not in prefs: prefs['active_SDXL_LoRA_layers'] = []
+if 'active_SD3_LoRA_layers' not in prefs: prefs['active_SD3_LoRA_layers'] = []
 if 'custom_LoRA_models' not in prefs: prefs['custom_LoRA_models'] = []
 if 'custom_LoRA_model' not in prefs: prefs['custom_LoRA_model'] = ''
 if 'SDXL_LoRA_model' not in prefs: prefs['SDXL_LoRA_model'] = "Papercut SDXL"
 if 'custom_SDXL_LoRA_models' not in prefs: prefs['custom_SDXL_LoRA_models'] = []
 if 'custom_SDXL_LoRA_model' not in prefs: prefs['custom_SDXL_LoRA_model'] = ''
+if 'SD3_LoRA_model' not in prefs: prefs['SD3_LoRA_model'] = ""
+if 'custom_SD3_LoRA_models' not in prefs: prefs['custom_SD3_LoRA_models'] = []
+if 'custom_SD3_LoRA_model' not in prefs: prefs['custom_SD3_LoRA_model'] = ''
 if 'custom_dance_diffusion_models' not in prefs: prefs['custom_dance_diffusion_models'] = []
 if 'negative_prompt' not in prefs['prompt_writer']: prefs['prompt_writer']['negative_prompt'] = ''
 if 'install_attend_and_excite' not in prefs: prefs['install_attend_and_excite'] = False
@@ -1117,6 +1136,15 @@ if 'SDXL_negative_conditions' not in prefs: prefs['SDXL_negative_conditions'] = 
 if 'SDXL_watermark' not in prefs: prefs['SDXL_watermark'] = False
 if 'SDXL_model' not in prefs: prefs['SDXL_model'] = 'SDXL-Base v1'
 if 'SDXL_custom_model' not in prefs: prefs['SDXL_custom_model'] = ''
+if 'install_SD3' not in prefs: prefs['install_SD3'] = False
+if 'use_SD3' not in prefs: prefs['use_SD3'] = False
+if 'SD3_compel' not in prefs: prefs['SD3_compel'] = False
+if 'SD3_model' not in prefs: prefs['SD3_model'] = 'Stable-Diffusion-3 Medium'
+if 'SD3_custom_model' not in prefs: prefs['SD3_custom_model'] = ''
+if 'SD3_custom_models' not in prefs: prefs['SD3_custom_models'] = []
+if 'SD3_cpu_offload' not in prefs: prefs['SD3_cpu_offload'] = False
+if 'SD3_bitsandbytes_8bit' not in prefs: prefs['SD3_bitsandbytes_8bit'] = False
+
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
 if 'use_panorama' not in prefs: prefs['use_panorama'] = False
 if 'panorama_circular_padding' not in prefs: prefs['panorama_circular_padding'] = False
@@ -1598,6 +1626,7 @@ def buildInstallers(page):
                 #dropdown.Option("DPM Stochastic"),
                 dropdown.Option("K-Euler Discrete"),
                 dropdown.Option("K-Euler Ancestral"),
+                dropdown.Option("Flow Match Euler Discrete"),
                 dropdown.Option("EDM Euler"),
                 dropdown.Option("DEIS Multistep"),
                 dropdown.Option("UniPC Multistep"),
@@ -1643,6 +1672,18 @@ def buildInstallers(page):
           model_card_SDXL.update()
       except Exception:
           pass
+  def changed_SD3_model(e):
+      changed(e, 'SD3_model')
+      SD3_custom_model.visible = prefs['SD3_model'] == 'Custom Model'
+      SD3_custom_model.update()
+      model_card_SD3.visible = not prefs['SD3_model'] == 'Custom Model'
+      model_card_SD3.update()
+      model_SD3 = get_SD3_model(e.control.value)
+      model_card_SD3.value = f"  [**Model Card**](https://huggingface.co/{model_SD3['path']})"
+      try:
+          model_card_SD3.update()
+      except Exception:
+          pass
   def scheduler_help(e):
       alert_msg(page, "🎰   Sampler/Scheduler Modes Info", content=[Text("It's difficult to explain the visible difference each scheduler will make on your diffusion, and we can't really say which is better for what. The variations are subtle, and there's a lot of complex random math going on, so it depends on your personal taste, style and prompts."),
         Text("All the samplers are different algorithms for numerically approximating solutions to differential equations (DEs). In SD's case this is a high-dimensional differential equation that determines how the initial noise must be diffused (spread around the image) to produce a result image that minimizes a loss function (essentially the distance to a hypothetical 'perfect' match to the initial noise, but with additional push applied by the prompt). This incredibly complex differential equation is basically what's encoded in the billion+ floating-point numbers that make up a Stable Diffusion model."),
@@ -1657,6 +1698,7 @@ def buildInstallers(page):
 * **SDE-DPM Solver++ -** A fast Stochastic Differential Equation solver for the reverse diffusion SDE. Introduces some random drift to the process on each step to possibly find a route to a better solution than a fully deterministic solver.
 * **K-Euler Discrete -** This is a fast scheduler which can often generate good outputs in 20-40 steps. From the Elucidating the Design Space of Diffusion-Based Generative Models paper.
 * **K-Euler Ancestral -** Uses ancestral sampling with Euler method steps. This is a fast scheduler which can often generate good outputs in 30-40 steps. One of my personal favorites with the subtleties.
+* **Flow Match Euler Discrete -** Based on the flow-matching sampling introduced in [Stable Diffusion 3](https://arxiv.org/abs/2403.03206).
 * **EDM Euler -** The Euler scheduler in EDM formulation as presented in Elucidating the Design Space of Diffusion-Based Generative Models. Solely intended for models that use EDM formulation, like SVD
 * **DEIS Multistep -** Diffusion Exponential Integrator Sampler modifies the polynomial fitting formula in log-rho space instead of the original linear `t` space in the DEIS paper. The modification enjoys closed-form coefficients for exponential multistep update instead of replying on the numerical solver. aims to accelerate the sampling process while maintaining high sample quality. 
 * **UniPC Multistep -** Unified Predictor-Corrector inspired by the predictor-corrector method in ODE solvers, it can achieve high-quality image generation in 5-10 steps. Combines UniC and UniP to create a powerful image improvement tool.
@@ -1681,9 +1723,12 @@ def buildInstallers(page):
       SD_params.update()
   def toggle_SDXL(e):
       changed(e, 'install_SDXL')
-      #TODO: Reenable when Compel works right
       SDXL_params.height = None if e.control.value else 0
       SDXL_params.update()
+  def toggle_SD3(e):
+      changed(e, 'install_SD3')
+      SD3_params.height = None if e.control.value else 0
+      SD3_params.update()
   model = get_model(prefs['model_ckpt'])
   model_SDXL = get_SDXL_model(prefs['SDXL_model'])
   model_path = model['path']
@@ -1786,6 +1831,21 @@ def buildInstallers(page):
   #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=0, left=32), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   #SDXL_params.visible = False
+  install_SD3 = Switcher(label="Install Stable Diffusion 3 text2image & image2image Pipeline", value=prefs['install_SD3'], on_change=toggle_SD3, tooltip="Latest SD 3 with three text encoders to generate an image.")
+  SD3_compel = Checkbox(label="Use Compel Long Prompt Weighting", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD3_compel'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_compel'))
+  SD3_cpu_offload = Checkbox(label="CPU Offload Model", tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.", value=prefs['SD3_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_cpu_offload'))
+  SD3_bitsandbytes_8bit = Checkbox(label="BitsAndBytes 8-bit", tooltip="Load and quantize the T5-XXL text encoder to 8-bit precision. This allows you to keep using all three text encoders while only slightly impacting performance.", value=prefs['SD3_bitsandbytes_8bit'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_bitsandbytes_8bit'))
+  SD3_options = Row([SD3_compel, SD3_cpu_offload, SD3_bitsandbytes_8bit])
+  SD3_model = Dropdown(label="SD3 Model Checkpoint", hint_text="", width=280, options=[dropdown.Option("Custom Model")], value=prefs['SD3_model'], autofocus=False, on_change=changed_SD3_model, col={'xs':9, 'md':4})
+  for model in SD3_models:
+      SD3_model.options.append(dropdown.Option(model["name"]))
+  model_SD3 = get_SD3_model(prefs['SD3_model'])
+  SD3_custom_model = TextField(label="Custom Model Path", value=prefs['SD3_custom_model'], width=370, expand=True, visible=prefs['SD3_model']=='Custom Model', on_change=lambda e:changed(e,'SD3_custom_model'), col={'xs':3, 'md':8})
+  model_card_SD3 = Markdown(f"  [**Accept Model Card**](https://huggingface.co/{model_SD3['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
+  SD3_model_row = Row([SD3_model, SD3_custom_model, model_card_SD3], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
+  #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
+  SD3_params = Container(Column([SD3_options, SD3_model_row]), padding=padding.only(top=0, left=32), height=None if prefs['install_SD3'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
   install_interpolation = Switcher(label="Install Stable Diffusion Prompt Walk Interpolation Pipeline", value=prefs['install_interpolation'], disabled=status['installed_interpolation'], on_change=lambda e:changed(e, 'install_interpolation'), tooltip="Create multiple tween images between prompts latent space. Almost animation.")
@@ -1858,7 +1918,7 @@ def buildInstallers(page):
                                  #Row([sequential_cpu_offload, enable_vae_tiling]),
                                  Row([enable_freeu, enable_tome, enable_hidiffusion, enable_deepcache]),
                                  ]), padding=padding.only(left=32, top=4)),
-                                         install_text2img, SD_params, install_SDXL, SDXL_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
+                                         install_text2img, SD_params, install_SDXL, SDXL_params, install_SD3, SD3_params, install_img2img, #install_repaint, #install_megapipe, install_alt_diffusion,
                                          install_interpolation, install_CLIP_guided, clip_settings, install_conceptualizer, conceptualizer_settings, install_safe, safety_config,
                                          install_versatile, install_SAG, install_attend_and_excite, install_panorama, install_imagic, install_depth2img, install_composable, install_upscale]))
   def toggle_stability(e):
@@ -2094,6 +2154,18 @@ def buildInstallers(page):
           page.use_SDXL.update()
           page.SDXL_params.visible = True
           page.SDXL_params.update()
+        page.status()
+      if prefs['install_SD3'] and prefs['install_diffusers']:
+        console_msg("Installing Stable Diffusion 3 Text2Image & Image2Image Pipeline...")
+        page.status(f"...loading {get_SD3_model(prefs['SD3_model'])['name']}")
+        if get_SD3(page):
+          status['installed_SD3'] = True
+          page.img_block.height = None
+          page.img_block.update()
+          page.use_SD3.visible = True
+          page.use_SD3.update()
+          page.SD3_params.visible = True
+          page.SD3_params.update()
         page.status()
       if prefs['install_alt_diffusion'] and prefs['install_diffusers']:
         console_msg("Installing AltDiffusion Text2Image & Image2Image Pipeline...")
@@ -2532,6 +2604,10 @@ def buildParameters(page):
       changed(e,'use_SDXL', apply=False)
       page.SDXL_params.height = None if e.control.value else 0
       page.SDXL_params.update()
+  def toggle_SD3(e):
+      changed(e,'use_SD3', apply=False)
+      #page.SD3_params.height = None if e.control.value else 0
+      #page.SD3_params.update()
   def toggle_conceptualizer(e):
       if e.control.value:
         page.img_block.height = 0
@@ -2584,6 +2660,8 @@ def buildParameters(page):
   strength_slider = Row([Text("Init Image Strength: "), strength_value, init_image_strength])
   page.use_SDXL = Switcher(label="Use Stable Diffusion XL Model/Pipeline Instead", tooltip="The latest SDXL base model, with img2img Refiner. It's tasty..", value=prefs['use_SDXL'], on_change=toggle_SDXL)
   page.use_SDXL.visible = status['installed_SDXL']
+  page.use_SD3 = Switcher(label="Use Stable Diffusion 3 Model/Pipeline Instead", tooltip="The latest SD3 base model. It's good..", value=prefs['use_SD3'], on_change=toggle_SD3)
+  page.use_SD3.visible = status['installed_SD3']
   #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_high_noise_frac = SliderRow(label="SDXL High Noise Fraction", min=0, max=1, divisions=20, round=2, pref=prefs, key='SDXL_high_noise_frac', tooltip="Percentage of Steps to use Base model, then Refiner model. Known as an Ensemble of Expert Denoisers. Value of 1 skips Refine steps.", on_change=lambda e:changed(e,'SDXL_high_noise_frac', apply=False))
   SDXL_negative_conditions = Switcher(label="Use Negative Conditions on Image Size", tooltip="Pass negative conditions about an image's size and position to avoid undesirable cropping behavior in the generated image, and improve image resolution.", value=prefs['SDXL_negative_conditions'], on_change=lambda e:changed(e,'SDXL_negative_conditions', apply=False))
@@ -2848,7 +2926,7 @@ def buildParameters(page):
         guidance,
         eta,
         width_slider, height_slider, #Divider(height=9, thickness=2),
-        page.interpolation_block, page.img_block, page.use_safe, page.use_SDXL, page.SDXL_params, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
+        page.interpolation_block, page.img_block, page.use_safe, page.use_SDXL, page.SDXL_params, page.use_SD3, page.use_alt_diffusion, page.use_clip_guided_model, page.clip_block, page.use_versatile, page.use_SAG, page.use_attend_and_excite, page.use_panorama, page.use_conceptualizer_model,
         use_LoRA_model, LoRA_block,
         Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
         ip_adapter_container,
@@ -22165,6 +22243,7 @@ pipe_img2img = None
 pipe_SD = None
 pipe_SDXL = None
 pipe_SDXL_refiner = None
+pipe_SD3 = None
 compel_proc = None
 compel_base = None
 compel_refiner = None
@@ -22366,6 +22445,15 @@ def get_SDXL_model(name):
       if mod['name'] == name:
         extra = {key: mod.get(key) for key in ['variant', 'revision', 'vae'] if key in mod}
         return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'] if 'prefix' in mod else '', 'use_safetensors': safetensors, **extra}
+def get_SD3_model(name):
+  if name == "Custom Model":
+      safetensors = True if '.safetensors' in prefs['SD3_custom_model'] else False
+      return {'name':"Custom SD3 Model", 'path':prefs['SD3_custom_model'], 'prefix':'', 'variant': 'fp16', 'use_safetensors': safetensors}
+  for mod in SD3_models:
+      safetensors = mod['use_safetensors'] if 'use_safetensors' in mod else False
+      if mod['name'] == name:
+        extra = {key: mod.get(key) for key in ['variant', 'revision', 'vae'] if key in mod}
+        return {'name':mod['name'], 'path':mod['path'], 'prefix':mod['prefix'] if 'prefix' in mod else '', 'use_safetensors': safetensors, **extra}
 
 def get_seed(seed, min=0, max=4294967295):
     return int(seed) if int(seed) > 0 else rnd.randint(min, max)
@@ -22410,7 +22498,7 @@ def get_diffusers(page):
         #if install_xformers(page):
         status['installed_xformers'] = True
     page.console_msg("Installing Hugging Face Diffusers Pipeline...")
-    if prefs['enable_bitsandbytes']:
+    if prefs['enable_bitsandbytes'] or (prefs['install_SD3'] and prefs['SD3_bitsandbytes_8bit']):
         try:
             os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
             import bitsandbytes
@@ -22649,6 +22737,9 @@ def model_scheduler(model, big3=False, **kwargs):
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
       s = EulerAncestralDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
+    elif scheduler_mode == "Flow Match Euler Discrete":
+      from diffusers import FlowMatchEulerDiscreteScheduler
+      s = FlowMatchEulerDiscreteScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
     elif scheduler_mode == "EDM Euler":
       from diffusers import EDMEulerScheduler
       s = EDMEulerScheduler.from_pretrained(model, subfolder="scheduler", **kwargs)
@@ -22772,6 +22863,9 @@ def pipeline_scheduler(p, big3=False, from_scheduler = True, scheduler=None, tra
     elif scheduler_mode == "K-Euler Ancestral":
       from diffusers import EulerAncestralDiscreteScheduler
       s = EulerAncestralDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
+    elif scheduler_mode == "Flow Match Euler Discrete":
+      from diffusers import FlowMatchEulerDiscreteScheduler
+      s = FlowMatchEulerDiscreteScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
     elif scheduler_mode == "EDM Euler":
       from diffusers import EDMEulerScheduler
       s = EDMEulerScheduler.from_config(p.scheduler.config if from_scheduler else p.config, **args)
@@ -22893,7 +22987,7 @@ except ModuleNotFoundError:
       pass
     pass
 finally:
-    torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+    torch_device = "cuda" if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else "cpu"
     if torch_device == "cpu":
         print("WARNING: CUDA is only available with CPU, so GPU tasks are limited. Can use Stability-API, AIHorde & OpenAI, Gemini, but not Diffusers...")
 
@@ -23160,10 +23254,20 @@ def optimize_SDXL(p, vae_slicing=False, no_cpu=False, vae_tiling=True, torch_com
     p.set_progress_bar_config(disable=True)
     return p
 
-def apply_LoRA(p, SDXL=False, fuse=False):
+def apply_LoRA(p, SDXL=False, SD3=False, fuse=False):
     active = p.get_active_adapters()
-    layers = 'active_SDXL_LoRA_layers' if SDXL else 'active_LoRA_layers'
+    layers = 'active_SDXL_LoRA_layers' if SDXL else 'active_SD3_LoRA_layers' if SD3 else 'active_LoRA_layers'
     if prefs['use_LoRA_model'] and len(prefs[layers]) > 0:
+      if SD3:
+        from peft import LoraConfig
+        lora_config = LoraConfig(
+            r=4,
+            lora_alpha=4,
+            target_modules=["to_q", "to_k", "to_v", "to_out.0"],
+            init_lora_weights=False,
+            use_dora=False,
+        )
+        p.transformer.add_adapter(lora_config)
       adapters = []
       scales = []
       for l in prefs[layers]:
@@ -23726,6 +23830,153 @@ def get_SDXL_pipe(task="text2image"):
       #compel_refiner = Compel(tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
       #truncate_long_prompts=True,
   return pipe_SDXL
+
+def get_SD3(page):
+    global pipe_SDXL
+    def open_url(e):
+      page.launch_url(e.data)
+    try:
+      pipe_SD3 = get_SD3_pipe()
+      return True
+    except Exception as er:
+      SD3_model = get_SD3_model(prefs['SD3_model'])
+      model_id = SD3_model['path']
+      model_url = f"https://huggingface.co/{model_id if model_id.count('/') == 1 else 'stabilityai/stable-diffusion-3-medium-diffusers'}"
+      alert_msg(page, f'ERROR Loading Model {SD3_model["name"]} from HuggingFace. Maybe accept model card or try another model for now.',
+                content=[Markdown(f'[{model_id}]({model_url})', on_tap_link=open_url), Text(er, weight=FontWeight.BOLD), Text(traceback.format_exc(), selectable=True)])
+      return False
+
+def get_SD3_pipe(task="text2image"):
+  global pipe_SD, prefs, status, compel_base, compel_refiner
+  from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image#, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL # , AutoencoderTiny
+  if prefs['SD3_compel']:
+      pip_install("compel", upgrade=True)
+  SD3_model = get_SD3_model(prefs['SD3_model'])
+  model_id = SD3_model['path']#"stabilityai/stable-diffusion-xl-base-1.0"
+  safetensors = SD3_model['use_safetensors'] if 'use_safetensors' in SD3_model else False
+  if SD3_model['path'] != status['loaded_SD3_model'] or task != status['loaded_SD3']:
+      clear_pipes()
+  if pipe_SD3 is not None:
+      if task != status['loaded_SD3']:
+          if task == "text2image":
+              pipe_SD3 = AutoPipelineForText2Image.from_pipe(pipe_SD3)
+          elif task == "image2image":
+              pipe_SD3 = AutoPipelineForImage2Image.from_pipe(pipe_SD3)
+          status['loaded_SD3'] = task
+      pipe_SD3 = apply_LoRA(pipe_SD3, SD3=True)
+      if prefs['scheduler_mode'] != status['loaded_scheduler']:
+          pipe_SD3 = pipeline_scheduler(pipe_SD3)
+      return pipe_SD3
+  low_ram = int(status['cpu_memory']) <= 12
+  variant = {'variant': SD3_model['revision']} if 'revision' in SD3_model else {}
+  variant = {'variant': SD3_model['variant']} if 'variant' in SD3_model else variant
+  #vae = AutoencoderTiny.from_pretrained("madebyollin/taesdxl", torch_dtype=torch.float16)
+  #vae_model = "madebyollin/sdxl-vae-fp16-fix" if not prefs['higher_vram_mode'] else "stabilityai/sdxl-vae"
+  if 'vae' in SD3_model:
+      vae_model = SD3_model['vae']
+  #vae = AutoencoderKL.from_pretrained(vae_model, torch_dtype=torch.float16, use_safetensors=True)
+  if task == "text2image":
+      status['loaded_SD3'] = task
+      if prefs['enable_torch_compile']:
+          torch.set_float32_matmul_precision("high")
+          torch._inductor.config.conv_1x1_as_mm = True
+          torch._inductor.config.coordinate_descent_tuning = True
+          torch._inductor.config.epilogue_fusion = False
+          torch._inductor.config.coordinate_descent_check_all_directions = True
+      if not prefs['SD3_bitsandbytes_8bit']:
+          pipe_SD3 = AutoPipelineForText2Image.from_pretrained(
+              model_id,
+              torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
+              #vae=vae,
+              #use_safetensors=safetensors,
+              #add_watermarker=watermark,
+              cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+              **variant, **safety,
+          )
+      else:
+          from transformers import T5EncoderModel, BitsAndBytesConfig
+          quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+          text_encoder = T5EncoderModel.from_pretrained(
+              model_id,
+              subfolder="text_encoder_3",
+              quantization_config=quantization_config,
+          )
+          pipe_SD3 = AutoPipelineForText2Image.from_pretrained(
+              model_id,
+              text_encoder_3=text_encoder,
+              device_map="balanced",
+              torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
+              cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+              **variant, **safety,
+          )
+      if prefs['enable_torch_compile']:
+          pipe_SD3.to("cuda")
+          pipe_SD3.transformer.to(memory_format=torch.channels_last)
+          pipe_SD3.vae.to(memory_format=torch.channels_last)
+          pipe_SD3.transformer = torch.compile(pipe_SD3.transformer, mode="max-autotune", fullgraph=True)
+          pipe_SD3.vae.decode = torch.compile(pipe_SD3.vae.decode, mode="max-autotune", fullgraph=True)
+      else:
+          if prefs['SD3_cpu_offload']:
+              pipe_SD3.enable_model_cpu_offload()
+          elif not prefs['SD3_bitsandbytes_8bit']:
+              pipe_SD3.to("cuda")
+      #pipe_SD3 = optimize_SDXL(pipe_SDXL, vae_slicing=True)
+  elif task == "image2image":
+      status['loaded_SD3'] = task
+      if prefs['enable_torch_compile']:
+          torch.set_float32_matmul_precision("high")
+          torch._inductor.config.conv_1x1_as_mm = True
+          torch._inductor.config.coordinate_descent_tuning = True
+          torch._inductor.config.epilogue_fusion = False
+          torch._inductor.config.coordinate_descent_check_all_directions = True
+      if not prefs['SD3_bitsandbytes_8bit']:
+          pipe_SD3 = AutoPipelineForImage2Image.from_pretrained(
+              model_id,
+              torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
+              #vae=vae,
+              #use_safetensors=safetensors,
+              #add_watermarker=watermark,
+              cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+              **variant, **safety,
+          )
+      else:
+          from transformers import T5EncoderModel, BitsAndBytesConfig
+          quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+          text_encoder = T5EncoderModel.from_pretrained(
+              model_id,
+              subfolder="text_encoder_3",
+              quantization_config=quantization_config,
+          )
+          pipe_SD3 = AutoPipelineForImage2Image.from_pretrained(
+              model_id,
+              text_encoder_3=text_encoder,
+              device_map="balanced",
+              torch_dtype=torch.float16,# if not prefs['higher_vram_mode'] else torch.float32,
+              cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None,
+              **variant, **safety,
+          )
+      if prefs['enable_torch_compile']:
+          pipe_SD3.to("cuda")
+          pipe_SD3.transformer.to(memory_format=torch.channels_last)
+          pipe_SD3.vae.to(memory_format=torch.channels_last)
+          pipe_SD3.transformer = torch.compile(pipe_SD3.transformer, mode="max-autotune", fullgraph=True)
+          pipe_SD3.vae.decode = torch.compile(pipe_SD3.vae.decode, mode="max-autotune", fullgraph=True)
+      else:
+          if prefs['SD3_cpu_offload']:
+              pipe_SD3.enable_model_cpu_offload()
+          elif not prefs['SD3_bitsandbytes_8bit']:
+              pipe_SD3.to("cuda")
+  elif task == "inpainting":
+      status['loaded_SD3'] = task
+  if prefs['SD3_compel']:
+      from compel import Compel, ReturnedEmbeddingsType
+      compel_base = Compel(tokenizer=[pipe_SD3.tokenizer, pipe_SD3.tokenizer_2], text_encoder=[pipe_SDXL.text_encoder, pipe_SDXL.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      #compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer_2], text_encoder=[pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[True])
+      #compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer, pipe_SDXL_refiner.tokenizer_2] , text_encoder=[pipe_SDXL_refiner.text_encoder, pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      #compel_refiner = Compel(tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
+      #truncate_long_prompts=True,
+  pipe_SD3 = apply_LoRA(pipe_SD3, SD3=True)
+  return pipe_SD3
 
 def get_versatile(page):
     import torch, gc
@@ -24667,7 +24918,12 @@ def clear_SDXL_pipe():
     del pipe_SDXL_refiner
     flush()
     pipe_SDXL_refiner = None
-
+def clear_SD3_pipe():
+  global pipe_SD3
+  if pipe_SD3 is not None:
+    del pipe_SD3
+    flush()
+    pipe_SD3 = None
 def clear_clip_guided_pipe():
   global pipe_clip_guided
   if pipe_clip_guided is not None:
@@ -25293,6 +25549,7 @@ def clear_pipes(allbut=None):
     if not 'txt2img' in but: clear_txt2img_pipe()
     if not 'img2img' in but: clear_img2img_pipe()
     if not 'SDXL' in but: clear_SDXL_pipe()
+    if not 'SD3' in but: clear_SD3_pipe()
     if not 'unet' in but: clear_unet_pipe()
     if not 'clip_guided' in but: clear_clip_guided_pipe()
     if not 'conceptualizer' in but: clear_conceptualizer_pipe()
@@ -25450,7 +25707,7 @@ def filepath_to_url(path):
 #import asyncio
 #async
 def start_diffusion(page):
-  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale, pipe_SDXL, pipe_SDXL_refiner
+  global pipe, unet, pipe_img2img, pipe_clip_guided, pipe_interpolation, pipe_conceptualizer, pipe_imagic, pipe_depth, pipe_composable, pipe_versatile_text2img, pipe_versatile_variation, pipe_versatile_dualguided, pipe_SAG, pipe_attend_and_excite, pipe_alt_diffusion, pipe_alt_diffusion_img2img, pipe_panorama, pipe_safe, pipe_upscale, pipe_SDXL, pipe_SDXL_refiner, pipe_SD3
   global SD_sampler, stability_api, total_steps, pb, prefs, args, total_steps, compel_proc, compel_base, compel_refiner, abort_run
   def prt(line, update=True):
     if type(line) == str:
@@ -25504,7 +25761,7 @@ def start_diffusion(page):
       pass
 # Why getting Exception: control with ID '_3607' not found when re-running after error
   #page.Images.content.controls = []
-  if int(status['cpu_memory']) <= 8 and prefs['use_SDXL'] and status['installed_SDXL']: # and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']
+  if int(status['cpu_memory']) <= 8 and (prefs['use_SDXL'] and status['installed_SDXL']) or (prefs['use_SD3'] and status['installed_SD3']): # and prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run SD XL. Either Change runtime type to High-RAM mode and restart or use other pipelines.")
       return
   clear_image_output()
@@ -25611,6 +25868,7 @@ def start_diffusion(page):
               if prefix[-1] != ' ':
                 prefix += ' '
         #lora = get_SDXL_LoRA_model(prefs['SDXL_LoRA_model'])
+      #TODO: Add SD3 LoRA
       else:
         for l in prefs['active_LoRA_layers']:
           if 'name' in l:
@@ -26231,10 +26489,10 @@ def start_diffusion(page):
               latents = scheduler.step(noise_pred, i, latents)["prev_sample"]#We now use the vae to decode the generated latents back into the image.
             latents = 1 / 0.18215 * latents
             with torch.no_grad():
-              face_image = vae.decode(latents)
-            face_image = (face_image / 2 + 0.5).clip(0, 1)
-            face_image = face_image.detach().cpu().permute(0, 2, 3, 1).numpy()
-            uint8_images = (face_image * 255).round().astype("uint8")
+              images = vae.decode(latents)
+            images = (images / 2 + 0.5).clip(0, 1)
+            images = images.detach().cpu().permute(0, 2, 3, 1).numpy()
+            uint8_images = (images * 255).round().astype("uint8")
             #for img in uint8_images: images.append(Image.fromarray(img))
             images = [PILImage.fromarray(img) for img in uint8_images]
           else:
@@ -26331,14 +26589,14 @@ def start_diffusion(page):
                           pip_install("insightface")
                           pass
                       from insightface.app import FaceAnalysis
-                      face_image = ip_adapter_arg['ip_adapter_image']
+                      image = ip_adapter_arg['ip_adapter_image']
                       ref_images_embeds = []
                       face_app = FaceAnalysis(name="buffalo_l", providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
                       face_app.prepare(ctx_id=0, det_size=(640, 640))
-                      face_image = cv2.cvtColor(np.asarray(face_image), cv2.COLOR_BGR2RGB)
-                      faces = face_app.get(face_image)
-                      face_image = torch.from_numpy(faces[0].normed_embedding)
-                      ref_images_embeds.append(face_image.unsqueeze(0))
+                      image = cv2.cvtColor(np.asarray(image), cv2.COLOR_BGR2RGB)
+                      faces = face_app.get(image)
+                      image = torch.from_numpy(faces[0].normed_embedding)
+                      ref_images_embeds.append(image.unsqueeze(0))
                       ref_images_embeds = torch.stack(ref_images_embeds, dim=0).unsqueeze(0)
                       neg_ref_images_embeds = torch.zeros_like(ref_images_embeds)
                       id_embeds = torch.cat([neg_ref_images_embeds, ref_images_embeds]).to(dtype=torch.float16, device="cuda")
@@ -26407,22 +26665,22 @@ def start_diffusion(page):
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
                   #, target_size=(arg['width'], arg['height'])
-                  face_image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  images = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                     mask_img = [mask_img] * arg['batch_size']
-                  face_image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=1 - arg['init_image_strength'], height=arg['height'], width=arg['width'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
                     prompt_embed, pooled = compel_refiner(pr)
                     negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                     #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=face_image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
                     del prompt_embed, negative_embed, pooled, negative_pooled
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=face_image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
@@ -26459,6 +26717,17 @@ def start_diffusion(page):
                     prt(Installing("Initializing Versatile Image Variation Pipeline..."))
                     pipe_versatile_variation = get_versatile_variation_pipe()
                     clear_last()
+              elif prefs['use_SD3'] and status['installed_SD3']:
+                if get_SD3_model(prefs['SD3_model'])['path'] == status['loaded_SD3_model']:
+                  clear_pipes("SD3")
+                else:
+                  clear_pipes()
+                if pipe_SD3 is None or status['loaded_SD3'] != "image2image":
+                  prt(Installing("Initializing Stable Diffusion 3 Image2Image Pipeline..."))
+                  get_SD3_pipe("image2image")
+                  clear_last()
+                elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+                  pipe_SD3 = pipeline_scheduler(pipe_SD3)
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 if status['loaded_SDXL'] == "image2image" and get_SDXL_model(prefs['SDXL_model'])['path'] == status['loaded_SDXL_model']:
                   clear_pipes("SDXL")
@@ -26553,6 +26822,18 @@ def start_diffusion(page):
                 else:
                   pipe_used = "Versatile Variation"
                   images = pipe_versatile_variation(negative_prompt=arg['negative_prompt'], image=init_img, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_SD3'] and status['installed_SD3']:
+                pipe_used = "Stable Diffusion 3 Image-to-Image"
+                total_steps = int(arg['steps'])
+                cross_attention_kwargs = {"joint_attention_kwargs": {"scale": 1.0}} if prefs['use_LoRA_model'] and len(prefs['active_SD3_LoRA_layers']) > 0 else {}
+                if prefs['SD3_compel']:
+                  prompt_embed, pooled = compel_base(pr)
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
+                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  del pooled, negative_pooled
+                else:
+                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", image=init_img, strength= 1 - arg['init_image_strength'], output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                flush()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Image-to-Image"
                 high_noise_frac = prefs['SDXL_high_noise_frac']
@@ -26562,12 +26843,12 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'])
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  face_image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  images = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=init_img, strength=1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 else:
                   if arg['batch_size'] > 1:
                     init_img = [init_img] * arg['batch_size']
                   #image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
-                  face_image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength= 1 - arg['init_image_strength'], output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
@@ -26575,10 +26856,10 @@ def start_diffusion(page):
                     prompt_embed, pooled = compel_refiner(pr)
                     negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                     #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=face_image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                     del prompt_embed, negative_embed, pooled, negative_pooled
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=face_image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                 #images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -26637,6 +26918,17 @@ def start_diffusion(page):
                   prt(Installing("Initializing Composable Text2Image Pipeline..."))
                   pipe_composable = get_composable_pipe()
                   clear_last()
+              elif prefs['use_SD3'] and status['installed_SD3']:
+                if get_SD3_model(prefs['SD3_model'])['path'] == status['loaded_SD3_model']:
+                  clear_pipes("SD3")
+                else:
+                  clear_pipes()
+                if pipe_SD3 is None or status['loaded_SD3'] != "text2image":
+                  prt(Installing("Initializing Stable Diffusion 3 Text2Image Pipeline..."))
+                  get_SD3_pipe("text2image")
+                  clear_last()
+                elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+                  pipe_SD3 = pipeline_scheduler(pipe_SD3)
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 if status['loaded_SDXL'] == "text2image" and get_SDXL_model(prefs['SDXL_model'])['path'] == status['loaded_SDXL_model']:
                   clear_pipes("SDXL")
@@ -26742,6 +27034,19 @@ def start_diffusion(page):
                   weights = '|'.join(['1' * segments])
                 pipe_used = "Composable Text-to-Image"
                 images = pipe_composable(pr, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], weights=weights, generator=generator, callback=callback_fn, callback_steps=1).images
+              elif prefs['use_SD3'] and status['installed_SD3']:
+                pipe_used = "Stable Diffusion 3 Text-to-Image"
+                total_steps = int(arg['steps'])
+                if prefs['SD3_compel']:
+                  #print(f"pr:{pr} - neg: {arg['negative_prompt']}")
+                  prompt_embed, pooled = compel_base(pr)
+                  negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
+                  #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
+                  images = pipe_SD3(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                  del pooled, negative_pooled
+                else:
+                  images = pipe_SD3(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="pil", height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images#[0]
+                flush()
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 pipe_used = "Stable Diffusion XL Text-to-Image"
                 #if arg['batch_size'] > 1:
@@ -26755,21 +27060,21 @@ def start_diffusion(page):
                   prompt_embed, pooled = compel_base(pr)
                   negative_embed, negative_pooled = compel_base(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly")
                   #[prompt_embed, negative_embed] = compel_base.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                  face_image = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  images = pipe_SDXL(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                   del pooled, negative_pooled
                 else:
-                  face_image = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
+                  images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry, ugly", output_type="latent" if high_noise_frac != 1 else "pil", denoising_end=high_noise_frac, height=arg['height'], width=arg['width'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions, **cross_attention_kwargs, **ip_adapter_arg).images#[0]
                 if high_noise_frac != 1:
                   total_steps = int(arg['steps'] * (1 - high_noise_frac))
                   if prefs['SDXL_compel']:
                     prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
                     negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
                     #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=face_image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                     #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                     del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt' if bool(arg['negative_prompt']) else "blurry"], image=face_image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt' if bool(arg['negative_prompt']) else "blurry"], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
@@ -26887,7 +27192,7 @@ def start_diffusion(page):
         images = []
 
       idx = num = 0
-      for face_image in images:
+      for image in images:
         cur_seed = arg['seed']
         if idx > 0:
           cur_seed += idx
@@ -26903,7 +27208,7 @@ def start_diffusion(page):
         image_path = available_file(txt2img_output, fname, idx)
         num = int(image_path.rpartition('-')[2].partition('.')[0])
         #image_path = os.path.join(txt2img_output, f'{fname}-{idx}.png')
-        face_image.save(image_path)
+        image.save(image_path)
         #print(f'size:{os.path.getsize(f"{fname}-{idx}.png")}')
         if os.path.getsize(image_path) < 2000 or not usable_image: #False: #not sum(image.convert("L").getextrema()) in (0, 2): #image.getbbox():#
           os.remove(os.path.join(txt2img_output, f'{fname}-{num}.png'))
@@ -26961,7 +27266,7 @@ def start_diffusion(page):
             clear_last()
           prt(Row([Text("Upscaling 4X"), pb]))
           try:
-            output = pipe_upscale(prompt=pr, image=face_image, guidance_scale=arg['guidance_scale'], generator=generator, noise_level=prefs['upscale_noise_level'], callback=callback_fn, callback_steps=1)
+            output = pipe_upscale(prompt=pr, image=image, guidance_scale=arg['guidance_scale'], generator=generator, noise_level=prefs['upscale_noise_level'], callback=callback_fn, callback_steps=1)
             output.images[0].save(fpath)
             #clear_upscale()
           except Exception as e:
