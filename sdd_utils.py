@@ -224,7 +224,7 @@ SDXL_models = [
     {"name": "Juggernaut XL 7", "path": "GHArt/Juggernaut_XL_V7vf_xl_fp16", "prefix": "", "use_safetensors": True},
     {"name": "Juggernaut XL 8", "path": "stablediffusionapi/juggernaut-xl-v8", "prefix": ""},
     {"name": "Juggernaut XL 9", "path": "RunDiffusion/Juggernaut-XL-v9", "prefix": "", "variant": "fp16", "use_safetensors": True},
-    {"name": "Juggernaut XL 10", "path": "RunDiffusion/Juggernaut-X-v10", "prefix": "", "use_safetensors": True},
+    {"name": "Juggernaut XL 10", "path": "RunDiffusion/Juggernaut-X-v10", "prefix": ""},
     {"name": "Juggernaut XL Lightning", "path": "RunDiffusion/Juggernaut-XL-Lightning", "prefix": "", "use_safetensors": True},
     {"name": "LEOSAMs-HelloWorld", "path": "imagepipeline/LEOSAMs-HelloWorld-SDXL-Base-Model", "prefix": "", "variant": "fp16", "use_safetensors": True},
     {"name": "Ludica-Playground", "path": "artificialguybr/Ludica-PlaygroundV2Finetuned", "prefix": "", "variant": "fp16", "use_safetensors": True},
@@ -488,9 +488,13 @@ SDXL_LoRA_models = [
     #{"name": "", "path": "", "weights": "", "prefix": ""},
 ]
 SD3_models = [
-    {"name": "Stable-Diffusion-3 Medium", "path": "stabilityai/stable-diffusion-3-medium-diffusers"},
+    {"name": "Stable Diffusion 3 Medium", "path": "stabilityai/stable-diffusion-3-medium-diffusers"},
 ]
 SD3_LoRA_models = [
+    {"name": "JujutsuKaisen-style", "path": "adbrasi/jujutsuKaisen-style-sd3", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
+    {"name": "Huggy", "path": "linoyts/huggy_sd3_lora_1500", "weights": "pytorch_lora_weights.safetensors", "prefix": "a can of matcha flavored pringles"},
+    {"name": "Girl2", "path": "adbrasi/girl2-trained-sd3", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of pmy girl"},
+    {"name": "Green-BG", "path": "sergon19/green_bg_LoRa10-SDX3-plus", "weights": "pytorch_lora_weights.safetensors", "prefix": "sgc style"},
     {"name": "sd3-lora-test", "path": "ptx0/sd3-lora-test", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
 ]
 ip_adapter_models = [

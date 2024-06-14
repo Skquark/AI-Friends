@@ -338,7 +338,7 @@ def load_settings_file():
       'SD3_model': 'Stable-Diffusion-3 Medium',
       'SD3_custom_model': '',
       'SD3_custom_models': [],
-      'SD3_cpu_offload': False,
+      'SD3_cpu_offload': True,
       'SD3_bitsandbytes_8bit': False,
       'use_composable': False,
       'use_safe': False,
@@ -1139,10 +1139,10 @@ if 'SDXL_custom_model' not in prefs: prefs['SDXL_custom_model'] = ''
 if 'install_SD3' not in prefs: prefs['install_SD3'] = False
 if 'use_SD3' not in prefs: prefs['use_SD3'] = True
 if 'SD3_compel' not in prefs: prefs['SD3_compel'] = False
-if 'SD3_model' not in prefs: prefs['SD3_model'] = 'Stable-Diffusion-3 Medium'
+if 'SD3_model' not in prefs: prefs['SD3_model'] = 'Stable Diffusion 3 Medium'
 if 'SD3_custom_model' not in prefs: prefs['SD3_custom_model'] = ''
 if 'SD3_custom_models' not in prefs: prefs['SD3_custom_models'] = []
-if 'SD3_cpu_offload' not in prefs: prefs['SD3_cpu_offload'] = False
+if 'SD3_cpu_offload' not in prefs: prefs['SD3_cpu_offload'] = True
 if 'SD3_bitsandbytes_8bit' not in prefs: prefs['SD3_bitsandbytes_8bit'] = False
 
 if 'install_panorama' not in prefs: prefs['install_panorama'] = False
@@ -1626,7 +1626,7 @@ def buildInstallers(page):
                 #dropdown.Option("DPM Stochastic"),
                 dropdown.Option("K-Euler Discrete"),
                 dropdown.Option("K-Euler Ancestral"),
-                dropdown.Option("Flow Match Euler Discrete"),
+                #dropdown.Option("Flow Match Euler Discrete"),
                 dropdown.Option("EDM Euler"),
                 dropdown.Option("DEIS Multistep"),
                 dropdown.Option("UniPC Multistep"),
@@ -1698,7 +1698,6 @@ def buildInstallers(page):
 * **SDE-DPM Solver++ -** A fast Stochastic Differential Equation solver for the reverse diffusion SDE. Introduces some random drift to the process on each step to possibly find a route to a better solution than a fully deterministic solver.
 * **K-Euler Discrete -** This is a fast scheduler which can often generate good outputs in 20-40 steps. From the Elucidating the Design Space of Diffusion-Based Generative Models paper.
 * **K-Euler Ancestral -** Uses ancestral sampling with Euler method steps. This is a fast scheduler which can often generate good outputs in 30-40 steps. One of my personal favorites with the subtleties.
-* **Flow Match Euler Discrete -** Based on the flow-matching sampling introduced in [Stable Diffusion 3](https://arxiv.org/abs/2403.03206).
 * **EDM Euler -** The Euler scheduler in EDM formulation as presented in Elucidating the Design Space of Diffusion-Based Generative Models. Solely intended for models that use EDM formulation, like SVD
 * **DEIS Multistep -** Diffusion Exponential Integrator Sampler modifies the polynomial fitting formula in log-rho space instead of the original linear `t` space in the DEIS paper. The modification enjoys closed-form coefficients for exponential multistep update instead of replying on the numerical solver. aims to accelerate the sampling process while maintaining high sample quality. 
 * **UniPC Multistep -** Unified Predictor-Corrector inspired by the predictor-corrector method in ODE solvers, it can achieve high-quality image generation in 5-10 steps. Combines UniC and UniP to create a powerful image improvement tool.
@@ -1831,11 +1830,11 @@ def buildInstallers(page):
   #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
   SDXL_params = Container(Column([SDXL_compel]), padding=padding.only(top=0, left=32), height=None if prefs['install_SDXL'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
   #SDXL_params.visible = False
-  install_SD3 = Switcher(label="Install Stable Diffusion 3 text2image & image2image Pipeline", value=prefs['install_SD3'], on_change=toggle_SD3, tooltip="Latest SD 3 with three text encoders to generate an image.")
+  install_SD3 = Switcher(label="Install Stable Diffusion 3 text2image & image2image Pipeline", value=prefs['install_SD3'], on_change=toggle_SD3, tooltip="Latest SD3 with three text encoders and special Flow-Match Euler Discrete Scheduler. Great prompt coherance & text writing, but currently has some limitations..")
   SD3_compel = Checkbox(label="Use Compel Long Prompt Weighting", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD3_compel'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_compel'))
   SD3_cpu_offload = Checkbox(label="CPU Offload Model", tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.", value=prefs['SD3_cpu_offload'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_cpu_offload'))
   SD3_bitsandbytes_8bit = Checkbox(label="BitsAndBytes 8-bit", tooltip="Load and quantize the T5-XXL text encoder to 8-bit precision. This allows you to keep using all three text encoders while only slightly impacting performance.", value=prefs['SD3_bitsandbytes_8bit'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD3_bitsandbytes_8bit'))
-  SD3_options = Row([SD3_compel, SD3_cpu_offload, SD3_bitsandbytes_8bit])
+  SD3_options = Row([SD3_cpu_offload, SD3_bitsandbytes_8bit])#SD3_compel, 
   SD3_model = Dropdown(label="SD3 Model Checkpoint", hint_text="", width=280, options=[dropdown.Option("Custom Model")], value=prefs['SD3_model'], autofocus=False, on_change=changed_SD3_model, col={'xs':9, 'md':4})
   for model in SD3_models:
       SD3_model.options.append(dropdown.Option(model["name"]))
@@ -1844,7 +1843,7 @@ def buildInstallers(page):
   model_card_SD3 = Markdown(f"  [**Accept Model Card**](https://huggingface.co/{model_SD3['path']})", on_tap_link=lambda e: e.page.launch_url(e.data))
   SD3_model_row = Row([SD3_model, SD3_custom_model, model_card_SD3], run_spacing=8, vertical_alignment=CrossAxisAlignment.CENTER)
   #SDXL_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SDXL", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SDXL_compel'], on_change=lambda e:changed(e,'SDXL_compel'))
-  SD3_params = Container(Column([SD3_options, SD3_model_row]), padding=padding.only(top=0, left=32), height=None if prefs['install_SD3'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+  SD3_params = Container(Column([SD3_options]), padding=padding.only(top=0, left=32), height=None if prefs['install_SD3'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
 
   install_img2img = Switcher(label="Install Stable Diffusion Specialized Inpainting Model for image2image & Inpaint Pipeline", value=prefs['install_img2img'], disabled=status['installed_img2img'], on_change=lambda e:changed(e, 'install_img2img'), tooltip="Gets more coherant results modifying Inpaint init & mask images")
   #install_repaint = Tooltip(message="Without using prompts, redraw masked areas to remove and repaint.", content=Switcher(label="Install Stable Diffusion RePaint Pipeline", value=prefs['install_repaint'], disabled=status['installed_repaint'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e, 'install_repaint')))
@@ -1909,7 +1908,7 @@ def buildInstallers(page):
   install_upscale = Switcher(label="Install Stable Diffusion v2 Upscale 4X Pipeline", value=prefs['install_upscale'], disabled=status['installed_upscale'], on_change=lambda e:changed(e, 'install_upscale'), tooltip="Allows you to enlarge images with prompts. Note: Will run out of mem for images larger than 512px, start small.")
 
   diffusers_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, content=
-                                 Column([Container(Column([Container(None, height=3), page.model_row, SDXL_model_row,
+                                 Column([Container(Column([Container(None, height=3), page.model_row, SDXL_model_row, SD3_model_row,
                                 Container(content=None, height=4), Row([scheduler_mode, scheduler_help_btn]),
                                  Row([enable_attention_slicing, higher_vram_mode, enable_xformers,#memory_optimization,
                                       ]),
@@ -22500,14 +22499,10 @@ def get_diffusers(page):
     page.console_msg("Installing Hugging Face Diffusers Pipeline...")
     if prefs['enable_bitsandbytes'] or (prefs['install_SD3'] and prefs['SD3_bitsandbytes_8bit']):
         try:
-            os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
             import bitsandbytes
         except ModuleNotFoundError:
             page.status("...installing bitsandbytes")
-            if sys.platform.startswith("win"):
-                run_sp("pip install bitsandbytes-windows", realtime=False)
-            else:
-                run_sp("pip install bitsandbytes", realtime=False)
+            run_sp("pip install bitsandbytes", realtime=False)
             import bitsandbytes
             page.status()
             pass
@@ -23847,7 +23842,7 @@ def get_SD3(page):
       return False
 
 def get_SD3_pipe(task="text2image"):
-  global pipe_SD3, prefs, status, compel_base, compel_refiner
+  global pipe_SD3, prefs, status, compel_base
   from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image#, StableDiffusionXLImg2ImgPipeline, StableDiffusionXLInpaintPipeline, AutoencoderKL # , AutoencoderTiny
   if prefs['SD3_compel']:
       pip_install("compel", upgrade=True)
@@ -23864,8 +23859,8 @@ def get_SD3_pipe(task="text2image"):
               pipe_SD3 = AutoPipelineForImage2Image.from_pipe(pipe_SD3)
           status['loaded_SD3'] = task
       pipe_SD3 = apply_LoRA(pipe_SD3, SD3=True)
-      if prefs['scheduler_mode'] != status['loaded_scheduler']:
-          pipe_SD3 = pipeline_scheduler(pipe_SD3)
+      #if prefs['scheduler_mode'] != status['loaded_scheduler']:
+      #    pipe_SD3 = pipeline_scheduler(pipe_SD3)
       return pipe_SD3
   low_ram = int(status['cpu_memory']) <= 12
   variant = {'variant': SD3_model['revision']} if 'revision' in SD3_model else {}
@@ -23975,7 +23970,9 @@ def get_SD3_pipe(task="text2image"):
       #compel_refiner = Compel(tokenizer=[pipe_SDXL_refiner.tokenizer, pipe_SDXL_refiner.tokenizer_2] , text_encoder=[pipe_SDXL_refiner.text_encoder, pipe_SDXL_refiner.text_encoder_2], returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
       #compel_refiner = Compel(tokenizer=pipe_SDXL_refiner.tokenizer_2, text_encoder=pipe_SDXL_refiner.text_encoder_2, returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED, requires_pooled=[False, True])
       #truncate_long_prompts=True,
+      print(f"Compel Base: {compel_base}")
   pipe_SD3 = apply_LoRA(pipe_SD3, SD3=True)
+  pipe_SD3.set_progress_bar_config(disable=True)
   status['loaded_SD3_model'] = model_id
   return pipe_SD3
 
@@ -24920,7 +24917,11 @@ def clear_SDXL_pipe():
     flush()
     pipe_SDXL_refiner = None
 def clear_SD3_pipe():
-  global pipe_SD3
+  global pipe_SD3, compel_base
+  if prefs['SD3_compel']:
+    if compel_base is not None:
+      del compel_base
+      compel_base = None
   if pipe_SD3 is not None:
     del pipe_SD3
     flush()
@@ -26679,10 +26680,10 @@ def start_diffusion(page):
                     prompt_embed, pooled = compel_refiner(pr)
                     negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                     #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=images, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
                     del prompt_embed, negative_embed, pooled, negative_pooled
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=images, mask_image=mask_img, strength=1 - arg['init_image_strength'], target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step).images
                 #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, mask_image=mask_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               else:
@@ -26728,8 +26729,8 @@ def start_diffusion(page):
                   prt(Installing("Initializing Stable Diffusion 3 Image2Image Pipeline..."))
                   get_SD3_pipe("image2image")
                   clear_last()
-                elif prefs['scheduler_mode'] != status['loaded_scheduler']:
-                  pipe_SD3 = pipeline_scheduler(pipe_SD3)
+                #elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+                #  pipe_SD3 = pipeline_scheduler(pipe_SD3)
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 if status['loaded_SDXL'] == "image2image" and get_SDXL_model(prefs['SDXL_model'])['path'] == status['loaded_SDXL_model']:
                   clear_pipes("SDXL")
@@ -26858,10 +26859,10 @@ def start_diffusion(page):
                     prompt_embed, pooled = compel_refiner(pr)
                     negative_embed, negative_pooled = compel_refiner(arg['negative_prompt'])
                     #[prompt_embed, negative_embed] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed, negative_embed])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed, pooled_prompt_embeds=pooled, negative_prompt_embeds=negative_embed, negative_pooled_prompt_embeds=negative_pooled, image=images, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                     del prompt_embed, negative_embed, pooled, negative_pooled
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=images, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                 #images = pipe_SDXL(prompt=pr, negative_prompt=arg['negative_prompt'], image=init_img, strength=arg['init_image_strength'], num_inference_steps=arg['steps'], guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
@@ -26929,8 +26930,8 @@ def start_diffusion(page):
                   prt(Installing("Initializing Stable Diffusion 3 Text2Image Pipeline..."))
                   get_SD3_pipe("text2image")
                   clear_last()
-                elif prefs['scheduler_mode'] != status['loaded_scheduler']:
-                  pipe_SD3 = pipeline_scheduler(pipe_SD3)
+                #elif prefs['scheduler_mode'] != status['loaded_scheduler']:
+                #  pipe_SD3 = pipeline_scheduler(pipe_SD3)
               elif prefs['use_SDXL'] and status['installed_SDXL']:
                 if status['loaded_SDXL'] == "text2image" and get_SDXL_model(prefs['SDXL_model'])['path'] == status['loaded_SDXL_model']:
                   clear_pipes("SDXL")
@@ -27072,11 +27073,11 @@ def start_diffusion(page):
                     prompt_embed_refiner, pooled_refiner = compel_refiner(pr)
                     negative_embed_refiner, negative_pooled_refiner = compel_refiner(arg['negative_prompt'] if bool(arg['negative_prompt']) else "blurry")
                     #[prompt_embed_refiner, negative_embed_refiner] = compel_refiner.pad_conditioning_tensors_to_same_length([prompt_embed_refiner, negative_embed_refiner])
-                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt_embeds=prompt_embed_refiner, pooled_prompt_embeds=pooled_refiner, negative_prompt_embeds=negative_embed_refiner, negative_pooled_prompt_embeds=negative_pooled_refiner, image=images, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                     #images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt'], image=image, num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback=callback_fn, callback_steps=1).images
                     del prompt_embed_refiner, negative_embed_refiner, pooled_refiner, negative_pooled_refiner
                   else:
-                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt' if bool(arg['negative_prompt']) else "blurry"], image=image, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
+                    images = pipe_SDXL_refiner(prompt=pr, negative_prompt=arg['negative_prompt' if bool(arg['negative_prompt']) else "blurry"], image=images, target_size=(arg['height'], arg['width']), num_inference_steps=arg['steps'], denoising_start=high_noise_frac, guidance_scale=arg['guidance_scale'], eta=arg['eta'], generator=generator, callback_on_step_end=callback_step, **SDXL_negative_conditions).images
                 flush()
               elif prefs['use_alt_diffusion'] and status['installed_alt_diffusion']:
                 pipe_used = "AltDiffusion Text-to-Image"
@@ -27206,7 +27207,13 @@ def start_diffusion(page):
           if idx == 0: seed_suffix += '-alpha_1'
           if idx == 1: seed_suffix += '-alpha_1_5'
           if idx == 2: seed_suffix += '-alpha_2'
-        fname = f'{prefs["file_prefix"]}{filename}{seed_suffix}'
+        file_prefix = prefs["file_prefix"]
+        if file_prefix == "sd-":
+          if 'Diffusion XL' in pipe_used:
+            file_prefix = "sdxl-"
+          if 'Diffusion 3' in pipe_used:
+            file_prefix = "sd3-"
+        fname = f'{file_prefix.strip()}{filename}{seed_suffix}'
         image_path = available_file(txt2img_output, fname, idx)
         num = int(image_path.rpartition('-')[2].partition('.')[0])
         #image_path = os.path.join(txt2img_output, f'{fname}-{idx}.png')
@@ -28077,13 +28084,10 @@ def get_stable_lm(ai_model="StableLM 3b"):
       import accelerate
       pass
     try:
-      os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+      #os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
       import bitsandbytes
     except ModuleNotFoundError:
-      if sys.platform.startswith("win"):
-          run_sp("pip install bitsandbytes-windows", realtime=False)
-      else:
-          run_sp("pip install bitsandbytes", realtime=False)
+      run_sp("pip install bitsandbytes", realtime=False)
       import bitsandbytes
       pass
     try:
@@ -34235,13 +34239,10 @@ def run_dreambooth(page):
     os.chdir(dreambooth_dir)
     run_process("pip install -r requirements.txt", cwd=dreambooth_dir, realtime=False)
     try:
-      os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+      #os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
       import bitsandbytes
     except ModuleNotFoundError:
-      if sys.platform.startswith("win"):
-          run_sp("pip install bitsandbytes-windows", realtime=False)
-      else:
-          run_sp("pip install bitsandbytes", realtime=False)
+      run_sp("pip install bitsandbytes", realtime=False)
       import bitsandbytes
       pass
     #from accelerate.utils import write_basic_config
@@ -41061,12 +41062,9 @@ def run_deepfloyd(page, from_list=False):
           import bitsandbytes
         except ImportError:
           installer.status("...BitsandBytes")
-          os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+          #os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
           #run_sp("export LD_LIBRARY_PATH=/usr/lib/wsl/lib:$LD_LIBRARY_PATH", realtime=False)
-          if sys.platform.startswith("win"):
-              run_sp("pip install bitsandbytes-windows", realtime=False)
-          else:
-              run_sp("pip install --upgrade bitsandbytes", realtime=True) #~=0.38
+          run_sp("pip install --upgrade bitsandbytes", realtime=True) #~=0.38
           import bitsandbytes
           pass
     try:
@@ -42180,13 +42178,10 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
     use_8bit = pixart_alpha_prefs['use_8bit']
     if use_8bit:
         try:
-          os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+          #os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
           import bitsandbytes
         except ModuleNotFoundError:
-          if sys.platform.startswith("win"):
-              run_sp("pip install bitsandbytes-windows", realtime=False)
-          else:
-              run_sp("pip install bitsandbytes", realtime=False, upgrade=True)
+          run_sp("pip install bitsandbytes", realtime=False, upgrade=True)
           import bitsandbytes
           pass
         #pip_install("bitsandbytes", q=True, installer=installer)
@@ -42432,13 +42427,10 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
     use_8bit = pixart_sigma_prefs['use_8bit']
     if use_8bit:
         try:
-          os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+          #os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
           import bitsandbytes
         except ModuleNotFoundError:
-          if sys.platform.startswith("win"):
-              run_sp("pip install bitsandbytes-windows", realtime=False)
-          else:
-              run_sp("pip install bitsandbytes", realtime=False, upgrade=True)
+          run_sp("pip install bitsandbytes", realtime=False, upgrade=True)
           import bitsandbytes
           pass
         #pip_install("bitsandbytes", q=True, installer=installer)
@@ -50919,14 +50911,11 @@ def run_instantmesh(page):
             run_sp("pip install triton", realtime=False)
         pass
     try:
-        os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
+        #os.environ['LD_LIBRARY_PATH'] += "/usr/lib/wsl/lib:$LD_LIBRARY_PATH"
         import bitsandbytes
     except ModuleNotFoundError:
         installer.status("...installing bitsandbytes")
-        if sys.platform.startswith("win"):
-            run_sp("pip install bitsandbytes-windows", realtime=False)
-        else:
-            run_sp("pip install bitsandbytes", realtime=False)
+        run_sp("pip install bitsandbytes", realtime=False)
         pass
     try:
         import xformers
