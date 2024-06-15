@@ -322,7 +322,7 @@ def load_settings_file():
       'SDXL_custom_models': [],
       'use_SD3': True,
       'SD3_compel': False,
-      'SD3_model': 'Stable-Diffusion-3 Medium',
+      'SD3_model': 'Stable Diffusion 3 Medium',
       'SD3_custom_model': '',
       'SD3_custom_models': [],
       'SD3_cpu_offload': True,
@@ -1806,7 +1806,7 @@ def buildInstallers(page):
 
   #install_megapipe = Switcher(label="Install Stable Diffusion txt2image, img2img & Inpaint Mega Pipeline", value=prefs['install_megapipe'], disabled=status['installed_megapipe'], on_change=lambda e:changed(e, 'install_megapipe'))
   #install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipeline (/w Long Prompt Weighting)", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=lambda e:changed(e, 'install_text2img'), tooltip="The best general purpose component. Create images with long prompts, weights & models")
-  install_text2img = Switcher(label="Install Stable Diffusion text2image, image2image & Inpaint Pipelines", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=toggle_SD, tooltip="Best general-purpose component for most SD models <= 2.1, but don't need if using SDXL.")
+  install_text2img = Switcher(label="Install Stable Diffusion 1.5-2.1 text2image, image2image & Inpaint Pipelines", value=prefs['install_text2img'], disabled=status['installed_txt2img'], on_change=toggle_SD, tooltip="Best general-purpose component for most SD models <= 2.1, but don't need if using SDXL.")
   SD_compel = Checkbox(label="Use Compel Long Prompt Weighting Embeds with SD", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD_compel'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'SD_compel'))
   #SD_compel = Switcher(label="Use Compel Long Prompt Weighting Embeds with SD", tooltip="Re-weight different parts of a prompt string like positive+++ AND (bad negative)-- or (subject)1.3 syntax.", value=prefs['SD_compel'], on_change=lambda e:changed(e, 'SD_compel'))
   SD_params = Container(Column([SD_compel]), padding=padding.only(top=0, left=32), height=None if prefs['install_text2img'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -52303,7 +52303,7 @@ def run_kandinsky3(page, from_list=False, with_params=False):
         page.Kandinsky.controls = page.Kandinsky.controls[:1]
     progress = ProgressBar(bar_height=8)
     total_steps = kandinsky_3_prefs['steps']
-    def callback_fnc(step: int, timestep: int, latents: torch.FloatTensor) -> None: #(pipe, step, timestep, callback_kwargs):#
+    def callback_fnc(pipe, step, timestep, callback_kwargs):
       callback_fnc.has_been_called = True
       nonlocal progress, total_steps
       #total_steps = len(latents)
