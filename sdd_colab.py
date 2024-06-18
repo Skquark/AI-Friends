@@ -35871,7 +35871,7 @@ def run_audio_ldm2(page):
     import soundfile as sf
     import scipy
     if audioLDM2_prefs['save_mp3']:
-        pip_install("ffmpeg pydub", q=True, installer=installer)
+        pip_install("ffmpeg-python|ffmpeg pydub", q=True, installer=installer)
         import ffmpeg, pydub
     from diffusers import AudioLDM2Pipeline
     model_id = audioLDM2_prefs['model_name']
@@ -36158,7 +36158,7 @@ def run_zeta_editing(page):
         sys.path.append(audio_editing_dir)
     pip_install("tqdm soundfile progressbar einops scipy librosa==0.9.2", installer=installer)
     if zeta_editing_prefs['save_mp3']:
-        pip_install("ffmpeg pydub", q=True, installer=installer)
+        pip_install("ffmpeg-python|ffmpeg pydub", q=True, installer=installer)
         import ffmpeg, pydub
     #from diffusers import AudioLDM2Pipeline
     import torchaudio
@@ -37049,9 +37049,12 @@ def run_whisper(page):
         if audio_path.startswith("https://youtu") or 'youtube' in audio_path:
             try:
                 import ffmpeg
+                if 'ffmpeg-python' not in ffmpeg.__file__:
+                    run_sp("pip uninstall --yes ffmpeg ffmpeg-python")
+                    raise ImportError("Not ffmpeg-python")
             except ImportError as e:
                 installer.status("...installing ffmpeg")
-                run_sp("pip install -q ffmpeg", realtime=False)
+                run_sp("pip install -q ffmpeg-python", realtime=False)
                 pass
             try:
                 import yt_dlp
@@ -37109,7 +37112,7 @@ def run_whisper(page):
         local_path = audio_path
     
     if (local_path.endswith("mp4") or local_path.endswith("avi")):
-        pip_install("ffmpeg", installer=installer)
+        pip_install("ffmpeg-python|ffmpeg", installer=installer)
         import ffmpeg
         installer.status("...converting to mp3")
         video = ffmpeg.input(local_path)
@@ -37328,9 +37331,12 @@ def run_voice_fixer(page):
     if local_path.endswith("mp3"):
         try:
             import ffmpeg
+            if 'ffmpeg-python' not in ffmpeg.__file__:
+                run_sp("pip uninstall --yes ffmpeg ffmpeg-python")
+                raise ImportError("Not ffmpeg-python")
         except ImportError as e:
             installer.status("...installing ffmpeg")
-            run_sp("pip install -q ffmpeg", realtime=False)
+            run_sp("pip install -q ffmpeg-python", realtime=False)
             pass
         try:
             import pydub
@@ -48139,12 +48145,20 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
         ie_arg = {'image_encoder': image_encoder}
     if pipe_animatediff_sdxl == None:
         installer.status(f"...initialize AnimateDiff SDXL with {model_SDXL['name']} Model")
+        scheduler = DDIMScheduler.from_pretrained(
+          animatediff_sdxl_model,
+          subfolder="scheduler",
+          clip_sample=False,
+          timestep_spacing="linspace",
+          beta_schedule="linear",
+          steps_offset=1,
+        )
         try:
             adapter = MotionAdapter.from_pretrained(motion_module, torch_dtype=torch.float16)
-            pipe_animatediff_sdxl = AnimateDiffSDXLPipeline.from_pretrained(animatediff_sdxl_model, motion_adapter=adapter, torch_dtype=torch.float16, **variant, **ie_arg, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            pipe_animatediff_sdxl = AnimateDiffSDXLPipeline.from_pretrained(animatediff_sdxl_model, motion_adapter=adapter, scheduler=scheduler, torch_dtype=torch.float16, **variant, **ie_arg, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_animatediff_sdxl = DiffusionPipeline.from_pretrained(animatediff_sdxl_model, motion_adapter=adapter, custom_pipeline="pipeline_animatediff_video2video", cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             #pipe_animatediff_sdxl = AutoPipelineForVideo2Video.from_pretrained(animatediff_sdxl_model, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            pipe_animatediff_sdxl.scheduler = model_scheduler(animatediff_sdxl_model, clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
+            #pipe_animatediff_sdxl.scheduler = model_scheduler(animatediff_sdxl_model, clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
             #pipe_animatediff_sdxl.scheduler = DDIMScheduler.from_pretrained(animatediff_sdxl_model, subfolder="scheduler", clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
             #pipe_animatediff_sdxl = pipeline_scheduler(pipe_animatediff_sdxl)
             if prefs['vae_slicing']:
@@ -48171,10 +48185,6 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
             alert_msg(page, f"ERROR Initializing AnimateDiff SDXL...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
         status['loaded_animatediff_sdxl'] = animatediff_sdxl_model
-    else:
-        clear_pipes('animatediff_sdxl')
-        if prefs['scheduler_mode'] != status['loaded_scheduler']:
-            pipe_animatediff_sdxl.scheduler = model_scheduler(animatediff_sdxl_model, clip_sample=False, timestep_spacing="linspace", beta_schedule="linear", steps_offset=1)
     status['loaded_scheduler'] = prefs['scheduler_mode']
     '''
     motion_loras = []
@@ -48249,7 +48259,8 @@ def run_animatediff_sdxl(page, from_list=False, with_params=False):
                 clip_skip=animatediff_sdxl_prefs['clip_skip'],
                 #latent_interpolation_method=animatediff_sdxl_prefs['latent_interpolation_method'].lower(), # can be lerp, slerp, or your own callback
                 generator=generator,
-                callback=callback_fnc,
+                callback_on_step_end=callback_step,
+                #callback=callback_fnc,
                 **ip_adapter_arg,
             ).frames
         except Exception as e:
@@ -55065,6 +55076,9 @@ def interpolate_video(frames_dir, input_fps=None, output_fps=30, output_video=No
 def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=30, output_video=None, installer=None, denoise=False, sharpen=False, deflicker=False, metadata=None):
     try:
         import ffmpeg
+        if 'ffmpeg-python' not in ffmpeg.__file__:
+          run_sp("pip uninstall --yes ffmpeg ffmpeg-python")
+          raise ImportError("Not ffmpeg-python")
     except ImportError as e:
         if installer is not None: installer.status("...installing ffmpeg")
         run_sp("pip install -q ffmpeg-python", realtime=False)
@@ -55075,6 +55089,7 @@ def frames_to_video(frames_dir, pattern="%04d.png", input_fps=None, output_fps=3
     stat("frames_to_video")
     input_path = os.path.join(frames_dir, pattern)
     video = ffmpeg.input(input_path, framerate=input_fps or output_fps)
+    video = video.filter('fps', fps=input_fps or output_fps, round='up')
     #video = video.pix_fmt('yuv420p')
     if input_fps is not None and input_fps != output_fps:
         stat("changing fps")
@@ -55277,7 +55292,7 @@ class AudioPlayer(Stack):
         fig, ax = plt.subplots(figsize=(15, 1))
         librosa.display.specshow(CQT_db, sr=sr, x_axis=None, y_axis=None, ax=ax, cmap='inferno')
         ax.set_axis_off()
-        ax.text(0.01, 0.05, self.display, fontsize=11, fontweight='bold', ha='left', va='bottom', transform=ax.transAxes, color='white' if prefs['theme_mode'] == 'Dark' else 'black', bbox=dict(facecolor='none', edgecolor='none'))
+        #ax.text(0.01, 0.05, self.display, fontsize=11, fontweight='bold', ha='left', va='bottom', transform=ax.transAxes, color='white' if prefs['theme_mode'] == 'Dark' else 'black', bbox=dict(facecolor='none', edgecolor='none'))
         #ax.set_title(self.display)
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0, transparent=True)
@@ -55287,7 +55302,7 @@ class AudioPlayer(Stack):
         return base64_string
     def build(self):
         if self.loaded: #Hack because it was building twice
-            return Row([self.button, self.wav_img])#self.row
+            return Row([self.button, Column([self.wav_img, Text(self.display)], spacing=0, tight=True)])#self.row
         self.icon = icons.PLAY_CIRCLE_FILLED
         dur = ""#dt.strftime('%H:%M:%S.%f')[:-3]
         self.button = IconButton(icon=self.icon, icon_size=48, tooltip=f"Duration: {dur}", on_click=self.play_audio, data=self.data)

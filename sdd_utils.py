@@ -117,6 +117,7 @@ finetuned_models = [
     {"name": "Xpero End1ess", "path": "sakistriker/XperoEnd1essModel", "prefix": ""},
     {"name": "Pepe Diffuser", "path": "Dipl0/pepe-diffuser", "prefix": ""},
     {"name": "Pastel Mix", "path": "andite/pastel-mix", "prefix": ""},
+    {"name": "Pony Diffusion 4", "path": "AstraliteHeart/pony-diffusion-v4", "prefix": ""},
     {"name": "Counterfeit v2.5", "path": "gsdf/Counterfeit-V2.5", "prefix": ""},
     {"name": "Basil Mix", "path": "nuigurumi/basil_mix", "prefix": ""},
     {"name": "Inkpunk Diffusion", "path": "Envvi/Inkpunk-Diffusion", "prefix": "nvinkpunk "},
