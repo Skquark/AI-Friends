@@ -490,10 +490,13 @@ SDXL_LoRA_models = [
 ]
 SD3_models = [
     {"name": "Stable Diffusion 3 Medium", "path": "stabilityai/stable-diffusion-3-medium-diffusers"},
+    {"name": "SD3-Reality-Mix", "path": "ptx0/sd3-reality-mix"},
 ]
 SD3_LoRA_models = [
     {"name": "JujutsuKaisen-style", "path": "adbrasi/jujutsuKaisen-style-sd3", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
+    {"name": "Celebrities", "path": "ptx0/sd3-lora-celebrities", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
     {"name": "Huggy", "path": "linoyts/huggy_sd3_lora_1500", "weights": "pytorch_lora_weights.safetensors", "prefix": "a can of matcha flavored pringles"},
+    {"name": "Girl", "path": "adbrasi/girl-trained-sd3", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of pmy girl"},
     {"name": "Girl2", "path": "adbrasi/girl2-trained-sd3", "weights": "pytorch_lora_weights.safetensors", "prefix": "a photo of pmy girl"},
     {"name": "Green-BG", "path": "sergon19/green_bg_LoRa10-SDX3-plus", "weights": "pytorch_lora_weights.safetensors", "prefix": "sgc style"},
     {"name": "sd3-lora-test", "path": "ptx0/sd3-lora-test", "weights": "pytorch_lora_weights.safetensors", "prefix": ""},
