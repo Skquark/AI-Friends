@@ -122,7 +122,7 @@ def wget(url, to):
 try:
   import flet
 except ImportError as e:
-  run_sp("pip install --upgrade --quiet flet")
+  run_sp("pip install --upgrade --quiet flet==0.22.1")
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass

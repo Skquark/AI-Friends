@@ -119,7 +119,7 @@ try:
   import flet
 except ImportError as e:
   if newest_flet:
-    run_sp("pip install --upgrade flet", realtime=False)
+    run_sp("pip install --upgrade flet==0.22.1", realtime=False)
     #0.19.0, 0.21.2, 0.22.0, 0.22.1, 0.23.0.dev2664, 0.23.0.dev2665, 0.23.0.dev2666, 0.23.0.dev2679, 0.23.0.dev2697, 0.23.0.dev2734, 0.23.0.dev2744, 0.23.0.dev2766, 0.23.0.dev2768, 0.23.0.dev2868, 0.23.0.dev2870, 0.23.0.dev2872, 0.23.0.dev2880)
   else:
     run_sp("pip install --upgrade flet==0.3.2", realtime=False)
