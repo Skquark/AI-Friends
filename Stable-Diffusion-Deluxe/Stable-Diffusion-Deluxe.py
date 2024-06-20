@@ -121,8 +121,11 @@ def wget(url, to):
 
 try:
   import flet
+  from packaging import version
+  if version.parse(flet.version.version) < version.parse("0.23.1"):
+    raise ImportError("Must upgrade Flet")
 except ImportError as e:
-  run_sp("pip install --upgrade --quiet flet==0.22.1")
+  run_sp("pip install --upgrade --quiet flet==0.23.1")
   #run_sp("pip install -i https://test.pypi.org/simple/ flet")
   #run_sp("pip install --upgrade git+https://github.com/flet-dev/flet.git@controls-s3#egg=flet-dev")
   pass
@@ -1323,7 +1326,7 @@ def buildSettings(page):
       actions_alignment=ft.MainAxisAlignment.END,
       on_dismiss=change_color,
   )
-  page.dialog = d
+  page.overlay.append(d)
   
   def toggle_nsfw(e):
     #TODO: Add Popup alert with disclaimer, age verification and I Accept the Terms
@@ -1407,12 +1410,12 @@ def buildSettings(page):
       content=Column([
         Header("⚙️   Stable Diffusion Deluxe Settings & Preferences"),
         ResponsiveRow([image_output, optional_cache_dir], run_spacing=2),
-        Row([file_prefix, file_suffix_seed]) if (page.width if page.web else page.window_width) > 500 else Column([file_prefix, file_suffix_seed]),
+        Row([file_prefix, file_suffix_seed]) if (page.width if page.web else page.window.width) > 500 else Column([file_prefix, file_suffix_seed]),
         Row([file_max_length, file_allowSpace]),
         file_datetime,
         Row([disable_nsfw_filter, retry_attempts]),
         save_image_metadata,
-        Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window_width) > 712 else Column([meta_ArtistName, meta_Copyright]),
+        Row([meta_ArtistName, meta_Copyright]) if (page.width if page.web else page.window.width) > 712 else Column([meta_ArtistName, meta_Copyright]),
         Row([save_config_in_metadata, save_config_json]),
         Row([theme_mode, theme_color, color_icon]),
         Row([enable_sounds, start_in_installation, show_stats, stats_settings]),
@@ -1512,8 +1515,8 @@ def alert_msg(page:Page, msg:str, content=None, okay="", sound=True, width=None,
         content = [content]
     content = [Text(c) if isinstance(c, str) else c for c in content]
     actions = buttons + [okay_button] if buttons else [debug_button, okay_button]
-    page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=actions, actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window_width) - 200)
-    page.dialog = page.alert_dlg
+    page.alert_dlg = AlertDialog(title=Text(msg), content=Column(content, scroll=ScrollMode.AUTO), actions=actions, actions_alignment=MainAxisAlignment.END)#, width=None if not wide else (page.width if page.web else page.window.width) - 200)
+    page.overlay.append(page.alert_dlg)
     page.alert_dlg.open = True
     try:
         page.update()
@@ -2068,7 +2071,7 @@ def buildInstallers(page):
           page.banner.content.controls = []
         if show_progress:
           page.banner.content.controls.append(Row([Stack([Icon(icons.DOWNLOADING, color=colors.AMBER, size=48), Container(content=ProgressRing(), padding=padding.only(top=6, left=6), alignment=alignment.center)]), Container(content=Text("  " + msg.strip() , weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)) ]))
-          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center if (page.width if page.web else page.window_width) > 768 else alignment.center_right)]))
+          #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center if (page.width if page.web else page.window.width) > 768 else alignment.center_right)]))
           #page.banner.content.controls.append(Stack([Container(content=Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.ON_SECONDARY_CONTAINER, size=18), alignment=alignment.bottom_left, padding=padding.only(top=6)), Container(content=ProgressRing(), alignment=alignment.center)]))
           #page.banner.content.controls.append(Row([Text(msg.strip() + "  ", weight=FontWeight.BOLD, color=colors.GREEN_600), ProgressRing()]))
         else:
@@ -3069,7 +3072,7 @@ def editPrompt(e):
         #e.page.dialog = None
     def open_dlg(e):
         nonlocal edit_dlg
-        e.page.dialog = edit_dlg
+        e.page.overlay.append(edit_dlg)
         edit_dlg.open = True
         e.page.update()
     def save_dlg(e):
@@ -3226,10 +3229,10 @@ def editPrompt(e):
           width_slider, height_slider, img_block,
           use_clip_guided_model, clip_block,
           #Row([Column([batch_size, n_iterations, steps, eta, seed,]), Column([guidance, width_slider, height_slider, Divider(height=9, thickness=2), (img_block if prefs['install_img2img'] else Container(content=None))])],),
-        ], alignment=MainAxisAlignment.START, width=(e.page.width if e.page.web else e.page.window_width) - 200, height=(e.page.height if e.page.web else e.page.window_height) - 100, scroll=ScrollMode.AUTO), width=(e.page.width if e.page.web else e.page.window_width) - 200, height=(e.page.height if e.page.web else e.page.window_height) - 100),
+        ], alignment=MainAxisAlignment.START, width=(e.page.width if e.page.web else e.page.window.width) - 200, height=(e.page.height if e.page.web else e.page.window.height) - 100, scroll=ScrollMode.AUTO), width=(e.page.width if e.page.web else e.page.window.width) - 200, height=(e.page.height if e.page.web else e.page.window.height) - 100),
         actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
     #open_dlg(e)
-    e.page.dialog = edit_dlg
+    e.page.overlay.append(edit_dlg)
     edit_dlg.open = True
     e.page.update()
 
@@ -3250,7 +3253,7 @@ def buildPromptsList(page):
           Text('After adding your prompts, click on a prompt line to edit all the parameters of it. There you can add negative prompts like "lowres, bad_anatomy, error_body, bad_fingers, missing_fingers, error_lighting, jpeg_artifacts, signature, watermark, username, blurry" or anything else you don\'t want. Use Prompt Helpers -> Negatives to get a good list of negative prompts.'),
           Text('Then you can override all the parameters for each individual prompt, playing with variations of sizes, steps, guidance scale, init & mask image, seeds, etc.  In the prompts list, you can press the ... options button to duplicate, delete and move prompts in the batch queue.  When ready, Run Diffusion on Prompts...')
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😀  Very nice... ", on_click=close_help_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = prompt_help_dlg
+      page.overlay.append(prompt_help_dlg)
       prompt_help_dlg.open = True
       page.update()
   def paste_prompts(e):
@@ -3277,8 +3280,8 @@ def buildPromptsList(page):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Prompts List with multiple lines", expand=True, filled=True, min_lines=30, multiline=True, autofocus=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100, scroll="none"), width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Add to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = dlg_paste
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste or Write Prompts List from Simple Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window.width) - 180, height=(page.height if page.web else page.window.height) - 100, scroll="none"), width=(page.width if page.web else page.window.width) - 180, height=(page.height if page.web else page.window.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Add to Prompts List ", size=19, weight=FontWeight.BOLD), on_click=save_prompts_list)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(dlg_paste)
       dlg_paste.open = True
       page.update()
   def copy_prompts(e):
@@ -3295,8 +3298,8 @@ def buildPromptsList(page):
           p = d.prompt[0] if type(d.prompt) == list else d.prompt if bool(d.prompt) else d['prompt'] if 'prompt' in d else d.arg['prompt'] if 'prompt' in d.arg else ''
           text_list += f"{p}\n"
       enter_text = TextField(label="Prompts on multiple lines", value=text_list.strip(), expand=True, filled=True, multiline=True, autofocus=True)
-      dlg_copy = AlertDialog(modal=False, title=Text("📝  Prompts List as Plain Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100, scroll="none"), width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Prompts List to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_prompts_list(text_list))], actions_alignment=MainAxisAlignment.END)
-      page.dialog = dlg_copy
+      dlg_copy = AlertDialog(modal=False, title=Text("📝  Prompts List as Plain Text"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window.width) - 180, height=(page.height if page.web else page.window.height) - 100, scroll="none"), width=(page.width if page.web else page.window.width) - 180, height=(page.height if page.web else page.window.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Prompts List to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_prompts_list(text_list))], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(dlg_copy)
       dlg_copy.open = True
       page.update()
   def delete_prompt(e):
@@ -3371,9 +3374,9 @@ def buildPromptsList(page):
       #end_init_image_strength = Slider(min=0.1, max=0.9, divisions=16, label="{value}", round=2, value=float(open_dream['init_image_strength']), col={'md':6}, tooltip="The Ending init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
       start_init_image_strength = SliderRow(label="Start Init Strength", min=0.0, max=1.0, divisions=20, round=2, value=float(open_dream['init_image_strength']), col={'md':6}, tooltip="Starting init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
       end_init_image_strength = SliderRow(label="End Init Strength", min=0.0, max=1.0, divisions=20, round=2, value=float(open_dream['init_image_strength']), col={'md':6}, tooltip="Ending init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
-      guidance_scale_row = ResponsiveRow([start_guidance_scale, end_guidance_scale], visible=False, width=(e.page.width if e.page.web else e.page.window_width) - 200)
-      steps_row = ResponsiveRow([start_steps, end_steps], visible=False, width=(e.page.width if e.page.web else e.page.window_width) - 200)
-      init_image_strength_row = ResponsiveRow([start_init_image_strength, end_init_image_strength], visible=False, width=(e.page.width if e.page.web else e.page.window_width) - 200)
+      guidance_scale_row = ResponsiveRow([start_guidance_scale, end_guidance_scale], visible=False, width=(e.page.width if e.page.web else e.page.window.width) - 200)
+      steps_row = ResponsiveRow([start_steps, end_steps], visible=False, width=(e.page.width if e.page.web else e.page.window.width) - 200)
+      init_image_strength_row = ResponsiveRow([start_init_image_strength, end_init_image_strength], visible=False, width=(e.page.width if e.page.web else e.page.window.width) - 200)
       duplicate_modal = AlertDialog(modal=False, title=Text("🌀  Duplicate Prompt Multiple Times"), content=Container(Column([
             Container(content=None, height=7),
             NumberPicker(label="Number of Copies: ", min=1, max=99, value=num_times, on_change=change_num),
@@ -3381,7 +3384,7 @@ def buildPromptsList(page):
             transition_steps, steps_row,
             transition_init_image_strength, init_image_strength_row
           ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":bowling:") + "  Duplicate Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_dlg)], actions_alignment=MainAxisAlignment.END)
-      e.page.dialog = duplicate_modal
+      e.page.overlay.append(duplicate_modal)
       duplicate_modal.open = True
       e.page.update()
   def move_down(e):
@@ -3602,7 +3605,7 @@ def buildPromptsList(page):
   page.prompts_list = prompts_list
   prompt_text = TextField(label="Prompt Text", suffix=IconButton(icons.CLEAR, on_click=clear_prompt), autofocus=True, filled=True, multiline=True, max_lines=6, on_submit=add_prompt, col={'lg':9})
   negative_prompt_text = TextField(label="Segmented Weights 1 | -0.7 | 1.2" if prefs['use_composable'] and status['installed_composable'] else "Negative Prompt Text", filled=True, multiline=True, max_lines=4, value=prefs['negative_prompt'], on_change=lambda e:changed(e,'negative_prompt'), suffix=IconButton(icons.CLEAR, on_click=clear_negative_prompt), col={'lg':3})
-  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.width if page.web else page.window_width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
+  add_prompt_button = ElevatedButton(content=Text(value="➕  Add" + (" Prompt" if (page.width if page.web else page.window.width) > 720 else ""), size=17, weight=FontWeight.BOLD), height=52, on_click=add_prompt)
   prompt_help_button = IconButton(icons.HELP_OUTLINE, tooltip="Help with Prompt Creation", on_click=prompt_help)
   copy_prompts_button = IconButton(icons.COPY_ALL, tooltip="Save Prompts as Plain-Text List", on_click=copy_prompts)
   paste_prompts_button = IconButton(icons.CONTENT_PASTE, tooltip="Load Prompts from Plain-Text List", on_click=paste_prompts)
@@ -4112,8 +4115,8 @@ superprompt_prefs = {
     'seed': 0,
     'amount': 1,
     'AI_temperature': 0.5,
-    'top_p': 8,
-    'top_k': 1,
+    'top_p': 1,
+    'top_k': 50,
     'max_new_tokens': 512,
     'repetition_penalty': 1.2,
     'random_artists': 0,
@@ -4159,7 +4162,7 @@ def buildSuperPrompt(page):
       superprompt_list_buttons.update()
     AI_temperature = Row([Text("AI Temperature:"), Slider(label="{value}", min=0, max=1, divisions=10, round=1, expand=True, tooltip="The value used to module the next token probabilities", value=superprompt_prefs['AI_temperature'], on_change=lambda e: changed(e, 'AI_temperature'))], col={'lg':6})
     top_k = Row([Text("Top-K Samples:"), Slider(label="{value}", min=1, max=100, divisions=99, expand=True, tooltip="Higher k means more diverse outputs by considering a range of tokens. Number of highest probability vocabulary tokens to keep for top-k-filtering", value=superprompt_prefs['top_k'], on_change=lambda e: changed(e, 'top_k'))], col={'lg':6})
-    top_p = Row([Text("Top-P Samples:"), Slider(label="{value}", min=0, max=2, divisions=12, expand=True, tooltip="Higher values sample more low-probability tokens.", value=superprompt_prefs['top_p'], on_change=lambda e: changed(e, 'top_p'))], col={'lg':6})
+    top_p = Row([Text("Top-P Samples:"), Slider(label="{value}", min=0, max=2, divisions=40, round=2, expand=True, tooltip="Higher values sample more low-probability tokens.", value=superprompt_prefs['top_p'], on_change=lambda e: changed(e, 'top_p'))], col={'lg':6})
     max_new_tokens = SliderRow(label="Max New Tokens", min=250, max=512, divisions=262, pref=superprompt_prefs, key='max_new_tokens', col={'lg':6})
     repetition_penalty = SliderRow(label="Repetition Penalty", min=0, max=2, divisions=8, round=2, pref=superprompt_prefs, key='repetition_penalty', col={'lg':6})
     seed = TextField(label="Seed", value=superprompt_prefs['seed'], keyboard_type=KeyboardType.NUMBER, width = 90, on_change=lambda e:changed(e,'seed', ptype="int"))
@@ -4262,7 +4265,7 @@ So in Subject try something like: `A _color_ _noun-general_ that is _adj-beauty_
       instruction_alert.open = False
       page.update()
     instruction_alert = AlertDialog(title=Text("🍜  Noodle Soup Prompt Variables Instructions"), content=Column([Markdown(NSP_markdown, extension_set="gitHubWeb", on_tap_link=open_url)], scroll=ScrollMode.AUTO), actions=[TextButton("🍲  Good Soup! ", on_click=close_NSP_dlg)], actions_alignment=MainAxisAlignment.END,)
-    page.dialog = instruction_alert
+    page.overlay.append(instruction_alert)
     instruction_alert.open = True
     page.update()
 
@@ -4344,7 +4347,7 @@ def buildPromptStyler(page):
             Text("This allows you to take a simple base prompt and apply a preset style to the the positive and negative prompt variables.  You can then add that stylized prompt to your Prompts List, or copy/paste it for other Image Generators."),
             Markdown("Credit goes to [Prompt Styler](https://github.com/twri/sdxl_prompt_styler) by twri and [Fooocus UI](https://github.com/lllyasviel/Fooocus) by Illyasviel for the Styler presets, which is a pretty good GUI alternative for easy SDXL generation. Launch [Fooocus Colab](https://colab.research.google.com/github/camenduru/Fooocus-colab/blob/main/Fooocus_colab.ipynb) and read this [Fooocus Style Reference Doc](https://docs.google.com/spreadsheets/d/1AF5bd-fALxlu0lguZQiQVn1yZwxUiBJGyh2eyJJWl74/edit#gid=0)...", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("💅  So Stylish... ", on_click=close_styler_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = styler_help_dlg
+        page.overlay.append(styler_help_dlg)
         styler_help_dlg.open = True
         page.update()
     def toggle_multi(e):
@@ -4881,7 +4884,7 @@ def buildImage2Text(page):
           Text("You have 4 methods to get a caption prompt from you input image. Using BLIP Interrogation Mode with Best, Classic or Fast will use the older BLIP models that work great but takes longer to run. The latest is Google Gemini Pro Vision API is very impressive and fast, using your Bard API key for free. The Fuyu-8B is a much faster captioning technique using Transformers, and can give Detailed Coco-style prompts or simpler captioning. You can also use AIHorde to process the caption interrogation in the cloud using Stable Horde services without using your GPU."),
           Text("Fuyu-8B by AdeptAI Labs is a small version of the multimodal model. It has a much simpler architecture and training procedure than other multi-modal models, which makes it easier to understand, scale, and deploy. It’s designed from the ground up for digital agents, so it can support arbitrary image resolutions, answer questions about graphs and diagrams, answer UI-based questions, and do fine-grained localization on screen images. It’s fast - we can get responses for large images in less than 100 milliseconds."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😪  Okay then... ", on_click=close_i2t_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = i2t_help_dlg
+      page.overlay.append(i2t_help_dlg)
       i2t_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -5148,7 +5151,7 @@ def buildBLIP2Image2Text(page):
           Text("Bootstrapping Language-Image Pre-training with Frozen Image Encoders and Large Language Model", weight=FontWeight.BOLD),
           Text("BLIP-2 is a generic and efficient pre-training strategy that bootstraps vision-language pre-training from off-the-shelf frozen pre-trained image encoders and frozen large language models. BLIP-2 bridges the modality gap with a lightweight Querying Transformer, which is pre-trained in two stages. The first stage bootstraps vision-language representation learning from a frozen image encoder. The second stage bootstraps vision-to-language generative learning from a frozen language model. BLIP-2 achieves state-of-the-art performance on various vision-language tasks, despite having significantly fewer trainable parameters than existing methods. For example, our model outperforms Flamingo80B by 8.7% on zero-shot VQAv2 with 54x fewer trainable parameters. We also demonstrate the model's emerging capabilities of zero-shot image-to-text generation that can follow natural language instructions."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😑  Alright, got it... ", on_click=close_BLIP2_i2t_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = BLIP2_i2t_help_dlg
+      page.overlay.append(BLIP2_i2t_help_dlg)
       BLIP2_i2t_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -5351,7 +5354,7 @@ def buildDanceDiffusion(page):
         dance_help_dlg = AlertDialog(title=Text("💁   Help with Dance Diffusion"), content=Column([
             Text("HarmonAI Dance Diffusion"),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("👄  Sounds Good...I hope ", on_click=close_dance_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = dance_help_dlg
+        page.overlay.append(dance_help_dlg)
         dance_help_dlg.open = True
         page.update()
     def delete_audio(e):
@@ -5589,7 +5592,7 @@ def buildAudioDiffusion(page):
             Text("Audio Diffusion leverages the recent advances in image generation using diffusion models by converting audio samples to and from mel spectrogram images."),
             Markdown("The original codebase of this implementation can be found [here](https://github.com/teticio/audio-diffusion), including training scripts and example notebooks.\n[Audio Diffusion](https://github.com/teticio/audio-diffusion) by Robert Dargavel Smith.", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🔊  Sounds Groovie... ", on_click=close_audio_diffusion_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = audio_diffusion_help_dlg
+        page.overlay.append(audio_diffusion_help_dlg)
         audio_diffusion_help_dlg.open = True
         page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -5719,7 +5722,7 @@ def buildMusicGen(page):
             Text("Small: This model has 300M parameters and can only generate music from text. It is the quickest model, however it may not yield the best results.\nMedium: This model has 1.5B parameters and can generate music from text as well. It is slower than the little model, but it produces better results.\nMelody: This 1.5B parameter model can generate music from both text and melody. It is the slowest model, but it produces the best results.\nLarge: This model has 3.3B parameters and can only generate music from text. It is the slowest model, but it produces the best results."),
             Markdown("[GitHub Code](https://github.com/facebookresearch/audiocraft) | [Paper](https://arxiv.org/abs/2306.05284)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🥁  Let's hear it... ", on_click=close_music_gen_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = music_gen_help_dlg
+        page.overlay.append(music_gen_help_dlg)
         music_gen_help_dlg.open = True
         page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -5835,7 +5838,7 @@ def buildDreamFusion(page):
           Text('If CUDA OOM, try to decrease Max_steps and Training_nerf_resolution.'),
           Text('If the NeRF fails to learn anything (empty scene, only background), try to decrease Lambda_entropy which regularizes the learned opacity.')
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😊  So Exciting... ", on_click=close_df_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = df_help_dlg
+      page.overlay.append(df_help_dlg)
       df_help_dlg.open = True
       page.update()
     prompt_text = TextField(label="Prompt Text", value=dreamfusion_prefs['prompt_text'], filled=True, on_change=lambda e:changed(e,'prompt_text'))
@@ -5904,7 +5907,7 @@ def buildPoint_E(page):
           Text("The Point-E models are trained for use as point cloud diffusion models and SDF regression models. Our image-conditional models are often capable of producing coherent 3D point clouds, given a single rendering of a 3D object. However, the models sometimes fail to do so, either producing incorrect geometry where the rendering is occluded, or producing geometry that is inconsistent with visible parts of the rendering. The resulting point clouds are relatively low-resolution, and are often noisy and contain defects such as outliers or cracks. Our text-conditional model is sometimes capable of producing 3D point clouds which can be recognized as the provided text description, especially when the text description is simple. However, we find that this model fails to generalize to complex prompts or unusual objects."),
           Text("While recent work on text-conditional 3D object generation has shown promising results, the state-of-the-art methods typically require multiple GPU-hours to produce a single sample. This is in stark contrast to state-of-the-art generative image models, which produce samples in a number of seconds or minutes. In this paper, we explore an alternative method for 3D object generation which produces 3D models in only 1-2 minutes on a single GPU. Our method first generates a single synthetic view using a text-to-image diffusion model, and then produces a 3D point cloud using a second diffusion model which conditions on the generated image. While our method still falls short of the state-of-the-art in terms of sample quality, it is one to two orders of magnitude faster to sample from, offering a practical trade-off for some use cases. We release our pre-trained point cloud diffusion models, as well as evaluation code and models for you to use."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("☝️  Good Points... ", on_click=close_df_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = df_help_dlg
+      page.overlay.append(df_help_dlg)
       df_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -6005,7 +6008,7 @@ def buildShap_E(page):
           Text("We present Shap-E, a conditional generative model for 3D assets. Unlike recent work on 3D generative models which produce a single output representation, Shap-E directly generates the parameters of implicit functions that can be rendered as both textured meshes and neural radiance fields. We train Shap-E in two stages: first, we train an encoder that deterministically maps 3D assets into the parameters of an implicit function; second, we train a conditional diffusion model on outputs of the encoder. When trained on a large dataset of paired 3D and text data, our resulting models are capable of generating complex and diverse 3D assets in a matter of seconds. When compared to Point-E, an explicit generative model over point clouds, Shap-E converges faster and reaches comparable or better sample quality despite modeling a higher-dimensional, multi-representation output space."),
           Markdown("[GitHub Page](https://github.com/openai/shap-e) - [Read the Paper](https://arxiv.org/pdf/2305.02463.pdf)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🚴  Shaping up... ", on_click=close_df_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = df_help_dlg
+      page.overlay.append(df_help_dlg)
       df_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -6111,7 +6114,7 @@ def buildZoeDepth(page):
           Text("Give it any of your favorite images and create a 3D glb file from the depth map to import into your 3D Modeling program with texture.... Simple as that, no prompt needed."),
           Markdown("[Paper](https://arxiv.org/abs/2302.12288) | [GitHub](https://github.com/isl-org/ZoeDepth) | [HuggingFace Space](https://huggingface.co/spaces/shariqfarooq/ZoeDepth)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧊  The depths we go... ", on_click=close_zoe_depth_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = zoe_depth_help_dlg
+      page.overlay.append(zoe_depth_help_dlg)
       zoe_depth_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image", pref=zoe_depth_prefs, key='init_image', page=page)
@@ -6169,7 +6172,7 @@ def buildMarigoldDepth(page):
           Markdown("[Project Page](https://marigoldmonodepth.github.io) | [Paper](https://arxiv.org/abs/2312.02145) | [GitHub](https://github.com/prs-eth/marigold) | [HuggingFace Space](https://huggingface.co/spaces/toshas/marigold)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("Credits go to [Bingxin Ke](http://www.kebingxin.com/), [Anton Obukhov](https://www.obukhov.ai/), [Shengyu Huang](https://shengyuh.github.io/), [Nando Metzger](https://nandometzger.github.io/), [Rodrigo Caye Daudt](https://rcdaudt.github.io/), [Konrad Schindler](https://scholar.google.com/citations?user=FZuNgqIAAAAJ&hl=en), [Tianfu Wang](https://tianfwang.github.io/), [Kevin Qu](https://www.linkedin.com/in/kevin-qu-b3417621b/?locale=en_US), [YiYi Xu](https://yiyixuxu.github.io/) and [Sayak Paul](https://sayak.dev/).", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧊  The depths we go... ", on_click=close_marigold_depth_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = marigold_depth_help_dlg
+      page.overlay.append(marigold_depth_help_dlg)
       marigold_depth_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image", pref=marigold_depth_prefs, key='init_image', page=page)
@@ -6232,7 +6235,7 @@ def buildTripo(page):
           Markdown("[HuggingFace Space](https://huggingface.co/spaces/stabilityai/TripoSR) | [Model Card](https://huggingface.co/stabilityai/TripoSR) | [GitHub](https://github.com/VAST-AI-Research/TripoSR)| [Tripo3D.ai](https://www.tripo3d.ai/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Tochilkin, Dmitry and Pankratz, David and Liu, Zexiang and Huang, Zixuan and and Letts, Adam and Li, Yangguang and Liang, Ding and Laforte, Christian and Jampani, Varun and Cao, Yan-Pei and Stability.ai"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("💺  What a Trip...Ohh.", on_click=close_tripo_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = tripo_help_dlg
+      page.overlay.append(tripo_help_dlg)
       tripo_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image", pref=tripo_prefs, key='init_image', filled=True, page=page)
@@ -6292,7 +6295,7 @@ def buildInstantMesh(page):
           Markdown("[HuggingFace Space](https://huggingface.co/spaces/TencentARC/InstantMesh) | [Model Card](https://huggingface.co/TencentARC/InstantMesh) | [GitHub](https://github.com/TencentARC/InstantMesh)| [InstantMesh Paper](https://arxiv.org/abs/2404.07191)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Jiale Xu, Weihao Cheng, Yiming Gao, Xintao Wang, Shenghua Gao, Ying Shan"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("💙  Insta-Cool", on_click=close_instantmesh_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = instantmesh_help_dlg
+      page.overlay.append(instantmesh_help_dlg)
       instantmesh_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image (clear background = better results)", pref=instantmesh_prefs, key='init_image', filled=True, page=page)
@@ -6355,7 +6358,7 @@ def buildSplatterImage(page):
           Markdown("[Project Page](https://szymanowiczs.github.io/splatter-image) | [HuggingFace Space](https://huggingface.co/spaces/szymanowiczs/splatter_image) | [Model Card](https://huggingface.co/szymanowiczs/splatter-image-v1) | [GitHub](https://github.com/szymanowiczs/splatter-image) | [SplatterImage Paper](https://arxiv.org/abs/2312.13150) | [Video](https://youtu.be/pcKTf9SVh4g)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Stanislaw Szymanowicz, Christian Rupprecht, Andrea Vedaldi and Visual Geometry Group - University of Oxford"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("💙  Splattastic!", on_click=close_splatter_image_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = splatter_image_help_dlg
+      page.overlay.append(splatter_image_help_dlg)
       splatter_image_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image (clear background = better results)", pref=splatter_image_prefs, key='init_image', filled=True, page=page)
@@ -6417,7 +6420,7 @@ def buildCRM(page):
           Markdown("[HuggingFace Space](https://huggingface.co/spaces/Zhengyi/CRM) | [Model Card](https://huggingface.co/Zhengyi/CRM) | [GitHub](https://github.com/thu-ml/CRM)| [CRM Project Page](https://ml.cs.tsinghua.edu.cn/~zhengyi/CRM/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Zhengyi Wang, Yikai Wang, Yifei Chen, Chendong Xiang, Shuo Chen, Dajiang Yu, Chongxuan Li, Hang Su, Jun Zhu, Tsinghua University, Renmin University of China, ShengShu"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("👷  Cool Re-Model", on_click=close_crm_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = crm_help_dlg
+      page.overlay.append(crm_help_dlg)
       crm_help_dlg.open = True
       page.update()
     init_image = FileInput(label="Initial Image (clear background = better results)", pref=crm_prefs, key='init_image', filled=True, page=page)
@@ -6488,7 +6491,7 @@ def buildInstantNGP(page):
             Text("Neural graphics primitives, parameterized by fully connected neural networks, can be costly to train and evaluate. We reduce this cost with a versatile new input encoding that permits the use of a smaller network without sacrificing quality, thus significantly reducing the number of floating point and memory access operations. A small neural network is augmented by a multiresolution hash table of trainable feature vectors whose values are optimized through stochastic gradient descent. The multiresolution structure allows the network to disambiguate hash collisions, making for a simple architecture that is trivial to parallelize on modern GPUs. We leverage this parallelism by implementing the whole system using fully-fused CUDA kernels with a focus on minimizing wasted bandwidth and compute operations. We achieve a combined speedup of several orders of magnitude, enabling training of high-quality neural graphics primitives in a matter of seconds, and rendering in tens of milliseconds at a resolution of 1920x1080."),
             Markdown("[Project page](https://nvlabs.github.io/instant-ngp) / [Paper](https://nvlabs.github.io/instant-ngp/assets/mueller2022instant.pdf) / [Video](https://nvlabs.github.io/instant-ngp/assets/mueller2022instant.mp4) / [Presentation](https://tom94.net/data/publications/mueller22instant/mueller22instant-gtc.mp4) / [Real-Time Live](https://tom94.net/data/publications/mueller22instant/mueller22instant-rtl.mp4) / [BibTeX](https://nvlabs.github.io/instant-ngp/assets/mueller2022instant.bib)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🌠  Like Magic... ", on_click=close_instant_ngp_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = instant_ngp_help_dlg
+        page.overlay.append(instant_ngp_help_dlg)
         instant_ngp_help_dlg.open = True
         page.update()
     def delete_image(e):
@@ -6689,7 +6692,7 @@ def buildMeshy(page):
           Text("Meshy is your 3D generative AI toolbox for effortlessly creating 3D assets from text or images, accelerating your 3D workflow. With Meshy, you can create high-quality textures and 3D models in minutes. Meshy is powered by the latest advances in AI and machine learning, and is built for designers, artists, and developers. Whether you're a 3D artist, a game developer, or a creative coder, Meshy can help you create 3D assets faster than ever before."),
           Markdown("[Meshy.ai](https://meshy.ai) | [Meshy API Docs](https://docs.meshy.ai) | [API Key](https://app.meshy.ai/settings/api) | [Cost](https://docs.meshy.ai/api-introduction#pricing) | [Pricing](https://www.meshy.ai/pricing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🌚  It's Getting Meshy", on_click=close_meshy_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = meshy_help_dlg
+      page.overlay.append(meshy_help_dlg)
       meshy_help_dlg.open = True
       page.update()
     def change_mode(e):
@@ -6787,7 +6790,7 @@ def buildLuma(page):
           Text("Luma's NeRF and meshing models are available through their API, giving you access to the world's best 3D modeling and reconstruction capabilities. At a dollar a scene or object. Today it costs anywhere from $60-$1500 and 2-10wk, and rounds of back and forth to have 3D models created. At a dollar a model, and around 30 min of compute now we can imagine 3D models for entire inventories for e-commerce, and every previz scene for VFX. The API expects video walkthroughs of objects or scenes, looking outside in, from 2-3 levels. The output is an interactive 3D scene that can be embedded directly, coarse textured models to build interactions on in traditional 3D pipelines, and pre-rendered 360 images and videos."),
           Markdown("[Luma-API](https://lumalabs.ai/luma-api) | [Capture Practices](https://docs.lumalabs.ai/MCrGAEukR4orR9) | [Client Docs](https://documenter.getpostman.com/view/24305418/2s93CRMCas)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🌚  Who needs 3D scanner? ", on_click=close_luma_vid_to_3d_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = luma_vid_to_3d_help_dlg
+      page.overlay.append(luma_vid_to_3d_help_dlg)
       luma_vid_to_3d_help_dlg.open = True
       page.update()
     init_video = FileInput(label="Video Walk-thru or Walk-around", pref=luma_vid_to_3d_prefs, key='init_video', ftype="video", page=page)
@@ -6858,7 +6861,7 @@ def buildRepainter(page):
       repaint_help_dlg = AlertDialog(title=Text("💁   Help with Repainter"), content=Column([
           Text("It's difficult to explain exactly what all these parameters do, but keep it close to defaults, keep prompt simple, or experiment to see what's what, we don't know."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😪  Okay then... ", on_click=close_repaint_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = repaint_help_dlg
+      page.overlay.append(repaint_help_dlg)
       repaint_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -6983,7 +6986,7 @@ def buildImageVariation(page):
       image_variation_help_dlg = AlertDialog(title=Text("🙅   Help with Image Variations"), content=Column([
           Text("Give it any of your favorite images and create variations of it.... Simple as that, no prompt needed."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🤗  Sounds Fun... ", on_click=close_image_variation_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = image_variation_help_dlg
+      page.overlay.append(image_variation_help_dlg)
       image_variation_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -7085,7 +7088,7 @@ def buildBackgroundRemover(page):
           Text("Give it any of your favorite images and it finds the main subject within the threshold value and gives you a cleaned up version back.... Simple as that, very useful to reuse as init image in another pipeline without needing to edit in Photoshop first.."),
           Markdown("[MODNet GitHub](https://github.com/Mazhar004/MODNet-BGRemover) | [HuggingFace Space](https://huggingface.co/spaces/nateraw/background-remover)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😸  Quite Convenient... ", on_click=close_background_remover_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = background_remover_help_dlg
+      page.overlay.append(background_remover_help_dlg)
       background_remover_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -7301,7 +7304,7 @@ def buildBLIPDiffusion(page):
           Markdown("Blip Diffusion was proposed in [BLIP-Diffusion: Pre-trained Subject Representation for Controllable Text-to-Image Generation and Editing](https://arxiv.org/abs/2305.14720). It enables zero-shot subject-driven generation and control-guided zero-shot generation.", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Subject-driven text-to-image generation models create novel renditions of an input subject based on text prompts. Existing models suffer from lengthy fine-tuning and difficulties preserving the subject fidelity. To overcome these limitations, we introduce BLIP-Diffusion, a new subject-driven image generation model that supports multimodal control which consumes inputs of subject images and text prompts. Unlike other subject-driven generation models, BLIP-Diffusion introduces a new multimodal encoder which is pre-trained to provide subject representation. We first pre-train the multimodal encoder following BLIP-2 to produce visual representation aligned with the text. Then we design a subject representation learning task which enables a diffusion model to leverage such visual representation and generates new subject renditions. Compared with previous methods such as DreamBooth, our model enables zero-shot subject-driven generation, and efficient fine-tuning for customized subject with up to 20x speedup. We also demonstrate that BLIP-Diffusion can be flexibly combined with existing techniques such as ControlNet and prompt-to-prompt to enable novel subject-driven generation and editing applications."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("💖  Lovely... ", on_click=close_blip_diffusion_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = blip_diffusion_help_dlg
+      page.overlay.append(blip_diffusion_help_dlg)
       blip_diffusion_help_dlg.open = True
       page.update()
 
@@ -7335,7 +7338,7 @@ def buildBLIPDiffusion(page):
     controlnet_type = Dropdown(label="ControlNet Image Layer", width=177, options=[dropdown.Option("None"), dropdown.Option("Canny Edge"), dropdown.Option("HED")], value=blip_diffusion_prefs['controlnet_type'], on_change=change_controlnet_type)
     control_image = FileInput(label="ControlNet Image", pref=blip_diffusion_prefs, key='control_image', page=page)
     control_image_container = Container(animate_size=animation.Animation(700, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, expand=True, alignment = alignment.top_left, height = None if blip_diffusion_prefs['use_controlnet_canny'] else 0, padding=padding.only(top=4), content=Column([control_image]))
-    strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=0.9, divisions=16, round=2, pref=blip_diffusion_prefs, key='strength', col={'md':6}, tooltip="Specifies the number of times the prompt is repeated along with prompt_reps.")
+    strength_slider = SliderRow(label="Prompt Strength", min=0.1, max=2.0, divisions=38, round=2, pref=blip_diffusion_prefs, key='strength', col={'md':6}, tooltip="Specifies the number of times the prompt is repeated along with prompt_reps.")
     prompt_reps = SliderRow(label="Prompt Repetitions", min=0, max=50, divisions=50, pref=blip_diffusion_prefs, key='prompt_reps', col={'md':6}, tooltip="The number of times the prompt is repeated along with prompt_strength to amplify the prompt.")
     #img_block = Container(Column([image_pickers, strength_slider, Divider(height=9, thickness=2)]), padding=padding.only(top=5), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
     seed = TextField(label="Seed", width=90, value=str(blip_diffusion_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
@@ -7420,7 +7423,7 @@ def buildAnyText(page):
           Markdown("[GitHub](https://github.com/tyxsspa/AnyText) | [Paper](https://arxiv.org/abs/2311.03054) | [HuggingFace Space](https://huggingface.co/spaces/modelscope/AnyText) | [ModelScope](https://modelscope.cn/models/damo/cv_anytext_text_generation_editing/summary)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("Contributors include Yuxiang Tuo and Wangmeng Xiang and Jun-Yan He and Yifeng Geng and Xuansong Xie, and ModelScope Developers.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🔠  Finally, words...", on_click=close_anytext_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = anytext_help_dlg
+      page.overlay.append(anytext_help_dlg)
       anytext_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -7557,7 +7560,7 @@ def buildIP_Adapter(page):
           Markdown("[Project](https://ip-adapter.github.io/) | [Paper](https://arxiv.org/abs/2308.06721) | [GitHub Code](https://github.com/tencent-ailab/IP-Adapter) | [Checkpoint Models](https://huggingface.co/h94/IP-Adapter)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("IP-Adapter was contributed by [okotaku](https://github.com/okotaku), Tencent, okotaku, sayakpaul, yiyixuxu, Patrick von Platen and Steven Liu ..", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🏃  Adapt This...", on_click=close_ip_adapter_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = ip_adapter_help_dlg
+      page.overlay.append(ip_adapter_help_dlg)
       ip_adapter_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -7680,7 +7683,7 @@ def buildHD_Painter(page):
           Markdown("[Github Project](https://github.com/Picsart-AI-Research/HD-Painter) | [Paper](https://arxiv.org/abs/2312.14091) | [HuggingFace Space](https://huggingface.co/spaces/PAIR/HD-Painter)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("Contributors include Hayk Manukyan, Andranik Sargsyan, Barsegh Atanyan, Zhangyang Wang, Shant Navasardyan and Humphrey Shi, Picsart AI Resarch (PAIR), UT Austin, Georgia Tech.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧑‍🎨️  Commission an Artist...", on_click=close_hd_painter_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = hd_painter_help_dlg
+      page.overlay.append(hd_painter_help_dlg)
       hd_painter_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -7817,7 +7820,7 @@ def buildReference(page):
           Text("This reference-only ControlNet can directly link the attention layers of your SD to any independent images, so that your SD will read arbitary images for reference. This preprocessor does not require any control models. It can guide the diffusion directly using images as references. This method is similar to inpaint-based reference but it does not make your image disordered."),
           Text("Note that this method is as 'non-opinioned' as possible. It only contains very basic connection codes, without any personal preferences, to connect the attention layers with your reference images. However, even if we tried best to not include any opinioned codes, we still need to write some subjective implementations to deal with weighting, cfg-scale, etc - tech report is on the way."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧙  Powerful... ", on_click=close_reference_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = reference_help_dlg
+      page.overlay.append(reference_help_dlg)
       reference_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -7976,7 +7979,7 @@ def buildControlNetQR(page):
           Text("These ControlNet models have been trained on a large dataset of 150,000 QR code + QR code artwork couples. They provide a solid foundation for generating QR code-based artwork that is aesthetically pleasing, while still maintaining the integral QR code shape."),
           Text("The Stable Diffusion 2.1 version is marginally more effective, as it was developed to address my specific needs. However, a 1.5 version model was also trained on the same dataset for those who are using the older version. You'll also get great results with QR Code Monster and QR Pattern, with or without SDXL. Experiment..."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🥃  Scantastic... ", on_click=close_controlnet_qr_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = controlnet_qr_help_dlg
+      page.overlay.append(controlnet_qr_help_dlg)
       controlnet_qr_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -8188,7 +8191,7 @@ def buildControlNetSegmentAnything(page):
           Markdown("[Project Page](https://segment-anything.com) | [Model Card](https://huggingface.co/mfidabel/controlnet-segment-anything) | [Segment-Anything Code](https://github.com/facebookresearch/segment-anything) | [HuggingFace Demo](https://huggingface.co/spaces/mfidabel/controlnet-segment-anything)", on_tap_link=lambda e: e.page.launch_url(e.data)),
 
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧩  Puzzle the Pieces... ", on_click=close_controlnet_segment_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = controlnet_segment_help_dlg
+      page.overlay.append(controlnet_segment_help_dlg)
       controlnet_segment_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -8316,7 +8319,7 @@ def buildEDICT(page):
           Text("Using the iterative denoising diffusion principle, denoising diffusion models (DDMs) trained with web-scale data can generate highly realistic images conditioned on input text, layouts, and scene graphs. After image generation, the next important application of DDMs being explored by the research community is that of image editing. Models such as DALL-E-2 and Stable Diffusion [24] can perform inpainting, allowing users to edit images through manual annotation. Methods such as SDEdit have demonstrated that both synthetic and real images can be edited using stroke or composite guidance via DDMs. However, the goal of a holistic image editing tool that can edit any real/artificial image using purely text has still not been achieved, until now."),
           Markdown("[Read Arxiv Paper](https://arxiv.org/pdf/2211.12446.pdf)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🥴  Not Complicated... ", on_click=close_EDICT_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = EDICT_help_dlg
+      page.overlay.append(EDICT_help_dlg)
       EDICT_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -8442,7 +8445,7 @@ def buildDiffEdit(page):
           #Text(""),
           Markdown("[Read Arxiv Paper](https://arxiv.org/abs/2210.11427) - [Blog Post with Demo](https://blog.problemsolversguild.com/technical/research/2022/11/02/DiffEdit-Implementation.html) - [GitHub](https://github.com/Xiang-cd/DiffEdit-stable-diffusion/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😇  Not Difficult... ", on_click=close_DiffEdit_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = DiffEdit_help_dlg
+      page.overlay.append(DiffEdit_help_dlg)
       DiffEdit_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -8557,7 +8560,7 @@ def buildNull_Text(page):
           Markdown("[Read Arxiv Paper](https://arxiv.org/pdf/2208.01626.pdf) | [Null-Text Inversion](https://github.com/google/prompt-to-prompt/) | [Junsheng Luan](https://github.com/Junsheng121)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Hertz, Amir and Mokady, Ron and Tenenbaum, Jay and Aberman, Kfir and Pritch, Yael and Cohen-Or, Daniel and HuggingFace team."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🙃  Edit Away... ", on_click=close_null_text_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = null_text_help_dlg
+      page.overlay.append(null_text_help_dlg)
       null_text_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -8656,7 +8659,7 @@ def buildUnCLIP(page):
           Text("The scheduler is a modified DDPM that has some minor variations in how it calculates the learned range variance and dynamically re-calculates betas based off the timesteps it is skipping. The scheduler also uses a slightly different step ratio when computing timesteps to use for inference."),
           Markdown("The unCLIP model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Tricky... ", on_click=close_unCLIP_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = unCLIP_help_dlg
+      page.overlay.append(unCLIP_help_dlg)
       unCLIP_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -8775,7 +8778,7 @@ def buildUnCLIP_ImageVariation(page):
           Text("The scheduler is a modified DDPM that has some minor variations in how it calculates the learned range variance and dynamically re-calculates betas based off the timesteps it is skipping. The scheduler also uses a slightly different step ratio when computing timesteps to use for inference."),
           Markdown("The unCLIP Image Variation model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🐇  We'll see... ", on_click=close_unCLIP_image_variation_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = unCLIP_image_variation_help_dlg
+      page.overlay.append(unCLIP_image_variation_help_dlg)
       unCLIP_image_variation_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -8908,7 +8911,7 @@ def buildUnCLIP_Interpolation(page):
           Text("The scheduler is a modified DDPM that has some minor variations in how it calculates the learned range variance and dynamically re-calculates betas based off the timesteps it is skipping. The scheduler also uses a slightly different step ratio when computing timesteps to use for inference."),
           Markdown("The unCLIP model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Transformative... ", on_click=close_unCLIP_interpolation_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = unCLIP_interpolation_help_dlg
+      page.overlay.append(unCLIP_interpolation_help_dlg)
       unCLIP_interpolation_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -9024,7 +9027,7 @@ def buildUnCLIP_ImageInterpolation(page):
           #Text(""),
           #Markdown("The unCLIP Image Interpolation model in diffusers comes from kakaobrain's karlo and the original codebase can be found [here](https://github.com/kakaobrain/karlo). Additionally, lucidrains has a DALL-E 2 recreation [here](https://github.com/lucidrains/DALLE2-pytorch)."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🦿  Transformers Activate... ", on_click=close_unCLIP_image_interpolation_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = unCLIP_image_interpolation_help_dlg
+      page.overlay.append(unCLIP_image_interpolation_help_dlg)
       unCLIP_image_interpolation_help_dlg.open = True
       page.update()
     pick_type = ""
@@ -9177,7 +9180,7 @@ def buildMagicMix(page):
       magic_mix_help_dlg = AlertDialog(title=Text("🙅   Help with MagicMix"), content=Column([
           Text("Have you ever imagined what a corgi-alike coffee machine or a tiger-alike rabbit would look like? In this work, we attempt to answer these questions by exploring a new task called semantic mixing, aiming at blending two different semantics to create a new concept (e.g., corgi + coffee machine -- > corgi-alike coffee machine). Unlike style transfer, where an image is stylized according to the reference style without changing the image content, semantic blending mixes two different concepts in a semantic manner to synthesize a novel concept while preserving the spatial layout and geometry. To this end, we present MagicMix, a simple yet effective solution based on pre-trained text-conditioned diffusion models. Motivated by the progressive generation property of diffusion models where layout/shape emerges at early denoising steps while semantically meaningful details appear at later steps during the denoising process, our method first obtains a coarse layout (either by corrupting an image or denoising from a pure Gaussian noise given a text prompt), followed by injection of conditional prompt for semantic mixing. Our method does not require any spatial mask or re-training, yet is able to synthesize novel objects with high fidelity. To improve the mixing quality, we further devise two simple strategies to provide better control and flexibility over the synthesized content. With our method, we present our results over diverse downstream applications, including semantic style transfer, novel object synthesis, breed mixing, and concept removal, demonstrating the flexibility of our method."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧙  Sounds like magic... ", on_click=close_magic_mix_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = magic_mix_help_dlg
+      page.overlay.append(magic_mix_help_dlg)
       magic_mix_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -9309,7 +9312,7 @@ def buildPaintByExample(page):
       paint_by_example_help_dlg = AlertDialog(title=Text("💁   Help with Paint-by-Example"), content=Column([
           Text("Language-guided image editing has achieved great success recently. In this pipeline, we use exemplar-guided image editing for more precise control. We achieve this goal by leveraging self-supervised training to disentangle and re-organize the source image and the exemplar. However, the naive approach will cause obvious fusing artifacts. We carefully analyze it and propose an information bottleneck and strong augmentations to avoid the trivial solution of directly copying and pasting the exemplar image. Meanwhile, to ensure the controllability of the editing process, we design an arbitrary shape mask for the exemplar image and leverage the classifier-free guidance to increase the similarity to the exemplar image. The whole framework involves a single forward of the diffusion model without any iterative optimization. We demonstrate that our method achieves an impressive performance and enables controllable editing on in-the-wild images with high fidelity.  Credit goes to https://github.com/Fantasy-Studio/Paint-by-Example"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😸  Sweetness... ", on_click=close_paint_by_example_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = paint_by_example_help_dlg
+      page.overlay.append(paint_by_example_help_dlg)
       paint_by_example_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -9473,7 +9476,7 @@ def buildInstructPix2Pix(page):
       instruct_pix2pix_help_dlg = AlertDialog(title=Text("💁   Help with Instruct-Pix2Pix"), content=Column([
           Text("A method for editing images from human instructions: given an input image and a written instruction that tells the model what to do, our model follows these instructions to edit the image. To obtain training data for this problem, we combine the knowledge of two large pretrained models -- a language model (GPT-3) and a text-to-image model (Stable Diffusion) -- to generate a large dataset of image editing examples. Our conditional diffusion model, InstructPix2Pix, is trained on our generated data, and generalizes to real images and user-written instructions at inference time. Since it performs edits in the forward pass and does not require per example fine-tuning or inversion, our model edits images quickly, in a matter of seconds. We show compelling editing results for a diverse collection of input images and written instructions."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😎  Fun2Fun... ", on_click=close_instruct_pix2pix_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = instruct_pix2pix_help_dlg
+      page.overlay.append(instruct_pix2pix_help_dlg)
       instruct_pix2pix_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -9657,7 +9660,7 @@ def buildLEdits(page):
           Markdown("[Project](https://leditsplusplus-project.static.hf.space/index.html) | [HuggingFace Space](https://huggingface.co/spaces/editing-images/leditsplusplus) | [GitHub](https://github.com/ml-research/ledits_pp) | [Paper](https://huggingface.co/papers/2311.16711)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Manuel Brack, Felix Friedrich, Katharina Kornmeier, Linoy Tsaban, Patrick Schramowski, Kristian Kersting, Apolinário Passos"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😽  Make a Change... ", on_click=close_ledits_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = ledits_help_dlg
+      page.overlay.append(ledits_help_dlg)
       ledits_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -9808,7 +9811,7 @@ def buildControlNet(page):
           Text("Mediapipe Face - An image based on face position & expression."),
           Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Too much control... ", on_click=close_controlnet_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = controlnet_help_dlg
+      page.overlay.append(controlnet_help_dlg)
       controlnet_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -10092,7 +10095,7 @@ def buildControlNetXL(page):
           #Text("Brightness - An image based on brightness of init."),
           #Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Too much control... ", on_click=close_controlnet_xl_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = controlnet_xl_help_dlg
+      page.overlay.append(controlnet_xl_help_dlg)
       controlnet_xl_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -10379,7 +10382,7 @@ def buildControlNetSD3(page):
           #Text("Brightness - An image based on brightness of init."),
           #Text("Instruct Pix2Pix - Trained with pixel to pixel instruction."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Some Control... ", on_click=close_controlnet_sd3_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = controlnet_sd3_help_dlg
+      page.overlay.append(controlnet_sd3_help_dlg)
       controlnet_sd3_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -10648,7 +10651,7 @@ def buildControlNetXS(page):
           Text("Canny Map Edge - A monochrome image with white edges on a black background."),
           Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍄  Too much control... ", on_click=close_controlnet_xs_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = controlnet_xs_help_dlg
+      page.overlay.append(controlnet_xs_help_dlg)
       controlnet_xs_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -10930,7 +10933,7 @@ def buildControlNet_Video2Video(page):
           Text("Normal Map - A normal mapped image."),
           Text("LineArt - An image with line art, usually black lines on a white background."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😸  Could get crazy... ", on_click=close_controlnet_video2video_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = controlnet_video2video_help_dlg
+      page.overlay.append(controlnet_video2video_help_dlg)
       controlnet_video2video_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -11112,7 +11115,7 @@ def buildDeepFloyd(page):
 * Stage 2: a 64x64 px => 256x256 px super-resolution model, and a
 * Stage 3: a 256x256 px => 1024x1024 px super-resolution model Stage 1 and Stage 2 utilize a frozen text encoder based on the T5 transformer to extract text embeddings, which are then fed into a UNet architecture enhanced with cross-attention and attention pooling. Stage 3 is Stability's x4 Upscaling model. The result is a highly efficient model that outperforms current state-of-the-art models, achieving a zero-shot FID score of 6.66 on the COCO dataset. Our work underscores the potential of larger UNet architectures in the first stage of cascaded diffusion models and depicts a promising future for text-to-image synthesis.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😌  Let's go Deep... ", on_click=close_deepfloyd_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = deepfloyd_help_dlg
+      page.overlay.append(deepfloyd_help_dlg)
       deepfloyd_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -11273,7 +11276,7 @@ def buildAmused(page):
           Markdown("[Project](https://muse-model.github.io) | [Paper](https://huggingface.co/papers/2401.01808) | [HuggingFace Model](https://huggingface.co/amused/amused-256)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("Contributors include Suraj Patil, William Berman, Patrick von Platen, Huiwen Chang, Han Zhang, Jarred Barber, AJ Maschinot, Jose Lezama, Lu Jiang Ming-Hsuan Yang, Kevin Murphy, William T. Freeman, Michael Rubinstein, Yuanzhen Li and Dilip Krishnan.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🎢  Very Amusing...", on_click=close_amused_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = amused_help_dlg
+      page.overlay.append(amused_help_dlg)
       amused_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -11371,7 +11374,7 @@ def buildWuerstchen(page):
           Text("We introduce Würstchen, a novel technique for text-to-image synthesis that unites competitive performance with unprecedented cost-effectiveness and ease of training on constrained hardware. Building on recent advancements in machine learning, our approach, which utilizes latent diffusion strategies at strong latent image compression rates, significantly reduces the computational burden, typically associated with state-of-the-art models, while preserving, if not enhancing, the quality of generated images. Wuerstchen achieves notable speed improvements at inference time, thereby rendering real-time applications more viable. One of the key advantages of our method lies in its modest training requirements of only 9,200 GPU hours, slashing the usual costs significantly without compromising the end performance. In a comparison against the state-of-the-art, we found the approach to yield strong competitiveness. This paper opens the door to a new line of research that prioritizes both performance and computational accessibility, hence democratizing the use of sophisticated AI technologies. Through Wuerstchen, we demonstrate a compelling stride forward in the realm of text-to-image synthesis, offering an innovative path to explore in future research."),
           Markdown("[Paper](https://huggingface.co/papers/2306.00637) | [Original GitHub](https://github.com/dome272/Wuerstchen)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🐗  Some Brätwurst? ", on_click=close_wuerstchen_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = wuerstchen_help_dlg
+      page.overlay.append(wuerstchen_help_dlg)
       wuerstchen_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -11457,7 +11460,7 @@ def buildStableCascade(page):
           Text("Stable Cascade achieves impressive results, both visually and evaluation wise. According to our evaluation, Stable Cascade performs best in both prompt alignment and aesthetic quality in almost all comparisons. Stable Cascade´s focus on efficiency is evidenced through its architecture and a higher compressed latent space. Despite the largest model containing 1.4 billion parameters more than Stable Diffusion XL, it still features faster inference times. Stable Cascade consists of three models: Stage A, Stage B and Stage C, representing a cascade for generating images, hence the name 'Stable Cascade'. Stage A & B are used to compress images, similarly to what the job of the VAE is in Stable Diffusion. However, as mentioned before, with this setup a much higher compression of images can be achieved. Furthermore, Stage C is responsible for generating the small 24 x 24 latents given a text prompt."),
           Markdown("[Paper](https://openreview.net/forum?id=gU58d5QeGv) | [Original GitHub](https://github.com/Stability-AI/StableCascade) | [Model Card](https://huggingface.co/stabilityai/stable-cascade)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("💆  Cascading Benefits ", on_click=close_stable_cascade_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = stable_cascade_help_dlg
+      page.overlay.append(stable_cascade_help_dlg)
       stable_cascade_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -11549,7 +11552,7 @@ def buildPixArtAlpha(page):
           Text("It uses a Transformer backbone (instead of a UNet) for denoising. As such it has a similar architecture as DiT. It was trained using text conditions computed from T5. This aspect makes the pipeline better at following complex text prompts with intricate details. It is good at producing high-resolution images at different aspect ratios. It rivals the quality of state-of-the-art text-to-image generation systems (as of this writing) such as Stable Diffusion XL, Imagen, and DALL-E 2, while being more efficient than them."),
           Markdown("[Paper](https://huggingface.co/papers/2310.00426) | [PixArt-alpha GitHub](https://github.com/PixArt-alpha/PixArt-alpha) | [PixArt-alpha Checkpoints](https://huggingface.co/PixArt-alpha) | [Recomended Sizes](https://github.com/PixArt-alpha/PixArt-alpha/blob/master/diffusion/data/datasets/utils.py)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🐗  Pix that Art ", on_click=close_pixart_alpha_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = pixart_alpha_help_dlg
+      page.overlay.append(pixart_alpha_help_dlg)
       pixart_alpha_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -11655,7 +11658,7 @@ def buildPixArtSigma(page):
           Markdown("[Project Page](https://pixart-alpha.github.io/PixArt-sigma-project/) | [Paper](https://arxiv.org/abs/2403.04692) | [PixArt-sigma GitHub](https://pixart-alpha.github.io/PixArt-sigma-project/) | [PixArt-sigma Checkpoints](https://huggingface.co/PixArt-alpha/PixArt-Sigma-XL-2-1024-MS) | [HuggingFace Space](https://huggingface.co/spaces/PixArt-alpha/PixArt-Sigma) | [Recomended Sizes](https://github.com/PixArt-sigma/PixArt-sigma/blob/master/diffusion/data/datasets/utils.py)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Junsong Chen, Chongjian Ge, Enze Xie, Yue Wu, Lewei Yao, Xiaozhe Ren, Zhongdao Wang, Ping Luo, Huchuan Lu, Zhenguo Li"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🐗  Pix that Art ", on_click=close_pixart_sigma_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = pixart_sigma_help_dlg
+      page.overlay.append(pixart_sigma_help_dlg)
       pixart_sigma_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -11755,7 +11758,7 @@ def buildHunyuanDiT(page):
           Markdown("HunyuanDiT uses two text encoders: [mT5](https://huggingface.co/google/mt5-base) and bilingual CLIP (fine-tuned by ourselves)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("[Paper](https://arxiv.org/abs/2405.08748) | [Project Page](https://dit.hunyuan.tencent.com/) | [Github](https://github.com/Tencent/HunyuanDiT) | [Model Checkpoint](https://huggingface.co/Tencent-Hunyuan/HunyuanDiT) | [HF Space](https://huggingface.co/spaces/Tencent-Hunyuan/HunyuanDiT)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🥡  Tasty Aesthetics... ", on_click=close_hunyuan_dit_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = hunyuan_dit_help_dlg
+      page.overlay.append(hunyuan_dit_help_dlg)
       hunyuan_dit_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -11849,7 +11852,7 @@ def buildDifferential_Diffusion(page):
           Markdown("[Project Page](https://differential-diffusion.github.io/) | [Github](https://github.com/exx8/differential-diffusion) | [Paper](https://differential-diffusion.github.io/paper.pdf) | [HuggingFace Space](https://huggingface.co/spaces/exx8/differential-diffusion) | [Colab Notebook](https://colab.research.google.com/github/exx8/differential-diffusion/blob/main/examples/SD2.ipynb)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("Contributors include [Eran Levin](https://github.com/exx8), [Ohad Fried](https://www.ohadf.com/), Tel Aviv University, Reichman University", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🐻  That Different...", on_click=close_differential_diffusion_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = differential_diffusion_help_dlg
+      page.overlay.append(differential_diffusion_help_dlg)
       differential_diffusion_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -11969,7 +11972,7 @@ def buildLMD_Plus(page):
           Text("We provide a parser that parses LLM outputs to the layouts. You can obtain the prompt to input to the LLM for layout generation"),
           Markdown("[Paper](https://arxiv.org/pdf/2305.13655.pdf) | [Project Page](https://llm-grounded-diffusion.github.io/) | [GitHub](https://github.com/TonyLianLong/LLM-groundedDiffusion)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🐗  Understandable ", on_click=close_lmd_plus_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = lmd_plus_help_dlg
+      page.overlay.append(lmd_plus_help_dlg)
       lmd_plus_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -12078,7 +12081,7 @@ def buildLCM(page):
           Markdown("[Project](https://latent-consistency-models.github.io/) | [Paper](https://arxiv.org/pdf/2310.04378.pdf) | [SimianLuo/LCM_Dreamshaper_v7](https://huggingface.co/SimianLuo/LCM_Dreamshaper_v7) | [Checkpoint](https://huggingface.co/spaces/SimianLuo/Latent_Consistency_Model)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🏃  How many steps?", on_click=close_lcm_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = lcm_help_dlg
+      page.overlay.append(lcm_help_dlg)
       lcm_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -12200,7 +12203,7 @@ def buildLCMInterpolation(page):
           #Text(""),
           Markdown(""),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🔲  The Space Between... ", on_click=close_lcm_interpolation_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = lcm_interpolation_help_dlg
+      page.overlay.append(lcm_interpolation_help_dlg)
       lcm_interpolation_help_dlg.open = True
       page.update()
     def add_prompt(e):
@@ -12271,8 +12274,8 @@ def buildLCMInterpolation(page):
             e.control.update()
             page.update()
         prompt_text = TextField(label="Interpolation Prompt Text", value=prompt_value, multiline=True)
-        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Interpolation Prompt"), content=Container(Column([prompt_text], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window_width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = dlg_edit
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Interpolation Prompt"), content=Container(Column([prompt_text], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window.width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(dlg_edit)
         dlg_edit.open = True
         page.update()
     def toggle_video(e):
@@ -12373,7 +12376,7 @@ def buildInstaFlow(page):
           Markdown("[Rectified Flow](https://github.com/gnobitab/RectifiedFlow) | [Paper](https://arxiv.org/abs/2309.06380) | [Checkpoint](https://huggingface.co/XCLIU/instaflow_0_9B_from_sd_1_5)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("The pipelines were contributed by [Ayush Mangal](https://github.com/ayushtues), Sayak Paul, and Patrick von Platen.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🏇  Faster, faster!", on_click=close_instaflow_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = instaflow_help_dlg
+      page.overlay.append(instaflow_help_dlg)
       instaflow_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -12494,7 +12497,7 @@ def buildPAG(page):
     batch_folder_name = TextField(label="Batch Folder Name", value=pag_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
     file_prefix = TextField(label="Filename Prefix", value=pag_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
     n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=pag_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
-    steps = SliderRow(label="Number of Steps", min=0, max=40, divisions=40, pref=pag_prefs, key='num_inference_steps')
+    steps = SliderRow(label="Number of Steps", min=0, max=60, divisions=60, pref=pag_prefs, key='num_inference_steps')
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='guidance_scale')
     pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='pag_scale')
     pag_adaptive_scaling = SliderRow(label="PAG Adaptive Scaling", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='pag_adaptive_scaling', col={'lg':6}, tooltip="Scales the Diffusion Adaptivly (I don't know)")
@@ -12605,7 +12608,7 @@ def buildLDM3D(page):
           Markdown("The LDM3D model was proposed in [LDM3D: Latent Diffusion Model for 3D](https://arxiv.org/abs/2305.10853) by Gabriela Ben Melech Stan, Diana Wofk, Scottie Fox, Alex Redden, Will Saxton, Jean Yu, Estelle Aflalo, Shao-Yen Tseng, Fabio Nonato, Matthias Muller, Vasudev Lal.", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("[Paper](https://huggingface.co/papers/2305.10853) | [Video](https://t.ly/tdi2) | [Intel/ldm3d-4c Model](https://huggingface.co/Intel/ldm3d-4c) | [Checkpoint](https://huggingface.co/spaces/SimianLuo/Latent_Consistency_Model)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🕳  Going Deep", on_click=close_ldm3d_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = ldm3d_help_dlg
+      page.overlay.append(ldm3d_help_dlg)
       ldm3d_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -12708,7 +12711,7 @@ def buildTaskMatrix(page):
           Markdown("[Paper](https://arxiv.org/abs/2303.04671) | [GitHub](https://github.com/moymix/TaskMatrix) | [HuggingFace Space](https://huggingface.co/spaces/microsoft/visual_chatgpt) | [Colab](https://colab.research.google.com/drive/1P3jJqKEWEaeNcZg8fODbbWeQ3gxOHk2-?usp=sharing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Chenfei Wu, Shengming Yin, Weizhen Qi, Xiaodong Wang, Zecheng Tang, Nan Duan and Microsoft")
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧑‍🚀️  Wowsers! ", on_click=close_task_matrix_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = task_matrix_help_dlg
+      page.overlay.append(task_matrix_help_dlg)
       task_matrix_help_dlg.open = True
       page.update()
     def change_modules(e):
@@ -12789,7 +12792,7 @@ Resources:
 * [Website](https://modelscope.cn/models/damo/text-to-video-synthesis/summary)
 * [GitHub repository](https://github.com/modelscope/modelscope/)""", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🎞  What'll be next... ", on_click=close_text_to_video_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = text_to_video_help_dlg
+      page.overlay.append(text_to_video_help_dlg)
       text_to_video_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -12897,7 +12900,7 @@ def buildTextToVideoZero(page):
 * [Paper](https://arxiv.org/abs/2303.13439)
 * [Original Code](https://github.com/Picsart-AI-Research/Text2Video-Zero)""", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🎞  Let's go crazy... ", on_click=close_text_to_video_zero_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = text_to_video_zero_help_dlg
+      page.overlay.append(text_to_video_zero_help_dlg)
       text_to_video_zero_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -13043,7 +13046,7 @@ Resources:
 * [Website](https://modelscope.cn/models/damo/text-to-video-synthesis/summary)
 * [GitHub repository](https://github.com/modelscope/modelscope/)""", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🎞  What'll be next... ", on_click=close_video_to_video_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = video_to_video_help_dlg
+      page.overlay.append(video_to_video_help_dlg)
       video_to_video_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -13186,7 +13189,7 @@ def buildTemporalNet_XL(page):
           Text("This is TemporalNet-XL, it is a re-train of the controlnet TemporalNet1 with Stable Diffusion XL. This does not use the control mechanism of TemporalNet2 as it would require some additional work to adapt the diffusers pipeline to work with a 6-channel input. While it does not eliminate all flickering, it significantly reduces it, particularly at higher denoise levels. For optimal results, it is recommended to use TemporalNet in combination with other methods."),
           Markdown("Credit goes to Ciara Rowles - [Huggingface Model](https://huggingface.co/CiaraRowles/controlnet-temporalnet-sdxl-1.0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🎞  Temporal Anomaly... ", on_click=close_controlnet_temporalnet_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = controlnet_temporalnet_help_dlg
+      page.overlay.append(controlnet_temporalnet_help_dlg)
       controlnet_temporalnet_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -13307,7 +13310,7 @@ def buildInfiniteZoom(page):
           #Text(""),
           Markdown("[Github Project](https://github.com/v8hid/infinite-zoom-stable-diffusion) | [Google Colab](https://colab.research.google.com/github/v8hid/infinite-zoom-stable-diffusion/blob/main/smooth_infinite_zoom.ipynb)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🕵  It's Endlessness... ", on_click=close_infinite_zoom_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = infinite_zoom_help_dlg
+      page.overlay.append(infinite_zoom_help_dlg)
       infinite_zoom_help_dlg.open = True
       page.update()
     
@@ -13370,8 +13373,8 @@ def buildInfiniteZoom(page):
             dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Animated Prompt"), content=Container(Column([
                 infinite_zoom_editing_prompt,
                 infinite_zoom_negative_prompt, infinite_zoom_seed,
-            ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_infinite_zoom_prompt)], actions_alignment=MainAxisAlignment.END)
-            page.dialog = dlg_edit
+            ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window.width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_infinite_zoom_prompt)], actions_alignment=MainAxisAlignment.END)
+            page.overlay.append(dlg_edit)
             dlg_edit.open = True
             page.update()
         else:
@@ -13418,8 +13421,8 @@ def buildInfiniteZoom(page):
       editing_prompt = TextField(label="Keyframe Prompt Animation", expand=True, multiline=True, value=edit_prompt, autofocus=True)
       dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ Edit Prompt Keyframe"), content=Container(Column([
           Row([editing_frame, editing_prompt])
-      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = dlg_edit
+      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window.width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(dlg_edit)
       dlg_edit.open = True
       page.update()
     def del_prompt(e):
@@ -13575,7 +13578,7 @@ def buildPotat1(page):
           Text("This model is based on a multi-stage text-to-video generation diffusion model, which inputs a description text and returns a video that matches the text description. The text-to-video generation diffusion model consists of three sub-networks: text feature extraction, text feature-to-video latent space diffusion model, and video latent space to video visual space. The overall model parameters are about 1.7 billion. Support English input. The diffusion model adopts the Unet3D structure, and realizes the function of video generation through the iterative denoising process from the pure Gaussian noise video. Trained with https://lambdalabs.com ❤ 1xA100 (40GB) 2197 clips, 68388 tagged frames ( salesforce/blip2-opt-6.7b-coco ) train_steps: 10000"),
           Markdown("[Huggingface Website](https://huggingface.co/camenduru/potat1) | [GitHub repository](https://github.com/camenduru/text-to-video-synthesis-colab)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍠  Spuds up... ", on_click=close_potat1_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = potat1_help_dlg
+      page.overlay.append(potat1_help_dlg)
       potat1_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -13739,7 +13742,7 @@ def buildStableAnimation(page):
           Text("Artists have the ability to use all of our available inference models to generate animations. We currently support text-to-animation, image-to-animation, and video-to-animation. To see animated previews of how these parameters affect the resulting animation, please check out our Animation Handbook."),
           Markdown(" [Project Page](https://platform.stability.ai/docs/features/animation) | [Colab Gradio](https://colab.research.google.com/github/Stability-AI/stability-sdk/blob/animation/nbs/animation_gradio.ipynb) | [Animation Handbook](https://docs.google.com/document/d/1iHcAu_5rG11guGFie8sXBXPGuM4yKzqdd13MJ_1LU8U/edit?usp=sharing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("💸  Worth it... ", on_click=close_stable_animation_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = stable_animation_help_dlg
+      page.overlay.append(stable_animation_help_dlg)
       stable_animation_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -13807,8 +13810,8 @@ def buildStableAnimation(page):
       stable_animation_prefs['animation_prompts'] = {str(k):v for k,v in stable_animation_prefs['animation_prompts'].items()}
       text_list = json.dumps(stable_animation_prefs, indent = 4)
       enter_text = TextField(label="Stable Animation Preset JSON", value=text_list.strip(), expand=True, filled=True, multiline=True, autofocus=True)
-      dlg_copy = AlertDialog(modal=False, title=Text("📝   Stable Animation as JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100, scroll="none"), width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Preset JSON to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_preset(text_list))], actions_alignment=MainAxisAlignment.END)
-      page.dialog = dlg_copy
+      dlg_copy = AlertDialog(modal=False, title=Text("📝   Stable Animation as JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window.width) - 180, height=(page.height if page.web else page.window.height) - 100, scroll="none"), width=(page.width if page.web else page.window.width) - 180, height=(page.height if page.web else page.window.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Copy Preset JSON to Clipboard", size=19, weight=FontWeight.BOLD), data=text_list, on_click=lambda ev: copy_preset(text_list))], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(dlg_copy)
       dlg_copy.open = True
       page.update()
     def toggle_resume(e):
@@ -13832,8 +13835,8 @@ def buildStableAnimation(page):
           dlg_paste.open = False
           page.update()
       enter_text = TextField(label="Enter Stable Animation Preset JSON", expand=True, filled=True, min_lines=30, multiline=True, autofocus=True)
-      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste Saved Preset JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100, scroll="none"), width=(page.width if page.web else page.window_width) - 180, height=(page.height if page.web else page.window_height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), TextButton(content=Text("📋  Paste from Clipboard", size=18), on_click=paste_clipboard), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Load Preset JSON Values ", size=19, weight=FontWeight.BOLD), on_click=save_preset)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = dlg_paste
+      dlg_paste = AlertDialog(modal=False, title=Text("📝  Paste Saved Preset JSON"), content=Container(Column([enter_text], alignment=MainAxisAlignment.START, tight=True, width=(page.width if page.web else page.window.width) - 180, height=(page.height if page.web else page.window.height) - 100, scroll="none"), width=(page.width if page.web else page.window.width) - 180, height=(page.height if page.web else page.window.height) - 100), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), TextButton(content=Text("📋  Paste from Clipboard", size=18), on_click=paste_clipboard), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Load Preset JSON Values ", size=19, weight=FontWeight.BOLD), on_click=save_preset)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(dlg_paste)
       dlg_paste.open = True
       page.update()
     def load_preset(d):
@@ -13947,8 +13950,8 @@ def buildStableAnimation(page):
       editing_prompt = TextField(label="Keyframe Prompt Animation", expand=True, multiline=True, value=edit_prompt, autofocus=True)
       dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ Edit Prompt Keyframe"), content=Container(Column([
           Row([editing_frame, editing_prompt])
-      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = dlg_edit
+      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window.width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(dlg_edit)
       dlg_edit.open = True
       page.update()
     def del_prompt(e):
@@ -14182,7 +14185,7 @@ def buildSVD(page):
           Text("The generated videos are rather short (<= 4sec), and the model does not achieve perfect photorealism. The model may generate videos without motion, or very slow camera pans. The model cannot be controlled through text. The model cannot render legible text. Faces and people in general may not be generated properly. The autoencoding part of the model is lossy."),
           Markdown("[Huggingface Model](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid) | [GitHub repository](https://github.com/Stability-AI/generative-models) | [Paper](https://stability.ai/research/stable-video-diffusion-scaling-latent-video-diffusion-models-to-large-datasets)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🆒  Extra cool... ", on_click=close_svd_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = svd_help_dlg
+      page.overlay.append(svd_help_dlg)
       svd_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -14305,7 +14308,7 @@ def buildROOP(page):
           Text("Disclaimer: This software is meant to be a productive contribution to the rapidly growing AI-generated media industry. It will help artists with tasks such as animating a custom character or using the character as a model for clothing etc."),
           Markdown(" [GitHub Page](https://github.com/s0md3v/roop) | [HuggingFace Space](https://huggingface.co/spaces/zhsso/roop) | [Colab](https://colab.research.google.com/drive/1uX5k33KNXprOeu_P9iov1byLOd4XGo1i#scrollTo=aN1XeEX_tsra)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("👶  Promise not to abuse... ", on_click=close_roop_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = roop_help_dlg
+      page.overlay.append(roop_help_dlg)
       roop_help_dlg.open = True
       page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -14443,7 +14446,7 @@ def buildVideoReTalking(page):
           Text("Credit goes to Kun Cheng, Xiaodong Cun, Yong Zhang, Menghan Xia, Fei Yin, Mingrui Zhu, Xuan Wang, Jue Wang, Nannan Wang and Xidian University, Tencent AI Lab, Tsinghua University"),
           Markdown("[Paper](https://arxiv.org/abs/2211.14758) | [GitHub Page](https://github.com/OpenTalker/video-retalking) | [Project Page](https://opentalker.github.io/video-retalking/) | [Colab](https://colab.research.google.com/github/vinthony/video-retalking/blob/main/quick_demo.ipynb)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("💬  Let's Lip Sync... ", on_click=close_video_retalking_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = video_retalking_help_dlg
+      page.overlay.append(video_retalking_help_dlg)
       video_retalking_help_dlg.open = True
       page.update()
     target_video = FileInput(label="Target Video with Face", pref=video_retalking_prefs, key='target_video', ftype="video", page=page)
@@ -14522,7 +14525,7 @@ def buildStyleCrafter(page):
           Markdown("Credits go to [GongyeLiu](https://github.com/GongyeLiu), [Menghan Xia](https://menghanxia.github.io/), [Yong Zhang](https://yzhang2016.github.io), [Haoxin Chen](https://scholar.google.com/citations?user=6UPJSvwAAAAJ&hl=zh-CN&oi=ao), [Jinbo Xing](https://doubiiu.github.io/), [Xintao Wang](https://xinntao.github.io/), [Yujiu Yang](https://scholar.google.com/citations?user=4gH3sxsAAAAJ&hl=zh-CN&oi=ao), [Ying Shan](https://scholar.google.com/citations?hl=en&user=4oXBp9UAAAAJ&view_op=list_works&sortby=pubdate)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Markdown("[Project Page](https://gongyeliu.github.io/StyleCrafter.github.io/) | [Paper](https://arxiv.org/abs/2312.00330) | [GitHub Code](https://github.com/GongyeLiu/StyleCrafter) | [HuggingFace Space](https://huggingface.co/spaces/liuhuohuo/StyleCrafter)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("👸  So Pretty... ", on_click=close_style_crafter_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = style_crafter_help_dlg
+      page.overlay.append(style_crafter_help_dlg)
       style_crafter_help_dlg.open = True
       page.update()
     def delete_image(e):
@@ -14708,7 +14711,7 @@ def buildRAVE(page):
           Text("SoftEdge HED - A monochrome image with white soft edges on a black background."),
           Markdown("[GitHub Code](https://github.com/rehg-lab/RAVE) | [arXiv](https://arxiv.org/abs/2312.04524) | [Paper](https://rave-video.github.io/static/pdfs/RAVE.pdf) | [Project Page](https://rave-video.github.io/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("💺  Real Smooth... ", on_click=close_rave_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = rave_help_dlg
+      page.overlay.append(rave_help_dlg)
       rave_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -14815,7 +14818,7 @@ def buildTokenFlow(page):
           Markdown("[Project Page](https://diffusion-tokenflow.github.io) | [GitHub repository](https://github.com/omerbt/TokenFlow) | [Paper](https://diffusion-tokenflow.github.io/TokenFlow_Arxiv.pdf)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Geyer, Michal and Bar-Tal, Omer Bar-Tal, Bagon, Shai and Dekel, Tali, Harry Chen and HuggingFace")
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🌟  Extra Bonus Points... ", on_click=close_tokenflow_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = tokenflow_help_dlg
+      page.overlay.append(tokenflow_help_dlg)
       tokenflow_help_dlg.open = True
       page.update()
     def change_mode(e):
@@ -15061,7 +15064,7 @@ def buildAnimateDiff(page):
           Text("Credits: Yuwei Guo, Ceyuan Yang, Anyi Rao, Yaohui Wang, Yu Qiao, Dahua Lin, Bo Dai. Also Neggles for refactoring, Camenduru and UI by Alan Bedian"),
           Markdown("[Neggles GitHub Code](https://github.com/neggles/animatediff-cli) - [S9roll7 Prompt Travel](https://github.com/s9roll7/animatediff-cli-prompt-travel) - [Original GitHub Code](https://github.com/guoyww/animatediff/) - [Project Page](https://animatediff.github.io/) - [Arxiv Paper](https://arxiv.org/abs/2307.04725)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🧞  Make a Wish... ", on_click=close_animate_diff_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = animate_diff_help_dlg
+      page.overlay.append(animate_diff_help_dlg)
       animate_diff_help_dlg.open = True
       page.update()
     def changed_lora(e):
@@ -15169,8 +15172,8 @@ def buildAnimateDiff(page):
             dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Animated Prompt"), content=Container(Column([
                 animate_diff_editing_prompt,
                 animate_diff_negative_prompt, animate_diff_seed,
-            ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_animate_diff_prompt)], actions_alignment=MainAxisAlignment.END)
-            page.dialog = dlg_edit
+            ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window.width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_animate_diff_prompt)], actions_alignment=MainAxisAlignment.END)
+            page.overlay.append(dlg_edit)
             dlg_edit.open = True
             page.update()
         else:
@@ -15222,8 +15225,8 @@ def buildAnimateDiff(page):
       editing_prompt = TextField(label="Keyframe Prompt Animation", expand=True, multiline=True, value=edit_prompt, autofocus=True)
       dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ Edit Prompt Keyframe"), content=Container(Column([
           Row([editing_frame, editing_prompt])
-      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = dlg_edit
+      ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window.width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_prompt)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(dlg_edit)
       dlg_edit.open = True
       page.update()
     def del_prompt(e):
@@ -15635,7 +15638,7 @@ def buildAnimateDiffImage2Video(page):
           Markdown("[Diffusers Project](https://github.com/huggingface/diffusers/pull/6328) | [Colab](https://drive.google.com/file/d/1TvzCDPHhfFtdcJZe4RLloAwyoLKuttWK/view?usp=sharing) | [Aryan V S](https://github.com/a-r-r-o-w)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😈  It's Alive!", on_click=close_animatediff_img2video_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = animatediff_img2video_help_dlg
+      page.overlay.append(animatediff_img2video_help_dlg)
       animatediff_img2video_help_dlg.open = True
       page.update()
     def changed_lora_layer(e):
@@ -15853,7 +15856,7 @@ def buildAnimateDiffSDXL(page):
           Markdown("[Diffusers Project](https://github.com/huggingface/diffusers/pull/6721) | [Motion Module](https://github.com/guoyww/AnimateDiff/tree/sdxl) | [Colab](https://colab.research.google.com/drive/1076fX0AtMgYNdQyYF-mwug8Bl2SfZ8Be) | [Aryan V S (a-r-r-o-w)](https://github.com/a-r-r-o-w)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🤩  Might Wow", on_click=close_animatediff_sdxl_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = animatediff_sdxl_help_dlg
+      page.overlay.append(animatediff_sdxl_help_dlg)
       animatediff_sdxl_help_dlg.open = True
       page.update()
     def changed_lora_layer(e):
@@ -16069,7 +16072,7 @@ def buildPIA(page):
           Text("Credits go to Tianxing Wu, Chenyang Si, Yuming Jiang, Ziqi Huang, Ziwei Liu and HuggingFace.")
           #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🦘  Jump Right In...", on_click=close_pia_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = pia_help_dlg
+      page.overlay.append(pia_help_dlg)
       pia_help_dlg.open = True
       page.update()
     def toggle_ip_adapter(e):
@@ -16266,7 +16269,7 @@ def buildI2VGenXL(page):
           Text("Credits go to Shiwei Zhang, Jiayu Wang, Yingya Zhang, Kang Zhao, Hangjie Yuan, Zhiwu Qin, Xiang Wang, Deli Zhao, and Jingren Zhou."),
           #Markdown("The pipelines were contributed by [luosiallen](https://luosiallen.github.io/), [nagolinc](https://github.com/nagolinc), and [dg845](https://github.com/dg845).", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🛞  Roll with it...", on_click=close_i2vgen_xl_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = i2vgen_xl_help_dlg
+      page.overlay.append(i2vgen_xl_help_dlg)
       i2vgen_xl_help_dlg.open = True
       page.update()
     def changed_model(e):
@@ -16442,7 +16445,7 @@ def buildHotshotXL(page):
           Text("You’ll be able to make GIFs with any existing or newly fine-tuned SDXL model you may want to use. If you'd like to make GIFs of personalized subjects, you can load your own SDXL based LORAs, and not have to worry about fine-tuning Hotshot-XL. This is awesome because it’s usually much easier to find suitable images for training data than it is to find videos. It also hopefully fits into everyone's existing LORA usage/workflows. Hotshot-XL is compatible with SDXL ControlNet to make GIFs in the composition/layout you’d like. Hotshot-XL was trained to generate 1 second GIFs at 8 FPS. Hotshot-XL was trained on various aspect ratios. For best results with the base Hotshot-XL model, we recommend using it with an SDXL model that has been fine-tuned with 512x512 images."),
           Markdown("[Project Website](https://www.hotshot.co/) | [GitHub repository](https://github.com/hotshotco/Hotshot-XL)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("♨️  Hot Stuff... ", on_click=close_hotshot_xl_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = hotshot_xl_help_dlg
+      page.overlay.append(hotshot_xl_help_dlg)
       hotshot_xl_help_dlg.open = True
       page.update()
     def changed_lora_layer(e):
@@ -16587,7 +16590,7 @@ def buildRerender_a_video(page):
           Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
           Text("HED - A monochrome image with white soft edges on a black background."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("📺  Change Reality... ", on_click=close_rerender_a_video_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = rerender_a_video_help_dlg
+      page.overlay.append(rerender_a_video_help_dlg)
       rerender_a_video_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -16766,7 +16769,7 @@ def buildFresco(page):
           Markdown("[Project Page](https://www.mmlab-ntu.com/project/fresco/) | [GitHub repository](https://github.com/williamyang1991/FRESCO) | [Paper](https://arxiv.org/abs/2403.12962)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Shuai Yang, Yifan Zhou, Ziwei Liu and Chen Change Loy")
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍑  So Fresh... ", on_click=close_fresco_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = fresco_help_dlg
+      page.overlay.append(fresco_help_dlg)
       fresco_help_dlg.open = True
       page.update()
     def change_task(e):
@@ -16934,7 +16937,7 @@ def buildFrescoV2V(page):
           Markdown("[Project Page](https://www.mmlab-ntu.com/project/fresco_v2v/) | [GitHub repository](https://github.com/williamyang1991/FRESCO) | [Paper](https://arxiv.org/abs/2403.12962)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           Text("Credits go to Shuai Yang, Yifan Zhou, Ziwei Liu and Chen Change Loy")
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🍑  So Fresh... ", on_click=close_fresco_v2v_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = fresco_v2v_help_dlg
+      page.overlay.append(fresco_v2v_help_dlg)
       fresco_v2v_help_dlg.open = True
       page.update()
     def change_task(e):
@@ -17368,7 +17371,7 @@ def buildDiT(page):
           Text("We explore a new class of diffusion models based on the transformer architecture. We train latent diffusion models of images, replacing the commonly-used U-Net backbone with a transformer that operates on latent patches. We analyze the scalability of our Diffusion Transformers (DiTs) through the lens of forward pass complexity as measured by Gflops. We find that DiTs with higher Gflops -- through increased transformer depth/width or increased number of input tokens -- consistently have lower FID. In addition to possessing good scalability properties, our largest DiT-XL/2 models outperform all prior diffusion models on the class-conditional ImageNet 512x512 and 256x256 benchmarks, achieving a state-of-the-art FID of 2.27 on the latter."),
           Markdown("The DiT model in diffusers comes from  can be found here: [Scalable Diffusion Models with Transformers](https://www.wpeebles.com/DiT) (DiT) and [facebookresearch/dit](https://github.com/facebookresearch/dit)..", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😕  Interesting... ", on_click=close_DiT_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = DiT_help_dlg
+      page.overlay.append(DiT_help_dlg)
       DiT_help_dlg.open = True
       page.update()
     def copy_class(e):
@@ -17382,7 +17385,7 @@ def buildDiT(page):
       alert_msg(page, "ImageNET Class List", content=Container(Column([ResponsiveRow(
         controls=classes,
         expand=True,
-      )], spacing=0), width=(page.width if page.web else page.window_width) - 150), okay="😲  That's a lot...", sound=False)
+      )], spacing=0), width=(page.width if page.web else page.window.width) - 150), okay="😲  That's a lot...", sound=False)
     guidance_scale = SliderRow(label="Guidance Scale", min=0, max=50, divisions=100, round=1, pref=DiT_prefs, key='guidance_scale')
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
@@ -17779,7 +17782,7 @@ def buildKandinsky3(page):
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
           Markdown("Kandinsky 3 is created by [Vladimir Arkhipkin](https://github.com/oriBetelgeuse),[Anastasia Maltseva](https://github.com/NastyaMittseva),[Igor Pavlov](https://github.com/boomb0om),[Andrei Filatov](https://github.com/anvilarth),[Arseniy Shakhmatov](https://github.com/cene555),[Andrey Kuznetsov](https://github.com/kuznetsoffandrey),[Denis Dimitrov](https://github.com/denndimitrov), [Zein Shaheen](https://github.com/zeinsh). Check out the [Kandinsky Community](https://huggingface.co/kandinsky-community) organization on the Hub for the official model checkpoints for tasks like text-to-image, image-to-image, and inpainting.", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky_3_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = kandinsky_3_help_dlg
+      page.overlay.append(kandinsky_3_help_dlg)
       kandinsky_3_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -17897,7 +17900,7 @@ def buildKandinsky(page):
           Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = kandinsky_help_dlg
+      page.overlay.append(kandinsky_help_dlg)
       kandinsky_help_dlg.open = True
       page.update()
     def pick_files_result(e: FilePickerResultEvent):
@@ -18099,7 +18102,7 @@ def buildKandinsky21(page):
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
           Markdown("[Kandinsky GitHub](https://github.com/ai-forever/Kandinsky-2) | [Kandinsky 2.1 Blog](https://habr.com/ru/companies/sberbank/articles/725282/) | [FusionBrain Demo](https://fusionbrain.ai/diffusion)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky21_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = kandinsky21_help_dlg
+      page.overlay.append(kandinsky21_help_dlg)
       kandinsky21_help_dlg.open = True
       page.update()
     def pick_files_result(e: FilePickerResultEvent):
@@ -18350,7 +18353,7 @@ def buildKandinskyFuse(page):
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
           Markdown("[Kandinsky GitHub](https://github.com/ai-forever/Kandinsky-2) | [Kandinsky 2.1 Blog](https://habr.com/ru/companies/sberbank/articles/725282/) | [FusionBrain Demo](https://fusionbrain.ai/diffusion)"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🫢  Possibility Overload... ", on_click=close_kandinsky_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = kandinsky_help_dlg
+      page.overlay.append(kandinsky_help_dlg)
       kandinsky_help_dlg.open = True
       page.update()
     def switch_version(e):
@@ -18516,8 +18519,8 @@ def buildKandinskyFuse(page):
         prompt_text = TextField(label="Fuse Prompt Text", value=prompt_value, multiline=True, visible=layer_type == "prompt")
         image_mix = TextField(label="Fuse Image Path", value=image_value, visible=layer_type == "image", height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_image))
         edit_weights = SliderRow(label="Weight/Strength", min=0, max=1, divisions=20, round=1, pref=data, key='weight', tooltip="Indicates how much each individual concept should influence the overall guidance. If no weights are provided all concepts are applied equally.")
-        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window_width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = dlg_edit
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window.width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(dlg_edit)
         dlg_edit.open = True
         page.update()
     add_prompt_btn = ft.FilledButton("➕ Add Prompt", width=150, on_click=add_prompt)
@@ -18689,7 +18692,7 @@ def buildKandinsky21Fuse(page):
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
           Markdown("[Kandinsky GitHub](https://github.com/ai-forever/Kandinsky-2) | [Kandinsky 2.1 Blog](https://habr.com/ru/companies/sberbank/articles/725282/) | [FusionBrain Demo](https://fusionbrain.ai/diffusion)"),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🫢  Possibility Overload... ", on_click=close_kandinsky21_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = kandinsky21_help_dlg
+      page.overlay.append(kandinsky21_help_dlg)
       kandinsky21_help_dlg.open = True
       page.update()
     def switch_version(e):
@@ -18855,8 +18858,8 @@ def buildKandinsky21Fuse(page):
         prompt_text = TextField(label="Fuse Prompt Text", value=prompt_value, multiline=True, visible=layer_type == "prompt")
         image_mix = TextField(label="Fuse Image Path", value=image_value, visible=layer_type == "image", height=65, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_image))
         edit_weights = SliderRow(label="Weight/Strength", min=0, max=1, divisions=20, round=1, pref=data, key='weight', tooltip="Indicates how much each individual concept should influence the overall guidance. If no weights are provided all concepts are applied equally.")
-        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window_width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = dlg_edit
+        dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit Kandinsky Fuse {layer_type.title()} Mix"), content=Container(Column([prompt_text, image_mix, edit_weights], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO, width=(page.width if page.web else page.window.width) - 100)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Layer ", size=19, weight=FontWeight.BOLD), on_click=save_layer)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(dlg_edit)
         dlg_edit.open = True
         page.update()
     add_prompt_btn = ft.FilledButton("➕ Add Prompt", width=150, on_click=add_prompt)
@@ -18971,7 +18974,7 @@ def buildKandinskyControlNet(page):
           Text("As text and image encoder it uses CLIP model and diffusion image prior (mapping) between latent spaces of CLIP modalities. This approach increases the visual performance of the model and unveils new horizons in blending images and text-guided image manipulation. For diffusion mapping of latent spaces we use transformer with num_layers=20, num_heads=32 and hidden_size=2048. Kandinsky 2.1 was trained on a large-scale image-text dataset LAION HighRes and fine-tuned on our internal datasets. These encoders and multilingual training datasets unveil the real multilingual text-to-image generation experience!"),
           Text("The decision to make changes to the architecture came after continuing to learn the Kandinsky 2.0 version and trying to get stable text embeddings of the mT5 multilingual language model. The logical conclusion was that the use of only text embedding was not enough for high-quality image synthesis. After analyzing once again the existing DALL-E 2 solution from OpenAI, it was decided to experiment with the image prior model (allows you to generate visual embedding CLIP by text prompt or text embedding CLIP), while remaining in the latent visual space paradigm, so that you do not have to retrain the diffusion part of the UNet model Kandinsky 2.0. Now a little more details about the learning process of Kandinsky 2.1."),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🤤  Quality... ", on_click=close_kandinsky_controlnet_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = kandinsky_controlnet_help_dlg
+      page.overlay.append(kandinsky_controlnet_help_dlg)
       kandinsky_controlnet_help_dlg.open = True
       page.update()
     def pick_files_result(e: FilePickerResultEvent):
@@ -19140,7 +19143,7 @@ def buildDeepDaze(page):
           Text("Heavily influenced by Alexander Mordvintsev's Deep Dream, this work uses CLIP to match an image learned by a SIREN network with a given textual description."),
           #Markdown(""),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😵‍💫  Why not... ", on_click=close_deep_daze_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = deep_daze_help_dlg
+      page.overlay.append(deep_daze_help_dlg)
       deep_daze_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -19231,7 +19234,7 @@ def buildCLIPstyler(page):
           Text("Although these approaches for style transfer can successfully create visually pleasing new artworks by transferring styles of famous artworks to common images, they require a reference style image to change the texture of the content image. However, in many practical applications, reference style images are not available to users, but the users are still interested in ‘imitiating’ the texture of the style images. For example, users can imagine being able to convert their own photos into Monet or Van Gogh styles without ever owning paintings by the famous painters. Or you can convert your daylight images into night images by mere imagination. In fact, to overcome this limitation of the existing style transfer and create a truly creative artwork, we should be able to transfer a completely novel style that we imagine."),
           Markdown("[GitHub Project](https://github.com/cyclomon/CLIPstyler) | [Paper](https://arxiv.org/abs/2112.00374) | [Colab](https://colab.research.google.com/drive/1dg8PXi-TVtzdpbaoI7ty72SSY7xdBgwo?usp=sharing)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😖  Stylish... ", on_click=close_CLIPstyler_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = CLIPstyler_help_dlg
+      page.overlay.append(CLIPstyler_help_dlg)
       CLIPstyler_help_dlg.open = True
       page.update()
     def pick_files_result(e: FilePickerResultEvent):
@@ -19385,7 +19388,7 @@ def buildSemanticGuidance(page):
           Text("Text-to-image diffusion models have recently received a lot of interest for their astonishing ability to produce high-fidelity images from text only. However, achieving one-shot generation that aligns with the user's intent is nearly impossible, yet small changes to the input prompt often result in very different images. This leaves the user with little semantic control. To put the user in control, we show how to interact with the diffusion process to flexibly steer it along semantic directions. This semantic guidance (SEGA) allows for subtle and extensive edits, changes in composition and style, as well as optimizing the overall artistic conception. We demonstrate SEGA's effectiveness on a variety of tasks and provide evidence for its versatility and flexibility."),
           Markdown("[HuggingFace Documentation](https://huggingface.co/docs/diffusers/main/en/api/pipelines/semantic_stable_diffusion) - [Paper](https://arxiv.org/abs/2301.12247)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("😖  More Control Please... ", on_click=close_semantic_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = semantic_help_dlg
+      page.overlay.append(semantic_help_dlg)
       semantic_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -19450,8 +19453,8 @@ def buildSemanticGuidance(page):
         reverse_editing_direction = Checkbox(label="Reverse Editing Direction", value=semantic_prompt['reverse_editing_direction'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed_p(e,'reverse_editing_direction'), tooltip="Whether the corresponding prompt in `editing_prompt` should be increased or decreased.")
         dlg_edit = AlertDialog(modal=False, title=Text(f"♟️ {'Edit' if bool(edit) else 'Add'} Semantic Prompt"), content=Container(Column([
             semantic_editing_prompt, edit_warmup_steps, edit_guidance_scale, edit_threshold, edit_weights, reverse_editing_direction,
-        ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window_width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_semantic_prompt)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = dlg_edit
+        ], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO), width=(page.width if page.web else page.window.width) - 180), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Prompt ", size=19, weight=FontWeight.BOLD), on_click=save_semantic_prompt)], actions_alignment=MainAxisAlignment.END)
+        page.overlay.append(dlg_edit)
         dlg_edit.open = True
         page.update()
     def del_semantic(edit=None):
@@ -19570,7 +19573,7 @@ def buildDemoFusion(page):
           #Text(""),
           Markdown("[Paper](https://arxiv.org/abs/2311.16973) | [Original GitHub](https://github.com/PRIS-CV/DemoFusion) | [Ruoyi Du](https://github.com/RuoyiDu)", on_tap_link=lambda e: e.page.launch_url(e.data)),
         ], scroll=ScrollMode.AUTO), actions=[TextButton("🏡  Go Big or...", on_click=close_demofusion_dlg)], actions_alignment=MainAxisAlignment.END)
-      page.dialog = demofusion_help_dlg
+      page.overlay.append(demofusion_help_dlg)
       demofusion_help_dlg.open = True
       page.update()
     def toggle_ESRGAN(e):
@@ -19776,7 +19779,7 @@ def buildDreamBooth(page):
             Text("First thing is to collect all your own images that you want to teach it to dream.  Feed it at least 5 square pictures of the object or style to learn, and it'll save your Custom Model Checkpoint."),
             Text("Fine-tune your perameters, but be aware that the training process takes a long time to run, so careful with the settings if you don't have the patience or processor. Dream at your own risk."),
           ], scroll=ScrollMode.AUTO), actions=[TextButton(emojize(':sleepy_face:') + "  Got it... ", on_click=close_db_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = db_help_dlg
+        page.overlay.append(db_help_dlg)
         db_help_dlg.open = True
         page.update()
     def delete_image(e):
@@ -19984,7 +19987,7 @@ def buildTextualInversion(page):
         ti_help_dlg = AlertDialog(title=Text("💁   Help with Textual-Inversion"), content=Column([
             Text(""),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("😪  I'll figure it out... ", on_click=close_ti_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = ti_help_dlg
+        page.overlay.append(ti_help_dlg)
         ti_help_dlg.open = True
         page.update()
     def delete_image(e):
@@ -20250,7 +20253,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
 - LoRA attention layers allow to control to which extent the model is adapted torwards new training images via a `scale` parameter.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
             Text("Fine-tune your perameters, but be aware that the training process takes a long time to run, so careful with the settings if you don't have the patience or processor. Dream at your own risk."),
           ], scroll=ScrollMode.AUTO), actions=[TextButton(emojize(':sun_with_face:') + "  Neato... ", on_click=close_lora_dreambooth_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = lora_dreambooth_help_dlg
+        page.overlay.append(lora_dreambooth_help_dlg)
         lora_dreambooth_help_dlg.open = True
         page.update()
     def delete_image(e):
@@ -20464,7 +20467,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
 - LoRA attention layers allow to control to which extent the model is adapted torwards new training images via a `scale` parameter.""", on_tap_link=lambda e: e.page.launch_url(e.data)),
             Text("Fine-tune your perameters, but be aware that the training process takes a long time to run, so careful with the settings if you don't have the patience or processor. Dream at your own risk."),
           ], scroll=ScrollMode.AUTO), actions=[TextButton(emojize(':sun_with_face:') + "  Neato... ", on_click=close_lora_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = lora_help_dlg
+        page.overlay.append(lora_help_dlg)
         lora_help_dlg.open = True
         page.update()
     def delete_image(e):
@@ -20696,7 +20699,7 @@ def buildConverter(page):
         converter_help_dlg = AlertDialog(title=Text("💁   Help with Converters"), content=Column([
             Text("Because there have been so many competing formats for Stable Diffusion models, we here have standardized with HuggingFace Diffusers, which is great but doesn't support all the Checkpoint Model types that are out there in the wild.  This should allow you to take other peoples custom trained model files and convert it to the better Diffusers PyTorch format, and then it'll save your Custom Model Checkpoint to HuggingFace (free) to reuse and/or share."),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🎈  Handy... ", on_click=close_converter_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = converter_help_dlg
+        page.overlay.append(converter_help_dlg)
         converter_help_dlg.open = True
         page.update()
     def toggle_save(e):
@@ -20804,7 +20807,7 @@ def buildCheckpointMerger(page):
         checkpoint_merger_help_dlg = AlertDialog(title=Text("💁   Help with Checkpoint Merger"), content=Column([
             Text("Provide a list of valid pretrained model names in the HuggingFace hub or paths to locally stored models in the HuggingFace format.  Merges the Checkpoint Weights into a new model that you can save for free to HuggingFace to reuse."),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🍻  Sure thing... ", on_click=close_checkpoint_merger_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = checkpoint_merger_help_dlg
+        page.overlay.append(checkpoint_merger_help_dlg)
         checkpoint_merger_help_dlg.open = True
         page.update()
     def toggle_save(e):
@@ -20964,7 +20967,7 @@ def buildTortoiseTTS(page):
             Text("To add new voices to Tortoise, you will need to do the following: Gather audio clips of your speaker(s). Good sources are YouTube interviews (you can use youtube-dl to fetch the audio), audiobooks or podcasts. Guidelines for good clips are in the next section. Cut your clips into ~10 second segments. You want at least 3 clips. More is better, but I only experimented with up to 5 in my testing. Save the clips as a WAV file with floating point format and a 22,050 sample rate."),
             Text("You can do prompt engineering with Tortoise to get the performance you want. For example, you can evoke emotion by including things like [I am really sad], before your text. It redacts the phrase in brackets, but keeps the context of the meaning to the voice reading. Experiment with grammar and spelling, and use an audio editor to perfect the vocals later."),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("👄  What to say... ", on_click=close_tortoise_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = tortoise_help_dlg
+        page.overlay.append(tortoise_help_dlg)
         tortoise_help_dlg.open = True
         page.update()
     def delete_audio(e):
@@ -21144,7 +21147,7 @@ def buildOpenAI_TTS(page):
             Text("The TTS model generally follows the Whisper model in terms of language support. Whisper supports the following languages and performs well despite the current voices being optimized for English. The following language are supported: Afrikaans, Arabic, Armenian, Azerbaijani, Belarusian, Bosnian, Bulgarian, Catalan, Chinese, Croatian, Czech, Danish, Dutch, English, Estonian, Finnish, French, Galician, German, Greek, Hebrew, Hindi, Hungarian, Icelandic, Indonesian, Italian, Japanese, Kannada, Kazakh, Korean, Latvian, Lithuanian, Macedonian, Malay, Marathi, Maori, Nepali, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Slovenian, Spanish, Swahili, Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and Welsh. You can generate spoken audio in these languages by providing the input text in the language of your choice."),
             Markdown("[Text-to-Speech Guide](https://platform.openai.com/docs/guides/text-to-speech) | [API Reference](https://platform.openai.com/docs/api-reference/audio)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("👄  Speak to me... ", on_click=close_openai_tts_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = openai_tts_help_dlg
+        page.overlay.append(openai_tts_help_dlg)
         openai_tts_help_dlg.open = True
         page.update()
     def add_to_openai_tts_output(o):
@@ -21219,7 +21222,7 @@ def buildAudioLDM(page):
             Text("AudioLDM is a TTA system that is built on a latent space to learn the continuous audio representations from contrastive language-audio pretraining (CLAP) latents. The pretrained CLAP models enable us to train LDMs with audio embedding while providing text embedding as a condition during sampling. By learning the latent representations of audio signals and their compositions without modeling the cross-modal relationship, AudioLDM is advantageous in both generation quality and computational efficiency. Trained on AudioCaps with a single GPU, AudioLDM achieves state-of-the-art TTA performance measured by both objective and subjective metrics (e.g., frechet distance). Moreover, AudioLDM is the first TTA system that enables various text-guided audio manipulations (e.g., style transfer) in a zero-shot fashion."),
             Markdown("They built the model with data from [AudioSet](http://research.google.com/audioset/), [Freesound](https://freesound.org/) and [BBC Sound Effect library](https://sound-effects.bbcrewind.co.uk/). We share this demo based on the [UK copyright exception](https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/375954/Research.pdf) of data for academic research.", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🔔  Good to hear... ", on_click=close_audioLDM_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = audioLDM_help_dlg
+        page.overlay.append(audioLDM_help_dlg)
         audioLDM_help_dlg.open = True
         page.update()
     duration_row = SliderRow(label="Duration", min=1, max=20, divisions=38, round=1, suffix="s", pref=audioLDM_prefs, key='duration')
@@ -21293,7 +21296,7 @@ def buildAudioLDM2(page):
             Text("Although audio generation shares commonalities across different types of audio, such as speech, music, and sound effects, designing models for each type requires careful consideration of specific objectives and biases that can significantly differ from those of other types. To bring us closer to a unified perspective of audio generation, this paper proposes a framework that utilizes the same learning method for speech, music, and sound effect generation. Our framework introduces a general representation of audio, called 'language of audio' (LOA). Any audio can be translated into LOA based on AudioMAE, a self-supervised pre-trained representation learning model. In the generation process, we translate any modalities into LOA by using a GPT-2 model, and we perform self-supervised audio generation learning with a latent diffusion model conditioned on LOA. The proposed framework naturally brings advantages such as in-context learning abilities and reusable self-supervised pretrained AudioMAE and latent diffusion models. Experiments on the major benchmarks of text-to-audio, text-to-music, and text-to-speech demonstrate new state-of-the-art or competitive performance to previous approaches."),
             Markdown("[Project Page](https://audioldm.github.io/audioldm2/) | [Paper](https://arxiv.org/abs/2308.05734) | [GitHub Code](https://github.com/haoheliu/audioldm2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🔔  Good to hear... ", on_click=close_audioLDM2_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = audioLDM2_help_dlg
+        page.overlay.append(audioLDM2_help_dlg)
         audioLDM2_help_dlg.open = True
         page.update()
     def change_model(e):
@@ -21371,7 +21374,7 @@ def buildMusicLang(page):
             Text("You want to generate music that you can export to your favourite DAW in MIDI ? You want to control the chord progression of the generated music ? You need to run it fast on your laptop without a gpu ? You had a specific harmony in mind am I right ? That's why we allow a fine control over the chord progression of the generated music. Just specify it as a string like below, choose a time signature and let the magic happen."),
             Markdown("[Project Page](https://musiclang.github.io/) | [MusicLang Predict](https://github.com/musiclang/musiclang_predict) | [HuggingFace Space](https://huggingface.co/spaces/musiclang/musiclang-predict) | [MusicLang Model](https://huggingface.co/musiclang/musiclang-v2)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🚀  Blast da Beat... ", on_click=close_musiclang_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = musiclang_help_dlg
+        page.overlay.append(musiclang_help_dlg)
         musiclang_help_dlg.open = True
         page.update()
     midi_file = FileInput(label="Prompt MIDI File (optional)", pref=musiclang_prefs, key='midi_file', ftype="midi", page=page)
@@ -21439,7 +21442,7 @@ def buildZetaEditing(page):
             Text("Our methods are based on the recently introduced editfriendly DDPM inversion method, which we use for extracting latent noise vectors corresponding to the source signal. To generate the edited signal, we use those noise vectors in a DDPM sampling process, while drifting the diffusion towards the desired edit. In text-based editing, we achieve this by changing the text prompt supplied to the denoiser model. In our unsupervised method, we perturb the output of the denoiser in the directions of the top principal components (PCs) of the posterior, which we efficiently compute based on Manor & Michaeli (2024). As we show, these perturbations are particularly useful for editing music excerpts, in which they can uncover improvisations and other musically plausible modifications."),
             Markdown("[Project Page](https://hilamanor.github.io/AudioEditing/) | [Paper](https://arxiv.org/abs/2402.10009) | [GitHub Code](https://github.com/HilaManor/AudioEditingCode)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🤐  Hear the Changes... ", on_click=close_zeta_editing_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = zeta_editing_help_dlg
+        page.overlay.append(zeta_editing_help_dlg)
         zeta_editing_help_dlg.open = True
         page.update()
     def change_model(e):
@@ -21524,7 +21527,7 @@ def buildMusicLDM(page):
             Text("It was proposed in MusicLDM: Enhancing Novelty in Text-to-Music Generation Using Beat-Synchronous Mixup Strategies by Ke Chen, Yusong Wu, Haohe Liu, Marianna Nezhurina, Taylor Berg-Kirkpatrick, Shlomo Dubnov."),
             Markdown("[Paper](https://huggingface.co/papers/2308.01546) | [GitHub Code](https://github.com/haoheliu/musicldm)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🪨  Let's Rock... ", on_click=close_musicLDM_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = musicLDM_help_dlg
+        page.overlay.append(musicLDM_help_dlg)
         musicLDM_help_dlg.open = True
         page.update()
     def change_model(e):
@@ -21601,7 +21604,7 @@ def buildStableAudio(page):
             Text("Limitations: The model is not able to generate realistic vocals. The model has been trained with English descriptions and will not perform as well in other languages. The model does not perform equally well for all music styles and cultures. The model is better at generating sound effects and field recordings than music. It is sometimes difficult to assess what types of text descriptions provide the best generations. Prompt engineering may be required to obtain satisfying results."),
             Markdown("[Project Page](https://stableaudio.com) | [Paper](https://stability.ai/research/stable-audio-efficient-timing-latent-diffusion) | [Model Card](https://huggingface.co/stabilityai/stable-audio-open-1.0) | [GitHub Code](https://github.com/Stability-AI/stable-audio-tools) | [Blog](https://stability.ai/news/stable-audio-2-0)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🎛  How Stable is it? ", on_click=close_stable_audio_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = stable_audio_help_dlg
+        page.overlay.append(stable_audio_help_dlg)
         stable_audio_help_dlg.open = True
         page.update()
     def change_model(e):
@@ -21686,7 +21689,7 @@ def buildBark(page):
             Text("[laughter], [laughs], [sighs], [music], [gasps], [clears throat], — or … for hesitations, ♪ for song lyrics, capitalization for emphasis of a word, MAN/WOMAN: for bias towards speaker"),
             Markdown("Checkout their [GitHub Project](https://github.com/suno-ai/bark), [HuggingFace Space](https://huggingface.co/spaces/suno/bark) and [Suno Discord](https://discord.com/invite/J2B2vsjKuE).", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🦊  Woof... ", on_click=close_bark_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = bark_help_dlg
+        page.overlay.append(bark_help_dlg)
         bark_help_dlg.open = True
         page.update()
     #duration_row = SliderRow(label="Duration", min=1, max=20, divisions=38, round=1, suffix="s", pref=bark_prefs, key='duration')
@@ -21770,7 +21773,7 @@ def buildRiffusion(page):
             Text("This is the v1.5 stable diffusion model with no modifications, just fine-tuned on images of spectrograms paired with text. Audio processing happens downstream of the model. It can generate infinite variations of a prompt by varying the seed. All the same web UIs and techniques like img2img, inpainting, negative prompts, and interpolation work out of the box."),
             Markdown("[Project Page](https://www.riffusion.com/about), [Codebase](https://github.com/riffusion/riffusion), [Discord](https://discord.gg/yu6SRwvX4v)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🎺  Let's Jam... ", on_click=close_riffusion_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = riffusion_help_dlg
+        page.overlay.append(riffusion_help_dlg)
         riffusion_help_dlg.open = True
         page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -21879,7 +21882,7 @@ def buildMubert(page):
             Text("Mubert AI is a cutting-edge tool that allows you to create realistic and infinite music by learning from a large dataset of existing music. The result is a high-quality and original music stream that sounds like it was composed by a professional musician."),
             Text("This uses the Mubert Developer API which is actually quite expensive to use, so don't be surprised if your generation fails because the API Key has used it's monthy quota. Sorry, it's not free/opensource..."),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🥁  Gimme a Beat... ", on_click=close_mubert_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = mubert_help_dlg
+        page.overlay.append(mubert_help_dlg)
         mubert_help_dlg.open = True
         page.update()
     prompt = TextField(label="Prompt to generate a track (genre, theme, etc.)", value=mubert_prefs['prompt'], filled=True, multiline=True, min_lines=1, max_lines=8, on_change=lambda e:changed(e,'prompt'))
@@ -21966,7 +21969,7 @@ def buildWhisper(page):
             Text("The Whisper architecture is a simple end-to-end approach, implemented as an encoder-decoder Transformer. Input audio is split into 30-second chunks, converted into a log-Mel spectrogram, and then passed into an encoder. A decoder is trained to predict the corresponding text caption, intermixed with special tokens that direct the single model to perform tasks such as language identification, phrase-level timestamps, multilingual speech transcription, and to-English speech translation."),
             Markdown("[Project Page](https://openai.com/research/whisper) | [GitHub Code](https://github.com/openai/whisper)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🙉  Understood... ", on_click=close_whisper_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = whisper_help_dlg
+        page.overlay.append(whisper_help_dlg)
         whisper_help_dlg.open = True
         page.update()
     #audio_file = TextField(label="Input Media File (MP3, MP4, AVI, URL or YouTube URL)", value=whisper_prefs['audio_file'], on_change=lambda e:changed(e,'audio_file'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_audio))
@@ -22039,7 +22042,7 @@ def buildVoiceFixer(page):
             Text("Voicefixer aims to restore human speech regardless how serious it's degraded. It can handle noise, reveberation, low resolution (2kHz~44.1kHz) and clipping (0.1-1.0 threshold) effect within one model.  This package provides a pretrained Voicefixer, which is build based on neural vocoder and pretrained 44.1k universal speaker-independent neural vocoder."),
             Markdown("[Arxiv Paper](https://arxiv.org/pdf/2109.13731.pdf) | [GitHub Code](https://github.com/haoheliu/voicefixer) | [Demo Page](https://haoheliu.github.io/demopage-voicefixer/)", on_tap_link=lambda e: e.page.launch_url(e.data)),
           ], scroll=ScrollMode.AUTO), actions=[TextButton("🦜  Loud & clear... ", on_click=close_voice_fixer_dlg)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = voice_fixer_help_dlg
+        page.overlay.append(voice_fixer_help_dlg)
         voice_fixer_help_dlg.open = True
         page.update()
     def file_picker_result(e: FilePickerResultEvent):
@@ -22228,7 +22231,7 @@ def buildCustomModelManager(page):
             model_weights.value = "1"
         dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Edit {type} Model Info"), content=Container(
           Column([model_name, model_path, model_weights if weights != None else Container(content=None)], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = dlg_edit
+        page.overlay.append(dlg_edit)
         dlg_edit.open = True
         page.update()
     def add_model(type):
@@ -22275,7 +22278,7 @@ def buildCustomModelManager(page):
             model_weights.label = "LoRA Clip Skip"
             model_weights.value = "1"
         dlg_edit = AlertDialog(modal=False, title=Text(f"🧳 Add Custom {type} Model"), content=Container(Column([model_name, model_path, model_weights if 'LoRA' in type else Container(content=None)], alignment=MainAxisAlignment.START, tight=True, scroll=ScrollMode.AUTO)), actions=[TextButton(content=Text("Cancel", size=18), on_click=close_dlg), ElevatedButton(content=Text(value=emojize(":floppy_disk:") + "  Save Model ", size=19, weight=FontWeight.BOLD), on_click=save_model)], actions_alignment=MainAxisAlignment.END)
-        page.dialog = dlg_edit
+        page.overlay.append(dlg_edit)
         dlg_edit.open = True
         page.update()
     def del_model(e, name):
@@ -26034,7 +26037,7 @@ def start_diffusion(page):
       return
   clear_image_output()
   #pb = ProgressBar(bar_height=8)
-  pb.width=(page.width if page.web else page.window_width) - 50
+  pb.width=(page.width if page.web else page.window.width) - 50
   #prt(Row([Text("▶️   Running Stable Diffusion on Batch Prompts List", style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)], alignment=MainAxisAlignment.SPACE_BETWEEN))
   prt(Header("▶️   Running Stable Diffusion on Batch Prompts List", actions=[IconButton(icon=icons.CANCEL, tooltip="Abort Current Diffusion Run", on_click=abort_diffusion)]))
   import string, shutil, random, gc, io, json
@@ -34015,7 +34018,7 @@ def run_dance_diffusion(page):
     random_seed = int(dance_prefs['seed']) if int(dance_prefs['seed']) > 0 else random.randint(0,4294967295)
     dance_generator = torch.Generator(device=torch_device).manual_seed(random_seed)
     clear_last()
-    pb.width=(page.width if page.web else page.window_width) - 50
+    pb.width=(page.width if page.web else page.window.width) - 50
     prt(pb)
     if prefs['higher_vram_mode']:
       output = dance_pipe(generator=dance_generator, batch_size=int(dance_prefs['batch_size']), num_inference_steps=int(dance_prefs['inference_steps']), audio_length_in_s=float(dance_prefs['audio_length_in_s']))
@@ -54543,19 +54546,19 @@ def main(page: Page):
           #keyboard.press_and_release('ctrl+w')
           #time.sleep(1.5)
           #close_tab()
-          page.window_close()
+          page.window.close()
           from google.colab import runtime
           runtime.unassign()
         else:
-          page.window_close()
+          page.window.close()
     def minimize_window(e):
-        page.window_minimized = True
+        page.window.minimized = True
         page.update()
     def maximize_window(e):
-        if page.window_maximized:
-            page.window_maximized = False
+        if page.window.maximized:
+            page.window.maximized = False
         else:
-            page.window_maximized = True
+            page.window.maximized = True
         page.update()
     def window_event(e):
         #print(e.data)
@@ -54570,7 +54573,7 @@ def main(page: Page):
             prefs['window_maximized'] = True
             page.update()
     if not is_Colab:
-        page.on_window_event = window_event
+        page.window.on_event = window_event
     def get_memory():
         from subprocess import getoutput
         s = getoutput('nvidia-smi -L')
@@ -54620,7 +54623,7 @@ def main(page: Page):
             ], scroll=ScrollMode.AUTO),
             actions=[TextButton("👍  Thanks! ", on_click=close_help_dlg)], actions_alignment=MainAxisAlignment.END,
         )
-        page.dialog = help_dlg
+        page.overlay.append(help_dlg)
         help_dlg.open = True
         page.update()
     def close_help_dlg(e):
@@ -54628,7 +54631,7 @@ def main(page: Page):
         help_dlg.open = False
         page.update()
     def open_credits_dlg(e):
-        page.dialog = credits_dlg
+        page.overlay.append(credits_dlg)
         credits_dlg.open = True
         page.update()
     def close_credits_dlg(e):
@@ -54664,7 +54667,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
       message, submit_btn,
     ])
     def open_contact_dlg(e):
-        page.dialog = contact_dlg
+        page.overlay.append(contact_dlg)
         contact_dlg.open = True
         page.update()
     def close_contact_dlg(e):
@@ -54680,7 +54683,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         actions=[TextButton("👁️‍🗨️  Maybe...", on_click=close_contact_dlg)], actions_alignment=MainAxisAlignment.END,
     )
     def open_donate_dlg(e):
-        page.dialog = donate_dlg
+        page.overlay.append(donate_dlg)
         donate_dlg.open = True
         page.update()
     def close_donate_dlg(e):
@@ -54703,12 +54706,12 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     else:
         page.theme = theme.Theme(color_scheme_seed=get_color(prefs['theme_color'].lower()))
     app_icon_color = colors.AMBER_800
-    space = " "  if (page.width if page.web else page.window_width) >= 1024 else ""
+    space = " "  if (page.width if page.web else page.window.width) >= 1024 else ""
     def clear_memory(e):
         play_snd(Snd.DELETE, page)
         clear_pipes()
     page.stats = Column([Text("", size=10), Text("", size=10)], tight=True, spacing=4)
-    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window_width) if page.web else page.window_width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE, overflow=ft.TextOverflow.ELLIPSIS, expand=True))], alignment=MainAxisAlignment.CENTER, expand=True), expand=False), elevation=20,
+    appbar=AppBar(title=ft.WindowDragArea(Row([Container(Text(f"👨‍🎨️{space}  Stable Diffusion - Deluxe Edition  {space}🧰" if ((page.width or page.window.width) if page.web else page.window.width) >= 768 else "Stable Diffusion Deluxe  🖌️", weight=FontWeight.BOLD, color=colors.ON_SURFACE, overflow=ft.TextOverflow.ELLIPSIS, expand=True))], alignment=MainAxisAlignment.CENTER, expand=True), expand=False), elevation=20,
       center_title=True,
       bgcolor=colors.SURFACE,
       toolbar_height=46,
@@ -54732,7 +54735,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
         appbar.actions.append(IconButton(icon=icons.MINIMIZE, tooltip="Minimize Window", on_click=minimize_window))
         appbar.actions.append(IconButton(icon=icons.CHECK_BOX_OUTLINE_BLANK, tooltip="Maximize Window", on_click=maximize_window))
         appbar.actions.append(IconButton(icon=icons.CLOSE, tooltip="❎  Exit Application", on_click=exit_disconnect))
-        page.window_title_bar_hidden = True
+        page.window.title_bar_hidden = True
     page.appbar = appbar
     def app_icon_save():
         app_icon_color = colors.GREEN_800
@@ -54754,7 +54757,7 @@ Shoutouts to the Discord Community of [Disco Diffusion](https://discord.gg/d5ZVb
     page.close_banner = close_banner
     #leading=Icon(icons.DOWNLOADING, color=colors.AMBER, size=40),
     page.status_msg = Text("")
-    page.banner = Banner(bgcolor=colors.SECONDARY_CONTAINER, content=Column([]), actions=[Row([page.status_msg, TextButton("Close", on_click=page.close_banner)])])
+    page.overlay.append(Banner(bgcolor=colors.SECONDARY_CONTAINER, content=Column([]), actions=[Row([page.status_msg, TextButton("Close", on_click=page.close_banner)])]))
     def show_banner_click(e):
         page.banner.open = True
         page.update()
@@ -54957,7 +54960,7 @@ class ImageButton(Stack):
             else:
               self.image = Img(src=asset_dir(self.src), fit=self.fit, gapless_playback=True)
         else:
-            self.width, self.height = scale_width(self.width, self.height, (self.page.width if self.page.web else self.page.window_width) - 28)
+            self.width, self.height = scale_width(self.width, self.height, (self.page.width if self.page.web else self.page.window.width) - 28)
             if self.src_base64 != None:
               self.image = Img(src_base64=self.src_base64, width=self.width, height=self.height, fit=self.fit, gapless_playback=True)
             else:
@@ -55376,7 +55379,7 @@ class RunConsole(Stack):
         self.clear()
     def build(self):
         #self.column = Column([Row([Text(self.title, style=TextThemeStyle.TITLE_LARGE, color=colors.SECONDARY, weight=FontWeight.BOLD), Row(self.actions) if bool(self.actions) else Container(content=None)], alignment=MainAxisAlignment.SPACE_BETWEEN, spacing=0, vertical_alignment=CrossAxisAlignment.END)], spacing=4)
-        self.column = Column([], spacing=1, scroll=ScrollMode.AUTO, auto_scroll=True) #, width=(page.width if page.web else page.window_width) - 20
+        self.column = Column([], spacing=1, scroll=ScrollMode.AUTO, auto_scroll=True) #, width=(page.width if page.web else page.window.width) - 20
         height = (self.height + 48) if bool(self.title) else self.height
         self.container = Container(content=self.column, border_radius=ft.border_radius.all(16), height=self.height, bgcolor=colors.SURFACE_VARIANT, padding=ft.padding.symmetric(10, 12))
         self.main_column = Column([])
