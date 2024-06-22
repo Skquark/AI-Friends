@@ -27630,7 +27630,9 @@ def start_diffusion(page):
           out_file.SetContentFile(fpath)
           out_file.Upload()
         elif bool(prefs['image_output']):
-          shutil.copy(fpath, new_file)#os.path.join(batch_output, new_file))
+          from pathlib import Path
+          if not Path(fpath).resolve().samefile(Path(new_file).resolve()):
+            shutil.copy(fpath, new_file)  #os.path.join(batch_output, new_file))
         if prefs['save_config_json']:
           json_file = os.path.basename(new_file).rpartition('.')[0] + '.json'
           with open(os.path.join(batch_output, json_file), "w") as f:
