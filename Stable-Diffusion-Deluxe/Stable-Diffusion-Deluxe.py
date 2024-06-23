@@ -780,6 +780,7 @@ def buildImageAIs(page):
     page.PixArtAlpha = buildPixArtAlpha(page)
     page.PixArtSigma = buildPixArtSigma(page)
     page.Hunyuan = buildHunyuanDiT(page)
+    page.Lumina = buildLuminaNext(page)
     page.Differential_Diffusion = buildDifferential_Diffusion(page)
     page.LMD_Plus = buildLMD_Plus(page)
     page.LCM = buildLCM(page)
@@ -815,6 +816,7 @@ def buildImageAIs(page):
             Tab(text="Stable Cascade", content=page.StableCascade, icon=icons.SPA),
             Tab(text="Würstchen", content=page.Wuerstchen, icon=icons.SAVINGS),
             Tab(text="Hunyuan-DiT", content=page.Hunyuan, icon=icons.TEMPLE_BUDDHIST),
+            Tab(text="Lumina-Next", content=page.Lumina, icon=icons.SYNAGOGUE),
             Tab(text="aMUSEd", content=page.Amused, icon=icons.ATTRACTIONS),
             Tab(text="PixArt-Σ", content=page.PixArtSigma, icon=icons.FUNCTIONS),
             Tab(text="PixArt-α", content=page.PixArtAlpha, icon=icons.PIX),
@@ -2278,8 +2280,8 @@ def buildInstallers(page):
         ESRGAN_blocks = [
           page.ESRGAN_block,
           page.ESRGAN_block_material,
-          page.ESRGAN_block_dalle,
-          page.ESRGAN_block_dalle3,
+          #page.ESRGAN_block_dalle,
+          #page.ESRGAN_block_dalle3, --Fix later
           page.ESRGAN_block_kandinsky,
           page.ESRGAN_block_kandinsky_fuse,
           page.ESRGAN_block_kandinsky_controlnet,
@@ -2292,6 +2294,7 @@ def buildInstallers(page):
           page.ESRGAN_block_pixart_alpha,
           page.ESRGAN_block_pixart_sigma,
           page.ESRGAN_block_hunyuan,
+          page.ESRGAN_block_lumina,
           page.ESRGAN_block_lcm,
           page.ESRGAN_block_lmd_plus,
           page.ESRGAN_block_ip_adapter,
@@ -2313,6 +2316,8 @@ def buildInstallers(page):
           page.ESRGAN_block_paint_by_example,
           page.ESRGAN_block_instruct_pix2pix,
           page.ESRGAN_block_controlnet,
+          page.ESRGAN_block_controlnet_xl,
+          page.ESRGAN_block_controlnet_sd3,
           page.ESRGAN_block_controlnet_qr,
           page.ESRGAN_block_controlnet_segment,
           page.ESRGAN_block_styler,
@@ -2328,7 +2333,7 @@ def buildInstallers(page):
             b.height = None
             b.update()
           except Exception:
-            print(f"Failed ESRGAN block {b.__name__}")
+            print(f"Failed ESRGAN block {b}")
             pass
       if prefs['install_OpenAI'] and not status['installed_OpenAI']:
         try:
@@ -10265,8 +10270,8 @@ def buildControlNetXL(page):
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=controlnet_xl_prefs, key='enlarge_scale')
     display_upscaled_image = Checkbox(label="Display Upscaled Image", value=controlnet_xl_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
     ESRGAN_settings = Container(Column([enlarge_scale_slider, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
-    page.ESRGAN_block_controlnet.height = None if status['installed_ESRGAN'] else 0
+    page.ESRGAN_block_controlnet_xl = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_controlnet_xl.height = None if status['installed_ESRGAN'] else 0
     page.controlnet_xl_output = Column([])
     clear_button = Row([ElevatedButton(content=Text("❌   Clear Output"), on_click=clear_output)], alignment=MainAxisAlignment.END)
     clear_button.visible = len(page.controlnet_xl_output.controls) > 0
@@ -10293,7 +10298,7 @@ def buildControlNetXL(page):
         ip_adapter_container,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xl_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
-        page.ESRGAN_block_controlnet,
+        page.ESRGAN_block_controlnet_xl,
         Row([ElevatedButton(content=Text("🛃  Run ControlNet-XL", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_controlnet_xl(page)),
              run_prompt_list]),
         page.controlnet_xl_output,
@@ -11802,6 +11807,99 @@ def buildHunyuanDiT(page):
             ResponsiveRow([Row([n_images, seed, distilled_model], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
             page.Hunyuan_output
+        ],
+    ))], scroll=ScrollMode.AUTO)
+    return c
+
+lumina_next_prefs = {
+    "prompt": '',
+    "negative_prompt": '',
+    "batch_folder_name": '',
+    "file_prefix": "lumina-",
+    "num_images": 1,
+    "steps":30,
+    "width": 1024,
+    "height":1024,
+    "guidance_scale":4.0,
+    "cpu_offload": True,
+    "seed": 0,
+    "lumina_model": "Lumina-Next-SFT-diffusers",
+    "custom_model": "",
+    "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
+    "enlarge_scale": prefs['enlarge_scale'],
+    "face_enhance": prefs['face_enhance'],
+    "display_upscaled_image": prefs['display_upscaled_image'],
+}
+
+def buildLuminaNext(page):
+    global prefs, lumina_next_prefs, status
+    def changed(e, pref=None, ptype="str"):
+      if pref is not None:
+        try:
+          lumina_next_prefs[pref] = int(e.control.value) if ptype == "int" else float(e.control.value) if ptype == "float" else e.control.value
+        except Exception:
+          alert_msg(page, "Error updating field. Make sure your Numbers are numbers...")
+          pass
+    def lumina_next_help(e):
+      def close_lumina_next_dlg(e):
+        nonlocal lumina_next_help_dlg
+        lumina_next_help_dlg.open = False
+        page.update()
+      lumina_next_help_dlg = AlertDialog(title=Text("🙅   Help with Lumina Pipeline"), content=Column([
+          Text("Lumina-Next is a next-generation Diffusion Transformer that significantly enhances text-to-image generation, multilingual generation, and multitask performance by introducing the Next-DiT architecture, 3D RoPE, and frequency- and time-aware RoPE, among other improvements. Lumina-T2X is a nascent family of Flow-based Large Diffusion Transformers (Flag-DiT) that establishes a unified framework for transforming noise into various modalities, such as images and videos, conditioned on text instructions. Despite its promising capabilities, Lumina-T2X still encounters challenges including training instability, slow inference, and extrapolation artifacts. In this paper, we present Lumina-Next, an improved version of Lumina-T2X, showcasing stronger generation performance with increased training and inference efficiency. We begin with a comprehensive analysis of the Flag-DiT architecture and identify several suboptimal components, which we address by introducing the Next-DiT architecture with 3D RoPE and sandwich normalizations. To enable better resolution extrapolation, we thoroughly compare different context extrapolation methods applied to text-to-image generation with 3D RoPE, and propose Frequency- and Time-Aware Scaled RoPE tailored for diffusion transformers. Additionally, we introduce a sigmoid time discretization schedule to reduce sampling steps in solving the Flow ODE and the Context Drop method to merge redundant visual tokens for faster network evaluation, effectively boosting the overall sampling speed. Thanks to these improvements, Lumina-Next not only improves the quality and efficiency of basic text-to-image generation but also demonstrates superior resolution extrapolation capabilities and multilingual generation using decoder-based LLMs as the text encoder, all in a zero-shot manner. To further validate Lumina-Next as a versatile generative framework, we instantiate it on diverse tasks including visual recognition, multi-view, audio, music, and point cloud generation, showcasing strong performance across these domains."),
+          Markdown("[Lumina-Next : Making Lumina-T2X Stronger and Faster with Next-DiT](https://github.com/Alpha-VLLM/Lumina-T2X/blob/main/assets/lumina-next.pdf) from Alpha-VLLM, OpenGVLab, Shanghai AI Laboratory.", on_tap_link=lambda e: e.page.launch_url(e.data)),
+          Markdown("[Paper](https://arxiv.org/abs/2405.05945) | [Github](https://github.com/Alpha-VLLM/Lumina-T2X) | [Model Checkpoint](https://huggingface.co/collections/Alpha-VLLM/lumina-family-66423205bedb81171fd0644b) | [HF Space](https://huggingface.co/spaces/Alpha-VLLM/Lumina-Next-T2I)", on_tap_link=lambda e: e.page.launch_url(e.data)),
+        ], scroll=ScrollMode.AUTO), actions=[TextButton("😎  Extra Special... ", on_click=close_lumina_next_dlg)], actions_alignment=MainAxisAlignment.END)
+      page.overlay.append(lumina_next_help_dlg)
+      lumina_next_help_dlg.open = True
+      page.update()
+    def changed_model(e):
+        lumina_next_prefs['lumina_model'] = e.control.value
+        lumina_custom_model.visible = e.control.value == "Custom"
+        lumina_custom_model.update()
+    def toggle_ESRGAN(e):
+        ESRGAN_settings.height = None if e.control.value else 0
+        lumina_next_prefs['apply_ESRGAN_upscale'] = e.control.value
+        ESRGAN_settings.update()
+    prompt = TextField(label="Prompt Text", value=lumina_next_prefs['prompt'], filled=True, multiline=True, col={'md':9}, on_change=lambda e:changed(e,'prompt'))
+    negative_prompt = TextField(label="Negative Prompt Text", value=lumina_next_prefs['negative_prompt'], filled=True, multiline=True, col={'md':3}, on_change=lambda e:changed(e,'negative_prompt'))
+    batch_folder_name = TextField(label="Batch Folder Name", value=lumina_next_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
+    file_prefix = TextField(label="Filename Prefix", value=lumina_next_prefs['file_prefix'], width=120, on_change=lambda e:changed(e,'file_prefix'))
+    n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=lumina_next_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
+    steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=lumina_next_prefs, key='steps')
+    guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=lumina_next_prefs, key='guidance_scale')
+    width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=lumina_next_prefs, key='width')
+    height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=lumina_next_prefs, key='height')
+    lumina_model = Dropdown(label="Lumina-Next Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("Lumina-Next-SFT-diffusers")], value=lumina_next_prefs['lumina_model'], on_change=changed_model)
+    lumina_custom_model = TextField(label="Custom Lumina Model (URL or Path)", value=lumina_next_prefs['custom_model'], expand=True, visible=lumina_next_prefs['lumina_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
+    cpu_offload = Switcher(label="CPU Offload", value=lumina_next_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
+    #distilled_model = Switcher(label="Use Distilled Model", value=lumina_next_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
+    seed = TextField(label="Seed", width=90, value=str(lumina_next_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
+    apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=lumina_next_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
+    enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=lumina_next_prefs, key='enlarge_scale')
+    face_enhance = Checkbox(label="Use Face Enhance GPFGAN", value=lumina_next_prefs['face_enhance'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'face_enhance'))
+    display_upscaled_image = Checkbox(label="Display Upscaled Image", value=lumina_next_prefs['display_upscaled_image'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'display_upscaled_image'))
+    ESRGAN_settings = Container(Column([enlarge_scale_slider, face_enhance, display_upscaled_image], spacing=0), padding=padding.only(left=32), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_lumina = Container(Column([apply_ESRGAN_upscale, ESRGAN_settings]), animate_size=animation.Animation(1000, AnimationCurve.BOUNCE_OUT), clip_behavior=ClipBehavior.HARD_EDGE)
+    page.ESRGAN_block_lumina.height = None if status['installed_ESRGAN'] else 0
+    if not lumina_next_prefs['apply_ESRGAN_upscale']:
+        ESRGAN_settings.height = 0
+    parameters_button = ElevatedButton(content=Text(value="🌈   Run Lumina-Next-DiT", size=20), color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lumina(page))
+    from_list_button = ElevatedButton(content=Text(value="📜   Run from Prompts List", size=20), tooltip="Uses all queued Image Parameters per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lumina(page, from_list=True))
+    from_list_with_params_button = ElevatedButton(content=Text(value="📜   Run from Prompts List /w these Parameters", size=20), tooltip="Uses above settings per prompt in Prompt List", color=colors.ON_PRIMARY_CONTAINER, bgcolor=colors.PRIMARY_CONTAINER, height=45, on_click=lambda _: run_lumina(page, from_list=True, with_params=True))
+    parameters_row = Row([parameters_button, from_list_button, from_list_with_params_button], wrap=True) #, alignment=MainAxisAlignment.SPACE_BETWEEN
+    page.Lumina_output = Column([])
+    c = Column([Container(
+        padding=padding.only(18, 14, 20, 10), content=Column([#ft.OutlinedButton(content=Text("Switch to 2.1", size=18), on_click=switch_version)
+            Header("🌞  Lumina-Next-DiT (under construction)", "Next-generation Diffusion Transformer that Enhances Text-to-Image Generation, Multilingual, Multitasked Performance...", actions=[save_default(lumina_next_prefs), IconButton(icon=icons.HELP, tooltip="Help with Lumina Settings", on_click=lumina_next_help)]),
+            ResponsiveRow([prompt, negative_prompt]),
+            steps,
+            guidance, width_slider, height_slider,
+            Row([lumina_model, lumina_custom_model]),
+            page.ESRGAN_block_lumina,
+            ResponsiveRow([Row([n_images, seed, cpu_offload], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
+            parameters_row,
+            page.Lumina_output
         ],
     ))], scroll=ScrollMode.AUTO)
     return c
@@ -22546,6 +22644,7 @@ pipe_pixart_alpha_encoder = None
 pipe_pixart_sigma = None
 pipe_pixart_sigma_encoder = None
 pipe_hunyuan = None
+pipe_lumina = None
 pipe_differential_diffusion = None
 pipe_magic_mix = None
 pipe_paint_by_example = None
@@ -25368,6 +25467,12 @@ def clear_hunyuan_pipe():
     del pipe_hunyuan
     flush()
     pipe_hunyuan = None
+def clear_lumina_pipe():
+  global pipe_lumina
+  if pipe_lumina is not None:
+    del pipe_lumina
+    flush()
+    pipe_lumina = None
 def clear_differential_diffusion_pipe():
   global pipe_differential_diffusion
   if pipe_differential_diffusion is not None:
@@ -25848,6 +25953,7 @@ def clear_pipes(allbut=None):
     if not 'pixart_alpha' in but: clear_pixart_alpha_pipe()
     if not 'pixart_sigma' in but: clear_pixart_sigma_pipe()
     if not 'hunyuan' in but: clear_hunyuan_pipe()
+    if not 'lumina' in but: clear_lumina_pipe()
     if not 'differential_diffusion' in but: clear_differential_diffusion_pipe()
     if not 'magic_mix' in but: clear_magic_mix_pipe()
     if not 'alt_diffusion' in but: clear_alt_diffusion_pipe()
@@ -40460,7 +40566,7 @@ def run_controlnet_xl(page, from_list=False):
     del hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
     play_snd(Snd.ALERT, page)
 
-def run_controlnet_sd3(page, from_list=False):
+def run_controlnet_sd3(page, from_list=False, with_params=False):
     global controlnet_sd3_prefs, prefs, status, pipe_controlnet, controlnet, controlnet_sd3_models
     if not check_diffusers(page): return
     if not bool(controlnet_sd3_prefs['original_image']) and len(controlnet_sd3_prefs['multi_controlnets']) == 0:
@@ -40514,36 +40620,43 @@ def run_controlnet_sd3(page, from_list=False):
       if len(prompts) < 1:
         alert_msg(page, "You need to add Prompts to your List first... ")
         return
-      for p in prompts:
-        control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_sd3_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_sd3_prefs['original_image'], 'conditioning_scale': controlnet_sd3_prefs['conditioning_scale'], 'control_guidance_start': controlnet_sd3_prefs['control_guidance_start'], 'control_guidance_end': controlnet_sd3_prefs['control_guidance_end'], 'seed': p['seed']}
-        controlnet_sd3_prompts.append(control)
-      page.tabs.selected_index = 4
-      page.tabs.update()
-      #page.controlnet_sd3_output.controls.clear()
     else:
       if not bool(controlnet_sd3_prefs['prompt']):
         alert_msg(page, "You need to add a Text Prompt first... ")
         return
-      original = controlnet_sd3_prefs['original_image']
-      conditioning_scale = controlnet_sd3_prefs['conditioning_scale']
-      control_guidance_start = controlnet_sd3_prefs['control_guidance_start']
-      control_guidance_end = controlnet_sd3_prefs['control_guidance_end']
-      if len(controlnet_sd3_prefs['multi_controlnets']) > 0:
-        original = []
-        conditioning_scale = []
-        control_guidance_start = []
-        control_guidance_end = []
-        for c in controlnet_sd3_prefs['multi_controlnets']:
-          original.append(c['original_image'])
-          conditioning_scale.append(c['conditioning_scale'])
-          control_guidance_start.append(c['control_guidance_start'])
-          control_guidance_end.append(c['control_guidance_end'])
-      control = {'prompt':controlnet_sd3_prefs['prompt'], 'negative_prompt': controlnet_sd3_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'control_guidance_start':control_guidance_start, 'control_guidance_end': control_guidance_end, 'seed': controlnet_sd3_prefs['seed']}
-      if controlnet_sd3_prefs['use_init_video']:
-        control['init_video'] = controlnet_sd3_prefs['init_video']
-        control['start_time'] = controlnet_sd3_prefs['start_time']
-        control['end_time'] = controlnet_sd3_prefs['end_time']
-        control['fps'] = controlnet_sd3_prefs['fps']
+    original = controlnet_sd3_prefs['original_image']
+    conditioning_scale = controlnet_sd3_prefs['conditioning_scale']
+    control_guidance_start = controlnet_sd3_prefs['control_guidance_start']
+    control_guidance_end = controlnet_sd3_prefs['control_guidance_end']
+    if len(controlnet_sd3_prefs['multi_controlnets']) > 0:
+      original = []
+      conditioning_scale = []
+      control_guidance_start = []
+      control_guidance_end = []
+      for c in controlnet_sd3_prefs['multi_controlnets']:
+        original.append(c['original_image'])
+        conditioning_scale.append(c['conditioning_scale'])
+        control_guidance_start.append(c['control_guidance_start'])
+        control_guidance_end.append(c['control_guidance_end'])
+    control = {'prompt':controlnet_sd3_prefs['prompt'], 'negative_prompt': controlnet_sd3_prefs['negative_prompt'], 'original_image': original, 'conditioning_scale': conditioning_scale, 'control_guidance_start':control_guidance_start, 'control_guidance_end': control_guidance_end, 'seed': controlnet_sd3_prefs['seed']}
+    if controlnet_sd3_prefs['use_init_video']:
+      control['init_video'] = controlnet_sd3_prefs['init_video']
+      control['start_time'] = controlnet_sd3_prefs['start_time']
+      control['end_time'] = controlnet_sd3_prefs['end_time']
+      control['fps'] = controlnet_sd3_prefs['fps']
+    if from_list:
+      for p in prompts:
+        c = control.copy()
+        c['prompt'] = p.prompt
+        c['negative_prompt'] = p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_sd3_prefs['negative_prompt']
+        if not with_params: #TODO: Add more params
+          c['seed'] = p['seed']
+        #control = {'prompt': p.prompt, 'negative_prompt': p['negative_prompt'] if bool(p['negative_prompt']) else controlnet_sd3_prefs['negative_prompt'], 'original_image': p['init_image'] if bool(p['init_image']) else controlnet_sd3_prefs['original_image'], 'conditioning_scale': controlnet_sd3_prefs['conditioning_scale'], 'control_guidance_start': controlnet_sd3_prefs['control_guidance_start'], 'control_guidance_end': controlnet_sd3_prefs['control_guidance_end'], 'seed': p['seed']}
+        controlnet_sd3_prompts.append(c)
+      page.tabs.selected_index = 4
+      page.tabs.update()
+      #page.controlnet_sd3_output.controls.clear()
+    else:
       controlnet_sd3_prompts.append(control)
       #page.controlnet_sd3_output.controls.clear()
     autoscroll(True)
@@ -43633,6 +43746,178 @@ def run_hunyuan(page, from_list=False, with_params=False):
                 if hunyuan_dit_prefs['display_upscaled_image']:
                     prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(hunyuan_dit_prefs["enlarge_scale"]), height=pr['height'] * float(hunyuan_dit_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
             new_file = available_file(os.path.join(prefs['image_output'], hunyuan_dit_prefs['batch_folder_name']), fname, 0)
+            out_path = new_file
+            shutil.copy(image_path, new_file)
+            prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
+        n += 1
+    autoscroll(False)
+    play_snd(Snd.ALERT, page)
+
+def run_lumina(page, from_list=False, with_params=False):
+    global lumina_next_prefs, pipe_lumina, prefs
+    if not check_diffusers(page): return
+    if int(status['cpu_memory']) <= 8:
+      alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Lumina DiT right now. Either Change runtime type to High-RAM mode and restart.")
+      return
+    lumina_next_prompts = []
+    if from_list:
+      if len(prompts) < 1:
+        alert_msg(page, "You need to add Prompts to your List first... ")
+        return
+      for p in prompts:
+        if with_params:
+            lumina_next_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':lumina_next_prefs['guidance_scale'], 'steps':lumina_next_prefs['steps'], 'width':lumina_next_prefs['width'], 'height':lumina_next_prefs['height'], 'num_images':lumina_next_prefs['num_images'], 'seed':lumina_next_prefs['seed']})
+        else:
+            lumina_next_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'steps':p['steps'], 'width':p['width'], 'height':p['height'], 'num_images':p['batch_size'], 'seed':p['seed']})
+    else:
+      if not bool(lumina_next_prefs['prompt']):
+        alert_msg(page, "You must provide a text prompt to process your image generation...")
+        return
+      lumina_next_prompts.append({'prompt': lumina_next_prefs['prompt'], 'negative_prompt':lumina_next_prefs['negative_prompt'], 'guidance_scale':lumina_next_prefs['guidance_scale'], 'steps':lumina_next_prefs['steps'], 'width':lumina_next_prefs['width'], 'height':lumina_next_prefs['height'], 'num_images':lumina_next_prefs['num_images'], 'seed':lumina_next_prefs['seed']})
+    def prt(line, update=True):
+      if type(line) == str:
+        line = Text(line, size=17)
+      if from_list:
+        page.imageColumn.controls.append(line)
+        if update:
+          page.imageColumn.update()
+      else:
+        page.Lumina.controls.append(line)
+        if update:
+          page.Lumina.update()
+    def clear_last(lines=1):
+      if from_list:
+        clear_line(page.imageColumn, lines=lines)
+      else:
+        clear_line(page.Lumina, lines=lines)
+    def autoscroll(scroll=True):
+      if from_list:
+        page.imageColumn.auto_scroll = scroll
+        page.imageColumn.update()
+        page.Lumina.auto_scroll = scroll
+        page.Lumina.update()
+      else:
+        page.Lumina.auto_scroll = scroll
+        page.Lumina.update()
+    def clear_list():
+      if from_list:
+        page.imageColumn.controls.clear()
+      else:
+        page.Lumina.controls = page.Lumina.controls[:1]
+    progress = ProgressBar(bar_height=8)
+    total_steps = lumina_next_prefs['steps']
+    def callback_fnc(step: int, timestep: int, callback_kwargs) -> None: #(pipe, step, timestep, callback_kwargs):#
+      callback_fnc.has_been_called = True
+      nonlocal progress, total_steps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    def callback_fn(pipe, step, timestep, callback_kwargs):
+      callback_fn.has_been_called = True
+      nonlocal progress
+      total_steps = pipe.num_timesteps
+      percent = (step +1)/ total_steps
+      progress.value = percent
+      progress.tooltip = f"{step +1} / {total_steps}  Timestep: {timestep:.1f}"
+      progress.update()
+    if from_list:
+      page.tabs.selected_index = 4
+      page.tabs.update()
+    clear_list()
+    autoscroll(True)
+    model_id = "Alpha-VLLM/Lumina-Next-SFT-diffusers" if lumina_next_prefs['lumina_model'] == "Lumina-Next-SFT-diffusers" else lumina_next_prefs['custom_model']
+    if 'loaded_lumina_model' not in status: status['loaded_lumina_model'] = ''
+    installer = Installing(f"Installing Lumina-Next Engine & Models... See console log for progress.")
+    cpu_offload = lumina_next_prefs['cpu_offload']
+    prt(installer)
+    if status['loaded_lumina_model'] != model_id:
+        clear_pipes()
+    else:
+        clear_pipes('lumina')
+    if pipe_lumina == None:
+        try:
+            from diffusers import LuminaText2ImgPipeline
+            pipe_lumina = LuminaText2ImgPipeline.from_pretrained(model_id, torch_dtype=torch.bfloat16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if prefs['enable_torch_compile']:
+                installer.status(f"...Torch compiling unet")
+                pipe_lumina = pipe_lumina.to("cuda")
+                pipe_lumina.transformer.to(memory_format=torch.channels_last)
+                pipe_lumina.vae.to(memory_format=torch.channels_last)
+                pipe_lumina.transformer = torch.compile(pipe_lumina.transformer, mode="max-autotune", fullgraph=True)
+                pipe_lumina.vae.decode = torch.compile(pipe_lumina.vae.decode, mode="max-autotune", fullgraph=True)
+            elif cpu_offload:
+                pipe_lumina.enable_model_cpu_offload()
+            else:
+                pipe_lumina = pipe_lumina.to("cuda")
+                #pipe_lumina.transformer.enable_forward_chunking(chunk_size=1, dim=1)
+            #pipe_lumina.set_progress_bar_config(disable=True)
+            status['loaded_lumina_model'] = model_id
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Initializing Lumina, try running without installing Diffusers first...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+    clear_last()
+    n = 0
+    for pr in lumina_next_prompts:
+        prt(f"{f'[{n + 1}/{len(lumina_next_prompts)}]  ' if from_list else ''}{pr['prompt']}")
+        prt(progress)
+        nudge(page.imageColumn if from_list else page.Lumina, page=page)
+        autoscroll(False)
+        total_steps = pr['steps']
+        random_seed = get_seed(pr['seed'])
+        generator = torch.Generator(device="cpu" if cpu_offload else torch_device).manual_seed(random_seed)
+        try:
+            images = pipe_lumina(
+                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                num_images_per_prompt=pr['num_images'],
+                width=pr['width'],
+                height=pr['height'],
+                num_inference_steps=pr['steps'],
+                guidance_scale=pr['guidance_scale'],
+                generator=generator,
+                #callback_on_step_end=callback_fn,
+            ).images
+        except Exception as e:
+            clear_last(2)
+            alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            return
+        clear_last(2)
+        autoscroll(True)
+        txt2img_output = stable_dir
+        batch_output = prefs['image_output']
+        txt2img_output = stable_dir
+        if bool(lumina_next_prefs['batch_folder_name']):
+            txt2img_output = os.path.join(stable_dir, lumina_next_prefs['batch_folder_name'])
+        if not os.path.exists(txt2img_output):
+            os.makedirs(txt2img_output)
+        #print(str(images))
+        if images is None:
+            prt(f"ERROR: Problem generating images, check your settings and run again, or report the error to Skquark if it really seems broken.")
+            return
+        idx = 0
+        for image in images:
+            fname = format_filename(pr['prompt'])
+            fname = f'{lumina_next_prefs["file_prefix"]}{fname}'
+            image_path = available_file(txt2img_output, fname, 1)
+            image.save(image_path)
+            output_file = image_path.rpartition(slash)[2]
+            if not lumina_next_prefs['display_upscaled_image'] or not lumina_next_prefs['apply_ESRGAN_upscale']:
+                save_metadata(image_path, lumina_next_prefs, f"Lumina-Next-DiT", model_id, random_seed, extra=pr)
+                prt(Row([ImageButton(src=image_path, width=pr['width'], height=pr['height'], data=image_path, page=page)], alignment=MainAxisAlignment.CENTER))
+            batch_output = os.path.join(prefs['image_output'], lumina_next_prefs['batch_folder_name'])
+            if not os.path.exists(batch_output):
+                os.makedirs(batch_output)
+            out_path = os.path.dirname(image_path)
+            upscaled_path = os.path.join(out_path, output_file)
+
+            if lumina_next_prefs['apply_ESRGAN_upscale'] and status['installed_ESRGAN']:
+                upscale_image(image_path, upscaled_path, scale=lumina_next_prefs["enlarge_scale"], face_enhance=lumina_next_prefs["face_enhance"])
+                image_path = upscaled_path
+                save_metadata(upscaled_path, lumina_next_prefs, f"Lumina-Next-DiT", model_id, random_seed, extra=pr)
+                if lumina_next_prefs['display_upscaled_image']:
+                    prt(Row([Img(src=asset_dir(upscaled_path), width=pr['width'] * float(lumina_next_prefs["enlarge_scale"]), height=pr['height'] * float(lumina_next_prefs["enlarge_scale"]), fit=ImageFit.CONTAIN, gapless_playback=True)], alignment=MainAxisAlignment.CENTER))
+            new_file = available_file(os.path.join(prefs['image_output'], lumina_next_prefs['batch_folder_name']), fname, 0)
             out_path = new_file
             shutil.copy(image_path, new_file)
             prt(Row([Text(out_path)], alignment=MainAxisAlignment.CENTER))
