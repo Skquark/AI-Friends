@@ -3014,7 +3014,7 @@ class Dream:
 
 def format_filename(s, force_underscore=False, use_dash=False, max_length=None):
     if prefs['file_datetime'] and not use_dash and not force_underscore:
-        return datetime.now().strftime("%Y%m%d-%H%M%S")
+        return datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     file_max_length = int(prefs['file_max_length']) if max_length == None else int(max_length)
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
     filename = ''.join(c for c in s if c in valid_chars)
