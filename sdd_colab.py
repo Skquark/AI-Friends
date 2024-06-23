@@ -3028,7 +3028,7 @@ class Dream:
 
 def format_filename(s, force_underscore=False, use_dash=False, max_length=None):
     if prefs['file_datetime'] and not use_dash and not force_underscore:
-        return datetime.now().strftime("%Y%m%d-%H%M%S")
+        return datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     file_max_length = int(prefs['file_max_length']) if max_length == None else int(max_length)
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
     filename = ''.join(c for c in s if c in valid_chars)
@@ -23937,7 +23937,7 @@ def get_interpolation(page):
       flush()
       pipe_interpolation = None
     pipe_interpolation = get_interpolation_pipe()
-    run_process("pip install watchdog -q", page=page, realtime=False)
+    pip_install("watchdog")
     status['loaded_interpolation'] = True
 
 def get_interpolation_pipe():
@@ -23946,7 +23946,8 @@ def get_interpolation_pipe():
     from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
     os.chdir(root_dir)
     if not os.path.isfile(os.path.join(root_dir, 'clip_guided_stable_diffusion.py')):
-      run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/interpolate_stable_diffusion.py")
+      download_file("https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/interpolate_stable_diffusion.py", root_dir, raw=False)
+      #run_sp("wget -q --show-progress --no-cache --backups=1 https://raw.githubusercontent.com/Skquark/diffusers/main/examples/community/interpolate_stable_diffusion.py")
     from interpolate_stable_diffusion import StableDiffusionWalkPipeline
     model = get_model(prefs['model_ckpt'])
     if pipe_interpolation is not None:
@@ -25073,7 +25074,8 @@ def get_ESRGAN(page, model=None, installer=None):
             import gdown
             gdown.download(model_url, os.path.join(ESRGAN_folder, 'experiments', 'pretrained_models', f'{model}.pth'), quiet=True)
         else:
-            run_sp(f"wget {model_url} -P experiments/pretrained_models --quiet", cwd=ESRGAN_folder)
+            download_file(model_url, os.path.join(ESRGAN_folder, "experiments", "pretrained_models"))
+            #run_sp(f"wget {model_url} -P experiments/pretrained_models --quiet", cwd=ESRGAN_folder)
     #run_process(f"wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P experiments/pretrained_models --quiet", page=page, cwd=os.path.join(dist_dir, 'Real-ESRGAN'))
     os.chdir(root_dir)
     status['installed_ESRGAN'] = True
@@ -25200,7 +25202,8 @@ def get_conceptualizer(page):
         with open(f'{downloaded_embedding_folder}/token_identifier.txt', 'r') as file:
           placeholder_token_string = file.read()
       else:
-        run_sp(f"wget -q -O {downloaded_embedding_folder}/learned_embeds.bin {embeds_url}")
+        download_file(embeds_url, downloaded_embedding_folder, "learned_embeds.bin")
+        #run_sp(f"wget -q -O {downloaded_embedding_folder}/learned_embeds.bin {embeds_url}")
         #!wget -q -O $downloaded_embedding_folder/learned_embeds.bin $embeds_url
     except Exception as e:
       alert_msg(page, f"Error getting concept. May need to accept model at https://huggingface.co/sd-concepts-library/{prefs['concepts_model']}", content=Text(e))
@@ -27750,7 +27753,8 @@ def start_diffusion(page):
           out_file.SetContentFile(fpath)
           out_file.Upload()
         elif bool(prefs['image_output']):
-          shutil.copy(fpath, new_file)#os.path.join(batch_output, new_file))
+          if not os.path.exists(new_file):
+            shutil.copy(fpath, new_file)#os.path.join(batch_output, new_file))
         if prefs['save_config_json']:
           json_file = os.path.basename(new_file).rpartition('.')[0] + '.json'
           with open(os.path.join(batch_output, json_file), "w") as f:
@@ -30759,7 +30763,8 @@ def run_anytext(page, from_list=False, with_params=False):
         anytext_ttf = os.path.join(anytext_font, 'Horison.ttf')
         if not os.path.isfile(anytext_ttf):
             installer.status(f"...downloading Horison.ttf")
-            run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_font, 'horison.zip')}")
+            download_file("https://dl.dafont.com/dl/?f=horison", anytext_font, 'horison.zip')
+            #run_sp(f"wget https://dl.dafont.com/dl/?f=horison -O {os.path.join(anytext_font, 'horison.zip')}")
             run_sp(f"unzip {os.path.join(anytext_font, 'horison.zip')}", cwd=anytext_font)
             os.remove(os.path.join(anytext_font, 'horison.zip'))
     try:
@@ -46617,7 +46622,7 @@ def run_infinite_zoom(page):
             shutil.copy(interpol_path, save_path)
         #clear_output(wait=True)
         #interpol_image.show()
-    now = datetime.now()
+    now = datetime.datetime.now()
     date_time = now.strftime("%m-%d-%Y_%H-%M-%S")
     out_vid = os.path.join(batch_output, fname + "_out_"+date_time+".mp4")
     in_vid = os.path.join(batch_output, fname + "_in_"+date_time+".mp4")
@@ -52741,7 +52746,8 @@ def run_instant_ngp(page):
         alert_msg(page, f"ERROR Installing Instant-NGP Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()).strip())]))
         return
     if not os.path.exists(root_dir, 'ceres-solver'):
-      run_sp("wget https://github.com/camenduru/instant-ngp-colab/releases/download/v1.0/ceres-solver.zip", realtime=False)
+      download_file("https://github.com/camenduru/instant-ngp-colab/releases/download/v1.0/ceres-solver.zip", root_dir)
+      #run_sp("wget https://github.com/camenduru/instant-ngp-colab/releases/download/v1.0/ceres-solver.zip", realtime=False)
       run_sp(f"unzip {os.path.join(root_dir, 'ceres-solver.zip')} -d ceres-solver", realtime=False)
       os.remove(os.path.join(root_dir, 'ceres-solver.zip'))
     run_sp(f"yes | cp -r {os.path.join(root_dir, 'ceres-solver', 'lib', '.')} {os.path.join('/usr', 'local', 'lib')}", realtime=False)
@@ -52749,7 +52755,8 @@ def run_instant_ngp(page):
     run_sp(f"yes | cp -r {os.path.join(root_dir, 'ceres-solver', 'bin', '.')} {os.path.join('/usr', 'local', 'bin')}", realtime=False)
     #run_sp(f"cp -r /content/ceres-solver/bin/. /usr/local/bin")
     if not os.path.exists(root_dir, 'instant-ngp'):
-      run_sp("wget https://github.com/camenduru/instant-ngp-colab/releases/download/v1.0/instant-ngp.zip", realtime=False)
+      download_file("https://github.com/camenduru/instant-ngp-colab/releases/download/v1.0/instant-ngp.zip", root_dir)
+      #run_sp("wget https://github.com/camenduru/instant-ngp-colab/releases/download/v1.0/instant-ngp.zip", realtime=False)
       #run_sp("unzip /content/instant-ngp.zip -d instant-ngp")
       run_sp(f"unzip {os.path.join(root_dir, 'instant-ngp.zip')} -d instant-ngp", realtime=False)
       os.remove(os.path.join(root_dir, 'instant-ngp.zip'))
