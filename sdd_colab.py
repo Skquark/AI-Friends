@@ -3723,7 +3723,7 @@ def buildPromptGenerator(page):
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=7, divisions=7, expand=True, value=prefs['prompt_generator']['request_mode'], on_change=changed_request, tooltip="The way it asks for the visual description.")
     request_slider.label = generator_request_modes[int(prefs['prompt_generator']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3"), dropdown.Option("AI-Horde")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option("OpenAI GPT-3"), dropdown.Option("ChatGPT-3.5 Turbo"), dropdown.Option("OpenAI GPT-4"), dropdown.Option("GPT-4 Turbo"), dropdown.Option("GPT-4o"), dropdown.Option("Google Gemini"), dropdown.Option("Google Gemini 1.5 Pro"), dropdown.Option("Google Gemini 1.5 Flash"), dropdown.Option("Anthropic Claude 3"), dropdown.Option("Anthropic Claude 3.5"), dropdown.Option("AI-Horde")], value=prefs['prompt_generator']['AI_engine'], on_change=lambda e: changed_engine(e))
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_generator']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_generator']['AI_engine']=="AI-Horde")
     page.AIHorde_model_generator = AIHorde_model
@@ -3802,7 +3802,7 @@ def buildPromptRemixer(page):
     horde_models_info = IconButton(icons.HELP_OUTLINE, tooltip="Show AI-Horde Models Stat List", on_click=models_AIHorde)
     request_slider = Slider(label="{value}", min=0, max=8, divisions=8, expand=True, value=prefs['prompt_remixer']['request_mode'], on_change=changed_request)
     request_slider.label = remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]
-    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "AI-Horde"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
+    AI_engine = Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde"]], value=prefs['prompt_remixer']['AI_engine'], on_change=lambda e: changed_engine(e))
     AIHorde_model = Dropdown(label="Horde AI Engine", width=400, options=[], value=prefs['prompt_remixer']['AIHorde_model'], on_change=lambda e: changed(e, 'AIHorde_model'))
     AIHorde_model_container = Container(Row([AIHorde_model, horde_models_info]), visible=prefs['prompt_remixer']['AI_engine']=="AI-Horde")
     page.AIHorde_model_remixer = AIHorde_model
@@ -3900,7 +3900,7 @@ def buildPromptBrainstormer(page):
       content=Column([
         Header("🤔  Prompt Brainstormer - TextSynth GPT-J-6B, OpenAI GPT, Gemini & HuggingFace Bloom AI",
                "Enter a complete prompt you've written that is well worded and descriptive, and get variations of it with our AI Friends. Experiment, each has different personalities.", actions=[ElevatedButton(content=Text("🍜  NSP Instructions", size=18), on_click=lambda _: NSP_instructions(page))]),
-        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "AI-Horde"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed_engine(e)),
+        Row([Dropdown(label="AI Engine", width=250, options=[dropdown.Option(c) for c in ["TextSynth GPT-J", "TextSynth Mistral", "TextSynth Mistral Instruct", "TextSynth Mixtral Instruct", "TextSynth Llama2 7B", "TextSynth Llama2 70B", "OpenAI GPT-3", "ChatGPT-3.5 Turbo", "OpenAI GPT-4", "GPT-4 Turbo", "GPT-4o", "HuggingFace Bloom 176B", "HuggingFace Flan-T5 XXL", "StableLM 7b", "StableLM 3b", "Google Gemini", "Google Gemini 1.5 Pro", "Google Gemini 1.5 Flash", "Anthropic Claude 3", "Anthropic Claude 3.5", "AI-Horde"]], value=prefs['prompt_brainstormer']['AI_engine'], on_change=lambda e: changed_engine(e)),
           AIHorde_model_container,
           Dropdown(label="Request Mode", width=250, options=[dropdown.Option("Brainstorm"), dropdown.Option("Write"), dropdown.Option("Rewrite"), dropdown.Option("Edit"), dropdown.Option("Story"), dropdown.Option("Description"), dropdown.Option("Picture"), dropdown.Option("Raw Request")], value=prefs['prompt_brainstormer']['request_mode'], on_change=lambda e: changed(e, 'request_mode')),
         ], alignment=MainAxisAlignment.START),
@@ -5058,9 +5058,9 @@ def buildImage2Text(page):
       fuyu_mode.update()
       gemini_mode.visible = method=="Google Gemini Pro"
       gemini_mode.update()
-      openai_mode.visible = "GPT-4" in method or method=="Anthropic Claude 3 Vision" or method=="Moondream 2"
+      openai_mode.visible = "GPT-4" in method or "Anthropic Claude 3" in method or method=="Moondream 2"
       openai_mode.update()
-      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question") or (("GPT-4" in method or method=="Anthropic Claude 3 Vision" or method=="Moondream 2") and image2text_prefs['openai_mode']=="Question")
+      question_prompt.visible = (method=="Fuyu-8B" and image2text_prefs['fuyu_mode']=="Question") or (method=="Google Gemini Pro" and image2text_prefs['gemini_mode']=="Question") or (("GPT-4" in method or "Anthropic Claude 3" in method or method=="Moondream 2") and image2text_prefs['openai_mode']=="Question")
       question_prompt.update()
     def change_fuyu(e):
       fuyu = e.control.value
@@ -5090,13 +5090,13 @@ def buildImage2Text(page):
     if len(page.image2text_list.controls) < 1:
       image2text_list_buttons.visible = False
 
-    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("OpenAI GPT-4o"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("Moondream 2"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
+    method = Dropdown(label="Captioning Method", width=250, options=[dropdown.Option("Fuyu-8B"), dropdown.Option("Google Gemini Pro"), dropdown.Option("OpenAI GPT-4 Vision"), dropdown.Option("OpenAI GPT-4o"), dropdown.Option("Anthropic Claude 3 Vision"), dropdown.Option("Anthropic Claude 3.5 Vision"), dropdown.Option("Moondream 2"), dropdown.Option("BLIP-Interrogation"), dropdown.Option("AIHorde Crowdsourced")], value=image2text_prefs['method'], on_change=change_method)
     #use_AIHorde = Switcher(label="Use AIHorde Crowdsourced Interrogator", value=image2text_prefs['use_AIHorde'], on_change=toggle_AIHorde)
     mode = Dropdown(label="Interrogation Mode", width=200, options=[dropdown.Option("Best"), dropdown.Option("Classic"), dropdown.Option("Fast")], value=image2text_prefs['mode'], visible=image2text_prefs['method']=="BLIP-Interrogation", on_change=lambda e: changed(e, 'mode'))
     request_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Caption"), dropdown.Option("Interrogation"), dropdown.Option("Full Prompt")], value=image2text_prefs['request_mode'], visible=image2text_prefs['method']=="AIHorde Crowdsourced", on_change=lambda e: changed(e, 'request_mode'))
     fuyu_mode = Dropdown(label="Fuyu Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['fuyu_mode'], visible=image2text_prefs['method']=="Fuyu-8B", on_change=change_fuyu)
     gemini_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['gemini_mode'], visible=image2text_prefs['method']=="Google Gemini Pro", on_change=change_gemini)
-    openai_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible="GPT-4" in image2text_prefs['method'] or image2text_prefs['method']=="Anthropic Claude 3 Vision" or image2text_prefs['method']=="Moondream 2", on_change=change_openai)
+    openai_mode = Dropdown(label="Request Mode", width=200, options=[dropdown.Option("Detailed Caption"), dropdown.Option("Poetic Caption"), dropdown.Option("Artistic Caption"), dropdown.Option("Technical Caption"), dropdown.Option("Simple Caption"), dropdown.Option("Question")], value=image2text_prefs['openai_mode'], visible="GPT-4" in image2text_prefs['method'] or "Anthropic Claude 3" in image2text_prefs['method'] or image2text_prefs['method']=="Moondream 2", on_change=change_openai)
     slow_workers = Checkbox(label="Allow Slow Workers", tooltip="", value=image2text_prefs['slow_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'slow_workers'))
     trusted_workers = Checkbox(label="Only Trusted Workers", tooltip="", value=image2text_prefs['trusted_workers'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'trusted_workers'))
     AIHorde_row = Container(content=Row([slow_workers, trusted_workers]), visible=image2text_prefs['method']=="AIHorde Crowdsourced", animate_size=animation.Animation(800, AnimationCurve.EASE_OUT_CIRC), clip_behavior=ClipBehavior.HARD_EDGE)
@@ -23413,7 +23413,7 @@ if not is_Colab:
     try:
         import setuptools
     except ImportError:
-        run_sp("pip install setuptools==67.7.2", realtime=False)
+        run_sp("pip install setuptools==69.5.1", realtime=False)
         pass
     try:
         subprocess.check_call(["git", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -28080,7 +28080,7 @@ def run_prompt_generator(page):
     #for model in genai.list_models(): print(model)
     gemini_model_name = 'gemini-1.5-flash-latest' if '1.5 Flash' in prefs['prompt_generator']['AI_engine'] else 'gemini-1.5-pro-latest' if '1.5 Pro' in prefs['prompt_generator']['AI_engine'] else 'gemini-1.0-pro-latest'
     gemini_model = genai.GenerativeModel(model_name=gemini_model_name)
-  if prefs['prompt_generator']['AI_engine'] == "Anthropic Claude 3":
+  if "Anthropic Claude 3" in prefs['prompt_generator']['AI_engine']:
     if not bool(prefs['Anthropic_api_key']):
       alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
       return
@@ -28168,9 +28168,10 @@ def run_prompt_generator(page):
       #print(str(completion))
       result = response.strip()
     elif prefs['prompt_generator']['AI_engine'] == "Anthropic Claude 3":
+      model = "claude-3-sonnet-20240229" if prefs['prompt_generator']['AI_engine'] == "Anthropic Claude 3" else "claude-3-5-sonnet-20240620"
       try:
         response = anthropic_client.messages.create(
-          model="claude-3-sonnet-20240229",#"claude-3-opus-20240229",
+          model=model,#"claude-3-sonnet-20240229",#"claude-3-opus-20240229",
           max_tokens=4000,
           temperature=prefs['prompt_generator']['AI_temperature'],
           system=f"Respond with an unordered list of image generation prompts in the amount specified with each line starting with an * asterisk, {generator_request_modes[int(prefs['prompt_generator']['request_mode'])]}, and unique without repetition",
@@ -28328,7 +28329,7 @@ def run_prompt_remixer(page):
       return
     gemini_model_name = 'gemini-1.5-flash-latest' if '1.5 Flash' in engine else 'gemini-1.5-pro-latest' if '1.5 Pro' in engine else 'gemini-1.0-pro-latest'
     gemini_model = genai.GenerativeModel(model_name=gemini_model_name)
-  elif engine == "Anthropic Claude 3":
+  elif "Anthropic Claude 3" in engine:
     if not bool(prefs['Anthropic_api_key']):
       alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
       return
@@ -28394,10 +28395,11 @@ def run_prompt_remixer(page):
       #completion = palm.generate_text(model='models/text-bison-001', prompt=prompt, temperature=prefs['prompt_remixer']['AI_temperature'], max_output_tokens=1024)
       #print(str(completion.result))
       result = completion.text.strip()
-    elif engine == "Anthropic Claude 3":
+    elif "Anthropic Claude 3" in engine:
+      model = "claude-3-sonnet-20240229" if engine == "Anthropic Claude 3" else "claude-3-5-sonnet-20240620"
       try:
         response = anthropic_client.messages.create(
-          model="claude-3-sonnet-20240229",#"claude-3-opus-20240229",
+          model=model,#"claude-3-sonnet-20240229",#"claude-3-opus-20240229",
           max_tokens=4000,
           temperature=prefs['prompt_remixer']['AI_temperature'],
           system=f"Respond with an unordered list of remixed variations from the given image generation prompts in the amount specified with each line starting with an * asterisk.",
@@ -28619,7 +28621,7 @@ def run_prompt_brainstormer(page):
         return
       gemini_model_name = 'gemini-1.5-flash-latest' if '1.5 Flash' in prefs['prompt_brainstormer']['AI_engine'] else 'gemini-1.5-pro-latest' if '1.5 Pro' in prefs['prompt_brainstormer']['AI_engine'] else 'gemini-1.0-pro-latest'
       gemini_model = genai.GenerativeModel(model_name='gemini-pro')
-    if prefs['prompt_brainstormer']['AI_engine'] == "Anthropic Claude 3":
+    if "Anthropic Claude 3" in prefs['prompt_brainstormer']['AI_engine']:
       if not bool(prefs['Anthropic_api_key']):
         alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
         return
@@ -28755,10 +28757,11 @@ def run_prompt_brainstormer(page):
         })
         #completion = palm.generate_text(model='models/text-bison-001', prompt=request, temperature=prefs['prompt_brainstormer']['AI_temperature'], max_output_tokens=1024)
         result = completion.text.strip()
-      elif prefs['prompt_brainstormer']['AI_engine'] == "Anthropic Claude 3":
+      elif "Anthropic Claude 3" in prefs['prompt_brainstormer']['AI_engine']:
+        model = "claude-3-sonnet-20240229" if prefs['prompt_brainstormer']['AI_engine'] == "Anthropic Claude 3" else "claude-3-5-sonnet-20240620"
         try:
           response = anthropic_client.messages.create(
-            model="claude-3-sonnet-20240229",#"claude-3-opus-20240229",
+            model=model,#"claude-3-sonnet-20240229",#"claude-3-opus-20240229",
             max_tokens=4000,
             temperature=prefs['prompt_brainstormer']['AI_temperature'],
             #system=f"Respond with an unordered list of image generation prompts in the amount specified with each line starting with an * asterisk, {generator_request_modes[int(prefs['prompt_generator']['request_mode'])]}, and unique without repetition",
@@ -33580,9 +33583,10 @@ def run_image2text(page):
             clear_last()
             i2t_prompts.append(prompt)
             page.add_to_image2text(prompt)
-    elif image2text_prefs['method'] == "Anthropic Claude 3 Vision":
+    elif "Anthropic Claude 3" in image2text_prefs['method']:
         installer = Installing("Installing Anthropic.ai Claude SDK Library......")
         prt(installer)
+        model = "claude-3-sonnet-20240229" if image2text_prefs['method'] == "Anthropic Claude 3 Vision" else "claude-3-5-sonnet-20240620"
         if not bool(prefs['Anthropic_api_key']):
           alert_msg(page, "You must provide your Anthropic.ai Claude API key in Settings first")
           return
@@ -33615,7 +33619,7 @@ def run_image2text(page):
             #image_media_type = "image/jpeg" if file.endswith("jpg") else "image/png"
             try:
                 message = anthropic_client.messages.create(
-                    model="claude-3-sonnet-20240229",#"claude-3-opus-20240229",
+                    model=model,#"claude-3-sonnet-20240229",#"claude-3-opus-20240229",
                     max_tokens=1024,
                     messages=[
                         {
@@ -40816,7 +40820,7 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
         return img
     def prep_image(task, img):
         nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
-        nonlocal width, height
+        nonlocal width, height, original_img
         if isinstance(img, str):
           if img.startswith('http'):
               #response = requests.get(controlnet_sd3_prefs['original_image'])
@@ -40905,7 +40909,7 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
             return original_img
         except Exception as e:
             clear_last()
-            alert_msg(page, f"ERROR Preparing ControlNet-SD3 {controlnet_sd3_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            alert_msg(page, f"ERROR Preparing ControlNet-SD3 {controlnet_sd3_prefs['control_task']} Input Image {img}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             flush()
             return
     def prep_video(vid):
@@ -41134,7 +41138,6 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
         #clear_last()
         autoscroll(True)
         #filename = pr['original_image'].rpartition(slash)[2].rpartition('.')[0]
-        
         #if prefs['file_suffix_seed']: fname += f"-{random_seed}"
         num = 0
         for image in images:
@@ -46336,9 +46339,6 @@ def run_infinite_zoom(page):
     from io import BytesIO
     import numpy as np
     os.environ["CUDA_VISIBLE_DEVICES"]="0"
-    #from IPython.display import clear_output
-    from datetime import datetime
-
     fname = format_filename(infinite_zoom_prefs['batch_folder_name'])
     max_size = infinite_zoom_prefs['max_size']
     batch_output = os.path.join(stable_dir, infinite_zoom_prefs['batch_folder_name'])
