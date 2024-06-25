@@ -3757,8 +3757,8 @@ def buildPromptRemixer(page):
       else:
         alert_msg(page, "You must Install OpenAI GPT Library first before using...")
     def add_to_prompt_list(p):
-      page.add_to_prompts(p)
       play_snd(Snd.DROP, page)
+      page.add_to_prompts(p)
     def add_to_prompt_remixer(p):
       page.prompt_remixer_list.controls.append(ListTile(title=Text(p, max_lines=4, theme_style=TextThemeStyle.BODY_LARGE), dense=True, data=p, on_click=lambda _: add_to_prompt_list(p)))
       page.prompt_remixer_list.update()
@@ -10321,7 +10321,7 @@ controlnet_sd3_prefs = {
     'low_threshold': 100, #1-255
     'high_threshold': 200, #1-255
     'steps': 28, #100
-    'guidance_scale': 7.0, #30
+    'guidance_scale': 5.5, #30
     'seed': 0,
     'eta': 0,
     'show_processed_image': False,
@@ -10378,6 +10378,7 @@ def buildControlNetSD3(page):
           #Text("Scribble - A hand-drawn monochrome image with white outlines on a black background."),
           Text("Canny Map Edge - A monochrome image with white edges on a black background."),
           Text("OpenPose - A OpenPose bone image."),
+          Text("Tile - Adds more detail, makes image sharper and apply new styles."),
           #Text("Depth - A grayscale image with black representing deep areas and white representing shallow areas."),
           #Text("Softedge - A monochrome image with white soft edges on a black background."),
           #Text("M-LSD - A monochrome image composed only of white straight lines on a black background."),
@@ -11580,7 +11581,7 @@ def buildPixArtAlpha(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pixart_alpha_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_alpha_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_alpha_prefs, key='height')
-    pixart_model = Dropdown(label="PixArt-α Model", width=240, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512"), dropdown.Option("PixArt-LCM-XL-2-1024-MS")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
+    pixart_model = Dropdown(label="PixArt-α Model", width=260, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-XL-2-1024-MS"), dropdown.Option("PixArt-XL-2-512x512"), dropdown.Option("PixArt-LCM-XL-2-1024-MS"), dropdown.Option("TwistedReality-PixArt-1024ms"), dropdown.Option("TwistedReality-PixArt-512ms")], value=pixart_alpha_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-α Model (URL or Path)", value=pixart_alpha_prefs['custom_model'], expand=True, visible=pixart_alpha_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     clean_caption = Switcher(label="Clean Caption", value=pixart_alpha_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
     resolution_binning = Switcher(label="Resolution Binning", value=pixart_alpha_prefs['resolution_binning'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'resolution_binning'), tooltip="The requested height and width are first mapped to the closest resolutions using `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to the requested resolution. Useful for generating non-square images.")
@@ -11686,7 +11687,7 @@ def buildPixArtSigma(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pixart_sigma_prefs, key='guidance_scale')
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pixart_sigma_prefs, key='height')
-    pixart_model = Dropdown(label="PixArt-Σ Model", width=250, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-Sigma-XL-2-512-MS"), dropdown.Option("PixArt-Sigma-XL-2-1024-MS"), dropdown.Option("PixArt-Sigma-XL-2-2K-MS")], value=pixart_sigma_prefs['pixart_model'], on_change=changed_model)
+    pixart_model = Dropdown(label="PixArt-Σ Model", width=260, options=[dropdown.Option("Custom"), dropdown.Option("PixArt-Sigma-XL-2-512-MS"), dropdown.Option("PixArt-Sigma-XL-2-1024-MS"), dropdown.Option("PixArt-Sigma-XL-2-2K-MS"), dropdown.Option("SigmaJourney-1024ms")], value=pixart_sigma_prefs['pixart_model'], on_change=changed_model)
     pixart_custom_model = TextField(label="Custom PixArt-Σ Model (URL or Path)", value=pixart_sigma_prefs['custom_model'], expand=True, visible=pixart_sigma_prefs['pixart_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
     clean_caption = Switcher(label="Clean Caption", value=pixart_sigma_prefs['clean_caption'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'clean_caption'), tooltip="Whether or not to clean the caption before creating embeddings.")
     resolution_binning = Switcher(label="Resolution Binning", value=pixart_sigma_prefs['resolution_binning'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'resolution_binning'), tooltip="The requested height and width are first mapped to the closest resolutions using `ASPECT_RATIO_1024_BIN`. After the produced latents are decoded into images, they are resized back to the requested resolution. Useful for generating non-square images.")
@@ -28412,6 +28413,7 @@ def run_prompt_remixer(page):
         pr = pr.partition('.')[2].strip()
       if '*' in pr:
         pr = pr.replace('*', '').strip()
+      if pr.endswith(':'): continue
       prompt_results.append(pr)
   page.prompt_remixer_list.controls.append(Text(f"Remixing {seed_prompt}" + (f", about {optional_about_influencer}" if bool(optional_about_influencer) else "") + f"\nRequest mode influence: {remixer_request_modes[int(prefs['prompt_remixer']['request_mode'])]}\n"))
   page.prompt_remixer_list.update()
@@ -40188,6 +40190,8 @@ def run_controlnet_xl(page, from_list=False):
     def prep_image(task, img):
         nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
         nonlocal width, height
+        if isinstance(img, list):
+          img = img[0]
         if isinstance(img, str):
           if img.startswith('http'):
               #response = requests.get(controlnet_xl_prefs['original_image'])
@@ -40509,7 +40513,7 @@ def run_controlnet_xl(page, from_list=False):
             alert_msg(page, f"ERROR Generating ControlNet-XL {controlnet_xl_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             flush()
             return
-        clear_pipes('controlnet')
+        #clear_pipes('controlnet')
         clear_last()
         #clear_last()
         autoscroll(True)
@@ -40806,7 +40810,9 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
         return img
     def prep_image(task, img):
         nonlocal hed, openpose, depth_estimator, feature_extractor, mlsd, image_processor, image_segmentor, normal, lineart, shuffle
-        nonlocal width, height, original_img
+        nonlocal width, height
+        if isinstance(img, list):
+          img = img[0]
         if isinstance(img, str):
           if img.startswith('http'):
               #response = requests.get(controlnet_sd3_prefs['original_image'])
@@ -40894,7 +40900,6 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
                 original_img = PILImage.fromarray(original_img).convert('L')
             return original_img
         except Exception as e:
-            clear_last()
             alert_msg(page, f"ERROR Preparing ControlNet-SD3 {controlnet_sd3_prefs['control_task']} Input Image {img}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             flush()
             return
@@ -41081,17 +41086,15 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
             for c in controlnet_sd3_prefs['multi_controlnets']:
                 original_img.append(prep_image(c['control_task'], c['original_image']))
                 if controlnet_sd3_prefs['show_processed_image']:
-                    processed_img = available_file(batch_output, f"{filename}-{c['control_task'].partition(' ')[0]}", 0, no_num=True)
                     w, h = original_img[-1].size
-                    original_img[-1].save(processed_img)
-                    prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                    src_base64 = pil_to_base64(original_img[-1])
+                    prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
         elif not controlnet_sd3_prefs['use_init_video']:
             original_img = prep_image(controlnet_sd3_prefs['control_task'], pr['original_image'])
             if controlnet_sd3_prefs['show_processed_image']:
-                processed_img = available_file(batch_output, f"{filename}-{controlnet_sd3_prefs['control_task'].partition(' ')[0]}", 0, no_num=True)
                 w, h = original_img.size
-                original_img.save(processed_img)
-                prt(Row([ImageButton(src=processed_img, data=processed_img, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+                src_base64 = pil_to_base64(original_img)
+                prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
         else:
             video_img = prep_video(pr['original_image'])
             latents = torch.randn((1, 4, 64, 64), device="cuda", dtype=torch.float16).repeat(len(video_img), 1, 1, 1)
@@ -41119,7 +41122,7 @@ def run_controlnet_sd3(page, from_list=False, with_params=False):
             alert_msg(page, f"ERROR Generating ControlNet-SD3 {controlnet_sd3_prefs['control_task']}...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             flush()
             return
-        clear_pipes('controlnet')
+        #clear_pipes('controlnet')
         clear_last()
         #clear_last()
         autoscroll(True)
@@ -43177,7 +43180,7 @@ def run_pixart_alpha(page, from_list=False, with_params=False):
         pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     text_encoder = None
     cpu_offload = pixart_alpha_prefs['cpu_offload']
-    pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else "PixArt-alpha/PixArt-LCM-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-LCM-XL-2-1024-MS" else pixart_alpha_prefs['ustom_model']
+    pixart_model = "PixArt-alpha/PixArt-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-1024-MS" else "PixArt-alpha/PixArt-XL-2-512x512" if pixart_alpha_prefs['pixart_model'] == "PixArt-XL-2-512x512" else "PixArt-alpha/PixArt-LCM-XL-2-1024-MS" if pixart_alpha_prefs['pixart_model'] == "PixArt-LCM-XL-2-1024-MS" else "frutiemax/TwistedReality-pixart-1024ms" if pixart_alpha_prefs['pixart_model'] == "TwistedReality-PixArt-1024ms" else "frutiemax/TwistedReality-pixart-512ms" if pixart_alpha_prefs['pixart_model'] == "TwistedReality-PixArt-512ms" else pixart_alpha_prefs['ustom_model']
     if 'loaded_pixart_8bit' not in status: status['loaded_pixart_8bit'] = use_8bit
     if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
     if pixart_model != status['loaded_pixart'] or use_8bit != status['loaded_pixart_8bit']:
@@ -43426,7 +43429,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
         pip_install("beautifulsoup4|bs4 ftfy", installer=installer)
     text_encoder = None
     cpu_offload = pixart_sigma_prefs['cpu_offload']
-    pixart_model = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-1024-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-512-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-512-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-2K-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-2K-MS" else pixart_sigma_prefs['custom_model']
+    pixart_model = "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-1024-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-512-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-512-MS" else "PixArt-alpha/PixArt-Sigma-XL-2-2K-MS" if pixart_sigma_prefs['pixart_model'] == "PixArt-Sigma-XL-2-2K-MS" else "AlanB/SigmaJourney-1024ms" if pixart_sigma_prefs['pixart_model'] == "SigmaJourney-1024ms" else pixart_sigma_prefs['custom_model']
     pixart_vae = "PixArt-alpha/pixart_sigma_sdxlvae_T5_diffusers"
     if 'loaded_pixart_8bit' not in status: status['loaded_pixart_8bit'] = use_8bit
     if 'loaded_pixart' not in status: status['loaded_pixart'] = ""
@@ -55739,6 +55742,11 @@ def asset_dir(path):
             return path
     else:
         return path
+        if path.startswith(os.path.dirname(__file__)):
+            print(os.path.relpath(path, os.path.dirname(__file__)))
+            return os.path.relpath(path, os.path.dirname(__file__))
+        else:
+            return path
 
 def makedir(path):
     if not os.path.exists(path):

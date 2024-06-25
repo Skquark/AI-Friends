@@ -38,6 +38,8 @@ finetuned_models = [
     {"name": "Realistic Vision v6.0", "path": "stablediffusionapi/realistic_vision_v60", "prefix": ""},
     {"name": "Redshift Renderer (Cinema4D)", "path": "nitrosocke/redshift-diffusion", "prefix": "redshift style "},
     {"name": "Reliberate", "path": "sinkinai/reliberate_v10", "prefix": ""},
+    {"name": "ReV Animated Remix", "path": "Yntec/ReVAnimatedRemix", "prefix": ""},
+    {"name": "ReV Animated v2 Rebirth", "path": "rubbrband/revAnimated_v2RebirthVAE", "prefix": ""},
     {"name": "Swizz8", "path": "Pr0-SD/Swizz8", "prefix": ""},
     {"name": "Waifu Diffusion", "path": "hakurei/waifu-diffusion", "prefix": "", "revision": "fp16"},
     {"name": "Ultima Waifu Diffusion", "path": "AdamOswald1/Ultima-Waifu-Diffusion", "prefix": ""},
