@@ -1026,6 +1026,28 @@ def buildExtras(page):
     )
     return extrasTabs
 
+def print_tabs(page, detailed=False):
+    for t in page.tabs.tabs:
+        print(f"{t.text}:")
+        if isinstance(t.content, Tabs):
+            tabs = []
+            for s in t.content.tabs:
+                try:
+                    title = s.text
+                    if detailed:
+                        header = s.content.controls[0].content.controls[0]
+                        if isinstance(header, Header):
+                            description = header.title
+                            if bool(header.subtitle):
+                                description += f" - {header.subtitle}"
+                            print(description)
+                        #title += f":{s.content}"
+                    tabs.append(title)
+                except Exception as e:
+                    print(e)
+                    pass
+            print(and_list(tabs))
+
 def b_style():
     return ButtonStyle(elevation=8)
 def dict_diff(dict1, dict2):
@@ -1265,6 +1287,7 @@ def initState(page):
       #start_polling(prefs['stats_update'], update_stats(page))
     #time.sleep(8)
     #page.update()
+    #print_tabs(page, True)
 
 def buildSettings(page):
   global prefs, status
@@ -3723,7 +3746,7 @@ def buildPromptGenerator(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🧠  OpenAI GPT-3/4/Gemini Prompt Genenerator", "Enter a phrase each prompt should start with and the amount of prompts to generate. Just experiment, AI will continue to surprise."),
+        Header("🧠  OpenAI GPT-3/4/Gemini Prompt Generator", "Enter a phrase each prompt should start with and the amount of prompts to generate. Just experiment, AI will continue to surprise."),
         Row([TextField(label="Subject Phrase", expand=True, value=prefs['prompt_generator']['phrase'], multiline=True, on_change=lambda e: changed(e, 'phrase')),
              TextField(label="Subject Detail (optional)", expand=True, hint_text="About Details (optional)", value=prefs['prompt_generator']['subject_detail'], multiline=True, on_change=lambda e: changed(e, 'subject_detail')), 
              Checkbox(label="Phrase as Subject", value=prefs['prompt_generator']['phrase_as_subject'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, tooltip="Makes it about phrase and subject detail.", on_change=lambda e: changed(e, 'phrase_as_subject'))]),
@@ -4720,7 +4743,7 @@ def buildInitFolder(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("📂 Generate Prompts from Folder as Init Images", "Provide a Folder with a collection of images that you want to automatically add to prompts list with init_image overides..."),
+        Header("📂 Generate Prompts from Folder as Init Images", "Provide a Folder with a collection of images that you want to automatically add to prompts list with init_image overrides..."),
         init_folder,
         ResponsiveRow([prompt_string, negative_prompt]),
         include_strength,
@@ -4823,7 +4846,7 @@ def buildInitVideo(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🎥 Generate Prompts from Video File Frames", "Provide a short video clip to automatically add sequence to prompts list with init_image overides..."),
+        Header("🎥 Generate Prompts from Video File Frames", "Provide a short video clip to automatically add sequence to prompts list with init_image overrides..."),
         video_file, #init_folder,
         Row([fps, start_time, end_time]),
         Row([batch_folder_name, file_prefix]),
@@ -5539,7 +5562,7 @@ def buildDanceDiffusion(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👯 Create experimental music or sounds with HarmonAI trained audio models", "Tools to train a generative model on arbitrary audio samples...", actions=[save_default(dance_prefs, exclude=['wav_path']), IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)]),
+        Header("👯   Dance Diffusion", "Create experimental music or sounds with HarmonAI trained audio models. Tools to train a generative model on arbitrary audio samples...", actions=[save_default(dance_prefs, exclude=['wav_path']), IconButton(icon=icons.HELP, tooltip="Help with DanceDiffusion Settings", on_click=dance_help)]),
         Row([dance_model, community_dance_diffusion_model, custom_model]),
         inference_row,
         number_row,
@@ -5787,7 +5810,7 @@ def buildMusicGen(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🪗  Meta Audiocraft MusicGen (might be broken)", "Simple and Controllable Music Generation with Audio tokenization model...", actions=[save_default(music_gen_prefs, exclude=['audio_file']), IconButton(icon=icons.HELP, tooltip="Help with MusicGen Settings", on_click=music_gen_help)]),
+        Header("🪗   Meta Audiocraft MusicGen (might be broken)", "Simple and Controllable Music Generation with Audio tokenization model...", actions=[save_default(music_gen_prefs, exclude=['audio_file']), IconButton(icon=icons.HELP, tooltip="Help with MusicGen Settings", on_click=music_gen_help)]),
         prompt,
         audio_file,
         Row([audio_model, duration_row]),
@@ -6196,7 +6219,7 @@ def buildMarigoldDepth(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🪷  Marigold Depth Estimation", "Monocular depth estimator that delivers accurate & sharp predictions in the wild... Based on SD.", actions=[save_default(marigold_depth_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Marigold Depth Settings", on_click=marigold_depth_help)]),
+        Header("🪷   Marigold Depth Estimation", "Monocular depth estimator that delivers accurate & sharp predictions in the wild... Based on SD.", actions=[save_default(marigold_depth_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Marigold Depth Settings", on_click=marigold_depth_help)]),
         init_image,
         processing_res,
         denoising_steps,
@@ -6256,7 +6279,7 @@ def buildTripo(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🏖️  Tripo.ai Image-to-3D", "State-of-the-art open-source model for fast feedforward 3D reconstruction from a single image...", actions=[save_default(tripo_prefs, exclude=['init_image', 'init_images']), IconButton(icon=icons.HELP, tooltip="Help with Tripo Settings", on_click=tripo_help)]),
+        Header("🏖️   Tripo.ai Image-to-3D", "State-of-the-art open-source model for fast feedforward 3D reconstruction from a single image...", actions=[save_default(tripo_prefs, exclude=['init_image', 'init_images']), IconButton(icon=icons.HELP, tooltip="Help with Tripo Settings", on_click=tripo_help)]),
         init_image,
         Row([remove_background, foreground_ratio]),
         max_row,
@@ -7038,7 +7061,7 @@ def buildImageVariation(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🪩  Image Variations of any Init Image", "Creates a new version of your picture, without a prompt...", actions=[save_default(image_variation_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)]),
+        Header("🪩   Image Variations of any Init Image", "Creates a new version of your picture, without a prompt...", actions=[save_default(image_variation_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Image Variation Settings", on_click=image_variation_help)]),
         init_image,
         #Row([init_image, mask_image, invert_mask]),
         num_inference_row,
@@ -7137,7 +7160,7 @@ def buildBackgroundRemover(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🖼  MODNet Background Remover", "A deep learning approach to clear the background of most images to isolate subject...", actions=[save_default(background_remover_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Background Remover Settings", on_click=background_remover_help)]),
+        Header("🖼   MODNet Background Remover", "A deep learning approach to clear the background of most images to isolate subject...", actions=[save_default(background_remover_prefs, exclude=['init_image']), IconButton(icon=icons.HELP, tooltip="Help with Background Remover Settings", on_click=background_remover_help)]),
         init_image,
         threshold,
         max_row,
@@ -7251,7 +7274,7 @@ def buildHordeWorker(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("⛈️  AI-Horde Worker reGen Server", "Share your GPU in the AI-Horde SD Cloud and earn Kudos... Give back to the Stable Horde, thanks db0.", actions=[save_default(horde_worker_regen_prefs), IconButton(icon=icons.HELP, tooltip="Help with AI-Horde Worker Settings", on_click=horde_help)]),
+        Header("⛈️   AI-Horde Worker reGen Server", "Share your GPU in the AI-Horde SD Cloud and earn Kudos... Give back to the Stable Horde, thanks db0.", actions=[save_default(horde_worker_regen_prefs), IconButton(icon=icons.HELP, tooltip="Help with AI-Horde Worker Settings", on_click=horde_help)]),
         Row([dreamer_name]),
         ResponsiveRow([allow_img2img, allow_painting, allow_post_processing, allow_controlnet, allow_lora], spacing=0, run_spacing=0),
         ResponsiveRow([nsfw, censor_nsfw, censorlist]),
@@ -9578,7 +9601,7 @@ def buildInstructPix2Pix(page):
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=instruct_pix2pix_prefs['ip_adapter_model'], visible=instruct_pix2pix_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
-    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=instruct_pix2pix_prefs['ip_adapter_SDXL_model'], visible=instruct_pix2pix_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=instruct_pix2pix_prefs['ip_adapter_SDXL_model'], visible=instruct_pix2pix_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
     for m in ip_adapter_SDXL_models:
         ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=instruct_pix2pix_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
@@ -9599,7 +9622,7 @@ def buildInstructPix2Pix(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🏜️  Instruct-Pix2Pix", "Text-Based Image Editing - Follow Image Editing Instructions...", actions=[save_default(instruct_pix2pix_prefs, ['original_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)]),
+        Header("🏜️   Instruct-Pix2Pix", "Text-Based Image Editing - Follow Image Editing Instructions...", actions=[save_default(instruct_pix2pix_prefs, ['original_image', 'ip_adapter_image']), IconButton(icon=icons.HELP, tooltip="Help with Instruct-Pix2Pix Settings", on_click=instruct_pix2pix_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         Row([original_image, init_video, use_init_video]),
         vid_params,
@@ -12416,7 +12439,7 @@ def buildLCMInterpolation(page):
     page.lcm_interpolation_output = Column([])
     c = Column([Container(
         padding=padding.only(18, 14, 20, 10), content=Column([
-            Header("👪  LCM Interpolation", "Transition the Latent Consistancy between multiple text prompts... Good fast results in only 4 Steps!", actions=[save_default(lcm_interpolation_prefs, ['mixes']), IconButton(icon=icons.HELP, tooltip="Help with LCM Settings", on_click=lcm_interpolation_help)]),
+            Header("👪  LCM Interpolation", "Transition the Latent Consistency between multiple text prompts... Good fast results in only 4 Steps!", actions=[save_default(lcm_interpolation_prefs, ['mixes']), IconButton(icon=icons.HELP, tooltip="Help with LCM Settings", on_click=lcm_interpolation_help)]),
             prompt_row,
             fuse_layers,
             Divider(height=5, thickness=4),
@@ -12548,18 +12571,28 @@ pag_prefs = {
     'pag_scale': 5.0,
     'pag_adaptive_scaling': 0.0,
     'pag_drop_rate': 0.5,
+    'applied_layer_down': False,
+    'applied_layer_mid': True,
+    'applied_layer_up': False,
     'pag_applied_layers': "down",  # ['down', 'mid', 'up']
     'pag_applied_layers_index': "m0",  # ['d4', 'd5', 'm0']
+    'init_image': '',
+    'mask_image': '',
+    'alpha_mask': False,
+    'invert_mask': False,
+    'image_strength': 0.7,
     "seed": 0,
     'init_image': '',
     'init_image_strength': 0.8,
-    "cpu_offload": False,
+    "cpu_offload": True,
     "cpu_only": False,
     "pag_model": "PAG_Dreamshaper_v7",
     "custom_model": "",
+    'use_SDXL': True,
     'use_ip_adapter': False,
     'ip_adapter_image': '',
     'ip_adapter_model': 'SD v1.5',
+    'ip_adapter_SDXL_model': 'SDXL',
     'ip_adapter_strength': 0.8,
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
@@ -12601,29 +12634,59 @@ def buildPAG(page):
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='guidance_scale')
     pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='pag_scale')
     pag_adaptive_scaling = SliderRow(label="PAG Adaptive Scaling", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='pag_adaptive_scaling', col={'lg':6}, tooltip="Scales the Diffusion Adaptivly (I don't know)")
-    pag_drop_rate = SliderRow(label="PAG Drop Rate", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='pag_drop_rate', col={'lg':6}, tooltip="Experiment...")
-    pag_applied_layers = Dropdown(label="PAG Applied Layers", width=200, options=[dropdown.Option(o) for o in ['down', 'mid', 'up']], value=pag_prefs['pag_applied_layers'], on_change=lambda e:changed(e,'pag_applied_layers'))
-    pag_applied_layers_index = Dropdown(label="PAG Applied Layers Index", width=200, options=[dropdown.Option(o) for o in ['d4', 'd5', 'm0']], value=pag_prefs['pag_applied_layers_index'], on_change=lambda e:changed(e,'pag_applied_layers_index'))
+    #pag_drop_rate = SliderRow(label="PAG Drop Rate", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='pag_drop_rate', col={'lg':6}, visible = not pag_prefs['use_SDXL'], tooltip="Experiment...")
+    applied_layer_down = Checkbox(label="Down", value=pag_prefs['applied_layer_down'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_down'))
+    applied_layer_mid = Checkbox(label="Mid", value=pag_prefs['applied_layer_mid'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_mid'))
+    applied_layer_up = Checkbox(label="Up", value=pag_prefs['applied_layer_up'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_up'))
+    pag_applied_layers = Container(Row([Text("PAG Applied Layers:"), applied_layer_down, applied_layer_mid, applied_layer_up]), tooltip="Specify which layers PAG is applied to. Changing this setting will significantly impact the output, so experiment.")
+    #pag_applied_layers = Dropdown(label="PAG Applied Layers", width=200, options=[dropdown.Option(o) for o in ['down', 'mid', 'up']], value=pag_prefs['pag_applied_layers'], on_change=lambda e:changed(e,'pag_applied_layers'))
+    #pag_applied_layers_index = Dropdown(label="PAG Applied Layers Index", width=200, options=[dropdown.Option(o) for o in ['d4', 'd5', 'm0']], value=pag_prefs['pag_applied_layers_index'], visible = not pag_prefs['use_SDXL'], on_change=lambda e:changed(e,'pag_applied_layers_index'))
     width_slider = SliderRow(label="Width", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pag_prefs, key='width')
     height_slider = SliderRow(label="Height", min=128, max=2048, divisions=15, multiple=128, suffix="px", pref=pag_prefs, key='height')
+    def toggle_SDXL(e):
+        pag_prefs['use_SDXL'] = e.control.value
+        #pag_applied_layers_index.visible = not pag_prefs['use_SDXL']
+        #pag_applied_layers_index.update()
+        #pag_drop_rate.visible = not pag_prefs['use_SDXL']
+        #pag_drop_rate.update()
+        ip_adapter_model.visible = not pag_prefs['use_SDXL'] and pag_prefs['use_ip_adapter']
+        ip_adapter_model.update()
+        ip_adapter_SDXL_model.visible = pag_prefs['use_SDXL'] and pag_prefs['use_ip_adapter']
+        ip_adapter_SDXL_model.update()
+        cpu_offload.visible = pag_prefs['use_SDXL']
+        cpu_offload.update()
+        image_container.height = None if pag_prefs['use_SDXL'] else 0
+        image_container.update()
+    use_SDXL = Switcher(label="Use Stable Diffusion XL PAG Pipeline", value=pag_prefs['use_SDXL'], on_change=toggle_SDXL, tooltip="SDXL uses Model Checkpoint set in Installation. Otherwise use selected 1.5 or 2.1 Inpainting Model.")
     def toggle_ip_adapter(e):
         pag_prefs['use_ip_adapter'] = e.control.value
         ip_adapter_container.height = None if e.control.value else 0
         ip_adapter_container.update()
-        ip_adapter_model.visible = e.control.value
+        ip_adapter_model.visible = e.control.value and not pag_prefs['use_SDXL']
         ip_adapter_model.update()
+        ip_adapter_SDXL_model.visible = e.control.value and pag_prefs['use_SDXL']
+        ip_adapter_SDXL_model.update()
     use_ip_adapter = Switcher(label="Use IP-Adapter Reference Image", value=pag_prefs['use_ip_adapter'], on_change=toggle_ip_adapter, tooltip="Uses both image and text to condition the image generation process.")
     ip_adapter_model = Dropdown(label="IP-Adapter SD Model", width=220, options=[], value=pag_prefs['ip_adapter_model'], visible=pag_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_model'))
     for m in ip_adapter_models:
         ip_adapter_model.options.append(dropdown.Option(m['name']))
+    ip_adapter_SDXL_model = Dropdown(label="IP-Adapter SDXL Model", width=220, options=[], value=pag_prefs['ip_adapter_SDXL_model'], visible=pag_prefs['use_ip_adapter'], on_change=lambda e:changed(e,'ip_adapter_SDXL_model'))
+    for m in ip_adapter_SDXL_models:
+        ip_adapter_SDXL_model.options.append(dropdown.Option(m['name']))
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=pag_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if pag_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
-
+    init_image = FileInput(label="Original Image (optional)", pref=pag_prefs, key='init_image', expand=True, page=page)
+    mask_image = FileInput(label="Mask Image (optional)", pref=pag_prefs, key='mask_image', expand=1, page=page)
+    invert_mask = Checkbox(label="Invert", tooltip="Swaps the Black & White of your Mask Image", value=pag_prefs['invert_mask'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'invert_mask'))
+    alpha_mask = Checkbox(label="Alpha Mask", value=pag_prefs['alpha_mask'], tooltip="Use Transparent Alpha Channel of Init as Mask", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'alpha_mask'))
+    image_strength = SliderRow(label="Image Strength", min=0, max=1, divisions=20, round=2, pref=pag_prefs, key='image_strength', tooltip="Conceptually, indicates how much to transform the reference `image`. Denoising steps depends on the amount of noise initially added.")
+    image_container = Container(Column([ResponsiveRow([Row([init_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]), image_strength]), height = None if pag_prefs['use_SDXL'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     pag_model = Dropdown(label="PAG Model", width=220, options=[dropdown.Option("Custom"), dropdown.Option("PAG_Dreamshaper_v7"), dropdown.Option("PAG_Dreamshaper_v8")], value=pag_prefs['pag_model'], on_change=changed_model)
     pag_custom_model = TextField(label="Custom PAG Model (URL or Path)", value=pag_prefs['custom_model'], expand=True, visible=pag_prefs['pag_model']=="Custom", on_change=lambda e:changed(e,'custom_model'))
-    cpu_offload = Switcher(label="CPU Offload", value=pag_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
-    cpu_only = Switcher(label="CPU Only (not yet)", value=pag_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
+    cpu_offload = Checkbox(label="CPU Offload", tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.", value=pag_prefs['cpu_offload'], visible=pag_prefs['use_SDXL'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'cpu_offload'))
+    #cpu_offload = Switcher(label="CPU Offload", value=pag_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), visible=pag_prefs['use_SDXL'], tooltip="Saves VRAM if you have less than 24GB VRAM. Otherwise can run out of memory.")
+    cpu_only = Switcher(label="CPU Only", value=pag_prefs['cpu_only'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_only'), tooltip="If you don't have a good GPU, can run entirely on CPU")
     seed = TextField(label="Seed", width=90, value=str(pag_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=pag_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=pag_prefs, key='enlarge_scale')
@@ -12647,11 +12710,13 @@ def buildPAG(page):
             steps,
             guidance,
             pag_scale,
-            ResponsiveRow([pag_adaptive_scaling, pag_drop_rate]),
-            Row([pag_applied_layers, pag_applied_layers_index]),
+            pag_adaptive_scaling,
+            pag_applied_layers,
             width_slider, height_slider, #Divider(height=9, thickness=2),
             #Row([pag_model, pag_custom_model]),
-            Row([use_ip_adapter, ip_adapter_model], vertical_alignment=CrossAxisAlignment.START),
+            Row([use_SDXL, cpu_offload]),
+            image_container,
+            Row([use_ip_adapter, ip_adapter_model, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
             ip_adapter_container,
             #Row([cpu_offload, cpu_only]),
             ResponsiveRow([Row([n_images, seed], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
@@ -13213,7 +13278,7 @@ Resources:
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("📽  Video-To-Video Synthesis", "Note: Uses more than 16GB VRAM, may crash session. Video-to-video-synthesis Model to Reanimate Video Clips", actions=[save_default(video_to_video_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with Video-to-Video Settings", on_click=video_to_video_help)]),
+        Header("📽   Video-To-Video Synthesis", "Note: Uses more than 16GB VRAM, may crash session. Video-to-video-synthesis Model to Reanimate Video Clips", actions=[save_default(video_to_video_prefs, ['init_video']), IconButton(icon=icons.HELP, tooltip="Help with Video-to-Video Settings", on_click=video_to_video_help)]),
         #ResponsiveRow([Row([original_image, alpha_mask], col={'lg':6}), Row([mask_image, invert_mask], col={'lg':6})]),
         ResponsiveRow([prompt, negative_prompt]),
         init_video,
@@ -17514,7 +17579,7 @@ def buildDiT(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("⚧️  DiT Models with Transformers Class-to-Image Generator", "Scalable Diffusion Models with Transformers...", actions=[ft.OutlinedButton("Class List", on_click=show_classes), IconButton(icon=icons.HELP, tooltip="Help with DiT Settings", on_click=DiT_help)]),
+        Header("⚧️   DiT Models with Transformers Class-to-Image Generator", "Scalable Diffusion Models with Transformers...", actions=[ft.OutlinedButton("Class List", on_click=show_classes), IconButton(icon=icons.HELP, tooltip="Help with DiT Settings", on_click=DiT_help)]),
         prompt,
         #Row([prompt, mask_image, invert_mask]),
         num_inference_row,
@@ -19279,7 +19344,7 @@ def buildDeepDaze(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("👀  DeepDaze Text-to-Image Generator", "An alternative method using OpenAI's CLIP and Siren. Made a few years ago but still facinating results....", actions=[save_default(deep_daze_prefs), IconButton(icon=icons.HELP, tooltip="Help with DeepDaze Settings", on_click=deep_daze_help)]),
+        Header("👀  DeepDaze Text-to-Image Generator", "An alternative method using OpenAI's CLIP and Siren. Made a few years ago but still fascinating results....", actions=[save_default(deep_daze_prefs), IconButton(icon=icons.HELP, tooltip="Help with DeepDaze Settings", on_click=deep_daze_help)]),
         prompt,
         num_layers_row,
         iterations_row,
@@ -20738,7 +20803,7 @@ In a nutshell, LoRA allows to adapt pretrained models by adding pairs of rank-de
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🌫️  Training Text-to-Image Low-Rank Adaptation of Large Language Models (LoRA)", "Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint...", actions=[save_default(LoRA_prefs, ['image_path', 'urls']), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)]),
+        Header("🌫️   Training Text-to-Image Low-Rank Adaptation of Large Language Models (LoRA)", "Provide a collection of images to train. Smaller sized. Adds on to the currently loaded Model Checkpoint...", actions=[save_default(LoRA_prefs, ['image_path', 'urls']), IconButton(icon=icons.HELP, tooltip="Help with LoRA DreamBooth Settings", on_click=lora_help)]),
         ResponsiveRow([validation_prompt, name_of_your_model]),
         Row([num_validation_images, validation_epochs, train_batch_size]),
         Row([prior_preservation, gradient_checkpointing]),
@@ -21733,7 +21798,7 @@ def buildStableAudio(page):
     c = Column([Container(
       padding=padding.only(18, 14, 20, 10),
       content=Column([
-        Header("🫢  Stable Audio Open v1.0 (Under construction)", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
+        Header("🫢   Stable Audio Open v1.0 (Under construction)", "Generate Variable-Length Stereo Audio at 44.1kHz from Text Prompts using StabilityAI Open Model...", actions=[save_default(stable_audio_prefs), IconButton(icon=icons.HELP, tooltip="Help with StableAudio Settings", on_click=stable_audio_help)]),
         ResponsiveRow([text, negative_prompt]),
         duration_row,
         guidance,
@@ -45048,14 +45113,14 @@ def run_pag(page, from_list=False, with_params=False):
         return
       for p in prompts:
         if with_params:
-            pag_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':pag_prefs['guidance_scale'], 'num_inference_steps':pag_prefs['num_inference_steps'], 'width':pag_prefs['width'], 'height':pag_prefs['height'], 'init_image':pag_prefs['init_image'], 'init_image_strength':pag_prefs['init_image_strength'], 'num_images':pag_prefs['num_images'], 'seed':pag_prefs['seed']})
+            pag_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':pag_prefs['guidance_scale'], 'num_inference_steps':pag_prefs['num_inference_steps'], 'width':pag_prefs['width'], 'height':pag_prefs['height'], 'init_image':pag_prefs['init_image'], 'mask_image': p['mask_image'] if bool(p['mask_image']) else pag_prefs['mask_image'], 'init_image_strength':pag_prefs['init_image_strength'], 'num_images':pag_prefs['num_images'], 'seed':pag_prefs['seed']})
         else:
-            pag_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
+            pag_prompts.append({'prompt': p.prompt, 'negative_prompt':p['negative_prompt'], 'guidance_scale':p['guidance_scale'], 'num_inference_steps':p['steps'], 'width':p['width'], 'height':p['height'], 'init_image':p['init_image'], 'mask_image':p['mask_image'], 'init_image_strength':p['init_image_strength'], 'num_images':p['batch_size'], 'seed':p['seed']})
     else:
       if not bool(pag_prefs['prompt']):
         alert_msg(page, "You must provide a text prompt to process your image generation...")
         return
-      pag_prompts.append({'prompt': pag_prefs['prompt'], 'negative_prompt':pag_prefs['negative_prompt'], 'guidance_scale':pag_prefs['guidance_scale'], 'num_inference_steps':pag_prefs['num_inference_steps'], 'width':pag_prefs['width'], 'height':pag_prefs['height'], 'init_image':pag_prefs['init_image'], 'init_image_strength':pag_prefs['init_image_strength'], 'num_images':pag_prefs['num_images'], 'seed':pag_prefs['seed']})
+      pag_prompts.append({'prompt': pag_prefs['prompt'], 'negative_prompt':pag_prefs['negative_prompt'], 'guidance_scale':pag_prefs['guidance_scale'], 'num_inference_steps':pag_prefs['num_inference_steps'], 'width':pag_prefs['width'], 'height':pag_prefs['height'], 'init_image':pag_prefs['init_image'], 'mask_image':pag_prefs['mask_image'], 'init_image_strength':pag_prefs['init_image_strength'], 'num_images':pag_prefs['num_images'], 'seed':pag_prefs['seed']})
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line, size=17)
@@ -45109,31 +45174,67 @@ def run_pag(page, from_list=False, with_params=False):
     from PIL.PngImagePlugin import PngInfo
     from PIL import ImageOps
     cpu_offload = pag_prefs['cpu_offload']
-    model = get_model(prefs['model_ckpt'])
-    pag_model = model['path']
+    use_SDXL = pag_prefs['use_SDXL']
+    if use_SDXL:
+        SDXL_model = get_SDXL_model(prefs['SDXL_model'])
+        pag_model = SDXL_model['path']
+    else:
+        model = get_model(prefs['model_ckpt'])
+        pag_model = model['path']
     #"SimianLuo/PAG_Dreamshaper_v7" if pag_prefs['pag_model'] == "PAG_Dreamshaper_v7" else "Lykon/dreamshaper-8-pag" if pag_prefs['pag_model'] == "PAG_Dreamshaper_v8" else pag_prefs['pag_custom_model']
     if 'loaded_pag' not in status: status['loaded_pag'] = ""
+    if 'loaded_pag_mode' not in status: status['loaded_pag_mode'] = ""
+    if 'loaded_pag_layers' not in status: status['loaded_pag_layers'] = []
     if pag_model != status['loaded_pag']:
         clear_pipes()
     else:
         clear_pipes('PAG')
+    def change_mode(pipe, mode):
+        status['loaded_pag_mode'] = mode
+        if mode == "inpaint":
+            from diffusers import AutoPipelineForInpaint
+            return AutoPipelineForInpaint.from_pipe(pipe)
+        elif mode == "img2img":
+            from diffusers import AutoPipelineForImage2Image
+            return AutoPipelineForImage2Image.from_pipe(pipe)
+        else:
+            from diffusers import AutoPipelineForText2Image
+            return AutoPipelineForText2Image.from_pipe(pipe)
     #from optimum.intel import OVLatentConsistencyModelPipeline
     #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/PAG-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
     from accelerate.utils import set_seed
     from diffusers import StableDiffusionPipeline
+    pag_applied_layers = []
+    if pag_prefs['applied_layer_down']: pag_applied_layers.append("down" if use_SDXL else "d4")
+    if pag_prefs['applied_layer_mid']: pag_applied_layers.append("mid" if use_SDXL else "m0")
+    if pag_prefs['applied_layer_up']: pag_applied_layers.append("up" if use_SDXL else "u0")
     if pipe_PAG == None:
         installer.status(f"...initialize PAG Pipeline")
         try:
-            pipe_PAG = StableDiffusionPipeline.from_pretrained(pag_model, custom_pipeline="hyoungwoncho/sd_perturbed_attention_guidance", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
-            #pipe_PAG = pipeline_scheduler(pipe_PAG)
-            #pipe_PAG.scheduler = PAGScheduler.from_config(pipe_PAG.scheduler.config)
-            pipe_PAG = optimize_pipe(pipe_PAG)
+            if use_SDXL:
+                from diffusers import AutoPipelineForText2Image
+                #pag_applied_layers = "down.block_1" if pag_prefs['pag_applied_layers'] == "down" else "up.block_0.attentions_0" if pag_prefs['pag_applied_layers'] == "up" else "mid"
+                pipe_PAG = AutoPipelineForText2Image.from_pretrained(pag_model, enable_pag=True, pag_applied_layers=[pag_applied_layers], torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                if cpu_offload:
+                    pipe_PAG.enable_model_cpu_offload()
+                else:
+                    pipe_PAG = pipe_PAG.to(torch_device)
+            else:
+                pipe_PAG = StableDiffusionPipeline.from_pretrained(pag_model, custom_pipeline="hyoungwoncho/sd_perturbed_attention_guidance", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                #pipe_PAG = pipeline_scheduler(pipe_PAG)
+                #pipe_PAG.scheduler = PAGScheduler.from_config(pipe_PAG.scheduler.config)
+                pipe_PAG = optimize_pipe(pipe_PAG)
             pipe_PAG.set_progress_bar_config(disable=True)
+            status['loaded_pag_mode'] = "txt2img"
+            status['loaded_pag_layers'] = pag_applied_layers
         except Exception as e:
             clear_last()
             alert_msg(page, f"ERROR Initializing PAG...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
             return
         status['loaded_pag'] = pag_model
+    elif pag_applied_layers != status['loaded_pag_layers'] and use_SDXL:
+        pipe_PAG.set_pag_applied_layers(pag_applied_layers)
+        status['loaded_pag_layers'] = pag_applied_layers
     ip_adapter_arg = {}
     if pag_prefs['use_ip_adapter']:
         installer.status(f"...initialize IP-Adapter")
@@ -45150,7 +45251,10 @@ def run_pag(page, from_list=False, with_params=False):
         if bool(ip_adapter_img):
           ip_adapter_arg['ip_adapter_image'] = ip_adapter_img
         if bool(ip_adapter_arg):
-            ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == pag_prefs['ip_adapter_model'])
+            if use_SDXL:
+              ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == pag_prefs['ip_adapter_SDXL_model'])
+            else:
+              ip_adapter_model = next(m for m in ip_adapter_models if m['name'] == pag_prefs['ip_adapter_model'])
             pipe_PAG.load_ip_adapter(ip_adapter_model['path'], subfolder=ip_adapter_model['subfolder'], weight_name=ip_adapter_model['weight_name'])
             pipe_PAG.set_ip_adapter_scale(pag_prefs['ip_adapter_strength'])
     clear_last()
@@ -45161,8 +45265,10 @@ def run_pag(page, from_list=False, with_params=False):
         autoscroll(False)
         total_steps = pr['num_inference_steps']
         random_seed = get_seed(pr['seed'])
-        set_seed(random_seed)
-        #generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        if use_SDXL:
+            generator = torch.Generator(device="cpu").manual_seed(random_seed)
+        else:
+            set_seed(random_seed)
         '''init_img = None
         if bool(pr['init_image']):
             fname = pr['init_image'].rpartition(slash)[2]
@@ -45176,25 +45282,94 @@ def run_pag(page, from_list=False, with_params=False):
                     return
             init_img = init_img.resize((pr['width'], pr['height']), resample=PILImage.Resampling.LANCZOS)
             init_img = ImageOps.exif_transpose(init_img).convert("RGB")'''
+        init_img = None
+        mask_img = None
+        if bool(pr['init_image']):
+            if pr['init_image'].startswith('http'):
+                init_img = PILImage.open(requests.get(pr['init_image'], stream=True).raw)
+            else:
+                if os.path.isfile(pr['init_image']):
+                    init_img = PILImage.open(pr['init_image'])
+                else:
+                    alert_msg(page, f"ERROR: Couldn't find your init_image {pr['init_image']}")
+                    return
+            max_size = max(pr['width'], pr['height'])
+            width, height = init_img.size
+            width, height = scale_dimensions(width, height, max_size)
+            if bool(pag_prefs['alpha_mask']):
+                init_img = init_img.convert("RGBA")
+            else:
+                init_img = init_img.convert("RGB")
+            init_img = init_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            if not bool(pr['mask_image']) and bool(pag_prefs['alpha_mask']):
+                mask_img = init_img.convert('RGBA')
+                red, green, blue, alpha = PILImage.Image.split(init_img)
+                mask_img = alpha.convert('L')
+            elif bool(pr['mask_image']):
+                if pr['mask_image'].startswith('http'):
+                    mask_img = PILImage.open(requests.get(pr['mask_image'], stream=True).raw)
+                else:
+                    if os.path.isfile(pr['mask_image']):
+                        mask_img = PILImage.open(pr['mask_image'])
+                    else:
+                        alert_msg(page, f"ERROR: Couldn't find your mask_image {pr['mask_image']}")
+                        return
+                width, height = mask_img.size
+                width, height = scale_dimensions(width, height, max_size)
+                mask_img = mask_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+            if pag_prefs['invert_mask'] and not pag_prefs['alpha_mask']:
+                from PIL import ImageOps
+                mask_img = ImageOps.invert(mask_img.convert('RGB'))
+        mode = "inpaint" if init_img != None and mask_img != None else "img2img" if init_img != None else "txt2img"
+        if status['loaded_pag_mode'] != mode and use_SDXL:
+            prt(Installing(f"Switching to PAG {mode} Pipeline..."))
+            pipe_PAG = change_mode(pipe_PAG, mode)
+            clear_last()
         try:
-            latent_input = randn_tensor(shape=(1,4,64,64), generator=None, device=torch_device, dtype=torch.float16)
-            images = pipe_PAG(
-                prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
-                num_images_per_prompt=pr['num_images'],
-                height=pr['height'],
-                width=pr['width'],
-                num_inference_steps=pr['num_inference_steps'],
-                guidance_scale=pr['guidance_scale'],
-                pag_scale=pag_prefs['pag_scale'],
-                pag_applied_layers=[pag_prefs['pag_applied_layers']],
-                pag_applied_layers_index=[pag_prefs['pag_applied_layers_index']],
-                pag_adaptive_scaling=pag_prefs['pag_adaptive_scaling'],
-                pag_drop_rate=pag_prefs['pag_drop_rate'],
-                latents=latent_input,
-                #generator=generator,
-                callback_on_step_end=callback_fnc,
-                **ip_adapter_arg,
-            ).images
+            if use_SDXL:
+                img_mode = {}
+                if mode == "img2img" or mode == "inpaint":
+                    img_mode = {'strength': pr['init_image_strength'], 'image': init_img}
+                if mode == "inpaint":
+                    img_mode['mask_image'] = mask_img
+                images = pipe_PAG(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    pag_scale=pag_prefs['pag_scale'],
+                    #pag_applied_layers=[pag_prefs['pag_applied_layers']],
+                    #pag_applied_layers_index=[pag_prefs['pag_applied_layers_index']],
+                    pag_adaptive_scale=pag_prefs['pag_adaptive_scaling'],
+                    #pag_drop_rate=pag_prefs['pag_drop_rate'],
+                    #latents=latent_input,
+                    generator=generator,
+                    callback_on_step_end=callback_fnc,
+                    **img_mode,
+                    **ip_adapter_arg,
+                ).images
+            else:
+                from diffusers.utils.torch_utils import randn_tensor
+                latent_input = randn_tensor(shape=(1,4,64,64), generator=None, device=torch_device, dtype=torch.float16)
+                images = pipe_PAG(
+                    prompt=pr['prompt'], negative_prompt=pr['negative_prompt'],
+                    num_images_per_prompt=pr['num_images'],
+                    height=pr['height'],
+                    width=pr['width'],
+                    num_inference_steps=pr['num_inference_steps'],
+                    guidance_scale=pr['guidance_scale'],
+                    pag_scale=pag_prefs['pag_scale'],
+                    pag_applied_layers_index=pag_applied_layers,#[pag_prefs['pag_applied_layers']],
+                    #pag_applied_layers_index=[pag_prefs['pag_applied_layers_index']],
+                    pag_adaptive_scaling=pag_prefs['pag_adaptive_scaling'],
+                    #pag_drop_rate=pag_prefs['pag_drop_rate'],
+                    latents=latent_input,
+                    #generator=generator,
+                    callback_on_step_end=callback_fnc,
+                    **ip_adapter_arg,
+                ).images
         except Exception as e:
             clear_last(2)
             alert_msg(page, f"ERROR: Something went wrong generating images...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]), debug_pref=pag_prefs)
@@ -55463,19 +55638,21 @@ class SliderRow(Stack):
         self.slider.update()
 
 class Switcher(Row):
-    def __init__(self, label="", value=False, tooltip=None, disabled=False, on_change=None, active_color=None, active_track_color=None, label_position=ft.LabelPosition.RIGHT):
+    def __init__(self, label="", value=False, tooltip=None, disabled=False, visible=True, on_change=None, active_color=None, active_track_color=None, label_position=ft.LabelPosition.RIGHT):
         super().__init__()
         self.label = label
         self.value = value
         self.tooltip = tooltip
         self.label_position=label_position
         self.disabled = disabled
+        self.visible = visible
         self.on_change = on_change
         self.active_color = active_color if active_color != None else colors.PRIMARY_CONTAINER
         self.active_track_color = active_track_color if active_track_color != None else colors.PRIMARY
         self.build()
     def build(self):
-        self.switch = Switch(label=f"  {self.label} ", value=self.value, disabled=self.disabled, active_color=self.active_color, active_track_color=self.active_track_color, label_position=self.label_position, on_change=self.on_change)
+        self.switch = Switch(label=f"  {self.label} ", value=self.value, disabled=self.disabled, visible=self.visible, tooltip=self.tooltip, active_color=self.active_color, active_track_color=self.active_track_color, label_position=self.label_position, on_change=self.on_change)
+        return self.switch
         if self.tooltip != None:
             return Tooltip(message=self.tooltip, content=self.switch)
         else:
