@@ -821,7 +821,7 @@ def buildImageAIs(page):
             Tab(text="ControlNet", content=page.ControlNet, icon=icons.HUB),
             Tab(text="ControlNet SDXL", content=page.ControlNetXL, icon=icons.PEST_CONTROL),
             Tab(text="ControlNet SD3", content=page.ControlNetSD3, icon=icons.ARCHITECTURE),
-            Tab(text="ControlNet-SX", content=page.ControlNetXS, icon=icons.WEBHOOK),
+            Tab(text="ControlNet-XS", content=page.ControlNetXS, icon=icons.WEBHOOK),
             Tab(text="Kandinsky", content=page.Kandinsky, icon=icons.TOLL),
             Tab(text="Kandinsky Fuse", content=page.KandinskyFuse, icon=icons.FIREPLACE),
             Tab(text="Kandinsky ControlNet", content=page.KandinskyControlNet, icon=icons.CAMERA_ENHANCE),
@@ -10089,6 +10089,11 @@ controlnet_xl_prefs = {
     'mask_image': '',
     'alpha_mask': False,
     'invert_mask': False,
+    'use_pag': False,
+    'pag_scale': 5.0,
+    'applied_layer_down': False,
+    'applied_layer_mid': True,
+    'applied_layer_up': False,
     'file_prefix': 'controlnet-',
     'batch_folder_name': '',
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
@@ -10255,6 +10260,10 @@ def buildControlNetXL(page):
         ip_adapter_container.update()
         ip_adapter_SDXL_model.visible = e.control.value
         ip_adapter_SDXL_model.update()
+    def toggle_pag(e):
+        controlnet_xl_prefs['use_pag'] = e.control.value
+        pag_container.height = None if e.control.value else 0
+        pag_container.update()
     original_image = TextField(label="Original Drawing", value=controlnet_xl_prefs['original_image'], expand=True, on_change=lambda e:changed(e,'original_image'), height=60, suffix=IconButton(icon=icons.DRIVE_FOLDER_UPLOAD, on_click=pick_original))
     prompt = TextField(label="Prompt Text", value=controlnet_xl_prefs['prompt'], filled=True, col={'md': 8}, multiline=True, on_change=lambda e:changed(e,'prompt'))
     #a_prompt  = TextField(label="Added Prompt Text", value=controlnet_xl_prefs['a_prompt'], col={'md':3}, on_change=lambda e:changed(e,'a_prompt'))
@@ -10274,7 +10283,6 @@ def buildControlNetXL(page):
     start_time = TextField(label="Start Time (s)", value=controlnet_xl_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=controlnet_xl_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
     vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_xl_prefs['use_init_video'] else 0)
-
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_xl_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_xl_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_xl_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
@@ -10286,7 +10294,6 @@ def buildControlNetXL(page):
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_xl_prefs, key='max_size')
-    
     use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_xl_prefs['use_image2image'], on_change=toggle_img2img)
     init_image = FileInput(label="Init Image", pref=controlnet_xl_prefs, key='init_image', expand=True, page=page)
     mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_xl_prefs, key='mask_image', expand=True, page=page)
@@ -10300,6 +10307,13 @@ def buildControlNetXL(page):
     ip_adapter_image = FileInput(label="IP-Adapter Image", pref=controlnet_xl_prefs, key='ip_adapter_image', col={'lg':6}, page=page)
     ip_adapter_strength = SliderRow(label="IP-Adapter Strength", min=0.0, max=1.0, divisions=20, round=2, pref=controlnet_xl_prefs, key='ip_adapter_strength', col={'lg':6}, tooltip="The init-image strength, or how much of the prompt-guided denoising process to skip in favor of starting with an existing image.")
     ip_adapter_container = Container(ResponsiveRow([ip_adapter_image, ip_adapter_strength]), height = None if controlnet_xl_prefs['use_ip_adapter'] else 0, padding=padding.only(top=3, left=12), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    use_pag = Switcher(label="Use PAG: Perturbed-Attention Guidance (doesn't apply using Image2Image/Inpainting)", value=controlnet_xl_prefs['use_pag'], on_change=toggle_pag, tooltip="Improves sample quality across both unconditional and conditional settings. Progressively enhance the structure of synthesized samples throughout the denoising process by considering the self-attention mechanisms' ability to capture structural information.")
+    pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=controlnet_xl_prefs, key='pag_scale', tooltip="Gain more semantically coherent structures and exhibit fewer artifacts. Large guidance scale can lead to smoother textures and slight saturation in the images.")
+    applied_layer_down = Checkbox(label="Down", value=controlnet_xl_prefs['applied_layer_down'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_down'))
+    applied_layer_mid = Checkbox(label="Mid", value=controlnet_xl_prefs['applied_layer_mid'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_mid'))
+    applied_layer_up = Checkbox(label="Up", value=controlnet_xl_prefs['applied_layer_up'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_up'))
+    pag_applied_layers = Container(Row([Text("PAG Applied Layers:"), applied_layer_down, applied_layer_mid, applied_layer_up]), tooltip="Specify which layers PAG is applied to. Changing this setting will significantly impact the output, so experiment.")
+    pag_container = Container(Column([pag_scale, pag_applied_layers], spacing=0), padding=padding.only(left=32), height=None if controlnet_xl_prefs['use_pag'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
     file_prefix = TextField(label="Filename Prefix",  value=controlnet_xl_prefs['file_prefix'], width=150, height=60, on_change=lambda e:changed(e, 'file_prefix'))
     show_processed_image = Checkbox(label="Show Pre-Processed Image", value=controlnet_xl_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
     batch_folder_name = TextField(label="Batch Folder Name", value=controlnet_xl_prefs['batch_folder_name'], on_change=lambda e:changed(e,'batch_folder_name'))
@@ -10333,6 +10347,8 @@ def buildControlNetXL(page):
         img2img_row,
         Row([use_ip_adapter, ip_adapter_SDXL_model], vertical_alignment=CrossAxisAlignment.START),
         ip_adapter_container,
+        use_pag,
+        pag_container,
         show_processed_image,
         Row([NumberPicker(label="Batch Size: ", min=1, max=8, value=controlnet_xl_prefs['batch_size'], on_change=lambda e: changed(e, 'batch_size')), seed, batch_folder_name, file_prefix]),
         page.ESRGAN_block_controlnet_xl,
@@ -10833,7 +10849,6 @@ def buildControlNetXS(page):
     start_time = TextField(label="Start Time (s)", value=controlnet_xs_prefs['start_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'start_time', ptype="float"))
     end_time = TextField(label="End Time (0 for all)", value=controlnet_xs_prefs['end_time'], width=145, keyboard_type=KeyboardType.NUMBER, on_change=lambda e:changed(e,'end_time', ptype="float"))
     vid_params = Container(content=Column([fps, Row([start_time, end_time])]), animate_size=animation.Animation(800, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, height=None if controlnet_xs_prefs['use_init_video'] else 0)
-
     num_inference_row = SliderRow(label="Number of Steps", min=1, max=100, divisions=99, pref=controlnet_xs_prefs, key='steps', tooltip="The number of denoising steps. More denoising steps usually lead to a higher quality image at the expense of slower inference.")
     guidance = SliderRow(label="Guidance Scale", min=0, max=30, divisions=60, round=1, pref=controlnet_xs_prefs, key='guidance_scale')
     low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=controlnet_xs_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
@@ -10845,7 +10860,6 @@ def buildControlNetXS(page):
     eta_row = Row([Text("ETA:"), eta_value, Text("  DDIM"), eta])
     page.etas.append(eta_row)
     max_row = SliderRow(label="Max Resolution Size", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=controlnet_xs_prefs, key='max_size')
-    
     use_image2image = Switcher(label="Use Image2Image or Inpainting", value=controlnet_xs_prefs['use_image2image'], on_change=toggle_img2img)
     init_image = FileInput(label="Init Image", pref=controlnet_xs_prefs, key='init_image', expand=True, page=page)
     mask_image = FileInput(label="Mask Image (optional)", pref=controlnet_xs_prefs, key='mask_image', expand=True, page=page)
@@ -11776,6 +11790,14 @@ hunyuan_dit_prefs = {
     "guidance_scale":5.0,
     "distilled_model": False,
     "cpu_offload": False,
+    "use_controlnet": False,
+    "control_task": "Canny",
+    "original_image": "",
+    "conditioning_scale": 1.0,
+    'multi_controlnets': [],
+    'low_threshold': 100, #1-255
+    'high_threshold': 200, #1-255
+    'show_processed_image': False,
     "seed": 0,
     "apply_ESRGAN_upscale": prefs['apply_ESRGAN_upscale'],
     "enlarge_scale": prefs['enlarge_scale'],
@@ -11805,6 +11827,37 @@ def buildHunyuanDiT(page):
       page.overlay.append(hunyuan_dit_help_dlg)
       hunyuan_dit_help_dlg.open = True
       page.update()
+    def toggle_controlnet(e):
+        controlnet_container.height = None if e.control.value else 0
+        hunyuan_dit_prefs['use_controlnet'] = e.control.value
+        controlnet_container.update()
+    def add_layer(e):
+        layer = {'control_task': hunyuan_dit_prefs['control_task'], 'original_image': hunyuan_dit_prefs['original_image'], 'conditioning_scale': hunyuan_dit_prefs['conditioning_scale']}
+        hunyuan_dit_prefs['multi_controlnets'].append(layer)
+        multi_layers.controls.append(ListTile(title=Row([Text(layer['control_task'] + " - ", weight=FontWeight.BOLD), Text(layer['original_image']), Text(f"- Conditioning Scale: {layer['conditioning_scale']}")]), dense=True, trailing=PopupMenuButton(icon=icons.MORE_VERT,
+          items=[
+              PopupMenuItem(icon=icons.DELETE, text="Delete Control Layer", on_click=delete_layer, data=layer),
+              PopupMenuItem(icon=icons.DELETE_SWEEP, text="Delete All Layers", on_click=delete_all_layers, data=layer),
+          ]), data=layer))
+        multi_layers.update()
+        hunyuan_dit_prefs['original_image'] = ""
+        original_image.value = ""
+        original_image.update()
+    def delete_layer(e):
+        hunyuan_dit_prefs['multi_controlnets'].remove(e.control.data)
+        for c in multi_layers.controls:
+          if c.data['original_image'] == e.control.data['original_image']:
+             multi_layers.controls.remove(c)
+             break
+        multi_layers.update()
+    def delete_all_layers(e):
+        hunyuan_dit_prefs['multi_controlnets'].clear()
+        multi_layers.controls.clear()
+        multi_layers.update()
+    def change_task(e):
+        changed(e,'control_task')
+        threshold.height = None if "Canny" in hunyuan_dit_prefs['control_task'] else 0
+        threshold.update()
     def toggle_ESRGAN(e):
         ESRGAN_settings.height = None if e.control.value else 0
         hunyuan_dit_prefs['apply_ESRGAN_upscale'] = e.control.value
@@ -11816,10 +11869,22 @@ def buildHunyuanDiT(page):
     n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=hunyuan_dit_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
     steps = SliderRow(label="Number of Steps", min=0, max=200, divisions=200, pref=hunyuan_dit_prefs, key='steps')
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=hunyuan_dit_prefs, key='guidance_scale')
+    low_threshold_row = SliderRow(label="Canny Low Threshold", min=1, max=255, divisions=254, pref=hunyuan_dit_prefs, key='low_threshold', col={'lg':6}, tooltip="Lower increases sensitivity to weaker edges, higher gives fewer but more reliable edge detections.")
+    high_threshold_row = SliderRow(label="Canny High Threshold", min=1, max=255, divisions=254, pref=hunyuan_dit_prefs, key='high_threshold', col={'lg':6}, tooltip="Higher value decreases the amount of noise but could result in missing some true edges.")
+    threshold = Container(ResponsiveRow([low_threshold_row, high_threshold_row]), animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE)
+    threshold.height = None if "Canny" in hunyuan_dit_prefs['control_task'] else 0
     width_slider = SliderRow(label="Width", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=hunyuan_dit_prefs, key='width')
     height_slider = SliderRow(label="Height", min=256, max=1280, divisions=64, multiple=16, suffix="px", pref=hunyuan_dit_prefs, key='height')
     cpu_offload = Switcher(label="CPU Offload", value=hunyuan_dit_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     distilled_model = Switcher(label="Use Distilled Model", value=hunyuan_dit_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
+    use_controlnet = Switcher(label="Use ControlNet with Canny, Pose or Depth", value=hunyuan_dit_prefs['use_controlnet'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_controlnet, tooltip="Provide an additional control image to condition and control Hunyuan-DiT generation. For example, if you provide a depth map, the ControlNet model generates an image that'll preserve the spatial information from the depth map.")
+    control_task = Dropdown(label="ControlNet Task", width=180, options=[dropdown.Option("Canny"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("Marigold Depth")], value=hunyuan_dit_prefs['control_task'], on_change=change_task)
+    original_image = FileInput(label="Init Image", pref=hunyuan_dit_prefs, key='original_image', expand=True, page=page)
+    conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=hunyuan_dit_prefs, key='conditioning_scale', expand=True, tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
+    add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
+    multi_layers = Column([], spacing=0)
+    show_processed_image = Checkbox(label="Show Pre-Processed Image", value=hunyuan_dit_prefs['show_processed_image'], tooltip="Displays the Init-Image after being process by Canny, Depth, etc.", fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'show_processed_image'))
+    controlnet_container = Container(Column([Row([control_task, original_image, add_layer_btn]), Row([conditioning_scale]), multi_layers, threshold, show_processed_image]), height=None if hunyuan_dit_prefs['use_controlnet'] else 0, animate_size=animation.Animation(1000, AnimationCurve.EASE_IN), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(top=4, left=10))
     seed = TextField(label="Seed", width=90, value=str(hunyuan_dit_prefs['seed']), keyboard_type=KeyboardType.NUMBER, tooltip="0 or -1 picks a Random seed", on_change=lambda e:changed(e,'seed', ptype='int'))
     apply_ESRGAN_upscale = Switcher(label="Apply ESRGAN Upscale", value=hunyuan_dit_prefs['apply_ESRGAN_upscale'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_ESRGAN)
     enlarge_scale_slider = SliderRow(label="Enlarge Scale", min=1, max=4, divisions=6, round=1, suffix="x", pref=hunyuan_dit_prefs, key='enlarge_scale')
@@ -11841,6 +11906,8 @@ def buildHunyuanDiT(page):
             ResponsiveRow([prompt, negative_prompt]),
             steps,
             guidance, width_slider, height_slider,
+            use_controlnet,
+            controlnet_container,
             page.ESRGAN_block_hunyuan,
             ResponsiveRow([Row([n_images, seed, distilled_model], col={'md':6}), Row([batch_folder_name, file_prefix], col={'md':6})]),
             parameters_row,
@@ -12646,7 +12713,7 @@ def buildPAG(page):
     n_images = NumberPicker(label="Number of Images", min=1, max=9, step=1, value=pag_prefs['num_images'], on_change=lambda e:changed(e,'num_images', ptype="int"))
     steps = SliderRow(label="Number of Steps", min=0, max=60, divisions=60, pref=pag_prefs, key='num_inference_steps')
     guidance = SliderRow(label="Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='guidance_scale')
-    pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='pag_scale')
+    pag_scale = SliderRow(label="PAG Guidance Scale", min=0, max=50, divisions=50, pref=pag_prefs, key='pag_scale', tooltip="Gain more semantically coherent structures and exhibit fewer artifacts. Large guidance scale can lead to smoother textures and slight saturation in the images.")
     pag_adaptive_scaling = SliderRow(label="PAG Adaptive Scaling", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='pag_adaptive_scaling', col={'lg':6}, tooltip="Scales the Diffusion Adaptivly (I don't know)")
     #pag_drop_rate = SliderRow(label="PAG Drop Rate", min=0.0, max=1.0, divisions=20, round=2, pref=pag_prefs, key='pag_drop_rate', col={'lg':6}, visible = not pag_prefs['use_SDXL'], tooltip="Experiment...")
     applied_layer_down = Checkbox(label="Down", value=pag_prefs['applied_layer_down'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e,'applied_layer_down'))
@@ -22812,6 +22879,8 @@ controlnet = None
 controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "Depth":None, "HED":None, "M-LSD":None, "Normal Map":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 controlnet_xl_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 controlnet_sd3_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Tile":None}
+controlnet_xs_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
+controlnet_hunyuan_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None}
 stability_api = None
 safety = {'safety_checker':None, 'requires_safety_checker':False, 'feature_extractor':None} if prefs['disable_nsfw_filter'] else {}
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -40460,14 +40529,27 @@ def run_controlnet_xl(page, from_list=False):
         ip_adapter_model = next(m for m in ip_adapter_SDXL_models if m['name'] == controlnet_xl_prefs['ip_adapter_SDXL_model'])
     else:
         ip_adapter_model = None
-    if controlnet_type != status['loaded_controlnet_type']:
+    if 'loaded_controlnet_pag' not in status: status['loaded_controlnet_pag'] = False
+    if controlnet_type != status['loaded_controlnet_type'] or (controlnet_xl_prefs['use_pag'] != status['loaded_controlnet_pag'] and not controlnet_xl_prefs['use_image2image']):
         clear_pipes()
+    else:
+        clear_pipes('controlnet')
     #model = get_model(prefs['model_ckpt'])
     model_path = "stabilityai/stable-diffusion-xl-base-1.0"
+    if controlnet_xl_prefs['use_pag'] and not controlnet_xl_prefs['use_image2image']:
+        pag_applied_layers = []
+        if pag_prefs['applied_layer_down']: pag_applied_layers.append("down")
+        if pag_prefs['applied_layer_mid']: pag_applied_layers.append("mid")
+        if pag_prefs['applied_layer_up']: pag_applied_layers.append("up")
     if pipe_controlnet == None or status['loaded_controlnet'] != controlnet_xl_prefs["control_task"]:
         vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix", torch_dtype=torch.float16)
         if controlnet_type == "text2image":
-            pipe_controlnet = StableDiffusionXLControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            if controlnet_xl_prefs['use_pag']:
+                from diffusers import StableDiffusionXLControlNetPAGPipeline
+                pipe_controlnet = StableDiffusionXLControlNetPAGPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, pag_applied_layers=pag_applied_layers, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                status['loaded_pag_layers'] = pag_applied_layers
+            else:
+                pipe_controlnet = StableDiffusionXLControlNetPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
         elif controlnet_type == "image2image":
             from diffusers import StableDiffusionXLControlNetImg2ImgPipeline
             pipe_controlnet = StableDiffusionXLControlNetImg2ImgPipeline.from_pretrained(model_path, controlnet=controlnet, vae=vae, safety_checker=None, variant="fp16", torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
@@ -40478,6 +40560,11 @@ def run_controlnet_xl(page, from_list=False):
         pipe_controlnet = optimize_SDXL(pipe_controlnet, vae_slicing=True, vae_tiling=True)
         status['loaded_controlnet'] = loaded_controlnet #controlnet_xl_prefs["control_task"]
         status['loaded_controlnet_type'] = controlnet_type
+        status['loaded_controlnet_pag'] = controlnet_xl_prefs['use_pag']
+    elif controlnet_xl_prefs['use_pag'] and not controlnet_xl_prefs['use_image2image']:
+      if pag_applied_layers != status['loaded_pag_layers']:
+          pipe_controlnet.set_pag_applied_layers(pag_applied_layers)
+          status['loaded_pag_layers'] = pag_applied_layers
     pipe_controlnet = pipeline_scheduler(pipe_controlnet)
     if controlnet_xl_prefs['use_init_video']:
         from diffusers.pipelines.text_to_video_synthesis.pipeline_text_to_video_zero import CrossFrameAttnProcessor
@@ -40536,6 +40623,7 @@ def run_controlnet_xl(page, from_list=False):
         ip_adapter_args = {'ip_adapter_image': ip_adapter_image}
     else:
         ip_adapter_args = {}
+    pag_img_arg = {'pag_scale': controlnet_xl_prefs['pag_scale']} if controlnet_xl_prefs['use_pag'] else {}
     clear_last()
     prt(f"Generating ControlNet-XL {controlnet_xl_prefs['control_task']} of your Image...")
     batch_output = os.path.join(stable_dir, controlnet_xl_prefs['batch_folder_name'])
@@ -40573,9 +40661,9 @@ def run_controlnet_xl(page, from_list=False):
             generator = torch.Generator(device=torch_device).manual_seed(random_seed)
             if controlnet_type == "text2image":
                 if not controlnet_xl_prefs['use_init_video']:
-                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                    images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args, **pag_img_arg).images
                 else:
-                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
+                    images = pipe_controlnet(pr['prompt'] * len(video_img), negative_prompt=pr['negative_prompt'] * len(video_img), image=video_img, latents=latents, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args, **pag_img_arg).images
             elif controlnet_type == "image2image":
                 if not controlnet_xl_prefs['use_init_video']:
                     images = pipe_controlnet(pr['prompt'], negative_prompt=pr['negative_prompt'], image=init_img, control_image=original_img, controlnet_conditioning_scale=pr['conditioning_scale'], control_guidance_start=pr['control_guidance_start'], control_guidance_end=pr['control_guidance_end'], num_inference_steps=controlnet_xl_prefs['steps'], guidance_scale=controlnet_xl_prefs['guidance_scale'], eta=controlnet_xl_prefs['eta'], num_images_per_prompt=controlnet_xl_prefs['batch_size'], height=height, width=width, generator=generator, callback_on_step_end=callback_fnc, **ip_adapter_args).images
@@ -43676,7 +43764,7 @@ def run_pixart_sigma(page, from_list=False, with_params=False):
     play_snd(Snd.ALERT, page)
 
 def run_hunyuan(page, from_list=False, with_params=False):
-    global hunyuan_dit_prefs, pipe_hunyuan, prefs
+    global hunyuan_dit_prefs, pipe_hunyuan, prefs, controlnet_hunyuan_models
     if not check_diffusers(page): return
     if int(status['cpu_memory']) <= 8:
       alert_msg(page, f"Sorry, you only have {int(status['cpu_memory'])}GB RAM which is not quite enough to run Hunyuan DiT right now. Either Change runtime type to High-RAM mode and restart.")
@@ -43696,6 +43784,16 @@ def run_hunyuan(page, from_list=False, with_params=False):
         alert_msg(page, "You must provide a text prompt to process your image generation...")
         return
       hunyuan_dit_prompts.append({'prompt': hunyuan_dit_prefs['prompt'], 'negative_prompt':hunyuan_dit_prefs['negative_prompt'], 'guidance_scale':hunyuan_dit_prefs['guidance_scale'], 'steps':hunyuan_dit_prefs['steps'], 'width':hunyuan_dit_prefs['width'], 'height':hunyuan_dit_prefs['height'], 'num_images':hunyuan_dit_prefs['num_images'], 'seed':hunyuan_dit_prefs['seed']})
+    if hunyuan_dit_prefs['use_controlnet']:
+      original = hunyuan_dit_prefs['original_image']
+      conditioning_scale = hunyuan_dit_prefs['conditioning_scale']
+      if len(hunyuan_dit_prefs['multi_controlnets']) > 0:
+        original = []
+        conditioning_scale = []
+        for c in hunyuan_dit_prefs['multi_controlnets']:
+          original.append(c['original_image'])
+          conditioning_scale.append(c['conditioning_scale'])
+      
     def prt(line, update=True):
       if type(line) == str:
         line = Text(line, size=17)
@@ -43748,19 +43846,162 @@ def run_hunyuan(page, from_list=False, with_params=False):
       page.tabs.update()
     clear_list()
     autoscroll(True)
-    model_id = "Tencent-Hunyuan/HunyuanDiT-Diffusers" if not hunyuan_dit_prefs['distilled_model'] else "Tencent-Hunyuan/HunyuanDiT-Diffusers-Distilled"
+    model_id = "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers" if not hunyuan_dit_prefs['distilled_model'] else "Tencent-Hunyuan/HunyuanDiT-v1.1-Diffusers-Distilled"
     if 'loaded_hunyuan_model' not in status: status['loaded_hunyuan_model'] = ''
     installer = Installing(f"Installing Tencent-HunyuanDiT Engine & Models... See console log for progress.")
     cpu_offload = hunyuan_dit_prefs['cpu_offload']
     prt(installer)
-    if status['loaded_hunyuan_model'] != model_id:
+    if status['loaded_hunyuan_model'] != model_id or (hunyuan_dit_prefs['use_controlnet'] and status['loaded_controlnet'] != hunyuan_dit_prefs["control_task"]):
         clear_pipes()
     else:
         clear_pipes('hunyuan')
-    if pipe_hunyuan == None:
+    if hunyuan_dit_prefs['use_controlnet']:
         try:
-            from diffusers import HunyuanDiTPipeline
-            pipe_hunyuan = HunyuanDiTPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            try:
+              from controlnet_aux import MLSDdetector
+            except ModuleNotFoundError:
+              installer.status("...installing controlnet-aux")
+              run_sp("pip install --upgrade controlnet-aux", realtime=False)
+              #run_sp("pip install git+https://github.com/patrickvonplaten/controlnet_aux.git")
+              pass
+            from controlnet_aux import MLSDdetector
+            from controlnet_aux import OpenposeDetector
+            from diffusers import HunyuanDiT2DModel, HunyuanDiTControlNetPipeline, AutoencoderKL
+            from diffusers.models import HunyuanDiT2DControlNetModel, HunyuanDiT2DMultiControlNetModel
+            #run_sp("pip install scikit-image", realtime=False)
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Installing Required Packages...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
+    canny_checkpoint = "Tencent-Hunyuan/HunyuanDiT-v1.1-ControlNet-Diffusers-Canny"
+    depth_checkpoint = "Tencent-Hunyuan/HunyuanDiT-v1.1-ControlNet-Diffusers-Depth"
+    pose_checkpoint = "Tencent-Hunyuan/HunyuanDiT-v1.1-ControlNet-Diffusers-Pose"
+    hed = None
+    openpose = None
+    depth_estimator = None
+    feature_extractor = None
+    original_img = None
+    def get_controlnet(task):
+        nonlocal hed, openpose, depth_estimator, feature_extractor
+        if controlnet_hunyuan_models[task] != None:
+            return controlnet_hunyuan_models[task]
+        installer.status(f"...loading {task} ControlNet")
+        if "Canny" in task:
+            controlnet_hunyuan_models[task] = HunyuanDiT2DControlNetModel.from_pretrained(canny_checkpoint, torch_dtype=torch.float16)
+            task = "Canny"
+        elif "Marigold" in task:
+            import diffusers
+            depth_estimator = diffusers.MarigoldDepthPipeline.from_pretrained("prs-eth/marigold-lcm-v1-0", torch_dtype=torch.float16, variant="fp16").to(torch_device)
+            controlnet_hunyuan_models[task] = HunyuanDiT2DControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16)
+        elif "Depth" in task:
+            from transformers import DPTFeatureExtractor, DPTForDepthEstimation
+            depth_estimator = DPTForDepthEstimation.from_pretrained("Intel/dpt-hybrid-midas").to("cuda")
+            feature_extractor = DPTFeatureExtractor.from_pretrained("Intel/dpt-hybrid-midas")
+            controlnet_hunyuan_models[task] = HunyuanDiT2DControlNetModel.from_pretrained(depth_checkpoint, torch_dtype=torch.float16)
+        elif "Pose" in task:
+            task = "OpenPose"
+            from controlnet_aux import OpenposeDetector
+            openpose = OpenposeDetector.from_pretrained('lllyasviel/ControlNet')
+            controlnet_hunyuan_models[task] = HunyuanDiT2DControlNetModel.from_pretrained(pose_checkpoint, torch_dtype=torch.float16)
+        return controlnet_hunyuan_models[task]
+    def prep_image(task, img):
+        nonlocal hed, openpose, depth_estimator, feature_extractor
+        #nonlocal width, height
+        installer.status(f"...preparing {task} image")
+        if isinstance(img, list):
+          img = img[0]
+        if isinstance(img, str):
+          if img.startswith('http'):
+              #response = requests.get(controlnet_xl_prefs['original_image'])
+              #original_img = PILImage.open(BytesIO(response.content)).convert("RGB")
+              original_img = PILImage.open(requests.get(img, stream=True).raw)
+          else:
+              if os.path.isfile(img):
+                  original_img = PILImage.open(img)
+              else:
+                  alert_msg(page, f"ERROR: Couldn't find your original_image {img}")
+                  return
+          max_size = max(hunyuan_dit_prefs['width'], hunyuan_dit_prefs['height'])
+          width, height = original_img.size
+          width, height = scale_dimensions(width, height, max_size)
+          #print(f"Size: {width}x{height}")
+          original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS)
+        #return original_img
+        try:
+            if 'Canny' in task: # == "Canny Map Edge" or task == "Video Canny Edge":
+                input_image = np.array(original_img)
+                input_image = cv2.Canny(input_image, hunyuan_dit_prefs['low_threshold'], hunyuan_dit_prefs['high_threshold'])
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                original_img = PILImage.fromarray(input_image)
+            elif "Pose" in task:
+                original_img = openpose(original_img, hand_and_face=True)
+            elif task == "Depth":
+                original_img = depth_estimator(original_img)['depth']
+                input_image = np.array(original_img)
+                input_image = input_image[:, :, None]
+                input_image = np.concatenate([input_image, input_image, input_image], axis=2)
+                detected_map = torch.from_numpy(input_image).float() / 255.0
+                original_img = detected_map.permute(2, 0, 1).unsqueeze(0).half().to("cuda")
+                #original_img = PILImage.fromarray(input_image)
+            elif task == "Marigold Depth":
+                random_seed = get_seed(hunyuan_dit_prefs['seed'])
+                generator = torch.Generator(device=torch_device).manual_seed(random_seed)
+                input_image = depth_estimator(original_img, generator=generator).prediction
+                input_image = depth_estimator.image_processor.visualize_depth(input_image, color_map="binary")
+                original_img = input_image[0]
+            elif "Depth" in task:
+                original_img = feature_extractor(images=original_img, return_tensors="pt").pixel_values.to("cuda")
+                with torch.no_grad(), torch.autocast("cuda"):
+                    depth_map = depth_estimator(original_img).predicted_depth
+                depth_map = torch.nn.functional.interpolate(
+                    depth_map.unsqueeze(1),
+                    size=(1024, 1024),
+                    mode="bicubic",
+                    align_corners=False,
+                )
+                depth_min = torch.amin(depth_map, dim=[1, 2, 3], keepdim=True)
+                depth_max = torch.amax(depth_map, dim=[1, 2, 3], keepdim=True)
+                depth_map = (depth_map - depth_min) / (depth_max - depth_min)
+                original_img = torch.cat([depth_map] * 3, dim=1)
+                original_img = original_img.permute(0, 2, 3, 1).cpu().numpy()[0]
+                original_img = PILImage.fromarray((original_img * 255.0).clip(0, 255).astype(np.uint8))
+            return original_img
+        except Exception as e:
+            clear_last()
+            alert_msg(page, f"ERROR Preparing ControlNet-XL {hunyuan_dit_prefs['control_task']} Input Image...", content=Column([Text(str(e)), Text(str(traceback.format_exc()), selectable=True)]))
+            flush()
+            return
+    if hunyuan_dit_prefs['use_controlnet']:
+        installer.status("...getting ControlNets")
+        loaded_controlnet = None
+        if len(hunyuan_dit_prefs['multi_controlnets']) > 0:# and not from_list:
+            controlnet = []
+            loaded_controlnet = []
+            for c in hunyuan_dit_prefs['multi_controlnets']:
+                controlnet.append(get_controlnet(c['control_task']))
+                loaded_controlnet.append(c['control_task'])
+            if len(controlnet) == 1:
+                controlnet = controlnet[0]
+                loaded_controlnet = loaded_controlnet[0]
+            else:
+                controlnet = HunyuanDiT2DMultiControlNetModel(controlnet)
+        else:
+            controlnet = get_controlnet(hunyuan_dit_prefs['control_task'])
+            loaded_controlnet = hunyuan_dit_prefs['control_task']
+        for k, v in controlnet_hunyuan_models.items():
+          if v != None and k in loaded_controlnet:
+            del v
+            controlnet_hunyuan_models[k] = None
+    if pipe_hunyuan == None:
+        installer.status("...loading HunyuanDiT Pipeline")
+        try:
+            if hunyuan_dit_prefs['use_controlnet']:
+                pipe_hunyuan = HunyuanDiTControlNetPipeline.from_pretrained(model_id, controlnet=controlnet, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+            else:
+                from diffusers import HunyuanDiTPipeline
+                pipe_hunyuan = HunyuanDiTPipeline.from_pretrained(model_id, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
             if prefs['enable_torch_compile']:
                 installer.status(f"...Torch compiling unet")
                 pipe_hunyuan.unet.to(memory_format=torch.channels_last)
@@ -43782,6 +44023,23 @@ def run_hunyuan(page, from_list=False, with_params=False):
         prt(progress)
         nudge(page.imageColumn if from_list else page.Hunyuan, page=page)
         autoscroll(False)
+        control_args = {}
+        if hunyuan_dit_prefs['use_controlnet']:
+            if len(hunyuan_dit_prefs['multi_controlnets']) > 0:
+                original_img = []
+                for c in hunyuan_dit_prefs['multi_controlnets']:
+                    original_img.append(prep_image(c['control_task'], c['original_image']))
+                    if hunyuan_dit_prefs['show_processed_image']:
+                        w, h = original_img[-1].size
+                        src_base64 = pil_to_base64(original_img[-1])
+                        prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+            else:
+                original_img = prep_image(hunyuan_dit_prefs['control_task'], pr['original_image'])
+                if hunyuan_dit_prefs['show_processed_image']:
+                    w, h = original_img.size
+                    src_base64 = pil_to_base64(original_img)
+                    prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
+            control_args = {'control_image': original_img, 'controlnet_conditioning_scale': conditioning_scale}
         total_steps = pr['steps']
         random_seed = get_seed(pr['seed'])
         generator = torch.Generator(device="cuda").manual_seed(random_seed)
@@ -43795,6 +44053,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
                 guidance_scale=pr['guidance_scale'],
                 generator=generator,
                 callback_on_step_end=callback_fn,
+                **control_args,
             ).images
         except Exception as e:
             clear_last(2)
@@ -45207,13 +45466,13 @@ def run_pag(page, from_list=False, with_params=False):
         status['loaded_pag_mode'] = mode
         if mode == "inpaint":
             from diffusers import AutoPipelineForInpaint
-            return AutoPipelineForInpaint.from_pipe(pipe)
+            return AutoPipelineForInpaint.from_pipe(pipe, enable_pag=True)
         elif mode == "img2img":
             from diffusers import AutoPipelineForImage2Image
-            return AutoPipelineForImage2Image.from_pipe(pipe)
+            return AutoPipelineForImage2Image.from_pipe(pipe, enable_pag=True)
         else:
             from diffusers import AutoPipelineForText2Image
-            return AutoPipelineForText2Image.from_pipe(pipe)
+            return AutoPipelineForText2Image.from_pipe(pipe, enable_pag=True)
     #from optimum.intel import OVLatentConsistencyModelPipeline
     #pipe = OVLatentConsistencyModelPipeline.from_pretrained("rupeshs/PAG-dreamshaper-v7-openvino-int8", ov_config={"CACHE_DIR": ""})
     from accelerate.utils import set_seed
