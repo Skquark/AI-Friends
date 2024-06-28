@@ -371,6 +371,7 @@ def load_settings_file():
       'AIHorde_post_processing': "None",
       'AIHorde_karras': False,
       'AIHorde_tiling': False,
+      'AIHorde_transparent': False,
       'AIHorde_hires_fix': False,
       'AIHorde_strip_background': False,
       'AIHorde_lora_layer': 'Horde Aesthetics Improver',
@@ -1180,6 +1181,7 @@ if 'AIHorde_lora_layer' not in prefs: prefs['AIHorde_lora_layer'] = 'Horde Aesth
 if 'AIHorde_lora_layer_alpha' not in prefs: prefs['AIHorde_lora_layer_alpha'] = 1.0
 if 'AIHorde_karras' not in prefs: prefs['AIHorde_karras'] = False
 if 'AIHorde_tiling' not in prefs: prefs['AIHorde_tiling'] = False
+if 'AIHorde_transparent' not in prefs: prefs['AIHorde_transparent'] = False
 if 'AIHorde_hires_fix' not in prefs: prefs['AIHorde_hires_fix'] = False
 if 'AIHorde_strip_background' not in prefs: prefs['AIHorde_strip_background'] = False
 if 'custom_CivitAI_LoRA_models' not in prefs: prefs['custom_CivitAI_LoRA_models'] = []
@@ -1982,6 +1984,7 @@ def buildInstallers(page):
   AIHorde_post_processing = Dropdown(label="Post-Processing", hint_text="", width=375, options=[dropdown.Option("None"), dropdown.Option("GFPGAN"), dropdown.Option("RealESRGAN_x4plus"), dropdown.Option("RealESRGAN_x2plus"), dropdown.Option("RealESRGAN_x4plus_anime_6B"), dropdown.Option("NMKD_Siax"), dropdown.Option("4x_AnimeSharp"), dropdown.Option("CodeFormers")], value=prefs['AIHorde_post_processing'], autofocus=False, on_change=lambda e:changed(e, 'AIHorde_post_processing'))
   AIHorde_karras = Checkbox(label="Karras", tooltip="Noise Scheduling tweaks prioritize fine-tuning the noise levels, emphasizing appearance customization & promoting diversity in generated content.", value=prefs['AIHorde_karras'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_karras'))
   AIHorde_tiling = Checkbox(label="Tiling", tooltip="Create tiled images that stitch together seamlessly.", value=prefs['AIHorde_tiling'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_tiling'))
+  AIHorde_transparent = Checkbox(label="Transparent", tooltip="Uses Layer Diffusion to make the background with png Transparency.", value=prefs['AIHorde_transparent'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_transparent'))
   AIHorde_hires_fix = Checkbox(label="Hires Fix", tooltip="Process the image at base resolution before upscaling and re-processing with SD 1.5 models or to use Stable Cascade 2-pass.", value=prefs['AIHorde_hires_fix'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_hires_fix'))
   AIHorde_strip_background = Checkbox(label="Strip Background", tooltip="Try to isolate subject and remove the background.", value=prefs['AIHorde_strip_background'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=lambda e:changed(e, 'AIHorde_strip_background'))
   AIHorde_use_controlnet = Checkbox(label="Use ControlNet on Init-Image  ", tooltip="Applies ControlNet Processing to your initial image.", value=prefs['AIHorde_use_controlnet'], fill_color=colors.PRIMARY_CONTAINER, check_color=colors.ON_PRIMARY_CONTAINER, on_change=toggle_AIHorde_controlnet)
@@ -2053,7 +2056,7 @@ def buildInstallers(page):
   AIHorde_settings = Container(animate_size=animation.Animation(1000, AnimationCurve.EASE_OUT), clip_behavior=ClipBehavior.HARD_EDGE, padding=padding.only(left=32), content=Column(
     [use_AIHorde, Row([AIHorde_model, horde_models_info]),
       Row([AIHorde_sampler, AIHorde_use_controlnet, AIHorde_controlnet]),
-      Row([AIHorde_post_processing, AIHorde_tiling, AIHorde_karras, AIHorde_hires_fix, AIHorde_strip_background]),
+      Row([AIHorde_post_processing, AIHorde_tiling, AIHorde_karras, AIHorde_hires_fix, AIHorde_transparent, AIHorde_strip_background]),
       Row([AIHorde_lora_layer, AIHorde_custom_lora_layer, AIHorde_lora_layer_alpha, AIHorde_add_lora_layer]),
       AIHorde_lora_layer_map]))
   AIHorde_settings.height = None if prefs['install_AIHorde_api'] else 0
@@ -11777,7 +11780,7 @@ hunyuan_dit_prefs = {
     "distilled_model": False,
     "cpu_offload": False,
     "use_controlnet": False,
-    "control_task": "Canny",
+    "control_task": "Canny Map Edge",
     "original_image": "",
     "conditioning_scale": 1.0,
     'multi_controlnets': [],
@@ -11864,7 +11867,7 @@ def buildHunyuanDiT(page):
     cpu_offload = Switcher(label="CPU Offload", value=hunyuan_dit_prefs['cpu_offload'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'cpu_offload'), tooltip="Saves VRAM if you have less than 16GB VRAM. Otherwise can run out of memory.")
     distilled_model = Switcher(label="Use Distilled Model", value=hunyuan_dit_prefs['distilled_model'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=lambda e:changed(e,'distilled_model'), tooltip="Generate images even faster in around 25 steps.")
     use_controlnet = Switcher(label="Use ControlNet with Canny, Pose or Depth", value=hunyuan_dit_prefs['use_controlnet'], active_color=colors.PRIMARY_CONTAINER, active_track_color=colors.PRIMARY, on_change=toggle_controlnet, tooltip="Provide an additional control image to condition and control Hunyuan-DiT generation. For example, if you provide a depth map, the ControlNet model generates an image that'll preserve the spatial information from the depth map.")
-    control_task = Dropdown(label="ControlNet Task", width=180, options=[dropdown.Option("Canny"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("Marigold Depth")], value=hunyuan_dit_prefs['control_task'], on_change=change_task)
+    control_task = Dropdown(label="ControlNet Task", width=180, options=[dropdown.Option("Canny Map Edge"), dropdown.Option("OpenPose"), dropdown.Option("Depth"), dropdown.Option("Marigold Depth")], value=hunyuan_dit_prefs['control_task'], on_change=change_task)
     original_image = FileInput(label="Init Image", pref=hunyuan_dit_prefs, key='original_image', expand=True, page=page)
     conditioning_scale = SliderRow(label="Conditioning Scale", min=0, max=2, divisions=20, round=1, pref=hunyuan_dit_prefs, key='conditioning_scale', expand=True, tooltip="The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added to the residual in the original unet.")
     add_layer_btn = ft.FilledButton("➕ Add Layer", width=140, on_click=add_layer)
@@ -12633,7 +12636,7 @@ pag_prefs = {
     "num_images": 1,
     "width": 1024,
     "height":1024,
-    "guidance_scale":0.0,
+    "guidance_scale":5.0,
     'num_inference_steps': 50,
     'pag_scale': 5.0,
     'pag_adaptive_scaling': 0.0,
@@ -22866,7 +22869,7 @@ controlnet_models = {"Canny Map Edge":None, "Scribble":None, "OpenPose":None, "D
 controlnet_xl_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
 controlnet_sd3_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Tile":None}
 controlnet_xs_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Softedge":None, "Segmented":None, "LineArt":None, "Shuffle":None, "Instruct Pix2Pix":None}
-controlnet_hunyuan_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None}
+controlnet_hunyuan_models = {"Canny Map Edge":None, "OpenPose":None, "Depth":None, "Marigold Depth":None}
 stability_api = None
 safety = {'safety_checker':None, 'requires_safety_checker':False, 'feature_extractor':None} if prefs['disable_nsfw_filter'] else {}
 model_path = "CompVis/stable-diffusion-v1-4"
@@ -26526,6 +26529,8 @@ def start_diffusion(page):
           params['post_processing'] = [prefs['AIHorde_post_processing']]
         if prefs['AIHorde_strip_background']:
           params['post_processing'].append("strip_background")
+        if prefs['AIHorde_transparent']:
+          params['transparent'] = True
         AIHorde_loras = []
         if len(prefs['AIHorde_lora_map']) > 0:
           for l in prefs['AIHorde_lora_map']:
@@ -43894,7 +43899,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
     def prep_image(task, img):
         nonlocal hed, openpose, depth_estimator, feature_extractor
         #nonlocal width, height
-        installer.status(f"...preparing {task} image")
+        #installer.status(f"...preparing {task} image")
         if isinstance(img, list):
           img = img[0]
         if isinstance(img, str):
@@ -44020,7 +44025,7 @@ def run_hunyuan(page, from_list=False, with_params=False):
                         src_base64 = pil_to_base64(original_img[-1])
                         prt(Row([ImageButton(src_base64=src_base64, width=w, height=h, page=page)], alignment=MainAxisAlignment.CENTER))
             else:
-                original_img = prep_image(hunyuan_dit_prefs['control_task'], pr['original_image'])
+                original_img = prep_image(hunyuan_dit_prefs['control_task'], hunyuan_dit_prefs['original_image'])
                 if hunyuan_dit_prefs['show_processed_image']:
                     w, h = original_img.size
                     src_base64 = pil_to_base64(original_img)
@@ -45423,11 +45428,6 @@ def run_pag(page, from_list=False, with_params=False):
     if from_list:
       page.tabs.selected_index = 4
       page.tabs.update()
-    clear_list()
-    autoscroll(True)
-    installer = Installing(f"Installing PAG Engine & {model['name']} Model...")
-    prt(installer)
-    clear_pipes("PAG")
     import requests
     from io import BytesIO
     from PIL.PngImagePlugin import PngInfo
@@ -45435,12 +45435,16 @@ def run_pag(page, from_list=False, with_params=False):
     cpu_offload = pag_prefs['cpu_offload']
     use_SDXL = pag_prefs['use_SDXL']
     if use_SDXL:
-        SDXL_model = get_SDXL_model(prefs['SDXL_model'])
-        pag_model = SDXL_model['path']
+        model = get_SDXL_model(prefs['SDXL_model'])
+        pag_model = model['path']
     else:
         model = get_model(prefs['model_ckpt'])
         pag_model = model['path']
     #"SimianLuo/PAG_Dreamshaper_v7" if pag_prefs['pag_model'] == "PAG_Dreamshaper_v7" else "Lykon/dreamshaper-8-pag" if pag_prefs['pag_model'] == "PAG_Dreamshaper_v8" else pag_prefs['pag_custom_model']
+    clear_list()
+    autoscroll(True)
+    installer = Installing(f"Installing PAG Engine & {model['name']} Model...")
+    prt(installer)
     if 'loaded_pag' not in status: status['loaded_pag'] = ""
     if 'loaded_pag_mode' not in status: status['loaded_pag_mode'] = ""
     if 'loaded_pag_layers' not in status: status['loaded_pag_layers'] = []
@@ -45473,7 +45477,7 @@ def run_pag(page, from_list=False, with_params=False):
             if use_SDXL:
                 from diffusers import AutoPipelineForText2Image
                 #pag_applied_layers = "down.block_1" if pag_prefs['pag_applied_layers'] == "down" else "up.block_0.attentions_0" if pag_prefs['pag_applied_layers'] == "up" else "mid"
-                pipe_PAG = AutoPipelineForText2Image.from_pretrained(pag_model, enable_pag=True, pag_applied_layers=[pag_applied_layers], torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
+                pipe_PAG = AutoPipelineForText2Image.from_pretrained(pag_model, enable_pag=True, pag_applied_layers=pag_applied_layers, torch_dtype=torch.float16, cache_dir=prefs['cache_dir'] if bool(prefs['cache_dir']) else None)
                 if cpu_offload:
                     pipe_PAG.enable_model_cpu_offload()
                 else:
@@ -55536,6 +55540,30 @@ class FileInput(Stack):
         self.page = page
         self.build()
     def build(self):
+        def save_file(file_name):
+            #TODO: Make save dir default to /root/uploads dir
+            save_dir = uploads_dir if self.output_dir == None else self.output_dir
+            if not os.path.exists(save_dir):
+              os.mkdir(save_dir)
+            if not slash in file_name:
+              f = os.path.join(root_dir, file_name)
+              fname = os.path.join(save_dir, file_name)
+              if f != fname:
+                shutil.move(f, fname)
+              #self.pref[self.key] = fpath #e.file_name.rpartition('.')[0]
+            else:
+              fname = file_name
+            #print(f"{e.file_name} to {fname}")
+            if self.max_size != None:
+              original_img = PILImage.open(fname)
+              width, height = original_img.size
+              width, height = scale_dimensions(width, height, self.max_size)
+              original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
+              original_img.save(fname)
+            self.textfield.value = fname
+            self.textfield.update()
+            self.pref[self.key] = fname
+            self.page.update()
         def upload_files(e):
             uf = []
             if self.file_picker.result != None and self.file_picker.result.files != None:
@@ -55543,36 +55571,15 @@ class FileInput(Stack):
                   if self.page.web:
                     uf.append(FilePickerUploadFile(f.name, upload_url=self.page.get_upload_url(f.name, 600)))
                   else:
-                    on_upload_progress(FilePickerUploadEvent(f.path, 1, ""))
+                    save_file(f.path)
+                    #on_upload_progress(FilePickerUploadEvent(f.path, 1.0, ""))
                 self.file_picker.upload(uf)
         def file_picker_result(e: FilePickerResultEvent):
             if e.files != None:
               upload_files(e)
         def on_upload_progress(e: FilePickerUploadEvent):
             if e.progress == 1:
-              #TODO: Make save dir default to /root/uploads dir
-              save_dir = uploads_dir if self.output_dir == None else self.output_dir
-              if not os.path.exists(save_dir):
-                os.mkdir(save_dir)
-              if not slash in e.file_name:
-                f = os.path.join(root_dir, e.file_name)
-                fname = os.path.join(save_dir, e.file_name)
-                if f != fname:
-                  shutil.move(f, fname)
-                #self.pref[self.key] = fpath #e.file_name.rpartition('.')[0]
-              else:
-                fname = e.file_name
-              #print(f"{e.file_name} to {fname}")
-              if self.max_size != None:
-                original_img = PILImage.open(fname)
-                width, height = original_img.size
-                width, height = scale_dimensions(width, height, self.max_size)
-                original_img = original_img.resize((width, height), resample=PILImage.Resampling.LANCZOS).convert("RGB")
-                original_img.save(fname)
-              self.textfield.value = fname
-              self.textfield.update()
-              self.pref[self.key] = fname
-              self.page.update()
+              save_file(e.file_name)
             elif e.progress is not None and isinstance(e.progress, float):
               percent = int(e.progress * 100)
               self.textfield.value = f"  {percent}%"
